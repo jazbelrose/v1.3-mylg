@@ -4,7 +4,7 @@ import Modal from "react-modal";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-import { BrowserRouter as Router, useLocation } from "react-router-dom";
+import { BrowserRouter as Router } from "react-router-dom";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { NavigationDirectionProvider } from "./contexts/NavigationDirectionProvider";
 import AuthEventHandler from "./contexts/autheventhandler";
@@ -19,7 +19,6 @@ import { SocketProvider } from "./contexts/SocketProvider";
 import NotificationSocketBridge from "./NotificationSocketBridge";
 import { OnlineStatusProvider } from "./contexts/OnlineStatusContext";
 import AppRoutes from "./routes";
-import Headermain from "../shared/ui/Header";
 import Preloader from "../shared/ui/Preloader";
 import { NotificationContainer } from "../shared/ui/ToastNotifications";
 
@@ -102,14 +101,10 @@ export default function App(): React.ReactElement {
 }
 
 function MainContent({ isLoading }: MainContentProps): React.ReactElement {
-    const location = useLocation();
-    const hideHeader = location.pathname.startsWith("/dashboard");
-    
     return isLoading ? (
         <Preloader />
     ) : (
         <>
-            {!hideHeader && <Headermain />}
             <AppRoutes />
             <ScrollToTopButton />
         </>
