@@ -418,9 +418,43 @@ const BudgetPageContent = () => {
   };
 
   const handleSetClientRevision = async (rev) => {
-    console.log('Set client revision requested:', rev);
-    setRevisions((prev) => prev.map((h) => ({ ...h, clientRevisionId: rev })));
-    setBudgetHeader((prev) => (prev ? { ...prev, clientRevisionId: rev } : prev));
+    if (!activeProject?.projectId || !rev?.budgetItemId) return;
+    const targetRevision = Number(rev.revision ?? null);
+    if (!Number.isFinite(targetRevision)) return;
+
+    try {
+      const updates: Promise<unknown>[] = [];
+      const projectId = activeProject.projectId;
+
+      updates.push(
+        updateBudgetItem(projectId, rev.budgetItemId, {
+          clientRevisionId: targetRevision,
+          revision: rev.revision,
+        })
+      );
+
+      revisions
+        .filter((h) => h.budgetItemId !== rev.budgetItemId && h.clientRevisionId != null)
+        .forEach((h) => {
+          updates.push(
+            updateBudgetItem(projectId, h.budgetItemId, {
+              clientRevisionId: null,
+              revision: h.revision,
+            })
+          );
+        });
+
+      await Promise.all(updates);
+
+      await refresh();
+      setRevisions((prev) => prev.map((h) => ({ ...h, clientRevisionId: targetRevision })));
+      setBudgetHeader((prev) =>
+        prev ? { ...prev, clientRevisionId: targetRevision } : prev
+      );
+      emitBudgetUpdate();
+    } catch (err) {
+      console.error("Failed to set client revision", err);
+    }
   };
 
   const parseFile = async (file) => {

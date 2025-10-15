@@ -22,6 +22,14 @@ const inboxTable = process.env.INBOX_TABLE;
 const notificationsTable = process.env.NOTIFICATIONS_TABLE;
 const projectsTable = process.env.PROJECTS_TABLE;
 
+const REVISION_AWARE_ACTIONS = new Set(["budgetUpdated", "lineLocked", "lineUnlocked", "lockLineUpdated"]);
+
+const parseRevision = (value) => {
+  if (value === undefined || value === null) return null;
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
 export const handler = async (event) => {
   console.log("📩 Received WS Message:", JSON.stringify(event, null, 2));
 
@@ -70,6 +78,9 @@ export const handler = async (event) => {
     case "lineUnlocked":
       return await handleLineUnlocked(payload, userId);
 
+    case "setActiveRevision":
+      return await handleSetActiveRevision(event, payload);
+
     case "userLocation":
       return await handleUserLocation(payload);
 
@@ -102,7 +113,7 @@ export const handler = async (event) => {
 const handleSetActiveConversation = async (event, payload) => {
   const connectionId = event.requestContext.connectionId;
   const authorizerUserId = event.requestContext?.authorizer?.userId; // ✅ add this for presence
-  const { conversationId } = payload || {};
+  const { conversationId, revision } = payload || {};
 
   if (!connectionId || !conversationId) {
     console.warn("⚠️ Missing connectionId or conversationId");
@@ -119,14 +130,16 @@ const handleSetActiveConversation = async (event, payload) => {
     }
   }
   const conv = String(normalizedConversationId).trim();
+  const revValue = parseRevision(revision);
+  const nowIso = new Date().toISOString();
 
   try {
     // Idempotent update (no condition) — safe even if called multiple times
     await dynamoDb.send(new UpdateCommand({
       TableName: process.env.CONNECTIONS_TABLE,
       Key: { connectionId },
-      UpdateExpression: "SET activeConversation = :c, updatedAt = :now",
-      ExpressionAttributeValues: { ":c": conv, ":now": new Date().toISOString() },
+      UpdateExpression: "SET activeConversation = :c, activeRevision = :rev, updatedAt = :now",
+      ExpressionAttributeValues: { ":c": conv, ":rev": revValue, ":now": nowIso },
     }));
 
     console.log(`✅ Set activeConversation for ${connectionId} → ${conv}`);
@@ -141,8 +154,9 @@ const handleSetActiveConversation = async (event, payload) => {
             connectionId,
             userId: authorizerUserId || null,       // ✅ include userId for presence
             activeConversation: conv,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            activeRevision: revValue,
+            createdAt: nowIso,
+            updatedAt: nowIso,
           },
         }));
         console.log(`✅ Inserted connection and set activeConversation for ${connectionId} → ${conv}`);
@@ -157,18 +171,78 @@ const handleSetActiveConversation = async (event, payload) => {
   }
 };
 
+const handleSetActiveRevision = async (event, payload) => {
+  const connectionId = event.requestContext?.connectionId;
+  if (!connectionId) {
+    console.warn("⚠️ Missing connectionId in setActiveRevision");
+    return { statusCode: 400, body: "Missing connectionId" };
+  }
+
+  const { revision, projectId, conversationId } = payload || {};
+  const normalizedRevision = parseRevision(revision);
+
+  if (normalizedRevision === null && revision !== null && revision !== undefined) {
+    console.warn("⚠️ Invalid revision payload:", revision);
+    return { statusCode: 400, body: "Invalid revision value" };
+  }
+
+  const nowIso = new Date().toISOString();
+  const updateParts = ["activeRevision = :rev", "updatedAt = :now"];
+  const values = { ":rev": normalizedRevision, ":now": nowIso };
+
+  if (typeof projectId === "string" && projectId.trim()) {
+    updateParts.push("revisionProjectId = :proj");
+    values[":proj"] = projectId.trim();
+  }
+
+  if (typeof conversationId === "string" && conversationId.trim()) {
+    updateParts.push("activeConversation = :c");
+    values[":c"] = conversationId.trim();
+  }
+
+  try {
+    await dynamoDb.send(new UpdateCommand({
+      TableName: process.env.CONNECTIONS_TABLE,
+      Key: { connectionId },
+      UpdateExpression: `SET ${updateParts.join(", ")}`,
+      ExpressionAttributeValues: values,
+    }));
+
+    console.log("[setActiveRevision] applied", {
+      connectionId,
+      revision: normalizedRevision,
+      projectId,
+      conversationId,
+    });
+
+    return { statusCode: 200, body: "Active revision updated" };
+  } catch (err) {
+    console.error("❌ Failed to update active revision", err);
+    return { statusCode: 500, body: "Failed to update active revision" };
+  }
+};
+
 const broadcastToConversation = async (conversationId, payload) => {
   try {
     const data = await dynamoDb.send(new ScanCommand({ TableName: process.env.CONNECTIONS_TABLE }));
     const connections = data.Items || [];
 
     const convIdTrim = String(conversationId || "").trim();
-    const recipients = connections.filter(
-      (c) => String(c.activeConversation || "").trim() === convIdTrim
-    );
+    const action = typeof payload?.action === "string" ? payload.action : "";
+    const revisionForPayload = parseRevision(payload?.revision);
+    const shouldFilterByRevision =
+      revisionForPayload !== null && REVISION_AWARE_ACTIONS.has(action);
+    const recipients = connections.filter((c) => {
+      const activeConv = String(c.activeConversation || "").trim();
+      if (activeConv !== convIdTrim) return false;
+      if (!shouldFilterByRevision) return true;
+      const connectionRevision = parseRevision(c.activeRevision);
+      if (connectionRevision === null) return true;
+      return connectionRevision === revisionForPayload;
+    });
 
-    console.log("📡 [broadcastToConversation] conversationId:", convIdTrim);
-    console.log("📡 [broadcastToConversation] Recipients found:", recipients.map(r => r.connectionId));
+    console.log("[broadcastToConversation] conversationId:", convIdTrim, "action:", action, "revision:", revisionForPayload);
+    console.log("[broadcastToConversation] recipients:", recipients.map((r) => r.connectionId));
 
     if (recipients.length === 0) {
       console.warn("⚠️ No active connections for", convIdTrim);

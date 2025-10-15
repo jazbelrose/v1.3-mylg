@@ -1,4 +1,4 @@
-import React, { PropsWithChildren, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { PropsWithChildren, useEffect, useMemo, useRef, useCallback, useState } from "react";
 import useBudgetData from "@/dashboard/project/features/budget/context/useBudget";
 import { useSocket } from "@/app/contexts/useSocket";
 import { useData } from "@/app/contexts/useData";
@@ -6,21 +6,121 @@ import { normalizeMessage } from "@/shared/utils/websocketUtils";
 import { BudgetContext } from "./BudgetContext";
 import type { BudgetStats, PieDataItem, BudgetWebSocketOperations } from "./types";
 
+const REVISION_STORAGE_PREFIX = "budget:workingRevision";
+
+const normalizeRevision = (value: number | string | null | undefined): number | null => {
+  if (value === undefined || value === null) return null;
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
 interface ProviderProps extends PropsWithChildren {
   projectId?: string;
 }
 
 export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children }) => {
-  const { budgetHeader, budgetItems, setBudgetHeader, setBudgetItems, refresh, loading } = useBudgetData(projectId);
+  const [preferredRevision, setPreferredRevision] = useState<number | null>(null);
   const { ws } = useSocket();
   const { user, userId } = useData();
+  const { budgetHeader, budgetItems, setBudgetHeader, setBudgetItems, refresh, loading } =
+    useBudgetData(projectId, preferredRevision);
   
   const refreshRef = useRef(refresh);
   const lockedLinesRef = useRef<string[]>([]);
-  
+  const revisionReadyRef = useRef(false);
+  const lastStoredRevisionRef = useRef<number | null>(null);
+  const lastRevisionSentRef = useRef<number | null>(null);
+  const lastRevisionProjectRef = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
+
+  useEffect(() => {
+    if (!projectId || !userId || typeof window === "undefined") {
+      revisionReadyRef.current = true;
+      setPreferredRevision(null);
+      lastStoredRevisionRef.current = null;
+      return;
+    }
+
+    revisionReadyRef.current = false;
+    const storageKey = `${REVISION_STORAGE_PREFIX}:${userId}:${projectId}`;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      const parsed = raw != null ? Number(raw) : null;
+      const normalized = Number.isFinite(parsed) ? parsed : null;
+      setPreferredRevision((prev) => (prev === normalized ? prev : normalized));
+      lastStoredRevisionRef.current = normalized;
+    } catch (err) {
+      console.error("Failed to read stored revision preference", err);
+    } finally {
+      revisionReadyRef.current = true;
+    }
+  }, [projectId, userId]);
+
+  useEffect(() => {
+    if (!revisionReadyRef.current || !projectId || !userId || typeof window === "undefined") {
+      return;
+    }
+    const revision = normalizeRevision(budgetHeader?.revision as number | string | null | undefined);
+    if (revision === null) return;
+    if (lastStoredRevisionRef.current === revision) return;
+
+    const storageKey = `${REVISION_STORAGE_PREFIX}:${userId}:${projectId}`;
+    try {
+      window.localStorage.setItem(storageKey, String(revision));
+      lastStoredRevisionRef.current = revision;
+    } catch (err) {
+      console.error("Failed to persist revision preference", err);
+    }
+    setPreferredRevision((prev) => (prev === revision ? prev : revision));
+  }, [budgetHeader?.revision, projectId, userId]);
+
+  useEffect(() => {
+    lastRevisionSentRef.current = null;
+    lastRevisionProjectRef.current = undefined;
+  }, [projectId]);
+
+  const sendActiveRevision = useCallback(
+    (revision: number | null) => {
+      if (!ws || !projectId) return;
+      const normalized = normalizeRevision(revision);
+      if (normalized === null) return;
+
+      const alreadySentForProject =
+        lastRevisionProjectRef.current === projectId && lastRevisionSentRef.current === normalized;
+
+      const payload = JSON.stringify({
+        action: "setActiveRevision",
+        projectId,
+        conversationId: `project#${projectId}`,
+        revision: normalized,
+      });
+
+      if (ws.readyState === WebSocket.OPEN) {
+        if (alreadySentForProject) return;
+        ws.send(payload);
+        lastRevisionSentRef.current = normalized;
+        lastRevisionProjectRef.current = projectId;
+      } else {
+        const handleOpen = () => {
+          ws.send(payload);
+          lastRevisionSentRef.current = normalized;
+          lastRevisionProjectRef.current = projectId;
+          ws.removeEventListener("open", handleOpen);
+        };
+        ws.addEventListener("open", handleOpen);
+      }
+    },
+    [ws, projectId],
+  );
+
+  useEffect(() => {
+    const revision = normalizeRevision(budgetHeader?.revision as number | string | null | undefined);
+    if (revision === null) return;
+    sendActiveRevision(revision);
+  }, [budgetHeader?.revision, sendActiveRevision]);
 
   // WebSocket operations - centralized here
   const emitBudgetUpdate = useCallback(() => {

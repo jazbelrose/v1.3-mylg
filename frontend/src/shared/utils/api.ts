@@ -848,7 +848,10 @@ export async function deleteNotification(userId: string, timestampUuid: string):
 // Budgets
 // ───────────────────────────────────────────────────────────────────────────────
 
-export async function fetchBudgetHeader(projectId: string): Promise<BudgetHeader | null> {
+export async function fetchBudgetHeader(
+  projectId: string,
+  preferredRevision?: number | null,
+): Promise<BudgetHeader | null> {
   if (!projectId) return null;
   if (isPreviewModeEnabled()) {
     const preview = getPreviewBudgetHeader(projectId);
@@ -866,13 +869,43 @@ export async function fetchBudgetHeader(projectId: string): Promise<BudgetHeader
   if (headers.length === 0) return null;
 
   const clientHolder = headers.find((h) => h.clientRevisionId != null);
-  if (clientHolder) {
-    const target = headers.find((h) => (h.revision ?? 0) === clientHolder.clientRevisionId);
-    if (target) return target;
+  const globalClientRevision =
+    clientHolder && clientHolder.clientRevisionId != null
+      ? Number(clientHolder.clientRevisionId)
+      : null;
+
+  const normalizedPreferred =
+    preferredRevision != null && Number.isFinite(Number(preferredRevision))
+      ? Number(preferredRevision)
+      : null;
+
+  if (normalizedPreferred != null) {
+    const preferredMatch = headers.find(
+      (h) => Number(h.revision ?? 0) === normalizedPreferred,
+    );
+    if (preferredMatch) {
+      return {
+        ...preferredMatch,
+        ...(globalClientRevision != null ? { clientRevisionId: globalClientRevision } : {}),
+      };
+    }
   }
 
-  headers.sort((a, b) => (b.revision ?? 0) - (a.revision ?? 0));
-  return headers[0] ?? null;
+  if (clientHolder) {
+    return {
+      ...clientHolder,
+      ...(globalClientRevision != null ? { clientRevisionId: globalClientRevision } : {}),
+    };
+  }
+
+  headers.sort((a, b) => Number(b.revision ?? 0) - Number(a.revision ?? 0));
+  const fallback = headers[0] ?? null;
+  if (!fallback) return null;
+
+  return {
+    ...fallback,
+    ...(globalClientRevision != null ? { clientRevisionId: globalClientRevision } : {}),
+  };
 }
 
 export async function fetchBudgetHeaders(projectId: string): Promise<BudgetHeader[]> {
