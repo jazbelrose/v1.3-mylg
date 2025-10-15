@@ -12,8 +12,14 @@ export type PieDataItem = {
   value: number;
 };
 
+export type BudgetUpdateOverrides = {
+  revision?: number | null;
+  total?: number | null;
+  clientRevisionId?: number | null;
+};
+
 export type BudgetWebSocketOperations = {
-  emitBudgetUpdate: () => void;
+  emitBudgetUpdate: (overrides?: BudgetUpdateOverrides) => void;
   emitLineLock: (lineId: string) => void;
   emitLineUnlock: (lineId: string) => void;
   emitTimelineUpdate: (events: unknown[]) => void;

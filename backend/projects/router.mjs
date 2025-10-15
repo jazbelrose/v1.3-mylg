@@ -1192,6 +1192,50 @@ const deleteBudgetItem = async (_e, C, { projectId, budgetItemId }) => {
   return json(204, C, "");
 };
 
+// POST /budgets/{budgetId}/client-revision
+// Body: { revision }
+const setBudgetClientRevision = async (e, C, { budgetId }) => {
+  if (!budgetId) return json(400, C, { error: "budgetId required" });
+
+  const body = B(e);
+  const rawRevision = body?.revision ?? body?.clientRevisionId;
+  const revision = Number(rawRevision);
+
+  if (!Number.isFinite(revision)) {
+    return json(400, C, { error: "revision must be a number" });
+  }
+
+  const list = await ddb.query({
+    TableName: BUDGETS_TABLE,
+    IndexName: BUDGET_ID_INDEX,
+    KeyConditionExpression: "budgetId = :b",
+    ExpressionAttributeValues: { ":b": budgetId },
+    ProjectionExpression: "projectId, budgetItemId",
+  });
+
+  const headers = (list.Items || []).filter(
+    (it) => typeof it?.budgetItemId === "string" && it.budgetItemId.startsWith("HEADER-")
+  );
+
+  if (headers.length === 0) {
+    return json(404, C, { error: "No budget headers found for budgetId" });
+  }
+
+  const ts = nowISO();
+  await Promise.all(
+    headers.map((header) =>
+      ddb.update({
+        TableName: BUDGETS_TABLE,
+        Key: { projectId: header.projectId, budgetItemId: header.budgetItemId },
+        UpdateExpression: "SET clientRevisionId = :rev, updatedAt = :ts",
+        ExpressionAttributeValues: { ":rev": revision, ":ts": ts },
+      })
+    )
+  );
+
+  return json(200, C, { ok: true, budgetId, clientRevisionId: revision });
+};
+
 // Extra convenience lookups (optional):
 // GET /budgets/byBudgetId/{budgetId}
 const listByBudgetId = async (_e, C, { budgetId }) => {
@@ -1282,6 +1326,7 @@ const routes = [
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/budget\/items\/(?<budgetItemId>[^/]+)$/i, h: deleteBudgetItem },
 
   // Optional convenience lookups (not under /projects)
+  { m: "POST",   r: /^\/budgets\/(?<budgetId>[^/]+)\/client-revision$/i,                         h: setBudgetClientRevision },
   { m: "GET",    r: /^\/budgets\/byBudgetId\/(?<budgetId>[^/]+)$/i,                             h: listByBudgetId },
   { m: "GET",    r: /^\/budgets\/byItemId\/(?<budgetItemId>[^/]+)$/i,                           h: getByBudgetItemId },
 ];

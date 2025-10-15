@@ -891,7 +891,15 @@ const handleProjectUpdated = async (payload) => {
 
 
 const handleBudgetUpdated = async (payload, senderId) => {
-  const { projectId, title, revision, total, conversationId, username } = payload || {};
+  const {
+    projectId,
+    title,
+    revision,
+    total,
+    clientRevisionId,
+    conversationId,
+    username,
+  } = payload || {};
 
   if (!projectId) return { statusCode: 400, body: "Missing projectId" };
 
@@ -900,6 +908,7 @@ const handleBudgetUpdated = async (payload, senderId) => {
     projectId,
     revision,
     total,
+    clientRevisionId,
     senderId,
   });
 

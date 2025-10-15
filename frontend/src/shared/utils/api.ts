@@ -958,6 +958,20 @@ export async function deleteBudgetItem(projectId: string, budgetItemId: string):
   return { ok: true };
 }
 
+export async function setBudgetClientRevision(budgetId: string, revision: number): Promise<{ ok: true; clientRevisionId: number }> {
+  if (!budgetId) throw new Error('budgetId is required for setBudgetClientRevision');
+  if (!Number.isFinite(revision)) throw new Error('revision must be a finite number');
+
+  const url = `${PROJECTS_SERVICE_URL}/budgets/${encodeURIComponent(budgetId)}/client-revision`;
+  const result = await apiFetch<{ clientRevisionId?: number }>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ revision }),
+  });
+
+  return { ok: true, clientRevisionId: result?.clientRevisionId ?? revision };
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Project Invites
 // ───────────────────────────────────────────────────────────────────────────────

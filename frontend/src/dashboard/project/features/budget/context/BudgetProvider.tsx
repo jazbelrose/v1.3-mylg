@@ -4,7 +4,12 @@ import { useSocket } from "@/app/contexts/useSocket";
 import { useData } from "@/app/contexts/useData";
 import { normalizeMessage } from "@/shared/utils/websocketUtils";
 import { BudgetContext } from "./BudgetContext";
-import type { BudgetStats, PieDataItem, BudgetWebSocketOperations } from "./types";
+import type {
+  BudgetStats,
+  PieDataItem,
+  BudgetWebSocketOperations,
+  BudgetUpdateOverrides,
+} from "./types";
 
 interface ProviderProps extends PropsWithChildren {
   projectId?: string;
@@ -23,21 +28,26 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
   }, [refresh]);
 
   // WebSocket operations - centralized here
-  const emitBudgetUpdate = useCallback(() => {
-    if (!ws || ws.readyState !== WebSocket.OPEN || !projectId || !budgetHeader) return;
-    ws.send(
-      JSON.stringify({
-        action: 'budgetUpdated',
+  const emitBudgetUpdate = useCallback(
+    (overrides: BudgetUpdateOverrides = {}) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !projectId || !budgetHeader) return;
+
+      const payload = {
+        action: 'budgetUpdated' as const,
         projectId,
         title: budgetHeader.projectTitle || 'Budget Updated',
-        revision: budgetHeader.revision,
-        total: budgetHeader.headerFinalTotalCost,
+        revision: overrides.revision ?? budgetHeader.revision,
+        total: overrides.total ?? budgetHeader.headerFinalTotalCost,
+        clientRevisionId: overrides.clientRevisionId ?? budgetHeader.clientRevisionId,
         conversationId: `project#${projectId}`,
         username: user?.firstName || 'Someone',
         senderId: userId,
-      })
-    );
-  }, [ws, projectId, budgetHeader, user, userId]);
+      };
+
+      ws.send(JSON.stringify(payload));
+    },
+    [ws, projectId, budgetHeader, user, userId]
+  );
 
   const emitLineLock = useCallback((lineId: string) => {
     if (!ws || ws.readyState !== WebSocket.OPEN || !projectId || !budgetHeader) return;
@@ -200,6 +210,11 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
       // Handle budgetUpdated messages
       if (messageData.action === "budgetUpdated") {
         refreshRef.current();
+        const detail =
+          messageData && typeof messageData === "object"
+            ? { ...messageData, __skipProviderRefresh: true }
+            : { projectId };
+        window.dispatchEvent(new CustomEvent("budgetUpdated", { detail }));
         return;
       }
       
@@ -233,7 +248,12 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
     ws.addEventListener("message", handleMessage);
     
     const handleWindow = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { projectId?: string } | undefined;
+      const detail = (e as CustomEvent).detail as
+        | { projectId?: string; __skipProviderRefresh?: boolean }
+        | undefined;
+      if (detail?.__skipProviderRefresh) {
+        return;
+      }
       if (detail?.projectId === projectId) {
         refreshRef.current();
       }
