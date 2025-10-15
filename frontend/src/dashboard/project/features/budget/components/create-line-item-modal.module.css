@@ -7,8 +7,8 @@
   justify-content: center;
   overflow: hidden;
   overscroll-behavior: contain;
-  background: rgba(17, 17, 17, 0.55);
-  backdrop-filter: blur(10px);
+  background: rgba(17, 17, 17, 0.38);
+  backdrop-filter: blur(8px);
 }
 
 @media (min-width: 720px) {
@@ -26,13 +26,15 @@
   --line-item-accent-shadow-rgb: 31, 45, 124;
   width: min(640px, 100%);
   max-height: calc(100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
-  background: rgba(17, 17, 17, 0.95);
+  background: rgba(24, 24, 24, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 22px 22px 0 0;
   display: flex;
   flex-direction: column;
   color: #f7f8fc;
-  box-shadow: 0 32px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 36px 68px rgba(0, 0, 0, 0.55);
+  isolation: isolate;
+  mix-blend-mode: normal;
   overflow: hidden;
   transition: transform 0.3s ease, opacity 0.25s ease;
 }
@@ -225,7 +227,7 @@
 
 @media (min-width: 1280px) {
   .fieldGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -235,8 +237,8 @@
   gap: 8px;
   padding: 14px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -255,7 +257,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(247, 248, 252, 0.72);
+  color: rgba(247, 248, 252, 0.82);
 }
 
 .field input,
@@ -264,7 +266,7 @@
   width: 100%;
   border: none;
   border-radius: 12px;
-  background: rgba(17, 17, 17, 0.82);
+  background: rgba(22, 22, 22, 0.9);
   color: #f7f8fc;
   padding: 10px 12px;
   font-size: 0.95rem;
@@ -278,7 +280,7 @@
 .field textarea:focus,
 .field select:focus {
   outline: none;
-  background: rgba(17, 17, 17, 0.96);
+  background: rgba(20, 20, 20, 0.98);
   box-shadow: 0 0 0 1px rgba(var(--line-item-accent-rgb), 0.8),
     0 16px 28px rgba(var(--line-item-accent-shadow-rgb), 0.25);
 }
