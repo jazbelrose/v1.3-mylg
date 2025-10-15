@@ -1,0 +1,34 @@
+.page {
+  display: grid;
+  gap: 28px;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+}
+
+.mapToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+}
+
+.mapToggle input {
+  accent-color: #fa3356;
+}
+
+.mapPlaceholder {
+  height: 260px;
+  border-radius: 22px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(14, 14, 14, 0.64);
+  text-align: center;
+  padding: 20px;
+}
+
+.tasksWidget {
+  font-family: inherit;
+}

@@ -1,0 +1,40 @@
+/* Editor Text Formatting Styles */
+
+.editor-text-bold {
+  font-weight: bold;
+}
+
+.editor-text-italic {
+  font-style: italic;
+}
+
+.editor-text-underline {
+  text-decoration: underline;
+}
+
+.editor-text-strikethrough {
+  text-decoration: line-through;
+}
+
+.editor-text-subscript {
+  font-size: 0.8em;
+  vertical-align: sub !important;
+}
+
+.editor-text-superscript {
+  font-size: 0.8em;
+  vertical-align: super;
+}
+
+.editor-text-code {
+  background-color: rgb(240, 242, 245);
+  padding: 1px 0.25rem;
+  font-family: Menlo, Consolas, Monaco, monospace;
+  font-size: 94%;
+}
+
+
+
+
+
+

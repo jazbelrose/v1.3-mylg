@@ -1,0 +1,66 @@
+/* Image Container Component Styles for Marketing Pages */
+
+.img-container {
+  flex-grow: 1;
+  object-fit: cover;
+  padding: 0 2px;
+}
+
+.img-container.yt-container {
+  position: relative; 
+  display: inline-block; 
+  overflow: hidden;
+  cursor: pointer; 
+}
+
+.img-container.yt-container .overlay-container {
+  display: block;
+  position: relative;
+  text-decoration: none;
+}
+
+.img-container.yt-container .overlay-container img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.img-container.yt-container .overlay-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  color: white;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 10px 20px;
+  border-radius: 5px;
+  transition: color 0.3s ease;
+}
+
+.img-container.yt-container:hover .overlay-text {
+  color: #FA3356;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .img-container.yt-container .overlay-text {
+    font-size: 1rem; 
+    padding: 8px 16px; 
+  }
+}
+
+@media (max-width: 480px) {
+  .img-container.yt-container .overlay-text {
+    font-size: 0.875rem; 
+    padding: 6px 12px; 
+  }
+}
+
+
+
+
+
+

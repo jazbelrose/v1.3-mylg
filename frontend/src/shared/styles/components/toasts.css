@@ -1,0 +1,31 @@
+/* Toast Notification Components */
+
+.toast-container {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-base);
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.toast-dark {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--text-color);
+  text-align: center;
+  padding: var(--space-2) var(--space-4);
+}
+
+.toast-body {
+  color: var(--color-accent) !important;
+  text-align: center;
+}
+
+.toast-progress-bar {
+  background-color: var(--text-color) !important;
+}
+
+
+
+
+
+

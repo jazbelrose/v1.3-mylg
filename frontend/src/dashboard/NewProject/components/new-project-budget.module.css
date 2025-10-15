@@ -1,0 +1,56 @@
+.budgetContainer {
+  background: rgba(20, 20, 22, 0.6);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(76, 175, 80, 0.15);
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.budgetContainer:hover {
+  background: rgba(25, 25, 27, 0.7);
+  border-color: rgba(76, 175, 80, 0.25);
+}
+
+.currencyInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.currencyPrefix {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.budgetInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #fff;
+  font-family: "Helvetica Special", "Helvetica Neue", sans-serif;
+  padding: 4px 0;
+}
+
+.budgetInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.budgetInput:focus {
+  outline: none;
+}
+
+.budgetInput:focus::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+
+
+
+
+

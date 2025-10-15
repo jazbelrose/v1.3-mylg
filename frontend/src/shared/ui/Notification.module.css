@@ -1,0 +1,21 @@
+.toast {
+  background-color: #1f1f1f;
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-family: inherit;
+}
+
+.body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  will-change: transform;
+  transform-origin: center;
+}
+
+
+
+
+
+

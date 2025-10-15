@@ -1,0 +1,173 @@
+:root {
+  --brand: #FA3356;
+  --bg: #0c0c0c;
+  --bg2: #111111;
+}
+
+/* global AA tweaks */
+.authPage, .authCard {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.authPage {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background:
+    radial-gradient(120% 160% at 50% -20%, rgba(250,51,86,0.12) 0%, rgba(250,51,86,0) 60%),
+    linear-gradient(var(--bg), var(--bg2));
+  position: relative;
+  font-family: "Helvetica Special", sans-serif;
+  font-weight: 400;
+  color: #fff;
+  padding: 16px;
+  /* helps gradient banding slightly */
+  transform: translateZ(0);
+}
+
+/* Softer brand wash; less blur = crisper, fewer halos */
+.authPage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- CARD (anti-aliased edges + subtle glow border) ---- */
+.authCard {
+  width: 100%;
+  max-width: 420px;
+  background: #0f0f10;
+  border-radius: 20px;
+  padding: 32px;
+  /* hairline inner stroke for crisp edge + faint outer stroke */
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.06),
+    0 0 0 1px rgba(250,51,86,0.16),
+    0 12px 36px rgba(0,0,0,0.45);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow: hidden;         /* enforce rounded-corner clipping */
+  transform: translateZ(0); /* nudge GPU AA on corners */
+  border: 0;                /* border handled by shadows */
+}
+
+/* masked glow BORDER that doesn't alias on corners */
+.authCard::before {
+  content: "";
+  position: absolute;
+  inset: -1px;                    /* sit just outside edge */
+  border-radius: inherit;
+  background:
+    radial-gradient(140% 160% at 50% -20%,
+      rgba(250,51,86,0.35) 0%,
+      rgba(250,51,86,0.12) 32%,
+      rgba(250,51,86,0.00) 60%);
+  pointer-events: none;
+  padding: 1px;                   /* border thickness */
+  /* mask center so only border glows */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0.9;
+}
+
+/* (Optional) micro-noise to break any gradient banding
+.authCard::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='64' height='64' filter='url(#n)' opacity='.04'/></svg>");
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+*/
+
+.wordmark { text-align: center; font-size: 0.9rem; letter-spacing: 0.2px; }
+.authTitle { text-align: center; font-size: 1rem; margin: 0; letter-spacing: 0.2px; }
+.authSubtitle { text-align: center; font-size: 0.85rem; color: rgba(255,255,255,0.6); margin: 0; letter-spacing: 0.2px; }
+
+.authForm { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.label { font-size: 0.8rem; }
+
+/* Inputs: softer ring + inner stroke to avoid halo aliasing */
+.input {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: #0c0c0c;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(250,51,86,0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.05),
+    0 0 0 3px rgba(250,51,86,0.25);
+}
+
+.invalid { border-color: var(--brand); }
+.helper { font-size: 0.8rem; color: rgba(250,51,86,0.8); margin: 0; }
+
+ .success {
+  font-size: 0.8rem;
+  color: #4caf50;
+  text-align: center;
+  font-weight: 500;
+  margin: 16px 0 0 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.passwordWrapper { position: relative; display: flex; }
+.toggle {
+  position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+  background: transparent; border: none; color: rgba(255,255,255,0.6);
+  cursor: pointer; padding: 0; display: flex; align-items: center;
+}
+.toggle:focus { outline: 2px solid var(--brand); border-radius: 4px; }
+
+.actions { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+
+.button {
+  height: 44px; border-radius: 12px; font-size: 0.85rem; letter-spacing: 0.2px;
+  font-family: "Helvetica Special", sans-serif; cursor: pointer;
+}
+
+.primary { background: var(--brand); border: none; color: #fff; }
+.primary:hover { background: #ff4b6d; }
+.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.secondary {
+  background: transparent; border: 1px solid rgba(255,255,255,0.2);
+  color: #fff; text-align: center; line-height: 44px; text-decoration: none;
+}
+.secondary:hover { border-color: rgba(255,255,255,0.4); }
+
+.forgot { font-size: 0.8rem; color: #fff; text-align: center; text-decoration: none; }
+.forgot:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .authPage { transform: none; }
+}
+
+
+
+
+
+
+

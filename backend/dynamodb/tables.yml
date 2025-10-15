@@ -1,0 +1,360 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  Budgets:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Budgets
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: budgetItemId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: budgetId
+          AttributeType: S
+        - AttributeName: budgetItemId
+          AttributeType: S
+        - AttributeName: projectId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: budgetId-index
+          KeySchema:
+            - AttributeName: budgetId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: budgetItemId-index
+          KeySchema:
+            - AttributeName: budgetItemId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Connections:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Connections
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: userId-sessionId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: sessionId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Events:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Events
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: eventId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: budgetItemId
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+        - AttributeName: eventId
+          AttributeType: S
+        - AttributeName: projectId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: date-projectId-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+            - AttributeName: projectId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: budgetItemId-index
+          KeySchema:
+            - AttributeName: budgetItemId
+              KeyType: HASH
+            - AttributeName: eventId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Galleries:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Galleries
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: galleryId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: galleryId
+          AttributeType: S
+        - AttributeName: projectId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: projectId-index
+          KeySchema:
+            - AttributeName: projectId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Inbox:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Inbox
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: conversationId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: threadId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: threadId-index
+          KeySchema:
+            - AttributeName: threadId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Messages:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Messages
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: conversationId
+          KeyType: HASH
+        - AttributeName: messageId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: messageId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: InboxIndex
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Notifications:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Notifications
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: timestamp#uuid
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: dedupeId
+          AttributeType: S
+        - AttributeName: timestamp#uuid
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: dedupeId-index
+          KeySchema:
+            - AttributeName: dedupeId
+              KeyType: HASH
+            - AttributeName: timestamp#uuid
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  ProjectDirectory:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: ProjectDirectory
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: directoryId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: directoryId
+          AttributeType: S
+      TableClass: STANDARD
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  ProjectInvitations:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: ProjectInvitations
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: inviteId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: inviteId
+          AttributeType: S
+        - AttributeName: recipientId
+          AttributeType: S
+        - AttributeName: senderId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: recipientId-index
+          KeySchema:
+            - AttributeName: recipientId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: senderId-index
+          KeySchema:
+            - AttributeName: senderId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  ProjectMessages:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: ProjectMessages
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: messageId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: messageId
+          AttributeType: S
+        - AttributeName: projectId
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Projects:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Projects
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  Tasks:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Tasks
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: taskId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: budgetItemId
+          AttributeType: S
+        - AttributeName: dueDate
+          AttributeType: S
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: status#dueDate#taskId
+          AttributeType: S
+        - AttributeName: taskId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: budgetItemId-index
+          KeySchema:
+            - AttributeName: budgetItemId
+              KeyType: HASH
+            - AttributeName: status#dueDate#taskId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: dueDate-projectId-index
+          KeySchema:
+            - AttributeName: dueDate
+              KeyType: HASH
+            - AttributeName: projectId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  UserProfiles:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: UserProfiles
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true

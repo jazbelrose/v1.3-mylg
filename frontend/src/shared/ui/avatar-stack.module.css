@@ -1,0 +1,54 @@
+.stack {
+  display: flex;
+  align-items: center;
+  padding-left: 0;
+  margin: 0 10px;
+  outline: none;
+}
+
+.stack:focus {
+  outline: none;
+}
+
+.stack:focus-visible {
+  outline: none;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #fff;
+  position: relative;
+}
+
+.avatar + .avatar {
+  margin-left: -17px;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.initials {
+  font-weight: 600;
+}
+
+.more {
+  font-weight: 600;
+}
+
+
+
+
+
+

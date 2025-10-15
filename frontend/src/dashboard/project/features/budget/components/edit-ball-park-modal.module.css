@@ -1,0 +1,233 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 17, 17, 0.9);
+  z-index: 1000;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+}
+
+.modalContent {
+  --edit-ballpark-accent: #fa3356;
+  --edit-ballpark-accent-rgb: 250, 51, 86;
+  background: linear-gradient(160deg, rgba(16, 16, 16, .96), rgba(12, 12, 12, .88));
+  color: #f9fafb;
+  border: none;
+  border-radius: 24px;
+  padding: 28px 32px;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 28px 56px rgba(8, 15, 35, 0.55);
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+.modalContentAfterOpen {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modalContentBeforeClose {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.modalTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.iconButton {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconButton:hover,
+.iconButton:focus-visible {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(var(--edit-ballpark-accent-rgb), 0.3);
+  box-shadow: 0 0 0 2px rgba(var(--edit-ballpark-accent-rgb), 0.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputLabel {
+  font-size: 0.85rem;
+  color: rgba(249, 250, 251, 0.75);
+  font-weight: 500;
+}
+
+.currencyInputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.currencyPrefix {
+  position: absolute;
+  inset: 0 auto 0 18px;
+  display: flex;
+  align-items: center;
+  color: rgba(249, 250, 251, 0.65);
+  pointer-events: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  padding: 16px 18px 16px 52px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 1.3rem;
+  font-weight: 600;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  font-family: inherit;
+  -moz-appearance: textfield;
+}
+
+.input::placeholder {
+  color: rgba(249, 250, 251, 0.35);
+}
+
+.input:focus,
+.input:focus-visible {
+  outline: none;
+  border-color: rgba(var(--edit-ballpark-accent-rgb), 0.65);
+  box-shadow: 0 0 0 3px rgba(var(--edit-ballpark-accent-rgb), 0.25);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.input::-webkit-outer-spin-button,
+.input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.secondaryButton,
+.primaryButton {
+  border-radius: 14px;
+  padding: 12px 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease,
+    border-color 0.2s ease;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+}
+
+.secondaryButton {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.secondaryButton:hover,
+.secondaryButton:focus-visible {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(var(--edit-ballpark-accent-rgb), 0.32);
+  box-shadow: 0 0 0 2px rgba(var(--edit-ballpark-accent-rgb), 0.18);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.primaryButton {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--edit-ballpark-accent-rgb), 0.92),
+    rgba(var(--edit-ballpark-accent-rgb), 0.78)
+  );
+  border-color: transparent;
+  color: #0b0f1a;
+  box-shadow: 0 12px 24px rgba(var(--edit-ballpark-accent-rgb), 0.28);
+}
+
+.primaryButton:hover,
+.primaryButton:focus-visible {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--edit-ballpark-accent-rgb), 0.98),
+    rgba(var(--edit-ballpark-accent-rgb), 0.86)
+  );
+  box-shadow: 0 16px 28px rgba(var(--edit-ballpark-accent-rgb), 0.36);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .modalContent {
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .secondaryButton,
+  .primaryButton {
+    width: 100%;
+    justify-content: center;
+  }
+}

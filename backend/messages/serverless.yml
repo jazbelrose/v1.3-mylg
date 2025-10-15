@@ -1,0 +1,133 @@
+service: messages
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  httpApi:
+    authorizers:
+      jwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_EmStQTtG1
+        audience:
+          - 6f5f1vsm5bejjaffihc3e0n95k
+  environment:
+    # Tables & shared config (CORS, etc.)
+    ${self:custom.env}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            # Inbox entries
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:INBOX_TABLE}
+
+            # Messages + GSIs (messageId-index)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:MESSAGES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:MESSAGES_TABLE}/index/*
+
+            # Project-scoped messages
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECT_MESSAGES_TABLE}
+
+            # Notifications (+ optional index)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}/index/*
+
+functions:
+  messagesRouter:
+    # adjust if your file is not under src/
+    handler: router.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - httpApi:
+          path: /messages
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages/{proxy+}
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages/{proxy+}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /messages/health
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      # CORS preflight requests (OPTIONS) should not require authorization
+      - httpApi:
+          path: /messages
+          method: OPTIONS
+      - httpApi:
+          path: /messages/{proxy+}
+          method: OPTIONS
+      - httpApi:
+          path: /messages/health
+          method: OPTIONS
+
+package:
+  patterns:
+    - src/**
+    - '!node_modules/.bin/**'
+    - '!**/*.map'

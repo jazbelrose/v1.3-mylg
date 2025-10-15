@@ -1,0 +1,158 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: rgba(14, 14, 14, 0.78);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 28px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.primaryButton,
+.secondaryButton {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  padding: 10px 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.primaryButton {
+  background: rgba(250, 51, 86, 0.25);
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
+.primaryButton:hover,
+.primaryButton:focus-visible,
+.secondaryButton:hover,
+.secondaryButton:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(250, 51, 86, 0.26);
+  background: rgba(250, 51, 86, 0.32);
+}
+
+.eventList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.eventCard {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.eventMeta {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.eventBody {
+  display: grid;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.eventBody h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.eventBody p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.eventActions {
+  display: flex;
+  gap: 12px;
+}
+
+.eventActions button {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.eventActions button:hover,
+.eventActions button:focus-visible {
+  color: #ffffff;
+}
+
+.pastList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.pastList li {
+  display: grid;
+  grid-template-columns: 100px 1fr 1fr;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 768px) {
+  .eventCard {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .eventActions {
+    justify-content: flex-start;
+  }
+
+  .pastList li {
+    grid-template-columns: 1fr;
+  }
+}

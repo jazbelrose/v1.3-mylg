@@ -1,0 +1,240 @@
+/* Mobile-only Projects Recents Card */
+
+.projects-recents-card {
+  border-radius: 18px;
+  background: var(--bg2, #111111);
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.08));
+  padding: 16px;
+  color: var(--text-color, #fff);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.projects-recents-card:focus-within {
+  border-color: var(--stroke-strong, rgba(255, 255, 255, 0.16));
+}
+
+.prc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.prc-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.prc-recents-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-color, #fff);
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+.prc-recents-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prc-recents-btn:focus-visible {
+  outline: 2px auto var(--color-focus, #EB5DFA);
+}
+
+.prc-inline-error {
+  color: #fda4af; /* light red/pink for contrast on dark */
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.prc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.prc-row:hover .prc-row-main {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prc-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  padding: 8px;
+  border-radius: 12px;
+  transition: background 120ms ease, border-color 120ms ease;
+  min-width: 0;
+}
+
+.prc-row-main:focus-visible {
+  outline: 2px auto var(--color-focus, #EB5DFA);
+}
+
+.prc-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg, #0c0c0c);
+  border: 1px solid var(--stroke-strong, rgba(255, 255, 255, 0.16));
+  overflow: hidden;
+}
+
+.prc-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.prc-thumbSquircle {
+  border-radius: 0;
+}
+
+.prc-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.prc-title-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; min-width: 0; }
+.prc-title-left { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+
+.prc-name {
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prc-status {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.prc-date { font-size: 12px; color: var(--text-subtle, rgba(255, 255, 255, 0.6)); }
+.prc-date-inline { font-size: 12px; color: var(--text-subtle, rgba(255,255,255,.6)); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.prc-menu { position: relative; width: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.prc-menu-btn svg { display: block; width: 20px !important; height: 20px !important; flex-shrink: 0; }
+
+.prc-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-color, #fff);
+}
+
+.prc-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prc-menu-btn:focus-visible {
+  outline: 2px auto var(--color-focus, #EB5DFA);
+}
+
+.prc-menu-pop {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  min-width: 140px;
+  background: var(--bg2, #111111);
+  border: 1px solid var(--stroke, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.prc-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text-color, #fff);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.prc-menu-item:hover,
+.prc-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.prc-empty {
+  padding: 8px;
+  color: var(--text-subtle, rgba(255, 255, 255, 0.6));
+  font-size: 13px;
+}
+
+.prc-cta {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--stroke-strong, rgba(255, 255, 255, 0.16));
+  background: transparent;
+  color: var(--text-color, #fff);
+  border-radius: 12px;
+  font-weight: 600;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.prc-cta:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prc-cta:focus-visible {
+  outline: 2px auto var(--color-focus, #EB5DFA);
+}
+
+/* Skeleton styles */
+.prc-row.skeleton .skel {
+  background: rgba(255, 255, 255, 0.08);
+}
+.skel-bar {
+  width: 120px;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Keep this card targeted for mobile; can be used on small screens only if desired */
+@media (min-width: 768px) {
+  .projects-recents-card {
+    /* Intentionally no desktop overrides here (mobile-only in spec) */
+  }
+}
+
+
+
+
+
+
+

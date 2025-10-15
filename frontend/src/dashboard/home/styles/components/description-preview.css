@@ -1,0 +1,41 @@
+/* Project description preview content */
+
+.descriptionPreview span {
+  margin: 0;
+  padding: 0;
+  display: inline;
+  line-height: 1;
+}
+
+.descriptionPreview img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+.descriptionPreview ul {
+  padding-left: 50px;
+  list-style-type: disc;
+}
+
+.descriptionPreview li {
+  margin-bottom: 5px;
+}
+
+.descriptionPreview p {
+  margin: 0;
+  padding: 0;
+  line-height: inherit;
+}
+
+.dashboard-wrapper .dashboard-item.notes.descriptionPreview:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  cursor: pointer;
+}
+
+
+
+
+
+
+
+

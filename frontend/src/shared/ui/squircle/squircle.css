@@ -1,0 +1,38 @@
+:root {
+  --shape-radius: 20px;
+  --shape-smoothing: 0.6;
+}
+
+.squircle {
+  --shape-radius-effective: min(var(--shape-radius), 50%);
+  --squircle-handle: calc(
+    var(--shape-radius-effective) *
+      (0.5522847498 + 0.4477152502 * var(--shape-smoothing))
+  );
+  position: relative;
+  border-radius: var(--shape-radius);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.squircle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+@supports (clip-path: path('M 20px 0 L calc(100% - 20px) 0')) {
+  .squircle {
+    clip-path: path(
+      'M var(--shape-radius-effective) 0 L calc(100% - var(--shape-radius-effective)) 0 C calc(100% - var(--shape-radius-effective) + var(--squircle-handle)) 0 100% calc(var(--shape-radius-effective) - var(--squircle-handle)) 100% var(--shape-radius-effective) L 100% calc(100% - var(--shape-radius-effective)) C 100% calc(100% - var(--shape-radius-effective) + var(--squircle-handle)) calc(100% - var(--shape-radius-effective) + var(--squircle-handle)) 100% calc(100% - var(--shape-radius-effective)) 100% L var(--shape-radius-effective) 100% C calc(var(--shape-radius-effective) - var(--squircle-handle)) 100% 0 calc(100% - var(--shape-radius-effective) + var(--squircle-handle)) 0 calc(100% - var(--shape-radius-effective)) L 0 var(--shape-radius-effective) C 0 calc(var(--shape-radius-effective) - var(--squircle-handle)) calc(var(--shape-radius-effective) - var(--squircle-handle)) 0 var(--shape-radius-effective) 0 Z'
+    );
+  }
+}
+
+
+
+
+
+
+

@@ -1,0 +1,173 @@
+service: projects
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  app: mylg
+  ver: v12
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  stackName: ${self:custom.app}-${self:custom.ver}-${self:service}-${sls:stage}
+  httpApi:
+    name: ${self:custom.app}-${self:custom.ver}-${self:service}-api-${sls:stage}
+    authorizers:
+      jwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_EmStQTtG1
+        audience:
+          - 6f5f1vsm5bejjaffihc3e0n95k
+  tags:
+    App: MYLG
+    Version: v1.2
+    Domain: projects
+    Stage: ${sls:stage}
+  environment:
+    # Tables & shared config (CORS, etc.)
+    ${self:custom.env}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            # Projects core
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}/index/*
+
+            # Project Directory (new table for listing)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/ProjectDirectory
+
+            # User profiles (project lookup by userId)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:USER_PROFILES_TABLE}
+
+            # Tasks
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:TASKS_TABLE}
+
+            # Events (+ optional startAt GSI)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:EVENTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:EVENTS_TABLE}/index/*
+
+            # Budgets (+ GSIs for budgetId and budgetItemId)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:BUDGETS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:BUDGETS_TABLE}/index/*
+
+            # Galleries (+ projectId GSI)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}/index/*
+
+        - Effect: Allow
+          Action:
+            - s3:DeleteObject
+            - s3:GetObject
+            - s3:PutObject
+            - s3:GetObjectMetadata
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${env:FILE_BUCKET}
+            - arn:aws:s3:::${env:FILE_BUCKET}/*
+        
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource:
+            - arn:aws:execute-api:${aws:region}:${aws:accountId}:*/*/*/*
+
+functions:
+  projectsRouter:
+    name: ${self:custom.app}-${self:custom.ver}-projects-router-${sls:stage}
+    # NOTE: point this to where your file actually lives.
+    # If the file is backend/projects/router.mjs at the service root, use "router.handler".
+    # If it's in src/router.mjs, keep "src/router.handler".
+    handler: router.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - httpApi:
+          path: /projects
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{proxy+}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{proxy+}
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{projectId}/files/delete
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/health
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      # CORS preflight requests (OPTIONS) should not require authorization
+      - httpApi:
+          path: /projects
+          method: OPTIONS
+      - httpApi:
+          path: /projects/{proxy+}
+          method: OPTIONS
+      - httpApi:
+          path: /projects/health
+          method: OPTIONS
+      # include this only if you enabled the convenience routes /budgets/by*
+      - httpApi:
+          path: /budgets/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /budgets/{proxy+}
+          method: OPTIONS
+
+    # NOTE: createGalleryFunction has been moved to a dedicated service under
+    # backend/create-gallery so that it can be developed and deployed independently
+    # from the projects service. See ../create-gallery/README.md for build & deploy steps.
+
+package:
+  individually: true

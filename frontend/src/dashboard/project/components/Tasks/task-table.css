@@ -1,0 +1,13 @@
+.tasks-table,
+.tasks-table .ant-table,
+.tasks-table .ant-table-thead > tr > th,
+.tasks-table .ant-table-tbody > tr > td {
+  font-size: 11px !important;
+}
+
+
+
+
+
+
+

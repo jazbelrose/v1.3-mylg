@@ -1,0 +1,66 @@
+/* Payments & Invoices section (extracted from overrides.css) */
+
+.payments-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.payments-line-one {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.last-invoice-label {
+  opacity: 0.8;
+}
+
+.invoice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.invoice-item a {
+  color: #FA3356;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.future-payment-method {
+  margin-top: 15px;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 6px;
+  background-color: #666;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.save-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.payments-section h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+
+
+
+
+
+

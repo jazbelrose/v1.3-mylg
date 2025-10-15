@@ -1,0 +1,122 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.filterField {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  min-width: 180px;
+}
+
+.filterField::placeholder {
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.tableWrapper {
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(14, 14, 14, 0.76);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.table thead {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.table th,
+.table td {
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table tbody tr:hover {
+  background: rgba(250, 51, 86, 0.12);
+}
+
+.amountDebit {
+  color: rgba(250, 51, 86, 0.85);
+  text-align: right;
+}
+
+.amountCredit {
+  color: rgba(132, 255, 191, 0.85);
+  text-align: right;
+}
+
+.tagPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.75rem;
+  margin-right: 6px;
+}
+
+.bulkBar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: rgba(250, 51, 86, 0.2);
+  border: 1px solid rgba(250, 51, 86, 0.4);
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 14px;
+}
+
+.bulkButton {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.bulkButton:hover,
+.bulkButton:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.emptyState {
+  padding: 32px;
+  border-radius: 22px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(14, 14, 14, 0.68);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 768px) {
+  .tableWrapper {
+    overflow-x: auto;
+  }
+
+  .table {
+    min-width: 600px;
+  }
+}

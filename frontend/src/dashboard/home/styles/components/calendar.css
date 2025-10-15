@@ -1,0 +1,318 @@
+.calendar-layout {
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.calendar-layout .project-calendar-wrapper {
+  flex: 3 1 0;
+  min-height: clamp(280px, 50vh, 680px);
+  max-height: min(62vh, 740px);
+  overflow-y: auto;
+}
+
+.calendar-layout .project-calendar-wrapper .react-calendar__tile {
+  min-height: 100px;
+  padding: 10px 0;
+}
+
+.calendar-layout .project-calendar-wrapper .calendar-day {
+  min-height: clamp(40px, 8vh, 60px);
+}
+
+.calendar-layout .timeline-chart {
+  flex: 2 1 0;
+  min-height: clamp(200px, 34vh, 420px);
+  height: auto;
+  max-height: min(42vh, 500px);
+}
+
+/* Budget + Calendar two-column layout */
+.budget-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.budget-calendar-layout--stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.budget-calendar-layout .budget-column,
+.budget-calendar-layout .calendar-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.budget-calendar-layout .budget-column > *,
+.budget-calendar-layout .calendar-column > * {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.budget-calendar-layout .budget-column .budget-overview-card {
+  flex: 3 1 0;
+}
+
+.budget-calendar-layout .budget-column .view-gallery {
+  flex: 2 1 0;
+}
+
+.budget-calendar-layout--stacked .budget-column > *,
+.budget-calendar-layout--stacked .budget-column .budget-overview-card,
+.budget-calendar-layout--stacked .budget-column .view-gallery {
+  flex: none;
+}
+
+/* Mobile stacked layout height optimization */
+@media (max-width: 768px) {
+  .budget-calendar-layout .budget-column,
+  .budget-calendar-layout .calendar-column {
+    gap: 6px;
+  }
+  
+  /* Ensure gallery maintains minimum height on mobile */
+  .budget-calendar-layout--stacked .budget-column .view-gallery {
+    min-height: 120px;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .budget-calendar-layout--stacked .budget-column .budget-overview-card {
+    max-height: 160px;
+  }
+  
+  .budget-calendar-layout--stacked .budget-column .view-gallery {
+    min-height: 110px;
+  }
+}
+
+@media (max-width: 330px) {
+  .budget-calendar-layout--stacked .budget-column .view-gallery {
+    min-height: 120px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .budget-calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendar-layout .project-calendar-wrapper,
+  .calendar-layout .timeline-chart {
+    max-height: none;
+    min-height: 0;
+  }
+}
+
+/* Timeline + Location row layout */
+.timeline-location-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  padding-top: 12px;
+  height: 85vh;
+}
+
+.timeline-location-row--tasks-only {
+  height: auto;
+  min-height: 0;
+}
+
+.timeline-location-row > * {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (max-height: 900px) {
+  .timeline-location-row {
+gap: 6px;
+    height: 50vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .timeline-location-row {
+    height: auto;
+    min-height: 0;
+    gap: 6px;
+    padding-top: 6px;
+  }
+}
+
+/* Location card and map container */
+.dashboard-layout .dashboard-item.location {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.dashboard-layout #map {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.location-wrapper,
+.tasks-wrapper {
+  height: 100%;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tasks-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.tasks-wrapper > .tasks-component {
+  flex: 1 1 auto;
+}
+
+/* 30% / 70% split: location = 30%, tasks = 70% */
+.location-wrapper {
+  flex: 0 0 30%;
+  max-width: 30%;
+  width: 30%;
+  /* keep a sensible minimum so the map remains usable */
+  min-width: 240px;
+}
+.tasks-wrapper {
+  flex: 1 1 70%;
+  width: 70%;
+}
+
+.timeline-location-row--tasks-only .tasks-wrapper {
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+/* Responsive: stack vertically on narrower viewports */
+@media (max-width: 1024px) {
+  .timeline-location-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .location-wrapper,
+  .tasks-wrapper {
+    width: 100%;
+    max-width: 100%;
+    flex: none;
+    min-width: 0;
+  }
+}
+
+.location-wrapper .column-5 {
+  height: 100%;
+  overflow: hidden;
+}
+
+.leaflet-container {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.info.legend {
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  font-size: min(1.2rem, 1.5vw);
+  color: #fff;
+}
+
+.info.legend h4 {
+  margin: 0 0 5px;
+  color: #fff;
+}
+
+/* Map controls */
+.map-control-buttons {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.map-control-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.map-edit-modal {
+  background: #0c0c0c;
+  color: #fff;
+  width: 90%;
+  max-width: 600px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  z-index: 1002;
+}
+
+.map-edit-overlay {
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1001;
+}
+
+.suggestions-list {
+  position: absolute;
+  background: #ffffff;
+  color: #000;
+  width: 100%;
+  max-height: 150px;
+  overflow-y: auto;
+  border-radius: 4px;
+  z-index: 1100;
+  top: 100%;
+  left: 0;
+}
+
+.suggestions-list div {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.suggestions-list div:hover {
+  background: #eeeeee;
+}
+
+.budget-overview-revision {
+  color: grey !important;
+  font-size: 0.6em !important;
+}
+

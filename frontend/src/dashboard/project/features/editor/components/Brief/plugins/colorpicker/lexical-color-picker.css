@@ -1,0 +1,235 @@
+/* Wrapper Styling */
+.color-picker-wrapper {
+  z-index: 1000;
+  top: 45px;
+  transform: translateX(-50%); /* Perfect centering */
+  position: absolute;
+  border-radius: 20px;
+  padding: 10px; /* Reduced from 16px to 10px */
+  background-color: #ffffff; /* White background */
+  font-family: Arial, sans-serif;
+  width: 220px; /* Reduced from 280px to 220px */
+  text-align: center; /* Centers inner content */
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1); /* Slightly reduced shadow */
+}
+
+/* Text Input Section */
+.text-input {
+  margin-bottom: 12px; /* Reduced from 16px to 12px */
+}
+
+.text-input label {
+  color: #000000; /* Black text for labels */
+  display: block; /* Ensure label occupies full width */
+  margin-bottom: 4px; /* Reduced from 8px to 4px */
+  font-size: 14px; /* Slightly reduced font size */
+}
+
+.text-input-field {
+  padding: 6px; /* Reduced from 8px to 6px */
+  border: 1px solid #ccc; /* Light gray border */
+  border-radius: 4px;
+  background-color: #eee; /* Light gray background */
+  color: #000000; /* Black text */
+  width: 100%; /* Full width for alignment */
+  box-sizing: border-box; /* Includes padding in width */
+  font-size: 12px; /* Reduced font size for compactness */
+}
+
+.text-input-field.invalid {
+  border: 2px solid #FA3356; /* Brand accent color for errors */
+}
+
+.native-color-picker {
+  display: block;
+  margin: 12px auto;
+  width: 80px; /* Reduced size */
+  height: 100px; /* Reduced size */
+  border-radius: 50%;
+  border: 1px solid #ccc; /* Reduced border width */
+  cursor: pointer;
+  background-color: transparent;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.1); /* Further reduced shadow */
+  box-sizing: border-box; /* Include border in size */
+}
+
+/* WebKit Browsers (Chrome, Safari) */
+.native-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.native-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #ccc; /* Inner light gray border */
+}
+
+/* Firefox */
+.native-color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #ccc; /* Inner light gray border */
+}
+
+/* Edge */
+.native-color-picker::-ms-color-swatch {
+  border: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #ccc; /* Inner light gray border */
+}
+
+/* Confirm Button */
+.confirm-color-btn {
+  margin: 8px auto; /* Reduced from 10px to 8px */
+  width: 70%; /* Reduced from 80% to 70% */
+  padding: 8px; /* Reduced from 10px to 8px */
+  background-color: #FA3356; /* Brand accent color */
+  color: #ffffff; /* White text for contrast */
+  border: 2px solid #ffffff; /* White border as per brand */
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, border-color 0.3s;
+  font-size: 14px; /* Reduced from 16px to 14px */
+}
+
+.confirm-color-btn:hover {
+  background-color: #e32e4f; /* Darker shade for hover effect */
+  border-color: #ffffff; /* Maintain white border on hover */
+}
+
+/* Basic (Quick-Select) Colors */
+.color-picker-basic-color {
+  display: flex;
+  gap: 6px; /* Reduced from 8px to 6px */
+  justify-content: center;
+  margin: 12px 0; /* Reduced from 16px to 12px */
+}
+
+.color-picker-basic-color button {
+  width: 24px; /* Reduced from 28px to 24px */
+  height: 24px; /* Reduced from 28px to 24px */
+  border: 2px solid #ffffff; /* White border as per brand */
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.2); /* Reduced shadow */
+}
+
+.color-picker-basic-color button.active {
+  border: 2px solid #FA3356; /* Active state border in brand accent */
+}
+
+.color-picker-basic-color button:hover {
+  transform: scale(1.15); /* Slightly reduced scale for compactness */
+}
+
+/* Color Preview Swatch */
+.color-picker-color {
+  margin: 0 auto; /* Center the color preview */
+  border: 2px solid #ccc; /* Light gray border */
+  border-radius: 12px;
+  width: 60px; /* Reduced from 80px to 60px */
+  height: 60px; /* Reduced from 80px to 60px */
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.1); /* Reduced shadow */
+}
+
+/* Error Message Styling */
+.error-message {
+  color: #FA3356; /* Brand accent color for errors */
+  font-size: 10px; /* Reduced from 12px to 10px */
+  margin-top: 2px; /* Reduced from 4px to 2px */
+}
+
+/* Focus States */
+.text-input-field:focus,
+.native-color-picker:focus,
+.confirm-color-btn:focus,
+.color-picker-basic-color button:focus {
+  outline: 2px solid #FA3356; /* Brand accent color */
+  outline-offset: 2px;
+}
+
+/* Clear Button Styling */
+.clear-color-btn {
+  margin: 5px auto; /* Center the button horizontally with margin */
+  width: 50%; /* Match the confirm button width for consistency */
+  padding: 3px; /* Adequate padding for clickable area */
+  background-color: #e0e0e0; /* Light gray background for neutrality */
+  color: #333333; /* Dark gray text for readability */
+  border: 2px solid #cccccc; /* Subtle border matching the background */
+  border-radius: 8px; /* Rounded corners for a sleek look */
+  cursor: pointer; /* Pointer cursor on hover */
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+  font-size: 14px; /* Consistent font size with confirm button */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Clear Button Hover State */
+.clear-color-btn:hover {
+  background-color: #d5d5d5; /* Slightly darker gray on hover */
+  border-color: #bfbfbf; /* Darker border on hover */
+  color: #000000; /* Change text color to black for emphasis */
+}
+
+/* Clear Button Active State */
+.clear-color-btn:active {
+  background-color: #c0c0c0; /* Even darker gray when active */
+  border-color: #a6a6a6; /* Darker border when active */
+}
+
+/* Clear Button Disabled State */
+.clear-color-btn:disabled {
+  background-color: #f5f5f5; /* Light gray background */
+  color: #aaaaaa; /* Gray text indicating disabled state */
+  border-color: #dddddd; /* Light border */
+  cursor: not-allowed; /* Not-allowed cursor */
+}
+
+/* Optional: Adding an Icon to the Clear Button */
+.clear-color-btn::before {
+  content: '✕'; /* Unicode multiplication sign as a close icon */
+  margin-right: 6px; /* Space between icon and text */
+  font-size: 16px; /* Slightly larger icon */
+}
+
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .color-picker-wrapper {
+    width: 90%; /* Adjust width for smaller screens */
+    padding: 8px; /* Reduced from 12px to 8px */
+  }
+
+  .native-color-picker {
+    width: 70px; /* Further reduced for smaller screens */
+    height: 70px;
+  }
+
+  .color-picker-color {
+    width: 50px; /* Further reduced for smaller screens */
+    height: 50px;
+  }
+
+  .confirm-color-btn {
+    width: 80%; /* Adjust width if necessary */
+    padding: 6px; /* Further reduced padding */
+    font-size: 12px; /* Further reduced font size */
+  }
+
+  .color-picker-basic-color button {
+    width: 20px; /* Further reduced size */
+    height: 20px;
+  }
+}
+
+
+
+
+
+
+

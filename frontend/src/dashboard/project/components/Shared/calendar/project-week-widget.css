@@ -1,0 +1,36 @@
+.project-week-widget {
+  position: relative;
+}
+
+.project-week-widget-inner {
+  width: 100%;
+}
+
+.project-week-widget-inner.week-widget {
+  margin: 0;
+  box-shadow: none;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-card, rgba(20, 20, 20, 0.9));
+}
+
+.project-week-widget-inner.week-widget .week-widget-header {
+  margin-bottom: 8px;
+}
+
+.project-week-widget-inner.week-widget .week-nav-btn {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.project-week-widget-inner.week-widget .week-day {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.project-week-widget-inner.week-widget .week-day:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.project-week-widget-inner.week-widget .week-day.selected {
+  background: rgba(255, 255, 255, 0.12);
+}

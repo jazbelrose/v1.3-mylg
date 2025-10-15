@@ -1,0 +1,419 @@
+.moodboardPage {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.02), transparent 55%),
+    var(--moodboard-page-bg, #0f1014);
+  color: #f8fafc;
+  --moodboard-brand: var(--brand, #fa3356);
+  --moodboard-brand-rgb: 250, 51, 86;
+  --moodboard-brand-soft: rgba(var(--moodboard-brand-rgb), 0.12);
+  --moodboard-brand-soft-strong: rgba(var(--moodboard-brand-rgb), 0.25);
+  --moodboard-brand-border: rgba(var(--moodboard-brand-rgb), 0.4);
+  --moodboard-brand-border-strong: rgba(var(--moodboard-brand-rgb), 0.65);
+  --moodboard-brand-focus: rgba(var(--moodboard-brand-rgb), 0.35);
+  --moodboard-brand-shadow: rgba(var(--moodboard-brand-rgb), 0.45);
+  --moodboard-brand-shadow-strong: rgba(var(--moodboard-brand-rgb), 0.55);
+  --moodboard-brand-gradient-end: #ff6b8a;
+  --moodboard-brand-text-soft: rgba(255, 228, 233, 0.95);
+  --moodboard-brand-weak: var(--moodboard-brand);
+  --moodboard-brand-weak-rgb: var(--moodboard-brand-rgb);
+  --moodboard-toolbar-surface: rgba(15, 16, 20, 0.9);
+  --moodboard-toolbar-surface-hover: rgba(30, 41, 59, 0.85);
+  --moodboard-toolbar-border: rgba(148, 163, 184, 0.4);
+  --moodboard-toolbar-border-strong: rgba(148, 163, 184, 0.8);
+  --moodboard-text-muted: rgba(226, 232, 240, 0.72);
+  --moodboard-keyboard-kbd-bg: rgba(148, 163, 184, 0.15);
+  --moodboard-keyboard-kbd-border: rgba(148, 163, 184, 0.25);
+  --moodboard-canvas-border: rgba(51, 65, 85, 0.4);
+  --moodboard-canvas-grid: rgba(226, 232, 240, 0.04);
+  --moodboard-canvas-bg: rgba(15, 23, 42, 0.65);
+  --moodboard-canvas-shadow: rgba(148, 163, 184, 0.1);
+  --moodboard-overlay: rgba(15, 23, 42, 0.72);
+  --moodboard-surface-raised: #0c0c0c;
+  --moodboard-surface-raised-border: rgba(148, 163, 184, 0.35);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.toolbarButtons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--moodboard-toolbar-border, rgba(148, 163, 184, 0.4));
+  background: var(--moodboard-toolbar-surface, rgba(15, 16, 20, 0.9));
+  color: inherit;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.iconButton:hover,
+.iconButton:focus-visible {
+  background: var(--moodboard-toolbar-surface-hover, rgba(30, 41, 59, 0.85));
+  border-color: var(--moodboard-toolbar-border-strong, rgba(148, 163, 184, 0.8));
+}
+
+.iconButton:active {
+  transform: translateY(1px);
+}
+
+.iconButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.keyboardHint {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--moodboard-text-muted, rgba(226, 232, 240, 0.72));
+}
+
+.keyboardHint kbd {
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: var(--moodboard-keyboard-kbd-bg, rgba(148, 163, 184, 0.15));
+  border: 1px solid var(--moodboard-keyboard-kbd-border, rgba(148, 163, 184, 0.25));
+  font-family: "JetBrains Mono", "Fira Mono", monospace;
+  font-size: 0.75rem;
+  color: inherit;
+}
+
+.canvasWrapper {
+  position: relative;
+  flex: 1;
+  min-height: 520px;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--moodboard-canvas-border, rgba(51, 65, 85, 0.4));
+  background-image: linear-gradient(
+      var(--moodboard-canvas-grid, rgba(226, 232, 240, 0.04)) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      var(--moodboard-canvas-grid, rgba(226, 232, 240, 0.04)) 1px,
+      transparent 1px
+    );
+  background-size: 8px 8px;
+  background-color: var(--moodboard-canvas-bg, rgba(15, 23, 42, 0.65));
+  box-shadow: inset 0 0 0 1px var(--moodboard-canvas-shadow, rgba(148, 163, 184, 0.1));
+}
+
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--moodboard-brand-focus);
+}
+
+.emptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: rgba(226, 232, 240, 0.75);
+  pointer-events: none;
+  padding: 2rem;
+  font-size: 1rem;
+}
+
+.sticker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 160px;
+  max-width: 240px;
+  padding: 1rem;
+  border-radius: 18px;
+  transform-origin: center;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+  transition: box-shadow 150ms ease, transform 150ms ease;
+  cursor: grab;
+  user-select: none;
+}
+
+.sticker:active {
+  cursor: grabbing;
+}
+
+.sticker:hover {
+  animation: shadowJitter 220ms ease-in-out infinite alternate;
+}
+
+@keyframes shadowJitter {
+  from {
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.45);
+  }
+  to {
+    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.55);
+  }
+}
+
+.stickerSelected {
+  box-shadow: 0 16px 34px var(--moodboard-brand-shadow), 0 0 0 2px var(--moodboard-brand-focus);
+}
+
+.stickerDragging {
+  opacity: 0.92;
+  box-shadow: 0 18px 40px var(--moodboard-brand-shadow-strong);
+}
+
+.noteSticker {
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.4;
+  background: var(--note-color, #fef3c7);
+}
+
+.noteSticker strong {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.photoSticker {
+  padding: 0.5rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.photoSticker img {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.4);
+}
+
+.linkSticker {
+  background: rgba(var(--moodboard-brand-weak-rgb, 250, 51, 86), 0.24);
+  border: 1px solid rgba(var(--moodboard-brand-weak-rgb, 250, 51, 86), 0.45);
+  color: var(--moodboard-brand-text-soft);
+}
+
+.linkSticker a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.linkSticker a:hover,
+.linkSticker a:focus {
+  text-decoration: underline;
+}
+
+.stickerMeta {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.paletteOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--moodboard-overlay, rgba(15, 23, 42, 0.72));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1.5rem;
+}
+
+.palette {
+  width: min(520px, 100%);
+  background: var(--moodboard-surface-raised, #0c0c0c);
+  border-radius: 24px;
+  border: 1px solid var(--moodboard-surface-raised-border, rgba(148, 163, 184, 0.35));
+  box-shadow: 0 30px 60px var(--moodboard-brand-shadow, rgba(15, 23, 42, 0.55));
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.75rem;
+}
+
+.paletteHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.paletteHeader h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+
+.paletteBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.typeToggleRow {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.typeButton {
+  flex: 1;
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--moodboard-toolbar-border, rgba(148, 163, 184, 0.35));
+  background: var(--moodboard-toolbar-surface, rgba(30, 41, 59, 0.55));
+  color: inherit;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.typeButton[aria-pressed="true"] {
+  background: var(--moodboard-brand-soft-strong);
+  border-color: var(--moodboard-brand-border-strong);
+  box-shadow: 0 0 0 1px var(--moodboard-brand-border);
+}
+
+.typeButton:hover,
+.typeButton:focus-visible {
+  background: var(--moodboard-toolbar-surface-hover, rgba(148, 163, 184, 0.25));
+  border-color: var(--moodboard-toolbar-border-strong, rgba(148, 163, 184, 0.55));
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fieldGroup label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.fieldGroup input,
+.fieldGroup textarea {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.75);
+  color: inherit;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.fieldGroup textarea {
+  min-height: 128px;
+  resize: vertical;
+}
+
+.paletteFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.secondaryButton,
+.primaryButton {
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.secondaryButton {
+  background: var(--moodboard-toolbar-surface, rgba(15, 23, 42, 0.75));
+  border-color: var(--moodboard-toolbar-border, rgba(148, 163, 184, 0.35));
+}
+
+.secondaryButton:hover,
+.secondaryButton:focus-visible {
+  background: var(--moodboard-toolbar-surface-hover, rgba(30, 41, 59, 0.85));
+  border-color: var(--moodboard-toolbar-border-strong, rgba(148, 163, 184, 0.55));
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, rgba(var(--moodboard-brand-rgb), 0.85), var(--moodboard-brand-gradient-end));
+  color: #0b1120;
+  box-shadow: 0 12px 32px var(--moodboard-brand-shadow);
+}
+
+.primaryButton:hover,
+.primaryButton:focus-visible {
+  box-shadow: 0 14px 36px var(--moodboard-brand-shadow-strong);
+  transform: translateY(-1px);
+}
+
+.paletteDescription {
+  font-size: 0.85rem;
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.quickInsertHint {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.listPreview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.previewChip {
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  font-size: 0.8rem;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+
+
+
+
+
+

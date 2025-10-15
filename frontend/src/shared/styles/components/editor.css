@@ -1,0 +1,123 @@
+/* Lexical Editor Components */
+
+.editor-container {
+  position: relative;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  padding: var(--space-1);
+  width: 100%;
+  max-width: var(--container-max-width);
+  background-color: var(--bg-color);
+  font-family: var(--font-family-primary);
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  height: 100vh;
+  min-height: 800px;
+}
+
+.editor-inner {
+  position: relative;
+  background: var(--bg-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-height: 100px;
+}
+
+.editor-input {
+  min-height: 150px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: var(--space-4);
+  position: relative;
+  tab-size: 1;
+  width: 100%;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-primary);
+}
+
+.editor-input img {
+  max-width: 100%;
+  height: auto;
+  cursor: default;
+  resize: both;
+  display: block;
+}
+
+.editor-placeholder {
+  font-size: var(--font-size-sm);
+  color: var(--text-color-muted);
+  overflow: hidden;
+  position: absolute;
+  text-overflow: ellipsis;
+  top: var(--space-4);
+  left: var(--space-4);
+  right: var(--space-4);
+  user-select: none;
+  white-space: nowrap;
+  display: inline-block;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Text Formatting Styles */
+.editor-bold,
+.editor-text-bold {
+  font-weight: var(--font-weight-bold) !important;
+}
+
+.editor-italic,
+.editor-text-italic {
+  font-style: italic;
+}
+
+.editor-underline,
+.editor-text-underline {
+  text-decoration: underline;
+}
+
+.editor-strikethrough,
+.editor-text-strikethrough {
+  text-decoration: line-through;
+}
+
+.editor-code {
+  font-family: var(--font-family-mono);
+  background-color: var(--code-bg);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.editor-blockquote {
+  font-style: italic;
+  border-left: 4px solid var(--border-color);
+  margin: 0;
+  padding-left: var(--space-2);
+}
+
+/* Heading Styles */
+.editor-heading-h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.editor-heading-h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Text Color Styles */
+.editor-text-color {
+  color: inherit;
+}
+
+.editor-bg-color {
+  background-color: inherit;
+}
+
+
+
+
+
+

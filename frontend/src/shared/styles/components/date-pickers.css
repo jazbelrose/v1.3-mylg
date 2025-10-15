@@ -1,0 +1,70 @@
+/* Components - Date Pickers and Calendars */
+
+/* Global dark theme overrides for all date pickers and calendars */
+
+/* Ant Design picker inputs */
+.ant-picker {
+  background-color: #181818 !important;
+  color: #fafafa !important;
+  border: 1px solid #333 !important;
+  border-radius: 8px !important;
+}
+
+.ant-picker-input > input {
+  color: #fafafa !important;
+}
+
+.ant-picker-suffix,
+.ant-picker-clear {
+  color: #fafafa !important;
+}
+
+/* Ant Design picker dropdown panels */
+.ant-picker-dropdown .ant-picker-panel-container {
+  background-color: #181818 !important;
+  color: #fafafa !important;
+  border-radius: 8px !important;
+  border: 1px solid #333 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.ant-picker-dropdown * {
+  color: #fafafa;
+}
+
+/* Native date inputs */
+input[type="date"] {
+  background-color: #181818;
+  color: #fafafa;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color-scheme: dark;
+  padding: 4px 8px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* React-Calendar baseline */
+.react-calendar {
+  background-color: #181818;
+  color: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+/* Neutralize AntD's base under .ant-app so it inherits your root styles */
+:where(.ant-app) {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  box-sizing: inherit;
+}
+
+
+
+
+
+

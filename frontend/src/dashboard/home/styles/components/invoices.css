@@ -1,0 +1,46 @@
+/* Invoices Panel Styles */
+
+/* Invoices card title */
+.dashboard-item.view-invoices span {
+  margin: 10px 0;
+  font-size: min(1.5rem, 3vw);
+}
+
+/* Invoices dashboard card */
+.dashboard-item.view-invoices {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-item.view-invoices .top-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.dashboard-item.view-invoices .bottom-row span {
+  font-size: min(2rem, 3vw);
+  color: #FA3356;
+}
+
+/* Invoices panel container */
+.view-invoices {
+  grid-column: span 2;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .dashboard-item.view-invoices span {
+    font-size: 20px;
+  }
+}
+
+
+
+
+
+
+
+

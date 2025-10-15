@@ -1,0 +1,47 @@
+/* Project Settings Dropdown */
+
+.project-settings-dropdown {
+  position: absolute;
+  top: 15%;
+  right: 0;
+  background-color: #0c0c0c;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 150px;
+  padding: 10px 0;
+}
+
+.project-settings-dropdown.open,
+.project-settings-dropdown:hover {
+  display: block;
+}
+
+.project-settings-dropdown a,
+.project-settings-dropdown button {
+  display: block;
+  padding: 7.5px 15px;
+  text-decoration: none;
+  color: #fff;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  background: none;
+  border: none;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.project-settings-dropdown a:hover,
+.project-settings-dropdown button:hover {
+  color: #FA3356;
+  background-color: #0e0e0e;
+}
+
+
+
+
+
+
+
+

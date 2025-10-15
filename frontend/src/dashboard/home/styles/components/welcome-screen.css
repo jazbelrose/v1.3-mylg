@@ -1,0 +1,255 @@
+/* Welcome Screen and New Project Header */
+
+.new-project-header {
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+}
+
+.welcome-screen {
+  height: 100%;
+}
+
+.dashboard-home-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.welcome-desktop-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  
+}
+
+.welcome-desktop-header {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.welcome-desktop-projects {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.welcome-desktop-projects-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-desktop-projects-scroll > .week-widget {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.welcome-desktop-footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.welcome-screen-header {
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 60%;
+  padding: min(50px, 3vw) 20px 0;
+  margin-bottom: 100px;
+}
+
+/* Mobile Welcome Layout - Projects and Calendar Split */
+.mobile-welcome-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  max-width: 100vw;
+  align-items: stretch;
+  /* allow vertical overflow for bottom CTA but prevent horizontal overscroll */
+  overflow-y: visible;
+  overflow-x: clip;
+}
+
+.mobile-projects-tasks {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  
+}
+
+.mobile-projects-section {
+  flex: 1 1 auto;
+  max-height: none;
+  overflow: hidden;
+  padding: 0; /* remove outer grey wrapper */
+  background: transparent;
+  width: 100%;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mobile-projects-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-projects-panel > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mobile-tasks-section {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100vw;
+  overflow-y: visible;
+  overflow-x: clip;
+  margin-top: auto;
+}
+
+.dashboard-footer {
+  flex: 0 0 auto;
+}
+
+.mobile-calendar-section {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+
+  border-radius: 8px;
+  padding: 0px;
+  width: 100%;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.mobile-projects-section > *,
+.mobile-tasks-section > *,
+.mobile-calendar-section > * {
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* Ensure projects header is more compact on mobile */
+@media (max-width: 768px) {
+  .dashboard-wrapper.welcome-screen .main-content {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .mobile-projects-section .projects-header {
+    padding: 8px 0;
+    margin-bottom: 12px;
+  }
+  
+  .mobile-projects-section .projects-title {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+  
+  .mobile-projects-section .project-filter-container {
+    gap: 8px;
+  }
+  
+  .mobile-calendar-section .all-projects-calendar-wrapper {
+    padding: 0;
+  }
+}
+
+/* New Project Header title */
+.new-project-header h2 {
+  line-height: 0.8;
+  font-size: min(3rem, 4vw);
+  white-space: nowrap;
+  margin-bottom: 5px;
+}
+
+/* Mobile adjustments */
+@media (max-width: var(--breakpoint-sm)) {
+  .new-project-header {
+    padding-top: 0;
+    margin-bottom: 25px;
+    padding-left: 10px;
+  }
+
+  .new-project-header h2 {
+    font-size: 30px;
+  }
+
+  .snap-container .new-project-snap {
+    width: 50%;
+    height: auto;
+    min-width: 50px;
+    min-height: 50px;
+  }
+}
+
+/* Greeting lines (moved from overrides.css) */
+.greeting-line.welcome {
+  font-size: 20px;
+  line-height: 1;
+  margin: 0;
+}
+
+.greeting-line.dashboard {
+  font-size: min(3rem, 4vw);
+  line-height: 1;
+  margin: 0;
+}
+
+/* Hide the line break on larger screens */
+.mobile-break {
+  display: none;
+}
+
+/* For small screens (e.g., phones) */
+@media (max-width: var(--breakpoint-xs)) {
+  .greeting-line.welcome {
+    font-size: 16.5px;
+  }
+
+  .greeting-line.dashboard {
+    font-size: min(4rem, vw);
+  }
+
+  .scramble-button {
+    padding: 0.3rem 0.7rem;
+    font-size: 1.2rem;
+  }
+
+  .mobile-break {
+    display: inline;
+  }
+}
+
+
+
+
+
+
+

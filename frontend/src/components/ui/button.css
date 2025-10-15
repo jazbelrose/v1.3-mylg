@@ -1,0 +1,65 @@
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    opacity 0.15s ease;
+  line-height: 1.2;
+}
+
+.ui-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ui-button--default {
+  background: #ffffff;
+  color: #0c0c0c;
+}
+
+.ui-button--default:hover {
+  background: #e5e5e5;
+}
+
+.ui-button--outline {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.ui-button--outline:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ui-button--ghost {
+  color: #ffffff;
+}
+
+.ui-button--ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ui-button--sm {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  height: 28px;
+}
+
+.ui-button--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 9999px;
+}
+
+.ui-button--icon svg {
+  width: 20px;
+  height: 20px;
+}

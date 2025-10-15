@@ -1,0 +1,74 @@
+.color-picker {
+  position: relative;
+  display: inline-block;
+}
+
+.color-picker .color-input {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  background: transparent;
+  cursor: pointer;
+  margin: 10px 5px;
+}
+
+.color-popover {
+  position: absolute;
+  top: 2rem;
+  left: 0;
+  background: #2c2c2c;
+  color: #fff;
+  padding: 0.75rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+.color-popover .react-colorful {
+  width: 200px;
+  height: 180px;
+}
+
+.hex-input {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  background: #1e1e1e;
+  border: 1px solid #555;
+  color: #fff;
+  border-radius: 4px;
+}
+
+.no-color {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  background: #444;
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.no-color:hover {
+  background: #555;
+}
+
+.color-values {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.color-values div {
+  margin-top: 0.25rem;
+}
+
+
+
+
+
+
+
+

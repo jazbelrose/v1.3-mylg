@@ -1,0 +1,40 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 063E-B93D
+D:.
+ª   angled-arrow.svg
+ª   branding-new.svg
+ª   Branding0.svg
+ª   Branding1.svg
+ª   Branding3.svg
+ª   brandingcard.svg
+ª   chevron-left.svg
+ª   chevron-right.svg
+ª   counter.svg
+ª   dashboard-icon-01.svg
+ª   drip.svg
+ª   homeheader.svg
+ª   line.svg
+ª   logo.svg
+ª   menu-closed.svg
+ª   menu-open.svg
+ª   mylgstagger.svg
+ª   notjust.svg
+ª   Play.svg
+ª   shine.svg
+ª   snap.svg
+ª   snap00.svg
+ª   studiotitle.svg
+ª   subtitles.svg
+ª   sunburst.svg
+ª   tree.txt
+ª   user.svg
+ª   Video.svg
+ª   
++---dashboard
+ª       title-status.svg
+ª       
++---home
+        01.svg
+        02.svg
+        
+

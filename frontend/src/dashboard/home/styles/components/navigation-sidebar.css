@@ -1,0 +1,86 @@
+/* Dashboard Navigation Sidebar */
+
+.navigation-sidebar {
+  flex-shrink: 0;
+  overflow-y: auto; /* Scroll if sidebar is too tall */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #0c0c0c;
+  padding: 20px;
+  margin-right: 5px;
+  box-sizing: border-box;
+  border: 2px solid white;
+  border-radius: 20px;
+}
+
+.nav-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nav-item {
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+
+.nav-item:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar-heading {
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.desktop-new-project {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;         /* Equal width/height keeps it perfectly round */
+  height: 30px;
+  border-radius: 50%;  /* Perfect circle */
+  border: 2px solid #fff;          /* White border */
+  color: var(--brand, #FA3356);    /* Plus sign in brand red */
+  background: transparent;
+  transition: background-color 0.3s, transform 0.2s;
+  margin-top: 3px;
+}
+
+.desktop-new-project:hover {
+  background: rgba(250, 51, 86, 0.1);
+  border-color: var(--brand, #FA3356);
+}
+
+/* Mobile quick-add button styled like a circular FAB */
+
+/* Tablet/phone navigation layout */
+@media (max-width: 768px) {
+  .navigation-sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    max-height: 80px;
+    padding: 10px 15px;
+    margin: 0;
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-evenly;
+    gap: 20px;
+    z-index: 1000;
+  }
+  .nav-bottom { display: contents; }
+  .nav-item { margin-bottom: 0; }
+  .nav-item svg { width: 15px; height: 15px; }
+  
+}
+
+
+
+
+
+
+

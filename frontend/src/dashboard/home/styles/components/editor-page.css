@@ -1,0 +1,52 @@
+/* Editor page containers (sticky toolbar + scrollable content) */
+
+.designer-outer-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+ 
+  border-radius: 20px;
+  box-sizing: border-box;
+    background: var(--bg2, #111213);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 48px rgba(0, 0, 0, 0.45);
+  border-radius: 32px 32px 32px 32px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+}
+
+.designer-scroll-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.editor-mode-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor-mode-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+
+
+
+
+
+
+

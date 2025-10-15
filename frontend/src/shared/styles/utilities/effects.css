@@ -1,0 +1,39 @@
+/* Ultra-light texture helpers */
+.noise-surface {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
+.noise-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: var(--noise-data-uri);
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  mix-blend-mode: soft-light;
+}
+
+[data-noise='off'] .noise-surface::after,
+.noise-surface[data-noise='off']::after {
+  content: none;
+}
+
+@media print,
+  (prefers-contrast: more),
+  (prefers-reduced-motion: reduce),
+  (forced-colors: active) {
+  .noise-surface::after {
+    content: none;
+  }
+}
+
+
+
+
+
+
+

@@ -1,0 +1,94 @@
+/* Grid Layout Components for Marketing Pages */
+
+/* Standard Grid Layouts */
+.grid-container {
+  display: grid;
+  grid-template-columns: 0.6fr 0.4fr;
+  grid-template-rows: auto auto;
+  grid-template-areas: 
+    "top full"
+    "bottom full";
+  gap: min(10px, 1vw);
+  margin: 0;
+}
+
+.second-grid {
+  display: grid;
+  grid-template-columns: 0.4fr 0.6fr;
+  grid-template-rows: auto;
+  grid-template-areas: "full top";
+  gap: min(10px, 1vw);
+}
+
+.grid-container-gca {
+  display: grid;
+  grid-template-columns: 0.5fr 0.5fr;
+  grid-template-rows: auto auto;
+  grid-template-areas: 
+    "top full"
+    "bottom full";
+  gap: min(10px, 1vw);
+  margin-top: 0;
+}
+
+.second-grid-gca {
+  display: grid;
+  grid-template-columns: 0.5fr 0.5fr;
+  grid-template-areas: "full top";
+}
+
+/* Grid Areas */
+.top-row-gca {
+  grid-area: full;
+  margin-bottom: min(10px, 1vw);
+}
+
+.top-row {
+  grid-area: top;
+  margin-bottom: min(10px, 1vw);
+}
+
+.bottom-row {
+  grid-area: bottom;
+}
+
+.full-height-column {
+  grid-area: full;
+  margin-bottom: min(10px, 1vw);
+}
+
+.second-grid .top-row {
+  grid-area: top;
+}
+
+.second-grid .full-height-column {
+  grid-area: full;
+  grid-row: 1 / span 2;
+}
+
+/* Masonry Layout */
+.masonry {
+  display: grid;
+  grid-template-columns: 40% 60%;
+  gap: min(10px, 1vw);
+  padding: 0;
+  margin: 0;
+}
+
+.masonry-left {
+  display: flex;
+  flex-direction: column;
+  gap: min(10px, 1vw);
+}
+
+.masonry-right {
+  display: flex;
+  flex-direction: column;
+  gap: min(10px, 1vw);
+}
+
+
+
+
+
+

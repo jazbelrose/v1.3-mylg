@@ -1,0 +1,450 @@
+.panel {
+  --panel-glass-bg: rgba(17, 17, 17, 0.68);
+  --panel-glass-border: rgba(255, 255, 255, 0.12);
+  --panel-glass-highlight: rgba(255, 255, 255, 0.16);
+  --panel-glass-shadow: 0 18px 46px rgba(4, 6, 12, 0.42);
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 24px;
+  border: 1px solid var(--panel-glass-border);
+  background:
+    radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--brand, #fa3356) 12%, transparent) 0%, transparent 60%),
+  
+    var(--panel-glass-bg);
+  color: rgba(255, 255, 255, 0.94);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    var(--panel-glass-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  position: relative;
+  isolation: isolate;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.statsRow {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.statChip {
+  --chip-accent-rgb: 120, 190, 255;
+  --chip-glass-bg: rgba(17, 17, 17, 0.68);
+  --chip-glass-border: rgba(255, 255, 255, 0.1);
+  --chip-glass-highlight: rgba(255, 255, 255, 0.16);
+  --chip-linear: linear-gradient(135deg, rgba(30, 40, 54, 0.36), rgba(16, 22, 30, 0.2));
+  --chip-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(var(--chip-accent-rgb), 0.18), transparent 55%);
+  --chip-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(var(--chip-accent-rgb), 0.12), transparent 50%);
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--chip-glass-border);
+  background: var(--chip-glass-bg);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 88px;
+  box-shadow:
+    inset 0 1px 0 var(--chip-glass-highlight),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  outline: 1px solid rgba(255, 255, 255, 0.05);
+  outline-offset: -1px;
+  transition:
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease,
+    backdrop-filter 180ms ease;
+}
+
+.statChip::before,
+.statChip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.statChip::before {
+  background:
+    color-mix(in srgb, rgba(var(--chip-accent-rgb), 0.28) 18%, transparent 82%),
+    var(--chip-radial-b),
+    var(--chip-radial-a),
+    var(--chip-linear);
+  opacity: 0.9;
+}
+
+.statChip::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 35%);
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.statChip:hover,
+.statChip:focus-visible,
+.statChip:focus-within {
+  border-color: color-mix(in srgb, rgba(var(--chip-accent-rgb), 0.55) 30%, rgba(255, 255, 255, 0.12) 70%);
+  box-shadow:
+    inset 0 1px 0 var(--chip-glass-highlight),
+    0 0 0 6px rgba(var(--chip-accent-rgb), 0.12),
+    0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.statChip:active {
+  transform: scale(0.995);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.statToneOk {
+  --chip-accent-rgb: 28, 213, 172;
+  --chip-linear: linear-gradient(135deg, rgba(26, 62, 52, 0.35), rgba(25, 81, 67, 0.22));
+  --chip-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(28, 213, 172, 0.2), transparent 55%);
+  --chip-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(123, 255, 220, 0.12), transparent 50%);
+}
+
+.statToneWarn {
+  --chip-accent-rgb: 250, 51, 86;
+  --chip-linear: linear-gradient(135deg, rgba(80, 23, 30, 0.38), rgba(60, 16, 22, 0.24));
+  --chip-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(250, 51, 86, 0.22), transparent 55%);
+  --chip-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(255, 140, 160, 0.12), transparent 50%);
+}
+
+.statToneSoon {
+  --chip-accent-rgb: 255, 186, 64;
+  --chip-linear: linear-gradient(135deg, rgba(85, 58, 18, 0.36), rgba(72, 45, 10, 0.24));
+  --chip-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(255, 186, 64, 0.22), transparent 55%);
+  --chip-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(255, 226, 170, 0.12), transparent 50%);
+}
+
+.statChipContent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 1;
+}
+
+.statIcon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.statCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  z-index: 1;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.notice {
+  background: #151515;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 1rem 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.noticeStrong {
+  font-weight: 600;
+}
+
+.noticeSubtle {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.listSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sectionHeading {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.listMeta {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.taskList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.taskItem {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease;
+}
+
+.taskItem:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.taskItemActive {
+  border-color: rgba(250, 51, 86, 0.6);
+}
+
+.taskContent {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.taskMain {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.taskMain:focus {
+  outline: 2px solid rgba(250, 51, 86, 0.6);
+  outline-offset: 2px;
+}
+
+.taskTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.taskTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.statusBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
+
+.statusBadgeDanger {
+  background: rgba(250, 51, 86, 0.2);
+  color: #ffb3c1;
+}
+
+.taskMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+}
+
+.metaEntry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.taskActions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  align-items: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.taskActions::-webkit-scrollbar {
+  display: none;
+}
+
+.taskActions > * {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.mapButton {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.accentButton {
+  --accent: var(--brand, #fa3356);
+  position: relative;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 68%, transparent) 0%, color-mix(in srgb, var(--accent) 32%, transparent) 100%) !important;
+  border-color: color-mix(in srgb, var(--accent) 28%, rgba(255, 255, 255, 0.28) 72%) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 28px color-mix(in srgb, var(--accent) 32%, rgba(0, 0, 0, 0.48) 68%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.accentButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 45%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.accentButton:hover,
+.accentButton:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 42%, rgba(255, 255, 255, 0.35) 58%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 0 0 4px color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.08) 80%),
+    0 14px 36px color-mix(in srgb, var(--accent) 36%, rgba(0, 0, 0, 0.52) 64%);
+}
+
+.accentButton:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px color-mix(in srgb, var(--accent) 26%, rgba(0, 0, 0, 0.6) 74%);
+}
+
+.buttonWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.empty,
+.error,
+.loading {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 1.25rem;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  width: 100%;
+}
+
+.footerText {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (min-width: 768px) {
+  .panel {
+    padding: 2rem;
+  }
+
+  .title {
+    font-size: 1.75rem;
+  }
+
+  .taskContent {
+    padding: 1.25rem 1.5rem;
+  }
+}

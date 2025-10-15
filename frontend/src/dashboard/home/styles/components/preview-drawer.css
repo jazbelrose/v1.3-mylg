@@ -1,0 +1,78 @@
+/* Preview trigger + drawer styles used by Editor */
+
+.preview-trigger {
+  margin-left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background-color: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.preview-trigger:hover {
+  background-color: var(--text-color-3);
+  color: #fff;
+}
+
+.preview-trigger:focus {
+  outline: 2px solid var(--text-color-3);
+  outline-offset: 2px;
+}
+
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 1000;
+}
+
+.preview-drawer {
+  background: #1a1a1a;
+  width: 100%;
+  max-height: 90%;
+  border-radius: 12px 12px 0 0;
+  padding: 20px;
+  position: relative;
+}
+
+.preview-drawer .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.preview-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.preview-actions button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: var(--text-color-3);
+  color: #fff;
+  cursor: pointer;
+}
+
+
+
+
+
+
+
+

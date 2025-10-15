@@ -1,0 +1,93 @@
+service: s3
+frameworkVersion: '3'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+
+resources:
+  Resources:
+ 
+    # ---- CloudFront Origin Access Identity ----
+    S3OriginAccessIdentity:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: Access identity for ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+
+    # ---- Response Headers Policy for CORS ----
+    CloudFrontResponseHeadersPolicy:
+      Type: AWS::CloudFront::ResponseHeadersPolicy
+      Properties:
+        ResponseHeadersPolicyConfig:
+          Name: mylg-cors-policy
+          Comment: "CORS policy for MYLG assets"
+          CorsConfig:
+            AccessControlAllowCredentials: false
+            AccessControlAllowHeaders:
+              Items: ["*"]
+            AccessControlAllowMethods:
+              Items: ["GET", "HEAD", "OPTIONS"]
+            AccessControlAllowOrigins:
+              # Allow any HTTP(S) origin so developers can test from private LAN IPs
+              # (172.x, 192.168.x, etc.) without having to redeploy CloudFront each time.
+              # Credentials are disabled, so using "*" is safe here.
+              Items: ["*"]
+            OriginOverride: true
+
+    # ---- CloudFront Distribution ----
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          DefaultRootObject: index.html
+          Origins:
+            - DomainName: !Sub "${env:S3_BUCKET_NAME, 'mylg-files-v12'}.s3.amazonaws.com"
+              Id: S3Origin
+              S3OriginConfig:
+                OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${S3OriginAccessIdentity}"
+          DefaultCacheBehavior:
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: ["GET", "HEAD", "OPTIONS"]
+            CachedMethods: ["GET", "HEAD"]
+            ForwardedValues:
+              QueryString: true
+            Compress: true
+            ResponseHeadersPolicyId: !Ref CloudFrontResponseHeadersPolicy
+          ViewerCertificate:
+            CloudFrontDefaultCertificate: true # change to ACM cert for custom domain
+          HttpVersion: http2
+          PriceClass: PriceClass_100
+
+    S3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+        PolicyDocument:
+          Statement:
+            - Sid: AllowCloudFrontRead
+              Effect: Allow
+              Principal:
+                CanonicalUser: !GetAtt S3OriginAccessIdentity.S3CanonicalUserId
+              Action: s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${env:S3_BUCKET_NAME, 'mylg-files-v12'}/*"
+
+  Outputs:
+    S3BucketName:
+      Value: ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+      Export:
+        Name: s3-bucket-name-${self:provider.stage}
+    S3BucketArn:
+      Value: !Sub "arn:aws:s3:::${env:S3_BUCKET_NAME, 'mylg-files-v12'}"
+      Export:
+        Name: s3-bucket-arn-${self:provider.stage}
+    CloudFrontDomain:
+      Value: !GetAtt CloudFrontDistribution.DomainName
+      Export:
+        Name: cloudfront-domain-${self:provider.stage}

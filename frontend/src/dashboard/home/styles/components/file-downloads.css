@@ -1,0 +1,28 @@
+/* File Downloads Panel Styles */
+
+/* Downloads card title */
+.dashboard-item.downloads span {
+  margin: 10px 0;
+  font-size: min(1.5rem, 3vw);
+}
+
+/* Downloads panel container */
+.downloads {
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .dashboard-item.downloads span {
+    font-size: 20px;
+  }
+}
+
+
+
+
+
+
+
+

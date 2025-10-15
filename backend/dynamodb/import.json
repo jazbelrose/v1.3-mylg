@@ -1,0 +1,67 @@
+[
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Budgets",
+    "ResourceIdentifier": { "TableName": "Budgets" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Connections",
+    "ResourceIdentifier": { "TableName": "Connections" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Events",
+    "ResourceIdentifier": { "TableName": "Events" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Galleries",
+    "ResourceIdentifier": { "TableName": "Galleries" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Inbox",
+    "ResourceIdentifier": { "TableName": "Inbox" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Messages",
+    "ResourceIdentifier": { "TableName": "Messages" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Notifications",
+    "ResourceIdentifier": { "TableName": "Notifications" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "ProjectDirectory",
+    "ResourceIdentifier": { "TableName": "ProjectDirectory" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "ProjectInvitations",
+    "ResourceIdentifier": { "TableName": "ProjectInvitations" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "ProjectMessages",
+    "ResourceIdentifier": { "TableName": "ProjectMessages" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Projects",
+    "ResourceIdentifier": { "TableName": "Projects" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "Tasks",
+    "ResourceIdentifier": { "TableName": "Tasks" }
+  },
+  {
+    "ResourceType": "AWS::DynamoDB::Table",
+    "LogicalResourceId": "UserProfiles",
+    "ResourceIdentifier": { "TableName": "UserProfiles" }
+  }
+]

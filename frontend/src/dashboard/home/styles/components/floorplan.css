@@ -1,0 +1,28 @@
+/* Floorplan Panel Styles */
+
+/* Floorplan card title */
+.dashboard-item.floorplan span {
+  margin: 10px 0;
+  font-size: min(1.5rem, 3vw);
+}
+
+/* Floorplan panel container */
+.floorplan {
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .dashboard-item.floorplan span {
+    font-size: 20px;
+  }
+}
+
+
+
+
+
+
+
+

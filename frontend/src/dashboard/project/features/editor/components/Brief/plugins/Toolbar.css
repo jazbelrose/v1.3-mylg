@@ -1,0 +1,56 @@
+/* ToolbarPlugin.css */
+.toolbar {
+  position: relative; /* Make sure the toolbar is the positioning context */
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background-color: #f5f5f5;
+}
+
+.toolbar-button {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%; /* Position below the toolbar */
+  left: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000; /* Ensure it appears above other elements */
+  margin-top: 4px; /* Optional: space between button and dropdown */
+}
+
+.dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.dropdown li {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.dropdown li:hover {
+  background-color: #f0f0f0;
+}
+.color-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  margin-top: 4px;
+  padding: 8px;
+}
+
+
+
+
+
+

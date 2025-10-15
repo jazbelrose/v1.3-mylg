@@ -1,0 +1,111 @@
+.unified-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--toolbar-bg, #181818);
+  color: var(--toolbar-fg, #f5f5f5);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.unified-toolbar.light {
+  --toolbar-bg: #f5f5f5;
+  --toolbar-fg: #000;
+  --hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+.unified-toolbar.dark {
+  --toolbar-bg: #181818;
+  --toolbar-fg: #f5f5f5;
+  --hover-bg: rgba(255, 255, 255, 0.1);
+}
+
+.unified-toolbar.vertical {
+  flex-direction: column;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+
+.toolbar-group.global-actions {
+  margin-left: auto;
+}
+
+.toolbar-group button {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.toolbar-group select {
+  padding: 0.25rem;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: inherit;
+}
+
+.toolbar-group button:hover {
+  background-color: var(--hover-bg);
+}
+
+.color-input {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  padding: 0;
+  background: transparent;
+  border-radius: 50%;
+}
+
+/* Layout dropdown styles */
+.layout-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 200px;
+  padding: 8px;
+}
+
+.layout-dropdown-item {
+  margin: 8px 0;
+  padding: 8px 12px;
+  color: #050505;
+  cursor: pointer;
+  line-height: 16px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fff;
+  border-radius: 8px;
+  border: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: background-color 0.3s;
+}
+
+.layout-dropdown-item:hover {
+  background-color: #eee;
+}
+
+
+
+
+
+
+

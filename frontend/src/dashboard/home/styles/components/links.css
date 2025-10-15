@@ -1,0 +1,28 @@
+/* Links Panel Styles */
+
+/* Links card title */
+.dashboard-item.links span {
+  margin: 10px 0;
+  font-size: min(1.5rem, 3vw);
+}
+
+/* Links panel container */
+.links {
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .dashboard-item.links span {
+    font-size: 20px;
+  }
+}
+
+
+
+
+
+
+
+

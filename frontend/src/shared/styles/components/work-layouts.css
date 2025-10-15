@@ -1,0 +1,129 @@
+/* Work Page Layout Components */
+
+/* Main work page structure */
+.workpage-heading {
+  
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+.works {
+  padding-top: 50px;
+  margin: 20px;
+  overscroll-behavior: none;
+}
+
+.container-restricted {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 5px;
+}
+
+/* Scroll behavior utilities */
+body.no-scroll {
+  overflow: hidden;
+  touch-action: none; /* Prevent touch scrolling on mobile */
+  overscroll-behavior: none; /* Prevent scroll chaining */
+}
+
+/* Portfolio items layout */
+.po_items_ho {
+  padding-top: 5px;
+  column-width: 30em;
+  column-gap: .5rem;
+  row-gap: 1rem;
+}
+
+/* Rendering layout container */
+.rendering-layout {
+  background-color: var(--bg-color);
+  padding: 0 5px;
+  margin-bottom: min(100px, 10vw);
+  overflow: hidden;
+  max-width: 1920px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.rendering-heading {
+  padding-top: 0px;
+}
+
+.rendering-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-height: 175px;
+}
+
+.rendering-header {
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  
+}
+
+.rendering-header h2 {
+  
+  line-height: 0.8;
+  font-size: min(8rem, 14vw);
+  white-space: nowrap;
+}
+
+.arrow-down.works-arrow {
+  color: white;
+  margin-left: auto;
+  padding: min(50px, 3vw) 20px 0;
+  font-size: min(10rem, 16vw);
+}
+
+.rendering-subheader {
+  
+  color: #8D8787;
+}
+
+.rendering-subheader h3 {
+  font-weight: 900;
+  
+  font-size: min(4rem, 6vw);
+}
+
+/* Rendering rows */
+.rendering-row {
+  margin: 10px 0;
+}
+
+.rendering-row-video {
+  padding: min(10px, .3vw);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rendering-row-img {
+  padding: min(5px, .25vw) 0;
+  display: flex;
+  margin: 0 auto;
+  align-items: stretch;
+  gap: min(7px, .3vw);
+}
+
+.rendering-row-svg {
+  margin: 3px 0;
+}
+
+/* Image containers */
+.img-container {
+  flex-grow: 1;
+  object-fit: cover;
+  padding: 0 2px;
+}
+
+
+
+
+
+

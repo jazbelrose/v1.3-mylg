@@ -1,0 +1,553 @@
+.all-projects-calendar-wrapper {
+  --calendar-gap: 8px;
+  --calendar-date-size: 0.9rem;
+  --calendar-title-size: 0.7rem;
+  --calendar-dot-size: 10px;
+  --calendar-dot-gap: 1px;
+  --calendar-lane-space: 8px;
+  --calendar-timeline-height: 8px;
+
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg2, #111111);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  scroll-behavior: smooth;
+  color: white;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+}
+
+/* Override default calendar styles */
+.all-projects-calendar-wrapper .react-calendar {
+  flex: 1 1 auto; /* let the calendar give space to the list */
+  width: 100%;
+  height: 100%;
+  background: var(--bg2, #111111);
+  border: none;
+  margin: 0;
+  padding: 10px 20px 0;
+  overflow-y: auto; /* Allow vertical scroll when space is limited */
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  border-radius: inherit; /* Match the wrapper's rounded edges */
+}
+.all-projects-calendar-wrapper .react-calendar::-webkit-scrollbar {
+  display: none;
+}
+
+
+
+/* Adjust navigation spacing */
+.all-projects-calendar-wrapper .react-calendar__navigation {
+  display: flex;
+  height: 44px;
+  margin-bottom: 1em;
+}
+
+
+/* Hide default date text rendered by React Calendar */
+.all-projects-calendar-wrapper .react-calendar__tile abbr {
+  display: none;
+}
+
+.all-projects-calendar-wrapper .react-calendar__tile {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  margin: 0;
+  /* Ensure hover menus are not clipped */
+  overflow: visible;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.all-projects-calendar-wrapper .react-calendar__month-view__days {
+  display: grid;
+  gap: var(--calendar-gap);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+/* Date styling (re-rendered) */
+.all-projects-calendar-wrapper .tile-date {
+  font-size: var(--calendar-date-size);
+  color: white;
+}
+
+/* Minimal tile layout for calendar numbers and bars */
+.all-projects-calendar-wrapper .tile-minimal {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: calc(var(--lane-count, 1) * var(--calendar-lane-space));
+}
+
+.all-projects-calendar-wrapper .tile-date-number {
+  font-size: calc(var(--calendar-date-size) * 0.9);
+  color: white;
+  text-align: center;
+  margin-top: 2px;
+}
+
+
+/* Colored dots representing projects */
+.all-projects-calendar-wrapper .tile-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--calendar-dot-gap);
+  justify-content: center;
+  margin-bottom: 1px;
+}
+
+.all-projects-calendar-wrapper .project-dot,
+.all-projects-calendar-wrapper .event-dot,
+.all-projects-calendar-wrapper .tooltip-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 4px;
+}
+.all-projects-calendar-wrapper .project-dot {
+  /* Align with chevron and thumbnail */
+  width: var(--calendar-dot-size);
+  height: var(--calendar-dot-size);
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: static;
+}
+
+.all-projects-calendar-wrapper .event-dot {
+  font-size: 6px;
+}
+
+.all-projects-calendar-wrapper .event-overflow {
+  font-size: 0.5rem;
+  margin-left: 2px;
+  color: #ccc;
+}
+
+.all-projects-calendar-wrapper .timeline-bars {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--calendar-dot-gap) + 1px);
+}
+
+.all-projects-calendar-wrapper .timeline-bar {
+  height: var(--calendar-timeline-height);
+  border-radius: 0;
+}
+
+.all-projects-calendar-wrapper .timeline-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.all-projects-calendar-wrapper .tile-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.all-projects-calendar-wrapper .tile-thumbnail {
+  width: 16px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Project title styling */
+.all-projects-calendar-wrapper .tile-title {
+  font-size: var(--calendar-title-size);
+  color: white;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Styling for active tile */
+.all-projects-calendar-wrapper .react-calendar__tile--active {
+  background-color: rgba(250, 51, 86, 0.15) !important;
+  color: white !important;
+  border-radius: 5px !important;
+  border: none;
+  box-shadow: 0 0 0 2px #FA3356, 0 0 6px rgba(250, 51, 86, 0.6);
+  animation: calendar-flash 0.3s ease-out;
+}
+
+@keyframes calendar-flash {
+  from {
+    box-shadow: 0 0 0 0 rgba(250, 51, 86, 0.6);
+  }
+  to {
+    box-shadow: 0 0 6px rgba(250, 51, 86, 0.6);
+  }
+}
+
+@container calendar-panel (max-width: 560px) {
+  .all-projects-calendar-wrapper {
+    --calendar-gap: 6px;
+    --calendar-date-size: 0.8rem;
+    --calendar-title-size: 0.65rem;
+    --calendar-dot-size: 8px;
+    --calendar-lane-space: 7px;
+    --calendar-timeline-height: 6px;
+  }
+}
+
+@container calendar-panel (max-width: 480px) {
+  .all-projects-calendar-wrapper {
+    --calendar-gap: 4px;
+    --calendar-date-size: 0.75rem;
+    --calendar-title-size: 0.6rem;
+    --calendar-dot-size: 7px;
+    --calendar-dot-gap: 0.75px;
+    --calendar-lane-space: 6px;
+    --calendar-timeline-height: 5px;
+  }
+  .all-projects-calendar-wrapper .tile-dots {
+    margin-bottom: 0;
+  }
+}
+
+/* Navigation buttons */
+.all-projects-calendar-wrapper .react-calendar__navigation button {
+  color: #FA3356;
+  font-size: 16px;
+  font-weight: bold;
+  background: none;
+  border: none;
+  padding: 10px;
+  fill: currentColor; /* ensure SVG arrows inherit the brand color */
+}
+
+.all-projects-calendar-wrapper .react-calendar__navigation button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+/* Prevent default white flash on click */
+.all-projects-calendar-wrapper .react-calendar__navigation button:focus,
+.all-projects-calendar-wrapper .react-calendar__navigation button:active {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  color: #FA3356;
+  outline: none;
+}
+
+.all-projects-calendar-wrapper
+  .react-calendar__navigation
+  button:disabled {
+  color: #FA3356; /* maintain brand color when disabled */
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Disable click on the month/year label */
+.all-projects-calendar-wrapper .react-calendar__navigation__label {
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Days grid */
+.all-projects-calendar-wrapper .react-calendar__month-view__days__day {
+  color: white;
+  border-radius: 0;
+  transition: 0.3s;
+  border-bottom: 1px solid #444;
+}
+
+
+
+.all-projects-calendar-wrapper .react-calendar__month-view__days__day:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Highlight today */
+.all-projects-calendar-wrapper .react-calendar__tile--now {
+  background-color: #FA3356;
+  color: white;
+  font-weight: bold;
+}
+
+/* Weekday labels */
+.all-projects-calendar-wrapper .react-calendar__month-view__weekdays {
+  display: flex;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+/* Prevent clicking on weekday names and center them */
+.all-projects-calendar-wrapper .react-calendar__month-view__weekdays__weekday {
+  flex: 0 0 14.2857%;
+  box-sizing: border-box;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 2px 10px;
+}
+
+/* Remove dotted underline from weekday abbreviations */
+.all-projects-calendar-wrapper .react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+
+
+.all-projects-calendar-wrapper .tile-tooltip {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(30, 30, 30, 0.9);
+  padding: 4px 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+  width: max-content;
+  max-width: 160px;
+}
+
+
+.all-projects-calendar-wrapper .tile-tooltip.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.all-projects-calendar-wrapper .tooltip-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  font-size: 0.7rem;
+  margin-bottom: 2px;
+  cursor: pointer;
+  width: 100%;
+}
+
+
+.all-projects-calendar-wrapper .tooltip-thumb,
+.all-projects-calendar-wrapper .tooltip-initial {
+  width: 16px;
+  height: 16px;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.6rem;
+}
+
+.all-projects-calendar-wrapper .tooltip-thumb-image,
+.all-projects-calendar-wrapper .tooltip-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.all-projects-calendar-wrapper .tooltip-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+}
+
+.all-projects-calendar-wrapper .tooltip-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+}
+
+.all-projects-calendar-wrapper .tooltip-info {
+  font-size: 0.6rem;
+  color: grey;
+}
+
+.all-projects-calendar-wrapper .tooltip-title {
+  color: white;
+  flex: 1;
+}
+
+.all-projects-calendar-wrapper .tooltip-dot {
+  font-size: 7.5px;
+}
+.all-projects-calendar-wrapper .tooltip-icon {
+  font-size: 0.55rem;
+  color: inherit;
+}
+
+.all-projects-calendar-wrapper .tooltip-date {
+  font-size: 0.6rem;
+  color: #FA3356;
+  white-space: nowrap;
+  margin-left: auto;
+  align-self: center;
+}
+
+
+/* Ensure tooltip event text is grey even when the date tile is active */
+.all-projects-calendar-wrapper .react-calendar__tile--active .tooltip-info {
+  color: #ccc !important;
+}
+
+
+
+@media (max-width: 768px) {
+  .all-projects-calendar-wrapper .react-calendar {
+    padding: 10px 10px 0;
+  }
+  .all-projects-calendar-wrapper .react-calendar__navigation {
+    height: 25px;
+    margin-bottom: 1em;
+  }
+  .all-projects-calendar-wrapper .tile-dots {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .all-projects-calendar-wrapper .react-calendar {
+    padding: 5px 5px 0;
+  }
+  .all-projects-calendar-wrapper .react-calendar__navigation {
+    height: 30px;
+    margin-bottom: 0;
+  }
+  .all-projects-calendar-wrapper .react-calendar__navigation button {
+    font-size: 12px;
+    padding: 4px;
+  }
+  .all-projects-calendar-wrapper .react-calendar__month-view__weekdays {
+    font-size: 10px;
+  }
+}
+
+/* iPhone compact widths - match projects panel consistency */
+@media (max-width: 390px) {
+  .all-projects-calendar-wrapper {
+    border-radius: 16px;
+    margin: 0 0 10px;
+  }
+  
+  .all-projects-calendar-wrapper .react-calendar {
+    padding: 8px 8px 0;
+  }
+
+}
+
+.all-projects-calendar-wrapper .dashboard-content,
+.all-projects-calendar-wrapper .react-calendar__month-view__days__day {
+  overflow: visible !important;
+}
+
+/* Modal styles specific to mobile agenda */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  position: relative;
+  z-index: 1100;
+  background: var(--bg2, #111111);
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  padding: 24px;
+  z-index: 1001;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+/* Mobile Calendar Styles */
+.mobile-calendar-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2, #111111);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  padding: 20px;
+  color: white;
+  min-height: 0;
+}
+
+.mobile-calendar-header {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.mobile-week-widget {
+  flex: 1;
+  border: 2px solid rgba(255, 255, 255, 0.9) !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-calendar-container {
+    padding: 16px;
+  }
+  
+  .mobile-calendar-header {
+    margin-bottom: 12px;
+  }
+}
+
+
+
+
+
+
+

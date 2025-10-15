@@ -1,0 +1,13 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 063E-B93D
+D:.
+    app.css
+    global.css
+    index.css
+    index.ts
+    marketingpages.css
+    tree.txt
+    
+No subfolders exist 
+
+

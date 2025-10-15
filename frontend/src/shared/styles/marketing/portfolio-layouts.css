@@ -1,0 +1,14 @@
+/* Portfolio Layout Components for Marketing Pages */
+
+.po_items_ho {
+  padding-top: var(--space-1);
+  column-width: 30em;
+  column-gap: 0.5rem;
+  row-gap: 1rem;
+}
+
+
+
+
+
+

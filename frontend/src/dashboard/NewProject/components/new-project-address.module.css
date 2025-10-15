@@ -1,0 +1,86 @@
+.addressContainer {
+  background: rgba(15, 15, 16, 0.4);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.addressContainer:hover {
+  background: rgba(18, 18, 20, 0.5);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.mapContainer {
+  flex: 1;
+  min-height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(12, 12, 12, 0.5);
+}
+
+.addressInputContainer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.addressInput {
+  flex: 1;
+  background: rgba(25, 25, 27, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #fff;
+  font-family: "Helvetica Special", "Helvetica Neue", sans-serif;
+  transition: all 0.3s ease;
+}
+
+.addressInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.addressInput:focus {
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.5); /* brand red */
+  background: rgba(30, 30, 32, 0.8);
+}
+
+.addressButton {
+  background: linear-gradient(135deg, rgba(250, 51, 86, 0.8) 0%, rgba(250, 51, 86, 0.6) 100%); /* brand red */
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.addressButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(250, 51, 86, 1) 0%, rgba(250, 51, 86, 0.8) 100%); /* brand red */
+  transform: translateY(-1px);
+}
+
+.addressButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+
+
+
+
+
+

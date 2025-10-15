@@ -1,0 +1,224 @@
+/* New Project cards, columns, and final actions */
+
+.new-project-col1 {
+  height: 460px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: .3;
+}
+
+.welcome-col1 {
+  flex: .3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dashboard-item.new-project-finish-line {
+  flex: 1;
+}
+
+.dashboard-item.project-name {
+  align-items: flex-start;
+}
+
+.dashboard-item.project-name span {
+  padding: 20px 0px;
+  margin: 10px 0;
+  font-size: min(2rem, 3vw);
+}
+
+.dashboard-item.new-project-settings span,
+.dashboard-item.new-project-budget span,
+.dashboard-item.new-project-finish-line span,
+.dashboard-item.new-project-description span {
+  margin: 10px 0;
+  font-size: min(2rem, 3vw);
+}
+
+.new-project-budget,
+.new-project-finish-line,
+.new-project-description {
+  align-items: flex-start;
+  flex: 1;
+}
+
+.new-project-description {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.new-project-col2 {
+  height: 460px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: .7;
+}
+
+.column-final-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 5px 0;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.final-submit-button {
+  border: none;
+  border-radius: 20px;
+  color: white;
+  background-color: transparent;
+  padding: 0;
+  font-size: min(2rem, 3vw);
+  width: 100%;
+  height: 56px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.final-submit-button:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Final Button Containers */
+.final-btn-container,
+.final-btn-container-success {
+  background: #FA3356;
+  border-radius: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 64px;
+  margin: 0 auto;
+}
+
+.final-btn-container-success {
+  background: #4bb71b;
+}
+
+/* Submit Spinner */
+.submit-spinner {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.submit-spinner-svg {
+  animation: rotate 1s linear infinite;
+  width: 100%;
+  height: 100%;
+}
+
+.submit-spinner-path {
+  stroke: white;
+  stroke-dasharray: 166;
+  stroke-dashoffset: 0;
+  stroke-width: 2;
+  stroke-miterlimit: 10;
+  fill: none;
+  animation: spinner-dash 1.5s cubic-bezier(0.65, 0, 0.45, 1) infinite;
+}
+
+/* Success Animation */
+.success-animation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 50px;
+  height: 50px;
+}
+
+.checkmark {
+  width: 50px;
+  height: 50px;
+  stroke-width: 2;
+  stroke: white;
+}
+
+.checkmark__circle {
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  animation: stroke 0.4s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.checkmark__check {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.4s forwards;
+}
+
+/* Dot Loader for buttons */
+.dot-loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 10px;
+  gap: 3px;
+}
+
+.dot-loader span {
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: dot-flash 1s infinite alternate;
+}
+
+.dot-loader span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot-loader span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dot-flash {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
+/* Keyframes */
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spinner-dash {
+  0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
+  50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
+  100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
+}
+
+@keyframes stroke {
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Mobile adjustments */
+@media (max-width: var(--breakpoint-sm)) {
+  .dashboard-item.new-project-description { min-height: 256px; }
+  .dashboard-item.new-project-settings span,
+  .dashboard-item.new-project-budget span,
+  .dashboard-item.new-project-finish-line span,
+  .dashboard-item.new-project-description span { font-size: 20px; }
+  .dashboard-item.project-name span { padding: 0 0; }
+  .final-submit-button { font-size: 20px; margin: 5px; }
+  .final-btn-container { margin-bottom: 5px; }
+}
+
+
+
+
+
+
+

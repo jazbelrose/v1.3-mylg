@@ -1,0 +1,795 @@
+/* Wrapper mimicking the dashboard item style */
+.calendar-overview-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  color: white;
+
+  border-radius: 20px;
+  flex: 1 1 auto;
+  height: 100%;
+  max-height: 100%;
+
+  
+  overflow: hidden;
+  background: var(--bg2, #111213);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 48px rgba(0, 0, 0, 0.45);
+  border-radius: 32px 32px 32px 32px;
+  
+}
+
+/* Override dashboard-item hover highlighting for calendar */
+.dashboard-item.calendar-overview-card-wrapper {
+  padding: 0;
+  background: var(--bg2, #111213);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 48px rgba(0, 0, 0, 0.45);
+  border-radius: 32px 32px 32px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  cursor: default;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.calendar-overview-card-wrapper.calendar-card-hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 22px 54px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+/* React Calendar overrides */
+.calendar-overview-card-wrapper .calendar-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.calendar-overview-card-wrapper .react-calendar {
+  flex: 1;
+  width: 100%;
+  background-color: #0c0c0c;
+  border: none;
+}
+
+.calendar-overview-card-wrapper .project-range {
+  text-align: center;
+  color: #FA3356;
+  font-size: clamp(0.75rem, 1.2vh, 0.85rem);
+  margin-bottom: clamp(2px, 0.5vh, 4px);
+}
+.calendar-overview-card-wrapper .range-separator {
+  margin: 0 8px;
+}
+/* Navigation buttons styled with brand color */
+.calendar-overview-card-wrapper .react-calendar__navigation {
+  position: sticky;
+  top: 0;
+  background-color: #0c0c0c;
+  z-index: 1;
+}
+.calendar-overview-card-wrapper .react-calendar__navigation button {
+  color: #FA3356;
+  font-size: clamp(1rem, 2vh, 1.125rem);
+  font-weight: bold;
+  background: none;
+  border: none;
+  padding: clamp(4px, 0.8vh, 8px);
+  fill: currentColor; /* ensure SVG arrows inherit the brand color */
+}
+
+.calendar-overview-card-wrapper .react-calendar__navigation button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+/* Prevent default white flash on click */
+.calendar-overview-card-wrapper .react-calendar__navigation button:focus,
+.calendar-overview-card-wrapper .react-calendar__navigation button:active {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  color: #FA3356;
+  outline: none;
+}
+
+.calendar-overview-card-wrapper
+  .react-calendar__navigation
+  button:disabled {
+  color: #FA3356; /* maintain brand color when disabled */
+  opacity: 0.5;
+  cursor: default;
+}
+
+
+/* Hide default date label */
+.calendar-overview-card-wrapper .react-calendar__tile abbr {
+  display: none;
+}
+
+
+.calendar-overview-card-wrapper .react-calendar__tile {
+  min-width: clamp(40px, 8vh, 50px);
+ 
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  padding: clamp(1px, 0.4vh, 3px) 0;
+  margin: 0;
+}
+
+.calendar-overview-card-wrapper .react-calendar__month-view__days {
+  gap: 0;
+}
+
+.calendar-overview-card-wrapper .calendar-day {
+  position: relative;
+  width: 100%;
+ 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: clamp(3px, 0.6vh, 6px);
+  font-size: clamp(0.6rem, 1.5vh, 0.8rem);
+  background-color: transparent;
+  
+}
+
+.calendar-overview-card-wrapper .tile-date-number {
+  font-size: inherit;
+  color: white;
+  text-align: center;
+  margin-top: 1px;
+}
+.calendar-overview-card-wrapper .tile-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  justify-content: center;
+  margin-bottom: 1px;
+}
+
+
+
+.calendar-overview-card-wrapper .event-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 6px;
+}
+
+.calendar-overview-card-wrapper .events-nav {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 clamp(8px, 3vw, 20px);
+  margin-top: 0;
+}
+
+.calendar-overview-card-wrapper .events-nav button {
+  background: none;
+  border: none;
+  color: #FA3356;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.calendar-overview-card-wrapper .events-nav button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+
+.calendar-overview-card-wrapper .events-log {
+  padding: clamp(4px, 0.8vh, 8px);
+  color: white;
+  font-size: clamp(0.75rem, 1.5vh, 0.85rem);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 25vh;
+  overflow-y: auto;
+}
+.calendar-overview-card-wrapper .events-log ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.calendar-overview-card-wrapper .event-item {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.calendar-overview-card-wrapper .list-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 7px;
+  margin-right: 4px;
+}
+.calendar-overview-card-wrapper .events-log-date {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #FA3356;
+  cursor: pointer;
+}
+
+.add-event-button {
+  display: block;
+  width: 100%;
+  margin-top: auto;
+}
+
+.edit-event-btn {
+  margin-left: 6px;
+  background: none;
+  border: none;
+  color: #fa3356;
+  cursor: pointer;
+}
+
+.delete-event-btn {
+  margin-left: 4px;
+  background: none;
+  border: none;
+  color: #fa3356;
+  cursor: pointer;
+}
+
+.events-log-totals {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
+
+.add-event-title {
+  font-size: 16px;
+}
+
+
+/* Weekday labels */
+.calendar-overview-card-wrapper .react-calendar__month-view__weekdays {
+  display: flex;
+  text-transform: uppercase;
+  font-size: clamp(0.7rem, 1.4vh, 0.8rem);
+  font-weight: bold;
+  color: white;
+}
+
+/* Match calendar tile styling with AllProjectsCalendar */
+.calendar-overview-card-wrapper .react-calendar__month-view,
+.calendar-overview-card-wrapper .react-calendar__month-view__days,
+.calendar-overview-card-wrapper .react-calendar__month-view__days__day {
+  overflow: visible !important;
+}
+
+/* Match calendar tile styling with AllProjectsCalendar */
+.calendar-overview-card-wrapper .react-calendar__month-view__days__day {
+  color: white;
+  border-radius: 5px;
+  transition: 0.3s;
+  
+}
+
+.calendar-overview-card-wrapper .react-calendar__month-view__days__day:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.calendar-overview-card-wrapper .react-calendar__tile--active {
+  background-color: rgba(250, 51, 86, 0.15) !important;
+  color: white !important;
+  border-radius: 5px;
+  border: 2px solid #FA3356;
+  box-shadow: 0 0 6px rgba(250, 51, 86, 0.6);
+  animation: calendar-flash 0.3s ease-out;
+}
+
+.calendar-overview-card-wrapper .react-calendar__tile--now {
+  background-color: rgba(250, 51, 86, 0.2);
+  border: 1px solid #FA3356;
+  color: #FA3356;
+  font-weight: bold;
+}
+/* Prevent clicking on weekday names and center them */
+.calendar-overview-card-wrapper .react-calendar__month-view__weekdays__weekday {
+  flex: 0 0 14.2857%;
+  box-sizing: border-box;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-left: 0;
+  padding-bottom: clamp(6px, 1vh, 10px);
+}
+
+
+.calendar-overview-card-wrapper .tile-tooltip {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(30, 30, 30, 0.9);
+  padding: 4px 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+  width: max-content;
+  max-width: 160px;
+}
+
+.calendar-overview-card-wrapper .tile-tooltip.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.calendar-overview-card-wrapper .tooltip-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  margin-bottom: 2px;
+}
+
+.calendar-overview-card-wrapper .tooltip-dot {
+  font-size: 7.5px;
+}
+
+
+.calendar-overview-card-wrapper .tooltip-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.calendar-overview-card-wrapper .tooltip-info {
+  font-size: 0.6rem;
+  color: #ccc;
+}
+
+/* Keep tooltip event text grey when an active tile forces white */
+.calendar-overview-card-wrapper .react-calendar__tile--active .tooltip-info {
+  color: #ccc !important;
+}
+
+
+
+.tile-highlight {
+  animation: calendar-flash 0.8s ease-out;
+  border: 2px solid #fa3356;
+  border-radius: 5px;
+}
+
+@keyframes calendar-flash {
+  from {
+    box-shadow: 0 0 0 2px #fa3356;
+  }
+  to {
+    box-shadow: 0 0 0 0 rgba(250, 51, 86, 0);
+  }
+}
+
+
+
+
+
+
+/* Month view layout */
+.calendar-overview-card-wrapper .calendar-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-overview-card-wrapper .month-widget {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+
+  border-radius: 20px;
+  overflow: visible;
+  padding: 10px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-overview-card-wrapper .month-widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.calendar-overview-card-wrapper .month-title {
+  font-weight: 600;
+  color: #fff;
+}
+
+.calendar-overview-card-wrapper .month-nav-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+.calendar-overview-card-wrapper .month-nav-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.calendar-overview-card-wrapper .calendar-weekdays {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+}
+
+.calendar-overview-card-wrapper .calendar-weekday {
+  flex: 1;
+  text-align: center;
+}
+
+.calendar-overview-card-wrapper .calendar-weeks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-overview-card-wrapper .calendar-week {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+
+.calendar-overview-card-wrapper .calendar-day-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.calendar-overview-card-wrapper .calendar-day {
+  position: relative;
+  flex: 1;
+  text-align: center;
+  padding: 6px 0 14px;
+  min-height: clamp(18px, 5vh, 48px);
+  cursor: pointer;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  outline: none;
+}
+.calendar-overview-card-wrapper .calendar-day:hover {
+  background: rgba(255,255,255,0.05);
+}
+.calendar-overview-card-wrapper .calendar-day:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.45);
+  outline-offset: 2px;
+}
+.calendar-overview-card-wrapper .calendar-day.today {
+  outline: 1px solid rgba(255,255,255,0.18);
+}
+.calendar-overview-card-wrapper .calendar-day.selected {
+  background: rgba(255,255,255,0.08);
+}
+.calendar-overview-card-wrapper .calendar-day--muted {
+  opacity: 0.5;
+}
+
+.calendar-overview-card-wrapper .tile-date-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.1;
+  
+}
+
+.calendar-overview-card-wrapper .day-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+
+
+.calendar-overview-card-wrapper .calendar-week-track {
+  position: absolute;
+  height: 6px;
+  border-radius: 4px;
+  bottom: -12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  border-radius: 30px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.calendar-overview-card-wrapper .timeline-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .calendar-overview-card-wrapper .calendar-content {
+    padding: 8px;
+  }
+  .calendar-overview-card-wrapper .calendar-week {
+    margin-bottom: 4px;
+  }
+  .calendar-overview-card-wrapper .calendar-day {
+    padding: 4px 0 12px;
+  }
+  .calendar-overview-card-wrapper .day-dots {
+    bottom: 2px;
+  }
+  .calendar-overview-card-wrapper .tile-date-number {
+    font-size: 12px;
+  }
+}
+
+
+.calendar-overview-card-wrapper .calendar-day.in-range {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.calendar-overview-card-wrapper .calendar-day.in-range:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.calendar-overview-card-wrapper .calendar-day.in-range.selected {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+}
+
+.calendar-overview-card-wrapper .calendar-day.in-range.today {
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.day-popover {
+  position: fixed;
+  z-index: 1010;
+  pointer-events: auto;
+  transition: opacity 0.16s ease;
+}
+
+.day-overlay-surface {
+  pointer-events: auto;
+  width: clamp(260px, 28vw, 320px);
+  background: rgba(16, 16, 18, 0.96);
+  backdrop-filter: blur(18px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: white;
+}
+
+.day-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.day-overlay-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.day-overlay-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.64);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.day-overlay-close:hover,
+.day-overlay-close:focus-visible {
+  background: rgba(250, 51, 86, 0.18);
+  color: #fff;
+  outline: none;
+}
+
+.day-overlay-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.day-overlay-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.day-overlay-event {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.day-overlay-event-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.day-overlay-event-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.day-overlay-event-hours {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.day-overlay-event-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-overlay-event-edit,
+.day-overlay-event-delete {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background 0.2s ease;
+}
+
+.day-overlay-event-edit:hover,
+.day-overlay-event-edit:focus-visible {
+  background: rgba(250, 51, 86, 0.28);
+  outline: none;
+}
+
+.day-overlay-event-delete {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.day-overlay-event-delete:hover,
+.day-overlay-event-delete:focus-visible {
+  background: rgba(255, 0, 0, 0.22);
+  outline: none;
+}
+
+.day-overlay-empty {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.day-overlay-new {
+  align-self: stretch;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  padding: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.day-overlay-new:hover,
+.day-overlay-new:focus-visible {
+  background: rgba(250, 51, 86, 0.28);
+  border-color: rgba(250, 51, 86, 0.52);
+  outline: none;
+}
+
+.day-overlay-new--primary {
+  background: rgba(250, 51, 86, 0.35);
+  border-color: rgba(250, 51, 86, 0.6);
+}
+
+.day-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 6, 8, 0.72);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1010;
+}
+
+.day-sheet {
+  width: 100%;
+  max-height: 75vh;
+  background: rgba(14, 14, 16, 0.98);
+  border-radius: 26px 26px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+  padding: 12px 20px 24px;
+  transform: translateY(0);
+  transition: transform 0.28s ease;
+  overflow-y: auto;
+}
+
+.day-sheet-grabber {
+  width: 48px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  margin: 8px auto 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-sheet {
+    transition: none;
+  }
+}
+
+
+
+
+
+
+

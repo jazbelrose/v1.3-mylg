@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24.41 24.41">
+  <g id="b" data-name="dashboard-2">
+    <path id="c" data-name="Path-7" d="M9.41,0H1.78C.8,0,0,.8,0,1.78v4.58c0,.98.8,1.78,1.78,1.78h7.63c.98,0,1.78-.8,1.78-1.78V1.78c0-.98-.8-1.78-1.78-1.78Z" style="fill: #fff; stroke-width: 0px;"/>
+    <path id="d" data-name="Path-8" d="M9.41,10.16H1.78c-.98,0-1.78.8-1.78,1.78v10.68c0,.98.8,1.78,1.78,1.78h7.63c.98,0,1.78-.8,1.78-1.78v-10.68c0-.98-.8-1.78-1.78-1.78Z" style="fill: #fff; stroke-width: 0px;"/>
+    <path id="e" data-name="Path-9" d="M22.63,16.27h-7.63c-.98,0-1.78.8-1.78,1.78v4.58c0,.98.8,1.78,1.78,1.78h7.63c.98,0,1.78-.8,1.78-1.78v-4.58c0-.98-.8-1.78-1.78-1.78Z" style="fill: #fff; stroke-width: 0px;"/>
+    <path id="f" data-name="Path-10" d="M22.63,0h-7.63c-.98,0-1.78.8-1.78,1.78v10.68c0,.98.8,1.78,1.78,1.78h7.63c.98,0,1.78-.8,1.78-1.78V1.78c0-.98-.8-1.78-1.78-1.78Z" style="fill: #fff; stroke-width: 0px;"/>
+  </g>
+</svg>

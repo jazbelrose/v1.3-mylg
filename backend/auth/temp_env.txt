@@ -1,0 +1,7 @@
+﻿  environment:
+    # Tables & shared config (CORS, etc.)
+    ${self:custom.env}
+    # ---- Cognito (using existing us-west-2 user pool)
+    COGNITO_USER_POOL_ID: us-west-2_EmStQTtG1
+    COGNITO_USER_POOL_NAME: mylg-dev-users-west2
+    COGNITO_USER_CLIENT_ID: 6f5f1vsm5bejjaffihc3e0n95k

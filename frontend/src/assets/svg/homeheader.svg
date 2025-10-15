@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="uuid-e12f36cf-ce8c-4b22-8a83-f14fa2a9510d" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1884.45 250.15">
+  <defs>
+    <style>
+     
+
+      .hero-text {
+        letter-spacing: 0em;
+      }
+
+      .hero-text {
+        font-family: HelveticaNowDisplay-Regular, 'Helvetica Special';
+        font-size: 76.56px;
+      }
+
+      .hero-text, .arrow {
+        fill: #fff;
+      }
+
+
+      .arrow {
+        stroke-width: 0px;
+      }
+
+      
+    
+    </style>
+  </defs>
+  <text class="hero-text" transform="translate(1431.5 78.25)"><tspan x="0" y="0">Creative pitch</tspan><tspan x="-108.11" y="69">Immersive Digital</tspan><tspan class="hero-text" x="-66.38" y="138">Design Solution</tspan></text>
+  <g>
+    <polygon class="arrow" points="0 20.53 20.26 0 89.26 69 89.26 0 119.38 0 119.38 119.52 0 119.52 0 90.08 67.08 90.08 0 20.53"/>
+    <polygon class="arrow" points="151.07 119.45 130.54 99.19 199.54 30.19 130.54 30.19 130.54 .07 250.05 .07 250.05 119.45 220.62 119.45 220.62 52.37 151.07 119.45"/>
+    <polygon class="arrow" points="250.05 230.82 229.79 251.35 160.79 182.35 160.79 251.35 130.67 251.35 130.67 131.84 250.05 131.84 250.05 161.27 182.97 161.27 250.05 230.82"/>
+    <polygon class="arrow" points="20.53 251.29 0 231.02 69 162.02 0 162.02 0 131.91 119.52 131.91 119.52 251.29 90.08 251.29 90.08 184.2 20.53 251.29"/>
+  </g>
+</svg>

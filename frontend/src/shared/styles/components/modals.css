@@ -1,0 +1,197 @@
+/* Modal Components */
+
+.ReactModalPortal {
+  position: fixed;
+  z-index: 2000 !important;
+}
+
+body.ReactModal__Body--open .dashboard-wrapper {
+  filter: blur(4px);
+  transition: filter 0.3s ease-in-out;
+}
+
+.ReactModal__Content {
+  filter: none !important;
+  z-index: 1002 !important;
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.modal-label {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-light);
+  margin: 0 0 var(--space-7) 0;
+  font-family: "Helvetica Display", "Helvetica Neue", sans-serif;
+}
+
+.modal-input {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: var(--space-4);
+  width: 100%;
+  padding: var(--space-3);
+  color: var(--text-color);
+  background-color: rgb(37, 37, 37);
+  box-sizing: border-box;
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+/* Currency input prefix */
+.currency-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.currency-prefix {
+  position: absolute;
+  top: 0;
+  bottom: var(--space-4);
+  left: var(--space-3);
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.currency-input {
+  padding-left: 28px;
+}
+
+/* Unit input suffix */
+.unit-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.unit-suffix {
+  position: absolute;
+  top: 0;
+  bottom: var(--space-4);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.unit-input {
+  padding-right: 28px;
+}
+
+.modal-input-password {
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  margin-right: var(--space-3);
+  padding: var(--space-3);
+  color: var(--text-color);
+  background-color: rgb(37, 37, 37);
+  box-sizing: border-box;
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+.modal-input-password:last-child {
+  margin-right: 0;
+}
+
+.modal-input-description {
+  color: var(--text-color);
+  background-color: rgb(17, 17, 17);
+  font-size: var(--font-size-base);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-height: 120px;
+  margin-bottom: var(--space-4);
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+.modal-button {
+  padding: 12px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+  border-radius: 12px;
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  margin-top: auto;
+  font-size: var(--font-size-base);
+}
+
+.modal-button.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.modal-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.modal-button:hover,
+.modal-button:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.clear-files-button {
+  border: solid 2px var(--text-color);
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5);
+  margin-top: auto;
+  font-size: var(--font-size-base);
+}
+
+.modal-submit-button {
+  padding: 12px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+  border-radius: 12px;
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  margin-top: auto;
+  font-size: var(--font-size-base);
+}
+
+.modal-submit-button.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.modal-submit-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.modal-submit-button.uploads {
+  border-radius: 12px;
+  margin: 0 var(--space-1);
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+
+
+
+
+

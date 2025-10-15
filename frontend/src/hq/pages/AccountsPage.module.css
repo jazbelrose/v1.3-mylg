@@ -1,0 +1,103 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+}
+
+.accountsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 22px;
+}
+
+.accountCard {
+  background: linear-gradient(150deg, rgba(14, 14, 14, 0.92), rgba(20, 20, 20, 0.88));
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.accountHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.accountName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.accountInstitution {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.balance {
+  font-size: clamp(1.6rem, 1.2rem + 1vw, 2rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.statusBadge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(250, 51, 86, 0.2);
+  color: #fa3356;
+}
+
+.emptyState {
+  padding: 36px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+  background: rgba(14, 14, 14, 0.72);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.emptyStateTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.emptyStateDescription {
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 440px;
+  line-height: 1.6;
+}
+
+@media (max-width: 599px) {
+  .accountsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .accountCard {
+    padding: 20px;
+  }
+
+  .emptyState {
+    padding: 28px;
+  }
+}

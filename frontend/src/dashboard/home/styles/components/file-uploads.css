@@ -1,0 +1,137 @@
+/* File Uploads Styles */
+
+.file-input {
+  opacity: 0;
+  position: absolute;
+  z-index: -1;
+}
+
+.file-upload-btn {
+  background-color: black;
+  color: white;
+  padding: 10px 20px;
+  border: solid 2px white;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.selected-files {
+  height: 160px;
+  overflow-y: auto;
+  margin-top: 35px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  color: #ccc;
+  font-size: 14px;
+  text-align: center;
+  width: 95%;
+  box-sizing: border-box;
+}
+
+.single-project-selected-files {
+  height: 160px;
+  overflow-y: auto;
+  margin-top: 35px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  color: #ccc;
+  font-size: 14px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Upload buttons (modal variant) */
+.modal-submit-button.uploads {
+  border-radius: 12px;
+  margin: 0 5px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.modal-submit-button.uploads.fa {
+  border: none;
+}
+
+.modal-submit-button.uploads:hover,
+.modal-submit-button.uploads:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* Upload card titles */
+.dashboard-item.uploads span {
+  margin: 10px 0;
+  font-size: min(1.5rem, 3vw);
+}
+
+/* New project upload titles */
+.dashboard-item.new-project-uploads span {
+  margin: 10px 0;
+  font-size: min(2rem, 3vw);
+}
+
+/* Uploads panels */
+.uploads,
+.new-project-uploads {
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Uploads list */
+.uploads-list {
+  height: calc(100% - 20px);
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+}
+
+.upload-file-name {
+  white-space: nowrap;
+  border-radius: 5px;
+}
+
+/* Upload progress indicators */
+.upload-progress-bar {
+  width: 100%;
+  height: 10px;
+  background-color: #d3d3d3;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.upload-progress-completed {
+  height: 100%;
+  background-color: #00c853;
+  transition: width 0.3s ease-in-out;
+}
+
+.upload-progress-text {
+  font-size: 14px;
+  color: #888;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .dashboard-item.uploads span,
+  .dashboard-item.new-project-uploads span {
+    font-size: 20px;
+  }
+}
+
+
+
+
+
+
+

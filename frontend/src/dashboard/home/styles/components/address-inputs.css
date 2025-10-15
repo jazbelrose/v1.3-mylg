@@ -1,0 +1,56 @@
+/* Address Inputs Styles */
+
+.address-input-container {
+  padding: 5px 0 0;
+}
+
+.address-input {
+  margin-bottom: 5px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgb(37, 37, 37);
+  color: white;
+  box-sizing: border-box;
+}
+
+.address-button {
+  border: solid 2px white;
+  color: white;
+  background-color: #0d0d0d;
+  border-radius: 10px;
+  padding: 10px 20px;
+  margin-top: auto;
+  font-size: 16px;
+  width: 100%;
+}
+
+.address-button:hover {
+  background-color: #1b1b1b;
+}
+
+/* Compact variants used in certain views */
+@media (max-width: 99999px) {
+  /* retain these lighter tweaks as defaults */
+}
+
+/* Additional compact adjustments referenced in overrides */
+@media (max-width: 99999px) {
+  .address-input-container.compact {
+    margin: 5px 0;
+    padding: 2.5px;
+  }
+
+  .address-button.compact {
+    margin-bottom: 5px;
+  }
+}
+
+
+
+
+
+
+
+

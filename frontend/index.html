@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Basic dev CSP; tighten via server headers for production -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https: blob:; media-src 'self' https: blob:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'">    
+  -->
+    
+    <title>MYLG! App</title>
+    <style>
+      /* Prevent white flash before CSS loads */
+      body {
+        margin: 0;
+        background: #0c0c0c;
+        color: #eee;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

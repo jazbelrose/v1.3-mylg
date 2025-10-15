@@ -1,0 +1,138 @@
+.projectTeam {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.projectTeamTitle {
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.teamContainer {
+  position: relative;
+  width: 100%;
+}
+
+.teamRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+}
+
+.teamMember {
+  flex: 0 0 auto;
+  text-align: center;
+  scroll-snap-align: start;
+}
+
+.avatarWrapper {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 4px;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.teamMember:hover .avatar {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.onlineIndicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #34c759;
+  border: 2px solid #fff;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.6; }
+}
+
+.teamMemberInfo {
+  font-weight: 500;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.teamMemberRole {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.3);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.arrow:hover {
+  opacity: 1;
+}
+
+.leftArrow { left: 4px; }
+.rightArrow { right: 4px; }
+
+@media (max-width: 768px) {
+  .arrow { display: none; }
+}
+
+@media (max-width: 600px) {
+  .avatarWrapper { width: 48px; height: 48px; }
+}
+
+.placeholder {
+  background: #e1e1e1;
+  animation: pulseBg 1.5s infinite ease-in-out;
+}
+
+.inviteButton {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+@keyframes pulseBg {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+
+
+
+
+

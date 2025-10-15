@@ -1,0 +1,50 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Backend build/deployment artifacts
+backend/node_modules
+backend/.serverless
+backend/.sst
+backend/cdk.out
+backend/dist
+backend/build
+backend/.env
+backend/.env.*
+
+
+
+# Ignore PyMuPDF, fitz, and .dist-info folders in CreateGalleryFunction
+backend/lambdas/CreateGalleryFunction/pymupdf/
+backend/lambdas/CreateGalleryFunction/fitz/
+backend/lambdas/CreateGalleryFunction/pymupdf-1.26.0.dist-info/
+backend/lambdas/galleries-api/package-lock.json
+backend/lambdas/galleries-api/package.json  
+backend/lambdas/budgets/package-lock.json  
+backend/lambdas/CollabInvites/package-lock.json  
+backend/lambdas/CollabInvites/package.json  
+backend/lambdas/**/package-lock.json
+backend/lambdas/**/*.zip
+scripts/migrate-project-descriptions-to-yjs.js

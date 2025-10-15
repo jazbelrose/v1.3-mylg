@@ -1,0 +1,53 @@
+# Load environment variables from .env.dev file
+useDotenv: true
+
+env:
+  # ---- CORS - CENTRAL CONFIGURATION FOR ALL SERVICES ----
+  # This is the SINGLE PLACE to configure CORS for the entire backend.
+  # All services inherit these CORS settings via the shared-layer.
+  # To add new origins: add them to ALLOWED_ORIGINS below, then redeploy shared-layer + services
+  ALLOWED_ORIGINS: https://beta.mylg.studio,https://mylg.studio,http://localhost:3000,http://localhost:5173,http://192.168.1.172:5173,http://192.168.1.200:5173,http://192.168.1.172:3000,http://192.168.1.200:3000
+  CORS_WILDCARD_HOSTS: mylg.studio
+  CORS_ALLOW_CREDENTIALS: "false"
+  CORS_DEFAULT_ORIGIN: https://beta.mylg.studio
+
+  # ---- Users & invites
+  USER_PROFILES_TABLE: UserProfiles
+  INVITES_TABLE: ProjectInvitations          # or CollabInvites if that’s the one live
+  INVITES_BY_SENDER_INDEX: senderId-index
+  INVITES_BY_RECIPIENT_INDEX: recipientId-index
+
+  # ---- Messaging & notifications (v1.1 compat)
+  INBOX_TABLE: Inbox                    # PK userId, SK conversationId
+  MESSAGES_TABLE: Messages
+  PROJECT_MESSAGES_TABLE: ProjectMessages
+
+  NOTIFICATIONS_TABLE: Notifications
+  NOTIFICATIONS_BY_USER_INDEX: userId-index
+
+  # ---- Projects / workflow
+  PROJECTS_TABLE: Projects
+  PROJECTS_VISIBILITY_INDEX: visibility-index
+  PROJECTS_TEAMUSERIDS_INDEX: teamUserIds-index
+  PROJECT_DIRECTORY_TABLE: ProjectDirectory
+  TASKS_TABLE: Tasks
+  EVENTS_TABLE: Events
+  EVENTS_STARTAT_INDEX: ""                   # leave blank if you don’t have projectId-startAt-index
+
+  # ---- Budgets
+  BUDGETS_TABLE: Budgets
+  BUDGET_ID_INDEX: budgetId-index
+  BUDGET_ITEM_ID_INDEX: budgetItemId-index
+
+  # ---- Galleries / uploads
+  GALLERIES_TABLE: Galleries
+  GALLERIES_PROJECT_GSI: projectId-index
+  FILE_BUCKET: mylg-files-v12
+
+  # ---- WebSocket
+  CONNECTIONS_TABLE: Connections
+  CONNECTIONS_USER_GSI: userId-sessionId-index
+  WEBSOCKET_ENDPOINT: ""  # Set this to your websocket API gateway domain (leave blank for service-specific overrides)
+
+  # ---- Misc
+  SCANS_ALLOWED: "false"                     # flip to "true" only for dev scans

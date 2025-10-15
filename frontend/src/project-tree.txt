@@ -1,0 +1,476 @@
+.
+├── amplifyconfiguration.json
+├── app
+│   ├── App.jsx
+│   ├── contexts
+│   │   ├── AuthContext.js
+│   │   ├── AuthEventHandler.js
+│   │   ├── DataProvider.js
+│   │   ├── NavigationDirectionProvider.js
+│   │   ├── ProtectedRoute.js
+│   │   ├── ScrollContext.js
+│   │   └── useInactivityLogout.ts
+│   └── routes.js
+├── assets
+│   ├── fonts
+│   │   ├── Impacted.ttf
+│   │   └── impact.ttf
+│   ├── images
+│   ├── preloader-animation.json
+│   ├── svg
+│   │   ├── 1sensc
+│   │   │   └── 1senscheader.svg
+│   │   ├── Academy-of-Pop
+│   │   │   ├── aopheader.svg
+│   │   │   ├── aoptitle.svg
+│   │   │   ├── asvg.svg
+│   │   │   ├── row1.svg
+│   │   │   └── row3.svg
+│   │   ├── Branding0.svg
+│   │   ├── Branding1.svg
+│   │   ├── Branding3.svg
+│   │   ├── MZ
+│   │   │   ├── 02.svg
+│   │   │   └── mz-header.svg
+│   │   ├── Now-United
+│   │   │   ├── Now-united-header.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row41.svg
+│   │   │   ├── row5.svg
+│   │   │   ├── row6.svg
+│   │   │   └── row7.svg
+│   │   ├── Play.svg
+│   │   ├── TROIA
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   └── troiaheader.svg
+│   │   ├── Ulta
+│   │   │   ├── row1.svg
+│   │   │   ├── row11.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── ultaheader1.svg
+│   │   │   └── ultatitle.svg
+│   │   ├── Video.svg
+│   │   ├── aflowerbathheader.svg
+│   │   ├── agendafestival
+│   │   │   ├── agendafestivalheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   └── row3.svg
+│   │   ├── angled-arrow.svg
+│   │   ├── barebells
+│   │   │   ├── barebellsheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   └── row3.svg
+│   │   ├── besweet16
+│   │   │   ├── besweet16header.svg
+│   │   │   ├── row0.svg
+│   │   │   └── row1.svg
+│   │   ├── bloomandbliss
+│   │   │   ├── bloomandblissheader.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row31.svg
+│   │   │   ├── row32.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row5.svg
+│   │   │   ├── row6.svg
+│   │   │   └── row7.svg
+│   │   ├── brandbypeople
+│   │   │   └── brandbypeopleheader.svg
+│   │   ├── branding-new.svg
+│   │   ├── brandingcard.svg
+│   │   ├── chevron
+│   │   │   ├── chevronheader.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row21.png
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row5.svg
+│   │   │   ├── row6.svg
+│   │   │   ├── row7.svg
+│   │   │   └── row8.svg
+│   │   ├── chevron-left.svg
+│   │   ├── chevron-right.svg
+│   │   ├── counter.svg
+│   │   ├── dashboard
+│   │   │   └── title-status.svg
+│   │   ├── dashboard-icon-01.svg
+│   │   ├── designcard.svg
+│   │   ├── drip.svg
+│   │   ├── drock.svg
+│   │   ├── elf-makeup
+│   │   │   ├── Untitled-1.svg
+│   │   │   ├── Untitled-11.png
+│   │   │   ├── Untitled-12.png
+│   │   │   ├── elfmakeupheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row11.png
+│   │   │   └── row12.png
+│   │   ├── elf-makeup-hollywood-bowl
+│   │   │   ├── elfmakeuphollywoodbowlheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   └── row2.svg
+│   │   ├── elf-studio
+│   │   │   ├── elf-studio-header.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   └── row4.svg
+│   │   ├── experientialcard.svg
+│   │   ├── frankzummosum41.svg
+│   │   ├── gatane
+│   │   │   └── gataneheader.svg
+│   │   ├── ghostcircusapparel
+│   │   │   ├── ghostcircusapparelheader.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row5.svg
+│   │   │   ├── row6.svg
+│   │   │   └── row7.svg
+│   │   ├── goldprincessheader.svg
+│   │   ├── goldru$h
+│   │   │   └── goldru$h-header.svg
+│   │   ├── gucci
+│   │   │   ├── gucciheader.svg
+│   │   │   ├── row0.svg
+│   │   │   └── row1.svg
+│   │   ├── home
+│   │   │   ├── 01.svg
+│   │   │   └── 02.svg
+│   │   ├── homeheader.svg
+│   │   ├── j22interiors
+│   │   │   ├── j22interiorsheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   └── row5.svg
+│   │   ├── jeweliestark.svg
+│   │   ├── keysartbasel
+│   │   │   ├── keysartbaselheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   └── sign.png
+│   │   ├── keyssoulcare
+│   │   │   ├── keyssoulcareheader.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row5.svg
+│   │   │   ├── row6.svg
+│   │   │   └── row7.svg
+│   │   ├── kmtour
+│   │   │   ├── kmtourheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   └── row4.svg
+│   │   ├── line.svg
+│   │   ├── logitech
+│   │   │   ├── logitechheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   └── row4.svg
+│   │   ├── logo.svg
+│   │   ├── machinehead.svg
+│   │   ├── menu-closed.svg
+│   │   ├── menu-open.svg
+│   │   ├── mistifivape
+│   │   │   ├── mistifivapeheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row12.svg
+│   │   │   └── row2.svg
+│   │   ├── mylgstagger.svg
+│   │   ├── nbtour
+│   │   │   ├── nbtourheader.svg
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   └── row2.svg
+│   │   ├── nikefemme.svg
+│   │   ├── nocco
+│   │   │   ├── noccoheader.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   └── row4.svg
+│   │   ├── notjust.svg
+│   │   ├── pipedreamevents
+│   │   │   ├── pipedreameventsheader.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row5.svg
+│   │   │   └── row6.svg
+│   │   ├── shine.svg
+│   │   ├── snap.svg
+│   │   ├── snap00.svg
+│   │   ├── soloj.svg
+│   │   ├── strikefit
+│   │   │   ├── row1.svg
+│   │   │   ├── row10.svg
+│   │   │   ├── row2.svg
+│   │   │   ├── row3.svg
+│   │   │   ├── row4.svg
+│   │   │   ├── row5.svg
+│   │   │   ├── row6.svg
+│   │   │   ├── row7.svg
+│   │   │   ├── row8.svg
+│   │   │   ├── row9.svg
+│   │   │   └── strikefit-header.svg
+│   │   ├── studiotitle.svg
+│   │   ├── subtitles.svg
+│   │   ├── sunburst.svg
+│   │   ├── techcard.svg
+│   │   ├── theoscars
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   └── theoscarsheader.svg
+│   │   ├── thepartyneverends
+│   │   │   ├── row0.svg
+│   │   │   ├── row1.svg
+│   │   │   ├── row2.svg
+│   │   │   └── thepartyneverendsheader.svg
+│   │   ├── user.svg
+│   │   └── yanis.svg
+│   ├── svg.zip
+│   └── videos
+│       ├── desktopVideo.mp4
+│       └── mobileVideo.mp4
+├── aws-exports.js
+├── components
+│   ├── blogcard
+│   │   ├── index.tsx
+│   │   └── style.css
+│   ├── blogentry
+│   │   ├── index.js
+│   │   └── style.css
+│   ├── blogpostbutton
+│   │   ├── BlogPostButton.js
+│   │   └── style.css
+│   ├── countercomponent
+│   │   └── index.jsx
+│   ├── footer
+│   │   ├── footer.css
+│   │   └── footer.jsx
+│   ├── header
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── herosection
+│   │   ├── cross black.svg
+│   │   ├── cross.svg
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── infosection
+│   │   ├── index.js
+│   │   └── style.css
+│   ├── introtext
+│   │   ├── index.jsx
+│   │   ├── introtext.json
+│   │   └── style.css
+│   ├── map
+│   │   └── index.jsx
+│   ├── portfoliocard
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── preloader
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── preloader-light
+│   │   ├── index.jsx
+│   │   └── spinner.css
+│   ├── scramblebutton
+│   │   ├── index.js
+│   │   └── style.css
+│   ├── scrolltotopbutton
+│   │   └── index.js
+│   ├── singleticker
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── slideshow
+│   │   ├── slideshow.js
+│   │   └── style.css
+│   ├── smoothscroll
+│   │   └── index.jsx
+│   ├── ticker
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── typewriter
+│   │   ├── index.jsx
+│   │   ├── sentences.json
+│   │   └── style.css
+│   └── videoplayer
+├── content_option.ts
+├── counter.jsx
+├── fonts
+│   ├── Helvetica-Black.woff2
+│   ├── Helvetica-Display.woff2
+│   ├── Helvetica-Light.woff2
+│   ├── Helvetica-Medium.woff2
+│   ├── Helvetica-Neue.woff2
+│   └── mylg-serif.woff2
+├── index.css
+├── index.js
+├── pages
+│   ├── about
+│   │   ├── SquiggleLine.svg
+│   │   ├── SquigglyLine.jsx
+│   │   ├── dataAbout.json
+│   │   ├── index.jsx
+│   │   ├── services.json
+│   │   └── style.css
+│   ├── auth
+│   │   ├── Email-verification
+│   │   │   ├── email-change.jsx
+│   │   │   ├── index.jsx
+│   │   │   └── style.css
+│   │   ├── Forgot-password
+│   │   │   └── index.jsx
+│   │   ├── Login
+│   │   │   └── index.jsx
+│   │   └── Register
+│   │       ├── index.jsx
+│   │       └── style.css
+│   ├── blog
+│   │   └── allblogposts
+│   │       └── allBlogPosts.json
+│   ├── dashboard
+│   │   ├── AllProjects.jsx
+│   │   ├── NewProject.jsx
+│   │   ├── Settings.jsx
+│   │   ├── SingleProject.jsx
+│   │   ├── Welcome.jsx
+│   │   ├── components
+│   │   │   ├── AllProjects
+│   │   │   │   ├── AllProjectsHeader.jsx
+│   │   │   │   └── SVGThumbnail.tsx
+│   │   │   ├── NewProject
+│   │   │   │   ├── NewProjectAddress.jsx
+│   │   │   │   ├── NewProjectBudget.jsx
+│   │   │   │   ├── NewProjectDescription.jsx
+│   │   │   │   ├── NewProjectFinishLine.jsx
+│   │   │   │   ├── NewProjectHeader.jsx
+│   │   │   │   ├── NewProjectName.jsx
+│   │   │   │   ├── NewProjectThumbnail.jsx
+│   │   │   │   └── NewProjectUploadFiles.jsx
+│   │   │   ├── SingleProject
+│   │   │   │   ├── BudgetComponent.jsx
+│   │   │   │   ├── DescriptionComponent.jsx
+│   │   │   │   ├── DownloadsComponent.jsx
+│   │   │   │   ├── FinishLineComponent.jsx
+│   │   │   │   ├── FloorplansComponent.jsx
+│   │   │   │   ├── InvoicesComponent.jsx
+│   │   │   │   ├── LocationComponent.jsx
+│   │   │   │   ├── ProjectHeader.jsx
+│   │   │   │   ├── TeamMembersList.jsx
+│   │   │   │   ├── Timeline.jsx
+│   │   │   │   └── UploadsComponent.jsx
+│   │   │   └── Welcome
+│   │   │       └── WelcomeHeader.jsx
+│   │   ├── index.jsx
+│   │   ├── style.css
+│   │   └── team.json
+│   ├── home
+│   │   ├── ScrollImageSequence.css
+│   │   ├── ScrollImageSequence.js
+│   │   ├── imageConfig.js
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── portfolio
+│   │   └── portfolio.js
+│   ├── scroll
+│   │   ├── disciplines.json
+│   │   ├── index.jsx
+│   │   └── style.css
+│   ├── style.css
+│   └── works
+│       ├── allBlogPosts.json
+│       ├── allworkposts
+│       │   ├── 1-sens-c.json
+│       │   ├── 1-sens-c.jsx
+│       │   ├── A-Flower-Bath.json
+│       │   ├── A-Flower-Bath.jsx
+│       │   ├── Academy-of-Pop.jsx
+│       │   ├── Agenda-Festival.jsx
+│       │   ├── Barebells.jsx
+│       │   ├── Be-Sweet-16.jsx
+│       │   ├── Bloom-and-Bliss.jsx
+│       │   ├── Chevron.jsx
+│       │   ├── D-ROCK.json
+│       │   ├── D-ROCK.jsx
+│       │   ├── Frank-Zummo-Sum41.json
+│       │   ├── Frank-Zummo-Sum41.jsx
+│       │   ├── Ghost-Circus-Apparel.jsx
+│       │   ├── Goldru$h.jsx
+│       │   ├── Gucci-Aria.jsx
+│       │   ├── J22-INTERIORS.jsx
+│       │   ├── Jewelie-Stark.json
+│       │   ├── Jewelie-Stark.jsx
+│       │   ├── Keys-Art-Basel.jsx
+│       │   ├── Keys-Soulcare.jsx
+│       │   ├── Logitech.jsx
+│       │   ├── MZ-Stellar-Brass.jsx
+│       │   ├── Machine-Head.json
+│       │   ├── Machine-Head.jsx
+│       │   ├── Mistifi-Vape.jsx
+│       │   ├── NOCCO.jsx
+│       │   ├── Nike-Femme.jsx
+│       │   ├── Nike-femme.json
+│       │   ├── Now-United.jsx
+│       │   ├── Pipe-Dream-Events.jsx
+│       │   ├── Solo-J.json
+│       │   ├── Solo-J.jsx
+│       │   ├── TROIA.jsx
+│       │   ├── The-Oscars.jsx
+│       │   ├── The-Party-Never-Ends.jsx
+│       │   ├── The-gold-princess.jsx
+│       │   ├── Ulta.jsx
+│       │   ├── brand-by-people.json
+│       │   ├── brand-by-people.jsx
+│       │   ├── elf-Makeup-Hollywood-Bowl.jsx
+│       │   ├── elf-Makeup.jsx
+│       │   ├── elf-studio.jsx
+│       │   ├── gatane.json
+│       │   ├── gatane.jsx
+│       │   ├── km-tour.jsx
+│       │   ├── natasha-bedingfield.jsx
+│       │   ├── strikefit.jsx
+│       │   ├── style.css
+│       │   ├── the-gold-princess.json
+│       │   ├── yanis.json
+│       │   └── yanis.jsx
+│       ├── index.jsx
+│       ├── style.css
+│       ├── workpage
+│       │   └── WorkPost.js
+│       └── works.json
+├── project-tree.txt
+└── reportWebVitals.ts
+
+84 directories, 388 files
+

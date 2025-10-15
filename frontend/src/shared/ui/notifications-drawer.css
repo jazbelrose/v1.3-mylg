@@ -1,0 +1,266 @@
+.notifications-overlay {
+  position: fixed;
+  top: var(--header-height, 60px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 900;
+}
+
+.notifications-drawer {
+  position: fixed;
+  right: 0;
+  height: 100vh;
+  max-height: 100vh;
+  width: 360px;
+  max-width: 100%;
+  background: var(--bg-color);
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  z-index: 901;
+  box-sizing: border-box;
+  padding-bottom: 8px;
+  overflow-y: auto;
+}
+
+.notifications-drawer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  pointer-events: none;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.drawer-header {
+  position: sticky;
+  top: 0;
+  background: var(--bg-color);
+  z-index: 2;
+  padding-bottom: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.drawer-top-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+
+.drawer-mark-all-read-btn,
+.pin-button,
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.drawer-mark-all-read-btn:hover,
+.pin-button:hover,
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.close-btn {
+  font-size: 20px;
+}
+
+.drawer-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.drawer-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.drawer-tab:hover {
+  border-color: #666;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.drawer-tab.active {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.drawer-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #FA3356;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.drawer-search {
+  padding: 0 16px 12px;
+}
+
+.notifications-search-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: #fff;
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+/* Remove border styling from the embedded notifications component */
+.drawer-content .notifications {
+  border: none;
+  border-radius: 0;
+}
+
+.drawer-thread-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drawer-thread-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.drawer-thread-item:hover,
+.drawer-thread-item:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(-2px);
+}
+
+.drawer-thread-item:focus-visible {
+  outline: 2px solid #FA3356;
+  outline-offset: 2px;
+}
+
+.drawer-thread-item.read {
+  opacity: 0.85;
+}
+
+.drawer-thread-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.drawer-thread-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawer-thread-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.drawer-thread-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-thread-time {
+  font-size: 12px;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+.drawer-thread-snippet {
+  font-size: 13px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-thread-unread-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FA3356;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .notifications-drawer {
+    width: 100%;
+  }
+
+  .drawer-tab {
+    font-size: 13px;
+  }
+
+  .drawer-thread-item {
+    padding: 10px;
+  }
+
+  .drawer-thread-avatar {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+
+
+
+
+
+

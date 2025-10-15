@@ -1,0 +1,161 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 1000;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+}
+
+.modalContent {
+  background: #0c0c0c;
+  color: white;
+  border: 2px solid #ffffff;
+  border-radius: 16px;
+  padding: 22px;
+  width: 90%;
+  max-width: 450px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+.modalContentAfterOpen {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modalContentBeforeClose {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 1rem;
+  margin-bottom: 0.5rem;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.modalTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.modalList {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.revRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.revLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.revName {
+  font-family: inherit;
+}
+
+.clientBadge,
+.editingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+.clientBadge {
+  background-color: #FA3356;
+}
+
+.editingBadge {
+  background-color: #297AFF;
+}
+
+.activeRow {
+  border-left: none;
+  background-color: transparent;
+}
+.modalFooter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 16px;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.iconButton {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.deleteButton {
+  color: #FA3356;
+}
+
+.iconButton:hover {
+  transform: scale(1.03);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.revActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+
+
+
+
+

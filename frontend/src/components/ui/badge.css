@@ -1,0 +1,23 @@
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  line-height: 1.2;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.ui-badge--outline {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.ui-badge--success {
+  border-color: #22c55e;
+  color: #22c55e;
+}

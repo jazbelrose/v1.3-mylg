@@ -1,0 +1,39 @@
+/* Design Tokens - Spacing */
+:root {
+  /* 8pt Spacing Scale - Design Guide Compliant */
+  --space-0: 0;
+  --space-1: 8px;    /* Base unit: 8 */
+  --space-2: 16px;   /* 8 * 2 */
+  --space-3: 24px;   /* 8 * 3 */
+  --space-4: 32px;   /* 8 * 4 */
+  --space-5: 48px;   /* 8 * 6 */
+  --space-6: 64px;   /* 8 * 8 */
+  --space-7: 80px;   /* 8 * 10 */
+  --space-8: 96px;   /* 8 * 12 */
+  
+  /* Legacy values kept for gradual migration */
+  --space-legacy-5: 5px;
+  --space-legacy-10: 10px;
+  --space-legacy-15: 15px;
+  --space-legacy-20: 20px;
+  --space-legacy-25: 25px;
+  --space-legacy-30: 30px;
+  
+  /* Border Radius - 8pt Grid Aligned */
+  --radius-sm: 8px;   /* 8 * 1 */
+  --radius-md: 16px;  /* 8 * 2 */
+  --radius-lg: 24px;  /* 8 * 3 */
+  --radius-xl: 32px;  /* 8 * 4 */
+  --radius-2xl: 48px; /* 8 * 6 */
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.10);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+
+
+
+
+

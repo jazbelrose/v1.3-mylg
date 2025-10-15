@@ -1,0 +1,35 @@
+{
+  "Auth": {
+    "Cognito": {
+      "region": "us-west-2",
+      "userPoolId": "us-west-2_EmStQTtG1",
+      "userPoolClientId": "6f5f1vsm5bejjaffihc3e0n95k",
+      "identityPoolId": "us-west-2:b7fa7a25-19bd-43c0-9702-20eeb2b3121b",
+      "loginWith": { "email": true, "username": false, "phone": false }
+    }
+  },
+  "Storage": {
+    "S3": {
+      "region": "us-west-2",
+            "bucket": "mylg-files-v12"
+    }
+  },
+
+  "aws_project_region": "us-west-2",
+  "aws_cognito_region": "us-west-2",
+  "aws_user_pools_id": "us-west-2_EmStQTtG1",
+  "aws_user_pools_web_client_id": "6f5f1vsm5bejjaffihc3e0n95k",
+  "aws_cognito_identity_pool_id": "us-west-2:b7fa7a25-19bd-43c0-9702-20eeb2b3121b",
+  "aws_user_files_s3_bucket": "mylg-files-v12",
+  "aws_user_files_s3_bucket_region": "us-west-2",
+  "mandatorySignIn": false
+}
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,127 @@
+
+
+.not-found-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* Full viewport height */
+    width: 100vw;  /* Full viewport width */
+    text-align: center;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+  
+  /* Motion container max width */
+  .not-found-content {
+    max-width: 600px;
+    padding: 0 1rem; /* Add some horizontal padding for small screens */
+  }
+  
+  /* Big bold heading */
+  .not-found-heading {
+    line-height: 1;
+    font-size: 10rem;
+    font-weight: bold;
+    margin: 0;
+    color: white;
+  }
+  
+ /* Subheading with smaller size */
+.not-found-subheading {
+    padding: 25px; /* Horizontal padding only */
+    font-size: 2rem;
+    margin: 1rem auto 2rem auto; /* Centered with auto margins */
+    color: #555;
+    max-width: 400px; /* Restrict maximum width */
+    line-height: 1.5; /* Improve readability */
+    text-align: center; /* Center-align the text */
+  }
+  /* Styled button */
+  .not-found-button {
+    padding: 1rem 2rem;
+    font-size: 1.5rem;
+    border: 2px solid white;
+    border-radius: 40px;
+    cursor: pointer;
+    background-color: transparent;
+    color: #ffffff;
+    transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+  }
+  
+  /* Button hover effect */
+  .not-found-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+  }
+  
+  /* Link with no underline */
+  .not-found-link {
+    text-decoration: none;
+  }
+  
+/* Scramble button specific styles */
+.scramble-button {
+    padding: min(15px, 3vw) min(30px, 4vw);
+    font-size: min(1.5rem, 3vw);
+    color: white;
+    border-radius: min(40px, 5vw);
+    background-color: transparent;
+    border: 2px solid white;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+  
+  /* Button hover effect */
+  .scramble-button:hover {
+    transform: scale(1.05);
+  }
+  
+  /* Responsive Design for Smaller Screens */
+  @media (max-width: 768px) {
+    .not-found-heading {
+      font-size: 6rem; /* Reduce heading size on smaller screens */
+    }
+  
+    .not-found-subheading {
+      font-size: 1.5rem; /* Reduce subheading size */
+    }
+  
+    .not-found-button {
+      padding: 0.8rem 1.5rem;
+      font-size: 1.2rem;
+      border-radius: 30px;
+    }
+  
+    .scramble-button {
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border-radius: 30px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .not-found-heading {
+      font-size: 6rem; /* Further reduce heading size on very small screens */
+    }
+  
+    .not-found-subheading {
+      font-size: 1.2rem;
+      padding: 25px;
+    }
+  
+    .not-found-button,
+    .scramble-button {
+      padding: 0.6rem 1rem;
+      font-size: 1rem;
+      border-radius: 40px;
+    }
+  }
+  
+
+
+
+
+
+

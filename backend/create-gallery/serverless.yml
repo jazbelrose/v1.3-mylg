@@ -1,0 +1,89 @@
+service: create-gallery
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  app: mylg
+  ver: v12
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 300
+  stackName: ${self:custom.app}-${self:custom.ver}-${self:service}-${sls:stage}
+  tags:
+    App: MYLG
+    Version: v1.2
+    Domain: create-gallery
+    Stage: ${sls:stage}
+  environment:
+    ${self:custom.env}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchWriteItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CONNECTIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CONNECTIONS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource: arn:aws:execute-api:${aws:region}:${aws:accountId}:hhgvsv3ey7/${sls:stage}/POST/@connections/*
+
+functions:
+  createGalleryFunction:
+    name: ${self:custom.app}-${self:custom.ver}-create-gallery-${sls:stage}
+    handler: lambda_function.lambda_handler
+    runtime: python3.9
+    timeout: 300
+    memorySize: 512
+    package:
+      patterns:
+        - lambda_function.py
+        - requirements.txt
+        - '!template.yml'
+        - python/**
+    environment:
+      GALLERIES_TABLE: ${env:GALLERIES_TABLE}
+      CONNECTIONS_TABLE: ${env:CONNECTIONS_TABLE}
+      SOURCE_BUCKET: ${env:FILE_BUCKET}
+      WEBSOCKET_ENDPOINT: "https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/${sls:stage}"
+    events:
+      - s3:
+          bucket: ${env:FILE_BUCKET}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+            - suffix: .pdf
+          existing: true
+      - s3:
+          bucket: ${env:FILE_BUCKET}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+            - suffix: .svg
+          existing: true
+      - httpApi:
+          path: /projects/galleries/process
+          method: POST
+      - httpApi:
+          path: /projects/galleries/process
+          method: OPTIONS
+
+package:
+  individually: true

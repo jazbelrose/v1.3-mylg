@@ -1,0 +1,97 @@
+/* Rendering Layout Components for Marketing Pages */
+
+.rendering-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-height: 175px;
+}
+
+.rendering-header {
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  
+}
+
+.rendering-header h2 {
+  margin: 0;
+  line-height: 0.8;
+  font-size: min(8rem, 14vw);
+  white-space: nowrap;
+}
+
+.arrow-down.works-arrow {
+  color: white;
+  margin-left: auto;
+  padding: min(50px, 3vw) 20px 0;
+  font-size: min(10rem, 16vw);
+}
+
+.rendering-subheader {
+ 
+  color: #8D8787;
+}
+
+.rendering-subheader h3 {
+  font-weight: 900;
+  
+  font-size: min(4rem, 6vw);
+}
+
+.rendering-row {
+  margin: 10px 0;
+}
+
+.rendering-row-video {
+  padding: min(10px, .3vw);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rendering-row-img {
+  padding: min(5px, .25vw) 0;
+  display: flex;
+  margin: 0 auto;
+  align-items: stretch;
+  gap: min(7px, .3vw);
+}
+
+.rendering-row-svg {
+  margin: 3px 0;
+}
+
+.animation-container {
+  flex: 1;
+  object-fit: contain;
+  padding-right: 20px;
+}
+
+.right-content {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-left: 20px; 
+}
+
+.right-content .asvg {
+  min-height: 100px;
+  height: 100%; 
+  width: 100%; 
+  margin: 20px;
+}
+
+.rendering-ticker-section {
+  padding: 25px 0;
+}
+
+
+
+
+
+

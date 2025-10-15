@@ -1,0 +1,1293 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  color: rgba(255, 255, 255, 0.92);
+  background:
+    radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--brand, #fa3356) 12%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 70%),
+    var(--bg2, #111213);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-squircle, 20px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 44px;
+  width: 100%;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.headingGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  max-width: calc(100% - 140px);
+  overflow: hidden;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+  .header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .headingGroup {
+    max-width: calc(100% - 140px);
+  }
+
+  .actions {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 10px;
+    white-space: nowrap;
+  }
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+  /* iOS-specific optimizations */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* Ensure crisp rendering on high-DPI displays */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure SVG icons render crisply on all devices */
+.iconButton svg {
+  display: block !important;
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  /* Optimize SVG rendering for crisp display */
+  shape-rendering: geometricPrecision;
+  /* Ensure the icon is visible with maximum contrast */
+  color: inherit;
+  opacity: 1;
+}
+
+.iconButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.iconButton:not(:disabled):hover,
+.iconButton:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--color-focus, var(--brand, #fa3356));
+  outline-offset: 2px;
+}
+
+.primaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.primaryButton:not(:disabled):hover,
+.primaryButton:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.primaryButton:focus-visible {
+  outline: 2px solid var(--color-focus, var(--brand, #fa3356));
+  outline-offset: 2px;
+}
+
+.statRow {
+  display: flex;
+  gap: 9px;
+}
+
+.statCard {
+  --accent-rgb: 126, 196, 255;
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-tint: transparent;
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --card-linear: linear-gradient(135deg, rgba(32, 44, 56, 0.3), rgba(26, 32, 38, 0.18));
+  --card-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(var(--accent-rgb), 0.18), transparent 55%);
+  --card-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(var(--accent-rgb), 0.12), transparent 50%);
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  min-height: 60px;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  outline: 1px solid rgba(255, 255, 255, 0.06);
+  outline-offset: -1px;
+  overflow: hidden;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    backdrop-filter 180ms ease;
+}
+
+.statCard::before,
+.statCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.statCard::before {
+  background:
+    var(--glass-tint),
+    var(--card-radial-b),
+    var(--card-radial-a),
+    var(--card-linear);
+}
+
+.statCard::after {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 22%);
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+.statCard:hover,
+.statCard:focus-visible,
+.statCard:focus-within {
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 0 0 6px rgba(var(--accent-rgb), 0.1),
+    0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.statCard:active {
+  backdrop-filter: blur(10px);
+  transform: scale(0.995);
+}
+
+.statOk {
+  --accent-rgb: 28, 213, 172;
+  --card-linear: linear-gradient(135deg, rgba(26, 62, 52, 0.35), rgba(25, 81, 67, 0.2));
+  --card-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(28, 213, 172, 0.18), transparent 55%);
+  --card-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(123, 255, 220, 0.12), transparent 50%);
+}
+
+.statDanger {
+  --accent-rgb: 250, 51, 86;
+  --card-linear: linear-gradient(135deg, rgba(80, 23, 30, 0.38), rgba(60, 16, 22, 0.24));
+  --card-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(250, 51, 86, 0.2), transparent 55%);
+  --card-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(255, 140, 160, 0.12), transparent 50%);
+}
+
+.statWarn {
+  --accent-rgb: 255, 186, 64;
+  --card-linear: linear-gradient(135deg, rgba(85, 58, 18, 0.36), rgba(72, 45, 10, 0.22));
+  --card-radial-a: radial-gradient(120% 80% at 0% 0%, rgba(255, 186, 64, 0.2), transparent 55%);
+  --card-radial-b: radial-gradient(140% 100% at 100% 100%, rgba(255, 226, 170, 0.12), transparent 50%);
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 600;
+  color: #f4f7f9;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.statLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.78);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+}
+
+.status {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.35;
+}
+
+.status strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.desktopCard {
+  gap: 24px;
+  height: 100%;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.desktopActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondaryButton:not(:disabled):hover,
+.secondaryButton:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:focus-visible {
+  outline: 2px solid var(--color-focus, var(--brand, #fa3356));
+  outline-offset: 2px;
+}
+
+.desktopSummaryRow {
+  display: grid;
+  gap: 16px;
+}
+
+.statusCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.statusEyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.statusMessage {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.94);
+  line-height: 1.45;
+}
+
+.statusSupport {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+}
+
+.listSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.listMeta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.listSurface {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 16px 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.listSurface::-webkit-scrollbar {
+  width: 6px;
+}
+
+.listSurface::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+@media (min-width: 900px) {
+  .desktopSummaryRow {
+    grid-template-columns: minmax(0, 2.1fr) minmax(240px, 1fr);
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 720px) {
+  .desktopActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 16px 18px;
+    gap: 3px;
+  }
+
+  .header {
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .headingGroup {
+    gap: px;
+    max-width: calc(100vw - 140px);
+  }
+
+  .title {
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .primaryButton {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .statRow {
+    gap: 7px;
+  }
+
+  .statCard {
+    padding: 9px 10px;
+    border-radius: 15px;
+  }
+
+  /* Mobile-specific scroll area improvements */
+  .sheetScrollArea {
+    padding: 0 1.25rem calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .taskList .taskItem:last-child {
+    margin-bottom: 1.5rem;
+  }
+
+  .sheetSection:last-child {
+    margin-bottom: 2rem;
+  }
+}
+
+.empty,
+.error,
+.loading {
+  padding: 1rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.72));
+  background: rgba(12, 13, 16, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.error {
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.45);
+  border-color: rgba(248, 113, 113, 0.32);
+}
+
+.loading {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.6));
+}
+
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: #050607;
+  color: var(--text-primary, #f6f7fb);
+}
+
+.mapLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mapCanvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  z-index: 1;
+  touch-action: manipulation;
+}
+
+/* Prevent the map from being draggable by the motion sheet */
+.mapCanvas *,
+.mapCanvas .leaflet-container,
+.mapCanvas .leaflet-container * {
+  touch-action: manipulation !important;
+}
+
+/* Ensure map controls are properly accessible */
+.mapCanvas .leaflet-control {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.mapGradient {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: min(45vh, 320px);
+  background: linear-gradient(180deg, rgba(5, 6, 7, 0) 0%, rgba(5, 6, 7, 0.92) 70%, rgba(5, 6, 7, 0.98) 100%);
+  pointer-events: none;
+}
+
+.mapEmptyBanner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 1rem 1.4rem;
+  border-radius: 18px;
+  background: rgba(9, 10, 12, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+  max-width: min(320px, 90vw);
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.76));
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.mapActiveCard {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: auto;
+  max-width: min(320px, 85vw);
+  width: min(320px, 85vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.95rem 1.1rem;
+  border-radius: 18px;
+  background: rgba(7, 8, 10, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+  z-index: 10002;
+}
+
+.mapActiveTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+}
+
+.mapActiveMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.74));
+}
+
+.desktopDrawerHeader {
+  display: none;
+}
+
+.desktopDrawerSummary {
+  display: none;
+}
+
+.desktopDrawerScrollArea {
+  padding: 0 1.5rem calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.sheetDismiss,
+.sheetCreate {
+  position: absolute;
+  right: 8px;
+  z-index: 10003;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(7, 8, 10, 0.72);
+  color: var(--text-primary, #f6f7fb);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.sheetDismiss {
+  top: 16px;
+}
+
+.sheetCreate {
+  top: 72px;
+}
+
+.sheetDismiss svg,
+.sheetCreate svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sheetDismiss:hover,
+.sheetDismiss:focus-visible,
+.sheetCreate:hover,
+.sheetCreate:focus-visible {
+  background: rgba(7, 8, 10, 0.92);
+  transform: translateY(-1px);
+}
+
+.sheetDismiss:focus-visible,
+.sheetCreate:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
+}
+
+.sheetCreate:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.sheet {
+  --sheet-top-gap: calc(env(safe-area-inset-top, 0px) + 12px);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  width: min(720px, 100%);
+  /* Keep a visible gap so the rounded top stays clear of status widgets */
+  max-height: calc(100vh - var(--sheet-top-gap, 0px));
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(7, 8, 10, 0.98), rgba(4, 5, 7, 0.98));
+  border-radius: 16px 16px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 -22px 48px rgba(0, 0, 0, 0.55);
+  z-index: 10004;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.sheetDragArea {
+  /* Expanded drag zone that includes handle and header */
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Increase tap target size for better iPhone usability */
+  min-height: 64px;
+  padding-bottom: 8px;
+  /* Prevent scrolling interference on drag */
+  overscroll-behavior: none;
+}
+
+.sheetDragArea:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
+  border-radius: 28px 28px 0 0;
+}
+
+.sheetHandle {
+  align-self: center;
+  margin: 8px 0 2px;
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  /* Remove individual handle interaction since parent handles it */
+  pointer-events: none;
+}
+
+.sheetHandleBar {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  /* Subtle animation for visual feedback */
+  transition: background-color 0.2s ease, width 0.2s ease;
+}
+
+/* Visual feedback when drag area is active */
+.sheetDragArea:active .sheetHandleBar {
+  background: rgba(255, 255, 255, 0.4);
+  width: 44px;
+}
+
+/* Mobile-specific optimizations for better iPhone experience */
+@media (max-width: 768px) and (pointer: coarse) {
+  .sheetDragArea {
+    /* Increase minimum touch target for iPhone */
+    min-height: 72px;
+    padding-bottom: 12px;
+  }
+  
+  .sheetHandleBar {
+    /* Make handle slightly more prominent on mobile */
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.28);
+  }
+  
+  .sheetDragArea:active .sheetHandleBar {
+    width: 48px;
+    background: rgba(255, 255, 255, 0.45);
+  }
+  
+  .sheetTitle {
+    /* Slightly larger title on mobile for better readability */
+    font-size: 1.1rem;
+  }
+}
+
+.sheetHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0px 2rem 1.25rem;
+  /* Remove pointer events since parent drag area handles interaction */
+  pointer-events: none;
+}
+
+.sheetTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  /* Prevent text selection when dragging */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sheetTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.sheetSubtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.72));
+}
+
+.sheetSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1rem 1.75rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 18px;
+}
+
+.sheetScrollArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  padding: 0 1.5rem calc(3.5rem + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Ensure smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+.sheetSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  border-radius: 20px;
+  background: rgba(10, 11, 14, 0.88);
+  padding: 1.1rem 0 1.5rem;
+}
+
+/* Provide spacing fallback for browsers that ignore flex gap */
+@supports not (gap: 0.9rem) {
+  .sheetSection > * + * {
+    margin-top: 0.9rem;
+  }
+}
+
+.sheetSection:last-child {
+  margin-bottom: 1.5rem;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary, #f6f7fb);
+}
+
+.taskList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  /* Prevent touch events from interfering with drawer dragging */
+  touch-action: pan-y;
+  overflow-y: visible;
+}
+
+/* Ensure last task has enough bottom space */
+.taskList .taskItem:last-child {
+  margin-bottom: 1rem;
+}
+
+.taskItem {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 11, 14, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  position: relative;
+}
+
+.taskItemActive {
+  border-color: var(--brand, #fa3356);
+  box-shadow:
+    0 18px 42px rgba(250, 51, 86, 0.32),
+    inset 0 0 0 1px rgba(250, 51, 86, 0.38);
+  transform: translateY(-2px);
+}
+
+.taskButton {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 1rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.taskActions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.95rem 0.95rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.taskActions::-webkit-scrollbar {
+  display: none;
+}
+
+.taskActions > * {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.taskActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+}
+
+.taskActionButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.taskMapButton {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.taskMarkDoneButton {
+  --accent: var(--brand, #fa3356);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 75%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 40%, transparent) 100%) !important;
+  border-color: color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.28) 70%) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  box-shadow:
+    0 12px 26px rgba(250, 51, 86, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.taskEditButton {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.editButton:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
+}
+
+.taskButton:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
+}
+
+.taskTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.taskTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+}
+
+.taskMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.72));
+}
+
+.metaLineMuted {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.6));
+}
+
+.metaLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.metaLineAddress {
+  align-items: flex-start;
+}
+
+.addressDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.addressText {
+  color: inherit;
+  word-break: break-word;
+}
+
+.addressActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  color: rgba(246, 247, 251, 0.8);
+}
+
+.addressLink {
+  color: var(--brand, #fa3356);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.addressLink:hover,
+.addressLink:focus-visible {
+  text-decoration: underline;
+}
+
+.addressLink:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
+}
+
+.addressLinkSeparator {
+  color: rgba(246, 247, 251, 0.55);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(246, 247, 251, 0.95);
+}
+
+.statusBadgeSuccess {
+  background: color-mix(in srgb, var(--color-success, #4caf50) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-success, #4caf50) 46%, transparent);
+  color: color-mix(in srgb, #ffffff 88%, var(--color-success, #4caf50) 12%);
+}
+
+.statusBadgeDanger {
+  background: color-mix(in srgb, var(--color-error, #ef5350) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-error, #ef5350) 48%, transparent);
+  color: color-mix(in srgb, #ffffff 90%, var(--color-error, #ef5350) 10%);
+}
+
+.statusBadgeWarning {
+  background: color-mix(in srgb, var(--color-warning, #ff9800) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning, #ff9800) 46%, transparent);
+  color: color-mix(in srgb, #1f1200 22%, #ffffff 78%);
+}
+
+.statusBadgeNeutral {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(246, 247, 251, 0.9);
+}
+
+.modalStatusLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.modalStatusLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.6));
+}
+
+/* Ensure Leaflet controls don't interfere with sheet interactions */
+.sheetOverlay :global(.leaflet-control-container) {
+  pointer-events: none;
+  z-index: 1 !important;
+}
+
+.sheetOverlay :global(.leaflet-control) {
+  pointer-events: none;
+  z-index: 1 !important;
+}
+
+.sheetOverlay :global(.leaflet-zoom-box) {
+  z-index: 1 !important;
+}
+
+.sheetOverlay :global(.leaflet-marker-pane) {
+  z-index: 2 !important;
+}
+
+.sheetOverlay :global(.leaflet-tile-pane) {
+  z-index: 0 !important;
+}
+
+/* Ensure map canvas allows interaction when drawer is open but prevent interference */
+.mapCanvas :global(.leaflet-container) {
+  z-index: inherit;
+}
+
+/* iPhone-specific optimizations for better icon visibility */
+@media screen and (max-width: 430px) and (-webkit-min-device-pixel-ratio: 2) {
+  .iconButton {
+    width: 34px;
+    height: 34px;
+    /* Enhanced contrast for retina displays */
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+  }
+  
+  .iconButton:not(:disabled):hover,
+  .iconButton:not(:disabled):focus-visible {
+    background: rgba(255, 255, 255, 0.28);
+  }
+}
+
+/* Specific adjustments for very small iPhone screens */
+@media screen and (max-width: 375px) {
+  .actions {
+    gap: 8px;
+  }
+  
+  .iconButton {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+.mapCanvas :global(.leaflet-map-pane) {
+  z-index: inherit;
+}
+
+@media (min-width: 1024px) {
+  .desktopOverlay {
+    --drawer-width: clamp(380px, 34vw, 480px);
+    background: #050607;
+  }
+
+  .desktopSheet {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: var(--drawer-width);
+    height: 100vh;
+    margin: 0;
+    max-height: none;
+    border-radius: 0 24px 24px 0;
+    border-left: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 32px 0 64px rgba(0, 0, 0, 0.52);
+  }
+
+  .desktopDrawerHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.5rem 1.75rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .desktopDrawerActions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .desktopDrawerButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .desktopDrawerButton svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .desktopDrawerButton:focus-visible {
+    outline: 2px solid var(--brand, #fa3356);
+    outline-offset: 2px;
+  }
+
+  .desktopDrawerButton:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .desktopDrawerButton:not(:disabled):hover,
+  .desktopDrawerButton:not(:disabled):focus-visible {
+    transform: translateY(-1px);
+  }
+
+  .desktopDrawerGhostButton {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .desktopDrawerGhostButton:not(:disabled):hover,
+  .desktopDrawerGhostButton:not(:disabled):focus-visible {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .desktopDrawerPrimaryButton {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.26);
+  }
+
+  .desktopDrawerPrimaryButton:not(:disabled):hover,
+  .desktopDrawerPrimaryButton:not(:disabled):focus-visible {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .desktopDrawerSummary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.35rem 1.75rem 1.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 0;
+  }
+
+  .desktopDrawerMapStatus {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(246, 247, 251, 0.72);
+  }
+
+  .desktopDrawerScrollArea {
+    padding: 1.75rem 1.75rem 2.75rem;
+  }
+
+  .desktopOverlay .sheetSection {
+    background: rgba(12, 13, 16, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1.2rem 1.25rem 1.4rem;
+  }
+
+  .desktopOverlay .mapGradient {
+    top: 0;
+    bottom: 0;
+    left: var(--drawer-width);
+    right: auto;
+    height: 100%;
+    width: min(420px, calc(100vw - var(--drawer-width)));
+    background: linear-gradient(90deg, rgba(5, 6, 7, 0.96) 0%, rgba(5, 6, 7, 0.55) 45%, rgba(5, 6, 7, 0) 100%);
+  }
+
+  .desktopOverlay .mapActiveCard {
+    top: 24px;
+    left: calc(var(--drawer-width) + 24px);
+    right: auto;
+    width: min(360px, calc(100vw - var(--drawer-width) - 48px));
+    max-width: min(360px, calc(100vw - var(--drawer-width) - 48px));
+  }
+
+  .desktopOverlay .mapEmptyBanner {
+    left: calc(var(--drawer-width) + (100vw - var(--drawer-width)) / 2);
+    max-width: min(420px, calc(100vw - var(--drawer-width) - 64px));
+  }
+
+  .desktopOverlay .sheetDismiss,
+  .desktopOverlay .sheetCreate {
+    display: none;
+  }
+}

@@ -1,0 +1,219 @@
+/* Project Header Styles */
+
+.project-header .header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.project-header .left-side,
+.project-header .right-side {
+  display: flex;
+  align-items: center;
+}
+
+.project-header .project-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 16px;
+}
+
+.project-header .project-text-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.project-header .left-side svg {
+  width: 20px;
+  height: auto;
+  flex-shrink: 0;
+  margin: 0 5px;
+}
+
+/* Reduce cogwheel icon width to match right-side icons */
+.project-header .left-side .settings-icon {
+  width: 20px;
+  height: auto;
+}
+
+#InitialSVG {
+  width: 60px;
+  height: 60px;
+}
+
+#StatusSVG {
+  width: 75px;
+}
+
+.project-header .right-side svg {
+  width: 20px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.single-project-title {
+  display: flex;
+  align-items: center;
+}
+
+.project-header .project-text-group .single-project-title {
+  align-items: flex-start;
+}
+
+.single-project-title h2 {
+  margin: 0;
+}
+
+.project-date-range {
+  margin-left: 10px;
+  font-size: 1rem;
+  color: #ccc;
+}
+
+.finish-line-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 10px;
+}
+
+.project-header .finish-line-header {
+  align-items: flex-start;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.finish-line-header span {
+  font-size: 1.1rem;
+  color: #FA3356;
+}
+
+.project-header h2 {
+  line-height: 0.8;
+  font-size: min(4rem, 5vw);
+}
+
+.project-header svg {
+  width: 100px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+/* Back/thumbnail icon base sizes */
+.back-icon {
+  width: 30px !important;
+  height: 30px !important;
+  margin-right: 15px;
+  cursor: pointer;
+}
+
+/* Status + Initial SVG text and shapes */
+.project-status {
+  font-size: 100px;
+  fill: #fff;
+  font-family: HelveticaNowDisplay-Regular, 'Helvetica Special', Helvetica, Arial, sans-serif;
+}
+
+.initial-ellipse {
+  fill: #fff;
+}
+
+.initial {
+  font-size: 200px;
+}
+
+/* Override icon sizes for specific header elements */
+.project-header .project-dot {
+  width: 10px;
+  height: 10px;
+}
+
+.project-header .collapse-toggle {
+  width: 12px;
+  height: 12px;
+}
+
+.project-header .interactive {
+  outline: none;
+  transition: color 0.2s;
+}
+
+.project-header .interactive:hover,
+.project-header .interactive:focus-visible {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .back-icon {
+    width: 20px !important;
+    height: 20px !important;
+    margin-right: 10px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .project-header .header-content {
+    padding: 10px 2.5px;
+    font-size: 0.5rem;
+  }
+
+  .project-header .left-side svg {
+    width: 25px;
+  }
+
+  #StatusSVG {
+    width: 50px;
+  }
+
+  .back-icon,
+  .thumbnail-icon {
+    width: 20px !important;
+    height: 20px !important;
+    margin-right: 5px;
+  }
+
+  .project-header {
+    margin-bottom: 10px;
+  }
+
+  .project-header .left-side svg {
+    width: 40px;
+    height: auto;
+  }
+
+  #StatusSVG {
+    width: 50px;
+  }
+
+  .project-header .right-side svg {
+    width: 15px;
+  }
+
+  .project-header .single-project-title {
+    display: flex;
+    align-items: center;
+  }
+
+  .project-header .single-project-title h2 {
+    font-size: 1.5rem;
+    margin: 0 10px 2px 0;
+  }
+}
+
+
+
+
+
+
+

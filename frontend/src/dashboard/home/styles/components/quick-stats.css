@@ -1,0 +1,218 @@
+/* Quick Stats: containers, items, progress bars, and mobile tweaks */
+
+.quick-stats-container-row {
+  background-color: #0c0c0c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 5px;
+}
+
+.quick-stats-container-column {
+  background-color: #0c0c0c;
+  color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.left-sidebar-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+}
+
+.row-items {
+  display: flex;
+  flex-direction: column; /* default: stack vertically */
+  gap: 5px;
+}
+
+.stats-grid {
+  display: flex;
+  flex-direction: row; /* ensure horizontal stacking */
+  width: 100%;
+  gap: 5px;
+}
+
+.stat-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 20px;
+  border: 2px solid white;
+  border-radius: min(20px, 4vw);
+  transition: background 0.25s ease-in-out,
+    transform 0.25s ease-in-out,
+    box-shadow 0.25s ease-in-out;
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.15);
+}
+
+.stat-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.stat-icon {
+  color: #FA3356;
+  width: 20px;
+  height: 20px;
+}
+
+.stats-count,
+.stats-title {
+  font-size: 16px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background-color: #d3d3d3;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-completed {
+  height: 100%;
+  background-color: #00c853;
+  transition: width 0.3s ease-in-out;
+}
+
+.progress-text {
+  font-size: 14px;
+  color: #888888;
+  text-align: center;
+  margin: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Inbox preview (DMs) inside quick stats card */
+.message-stat .unread-dm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  max-height: 40vh;
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.message-stat .unread-dm-list::-webkit-scrollbar { display: none; }
+
+.unread-dm-item {
+  display: flex;
+  align-items: center;
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  scroll-snap-align: start;
+  position: relative;
+}
+.unread-dm-item:hover {
+  background-color: #333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.dm-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+.dm-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dm-name { font-size: 13px; font-weight: 600; color: #fff; }
+.dm-text {
+  font-size: 12px;
+  color: #bbb;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.read-indicator.read { margin-left: auto; opacity: 0.6; }
+.read-indicator.unread {
+  width: 8px; height: 8px; border-radius: 50%;
+  background-color: var(--text-color-3);
+  margin-left: auto;
+}
+.read-indicator.read svg { color: #888; width: 12px; height: 12px; }
+
+/* Small header stats row for phones */
+.mobile-single-stat {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+.single-stat-icon { color: #FA3356; width: 14px; height: 14px; }
+.single-stat-divider { margin: 0 4px; }
+.single-stat-text { font-size: 12px; }
+
+/* Notification badge inside quick stats */
+.notification-icon-wrapper { position: relative; display: inline-block; }
+.notification-badge {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px black;
+  background: #FA3356;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .row-items { height: 80%; }
+  .row-items .stat-item { flex: 1; min-height: 0; }
+}
+
+@media (max-width: 768px) {
+  .progress-text { font-size: 12px; }
+  .row-items { flex-direction: row; }
+  .row-items .stat-item { flex: 1; min-width: 0; }
+  .left-stat-small { flex: 0 0 auto !important; height: 80px; overflow: hidden; }
+  .quick-stats-container-row { width: 100%; }
+  .stats-count,
+  .stats-title { font-size: 14px; }
+}
+
+
+
+
+
+
+
+

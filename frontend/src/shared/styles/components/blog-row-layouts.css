@@ -1,0 +1,123 @@
+/* Blog Row Layout Components */
+
+/* General blog row layout */
+.blog-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+/* Layout for rows containing two BlogCard components side by side */
+.blog-section .double-card-row {
+  display: flex !important;
+  width: 100%;
+  align-items: stretch;
+  /* Responsive inter-card spacing */
+  --row-gap: clamp(6px, 1vw, 14px);
+  gap: var(--row-gap);
+  /* Keep cards side-by-side */
+  flex-wrap: nowrap;
+}
+
+.blog-section .double-card-row .blog-card {
+  /* Share row equally and account for the gap to prevent overflow */
+  flex: 1 1 calc(50% - var(--row-gap) / 2) !important;
+  max-width: calc(50% - var(--row-gap) / 2) !important;
+  min-width: 0; /* Prevent flex items from overflowing */
+  display: flex;
+  flex-direction: column;
+  width: auto !important; /* Override any fixed width */
+  margin: 0; /* Use gap for spacing */
+}
+
+/* Override row2 width specifically in double card context */
+.blog-section .double-card-row .blog-card.row2 {
+  width: auto !important; /* Override the width: 100% from .row2 */
+}
+
+/* Row 1 specific styles */
+.works-row1-card .row1-image {
+  width: 100%;
+  max-height: 90vh;
+  object-fit: cover;
+  object-position: center;
+}
+
+.row1 {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.row1-image {
+  flex: 0.6;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  object-fit: contain;
+  max-height: 600px;
+  overflow: hidden;
+}
+
+.row1 .card-image {
+  width: 100%;
+  display: block;
+  height: auto;
+}
+
+.row1-content {
+  flex: 0.4;
+  display: flex;
+  flex-direction: row;
+}
+
+.row1-content .column1,
+.row1-content .column2 {
+  padding: 10px;
+  flex: 1;
+}
+
+.row1-content .column1 {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.row1-content .column2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: self-end;
+}
+
+.row1 .blog-tag {
+  padding-bottom: min(10px, 1vw);
+  font-size: min(1.25rem, 2.5vw);
+  font-weight: bold;
+  color: #FA3356;
+}
+
+/* Row layout with scramble button */
+.blog-card .scramble-button {
+  padding: min(22px, 3vw) min(40px, 4vw);
+  font-size: min(2rem, 3vw);
+  color: white;
+  border-radius: min(50px, 5vw);
+  background-color: transparent;
+  border: 2px solid white;
+  white-space: nowrap;
+}
+
+/* Media query for mobile devices */
+@media (max-width: 768px) {
+  .blog-section .double-card-row {
+    --row-gap: clamp(4px, 0.75vw, 10px);
+  }
+}
+
+
+
+
+
+
+

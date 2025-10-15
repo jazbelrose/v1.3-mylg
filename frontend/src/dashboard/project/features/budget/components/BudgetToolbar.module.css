@@ -1,0 +1,745 @@
+.toolbar {
+  --toolbar-bg-start: rgba(16, 16, 16, 0.96);
+  --toolbar-bg-end: rgba(12, 12, 12, 0.88);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 12px;;
+  border-radius: 20px;
+  background: linear-gradient(160deg, var(--toolbar-bg-start), var(--toolbar-bg-end));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+ 
+  color: rgba(255, 255, 255, 0.92);
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
+
+.groupControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+
+.groupControlsInner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.groupTabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.groupTabButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: clamp(0.78rem, 0.22vw + 0.74rem, 0.88rem);
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  box-shadow: 0 4px 12px rgba(5, 10, 28, 0.2);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.groupTabButton:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.26);
+  color: rgba(255, 255, 255, 0.92);
+  transform: translateY(-1px);
+}
+
+.groupTabButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.activeGroupTab {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: transparent;
+  color: #111213;
+  box-shadow: 0 8px 20px rgba(5, 10, 28, 0.32);
+}
+
+.activeGroupTab:hover {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: transparent;
+  color: #111213;
+  transform: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.rightControls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.selectionCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.selectModePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.selectModePillActive {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.selectModeToggle {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.selectModeToggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.selectModeToggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.selectModeToggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.selectModeExpanded {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.selectModeAction {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selectModeAction:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.selectModeAction:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.selectModeAction:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.selectionActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 80px;
+}
+
+.iconSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.iconActionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.iconActionButton:hover,
+.iconActionButton:focus-visible {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.iconActionButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.iconActionButton:active {
+  transform: translateY(0);
+}
+
+.iconActionButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  transform: none;
+}
+
+.mobileActionsContainer {
+  display: contents;
+}
+
+.mobilePaginationWrap {
+  display: contents;
+}
+
+.mobileGroupControls {
+  display: none;
+}
+
+.mobileFilterWrap {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  min-width: 120px;
+  max-width: clamp(160px, 24vw, 240px);
+  flex: 0 0 auto;
+}
+
+.filterControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+
+.toolbarPagination {
+  margin: 0 !important;
+  padding: 4px 0;
+  align-self: center;
+}
+
+.toolbarPagination :global(.ant-pagination) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 14px;
+  background: rgba(17, 17, 19, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f6f7f9;
+  box-shadow: 0 6px 18px rgba(5, 10, 28, 0.26);
+}
+
+.desktopPagination {
+  display: inline-flex;
+}
+
+.mobilePagination {
+  display: none;
+}
+
+.toolbarPagination :global(.ant-pagination-prev),
+.toolbarPagination :global(.ant-pagination-next) {
+  color: #f6f7f9 !important;
+}
+
+.toolbarPagination :global(.ant-select-selector) {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  color: #f6f7f9 !important;
+}
+
+.toolbarPagination :global(.ant-select-arrow) {
+  color: #ffffff !important;
+}
+
+.toolbarPagination :global(.ant-pagination-item a) {
+  color: #f6f7f9 !important;
+}
+
+.toolbarPagination :global(.ant-pagination-item) {
+  min-width: 26px;
+  height: 26px;
+  line-height: 24px;
+  border-radius: 12px;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.toolbarPagination :global(.ant-pagination-item a),
+.toolbarPagination :global(.ant-pagination-item-ellipsis) {
+  font-size: 0.75rem;
+}
+
+.toolbarPagination :global(.ant-pagination-item-active) {
+  border-color: #fa3356 !important;
+  background: rgba(250, 51, 86, 0.16) !important;
+}
+
+.toolbarPagination :global(.ant-pagination-item-active a) {
+  color: #ffffff !important;
+}
+
+.mobileFilterRoot {
+  position: relative;
+  width: min(360px, 92vw);
+}
+
+.mobileFilterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  background-color: transparent;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.mobileFilterButtonText {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.mobileFilterSummary {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+}
+
+.mobileFilterActive {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mobileFilterPopover {
+  width: min(360px, 92vw);
+  margin-top: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  background: #111;
+  backdrop-filter: blur(8px);
+}
+
+.mobileFilterDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 10px -8px 12px;
+}
+
+.mobileFilterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobileFilterLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0 4px;
+}
+
+.mobileFilterGroup {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.mobileFilterGroup::-webkit-scrollbar {
+  display: none;
+}
+
+.mobileFilterGroupButton {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease,
+    transform 0.1s ease;
+  flex: 0 0 auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.mobileFilterGroupButton:hover,
+.mobileFilterGroupButton:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.mobileFilterGroupButton:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.2) !important;
+  transition: background-color 0.05s ease, transform 0.05s ease;
+}
+
+.mobileFilterGroupButtonActive {
+  background: #ffffff !important;
+  color: #111213 !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 20px rgba(5, 10, 28, 0.28);
+  transition: background-color 0.05s ease, color 0.05s ease, border-color 0.05s ease;
+}
+
+.mobileFilterGroupButtonActive:hover,
+.mobileFilterGroupButtonActive:focus-visible {
+  background: #ffffff !important;
+  color: #111213 !important;
+  border-color: transparent !important;
+}
+
+
+.mobileFilterButton:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.mobileFilterButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 0 4px rgba(0, 0, 0, 0.45);
+}
+
+.mobileFilterButton:active {
+  transform: scale(0.98);
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 10px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  box-shadow: 0 12px 28px rgba(5, 10, 28, 0.32);
+}
+
+.addButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.addButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 0 4px rgba(0, 0, 0, 0.45);
+}
+
+.addIcon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.addLabel {
+  white-space: nowrap;
+}
+
+.selectLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.addButton:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .addButton {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .addButton:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 1080px) {
+  .toolbar {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .mobileFilterWrap {
+    min-width: 150px;
+    max-width: 250px;
+  }
+}
+
+@media (max-width: 900px) {
+  .groupControls {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    padding: 10px 12px;
+    gap: 8px;
+    flex-direction: row; /* Keep horizontal layout */
+    align-items: center;
+    flex-wrap: nowrap; /* Prevent wrapping */
+    overflow: visible; /* Allow filter popover to escape the toolbar */
+  }
+
+  .filterControls {
+    flex: 1 1 auto;
+    width: auto;
+    flex-direction: row; /* Keep horizontal */
+    align-items: center;
+    gap: 6px;
+    min-width: 0; /* Allow shrinking */
+  }
+
+  .mobileFilterWrap {
+    flex: 0 0 140px; /* Fixed width for filter */
+    min-width: 140px;
+    max-width: 140px;
+    width: 140px;
+  }
+
+  .mobileFilterRoot {
+    width: 100%;
+  }
+
+  .mobileFilterButton {
+    width: 100%;
+    height: 32px; /* Fixed height */
+    padding: 4px 8px;
+    font-size: 0.75rem; /* Smaller font */
+  }
+
+  .mobileFilterButtonText {
+    display: inline-flex;
+    flex-direction: row; /* Horizontal text layout */
+    gap: 4px;
+    align-items: center;
+  }
+
+  .mobileFilterSummary {
+    display: none; /* Hide summary text to save space */
+  }
+
+  .desktopPagination {
+    display: none !important;
+  }
+
+  .mobilePagination {
+    display: flex;
+  }
+
+  .mobilePaginationWrap {
+    display: flex;
+    flex: 0 0 auto;
+    width: auto;
+    justify-content: center;
+  }
+
+  .mobilePaginationWrap :global(.ant-pagination) {
+    width: auto;
+    justify-content: center;
+    padding: 2px 6px;
+  }
+
+  .mobilePaginationWrap :global(.ant-pagination-simple-pager) {
+    background: transparent;
+    color: #f6f7f9;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+  }
+
+  .mobilePaginationWrap :global(.ant-pagination-prev),
+  .mobilePaginationWrap :global(.ant-pagination-next) {
+    color: #ffffff;
+  }
+
+  .mobilePaginationWrap :global(.ant-pagination-prev .ant-pagination-item-link),
+  .mobilePaginationWrap :global(.ant-pagination-next .ant-pagination-item-link) {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+  }
+
+  .mobilePaginationWrap :global(.ant-pagination-simple .ant-pagination-slash),
+  .mobilePaginationWrap :global(.ant-pagination-simple-pager span) {
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .mobilePaginationWrap :global(.ant-pagination-simple-pager input) {
+    width: 36px;
+    height: 24px;
+    padding: 0 4px;
+    background: transparent !important;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .rightControls {
+    margin-left: 0;
+    flex: 0 0 auto;
+    width: auto;
+    flex-direction: row; /* Keep horizontal */
+    align-items: center;
+    gap: 6px;
+  }
+
+  .selectModePill {
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 4px;
+    justify-content: center;
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 60px; /* Fixed minimum width */
+  }
+
+  .selectModeToggle {
+    padding: 0;
+    width: auto;
+    height: auto;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem; /* Smaller font */
+  }
+
+  .selectLabel {
+    display: inline-flex;
+  }
+
+  .selectModeExpanded {
+    gap: 4px;
+    flex-wrap: nowrap; /* Prevent wrapping */
+    justify-content: flex-end;
+  }
+
+  .selectionActions {
+    min-width: 60px;
+  }
+
+  .iconSlot,
+  .iconActionButton {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+
+  .addButton {
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    justify-content: center;
+    align-self: center;
+  }
+
+  .addLabel {
+    display: none;
+  }
+}

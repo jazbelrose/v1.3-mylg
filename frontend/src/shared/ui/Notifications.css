@@ -1,0 +1,238 @@
+.notifications-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+}
+.notifications-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #222;
+  letter-spacing: 0.05rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  box-sizing: border-box; /* ensure padding doesn't exceed width */
+}
+
+.notification-item:hover,
+.notification-item:focus-within {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.notification-item.read {
+  opacity: 0.7;
+  font-weight: normal;
+}
+
+.notification-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.notification-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.notification-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+.notification-meta {
+  display: flex;
+  align-items: center;
+}
+.notification-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.notification-time {
+  font-size: 10px;
+  color: #FA3356;
+}
+
+.notification-message {
+  font-size: 12px;
+  color: #ccc;
+  margin-top: 2px;
+}
+
+.no-notifications {
+  font-size: 14px;
+  color: #aaa;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 90%;
+  padding-top: 10px;
+}
+
+.mark-all-read-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 2px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.select-mode-btn,
+.cancel-select-btn,
+.delete-selected-btn,
+.select-all-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.delete-selected-btn {
+  color: #FA3356;
+}
+.notification-select-checkbox {
+  margin-right: 4px;
+  width: 14px;
+  height: 14px;
+  align-self: center;
+}
+
+.notification-delete-btn {
+  background: none;
+  border: none;
+  color: #FA3356;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+.notification-mark-read-btn {
+  background: none;
+  border: none;
+  color: #4caf50;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 6px;
+}
+.notification-highlight {
+  animation: notification-flash 0.8s ease-out;
+  background-color: rgba(250, 51, 86, 0.15);
+}
+
+@keyframes notification-flash {
+  from {
+    box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.8);
+  }
+  to {
+    box-shadow: 0 0 0 0 rgba(250, 51, 86, 0);
+  }
+}
+
+.notifications-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notifications-filter-label {
+  font-size: 14px;
+  color: #fff;
+}
+
+.project-select {
+  min-width: 200px;
+}
+
+.project-select .ant-select-selector {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  border: 1px solid #333 !important;
+  font-size: 16px;
+}
+
+.project-select .ant-select-selection-item {
+  font-size: 16px;
+  color: #fff;
+  background-color: #222;
+}
+
+.project-select .ant-select-selection-placeholder {
+  color: #fff !important;
+}
+
+.project-select .ant-select-arrow {
+  color: #fff !important;
+}
+
+.project-select-dropdown {
+  background-color: #000;
+}
+
+.project-select-dropdown .ant-select-item-option {
+  color: #fff;
+}
+
+.project-select-dropdown .ant-select-item-option-active {
+  background-color: #333;
+}
+
+@media (max-width: 600px) {
+  .notifications-filter {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .project-select {
+    width: 100%;
+  }
+  .notifications-filter-label {
+    width: 100%;
+  }
+}
+
+@media (min-width: 601px) {
+  .project-select {
+    width: 200px;
+  }
+}
+
+.dropdown-avatar {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
+
+.project-option {
+  display: flex;
+  align-items: center;
+}
+
+
+
+
+
+

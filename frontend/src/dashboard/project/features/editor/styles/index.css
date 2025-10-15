@@ -1,0 +1,17 @@
+/* Editor Modular CSS Architecture */
+
+/* Import shared styles */
+@import '@/shared/styles/index.css';
+
+/* Editor Component Styles */
+@import './components/editor-base.css';
+@import './components/editor-core.css';
+@import './components/text-formatting.css';
+
+/* Additional editor-specific styles will be organized here */
+
+
+
+
+
+

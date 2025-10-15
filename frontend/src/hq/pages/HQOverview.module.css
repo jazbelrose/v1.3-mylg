@@ -1,0 +1,168 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.filterButton {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease, transform 0.2s ease;
+}
+
+.filterButton:hover,
+.filterButton:focus-visible {
+  background: rgba(250, 51, 86, 0.24);
+  border-color: rgba(250, 51, 86, 0.45);
+  transform: translateY(-1px);
+}
+
+.filterButtonActive {
+  background: rgba(250, 51, 86, 0.36);
+  border-color: rgba(250, 51, 86, 0.68);
+  color: #ffffff;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+@media (max-width: 1199px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.chartBars {
+  display: grid;
+  gap: 10px;
+}
+
+.chartBarRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.chartBar {
+  height: 10px;
+  border-radius: 8px;
+  background: rgba(250, 51, 86, 0.18);
+  overflow: hidden;
+}
+
+.chartBarFill {
+  height: 100%;
+  background: linear-gradient(135deg, rgba(250, 51, 86, 0.85), rgba(250, 51, 86, 0.55));
+  border-radius: inherit;
+}
+
+.chartBarFillMuted {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.list,
+.alertsList,
+.eventsList,
+.messagesList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.alertItem {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.alertBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fa3356;
+}
+
+.tasksCard {
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tasksWidget {
+  font-family: inherit;
+}
+
+.eventRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.eventDate {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.eventName {
+  font-weight: 600;
+}
+
+.eventLocation {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.messagesList li {
+  display: grid;
+  gap: 6px;
+}
+
+.messageSender {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.messagePreview {
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.4;
+}
+
+@media (max-width: 599px) {
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+}

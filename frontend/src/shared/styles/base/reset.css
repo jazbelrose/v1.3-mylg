@@ -1,0 +1,85 @@
+/* Base Styles - Global Resets and Base Elements */
+
+/* Box sizing reset */
+* {
+  box-sizing: border-box;
+}
+
+/* Root font size */
+:root {
+  font-size: 16px;
+}
+
+/* Remove default margins that cause layout issues */
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0;
+}
+
+section {
+  margin: 0;
+}
+
+/* HTML and body base styles */
+html {
+  height: 100vh; /* fallback for older browsers */
+  height: 100dvh;
+  overscroll-behavior: none;
+  scrollbar-width: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh;
+  color: var(--text-color);
+  font-family: var(--font-family-primary);
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  overflow: -moz-scrollbars-none;
+  -ms-overflow-style: none;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* List styles */
+ul {
+  list-style: none;
+}
+
+/* Heading styles */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-helvetica-special);
+  font-weight: var(--font-weight-black);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* Link styles */
+a, a:hover {
+  color: var(--text-color);
+}
+
+/* Paragraph styles */
+p {
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Scrollbar hiding */
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent; 
+}
+
+body::-webkit-scrollbar {
+  width: 0 !important;
+  overscroll-behavior: none;
+}
+
+
+
+
+
+

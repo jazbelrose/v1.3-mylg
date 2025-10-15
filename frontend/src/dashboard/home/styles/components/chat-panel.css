@@ -1,0 +1,148 @@
+/* Chat Panel Styles (docked and floating) */
+
+body.chat-panel-docked {
+  padding-right: var(--chat-panel-width, 320px);
+}
+
+.chat-panel {
+  position: fixed;
+  top: var(--chat-panel-top, 50px);
+  height: calc(100% - var(--chat-panel-top, 50px));
+  width: 320px;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, height 0.3s ease;
+  z-index: 10000;
+}
+
+.chat-panel.docked {
+  right: 0;
+  border-left: 1px solid #444;
+}
+
+.chat-panel.docked.closed {
+  transform: translateX(100%);
+}
+
+.chat-panel.floating.closed {
+  height: 90px;
+  border-radius: 10px;
+}
+
+.chat-panel.floating {
+  position: fixed;
+  height: 400px;
+  border-radius: 32px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+
+  transition: height 0.3s ease;
+  min-width: 280px;
+  min-height: 280px;
+}
+
+.chat-panel-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 4px 0;
+  background: transparent;
+}
+
+.chat-panel.floating .chat-panel-header {
+  cursor: move;
+  user-select: none;
+}
+
+.chat-panel-header button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.main-view-container {
+  position: relative;
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+@media (max-width: var(--breakpoint-sm)) {
+  .chat-panel {
+    top: 62.5px;
+  }
+}
+
+.chat-panel.bottom {
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+
+.chat-panel.bottom.floating {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+.chat-panel.bottom.closed {
+  transform: translateY(100%);
+}
+
+.chat-panel.bottom.open {
+  transform: translateY(0);
+}
+
+.chat-panel-resizer {
+  position: absolute;
+  width: 36px;
+  height: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 6px;
+  cursor: ns-resize;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.chat-panel-resizer:hover {
+  opacity: 0.7;
+}
+
+.chat-panel-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 4px 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.45) 40%,
+    transparent 40%,
+    transparent 60%,
+    rgba(255, 255, 255, 0.45) 60%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+}
+
+
+
+
+
+
+
+

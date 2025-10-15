@@ -1,0 +1,226 @@
+service: users
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  httpApi:
+    authorizers:
+      jwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_EmStQTtG1
+        audience:
+          - 6f5f1vsm5bejjaffihc3e0n95k
+  environment:
+    # Tables & shared config (CORS, etc.)
+    ${self:custom.env}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:USER_PROFILES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:INVITES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:INVITES_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}
+
+functions:
+  usersRouter:
+    # router.mjs is at the service root
+    handler: router.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      # If this service has its own API endpoint, you can replace the block below
+      # with a single catch-all: path: /{proxy+}
+      - httpApi:
+          path: /userProfiles
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles/{proxy+}
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles/{proxy+}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfiles/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfilesPending/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfilesPending/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfilesPending/{proxy+}
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfilesPending/{proxy+}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /userProfilesPending/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /invites/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /invites/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /invites/{proxy+}
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /invites/{proxy+}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /invites/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /sendProjectInvitation
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /postProjectToUserId
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /user/health
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /user/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /user/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /user/{proxy+}
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /user/{proxy+}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /user/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      # CORS preflight requests (OPTIONS) should not require authorization
+      - httpApi:
+          path: /userProfiles
+          method: OPTIONS
+      - httpApi:
+          path: /userProfiles/{proxy+}
+          method: OPTIONS
+      - httpApi:
+          path: /userProfilesPending/{proxy+}
+          method: OPTIONS
+      - httpApi:
+          path: /invites/{proxy+}
+          method: OPTIONS
+      - httpApi:
+          path: /sendProjectInvitation
+          method: OPTIONS
+      - httpApi:
+          path: /postProjectToUserId
+          method: OPTIONS
+      - httpApi:
+          path: /user/health
+          method: OPTIONS
+      - httpApi:
+          path: /user/{proxy+}
+          method: OPTIONS
+
+package:
+  patterns:
+    - router.mjs      # include the main router file
+    - '!**/*.map'
+    - '!node_modules/.bin/**'

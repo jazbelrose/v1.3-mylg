@@ -1,0 +1,374 @@
+:root {
+  --brand: #FA3356;
+  --bg: #0c0c0c;
+  --bg2: #111111;
+  --bg3: #1a1a1a;
+  --success: #4caf50;
+}
+
+/* Global anti-aliasing for the component */
+.newProjectPage, .newProjectCard {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.newProjectPage {
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 160% at 50% -20%, rgba(250,51,86,0.08) 0%, rgba(250,51,86,0) 60%),
+    linear-gradient(var(--bg), var(--bg2));
+  position: relative;
+  font-family: "Helvetica Special", "Helvetica Neue", sans-serif;
+  font-weight: 400;
+  color: #fff;
+  padding: 24px;
+  transform: translateZ(0);
+  overflow-x: hidden;
+}
+
+.newProjectWrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.newProjectHeader {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.newProjectTitle {
+  font-size: 2.5rem;
+  font-weight: 300;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #fff 0%, rgba(250,51,86,0.8) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.newProjectSubtitle {
+  font-size: 1.1rem;
+  color: rgba(255,255,255,0.7);
+  margin: 0;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+}
+
+.newProjectCard {
+  background: rgba(15, 15, 16, 0.8);
+  border-radius: 24px;
+  padding: 40px;
+  backdrop-filter: blur(20px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.08),
+    0 16px 40px rgba(0,0,0,0.4);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  transform: translateZ(0);
+  border: 0;
+}
+
+/* Glowing border effect */
+.newProjectCard::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background:
+    radial-gradient(140% 160% at 50% -20%,
+      rgba(250,51,86,0.25) 0%,
+      rgba(250,51,86,0.08) 32%,
+      rgba(250,51,86,0.00) 60%);
+  pointer-events: none;
+  padding: 1px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0.8;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+  margin-bottom: 40px;
+}
+
+@media (min-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  letter-spacing: 0.01em;
+}
+
+.projectNameSection {
+  grid-column: 1 / -1;
+  margin-bottom: 24px;
+}
+
+.projectNameInput {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.essentialsSection {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .essentialsSection {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.detailsSection {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .detailsSection {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.uploadSection {
+  grid-column: 1 / -1;
+}
+
+.submitSection {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.submitButton {
+  min-width: 200px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--brand) 0%, #ff4b6d 100%);
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: "Helvetica Special", "Helvetica Neue", sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 12px rgba(250,51,86,0.3);
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(250,51,86,0.4);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.submitSpinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.submitSpinnerSvg {
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.submitSpinnerPath {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: spinPath 1.5s ease-in-out infinite;
+}
+
+@keyframes spinPath {
+  0% { stroke-dashoffset: 60; }
+  50% { stroke-dashoffset: 15; }
+  100% { stroke-dashoffset: 60; }
+}
+
+.uploadProgress {
+  width: 100%;
+  max-width: 300px;
+  text-align: center;
+}
+
+.uploadProgressBar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.uploadProgressCompleted {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), #ff4b6d);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.uploadProgressText {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.validationMessage {
+  color: var(--brand);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.successAnimation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.checkmark {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: block;
+  stroke-width: 2;
+  stroke: var(--success);
+  stroke-miterlimit: 10;
+  box-shadow: inset 0px 0px 0px var(--success);
+  animation: fill 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
+}
+
+.checkmarkCircle {
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  stroke-width: 2;
+  stroke-miterlimit: 10;
+  stroke: var(--success);
+  fill: none;
+  animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.checkmarkCheck {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes stroke {
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes scale {
+  0%, 100% {
+    transform: none;
+  }
+  50% {
+    transform: scale3d(1.1, 1.1, 1);
+  }
+}
+
+@keyframes fill {
+  100% {
+    box-shadow: inset 0px 0px 0px 30px var(--success);
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 767px) {
+  .newProjectPage {
+    padding: 16px;
+  }
+  
+  .newProjectCard {
+    padding: 24px;
+  }
+  
+  .newProjectTitle {
+    font-size: 2rem;
+  }
+  
+  .formGrid {
+    gap: 24px;
+  }
+  
+  .submitButton {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .newProjectPage { transform: none; }
+  .newProjectCard { transform: none; }
+  .submitButton { transition: none; }
+  .submitButton:hover:not(:disabled) { transform: none; }
+  
+  .submitSpinnerSvg,
+  .submitSpinnerPath,
+  .checkmark,
+  .checkmarkCircle,
+  .checkmarkCheck {
+    animation: none;
+  }
+}
+
+
+
+
+
+

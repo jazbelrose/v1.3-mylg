@@ -1,0 +1,111 @@
+service: auth
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2  # Auth service in us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  httpApi: {} 
+  environment:
+    # Tables & shared config (CORS, etc.) - imported from common
+    USER_PROFILES_TABLE: ${self:custom.env.USER_PROFILES_TABLE}
+    INVITES_TABLE: ${self:custom.env.INVITES_TABLE}
+    INVITES_BY_SENDER_INDEX: ${self:custom.env.INVITES_BY_SENDER_INDEX}
+    INVITES_BY_RECIPIENT_INDEX: ${self:custom.env.INVITES_BY_RECIPIENT_INDEX}
+    INBOX_TABLE: ${self:custom.env.INBOX_TABLE}
+    MESSAGES_TABLE: ${self:custom.env.MESSAGES_TABLE}
+    PROJECT_MESSAGES_TABLE: ${self:custom.env.PROJECT_MESSAGES_TABLE}
+    NOTIFICATIONS_TABLE: ${self:custom.env.NOTIFICATIONS_TABLE}
+    NOTIFICATIONS_BY_USER_INDEX: ${self:custom.env.NOTIFICATIONS_BY_USER_INDEX}
+    PROJECTS_TABLE: ${self:custom.env.PROJECTS_TABLE}
+    PROJECTS_VISIBILITY_INDEX: ${self:custom.env.PROJECTS_VISIBILITY_INDEX}
+    PROJECTS_TEAMUSERIDS_INDEX: ${self:custom.env.PROJECTS_TEAMUSERIDS_INDEX}
+    TASKS_TABLE: ${self:custom.env.TASKS_TABLE}
+    EVENTS_TABLE: ${self:custom.env.EVENTS_TABLE}
+    EVENTS_STARTAT_INDEX: ${self:custom.env.EVENTS_STARTAT_INDEX}
+    BUDGETS_TABLE: ${self:custom.env.BUDGETS_TABLE}
+    BUDGET_ID_INDEX: ${self:custom.env.BUDGET_ID_INDEX}
+    BUDGET_ITEM_ID_INDEX: ${self:custom.env.BUDGET_ITEM_ID_INDEX}
+    GALLERIES_TABLE: ${self:custom.env.GALLERIES_TABLE}
+    GALLERIES_PROJECT_GSI: ${self:custom.env.GALLERIES_PROJECT_GSI}
+    CONNECTIONS_TABLE: ${self:custom.env.CONNECTIONS_TABLE}
+    CONNECTIONS_USER_GSI: ${self:custom.env.CONNECTIONS_USER_GSI}
+    ALLOWED_ORIGINS: ${self:custom.env.ALLOWED_ORIGINS}
+    CORS_WILDCARD_HOSTS: ${self:custom.env.CORS_WILDCARD_HOSTS}
+    CORS_ALLOW_CREDENTIALS: ${self:custom.env.CORS_ALLOW_CREDENTIALS}
+    CORS_DEFAULT_ORIGIN: ${self:custom.env.CORS_DEFAULT_ORIGIN}
+    SCANS_ALLOWED: ${self:custom.env.SCANS_ALLOWED}
+    # ---- Cognito (separate from common - loaded from .env file)
+    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID}
+    COGNITO_USER_POOL_NAME: ${env:COGNITO_USER_POOL_NAME}
+    COGNITO_USER_CLIENT_ID: ${env:COGNITO_USER_CLIENT_ID}
+  iam:
+    role:
+      statements:
+        # preTokenGeneration only needs to read UserProfiles
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Query
+            - dynamodb:DescribeTable
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.USER_PROFILES_TABLE}
+        - Effect: Allow
+          Action:
+            - cognito-idp:InitiateAuth
+            - cognito-idp:AdminListGroupsForUser
+            - cognito-idp:AdminAddUserToGroup
+            - cognito-idp:AdminRemoveUserFromGroup
+          Resource:
+            - arn:aws:cognito-idp:us-west-2:221025630675:userpool/us-west-2_EmStQTtG1
+
+functions:
+  # 1) Cognito Pre-Token Generation (adds role/claims)
+  preTokenGeneration:
+    handler: preTokenGeneration.handler
+    events:
+      - cognitoUserPool:
+          # Bind to existing user pool
+          pool: mylg-dev-users-west2
+          trigger: PreTokenGeneration
+          existing: true  # Use existing pool
+
+  # 2) Lambda authorizer used by the **WebSocket $connect** route (deployed here, *referenced* by ws stack)
+  cognitoAuthorizer:
+    handler: cognitoAuthorizer.handler
+    environment:
+      COGNITO_POOL_ID: ${self:provider.environment.COGNITO_USER_POOL_ID}
+      COGNITO_CLIENT_ID: ${self:provider.environment.COGNITO_USER_CLIENT_ID}
+
+  refreshToken:
+    handler: refreshToken.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - httpApi:
+          path: /auth/refresh-token
+          method: POST
+
+  updateRoles:
+    handler: updateRoles.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - httpApi:
+          path: /auth/update-roles
+          method: POST
+
+package:
+  patterns:
+    - '*.mjs'
+    - '!**/*.map'
+    - '!node_modules/.bin/**'

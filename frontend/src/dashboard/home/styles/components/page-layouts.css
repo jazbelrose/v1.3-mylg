@@ -1,0 +1,260 @@
+/* Dashboard Page Layout Wrappers */
+
+.dashboard-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Override shared layout spacing to match dashboard design */
+.dashboard-content {
+  gap: 5px;              /* was tokenized elsewhere; keep original 5px */
+  align-items: stretch;  /* stretch columns equally */
+  overflow: hidden;      /* prevent extra scrollbars */
+}
+
+.budget-layout,
+.overview-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+
+}
+
+.budget-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 12px 0;
+  background: var(--project-header-bg, var(--bg2, #111213));
+  border-radius: 32px;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+.budget-layout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.budget-layout-motion {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.budget-layout__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+  padding-bottom: 24px;
+}
+
+
+/* Active project details wrapper sizing */
+.active-project-details {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Thread divider between content and chat panel */
+.thread-resizer {
+  margin: 0 5px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+@media (max-width: var(--breakpoint-md)) {
+  .dashboard-layout {
+    flex-direction: column;
+  }
+  .thread-resizer {
+    display: none;
+  }
+}
+
+/* Narrow mobile refinements */
+@media (max-width: 768px) {
+  .dashboard-wrapper {
+    position: relative;
+    padding-top: 0;
+  }
+  .row-layout { flex-direction: column-reverse; overflow-y: auto; }
+  .main-content { overflow-y: auto; }
+  .dashboard-layout,
+  .budget-layout,
+  .overview-layout {
+    height: 100%;
+  }
+  .dashboard-item {
+    transition: background-color 0.2s ease;
+  }
+  .column-3 {
+    padding-bottom: 5px;
+  }
+  .budget-layout {
+    padding: 0 !important;
+    border-radius: 0;
+  }
+  .budget-layout::after {
+    border-width: 0;
+  }
+}
+
+/* Column layout utility classes (migrated from overrides) */
+.row-1,
+.row-2 {
+  flex: 1;
+}
+
+.column-6,
+.column-1 {
+  flex: .3;
+}
+
+.column-1,
+.column-5,
+.column-6 {
+  height: 960px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.column-1 {
+  height: 700px;
+}
+
+.column-new-project-address {
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: .7;
+}
+
+@media (max-width: 768px) {
+  .dashboard-layout {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .column-2 {
+    height: auto;
+    min-height: 0;
+  }
+
+  .overview-layout {
+    height: auto;
+    min-height: 0;
+
+  }
+}
+
+.column-new-project-description {
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: .5;
+}
+
+.after-input-description {
+  margin: 5px;
+}
+
+.column-5 {
+  flex: .7;
+}
+
+.column-3,
+.column-4 {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.column-3 { flex: .5; }
+.column-4 { flex: .5; }
+
+.column-5,
+.column-6 {
+  height: clamp(280px, 38vh, 420px);
+}
+
+.column-7 {
+  padding: 0px 5px;
+  height: 384px;
+}
+
+/* Styled container used for map and media cards */
+.column-5 {
+  
+  border-radius: 15px;
+  overflow: visible;
+  position: relative;
+  height: clamp(280px, 38vh, 420px);
+  background: var(--bg2, #111213);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 18px 48px rgba(0, 0, 0, 0.45);
+  border-radius: 32px 32px 32px 32px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+}
+
+@media (max-width: 768px) {
+  .column-5 { height: clamp(240px, 45vh, 360px); }
+}
+
+.collapse-item {
+  display: block;
+  margin-bottom: 10px;
+  transition: margin 0.3s ease-in-out;
+}
+
+/* Column wrapper for messages/files stack */
+.column-2 {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Welcome screen inner layout helpers */
+.welcome-screen-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden; /* prevent horizontal overflow */
+}
+.quickstats-sidebar {
+  flex-shrink: 0;
+  width: 300px; /* adjust as needed */
+  overflow: visible;
+}
+@media (max-width: 768px) {
+  .quickstats-sidebar { display: none; }
+}
+

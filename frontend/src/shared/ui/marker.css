@@ -1,0 +1,92 @@
+.project-marker-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+/* Ensure touch zoom works properly on map containers */
+.leaflet-container {
+  touch-action: manipulation;
+}
+
+.task-marker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.task-marker--pin {
+  width: 40px;
+  height: 52px;
+}
+
+.task-marker__pin-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
+}
+
+.task-marker--pin.task-marker--active .task-marker__pin-image {
+  filter: drop-shadow(0 14px 32px rgba(250, 51, 86, 0.38));
+}
+
+.task-marker--avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--marker-bg, rgba(17, 18, 21, 0.92));
+  border: 2px solid var(--marker-border, rgba(255, 255, 255, 0.9));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.task-marker__avatar,
+.task-marker__avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+}
+
+.task-marker__avatar-fallback {
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #93c5fd 100%);
+}
+
+.task-marker--avatar::after {
+  content: "";
+  position: absolute;
+  bottom: -11px;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--marker-bg, rgba(17, 18, 21, 0.92));
+  border-left: 2px solid var(--marker-border, rgba(255, 255, 255, 0.9));
+  border-bottom: 2px solid var(--marker-border, rgba(255, 255, 255, 0.9));
+  border-radius: 0 0 4px 0;
+}
+
+.task-marker--active {
+  transform: translateY(-2px);
+}
+
+.task-marker--avatar.task-marker--active {
+  transform: translateY(-2px) scale(1.08);
+  border-color: var(--brand, #fa3356);
+  box-shadow: 0 14px 32px rgba(250, 51, 86, 0.38);
+}
+
+.task-marker--avatar.task-marker--active::after {
+  border-left-color: var(--brand, #fa3356);
+  border-bottom-color: var(--brand, #fa3356);
+}
+
+
+
+
+

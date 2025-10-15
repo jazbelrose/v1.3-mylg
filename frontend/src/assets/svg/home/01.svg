@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="uuid-7dd1f505-5940-4238-a400-e621d14c13f3" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1991.07 29.03">
+  <defs>
+    <style>
+      .uuid-a0a681fe-8112-4956-834f-77a30b5326cd {
+        font-family: HelveticaNowDisplay-Regular, 'Helvetica Now Display';
+        font-size: 24.64px;
+      }
+
+      .uuid-a0a681fe-8112-4956-834f-77a30b5326cd, .uuid-01b61101-1aab-41da-88b2-27ebbf6668dd {
+        fill: #fff;
+      }
+
+      .uuid-35257ccb-4368-4c60-9770-ed19ee1e1967 {
+        fill: none;
+        stroke: #fff;
+        stroke-miterlimit: 10;
+        stroke-width: 3px;
+      }
+
+      .uuid-b7d8d468-4b45-4366-bda7-c0acec68a332 {
+        letter-spacing: 0em;
+      }
+
+      .uuid-bd7980f7-e999-45ba-aa39-d0ba35a07476 {
+        letter-spacing: 0em;
+      }
+
+      .uuid-01b61101-1aab-41da-88b2-27ebbf6668dd {
+        stroke-width: 0px;
+      }
+
+      .uuid-868e3366-1a92-4eb8-9503-018330ddd1b9 {
+        letter-spacing: -.12em;
+      }
+
+      .uuid-0eb64516-e019-42f1-9aaf-a4986e34576f {
+        letter-spacing: -.08em;
+      }
+
+      .uuid-a1ed9a5f-f122-48f7-9f60-810f8a485521 {
+        letter-spacing: -.02em;
+      }
+    </style>
+  </defs>
+  <text class="uuid-a0a681fe-8112-4956-834f-77a30b5326cd" transform="translate(0 21.09)"><tspan class="uuid-868e3366-1a92-4eb8-9503-018330ddd1b9" x="0" y="0">P</tspan><tspan class="uuid-a1ed9a5f-f122-48f7-9f60-810f8a485521" x="12.59" y="0">A</tspan><tspan x="29.25" y="0">RIS</tspan></text>
+  <text class="uuid-a0a681fe-8112-4956-834f-77a30b5326cd" transform="translate(1720 21.09)"><tspan class="uuid-0eb64516-e019-42f1-9aaf-a4986e34576f" x="0" y="0">L</tspan><tspan class="uuid-bd7980f7-e999-45ba-aa39-d0ba35a07476" x="11.02" y="0">O</tspan><tspan x="29.3" y="0">S </tspan><tspan class="uuid-a1ed9a5f-f122-48f7-9f60-810f8a485521" x="49.21" y="0">A</tspan><tspan x="65.87" y="0">NGEL</tspan><tspan class="uuid-b7d8d468-4b45-4366-bda7-c0acec68a332" x="128.83" y="0">E</tspan><tspan x="143.12" y="0">S</tspan></text>
+  <g>
+    <line class="uuid-35257ccb-4368-4c60-9770-ed19ee1e1967" x1="1652.33" y1="11.57" x2="1682.26" y2="11.83"/>
+    <polygon class="uuid-01b61101-1aab-41da-88b2-27ebbf6668dd" points="1655.27 15.95 1639.05 11.45 1655.35 7.23 1655.27 15.95"/>
+    <polygon class="uuid-01b61101-1aab-41da-88b2-27ebbf6668dd" points="1679.25 16.16 1695.55 11.95 1679.32 7.45 1679.25 16.16"/>
+  </g>
+  <g>
+    <line class="uuid-35257ccb-4368-4c60-9770-ed19ee1e1967" x1="100.33" y1="11.57" x2="130.26" y2="11.83"/>
+    <polygon class="uuid-01b61101-1aab-41da-88b2-27ebbf6668dd" points="103.27 15.95 87.05 11.45 103.35 7.23 103.27 15.95"/>
+    <polygon class="uuid-01b61101-1aab-41da-88b2-27ebbf6668dd" points="127.25 16.16 143.55 11.95 127.32 7.45 127.25 16.16"/>
+  </g>
+</svg>

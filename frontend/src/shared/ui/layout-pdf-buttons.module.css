@@ -1,0 +1,52 @@
+
+
+.container {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  flex-wrap: wrap;
+}
+
+.layoutToggle {
+  display: flex;
+  flex: none;
+}
+
+.actionGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.actionButton {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background-color: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #222;
+}
+
+.actionButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+
+
+
+
+

@@ -1,0 +1,15 @@
+.floating-toolbar {
+  background-color: #fff;
+  color: #000;
+  border-radius: 15px;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+
+
+
+
+

@@ -1,0 +1,238 @@
+
+.wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px clamp(20px, 4vw, 40px) 32px;
+  width: 100%;
+  color: #f4f5f7;
+  background: rgba(12, 12, 12, 0.96);
+  border-radius: 32px 32px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+  margin: 16px 0;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 16px;
+}
+
+.pageHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.headingCopy {
+  display: grid;
+  gap: 6px;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: clamp(1.85rem, 1.45rem + 1vw, 2.45rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.pageSubtitle {
+  margin: 0;
+  max-width: 720px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.45;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.actionsRow {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-self: flex-start;
+  justify-content: flex-end;
+}
+
+
+.contentArea {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mobileWelcomeHeader {
+  margin: 0 0 16px;
+}
+
+:global(body.hq-hide-marketing-nav header.header .nav-bar) {
+  display: none !important;
+}
+
+.mobilePageHeader {
+  display: grid;
+  gap: 12px;
+}
+
+.mobilePageTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.mobilePageSubtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.mobileActionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.threadColumn {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chatReopenButton {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(250, 51, 86, 0.85);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(250, 51, 86, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.chatReopenButton:hover,
+.chatReopenButton:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px rgba(250, 51, 86, 0.55);
+  background: rgba(250, 51, 86, 0.95);
+}
+
+.chatReopenButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.menuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.menuButton:hover,
+.menuButton:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px rgba(250, 51, 86, 0.25);
+  background: rgba(250, 51, 86, 0.16);
+}
+
+.menuButton:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .wrapper {
+    border-radius: 40px;
+  }
+
+  .menuButton {
+    display: none;
+  }
+
+  .mobileWelcomeHeader {
+    display: none;
+  }
+
+  .mobilePageHeader {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .wrapper {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    padding: 28px 20px 40px;
+    box-shadow: none;
+  }
+
+  .contentArea {
+    flex-direction: column;
+  }
+
+  .threadColumn {
+    width: 100%;
+  }
+
+  .chatReopenButton {
+    right: 20px;
+    bottom: 20px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+  }
+
+  .actionsRow {
+    margin-left: 0;
+  }
+
+  .mobileWelcomeHeader {
+    margin-bottom: 12px;
+  }
+
+  .mobilePageHeader {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 16px;
+  }
+}

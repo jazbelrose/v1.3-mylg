@@ -1,0 +1,386 @@
+/* Timeline Component Styles */
+
+.timeline-container {
+  position: relative;
+  margin: 5px 0;
+  overflow: visible;
+  width: 100%;
+  max-width: 1920px;
+}
+
+.timeline-container .milestone-number-edit {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
+}
+
+.timeline-track {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow: visible;
+  width: 100%;
+  height: 80px;
+  font-family: 'Helvetica Neue', 'Helvetica Display', sans-serif;
+  padding: 12px 0;
+  margin: -8px 0;
+}
+
+.timeline-track .milestone-pill:first-child {
+  margin-left: 5px;
+}
+
+.timeline-track .milestone-pill:last-child {
+  margin-right: 5px;
+}
+
+.timeline-chart {
+  border: 2px solid white;
+  border-radius: 20px;
+  background-color: #0c0c0c;
+  color: white;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  min-height: 120px;
+  max-height: 300px;
+  height: 180px;
+}
+
+.timeline-chart .chart-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.timeline-chart__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 4px;
+  gap: 12px;
+}
+
+.timeline-chart__label-resizer {
+  width: 8px;
+  cursor: col-resize;
+  flex: 0 0 auto;
+  position: relative;
+  align-self: stretch;
+  touch-action: none;
+}
+
+
+
+.timeline-chart__scroll-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-chart__canvas {
+  border-radius: 0 0 12px 12px;
+}
+.timeline-chart__axis {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.94), rgba(12, 12, 12, 0.78));
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.timeline-chart__axis .visx-axis-line {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+.timeline-chart__axis .visx-axis-tick line {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+.timeline-chart__axis .visx-axis-tick text {
+  fill: #dcdcdc;
+}
+.timeline-chart__label-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.timeline-chart__label-resizer:hover::after,
+.timeline-chart__label-resizer:active::after {
+  background: rgba(250, 51, 86, 0.45);
+}
+
+
+
+.timeline-chart .track-label {
+  position: relative;
+}
+
+
+.timeline-chart .track-label:focus-visible {
+  outline: none;
+}
+.timeline-chart .track-label::after {
+  content: attr(data-full-label);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translate(12px, -50%);
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(12, 12, 12, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 4;
+}
+
+.timeline-chart .track-label:hover::after,
+.timeline-chart .track-label:focus-visible::after {
+  opacity: 1;
+}
+
+.timeline-chart .track-label::before {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translate(4px, -50%);
+  width: 6px;
+  height: 6px;
+  background: rgba(12, 12, 12, 0.92);
+  border-radius: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 3;
+}
+
+.timeline-chart .track-label:hover::before,
+.timeline-chart .track-label:focus-visible::before {
+  opacity: 1;
+}
+
+.timeline-chart .chart-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.timeline-chart .chart-mode-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.timeline-chart .chart-mode-toggle__btn:hover,
+.timeline-chart .chart-mode-toggle__btn:focus-visible {
+  background: rgba(250, 51, 86, 0.25);
+  color: #fff;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(250, 51, 86, 0.35);
+}
+
+.timeline-chart .chart-mode-toggle__btn.is-active {
+  background: var(--accent-strong, #FA3356);
+  color: #0c0c0c;
+  box-shadow: 0 0 0 1px rgba(250, 51, 86, 0.4);
+}
+
+.timeline-chart .agenda-date-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.timeline-chart .agenda-date-row .agenda-date-picker {
+  border-radius: 8px;
+  border: 1px solid var(--text-color-3);
+  background-color: var(--primary-color);
+  color: var(--text-color);
+  padding: 6px 10px;
+  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+}
+
+.timeline-chart .agenda-date-row .agenda-date-picker:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--text-color-3);
+}
+
+.timeline-chart .agenda-date-row .agenda-date-picker::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+/* Milestones and Pills (moved from overrides.css) */
+.milestones {
+  color: #f4f4f4;
+  font-size: 30px;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1;
+}
+
+.milestone-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  flex: 1;
+  font-size: 0.875rem;
+  overflow: visible;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  border: 1px solid transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.milestone-pill:hover,
+.milestone-pill:focus {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: scale(1.03);
+}
+
+.milestone-pill .label {
+  text-align: center;
+  flex-grow: 1;
+}
+
+.percentage-pill {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  margin-left: auto;
+  display: inline-block;
+}
+
+.milestone-pill.passed {
+  background-color: #f4f4f4;
+  color: #0d0d0d;
+}
+
+.milestone-pill.passed .percentage-pill {
+  background-color: #0d0d0d;
+  color: #fff;
+}
+
+.milestone-pill.active {
+  background-color: var(--text-color-3);
+  color: #fff;
+  border-color: #fff;
+}
+
+.milestone-pill.active .percentage-pill {
+  background-color: #fff;
+  color: var(--text-color-3);
+}
+
+[data-project-theme] .timeline-track .milestone-pill.active {
+  background-color: var(--accent-weak, var(--text-color-3));
+  color: var(--accent-on-color, #fff);
+  border-color: color-mix(
+    in srgb,
+    var(--accent-strong, #FA3356) 55%,
+    transparent
+  );
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--accent-strong, #FA3356) 32%, transparent);
+}
+
+[data-project-theme] .timeline-track .milestone-pill.active .percentage-pill {
+  background-color: var(--accent-strong, #FA3356);
+  color: var(--accent-on-color, #fff);
+}
+
+[data-project-theme] .timeline-track .milestone-pill.upcoming {
+  border-color: color-mix(
+    in srgb,
+    var(--accent-weak, rgba(255, 255, 255, 0.32)) 40%,
+    transparent
+  );
+}
+
+[data-project-theme] .timeline-track .milestone-pill.passed {
+  border-color: color-mix(
+    in srgb,
+    var(--accent-strong, #FA3356) 28%,
+    transparent
+  );
+}
+
+[data-project-theme] .timeline-track .milestone-pill.passed .percentage-pill {
+  background-color: color-mix(
+    in srgb,
+    var(--accent-strong, #FA3356) 30%,
+    #0d0d0d 70%
+  );
+  color: #fff;
+}
+
+.milestone-pill.upcoming {
+  background-color: var(--primary-color);
+  color: rgba(255, 255, 255, 0.7);
+  border-color: #fff;
+}
+
+.milestone-pill.upcoming .percentage-pill {
+  background-color: var(--primary-color);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Mobile: ensure large labels in embedded SVG timeline */
+@media (max-width: var(--breakpoint-sm)) {
+  #Project_Initiation text,
+  #Concept_Approval_ text,
+  #First_Draft_Completion text,
+  #Review_and_Feedback text,
+  #Revisions_and_Modifications text,
+  #Final_Review_and_Approval text,
+  #Project_Closure_and_Delivery text {
+    font-size: 40px;
+  }
+}
+
+
+
+
+
+
+

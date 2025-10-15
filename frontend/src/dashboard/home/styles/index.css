@@ -1,0 +1,49 @@
+/* Dashboard Modular CSS Architecture */
+
+/* Import shared styles */
+@import '../../../shared/styles/index.css';
+
+/* Dashboard Component Styles */
+@import './components/projects-header.css';
+@import './components/project-containers.css';
+@import './components/modals.css';
+@import './components/timeline.css';
+@import './components/project-header.css';
+@import './components/project-settings-dropdown.css';
+@import './components/file-uploads.css';
+@import './components/file-downloads.css';
+@import './components/floorplan.css';
+@import './components/invoices.css';
+@import './components/links.css';
+@import './components/address-inputs.css';
+@import './components/welcome-screen.css';
+@import './components/messages-files.css';
+@import './components/projects-view.css';
+@import './components/page-layouts.css';
+@import './components/calendar.css';
+@import './components/dashboard-cards.css';
+@import './components/payments.css';
+@import './components/team.css';
+@import './components/settings.css';
+@import './components/navigation-sidebar.css';
+@import './components/chat-panel.css';
+@import './components/welcome-header.css';
+@import './components/quick-stats.css';
+@import './components/notification-preview.css';
+@import './components/notifications-view.css';
+@import './components/recent-activity.css';
+@import './components/projects-recents-card.css';
+
+/* Remaining dashboard-specific styles will be moved here gradually */
+@import './components/tasks.css';
+@import './components/preview-drawer.css';
+@import './components/editor-page.css';
+@import './components/new-project.css';
+@import './components/description-preview.css';
+
+
+
+
+
+
+

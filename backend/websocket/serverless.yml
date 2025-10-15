@@ -1,0 +1,100 @@
+service: mylg-v2-websocket
+frameworkVersion: '3'
+# Updated default.mjs to use AWS SDK v3
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  websocketsApiName: ${self:service}-${sls:stage}
+  websocketsApiRouteSelectionExpression: $request.body.action
+  environment:
+    # ---- CORS
+    ALLOWED_ORIGINS: ${env:ALLOWED_ORIGINS}
+    CORS_WILDCARD_HOSTS: ${env:CORS_WILDCARD_HOSTS}
+    CORS_ALLOW_CREDENTIALS: ${env:CORS_ALLOW_CREDENTIALS}
+    CORS_DEFAULT_ORIGIN: ${env:CORS_DEFAULT_ORIGIN}
+
+    # ---- Tables
+    CONNECTIONS_TABLE: ${env:CONNECTIONS_TABLE}
+    CONNECTIONS_USER_GSI: ${env:CONNECTIONS_USER_GSI}
+    MESSAGES_TABLE: ${env:MESSAGES_TABLE}
+    PROJECT_MESSAGES_TABLE: ${env:PROJECT_MESSAGES_TABLE}
+    PROJECTS_TABLE: ${env:PROJECTS_TABLE}
+    USER_PROFILES_TABLE: ${env:USER_PROFILES_TABLE}
+    INBOX_TABLE: ${env:INBOX_TABLE}
+    NOTIFICATIONS_TABLE: ${env:NOTIFICATIONS_TABLE}
+
+    # ---- WebSocket
+    WEBSOCKET_ENDPOINT: https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchWriteItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CONNECTIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CONNECTIONS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:MESSAGES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:MESSAGES_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECT_MESSAGES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECT_MESSAGES_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:USER_PROFILES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:USER_PROFILES_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:INBOX_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:INBOX_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:BatchGetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource: arn:aws:execute-api:${aws:region}:${aws:accountId}:*/${sls:stage}/POST/@connections/*
+
+functions:
+  onConnect:
+    handler: onConnect.handler
+    events:
+      - websocket:
+          route: $connect
+
+  onDisconnect:
+    handler: onDisconnect.handler
+    events:
+      - websocket:
+          route: $disconnect
+
+  onDefault:
+    handler: default.handler
+    events:
+      - websocket:
+          route: $default
+
+package:
+  patterns:
+    - '*.mjs'
+    - '!**/*.map'
