@@ -53,19 +53,19 @@ const Preloader: React.FC = () => {
       <svg
         ref={svgRef}
         viewBox="0 0 256 256"
-        width="200"
-        height="200"
+        width="120"
+        height="120"
         className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10"
       >
         <text
-          x="50%"
-          y="51%"
+          x="51%"
+          y="53%"
           textAnchor="middle"
           fill="#fff"
           dominantBaseline="middle"
-          fontSize="30"
+          fontSize="90"
         >
-          *MYLG!*
+          M!
         </text>
         <ellipse
           cx="128"
