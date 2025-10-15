@@ -7,8 +7,8 @@
   justify-content: center;
   overflow: hidden;
   overscroll-behavior: contain;
-  background: rgba(17, 17, 17, 0.72);
-  backdrop-filter: blur(12px);
+  background: rgba(17, 17, 17, 0.55);
+  backdrop-filter: blur(10px);
 }
 
 @media (min-width: 720px) {
@@ -26,7 +26,7 @@
   --line-item-accent-shadow-rgb: 31, 45, 124;
   width: min(640px, 100%);
   max-height: calc(100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
-  background: rgba(17, 17, 17, 0.9);
+  background: rgba(17, 17, 17, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 22px 22px 0 0;
   display: flex;
@@ -223,6 +223,12 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+@media (min-width: 1280px) {
+  .fieldGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -258,7 +264,7 @@
   width: 100%;
   border: none;
   border-radius: 12px;
-  background: rgba(9, 10, 13, 0.78);
+  background: rgba(17, 17, 17, 0.82);
   color: #f7f8fc;
   padding: 10px 12px;
   font-size: 0.95rem;
@@ -272,7 +278,7 @@
 .field textarea:focus,
 .field select:focus {
   outline: none;
-  background: rgba(18, 20, 26, 0.96);
+  background: rgba(17, 17, 17, 0.96);
   box-shadow: 0 0 0 1px rgba(var(--line-item-accent-rgb), 0.8),
     0 16px 28px rgba(var(--line-item-accent-shadow-rgb), 0.25);
 }
