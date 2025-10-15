@@ -6,7 +6,13 @@ import "@testing-library/jest-dom";
 import Modal from "react-modal";
 import { MemoryRouter } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { vi, describe, it, expect } from "vitest";
+
+// Create spies for functions that need to be tested
+const updateProjectFields = vi.fn();
+const deleteGallerySpy = vi.fn();
+const deleteGalleryFilesSpy = vi.fn();
+const updateGallerySpy = vi.fn();
 
 // ---- Mocks ----
 vi.mock("lucide-react", () => ({ GalleryVerticalEnd: () => <div /> }));
@@ -18,28 +24,73 @@ vi.mock("react-modal", () => {
   return { default: Modal };
 });
 
-vi.mock("../../../../app/contexts/useData", () => ({
-  useData: vi.fn(),
-}));
-
-vi.mock("aws-amplify/storage", () => ({
-  uploadData: vi.fn(() => Promise.resolve()),
-}));
-
+// Mock the API functions
 vi.mock("../../../../shared/utils/api", () => ({
-  fetchGalleries: vi.fn(() => Promise.resolve([])),
-  deleteGallery: vi.fn(() => Promise.resolve()),
-  deleteGalleryFiles: vi.fn(() => Promise.resolve()),
-  updateGallery: vi.fn(() => Promise.resolve()),
-  apiFetch: vi.fn(() => Promise.resolve({})),
-  getFileUrl: vi.fn((key) => {
-    if (key && key.startsWith('http')) {
-      return key; // If it's already a URL, return as-is
+  deleteGallery: vi.fn(),
+  deleteGalleryFiles: vi.fn(),
+  updateGallery: vi.fn(),
+  getFileUrl: vi.fn((keyOrUrl) => {
+    if (keyOrUrl.startsWith('http')) {
+      return keyOrUrl;
     }
-    return `https://mock-s3.com/${key}`;
+    return `https://s3.amazonaws.com/bucket/${keyOrUrl}?t=555`;
   }),
-  fetchProjectsFromApi: vi.fn(() => Promise.resolve([])),
-  S3_PUBLIC_BASE: "https://mock-s3.com/public",
+  fetchGalleries: vi.fn(),
+  S3_PUBLIC_BASE: "https://s3.amazonaws.com/bucket/",
+}));
+
+vi.mock("../../../../app/contexts/useData", () => ({
+  useData: vi.fn(() => ({
+    projects: [],
+    setProjects: vi.fn(),
+    setUserProjects: vi.fn(),
+    isLoading: false,
+    setIsLoading: vi.fn(),
+    loadingProfile: false,
+    activeProject: {
+      projectId: "1",
+      galleries: [{ id: "g1", name: "Old", slug: "old", url: "http://a.com" }],
+    },
+    setActiveProject: vi.fn(),
+    selectedProjects: [],
+    setSelectedProjects: vi.fn(),
+    fetchProjectDetails: vi.fn(),
+    fetchProjects: vi.fn(),
+    fetchUserProfile: vi.fn(),
+    fetchRecentActivity: vi.fn(),
+    opacity: 1,
+    setOpacity: vi.fn(),
+    settingsUpdated: false,
+    toggleSettingsUpdated: vi.fn(),
+    dmReadStatus: {},
+    setDmReadStatus: vi.fn(),
+    projectsError: false,
+    updateTimelineEvents: vi.fn(),
+    updateProjectFields: updateProjectFields,
+    isAdmin: true,
+    isBuilder: false,
+    isDesigner: false,
+    user: null,
+    allUsers: [],
+    userId: "",
+    userName: "",
+    userData: null,
+    setUserData: vi.fn(),
+    setUser: vi.fn(),
+    refreshUsers: vi.fn(),
+    refreshUser: vi.fn(),
+    updateUserProfile: vi.fn(),
+    isVendor: false,
+    isClient: false,
+    inbox: [],
+    setInbox: vi.fn(),
+    projectMessages: {},
+    setProjectMessages: vi.fn(),
+    deletedMessageIds: new Set(),
+    markMessageDeleted: vi.fn(),
+    clearDeletedMessageId: vi.fn(),
+    toggleReaction: vi.fn(),
+  })),
 }));
 
 // Mock the missing GalleryComponent
@@ -61,17 +112,21 @@ vi.mock("../../../../shared/utils/api", () => ({
 
 // SUT
 import { GalleryComponent } from "../../components";
+import { useData } from "../../../../app/contexts/useData";
 
-// pull mocked fns with types
-import { useData } from "@/app/contexts/useData";
-const mockUseData = useData as vi.MockedFunction<typeof useData>;
 import {
   deleteGallery,
   deleteGalleryFiles,
   updateGallery,
   S3_PUBLIC_BASE,
-} from "@/shared/utils/api";
-import { flushQueue } from "@/shared/utils/requestQueue";
+} from "../../../../shared/utils/api";
+
+const mockDeleteGallery = vi.mocked(deleteGallery);
+const mockDeleteGalleryFiles = vi.mocked(deleteGalleryFiles);
+const mockUpdateGallery = vi.mocked(updateGallery);
+import { flushQueue } from "../../../../shared/utils/requestQueue";
+
+const mockUseData = vi.mocked(useData);
 
 // ensure root element exists for React Modal
 const root = document.createElement("div");
@@ -80,46 +135,6 @@ document.body.appendChild(root);
 Modal.setAppElement(root);
 
 describe("GalleryComponent admin edit", () => {
-  let updateProjectFields: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    updateProjectFields = vi.fn();
-    mockUseData.mockReturnValue({
-      projects: [],
-      setProjects: vi.fn(),
-      setUserProjects: vi.fn(),
-      isLoading: false,
-      setIsLoading: vi.fn(),
-      loadingProfile: false,
-      activeProject: {
-        projectId: "1",
-        galleries: [{ id: "g1", name: "Old", slug: "old", url: "http://a.com" }],
-      },
-      setActiveProject: vi.fn(),
-      selectedProjects: [],
-      setSelectedProjects: vi.fn(),
-      fetchProjectDetails: vi.fn(),
-      fetchProjects: vi.fn(),
-      fetchUserProfile: vi.fn(),
-      fetchRecentActivity: vi.fn(),
-      opacity: 1,
-      setOpacity: vi.fn(),
-      settingsUpdated: false,
-      toggleSettingsUpdated: vi.fn(),
-      dmReadStatus: {},
-      setDmReadStatus: vi.fn(),
-      projectsError: false,
-      updateTimelineEvents: vi.fn(),
-      updateProjectFields,
-      isAdmin: true,
-      isBuilder: false,
-      isDesigner: false,
-    });
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
 
   it("allows admin to edit gallery details", async () => {
     render(
@@ -185,6 +200,26 @@ describe("GalleryComponent admin edit", () => {
       isAdmin: true,
       isBuilder: false,
       isDesigner: false,
+      user: null,
+      allUsers: [],
+      userId: "",
+      userName: "",
+      userData: null,
+      setUserData: vi.fn(),
+      setUser: vi.fn(),
+      refreshUsers: vi.fn(),
+      refreshUser: vi.fn(),
+      updateUserProfile: vi.fn(),
+      isVendor: false,
+      isClient: false,
+      inbox: [],
+      setInbox: vi.fn(),
+      projectMessages: {},
+      setProjectMessages: vi.fn(),
+      deletedMessageIds: new Set(),
+      markMessageDeleted: vi.fn(),
+      clearDeletedMessageId: vi.fn(),
+      toggleReaction: vi.fn(),
     });
 
     render(
@@ -284,6 +319,26 @@ describe("GalleryComponent admin edit", () => {
       isAdmin: true,
       isBuilder: false,
       isDesigner: false,
+      user: null,
+      allUsers: [],
+      userId: "",
+      userName: "",
+      userData: null,
+      setUserData: vi.fn(),
+      setUser: vi.fn(),
+      refreshUsers: vi.fn(),
+      refreshUser: vi.fn(),
+      updateUserProfile: vi.fn(),
+      isVendor: false,
+      isClient: false,
+      inbox: [],
+      setInbox: vi.fn(),
+      projectMessages: {},
+      setProjectMessages: vi.fn(),
+      deletedMessageIds: new Set(),
+      markMessageDeleted: vi.fn(),
+      clearDeletedMessageId: vi.fn(),
+      toggleReaction: vi.fn(),
     });
 
     render(
@@ -366,6 +421,26 @@ describe("GalleryComponent admin edit", () => {
       isAdmin: true,
       isBuilder: false,
       isDesigner: false,
+      user: null,
+      allUsers: [],
+      userId: "",
+      userName: "",
+      userData: null,
+      setUserData: vi.fn(),
+      setUser: vi.fn(),
+      refreshUsers: vi.fn(),
+      refreshUser: vi.fn(),
+      updateUserProfile: vi.fn(),
+      isVendor: false,
+      isClient: false,
+      inbox: [],
+      setInbox: vi.fn(),
+      projectMessages: {},
+      setProjectMessages: vi.fn(),
+      deletedMessageIds: new Set(),
+      markMessageDeleted: vi.fn(),
+      clearDeletedMessageId: vi.fn(),
+      toggleReaction: vi.fn(),
     });
 
     render(
@@ -423,7 +498,7 @@ describe("GalleryComponent admin edit", () => {
     const fixedTime = 555;
     const spy = vi.spyOn(Date, "now").mockReturnValue(fixedTime);
 
-    updateProjectFields = vi.fn();
+    updateProjectFields.mockClear();
 
     mockUseData.mockReturnValue({
       projects: [],
@@ -452,6 +527,26 @@ describe("GalleryComponent admin edit", () => {
       isAdmin: true,
       isBuilder: false,
       isDesigner: false,
+      user: null,
+      allUsers: [],
+      userId: "",
+      userName: "",
+      userData: null,
+      setUserData: vi.fn(),
+      setUser: vi.fn(),
+      refreshUsers: vi.fn(),
+      refreshUser: vi.fn(),
+      updateUserProfile: vi.fn(),
+      isVendor: false,
+      isClient: false,
+      inbox: [],
+      setInbox: vi.fn(),
+      projectMessages: {},
+      setProjectMessages: vi.fn(),
+      deletedMessageIds: new Set(),
+      markMessageDeleted: vi.fn(),
+      clearDeletedMessageId: vi.fn(),
+      toggleReaction: vi.fn(),
     });
 
     render(
@@ -473,7 +568,9 @@ describe("GalleryComponent admin edit", () => {
 
     await waitFor(() => expect(updateProjectFields).toHaveBeenCalled());
 
-    const [projectId, fields] = updateProjectFields.mock.calls[0];
+    const galleryUpdateCall = updateProjectFields.mock.calls.find(call => call[1].galleryUpdate);
+    expect(galleryUpdateCall).toBeTruthy();
+    const [projectId, fields] = galleryUpdateCall!;
     expect(projectId).toBe("1");
 
     const img = document.querySelector("img") as HTMLImageElement | null;

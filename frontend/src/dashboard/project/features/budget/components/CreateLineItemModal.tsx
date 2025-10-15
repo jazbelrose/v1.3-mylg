@@ -312,7 +312,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     return `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`;
   }, [gradientEnd, accentColor]);
 
-  const accentStyles = useMemo<React.CSSProperties>(
+  const accentStyles = useMemo<Record<string, string>>(
     () => ({
       "--line-item-accent": accentColor,
       "--line-item-accent-rgb": accentRgbString,
@@ -750,8 +750,8 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
       name: fieldName as string,
       value: item[fieldName] as string | number,
       onChange: handleChange,
-      disabled,
-    } as const;
+      disabled: disabled as boolean,
+    };
 
     const labelClasses = [styles.field];
     if (tooltip) labelClasses.push(styles.tooltipLabel);

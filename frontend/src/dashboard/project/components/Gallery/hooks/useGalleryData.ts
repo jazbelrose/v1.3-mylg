@@ -50,8 +50,20 @@ const useGalleryData = (): GalleryDataState => {
   } = useData();
   const { ws } = useSocket() || {};
 
-  const [legacyGalleries, setLegacyGalleries] = useState<Gallery[]>([]);
-  const [galleries, setGalleries] = useState<Gallery[]>([]);
+  const [legacyGalleries, setLegacyGalleries] = useState<Gallery[]>(() => {
+    if (activeProject) {
+      const { legacy } = extractGalleries(activeProject);
+      return legacy;
+    }
+    return [];
+  });
+  const [galleries, setGalleries] = useState<Gallery[]>(() => {
+    if (activeProject) {
+      const { current } = extractGalleries(activeProject);
+      return current;
+    }
+    return [];
+  });
   const [pendingSlugs, setPendingSlugs] = useState<string[]>([]);
   const [recentlyCreated, setRecentlyCreated] = useState<string[]>([]);
   const pendingRef = useRef<string[]>([]);

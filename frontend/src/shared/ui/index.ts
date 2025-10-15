@@ -25,27 +25,14 @@ export { default as VerificationCodeModal } from "./VerificationCodeModal";
 export { default as WebSocketDiagnostic } from "./WebSocketDiagnostic";
 
 // Section / layout UI
-export { default as BlogCard } from "./BlogCard";
-export { BlogEntry } from "./BlogEntry";
-export { default as BlogPostButton } from "./BlogPostButton";
 export { default as Counter } from "./Counter";
-export { default as Footer } from "./Footer";
-export { default as Header } from "./Header";
-export { default as HeroSection } from "./HeroSection";
-export { default as InfoSection } from "./InfoSection";
 export { default as InlineSvg } from "./InlineSVG";
-export { Introtext as IntroText } from "./IntroText";
 export { default as Map } from "./Map";
 export { default as NotFound } from "./404";  // 404.tsx
-export { default as PortfolioCard } from "./PortfolioCard";
 export { default as Preloader } from "./Preloader";
 export { default as ScrambleButton } from "./ScrambleButton";
 export { default as ScrollToTopButton } from "./ScrollToTopButton";
-export { default as SingleTicker } from "./SingleTicker";
-export { default as Slideshow } from "./SlideShow";
-export { default as SmoothScroll } from "./SmoothScroll";
 export { default as Spinner } from "./Spinner";
-export { default as Ticker } from "./Ticker";
 export { default as Squircle } from "./Squircle";
 
 

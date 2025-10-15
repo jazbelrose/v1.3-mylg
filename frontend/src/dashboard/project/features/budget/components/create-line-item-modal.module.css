@@ -424,7 +424,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(7, 9, 12, 0.75);
+  background: rgba(12, 12, 12, 0.75);
   backdrop-filter: blur(6px);
   z-index: 16000;
   opacity: 0;
@@ -440,10 +440,10 @@
 }
 
 .modalContent {
-  background: rgba(18, 20, 26, 0.96);
+  background: rgba(26, 26, 26, 0.97);
   color: #f7f8fc;
   border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 30px clamp(26px, 4vw, 38px);
   max-width: 420px;
   width: calc(100% - 56px);

@@ -62,7 +62,9 @@ describe("ProjectsTable", () => {
       />
     );
 
-    expect(screen.getByText(/loading projects/i)).toBeInTheDocument();
+    // Check that skeleton is rendered when loading
+    const skeleton = document.querySelector('[aria-hidden="true"]');
+    expect(skeleton).toBeInTheDocument();
   });
 
   it("renders project rows and handles activation", () => {
