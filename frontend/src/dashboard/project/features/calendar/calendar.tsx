@@ -1,4 +1,5 @@
 import React, {
+  FormEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -8,12 +9,20 @@ import React, {
 import { motion } from "framer-motion";
 import {
   Calendar as CalendarIcon,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
   Search,
   Plus,
   Check,
+  X,
+  Repeat,
+  Bell,
+  Video,
+  Settings,
+  Copy,
+  Tag,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -31,6 +40,7 @@ import type { Project } from "@/app/contexts/DataProvider";
 import type { QuickLinksRef } from "@/dashboard/project/components";
 import {
   createEvent,
+  createTask,
   fetchTasks,
   updateTask,
   type Task as ApiTask,
@@ -63,6 +73,33 @@ const categoryColor: Record<CalendarCategory, string> = {
   Work: "calendar-pill-work",
   Education: "calendar-pill-education",
   Personal: "calendar-pill-personal",
+};
+
+const TABS = ["Event", "Task", "Appointment"] as const;
+type CalendarTab = (typeof TABS)[number];
+
+type CalendarModalValues = {
+  tab: CalendarTab;
+  title: string;
+  tags: string[];
+  guests: string[];
+  date: string;
+  time?: string;
+  allDay: boolean;
+  repeat: string;
+  eventType: string;
+  platform: string;
+  reminder: string;
+  description: string;
+};
+
+type CreateEventModalProps = {
+  open: boolean;
+  defaultTab: CalendarTab;
+  initialDate?: string;
+  initialTime?: string;
+  onClose: () => void;
+  onSubmit: (values: CalendarModalValues) => Promise<void>;
 };
 
 // ------------------------------------------------------
@@ -215,6 +252,541 @@ const getMonthMatrix = (viewDate: Date) => {
 };
 
 // ------------------------------------------------------
+// Create Event / Task Modal (dark)
+// ------------------------------------------------------
+
+const Label: React.FC<React.PropsWithChildren<{ htmlFor?: string }>> = ({
+  htmlFor,
+  children,
+}) => (
+  <label htmlFor={htmlFor} className="block text-sm text-gray-300 mb-1.5">
+    {children}
+  </label>
+);
+
+function FieldShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl bg-white/5 border border-white/10 focus-within:border-white/20 transition-colors">
+      {children}
+    </div>
+  );
+}
+
+function Input(
+  props: React.InputHTMLAttributes<HTMLInputElement>
+): React.ReactElement {
+  const { className, ...rest } = props;
+  return (
+    <input
+      {...rest}
+      className={`w-full bg-transparent px-3 py-2.5 text-gray-100 placeholder:text-gray-500 outline-none ${
+        className || ""
+      }`}
+    />
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}): React.ReactElement {
+  return (
+    <div className="relative w-full">
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full appearance-none bg-transparent px-3 py-2.5 text-gray-100 outline-none pr-8"
+      >
+        {options.map((option) => (
+          <option
+            key={option}
+            value={option}
+            className="bg-[#0c0c0c] text-gray-900"
+          >
+            {option}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    </div>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+}): React.ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="inline-flex items-center gap-2 select-none"
+    >
+      <span
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+          checked ? "bg-[#FA3356]" : "bg-white/20"
+        }`}
+      >
+        <span
+          className={`absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+            checked ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </span>
+      {label && <span className="text-sm text-gray-300">{label}</span>}
+    </button>
+  );
+}
+
+function Chip({
+  name,
+  onRemove,
+}: {
+  name: string;
+  onRemove?: () => void;
+}): React.ReactElement {
+  const initials = useMemo(
+    () =>
+      name
+        .split(" ")
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase(),
+    [name]
+  );
+  const hue = useMemo(
+    () =>
+      Math.abs(
+        Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      ) % 360,
+    [name]
+  );
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-sm text-gray-100">
+      <span
+        className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold"
+        style={{ backgroundColor: `hsl(${hue} 70% 45%)` }}
+      >
+        {initials}
+      </span>
+      {name}
+      {onRemove && (
+        <button type="button" onClick={onRemove} className="hover:text-white/80">
+          ×
+        </button>
+      )}
+    </span>
+  );
+}
+
+function CreateEventModal({
+  open,
+  defaultTab,
+  initialDate,
+  initialTime,
+  onClose,
+  onSubmit,
+}: CreateEventModalProps): React.ReactElement | null {
+  const [tab, setTab] = useState<CalendarTab>(defaultTab);
+  const [title, setTitle] = useState("");
+  const [tags, setTags] = useState<string[]>(["Meeting"]);
+  const [guestQuery, setGuestQuery] = useState("");
+  const [guests, setGuests] = useState<string[]>([
+    "Arafat Nayeem",
+    "Jawad",
+    "Washim",
+  ]);
+  const [date, setDate] = useState(initialDate ?? "");
+  const [time, setTime] = useState(initialTime ?? "11:30");
+  const [allDay, setAllDay] = useState(false);
+  const [repeat, setRepeat] = useState("Does not repeat");
+  const [eventType, setEventType] = useState("Video Conference");
+  const [platform, setPlatform] = useState("Google Meet");
+  const [reminder, setReminder] = useState("30 minutes before");
+  const [desc, setDesc] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setTab(defaultTab);
+    setDate(initialDate ?? "");
+    setTime(initialTime ?? "11:30");
+    setError(null);
+    setTitle("");
+    setDesc("");
+    setTags(["Meeting"]);
+    setGuests(["Arafat Nayeem", "Jawad", "Washim"]);
+    setGuestQuery("");
+    setAllDay(false);
+    setRepeat("Does not repeat");
+    setEventType("Video Conference");
+    setPlatform("Google Meet");
+    setReminder("30 minutes before");
+  }, [defaultTab, initialDate, initialTime, open]);
+
+  const handleAddGuest = useCallback(() => {
+    const trimmed = guestQuery.trim();
+    if (!trimmed) return;
+    setGuests((prev) =>
+      prev.includes(trimmed) ? prev : [...prev, trimmed.replace(/\s+/g, " ")]
+    );
+    setGuestQuery("");
+  }, [guestQuery]);
+
+  const handleGuestKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter" || event.key === ",") {
+        event.preventDefault();
+        handleAddGuest();
+      }
+    },
+    [handleAddGuest]
+  );
+
+  const handleAddTag = useCallback(() => {
+    const next = window.prompt("Add a tag", "New tag");
+    if (next) {
+      const trimmed = next.trim();
+      if (trimmed && !tags.includes(trimmed)) {
+        setTags((prev) => [...prev, trimmed]);
+      }
+    }
+  }, [tags]);
+
+  const handleSubmit = useCallback(
+    async (event: FormEvent) => {
+      event.preventDefault();
+      if (!date) {
+        setError("Please select a date for your entry.");
+        return;
+      }
+      if (!title.trim() && tab !== "Task" && !desc.trim()) {
+        setError("Please provide a title or description for your event.");
+        return;
+      }
+      if (!title.trim() && tab === "Task") {
+        setError("Please add a title for your task.");
+        return;
+      }
+
+      setSaving(true);
+      setError(null);
+      try {
+        await onSubmit({
+          tab,
+          title: title.trim(),
+          tags,
+          guests,
+          date,
+          time,
+          allDay,
+          repeat,
+          eventType,
+          platform,
+          reminder,
+          description: desc,
+        });
+        setSaving(false);
+        onClose();
+      } catch (err) {
+        console.error("Failed to save calendar entry", err);
+        setError(
+          err instanceof Error
+            ? err.message || "Unable to save your changes."
+            : "Unable to save your changes."
+        );
+        setSaving(false);
+      }
+    },
+    [
+      allDay,
+      date,
+      desc,
+      eventType,
+      guests,
+      onClose,
+      onSubmit,
+      platform,
+      reminder,
+      repeat,
+      tab,
+      tags,
+      time,
+      title,
+    ]
+  );
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/70 backdrop-blur"
+        onClick={onClose}
+        aria-label="Close create event modal"
+      />
+
+      <div className="absolute inset-x-0 top-8 mx-auto w-[min(720px,92vw)]">
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-3xl border border-white/10 bg-[#0c0c0c] shadow-2xl"
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+            <div className="text-lg font-semibold text-gray-100">
+              Create a new {tab.toLowerCase()}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 hover:bg-white/10"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5 text-gray-300" />
+            </button>
+          </div>
+
+          <div className="space-y-6 px-6 py-5">
+            <div>
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Write a title here"
+              />
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <Tag className="h-4 w-4 text-gray-400" />
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-indigo-500/30 px-2.5 py-1 text-xs text-indigo-200"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    className="text-xs text-gray-400 hover:text-white/80"
+                    onClick={handleAddTag}
+                  >
+                    + Add tag
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              {TABS.map((tabName) => (
+                <button
+                  key={tabName}
+                  type="button"
+                  onClick={() => setTab(tabName)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm text-gray-200 ${
+                    tab === tabName
+                      ? "border-white/20 bg-white/10"
+                      : "border-white/10 hover:bg-white/5"
+                  }`}
+                >
+                  {tabName}
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <Label>Add guests</Label>
+              <FieldShell>
+                <div className="p-2.5">
+                  <input
+                    value={guestQuery}
+                    onChange={(event) => setGuestQuery(event.target.value)}
+                    onBlur={handleAddGuest}
+                    onKeyDown={handleGuestKeyDown}
+                    placeholder="Type to search"
+                    className="w-full bg-transparent text-gray-100 outline-none placeholder:text-gray-500"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {guests.map((guest) => (
+                      <Chip
+                        key={guest}
+                        name={guest}
+                        onRemove={() =>
+                          setGuests((prev) => prev.filter((item) => item !== guest))
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              </FieldShell>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <Label>Date</Label>
+                <FieldShell>
+                  <div className="flex items-center gap-2 px-3 py-2.5 text-gray-200">
+                    <CalendarIcon className="h-4 w-4 text-gray-400" />
+                    <Input
+                      type="date"
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                    />
+                  </div>
+                </FieldShell>
+              </div>
+              <div>
+                <Label>Time</Label>
+                <FieldShell>
+                  <div className="flex items-center gap-3 px-3 py-2.5 text-gray-200">
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    <input
+                      type="time"
+                      value={time}
+                      onChange={(event) => setTime(event.target.value)}
+                      className="bg-transparent text-gray-100 outline-none"
+                    />
+                    <div className="ml-auto">
+                      <Toggle checked={allDay} onChange={setAllDay} label="All day" />
+                    </div>
+                  </div>
+                </FieldShell>
+                <div className="mt-2">
+                  <FieldShell>
+                    <div className="flex items-center gap-2 px-3 py-2.5 text-gray-200">
+                      <Repeat className="h-4 w-4 text-gray-400" />
+                      <Select
+                        value={repeat}
+                        onChange={setRepeat}
+                        options={["Does not repeat", "Daily", "Weekly", "Monthly"]}
+                      />
+                    </div>
+                  </FieldShell>
+                </div>
+              </div>
+
+              <div>
+                <Label>Event type</Label>
+                <FieldShell>
+                  <div className="flex items-center gap-2 px-3 py-2.5 text-gray-200">
+                    <Video className="h-4 w-4 text-gray-400" />
+                    <Select
+                      value={eventType}
+                      onChange={setEventType}
+                      options={["Video Conference", "In person", "Phone call"]}
+                    />
+                  </div>
+                </FieldShell>
+              </div>
+
+              <div>
+                <Label>Platform</Label>
+                <FieldShell>
+                  <div className="flex items-center gap-2 px-3 py-2.5 text-gray-200">
+                    <img
+                      alt="gm"
+                      src="https://www.gstatic.com/images/branding/product/2x/meet_2020q4_48dp.png"
+                      className="h-4 w-4 rounded-sm"
+                    />
+                    <Select
+                      value={platform}
+                      onChange={setPlatform}
+                      options={["Google Meet", "Zoom", "Teams"]}
+                    />
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 hover:bg-white/10"
+                        title="Settings"
+                      >
+                        <Settings className="h-4 w-4 text-gray-300" />
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 hover:bg-white/10"
+                        title="Copy"
+                      >
+                        <Copy className="h-4 w-4 text-gray-300" />
+                      </button>
+                    </div>
+                  </div>
+                </FieldShell>
+              </div>
+
+              <div>
+                <Label>Reminder</Label>
+                <FieldShell>
+                  <div className="flex items-center gap-2 px-3 py-2.5 text-gray-200">
+                    <Bell className="h-4 w-4 text-gray-400" />
+                    <Select
+                      value={reminder}
+                      onChange={setReminder}
+                      options={[
+                        "10 minutes before",
+                        "30 minutes before",
+                        "1 hour before",
+                        "1 day before",
+                      ]}
+                    />
+                  </div>
+                </FieldShell>
+              </div>
+            </div>
+
+            <div>
+              <Label>Add Description</Label>
+              <FieldShell>
+                <textarea
+                  value={desc}
+                  onChange={(event) => setDesc(event.target.value)}
+                  placeholder="Write here..."
+                  rows={4}
+                  className="w-full resize-y bg-transparent px-3 py-2.5 text-gray-100 placeholder:text-gray-500 outline-none"
+                />
+              </FieldShell>
+            </div>
+
+            {error && <div className="text-sm text-[#FA3356]">{error}</div>}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-white/10 px-6 py-4">
+            <div className="text-xs text-gray-400">
+              Guests visible • Calendar default notifications
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-white/10 px-3 py-2 text-gray-200 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-[#FA3356] px-3 py-2 text-white shadow hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------
 // Sidebar Mini Calendar (dark)
 // ------------------------------------------------------
 
@@ -336,9 +908,16 @@ type MonthGridProps = {
   selectedDate: Date;
   events: CalendarEvent[];
   onSelectDate: (d: Date) => void;
+  onCreateEntry: (date: Date, tab: CalendarTab) => void;
 };
 
-function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridProps) {
+function MonthGrid({
+  viewDate,
+  selectedDate,
+  events,
+  onSelectDate,
+  onCreateEntry,
+}: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
   const eventsByDate = useMemo(() => {
@@ -349,6 +928,7 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
     });
     return map;
   }, [events]);
+  const [hovered, setHovered] = useState<string | null>(null);
 
   return (
     <div className="month-grid">
@@ -366,15 +946,29 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
           "month-grid__cell",
           isCurrentMonth ? "is-current" : "is-outside",
           isSelected ? "is-selected" : "",
+          hovered === key ? "is-hovered" : "",
         ]
           .filter(Boolean)
           .join(" ");
 
         return (
-          <div key={key} className={className}>
+          <div
+            key={key}
+            className={className}
+            onMouseEnter={() => setHovered(key)}
+            onMouseLeave={() => setHovered((prev) => (prev === key ? null : prev))}
+            onClick={() => {
+              onSelectDate(day);
+              onCreateEntry(day, "Event");
+            }}
+          >
             <button
               type="button"
-              onClick={() => onSelectDate(day)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectDate(day);
+                onCreateEntry(day, "Event");
+              }}
               className="month-grid__date"
             >
               {day.getDate()}
@@ -392,6 +986,24 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
                 <div className="month-grid__more">+{dayEvents.length - 4} more</div>
               )}
             </div>
+            {hovered === key && (
+              <div className="month-grid__actions" onClick={(event) => event.stopPropagation()}>
+                <button
+                  type="button"
+                  className="month-grid__action-button"
+                  onClick={() => onCreateEntry(day, "Event")}
+                >
+                  Add Event
+                </button>
+                <button
+                  type="button"
+                  className="month-grid__action-button"
+                  onClick={() => onCreateEntry(day, "Task")}
+                >
+                  Add Task
+                </button>
+              </div>
+            )}
           </div>
         );
       })}
@@ -642,7 +1254,8 @@ type CalendarSurfaceProps = {
   tasks: CalendarTask[];
   currentDate: Date;
   onDateChange: (date: Date) => void;
-  onAddEvent: (date: Date) => void;
+  onCreateEvent: (values: CalendarModalValues) => Promise<void>;
+  onCreateTask: (values: CalendarModalValues) => Promise<void>;
   onToggleTask: (id: string) => void;
 };
 
@@ -651,17 +1264,31 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   tasks,
   currentDate,
   onDateChange,
-  onAddEvent,
+  onCreateEvent,
+  onCreateTask,
   onToggleTask,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createDefaults, setCreateDefaults] = useState<{
+    date: string;
+    tab: CalendarTab;
+    time?: string;
+  }>({ date: fmt(currentDate), tab: "Event" });
 
   useEffect(() => {
     setInternalDate((previous) =>
       isSameDay(previous, currentDate) ? previous : new Date(currentDate)
     );
   }, [currentDate]);
+
+  useEffect(() => {
+    setCreateDefaults((prev) => ({
+      ...prev,
+      date: fmt(internalDate),
+    }));
+  }, [internalDate]);
 
   useEffect(() => {
     onDateChange(internalDate);
@@ -692,14 +1319,36 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const handleSelectDate = useCallback((date: Date) => {
     setInternalDate(date);
-    setView("day");
   }, []);
+
+  const handleOpenCreate = useCallback(
+    (date: Date, tab: CalendarTab) => {
+      setInternalDate(date);
+      setCreateDefaults({
+        date: fmt(date),
+        tab,
+        time: tab === "Task" ? undefined : "11:30",
+      });
+      setIsCreateOpen(true);
+    },
+    []
+  );
+
+  const handleSubmitModal = useCallback(
+    (values: CalendarModalValues) => {
+      if (values.tab === "Task") {
+        return onCreateTask(values);
+      }
+      return onCreateEvent(values);
+    },
+    [onCreateEvent, onCreateTask]
+  );
 
   return (
     <div className="calendar-surface">
       <div className="calendar-shell">
         <div className="calendar-card">
-          <TopBar onAdd={() => onAddEvent(internalDate)} />
+          <TopBar onAdd={() => handleOpenCreate(internalDate, "Event")} />
 
           <div className="calendar-body">
             <div className="calendar-sidebar">
@@ -770,6 +1419,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     selectedDate={internalDate}
                     events={events}
                     onSelectDate={handleSelectDate}
+                    onCreateEntry={handleOpenCreate}
                   />
                 )}
                 {view === "week" && (
@@ -791,6 +1441,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           </div>
         </div>
       </div>
+
+      <CreateEventModal
+        open={isCreateOpen}
+        defaultTab={createDefaults.tab}
+        initialDate={createDefaults.date}
+        initialTime={createDefaults.time}
+        onClose={() => setIsCreateOpen(false)}
+        onSubmit={handleSubmitModal}
+      />
     </div>
   );
 };
@@ -916,48 +1575,104 @@ const CalendarPage: React.FC = () => {
     }
   }, [projectId, timelineEvents]);
 
-  const handleAddEvent = useCallback(
-    async (date: Date) => {
-      if (!projectId) return;
-      const isoDate = fmt(date);
+  const handleCreateEvent = useCallback(
+    async (form: CalendarModalValues) => {
+      if (!projectId) throw new Error("Project not found");
+      const isoDate = form.date || fmt(new Date());
+      const startTime = form.allDay ? undefined : extractTime(form.time);
+      const endTime =
+        startTime && !form.allDay ? addHoursToTime(startTime, 1) : undefined;
+      const description = form.title || form.description || "Untitled event";
+
+      const payload: ApiTimelineEvent = {
+        date: isoDate,
+        description,
+        payload: {
+          description: form.description,
+          title: form.title,
+          tags: form.tags,
+          guests: form.guests,
+          repeat: form.repeat,
+          eventType: form.eventType,
+          platform: form.platform,
+          reminder: form.reminder,
+          allDay: form.allDay,
+          start: startTime,
+          end: endTime,
+        },
+      };
+
+      if (startTime) {
+        (payload as { start?: string }).start = startTime;
+      }
+      if (endTime) {
+        (payload as { end?: string }).end = endTime;
+      }
+
       try {
-        const created = await createEvent(projectId, {
-          date: isoDate,
-          description: "New event",
-        });
-        const normalized = normalizeTimelineEvent({
-          ...created,
-          date: created.date ?? isoDate,
-        });
-        const asTimelineEvent: ApiTimelineEvent = {
+        const created = await createEvent(projectId, payload);
+        const withDate: ApiTimelineEvent = {
           ...created,
           date: created.date ?? isoDate,
         };
+        const normalized = normalizeTimelineEvent(withDate);
 
-        setTimelineEvents((prev) => [...prev, asTimelineEvent]);
+        setTimelineEvents((prev) => [...prev, withDate]);
         setActiveProject((prev) => {
-          if (!prev) return prev;
-          if (prev.projectId !== projectId) return prev;
-          const nextTimeline = [...(prev.timelineEvents ?? []), asTimelineEvent];
+          if (!prev || prev.projectId !== projectId) return prev;
+          const nextTimeline = [...(prev.timelineEvents ?? []), withDate];
           return { ...prev, timelineEvents: nextTimeline };
         });
         setProjects((prev) =>
           Array.isArray(prev)
             ? prev.map((project) =>
                 project.projectId === projectId
-                  ? { ...project, timelineEvents: [...(project.timelineEvents ?? []), asTimelineEvent] }
+                  ? {
+                      ...project,
+                      timelineEvents: [...(project.timelineEvents ?? []), withDate],
+                    }
                   : project
               )
             : prev
         );
 
-        if (!normalized) return;
-        setCurrentDate(safeDate(normalized.date) ?? date);
+        if (normalized) {
+          setCurrentDate(safeDate(normalized.date) ?? new Date(isoDate));
+        }
       } catch (error) {
         console.error("Failed to create event", error);
+        throw error instanceof Error
+          ? error
+          : new Error("Failed to create event");
       }
     },
     [projectId, setActiveProject, setProjects]
+  );
+
+  const handleCreateTask = useCallback(
+    async (form: CalendarModalValues) => {
+      if (!projectId) throw new Error("Project not found");
+      const isoDate = form.date || fmt(new Date());
+      const payload: ApiTask = {
+        projectId,
+        title: form.title || "Untitled task",
+        description: form.description,
+        dueDate: isoDate,
+        status: "todo",
+      };
+
+      try {
+        const created = await createTask(payload);
+        setProjectTasks((prev) => [...prev, created]);
+        tasksRef.current = [...tasksRef.current, created];
+      } catch (error) {
+        console.error("Failed to create task", error);
+        throw error instanceof Error
+          ? error
+          : new Error("Failed to create task");
+      }
+    },
+    [projectId]
   );
 
   const handleToggleTask = useCallback(
@@ -1085,7 +1800,8 @@ const CalendarPage: React.FC = () => {
         tasks={calendarTasks}
         currentDate={currentDate}
         onDateChange={setCurrentDate}
-        onAddEvent={handleAddEvent}
+        onCreateEvent={handleCreateEvent}
+        onCreateTask={handleCreateTask}
         onToggleTask={handleToggleTask}
       />
     </ProjectPageLayout>
