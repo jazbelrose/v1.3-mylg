@@ -198,6 +198,44 @@ const parseStringArray = (value: unknown): string[] => {
   return [];
 };
 
+const parseNumberish = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const numeric = Number(trimmed);
+    return Number.isNaN(numeric) ? undefined : numeric;
+  }
+  return undefined;
+};
+
+const extractDateString = (value: unknown): string | undefined => {
+  if (value instanceof Date) {
+    return fmt(value);
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return fmt(new Date(value));
+  }
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const parsed = safeDate(trimmed);
+  if (parsed) {
+    return fmt(parsed);
+  }
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    return match[1];
+  }
+  return undefined;
+};
+
 const deriveCategory = (event: ApiTimelineEvent): CalendarCategory => {
   const textChunks = [
     event.type,
@@ -221,40 +259,70 @@ const deriveCategory = (event: ApiTimelineEvent): CalendarCategory => {
 };
 
 const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null => {
-  const isoDate = event.date || event.timestamp?.slice(0, 10);
+  const dateCandidates: unknown[] = [
+    event.date,
+    (event as { day?: unknown }).day,
+    (event as { scheduledDate?: unknown }).scheduledDate,
+    (event as { dueDate?: unknown }).dueDate,
+    (event.payload as { date?: unknown })?.date,
+    (event.payload as { day?: unknown })?.day,
+    (event.payload as { scheduledDate?: unknown })?.scheduledDate,
+    (event.payload as { dueDate?: unknown })?.dueDate,
+    event.timestamp,
+    event.createdAt,
+  ];
+  const isoDate = dateCandidates
+    .map(extractDateString)
+    .find((value): value is string => Boolean(value));
   if (!isoDate) return null;
 
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const startCandidate =
     (event as { start?: unknown }).start ??
     (event as { startHour?: unknown }).startHour ??
+    (event as { startTime?: unknown }).startTime ??
     payload.start ??
-    payload.startTime;
+    (payload as { startTime?: unknown }).startTime ??
+    (payload as { start_time?: unknown }).start_time ??
+    (payload as { starttime?: unknown }).starttime ??
+    payload["start-time"] ??
+    (payload as { time?: unknown }).time;
   const endCandidate =
     (event as { end?: unknown }).end ??
+    (event as { endHour?: unknown }).endHour ??
+    (event as { endTime?: unknown }).endTime ??
     payload.end ??
-    payload.endTime;
+    (payload as { endTime?: unknown }).endTime ??
+    (payload as { end_time?: unknown }).end_time ??
+    (payload as { endtime?: unknown }).endtime ??
+    payload["end-time"];
 
   const start = extractTime(startCandidate);
   const endRaw = extractTime(endCandidate);
-  const durationHours = Number(
-    (event as { hours?: unknown }).hours ?? event.payload?.hours
-  );
+  const durationHours =
+    parseNumberish((event as { hours?: unknown }).hours) ??
+    parseNumberish((event as { duration?: unknown }).duration) ??
+    parseNumberish(payload.hours) ??
+    parseNumberish((payload as { duration?: unknown }).duration) ??
+    parseNumberish((payload as { length?: unknown }).length);
   const end =
-    endRaw || (start && Number.isFinite(durationHours) ? addHoursToTime(start, Number(durationHours)) : undefined);
+    endRaw || (start && typeof durationHours === "number" ? addHoursToTime(start, durationHours) : undefined);
 
   const allDay =
     parseBooleanish(
       (event as { allDay?: unknown }).allDay ??
+        (event as { all_day?: unknown }).all_day ??
+        (event as { isAllDay?: unknown }).isAllDay ??
         payload.allDay ??
-        (payload as { isAllDay?: unknown }).isAllDay ??
         (payload as { all_day?: unknown }).all_day ??
+        (payload as { isAllDay?: unknown }).isAllDay ??
         (payload as { is_all_day?: unknown }).is_all_day ??
         payload["all-day"]
     ) ?? (!start && !end);
 
   const repeat = parseString(
     (event as { repeat?: unknown }).repeat ??
+      (event as { recurrence?: unknown }).recurrence ??
       payload.repeat ??
       (payload as { recurrence?: unknown }).recurrence ??
       (payload as { frequency?: unknown }).frequency
@@ -282,14 +350,18 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
   );
 
   const tags = parseStringArray(
-    (event as { tags?: unknown }).tags ?? payload.tags ?? (payload as { labels?: unknown }).labels
+    (event as { tags?: unknown }).tags ??
+      payload.tags ??
+      (payload as { labels?: unknown }).labels ??
+      payload["tag-list"]
   );
 
   const guests = parseStringArray(
     (event as { guests?: unknown }).guests ??
       payload.guests ??
       (payload as { attendees?: unknown }).attendees ??
-      (payload as { participants?: unknown }).participants
+      (payload as { participants?: unknown }).participants ??
+      payload["guest-list"]
   );
 
   const payloadDescription = event.payload?.description;
@@ -758,37 +830,41 @@ function DayList({ date, events, onEditEvent }: DayListProps) {
 
   return (
     <div className="day-list">
-      {list.map((event) => (
-        <div
-          key={event.id}
-          className="day-list__item"
-          role="button"
-          tabIndex={0}
-          onClick={() => onEditEvent(event)}
-          onKeyDown={(keyboardEvent) => {
-            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-              keyboardEvent.preventDefault();
-              onEditEvent(event);
-            }
-          }}
-        >
-          <div className={`day-list__dot ${categoryColor[event.category]}`} />
-          <div className="day-list__content">
-            <div className="day-list__title">{event.title}</div>
-            <div className="day-list__time">
-              <Clock className="day-list__time-icon" />
-              {event.start && event.end ? (
-                <>{event.start} – {event.end}</>
-              ) : (
-                "All day"
+      {list.map((event) => {
+        const fallbackEnd =
+          event.end || (event.start ? addHoursToTime(event.start, 1) : undefined);
+        return (
+          <div
+            key={event.id}
+            className="day-list__item"
+            role="button"
+            tabIndex={0}
+            onClick={() => onEditEvent(event)}
+            onKeyDown={(keyboardEvent) => {
+              if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                keyboardEvent.preventDefault();
+                onEditEvent(event);
+              }
+            }}
+          >
+            <div className={`day-list__dot ${categoryColor[event.category]}`} />
+            <div className="day-list__content">
+              <div className="day-list__title">{event.title}</div>
+              <div className="day-list__time">
+                <Clock className="day-list__time-icon" />
+                {event.start ? (
+                  fallbackEnd ? `${event.start} - ${fallbackEnd}` : event.start
+                ) : (
+                  "All day"
+                )}
+              </div>
+              {event.description && (
+                <div className="day-list__description">{event.description}</div>
               )}
             </div>
-            {event.description && (
-              <div className="day-list__description">{event.description}</div>
-            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
