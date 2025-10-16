@@ -20,11 +20,29 @@ interface ProviderProps extends PropsWithChildren {
 }
 
 export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children }) => {
-  const [preferredRevision, setPreferredRevision] = useState<number | null>(null);
   const { ws } = useSocket();
   const { user, userId } = useData();
+
+  const storedPreferredRevision = useMemo(() => {
+    if (!projectId || !userId || typeof window === "undefined") return null;
+    try {
+      const storageKey = `${REVISION_STORAGE_PREFIX}:${userId}:${projectId}`;
+      const raw = window.localStorage.getItem(storageKey);
+      const parsed = raw != null ? Number(raw) : null;
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch (err) {
+      console.error("Failed to read stored revision preference", err);
+      return null;
+    }
+  }, [projectId, userId]);
+
+  const [preferredRevision, setPreferredRevision] = useState<number | null>(
+    storedPreferredRevision
+  );
+  const effectivePreferredRevision =
+    preferredRevision ?? storedPreferredRevision ?? null;
   const { budgetHeader, budgetItems, setBudgetHeader, setBudgetItems, refresh, loading } =
-    useBudgetData(projectId, preferredRevision);
+    useBudgetData(projectId, effectivePreferredRevision);
   
   const [clientBudgetHeader, setClientBudgetHeader] = useState<Record<string, unknown> | null>(null);
   const [clientBudgetItems, setClientBudgetItems] = useState<Record<string, unknown>[]>([]);
@@ -35,9 +53,10 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
   const refreshRef = useRef(refresh);
   const lockedLinesRef = useRef<string[]>([]);
   const revisionReadyRef = useRef(false);
-  const lastStoredRevisionRef = useRef<number | null>(null);
+  const lastStoredRevisionRef = useRef<number | null>(storedPreferredRevision ?? null);
   const lastRevisionSentRef = useRef<number | null>(null);
   const lastRevisionProjectRef = useRef<string | undefined>(undefined);
+  const lastProjectRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     refreshRef.current = refresh;
@@ -48,23 +67,31 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
       revisionReadyRef.current = true;
       setPreferredRevision(null);
       lastStoredRevisionRef.current = null;
+      lastProjectRef.current = undefined;
       return;
     }
 
-    revisionReadyRef.current = false;
-    const storageKey = `${REVISION_STORAGE_PREFIX}:${userId}:${projectId}`;
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      const parsed = raw != null ? Number(raw) : null;
-      const normalized = Number.isFinite(parsed) ? parsed : null;
-      setPreferredRevision((prev) => (prev === normalized ? prev : normalized));
-      lastStoredRevisionRef.current = normalized;
-    } catch (err) {
-      console.error("Failed to read stored revision preference", err);
-    } finally {
+    if (lastProjectRef.current !== projectId) {
+      revisionReadyRef.current = false;
+      setPreferredRevision(storedPreferredRevision ?? null);
+      lastStoredRevisionRef.current = storedPreferredRevision ?? null;
+      lastProjectRef.current = projectId;
       revisionReadyRef.current = true;
+      return;
     }
-  }, [projectId, userId]);
+
+    revisionReadyRef.current = true;
+    if (
+      preferredRevision == null &&
+      storedPreferredRevision != null &&
+      preferredRevision !== storedPreferredRevision
+    ) {
+      setPreferredRevision(storedPreferredRevision);
+      lastStoredRevisionRef.current = storedPreferredRevision;
+    } else if (preferredRevision == null && storedPreferredRevision == null) {
+      lastStoredRevisionRef.current = null;
+    }
+  }, [projectId, userId, storedPreferredRevision, preferredRevision]);
 
   useEffect(() => {
     if (!revisionReadyRef.current || !projectId || !userId || typeof window === "undefined") {

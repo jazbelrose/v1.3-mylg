@@ -475,11 +475,7 @@ const BudgetPageContent = () => {
       await Promise.all(updates);
 
       setRevisions((prev) =>
-        prev.map((h) =>
-          h.budgetItemId === targetEntry.budgetItemId
-            ? { ...h, clientRevisionId: targetRevision }
-            : { ...h, clientRevisionId: targetRevision }
-        )
+        prev.map((h) => ({ ...h, clientRevisionId: targetRevision }))
       );
       setBudgetHeader((prev) =>
         prev
