@@ -33,6 +33,7 @@ import {
   createEvent,
   createTask as createTaskApi,
   fetchTasks,
+  updateEvent,
   updateTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
@@ -44,6 +45,7 @@ import CreateCalendarItemModal, {
   type CreateCalendarItemTab,
   type CreateEventRequest,
   type CreateTaskRequest,
+  type EditableEventFormValues,
 } from "./CreateCalendarItemModal";
 
 type CalendarCategory = "Work" | "Education" | "Personal";
@@ -70,6 +72,13 @@ const categoryColor: Record<CalendarCategory, string> = {
   Education: "calendar-pill-education",
   Personal: "calendar-pill-personal",
 };
+
+const DEFAULT_REPEAT_VALUE = "Does not repeat";
+const DEFAULT_REMINDER_VALUE = "30 minutes before";
+const DEFAULT_EVENT_TYPE_VALUE = "Video Conference";
+const DEFAULT_PLATFORM_VALUE = "Google Meet";
+const DEFAULT_TAGS_VALUE = ["Meeting"];
+const DEFAULT_GUESTS_VALUE = ["Arafat Nayeem", "Jawad", "Washim"];
 
 // ------------------------------------------------------
 // Utilities
@@ -197,6 +206,76 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
       payloadDescription ||
       undefined,
     category: deriveCategory(event),
+  };
+};
+
+const getEventIdentifier = (event: ApiTimelineEvent) =>
+  event.id || event.eventId || event.timelineEventId || "";
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : String(entry || "")).trim())
+    .filter((entry) => entry.length > 0);
+};
+
+const buildEditableEvent = (
+  event: ApiTimelineEvent
+): EditableEventFormValues | null => {
+  const identifier = getEventIdentifier(event);
+  if (!identifier) return null;
+
+  const normalized = normalizeTimelineEvent({ ...event, id: identifier });
+  if (!normalized) return null;
+
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const start = normalized.start;
+  const end = normalized.end;
+  const allDay = typeof payload.allDay === "boolean" ? payload.allDay : !start;
+
+  const repeatValue =
+    typeof payload.repeat === "string" && payload.repeat.trim().length > 0
+      ? payload.repeat
+      : DEFAULT_REPEAT_VALUE;
+
+  const reminderValue =
+    typeof payload.reminder === "string" && payload.reminder.trim().length > 0
+      ? payload.reminder
+      : DEFAULT_REMINDER_VALUE;
+
+  const eventTypeValue =
+    typeof payload.eventType === "string" && payload.eventType.trim().length > 0
+      ? payload.eventType
+      : DEFAULT_EVENT_TYPE_VALUE;
+
+  const platformValue =
+    typeof payload.platform === "string" && payload.platform.trim().length > 0
+      ? payload.platform
+      : DEFAULT_PLATFORM_VALUE;
+
+  const descriptionValue =
+    typeof payload.notes === "string" && payload.notes.trim().length > 0
+      ? payload.notes
+      : typeof normalized.description === "string"
+      ? normalized.description
+      : undefined;
+
+  const titleValue = normalized.title || "Untitled event";
+
+  return {
+    id: identifier,
+    title: titleValue,
+    date: normalized.date,
+    time: start,
+    endTime: end,
+    allDay,
+    repeat: repeatValue,
+    reminder: reminderValue,
+    eventType: eventTypeValue,
+    platform: platformValue,
+    description: descriptionValue,
+    tags: toStringArray(payload.tags) ?? DEFAULT_TAGS_VALUE,
+    guests: toStringArray(payload.guests) ?? DEFAULT_GUESTS_VALUE,
   };
 };
 
@@ -355,6 +434,7 @@ type MonthGridProps = {
   events: CalendarEvent[];
   onSelectDate: (d: Date) => void;
   onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
+  onEditEvent: (eventId: string) => void;
 };
 
 function MonthGrid({
@@ -363,6 +443,7 @@ function MonthGrid({
   events,
   onSelectDate,
   onOpenCreate,
+  onEditEvent,
 }: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
@@ -429,7 +510,23 @@ function MonthGrid({
             </button>
             <div className="month-grid__events">
               {dayEvents.slice(0, 4).map((event) => (
-                <div key={event.id} className="month-grid__event">
+                <div
+                  key={event.id}
+                  className="month-grid__event"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(clickEvent) => {
+                    clickEvent.stopPropagation();
+                    onEditEvent(event.id);
+                  }}
+                  onKeyDown={(keyEvent) => {
+                    if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+                      keyEvent.preventDefault();
+                      keyEvent.stopPropagation();
+                      onEditEvent(event.id);
+                    }
+                  }}
+                >
                   <span className={`month-grid__event-dot ${categoryColor[event.category]}`} />
                   <span className="month-grid__event-title" title={event.title}>
                     {event.title}
@@ -476,6 +573,7 @@ function MonthGrid({
 type WeekGridProps = {
   anchorDate: Date;
   events: CalendarEvent[];
+  onEditEvent: (eventId: string) => void;
 };
 
 type WeekDayEvents = {
@@ -490,7 +588,7 @@ const parseHour = (time?: string) => {
   return h;
 };
 
-function WeekGrid({ anchorDate, events }: WeekGridProps) {
+function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 7), []); // 7am - 6pm
@@ -538,6 +636,15 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
                       <div
                         key={event.id}
                         className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onEditEvent(event.id)}
+                        onKeyDown={(keyEvent) => {
+                          if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+                            keyEvent.preventDefault();
+                            onEditEvent(event.id);
+                          }
+                        }}
                       >
                         <div className="week-grid__event-title">{event.title}</div>
                         <div className="week-grid__event-time">All day</div>
@@ -551,6 +658,15 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
                     initial={{ opacity: 0.4, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`week-grid__event ${categoryColor[event.category]}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onEditEvent(event.id)}
+                    onKeyDown={(keyEvent) => {
+                      if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+                        keyEvent.preventDefault();
+                        onEditEvent(event.id);
+                      }
+                    }}
                   >
                     <div className="week-grid__event-title">{event.title}</div>
                     <div className="week-grid__event-time">
@@ -574,9 +690,10 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
 type DayListProps = {
   date: Date;
   events: CalendarEvent[];
+  onEditEvent: (eventId: string) => void;
 };
 
-function DayList({ date, events }: DayListProps) {
+function DayList({ date, events, onEditEvent }: DayListProps) {
   const list = useMemo(
     () =>
       events
@@ -592,7 +709,19 @@ function DayList({ date, events }: DayListProps) {
   return (
     <div className="day-list">
       {list.map((event) => (
-        <div key={event.id} className="day-list__item">
+        <div
+          key={event.id}
+          className="day-list__item"
+          role="button"
+          tabIndex={0}
+          onClick={() => onEditEvent(event.id)}
+          onKeyDown={(keyEvent) => {
+            if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+              keyEvent.preventDefault();
+              onEditEvent(event.id);
+            }
+          }}
+        >
           <div className={`day-list__dot ${categoryColor[event.category]}`} />
           <div className="day-list__content">
             <div className="day-list__title">{event.title}</div>
@@ -622,6 +751,7 @@ type EventsAndTasksProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
   onToggleTask: (id: string) => void;
+  onEditEvent: (eventId: string) => void;
 };
 
 const compareDateStrings = (a?: string, b?: string) => {
@@ -631,7 +761,7 @@ const compareDateStrings = (a?: string, b?: string) => {
   return a.localeCompare(b);
 };
 
-function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
+function EventsAndTasks({ events, tasks, onToggleTask, onEditEvent }: EventsAndTasksProps) {
   const upcoming = useMemo(
     () =>
       [...events]
@@ -653,7 +783,19 @@ function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
         <div className="events-tasks__section-title">Upcoming events</div>
         <ul className="events-tasks__list">
           {upcoming.map((event) => (
-            <li key={event.id} className="events-tasks__list-item">
+            <li
+              key={event.id}
+              className="events-tasks__list-item"
+              role="button"
+              tabIndex={0}
+              onClick={() => onEditEvent(event.id)}
+              onKeyDown={(keyEvent) => {
+                if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+                  keyEvent.preventDefault();
+                  onEditEvent(event.id);
+                }
+              }}
+            >
               <span className={`events-tasks__dot ${categoryColor[event.category]}`} />
               <span className="events-tasks__event-title" title={event.title}>
                 {event.title}
@@ -715,6 +857,8 @@ type CalendarSurfaceProps = {
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onToggleTask: (id: string) => void;
+  onResolveEventForEdit: (eventId: string) => EditableEventFormValues | null;
+  onUpdateEvent: (eventId: string, input: CreateEventRequest) => Promise<void>;
 };
 
 const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
@@ -725,6 +869,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onCreateEvent,
   onCreateTask,
   onToggleTask,
+  onResolveEventForEdit,
+  onUpdateEvent,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -732,7 +878,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     open: boolean;
     date: Date;
     tab: CreateCalendarItemTab;
-  }>({ open: false, date: currentDate, tab: "Event" });
+    mode: "create" | "edit";
+    event: EditableEventFormValues | null;
+  }>({ open: false, date: currentDate, tab: "Event", mode: "create", event: null });
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -774,14 +922,36 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleOpenCreate = useCallback(
     (date: Date, tab: CreateCalendarItemTab = "Event") => {
       setInternalDate(date);
-      setCreateState({ open: true, date, tab });
+      setCreateState({ open: true, date, tab, mode: "create", event: null });
     },
     []
   );
 
   const handleCloseCreate = useCallback(() => {
-    setCreateState((previous) => ({ ...previous, open: false }));
+    setCreateState((previous) => ({
+      ...previous,
+      open: false,
+      mode: "create",
+      event: null,
+    }));
   }, []);
+
+  const handleEditEvent = useCallback(
+    (eventId: string) => {
+      const resolved = onResolveEventForEdit(eventId);
+      if (!resolved) return;
+      const nextDate = safeDate(resolved.date) ?? new Date(internalDate);
+      setInternalDate(nextDate);
+      setCreateState({
+        open: true,
+        date: nextDate,
+        tab: "Event",
+        mode: "edit",
+        event: resolved,
+      });
+    },
+    [internalDate, onResolveEventForEdit]
+  );
 
   return (
     <div className="calendar-surface">
@@ -796,6 +966,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 events={events}
                 tasks={tasks}
                 onToggleTask={onToggleTask}
+                onEditEvent={handleEditEvent}
               />
             </div>
 
@@ -859,12 +1030,23 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     events={events}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
+                    onEditEvent={handleEditEvent}
                   />
                 )}
                 {view === "week" && (
-                  <WeekGrid anchorDate={internalDate} events={events} />
+                  <WeekGrid
+                    anchorDate={internalDate}
+                    events={events}
+                    onEditEvent={handleEditEvent}
+                  />
                 )}
-                {view === "day" && <DayList date={internalDate} events={events} />}
+                {view === "day" && (
+                  <DayList
+                    date={internalDate}
+                    events={events}
+                    onEditEvent={handleEditEvent}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -885,9 +1067,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         isOpen={createState.open}
         initialDate={createState.date}
         initialTab={createState.tab}
+        mode={createState.mode}
+        eventToEdit={createState.event}
         onClose={handleCloseCreate}
         onCreateEvent={onCreateEvent}
         onCreateTask={onCreateTask}
+        onUpdateEvent={onUpdateEvent}
       />
     </div>
   );
@@ -924,12 +1109,32 @@ const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const initializedDateForProject = useRef<string | null>(null);
 
+  const eventById = useMemo(() => {
+    const map = new Map<string, ApiTimelineEvent>();
+    timelineEvents.forEach((event) => {
+      const identifier = getEventIdentifier(event);
+      if (identifier) {
+        map.set(identifier, event);
+      }
+    });
+    return map;
+  }, [timelineEvents]);
+
   useEffect(() => {
     if (!projectId) return;
     if (!activeProject || activeProject.projectId !== projectId) {
       fetchProjectDetails(projectId);
     }
   }, [projectId, activeProject, fetchProjectDetails]);
+
+  const resolveEventForEdit = useCallback(
+    (eventId: string) => {
+      const raw = eventById.get(eventId);
+      if (!raw) return null;
+      return buildEditableEvent(raw);
+    },
+    [eventById]
+  );
 
   useEffect(() => {
     if (!projectId) return;
@@ -1020,7 +1225,7 @@ const CalendarPage: React.FC = () => {
 
       const isoDate = input.date;
       const repeatValue =
-        input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
+        input.repeat && input.repeat !== DEFAULT_REPEAT_VALUE ? input.repeat : undefined;
 
       const payloadEntries: Record<string, unknown> = {
         description: input.description?.trim() || input.title,
@@ -1098,6 +1303,145 @@ const CalendarPage: React.FC = () => {
       }
     },
     [projectId, setActiveProject, setProjects]
+  );
+
+  const handleUpdateEvent = useCallback(
+    async (eventId: string, input: CreateEventRequest) => {
+      if (!projectId) return;
+
+      const existing = eventById.get(eventId);
+      if (!existing) {
+        console.warn("Attempted to update an event that was not found", eventId);
+        return;
+      }
+
+      const resolvedEventId =
+        existing.eventId || existing.id || existing.timelineEventId || eventId;
+
+      const repeatValue =
+        input.repeat && input.repeat !== DEFAULT_REPEAT_VALUE ? input.repeat : undefined;
+
+      const previousPayload = (existing.payload ?? {}) as Record<string, unknown>;
+      const payloadEntries: Record<string, unknown> = {
+        ...previousPayload,
+        description: input.description?.trim() || input.title,
+        notes: input.description?.trim() || undefined,
+        repeat: repeatValue,
+        reminder: input.reminder,
+        eventType: input.eventType,
+        platform: input.platform,
+        guests: input.guests.length > 0 ? input.guests : undefined,
+        tags: input.tags.length > 0 ? input.tags : undefined,
+        allDay: input.allDay,
+      };
+
+      if (input.allDay) {
+        delete payloadEntries.start;
+        delete payloadEntries.end;
+      } else {
+        payloadEntries.start = input.time;
+        payloadEntries.end = input.endTime;
+      }
+
+      const payload = Object.fromEntries(
+        Object.entries(payloadEntries).filter(([, value]) => {
+          if (value === undefined || value === null) return false;
+          if (typeof value === "string") return value.trim().length > 0;
+          if (Array.isArray(value)) return value.length > 0;
+          return true;
+        })
+      );
+
+      const updatePayload: ApiTimelineEvent & {
+        projectId: string;
+        eventId: string;
+      } = {
+        ...existing,
+        projectId,
+        eventId: resolvedEventId,
+        date: input.date,
+        description: input.title,
+        payload,
+      };
+
+      if (input.allDay) {
+        delete (updatePayload as { start?: unknown }).start;
+        delete (updatePayload as { end?: unknown }).end;
+      } else {
+        (updatePayload as { start?: unknown }).start = input.time;
+        (updatePayload as { end?: unknown }).end = input.endTime;
+      }
+
+      try {
+        const updated = await updateEvent(updatePayload);
+        const mergedPayload =
+          updated.payload ?? (payload as ApiTimelineEvent["payload"]);
+        const updatedEvent: ApiTimelineEvent = {
+          ...existing,
+          ...updated,
+          date: updated.date ?? input.date,
+          payload: mergedPayload,
+        };
+
+        setTimelineEvents((prev) =>
+          prev.map((event) =>
+            getEventIdentifier(event) === eventId ? updatedEvent : event
+          )
+        );
+
+        const updateCollection = (
+          collection?: ApiTimelineEvent[]
+        ): ApiTimelineEvent[] | undefined => {
+          if (!Array.isArray(collection)) return collection;
+          return collection.map((event) =>
+            getEventIdentifier(event) === eventId ? updatedEvent : event
+          );
+        };
+
+        setActiveProject((prev) => {
+          if (!prev || prev.projectId !== projectId) return prev;
+          const nextTimeline = updateCollection(
+            (prev.timelineEvents as ApiTimelineEvent[] | undefined) ?? undefined
+          );
+          return { ...prev, timelineEvents: nextTimeline };
+        });
+
+        setProjects((prev) =>
+          Array.isArray(prev)
+            ? prev.map((project) =>
+                project.projectId === projectId
+                  ? {
+                      ...project,
+                      timelineEvents: updateCollection(
+                        (project.timelineEvents as ApiTimelineEvent[] | undefined) ??
+                          undefined
+                      ),
+                    }
+                  : project
+              )
+            : prev
+        );
+
+        const normalizedEvent = normalizeTimelineEvent(updatedEvent);
+        if (normalizedEvent) {
+          const normalizedDate = safeDate(normalizedEvent.date);
+          if (normalizedDate) {
+            setCurrentDate(normalizedDate);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to update event", error);
+        throw error;
+      }
+    },
+    [
+      eventById,
+      projectId,
+      setActiveProject,
+      setProjects,
+      setTimelineEvents,
+      setCurrentDate,
+    ]
   );
 
   const handleCreateTask = useCallback(
@@ -1256,6 +1600,8 @@ const CalendarPage: React.FC = () => {
         onCreateEvent={handleCreateEvent}
         onCreateTask={handleCreateTask}
         onToggleTask={handleToggleTask}
+        onResolveEventForEdit={resolveEventForEdit}
+        onUpdateEvent={handleUpdateEvent}
       />
     </ProjectPageLayout>
   );
