@@ -66,6 +66,7 @@ interface InvoicePreviewModalProps {
   project?: ProjectLike | null;
   showSidebar?: boolean;
   allowSave?: boolean;
+  itemsOverride?: BudgetItem[] | null;
 }
 
 type GroupField = "invoiceGroup" | "areaGroup" | "category";
@@ -126,13 +127,15 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   project,
   showSidebar = true,
   allowSave = true,
+  itemsOverride = null,
 }) => {
   // data
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [groupField, setGroupField] = useState<GroupField>("invoiceGroup");
   const [groupValues, setGroupValues] = useState<string[]>([]);
   const { userData, setUserData } = useData();
-  const { budgetItems } = useBudget();
+  const { budgetItems: contextBudgetItems } = useBudget();
+  const budgetItems = (itemsOverride ?? (contextBudgetItems as unknown as BudgetItem[])) as BudgetItem[];
 
   // layout/refs
   const invoiceRef = useRef<HTMLDivElement | null>(null);

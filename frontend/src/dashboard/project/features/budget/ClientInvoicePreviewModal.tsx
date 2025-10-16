@@ -2,8 +2,7 @@
 import React from "react";
 
 import InvoicePreviewModal from "@/dashboard/project/features/budget/components/InvoicePreviewModal";
-import { BudgetProvider } from "@/dashboard/project/features/budget/context/BudgetProvider";
-import { Project } from "@/app/contexts/DataProvider";
+import type { Project } from "@/app/contexts/DataProvider";
 
 interface RevisionLike {
   revision?: number;
@@ -15,6 +14,7 @@ interface ClientInvoicePreviewModalProps {
   onRequestClose: () => void;
   revision: RevisionLike;
   project: Project;
+  items?: Array<Record<string, unknown>> | null;
 }
 
 const ClientInvoicePreviewModal: React.FC<ClientInvoicePreviewModalProps> = ({
@@ -22,17 +22,17 @@ const ClientInvoicePreviewModal: React.FC<ClientInvoicePreviewModalProps> = ({
   onRequestClose,
   revision,
   project,
+  items = null,
 }) => (
-  <BudgetProvider projectId={project?.projectId}>
-    <InvoicePreviewModal
-      isOpen={isOpen}
-      onRequestClose={onRequestClose}
-      revision={revision}
-      project={project}
-      showSidebar={false}
-      allowSave={false}
-    />
-  </BudgetProvider>
+  <InvoicePreviewModal
+    isOpen={isOpen}
+    onRequestClose={onRequestClose}
+    revision={revision}
+    project={project}
+    showSidebar={false}
+    allowSave={false}
+    itemsOverride={items as Array<Record<string, unknown>> | null}
+  />
 );
 
 export default ClientInvoicePreviewModal;

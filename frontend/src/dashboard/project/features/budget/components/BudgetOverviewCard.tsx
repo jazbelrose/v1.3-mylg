@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
+import type { Project } from "@/app/contexts/DataProvider";
 import { formatUSD } from "@/shared/utils/budgetUtils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,6 +14,7 @@ import BudgetDonut, {
 } from "@/dashboard/project/features/budget/components/BudgetDonut";
 import { useSocket } from "@/app/contexts/useSocket";
 import { generateSequentialPalette, getColor } from "@/shared/utils/colorUtils";
+import { fetchBudgetHeader, fetchBudgetItems } from "@/shared/utils/api";
 
 
 type BudgetHeaderData = {
@@ -61,6 +63,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   const {
     budgetHeader,
     clientBudgetHeader,
+    clientBudgetItems,
     loading,
     clientLoading,
     refresh,
@@ -74,6 +77,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   const [groupBy] = useState<"invoiceGroup" | "none">("invoiceGroup");
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [invoiceRevision, setInvoiceRevision] = useState<BudgetHeaderData | null>(null);
+  const [invoiceItems, setInvoiceItems] = useState<Array<Record<string, unknown>> | null>(null);
 
   const { ws } = useSocket();
 
@@ -219,18 +223,33 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   );
 
   const openInvoicePreview = async (): Promise<void> => {
-    if (!overviewHeader) return;
+    const projectKey = projectId ?? activeProject?.projectId;
+    if (!projectKey) return;
+
     try {
+      const targetRevision =
+        clientBudgetHeader?.revision ??
+        (typeof budgetHeader?.clientRevisionId === "number"
+          ? budgetHeader.clientRevisionId
+          : budgetHeader?.revision ?? null);
+      if (targetRevision == null) return;
+
       if (clientBudgetHeader) {
         setInvoiceRevision(clientBudgetHeader as BudgetHeaderData);
+        setInvoiceItems(clientBudgetItems as Array<Record<string, unknown>>);
         setIsInvoicePreviewOpen(true);
         return;
       }
-      const data = await refresh();
-      if (data && "header" in data && data.header) {
-        setInvoiceRevision(data.header as BudgetHeaderData);
-        setIsInvoicePreviewOpen(true);
-      }
+
+      const header = await fetchBudgetHeader(projectKey, targetRevision);
+      if (!header || !header.budgetId) return;
+      const items = await fetchBudgetItems(
+        String(header.budgetId),
+        header.revision ?? targetRevision
+      );
+      setInvoiceRevision(header as BudgetHeaderData);
+      setInvoiceItems(items as Array<Record<string, unknown>>);
+      setIsInvoicePreviewOpen(true);
     } catch (err) {
       console.error("Failed to load invoice", err);
     }
@@ -241,6 +260,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
       e.stopPropagation();
     }
     setIsInvoicePreviewOpen(false);
+    setInvoiceItems(null);
     // Restore focus state after modal close
     setTimeout(() => {
       const active = document.activeElement as HTMLElement | null;
@@ -261,7 +281,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   return (
     <div
       className="dashboard-item budget budget-component-container budget-overview-card"
-      onClick={isAdmin ? openBudgetPage : undefined}
+      onClick={isAdmin && !isInvoicePreviewOpen ? openBudgetPage : undefined}
       style={{
         cursor: isAdmin ? "pointer" : "default",
         position: "relative",
@@ -354,7 +374,8 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         isOpen={isInvoicePreviewOpen}
         onRequestClose={closeInvoicePreview}
         revision={invoiceRevision}
-        project={activeProject}
+        project={activeProject as Project}
+        items={invoiceItems}
       />
     </div>
   );
