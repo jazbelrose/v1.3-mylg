@@ -1659,9 +1659,7 @@ const CalendarPage: React.FC = () => {
       const trimmedDescription = input.description?.trim();
       const draftEventId = generateEventId();
 
-      const payloadEntries: Record<string, unknown> = {
-        title: trimmedTitle,
-        description: trimmedDescription,
+      const detailEntries: Record<string, unknown> = {
         notes: trimmedDescription || undefined,
         start: input.allDay ? undefined : input.time,
         end: input.allDay ? undefined : input.endTime,
@@ -1674,14 +1672,20 @@ const CalendarPage: React.FC = () => {
         allDay: input.allDay,
       };
 
-      const payload = Object.fromEntries(
-        Object.entries(payloadEntries).filter(([, value]) => {
+      const eventDetails = Object.fromEntries(
+        Object.entries(detailEntries).filter(([, value]) => {
           if (value === undefined || value === null) return false;
           if (typeof value === "string") return value.trim().length > 0;
           if (Array.isArray(value)) return value.length > 0;
           return true;
         })
       );
+
+      const basePayload = {
+        title: trimmedTitle,
+        description: trimmedDescription ?? trimmedTitle,
+        ...eventDetails,
+      } as Record<string, unknown>;
 
       try {
         const eventBody = {
@@ -1691,31 +1695,41 @@ const CalendarPage: React.FC = () => {
           date: isoDate,
           title: trimmedTitle,
           description: trimmedDescription ?? trimmedTitle,
-          payload,
-          ...(input.allDay
-            ? {}
-            : {
-                start: input.time,
-                end: input.endTime,
-              }),
+          ...eventDetails,
         } as ApiTimelineEvent;
 
         const created = await createEvent(projectId, eventBody);
         const rawCreatedPayload = created.payload;
         const createdPayload = rawCreatedPayload ?? {};
+        const promotedCreatedDetails = Object.fromEntries(
+          [
+            "notes",
+            "start",
+            "end",
+            "repeat",
+            "reminder",
+            "eventType",
+            "platform",
+            "guests",
+            "tags",
+            "allDay",
+          ].flatMap((key) => {
+            const value = (created as Record<string, unknown>)[key];
+            return value === undefined ? [] : ([[key, value]] as const);
+          })
+        );
+
         const mergedPayload = {
-          ...payload,
+          ...basePayload,
+          ...promotedCreatedDetails,
           ...createdPayload,
         } as Record<string, unknown>;
 
         if (!rawCreatedPayload || (rawCreatedPayload as { title?: unknown }).title == null) {
           mergedPayload.title = trimmedTitle;
         }
-        if (
-          trimmedDescription &&
-          (!rawCreatedPayload || (rawCreatedPayload as { description?: unknown }).description == null)
-        ) {
-          mergedPayload.description = trimmedDescription;
+        if (!mergedPayload.description) {
+          mergedPayload.description = trimmedDescription ?? trimmedTitle;
         }
 
         const resolvedId =
@@ -1725,16 +1739,13 @@ const CalendarPage: React.FC = () => {
         const resolvedDescription =
           created.description ?? trimmedDescription ?? trimmedTitle;
 
-        const normalized = normalizeTimelineEvent({
-          ...created,
-          id: resolvedId,
-          eventId: resolvedEventId,
-          title: resolvedTitle,
-          description: resolvedDescription,
-          payload: mergedPayload,
-          date: created.date ?? isoDate,
-        });
+        const eventStateDetails = {
+          ...eventDetails,
+          ...promotedCreatedDetails,
+        } as Record<string, unknown>;
+
         const asTimelineEvent: ApiTimelineEvent = {
+          ...eventStateDetails,
           ...created,
           id: resolvedId,
           eventId: resolvedEventId,
@@ -1743,6 +1754,8 @@ const CalendarPage: React.FC = () => {
           payload: mergedPayload,
           date: created.date ?? isoDate,
         };
+
+        const normalized = normalizeTimelineEvent(asTimelineEvent);
 
         setTimelineEvents((prev) => [...prev, asTimelineEvent]);
         setActiveProject((prev) => {
@@ -1785,8 +1798,7 @@ const CalendarPage: React.FC = () => {
       const repeatValue =
         input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
 
-      const payloadEntries: Record<string, unknown> = {
-        description: input.description?.trim() || input.title,
+      const detailEntries: Record<string, unknown> = {
         notes: input.description?.trim() || undefined,
         start: input.allDay ? undefined : input.time,
         end: input.allDay ? undefined : input.endTime,
@@ -1799,8 +1811,8 @@ const CalendarPage: React.FC = () => {
         allDay: input.allDay,
       };
 
-      const filteredPayload = Object.fromEntries(
-        Object.entries(payloadEntries).filter(([, value]) => {
+      const filteredDetails = Object.fromEntries(
+        Object.entries(detailEntries).filter(([, value]) => {
           if (value === undefined || value === null) return false;
           if (typeof value === "string") return value.trim().length > 0;
           if (Array.isArray(value)) return value.length > 0;
@@ -1808,16 +1820,22 @@ const CalendarPage: React.FC = () => {
         })
       );
 
-      const mergedPayload = {
+      const basePayload = {
+        title: input.title.trim(),
+        description: input.description?.trim() || input.title.trim(),
+        ...filteredDetails,
+      } as Record<string, unknown>;
+
+      const payloadForState = {
         ...(target.payload ?? {}),
-        ...filteredPayload,
+        ...basePayload,
       } as Record<string, unknown>;
 
       if (input.allDay) {
-        delete mergedPayload.start;
-        delete mergedPayload.end;
-        delete mergedPayload.startTime;
-        delete mergedPayload.endTime;
+        delete payloadForState.start;
+        delete payloadForState.end;
+        delete payloadForState.startTime;
+        delete payloadForState.endTime;
       }
 
       const eventId =
@@ -1830,20 +1848,20 @@ const CalendarPage: React.FC = () => {
         throw new Error("Unable to determine event id for update");
       }
 
+      const { payload: _discardedPayload, ...targetWithoutPayload } = target;
+
       const baseEvent: ApiTimelineEvent = {
-        ...target,
+        ...targetWithoutPayload,
         projectId,
         date: isoDate,
-        description: input.title,
-        payload: mergedPayload,
+        title: input.title.trim(),
+        description: input.description?.trim() || input.title.trim(),
+        ...filteredDetails,
       };
 
       if (input.allDay) {
         delete (baseEvent as Record<string, unknown>).start;
         delete (baseEvent as Record<string, unknown>).end;
-      } else {
-        (baseEvent as Record<string, unknown>).start = input.time;
-        (baseEvent as Record<string, unknown>).end = input.endTime;
       }
 
       try {
@@ -1853,9 +1871,27 @@ const CalendarPage: React.FC = () => {
           eventId,
         });
 
+        const promotedUpdatedDetails = Object.fromEntries(
+          [
+            "notes",
+            "start",
+            "end",
+            "repeat",
+            "reminder",
+            "eventType",
+            "platform",
+            "guests",
+            "tags",
+            "allDay",
+          ].flatMap((key) => {
+            const value = (updated as Record<string, unknown>)[key];
+            return value === undefined ? [] : ([[key, value]] as const);
+          })
+        );
+
         const combinedPayload = {
-          ...(target.payload ?? {}),
-          ...mergedPayload,
+          ...payloadForState,
+          ...promotedUpdatedDetails,
           ...(updated.payload ?? {}),
         } as Record<string, unknown>;
 
@@ -1867,11 +1903,15 @@ const CalendarPage: React.FC = () => {
         }
 
         const updatedEvent: ApiTimelineEvent = {
-          ...target,
+          ...filteredDetails,
+          ...promotedUpdatedDetails,
+          ...targetWithoutPayload,
           ...updated,
           projectId,
           date: updated.date ?? isoDate,
-          description: updated.description ?? input.title,
+          title: updated.title ?? input.title.trim(),
+          description:
+            updated.description ?? input.description?.trim() ?? input.title.trim(),
           payload: combinedPayload,
         };
 
@@ -1879,8 +1919,10 @@ const CalendarPage: React.FC = () => {
           delete (updatedEvent as Record<string, unknown>).start;
           delete (updatedEvent as Record<string, unknown>).end;
         } else {
-          (updatedEvent as Record<string, unknown>).start = input.time;
-          (updatedEvent as Record<string, unknown>).end = input.endTime;
+          (updatedEvent as Record<string, unknown>).start =
+            (updatedEvent as Record<string, unknown>).start ?? input.time;
+          (updatedEvent as Record<string, unknown>).end =
+            (updatedEvent as Record<string, unknown>).end ?? input.endTime;
         }
 
         setTimelineEvents((previous) => {
