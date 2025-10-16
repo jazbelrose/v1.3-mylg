@@ -380,6 +380,7 @@
 }
 
 .month-grid__cell {
+  position: relative;
   min-height: 120px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -389,6 +390,8 @@
   gap: 6px;
   background: rgba(255, 255, 255, 0.02);
   transition: background 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  overflow: hidden;
 }
 
 .month-grid__cell.is-current {
@@ -401,6 +404,11 @@
 
 .month-grid__cell.is-selected {
   box-shadow: inset 0 0 0 2px rgba(250, 51, 86, 0.6);
+}
+
+.month-grid__cell.is-hovered {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(250, 51, 86, 0.4);
 }
 
 .month-grid__date {
@@ -448,6 +456,52 @@
 .month-grid__more {
   font-size: 0.68rem;
   color: rgba(255, 255, 255, 0.6);
+}
+
+.month-grid__actions {
+  position: absolute;
+  inset: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(12, 12, 12, 0.88);
+  border-radius: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.96);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.month-grid__cell.is-hovered .month-grid__actions,
+.month-grid__cell:focus-within .month-grid__actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.month-grid__actions-button {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  background: rgba(250, 51, 86, 0.12);
+  color: rgba(255, 255, 255, 0.88);
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.month-grid__actions-button:hover {
+  background: rgba(250, 51, 86, 0.28);
+  transform: translateY(-1px);
+}
+
+.month-grid__actions-button--task {
+  background: rgba(99, 102, 241, 0.18);
+}
+
+.month-grid__actions-button--task:hover {
+  background: rgba(99, 102, 241, 0.32);
 }
 
 .week-grid {

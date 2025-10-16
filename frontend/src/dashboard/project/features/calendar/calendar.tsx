@@ -31,6 +31,7 @@ import type { Project } from "@/app/contexts/DataProvider";
 import type { QuickLinksRef } from "@/dashboard/project/components";
 import {
   createEvent,
+  createTask as createTaskApi,
   fetchTasks,
   updateTask,
   type Task as ApiTask,
@@ -39,6 +40,11 @@ import {
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 import "./calendar-preview.css";
+import CreateCalendarItemModal, {
+  type CreateCalendarItemTab,
+  type CreateEventRequest,
+  type CreateTaskRequest,
+} from "./CreateCalendarItemModal";
 
 type CalendarCategory = "Work" | "Education" | "Personal";
 
@@ -161,10 +167,17 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
   const end =
     endRaw || (start && Number.isFinite(durationHours) ? addHoursToTime(start, Number(durationHours)) : undefined);
 
+  const payloadDescription = event.payload?.description;
+  const payloadNotes = (event.payload as { notes?: string; details?: string })?.notes;
+  const payloadDetails =
+    payloadNotes ||
+    (event.payload as { details?: string })?.details ||
+    (payloadDescription && payloadDescription !== event.description ? payloadDescription : undefined);
+
   const title =
     (event as { title?: string }).title ||
     event.description ||
-    event.payload?.description ||
+    payloadDescription ||
     "Untitled event";
 
   return {
@@ -177,7 +190,12 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
     date: isoDate,
     start,
     end,
-    description: event.description || event.payload?.description,
+    description:
+      payloadDetails ||
+      (payloadDescription && payloadDescription !== title ? payloadDescription : undefined) ||
+      event.description ||
+      payloadDescription ||
+      undefined,
     category: deriveCategory(event),
   };
 };
@@ -336,9 +354,16 @@ type MonthGridProps = {
   selectedDate: Date;
   events: CalendarEvent[];
   onSelectDate: (d: Date) => void;
+  onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
 };
 
-function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridProps) {
+function MonthGrid({
+  viewDate,
+  selectedDate,
+  events,
+  onSelectDate,
+  onOpenCreate,
+}: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
   const eventsByDate = useMemo(() => {
@@ -349,6 +374,17 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
     });
     return map;
   }, [events]);
+
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  const handleMouseLeave = (key: string) => {
+    setHoveredKey((current) => (current === key ? null : current));
+  };
+
+  const handleOpenCreate = (day: Date, tab?: CreateCalendarItemTab) => {
+    onSelectDate(day);
+    onOpenCreate(day, tab);
+  };
 
   return (
     <div className="month-grid">
@@ -370,11 +406,23 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
           .filter(Boolean)
           .join(" ");
 
+        const isHovered = hoveredKey === key;
+
         return (
-          <div key={key} className={className}>
+          <div
+            key={key}
+            className={`${className}${isHovered ? " is-hovered" : ""}`.trim()}
+            onMouseEnter={() => setHoveredKey(key)}
+            onMouseLeave={() => handleMouseLeave(key)}
+            onClick={() => handleOpenCreate(day)}
+            role="presentation"
+          >
             <button
               type="button"
-              onClick={() => onSelectDate(day)}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleOpenCreate(day);
+              }}
               className="month-grid__date"
             >
               {day.getDate()}
@@ -391,6 +439,28 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
               {dayEvents.length > 4 && (
                 <div className="month-grid__more">+{dayEvents.length - 4} more</div>
               )}
+            </div>
+            <div className="month-grid__actions">
+              <button
+                type="button"
+                className="month-grid__actions-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOpenCreate(day, "Event");
+                }}
+              >
+                + Event
+              </button>
+              <button
+                type="button"
+                className="month-grid__actions-button month-grid__actions-button--task"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOpenCreate(day, "Task");
+                }}
+              >
+                + Task
+              </button>
             </div>
           </div>
         );
@@ -642,7 +712,8 @@ type CalendarSurfaceProps = {
   tasks: CalendarTask[];
   currentDate: Date;
   onDateChange: (date: Date) => void;
-  onAddEvent: (date: Date) => void;
+  onCreateEvent: (input: CreateEventRequest) => Promise<void>;
+  onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onToggleTask: (id: string) => void;
 };
 
@@ -651,11 +722,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   tasks,
   currentDate,
   onDateChange,
-  onAddEvent,
+  onCreateEvent,
+  onCreateTask,
   onToggleTask,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
+  const [createState, setCreateState] = useState<{
+    open: boolean;
+    date: Date;
+    tab: CreateCalendarItemTab;
+  }>({ open: false, date: currentDate, tab: "Event" });
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -692,14 +769,25 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const handleSelectDate = useCallback((date: Date) => {
     setInternalDate(date);
-    setView("day");
+  }, []);
+
+  const handleOpenCreate = useCallback(
+    (date: Date, tab: CreateCalendarItemTab = "Event") => {
+      setInternalDate(date);
+      setCreateState({ open: true, date, tab });
+    },
+    []
+  );
+
+  const handleCloseCreate = useCallback(() => {
+    setCreateState((previous) => ({ ...previous, open: false }));
   }, []);
 
   return (
     <div className="calendar-surface">
       <div className="calendar-shell">
         <div className="calendar-card">
-          <TopBar onAdd={() => onAddEvent(internalDate)} />
+          <TopBar onAdd={() => handleOpenCreate(internalDate, "Event")} />
 
           <div className="calendar-body">
             <div className="calendar-sidebar">
@@ -770,6 +858,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     selectedDate={internalDate}
                     events={events}
                     onSelectDate={handleSelectDate}
+                    onOpenCreate={handleOpenCreate}
                   />
                 )}
                 {view === "week" && (
@@ -791,6 +880,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           </div>
         </div>
       </div>
+
+      <CreateCalendarItemModal
+        isOpen={createState.open}
+        initialDate={createState.date}
+        initialTab={createState.tab}
+        onClose={handleCloseCreate}
+        onCreateEvent={onCreateEvent}
+        onCreateTask={onCreateTask}
+      />
     </div>
   );
 };
@@ -916,15 +1014,51 @@ const CalendarPage: React.FC = () => {
     }
   }, [projectId, timelineEvents]);
 
-  const handleAddEvent = useCallback(
-    async (date: Date) => {
+  const handleCreateEvent = useCallback(
+    async (input: CreateEventRequest) => {
       if (!projectId) return;
-      const isoDate = fmt(date);
+
+      const isoDate = input.date;
+      const repeatValue =
+        input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
+
+      const payloadEntries: Record<string, unknown> = {
+        description: input.description?.trim() || input.title,
+        notes: input.description?.trim() || undefined,
+        start: input.allDay ? undefined : input.time,
+        end: input.allDay ? undefined : input.endTime,
+        repeat: repeatValue,
+        reminder: input.reminder,
+        eventType: input.eventType,
+        platform: input.platform,
+        guests: input.guests.length > 0 ? input.guests : undefined,
+        tags: input.tags.length > 0 ? input.tags : undefined,
+        allDay: input.allDay,
+      };
+
+      const payload = Object.fromEntries(
+        Object.entries(payloadEntries).filter(([, value]) => {
+          if (value === undefined || value === null) return false;
+          if (typeof value === "string") return value.trim().length > 0;
+          if (Array.isArray(value)) return value.length > 0;
+          return true;
+        })
+      );
+
       try {
-        const created = await createEvent(projectId, {
+        const eventBody = {
           date: isoDate,
-          description: "New event",
-        });
+          description: input.title,
+          payload,
+          ...(input.allDay
+            ? {}
+            : {
+                start: input.time,
+                end: input.endTime,
+              }),
+        } as ApiTimelineEvent;
+
+        const created = await createEvent(projectId, eventBody);
         const normalized = normalizeTimelineEvent({
           ...created,
           date: created.date ?? isoDate,
@@ -936,8 +1070,7 @@ const CalendarPage: React.FC = () => {
 
         setTimelineEvents((prev) => [...prev, asTimelineEvent]);
         setActiveProject((prev) => {
-          if (!prev) return prev;
-          if (prev.projectId !== projectId) return prev;
+          if (!prev || prev.projectId !== projectId) return prev;
           const nextTimeline = [...(prev.timelineEvents ?? []), asTimelineEvent];
           return { ...prev, timelineEvents: nextTimeline };
         });
@@ -945,19 +1078,54 @@ const CalendarPage: React.FC = () => {
           Array.isArray(prev)
             ? prev.map((project) =>
                 project.projectId === projectId
-                  ? { ...project, timelineEvents: [...(project.timelineEvents ?? []), asTimelineEvent] }
+                  ? {
+                      ...project,
+                      timelineEvents: [...(project.timelineEvents ?? []), asTimelineEvent],
+                    }
                   : project
               )
             : prev
         );
 
         if (!normalized) return;
-        setCurrentDate(safeDate(normalized.date) ?? date);
+        const normalizedDate = safeDate(normalized.date);
+        if (normalizedDate) {
+          setCurrentDate(normalizedDate);
+        }
       } catch (error) {
         console.error("Failed to create event", error);
+        throw error;
       }
     },
     [projectId, setActiveProject, setProjects]
+  );
+
+  const handleCreateTask = useCallback(
+    async (input: CreateTaskRequest) => {
+      if (!projectId) return;
+
+      const dueDateIso = input.date
+        ? (() => {
+            const parsed = new Date(`${input.date}T${input.time ?? "00:00"}`);
+            return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+          })()
+        : undefined;
+
+      try {
+        const created = await createTaskApi({
+          projectId,
+          title: input.title,
+          description: input.description,
+          dueDate: dueDateIso,
+          status: "todo",
+        });
+        setProjectTasks((prev) => [...prev, created]);
+      } catch (error) {
+        console.error("Failed to create task", error);
+        throw error;
+      }
+    },
+    [projectId]
   );
 
   const handleToggleTask = useCallback(
@@ -1085,7 +1253,8 @@ const CalendarPage: React.FC = () => {
         tasks={calendarTasks}
         currentDate={currentDate}
         onDateChange={setCurrentDate}
-        onAddEvent={handleAddEvent}
+        onCreateEvent={handleCreateEvent}
+        onCreateTask={handleCreateTask}
         onToggleTask={handleToggleTask}
       />
     </ProjectPageLayout>
