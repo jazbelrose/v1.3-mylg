@@ -31,6 +31,7 @@
   backdrop-filter: blur(22px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .calendar-body {
