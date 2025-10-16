@@ -14,6 +14,7 @@ import {
   Search,
   Plus,
   Check,
+  CheckSquare,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -35,6 +36,8 @@ import {
   fetchTasks,
   updateEvent,
   updateTask,
+  deleteEvent,
+  deleteTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
@@ -72,6 +75,9 @@ type CalendarTask = {
   title: string;
   due?: string; // ISO date
   done?: boolean;
+  time?: string;
+  description?: string;
+  source: ApiTask;
 };
 
 const categoryColor: Record<CalendarCategory, string> = {
@@ -413,15 +419,36 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
   };
 };
 
-const normalizeTask = (task: ApiTask): CalendarTask => ({
-  id:
-    task.taskId ||
-    (task as { id?: string }).id ||
-    `${task.projectId}-${Math.random().toString(36).slice(2)}`,
-  title: task.title ?? "Untitled task",
-  due: task.dueDate?.slice(0, 10),
-  done: task.status === "done",
-});
+const normalizeTask = (task: ApiTask): CalendarTask => {
+  const dueSource = task.dueDate ?? undefined;
+  let due: string | undefined;
+  let time: string | undefined;
+
+  if (dueSource) {
+    const match = dueSource.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))/);
+    if (match) {
+      due = match[1];
+      time = match[2];
+    } else {
+      due = dueSource.slice(0, 10);
+      const fallback = dueSource.match(/T(\d{2}:\d{2})/);
+      time = fallback ? fallback[1] : undefined;
+    }
+  }
+
+  return {
+    id:
+      task.taskId ||
+      (task as { id?: string }).id ||
+      `${task.projectId}-${Math.random().toString(36).slice(2)}`,
+    title: task.title ?? "Untitled task",
+    due,
+    time,
+    done: task.status === "done",
+    description: task.description ?? undefined,
+    source: task,
+  };
+};
 
 const getMonthMatrix = (viewDate: Date) => {
   const start = startOfMonth(viewDate);
@@ -566,18 +593,22 @@ type MonthGridProps = {
   viewDate: Date;
   selectedDate: Date;
   events: CalendarEvent[];
+  tasks: CalendarTask[];
   onSelectDate: (d: Date) => void;
   onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
   onEditEvent: (event: CalendarEvent) => void;
+  onEditTask: (task: CalendarTask) => void;
 };
 
 function MonthGrid({
   viewDate,
   selectedDate,
   events,
+  tasks,
   onSelectDate,
   onOpenCreate,
   onEditEvent,
+  onEditTask,
 }: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
@@ -589,6 +620,15 @@ function MonthGrid({
     });
     return map;
   }, [events]);
+  const tasksByDate = useMemo(() => {
+    const map = new Map<string, CalendarTask[]>();
+    tasks.forEach((task) => {
+      if (!task.due) return;
+      if (!map.has(task.due)) map.set(task.due, []);
+      map.get(task.due)!.push(task);
+    });
+    return map;
+  }, [tasks]);
 
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
@@ -613,6 +653,32 @@ function MonthGrid({
         const key = fmt(day);
         const isSelected = isSameDay(day, selectedDate);
         const dayEvents = eventsByDate.get(key) || [];
+        const dayTasks = tasksByDate.get(key) || [];
+        const combined = [
+          ...dayEvents.map((event) => ({
+            type: "event" as const,
+            sortKey: event.start ?? "99:99",
+            event,
+          })),
+          ...dayTasks.map((task) => ({
+            type: "task" as const,
+            sortKey: task.time ?? "99:99",
+            task,
+          })),
+        ].sort((a, b) => {
+          const timeCompare = a.sortKey.localeCompare(b.sortKey);
+          if (timeCompare !== 0) return timeCompare;
+          if (a.type === b.type) {
+            const titleA = a.type === "event" ? a.event.title : a.task.title;
+            const titleB = b.type === "event" ? b.event.title : b.task.title;
+            return titleA.localeCompare(titleB);
+          }
+          return a.type === "event" ? -1 : 1;
+        });
+
+        const visible = combined.slice(0, 4);
+        const remaining = combined.length - visible.length;
+
         const className = [
           "month-grid__cell",
           isCurrentMonth ? "is-current" : "is-outside",
@@ -643,32 +709,69 @@ function MonthGrid({
               {day.getDate()}
             </button>
             <div className="month-grid__events">
-              {dayEvents.slice(0, 4).map((event) => (
-                <div
-                  key={event.id}
-                  className="month-grid__event"
-                  role="button"
-                  tabIndex={0}
-                  onClick={(mouseEvent) => {
-                    mouseEvent.stopPropagation();
-                    onEditEvent(event);
-                  }}
-                  onKeyDown={(keyboardEvent) => {
-                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                      keyboardEvent.preventDefault();
-                      onEditEvent(event);
-                    }
-                  }}
-                >
-                  <span className={`month-grid__event-dot ${categoryColor[event.category]}`} />
-                  <span className="month-grid__event-title" title={event.title}>
-                    {event.title}
-                  </span>
-                </div>
-              ))}
-              {dayEvents.length > 4 && (
-                <div className="month-grid__more">+{dayEvents.length - 4} more</div>
-              )}
+              {visible.map((item) => {
+                if (item.type === "event") {
+                  const { event } = item;
+                  return (
+                    <div
+                      key={`event-${event.id}`}
+                      className="month-grid__event"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(mouseEvent) => {
+                        mouseEvent.stopPropagation();
+                        onEditEvent(event);
+                      }}
+                      onKeyDown={(keyboardEvent) => {
+                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                          keyboardEvent.preventDefault();
+                          onEditEvent(event);
+                        }
+                      }}
+                    >
+                      <span
+                        className={`month-grid__item-icon ${categoryColor[event.category]}`}
+                      >
+                        <Clock className="month-grid__item-icon-svg" aria-hidden />
+                      </span>
+                      <span className="month-grid__event-title" title={event.title}>
+                        {event.title}
+                      </span>
+                    </div>
+                  );
+                }
+
+                const { task } = item;
+                return (
+                  <div
+                    key={`task-${task.id}`}
+                    className="month-grid__event month-grid__event--task"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(mouseEvent) => {
+                      mouseEvent.stopPropagation();
+                      onEditTask(task);
+                    }}
+                    onKeyDown={(keyboardEvent) => {
+                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                        keyboardEvent.preventDefault();
+                        onEditTask(task);
+                      }
+                    }}
+                  >
+                    <span className="month-grid__item-icon month-grid__item-icon--task">
+                      <CheckSquare className="month-grid__item-icon-svg" aria-hidden />
+                    </span>
+                    <span
+                      className={`month-grid__event-title ${task.done ? "is-complete" : ""}`}
+                      title={task.title}
+                    >
+                      {task.title}
+                    </span>
+                  </div>
+                );
+              })}
+              {remaining > 0 && <div className="month-grid__more">+{remaining} more</div>}
             </div>
             <button
               type="button"
@@ -695,7 +798,9 @@ function MonthGrid({
 type WeekGridProps = {
   anchorDate: Date;
   events: CalendarEvent[];
+  tasks: CalendarTask[];
   onEditEvent: (event: CalendarEvent) => void;
+  onEditTask: (task: CalendarTask) => void;
 };
 
 type WeekDayEvents = {
@@ -710,7 +815,7 @@ const parseHour = (time?: string) => {
   return h;
 };
 
-function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
+function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 7), []); // 7am - 6pm
@@ -733,6 +838,20 @@ function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
     return map;
   }, [days, events]);
 
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, CalendarTask[]>();
+    days.forEach((day) => {
+      map.set(fmt(day), []);
+    });
+    tasks.forEach((task) => {
+      if (!task.due) return;
+      const bucket = map.get(task.due);
+      if (!bucket) return;
+      bucket.push(task);
+    });
+    return map;
+  }, [days, tasks]);
+
   return (
     <div className="week-grid">
       <div className="week-grid__spacer" />
@@ -747,12 +866,13 @@ function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
           {days.map((day) => {
             const key = fmt(day);
             const dayEvents = eventsByDay.get(key) ?? { allDay: [], timed: [] };
+            const dayTasks = tasksByDay.get(key) ?? [];
             const timed = dayEvents.timed.filter(
               (event) => parseHour(event.start) === hour
             );
             return (
               <div key={`${key}-${hour}`} className="week-grid__cell">
-                {hourIndex === 0 && dayEvents.allDay.length > 0 && (
+                {hourIndex === 0 && (dayEvents.allDay.length > 0 || dayTasks.length > 0) && (
                   <div className="week-grid__all-day">
                     {dayEvents.allDay.map((event) => (
                       <div
@@ -771,6 +891,28 @@ function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
                         <div className="week-grid__event-title">{event.title}</div>
                         <div className="week-grid__event-time">All day</div>
                       </div>
+                    ))}
+                    {dayTasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        className="week-grid__task"
+                        onClick={() => onEditTask(task)}
+                      >
+                        <span className="week-grid__task-icon">
+                          <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                        </span>
+                        <div className="week-grid__task-body">
+                          <div
+                            className={`week-grid__task-title ${task.done ? "is-complete" : ""}`}
+                          >
+                            {task.title}
+                          </div>
+                          {task.time && (
+                            <div className="week-grid__task-time">{task.time}</div>
+                          )}
+                        </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -812,54 +954,118 @@ function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
 type DayListProps = {
   date: Date;
   events: CalendarEvent[];
+  tasks: CalendarTask[];
   onEditEvent: (event: CalendarEvent) => void;
+  onEditTask: (task: CalendarTask) => void;
 };
 
-function DayList({ date, events, onEditEvent }: DayListProps) {
-  const list = useMemo(
-    () =>
-      events
-        .filter((event) => event.date === fmt(date))
-        .sort((a, b) => (a.start || "").localeCompare(b.start || "")),
-    [date, events]
-  );
+function DayList({ date, events, tasks, onEditEvent, onEditTask }: DayListProps) {
+  const list = useMemo(() => {
+    const key = fmt(date);
+    const eventItems = events
+      .filter((event) => event.date === key)
+      .map((event) => ({
+        type: "event" as const,
+        sortKey: event.start ?? "99:99",
+        event,
+      }));
+    const taskItems = tasks
+      .filter((task) => task.due === key)
+      .map((task) => ({
+        type: "task" as const,
+        sortKey: task.time ?? "99:99",
+        task,
+      }));
+    return [...eventItems, ...taskItems].sort((a, b) => {
+      const timeCompare = a.sortKey.localeCompare(b.sortKey);
+      if (timeCompare !== 0) return timeCompare;
+      if (a.type === b.type) {
+        const labelA = a.type === "event" ? a.event.title : a.task.title;
+        const labelB = b.type === "event" ? b.event.title : b.task.title;
+        return labelA.localeCompare(labelB);
+      }
+      return a.type === "event" ? -1 : 1;
+    });
+  }, [date, events, tasks]);
 
   if (list.length === 0) {
-    return <div className="day-list__empty">No events for this day.</div>;
+    return <div className="day-list__empty">No events or tasks for this day.</div>;
   }
 
   return (
     <div className="day-list">
-      {list.map((event) => {
-        const fallbackEnd =
-          event.end || (event.start ? addHoursToTime(event.start, 1) : undefined);
+      {list.map((item) => {
+        if (item.type === "event") {
+          const { event } = item;
+          const fallbackEnd =
+            event.end || (event.start ? addHoursToTime(event.start, 1) : undefined);
+          return (
+            <div
+              key={`event-${event.id}`}
+              className="day-list__item"
+              role="button"
+              tabIndex={0}
+              onClick={() => onEditEvent(event)}
+              onKeyDown={(keyboardEvent) => {
+                if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                  keyboardEvent.preventDefault();
+                  onEditEvent(event);
+                }
+              }}
+            >
+              <div className="day-list__icon-wrapper">
+                <span
+                  className={`day-list__icon ${categoryColor[event.category]}`}
+                >
+                  <Clock className="day-list__icon-svg" aria-hidden />
+                </span>
+              </div>
+              <div className="day-list__content">
+                <div className="day-list__title">{event.title}</div>
+                <div className="day-list__time">
+                  {event.start ? (
+                    fallbackEnd ? `${event.start} - ${fallbackEnd}` : event.start
+                  ) : (
+                    "All day"
+                  )}
+                </div>
+                {event.description && (
+                  <div className="day-list__description">{event.description}</div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        const { task } = item;
         return (
           <div
-            key={event.id}
-            className="day-list__item"
+            key={`task-${task.id}`}
+            className="day-list__item day-list__item--task"
             role="button"
             tabIndex={0}
-            onClick={() => onEditEvent(event)}
+            onClick={() => onEditTask(task)}
             onKeyDown={(keyboardEvent) => {
               if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                 keyboardEvent.preventDefault();
-                onEditEvent(event);
+                onEditTask(task);
               }
             }}
           >
-            <div className={`day-list__dot ${categoryColor[event.category]}`} />
+            <div className="day-list__icon-wrapper">
+              <span className="day-list__icon day-list__icon--task">
+                <CheckSquare className="day-list__icon-svg" aria-hidden />
+              </span>
+            </div>
             <div className="day-list__content">
-              <div className="day-list__title">{event.title}</div>
-              <div className="day-list__time">
-                <Clock className="day-list__time-icon" />
-                {event.start ? (
-                  fallbackEnd ? `${event.start} - ${fallbackEnd}` : event.start
-                ) : (
-                  "All day"
-                )}
+              <div className={`day-list__title ${task.done ? "is-complete" : ""}`}>
+                {task.title}
               </div>
-              {event.description && (
-                <div className="day-list__description">{event.description}</div>
+              <div className="day-list__time">
+                {task.time ? `Due ${task.time}` : "Task"}
+              </div>
+              {task.description && (
+                <div className="day-list__description">{task.description}</div>
               )}
             </div>
           </div>
@@ -877,6 +1083,8 @@ type EventsAndTasksProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
   onToggleTask: (id: string) => void;
+  onEditEvent: (event: CalendarEvent) => void;
+  onEditTask: (task: CalendarTask) => void;
 };
 
 const compareDateStrings = (a?: string, b?: string) => {
@@ -886,7 +1094,13 @@ const compareDateStrings = (a?: string, b?: string) => {
   return a.localeCompare(b);
 };
 
-function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
+function EventsAndTasks({
+  events,
+  tasks,
+  onToggleTask,
+  onEditEvent,
+  onEditTask,
+}: EventsAndTasksProps) {
   const upcoming = useMemo(
     () =>
       [...events]
@@ -909,14 +1123,24 @@ function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
         <ul className="events-tasks__list">
           {upcoming.map((event) => (
             <li key={event.id} className="events-tasks__list-item">
-              <span className={`events-tasks__dot ${categoryColor[event.category]}`} />
-              <span className="events-tasks__event-title" title={event.title}>
-                {event.title}
-              </span>
-              <span className="events-tasks__meta">
-                {event.date.slice(5)}
-                {event.start ? ` · ${event.start}` : ""}
-              </span>
+              <button
+                type="button"
+                className="events-tasks__item-button"
+                onClick={() => onEditEvent(event)}
+              >
+                <span
+                  className={`events-tasks__icon events-tasks__icon--event ${categoryColor[event.category]}`}
+                >
+                  <Clock className="events-tasks__icon-svg" aria-hidden />
+                </span>
+                <span className="events-tasks__event-title" title={event.title}>
+                  {event.title}
+                </span>
+                <span className="events-tasks__meta">
+                  {event.date.slice(5)}
+                  {event.start ? ` · ${event.start}` : ""}
+                </span>
+              </button>
             </li>
           ))}
           {upcoming.length === 0 && (
@@ -937,14 +1161,26 @@ function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
                 className="events-tasks__checkbox"
                 style={{ accentColor: "#FA3356" }}
               />
-              <span
-                className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+              <button
+                type="button"
+                className="events-tasks__item-button"
+                onClick={() => onEditTask(task)}
               >
-                {task.title}
-              </span>
-              {task.due && (
-                <span className="events-tasks__meta">due {task.due.slice(5)}</span>
-              )}
+                <span className="events-tasks__icon events-tasks__icon--task">
+                  <CheckSquare className="events-tasks__icon-svg" aria-hidden />
+                </span>
+                <span
+                  className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+                >
+                  {task.title}
+                </span>
+                {task.due && (
+                  <span className="events-tasks__meta">
+                    due {task.due.slice(5)}
+                    {task.time ? ` · ${task.time}` : ""}
+                  </span>
+                )}
+              </button>
             </li>
           ))}
           {tasks.length === 0 && (
@@ -970,6 +1206,9 @@ type CalendarSurfaceProps = {
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
   onUpdateEvent: (target: ApiTimelineEvent, input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
+  onUpdateTask: (target: ApiTask, input: CreateTaskRequest) => Promise<void>;
+  onDeleteEvent: (target: ApiTimelineEvent) => Promise<void>;
+  onDeleteTask: (target: ApiTask) => Promise<void>;
   onToggleTask: (id: string) => void;
 };
 
@@ -981,6 +1220,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onCreateEvent,
   onUpdateEvent,
   onCreateTask,
+  onUpdateTask,
+  onDeleteEvent,
+  onDeleteTask,
   onToggleTask,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
@@ -991,7 +1233,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     date: Date;
     tab: CreateCalendarItemTab;
     event: CalendarEvent | null;
-  }>({ open: false, mode: "create", date: currentDate, tab: "Event", event: null });
+    task: CalendarTask | null;
+  }>({
+    open: false,
+    mode: "create",
+    date: currentDate,
+    tab: "Event",
+    event: null,
+    task: null,
+  });
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -1033,12 +1283,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleOpenCreate = useCallback(
     (date: Date, tab: CreateCalendarItemTab = "Event") => {
       setInternalDate(date);
-      setModalState({ open: true, mode: "create", date, tab, event: null });
+      setModalState({ open: true, mode: "create", date, tab, event: null, task: null });
     },
     []
   );
 
-  const handleOpenEdit = useCallback((event: CalendarEvent) => {
+  const handleOpenEditEvent = useCallback((event: CalendarEvent) => {
     const eventDate = safeDate(event.date) ?? new Date(event.date);
     setInternalDate(eventDate);
     setModalState({
@@ -1047,6 +1297,20 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       date: eventDate,
       tab: "Event",
       event,
+      task: null,
+    });
+  }, []);
+
+  const handleOpenEditTask = useCallback((task: CalendarTask) => {
+    const taskDate = task.due ? safeDate(task.due) ?? new Date(task.due) : new Date();
+    setInternalDate(taskDate);
+    setModalState({
+      open: true,
+      mode: "edit",
+      date: taskDate,
+      tab: "Task",
+      event: null,
+      task,
     });
   }, []);
 
@@ -1057,6 +1321,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       date: previous.date,
       tab: "Event",
       event: null,
+      task: null,
     }));
   }, []);
 
@@ -1073,6 +1338,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 events={events}
                 tasks={tasks}
                 onToggleTask={onToggleTask}
+                onEditEvent={handleOpenEditEvent}
+                onEditTask={handleOpenEditTask}
               />
             </div>
 
@@ -1134,23 +1401,29 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     viewDate={internalDate}
                     selectedDate={internalDate}
                     events={events}
+                    tasks={tasks}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
-                    onEditEvent={handleOpenEdit}
+                    onEditEvent={handleOpenEditEvent}
+                    onEditTask={handleOpenEditTask}
                   />
                 )}
                 {view === "week" && (
                   <WeekGrid
                     anchorDate={internalDate}
                     events={events}
-                    onEditEvent={handleOpenEdit}
+                    tasks={tasks}
+                    onEditEvent={handleOpenEditEvent}
+                    onEditTask={handleOpenEditTask}
                   />
                 )}
                 {view === "day" && (
                   <DayList
                     date={internalDate}
                     events={events}
-                    onEditEvent={handleOpenEdit}
+                    tasks={tasks}
+                    onEditEvent={handleOpenEditEvent}
+                    onEditTask={handleOpenEditTask}
                   />
                 )}
               </div>
@@ -1174,35 +1447,62 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         initialDate={
           modalState.event
             ? safeDate(modalState.event.date) ?? modalState.date
+            : modalState.task?.due
+            ? safeDate(modalState.task.due) ?? modalState.date
             : modalState.date
         }
         initialTab={modalState.tab}
         mode={modalState.mode}
         initialValues={
-          modalState.mode === "edit" && modalState.event
-            ? {
-                title: modalState.event.title,
-                date: modalState.event.date,
-                time: modalState.event.start,
-                endTime: modalState.event.end,
-                allDay: modalState.event.allDay,
-                repeat: modalState.event.repeat,
-                reminder: modalState.event.reminder,
-                eventType: modalState.event.eventType,
-                platform: modalState.event.platform,
-                description: modalState.event.description,
-                tags: modalState.event.tags,
-                guests: modalState.event.guests,
-              }
+          modalState.mode === "edit"
+            ? modalState.event
+              ? {
+                  title: modalState.event.title,
+                  date: modalState.event.date,
+                  time: modalState.event.start,
+                  endTime: modalState.event.end,
+                  allDay: modalState.event.allDay,
+                  repeat: modalState.event.repeat,
+                  reminder: modalState.event.reminder,
+                  eventType: modalState.event.eventType,
+                  platform: modalState.event.platform,
+                  description: modalState.event.description,
+                  tags: modalState.event.tags,
+                  guests: modalState.event.guests,
+                }
+              : modalState.task
+              ? {
+                  title: modalState.task.title,
+                  date: modalState.task.due ?? fmt(modalState.date),
+                  time: modalState.task.time,
+                  description: modalState.task.description,
+                  tags: [],
+                  guests: [],
+                }
+              : undefined
             : undefined
         }
-        availableTabs={modalState.mode === "edit" ? ["Event"] : undefined}
+        availableTabs={modalState.mode === "edit" ? [modalState.tab] : undefined}
         onClose={handleCloseCreate}
         onCreateEvent={onCreateEvent}
         onCreateTask={onCreateTask}
         onUpdateEvent={
           modalState.mode === "edit" && modalState.event
             ? (input) => onUpdateEvent(modalState.event!.source, input)
+            : undefined
+        }
+        onUpdateTask={
+          modalState.mode === "edit" && modalState.task
+            ? (input) => onUpdateTask(modalState.task!.source, input)
+            : undefined
+        }
+        onDelete={
+          modalState.mode === "edit"
+            ? modalState.event
+              ? () => onDeleteEvent(modalState.event!.source)
+              : modalState.task
+              ? () => onDeleteTask(modalState.task!.source)
+              : undefined
             : undefined
         }
       />
@@ -1652,6 +1952,80 @@ const CalendarPage: React.FC = () => {
     [projectId, getEventIdentifier, setActiveProject, setProjects]
   );
 
+  const handleDeleteEvent = useCallback(
+    async (target: ApiTimelineEvent) => {
+      if (!projectId) return;
+
+      const eventId =
+        target.eventId ??
+        target.timelineEventId ??
+        target.id ??
+        (target as { event_id?: string }).event_id;
+
+      if (!eventId) {
+        throw new Error("Unable to determine event id for delete");
+      }
+
+      const identifier = getEventIdentifier(target);
+      const previousEvents = timelineEvents;
+      const previousActiveProject = activeProject;
+      let previousProjectsSnapshot: Project[] | null = null;
+
+      const filterEvents = (items: ApiTimelineEvent[] | undefined | null) =>
+        Array.isArray(items)
+          ? items.filter((event) => getEventIdentifier(event) !== identifier)
+          : items;
+
+      setTimelineEvents((prev) =>
+        prev.filter((event) => getEventIdentifier(event) !== identifier)
+      );
+
+      setActiveProject((prev) => {
+        if (!prev || prev.projectId !== projectId) return prev;
+        const filtered = filterEvents(prev.timelineEvents) ?? [];
+        return {
+          ...prev,
+          timelineEvents: filtered,
+        };
+      });
+
+      setProjects((prev) => {
+        if (!Array.isArray(prev)) return prev;
+        previousProjectsSnapshot = prev;
+        return prev.map((project) => {
+          if (project.projectId !== projectId) return project;
+          const filtered = filterEvents(project.timelineEvents) ?? [];
+          return {
+            ...project,
+            timelineEvents: filtered,
+          };
+        });
+      });
+
+      try {
+        await deleteEvent(projectId, eventId);
+      } catch (error) {
+        console.error("Failed to delete event", error);
+        setTimelineEvents(previousEvents);
+        if (previousActiveProject?.projectId === projectId) {
+          setActiveProject(previousActiveProject);
+        }
+        if (previousProjectsSnapshot) {
+          setProjects(previousProjectsSnapshot);
+        }
+        throw error;
+      }
+    },
+    [
+      projectId,
+      getEventIdentifier,
+      timelineEvents,
+      activeProject,
+      setActiveProject,
+      setProjects,
+    ]
+  );
+
   const handleCreateTask = useCallback(
     async (input: CreateTaskRequest) => {
       if (!projectId) return;
@@ -1674,6 +2048,73 @@ const CalendarPage: React.FC = () => {
         setProjectTasks((prev) => [...prev, created]);
       } catch (error) {
         console.error("Failed to create task", error);
+        throw error;
+      }
+    },
+    [projectId]
+  );
+
+  const handleUpdateTask = useCallback(
+    async (target: ApiTask, input: CreateTaskRequest) => {
+      if (!projectId) return;
+
+      const taskId = target.taskId ?? (target as { id?: string }).id;
+      if (!taskId) {
+        throw new Error("Unable to determine task id for update");
+      }
+
+      const dueDateIso = input.date
+        ? (() => {
+            const parsed = new Date(`${input.date}T${input.time ?? "00:00"}`);
+            return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+          })()
+        : undefined;
+
+      try {
+        const updated = await updateTask({
+          ...target,
+          projectId,
+          taskId,
+          title: input.title,
+          description: input.description,
+          dueDate: dueDateIso,
+          status: target.status ?? "todo",
+        });
+
+        const next = tasksRef.current.map((task) =>
+          (task.taskId ?? (task as { id?: string }).id) === taskId ? updated : task
+        );
+        tasksRef.current = next;
+        setProjectTasks(next);
+      } catch (error) {
+        console.error("Failed to update task", error);
+        throw error;
+      }
+    },
+    [projectId]
+  );
+
+  const handleDeleteTask = useCallback(
+    async (target: ApiTask) => {
+      if (!projectId) return;
+
+      const taskId = target.taskId ?? (target as { id?: string }).id;
+      if (!taskId) return;
+
+      const previous = tasksRef.current;
+      const filtered = previous.filter(
+        (task) => (task.taskId ?? (task as { id?: string }).id) !== taskId
+      );
+
+      tasksRef.current = filtered;
+      setProjectTasks(filtered);
+
+      try {
+        await deleteTask({ projectId, taskId });
+      } catch (error) {
+        console.error("Failed to delete task", error);
+        tasksRef.current = previous;
+        setProjectTasks(previous);
         throw error;
       }
     },
@@ -1808,6 +2249,9 @@ const CalendarPage: React.FC = () => {
         onCreateEvent={handleCreateEvent}
         onUpdateEvent={handleUpdateEvent}
         onCreateTask={handleCreateTask}
+        onUpdateTask={handleUpdateTask}
+        onDeleteEvent={handleDeleteEvent}
+        onDeleteTask={handleDeleteTask}
         onToggleTask={handleToggleTask}
       />
     </ProjectPageLayout>

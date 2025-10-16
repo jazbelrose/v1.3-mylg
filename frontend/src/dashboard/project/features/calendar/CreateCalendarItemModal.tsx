@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Calendar as CalendarIcon,
@@ -39,6 +39,8 @@ type BaseProps = {
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onUpdateEvent?: (input: CreateEventRequest) => Promise<void>;
+  onUpdateTask?: (input: CreateTaskRequest) => Promise<void>;
+  onDelete?: () => Promise<void>;
   mode?: "create" | "edit";
   initialValues?: EventFormInitialValues;
   availableTabs?: CreateCalendarItemTab[];
@@ -137,6 +139,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   onCreateEvent,
   onCreateTask,
   onUpdateEvent,
+  onUpdateTask,
+  onDelete,
   mode = "create",
   initialValues,
   availableTabs,
@@ -157,6 +161,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const tabs = useMemo<CreateCalendarItemTab[]>(
     () => (availableTabs && availableTabs.length > 0 ? availableTabs : TABS),
@@ -197,6 +202,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setReminder(initialValues?.reminder ?? REMINDER_OPTIONS[1].value);
     setError(null);
     setIsSubmitting(false);
+    setIsDeleting(false);
   }, [initialDate, initialTab, initialValues, isEditing, isOpen, tabs]);
 
   const canSubmit = useMemo(() => title.trim().length > 0 && date.trim().length > 0, [title, date]);
@@ -236,6 +242,9 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       setError("Title and date are required");
       return;
     }
+    if (isSubmitting || isDeleting) {
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -255,40 +264,70 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       guests,
     } satisfies CreateEventRequest;
 
+    const taskPayload: CreateTaskRequest = {
+      title: payload.title,
+      date: payload.date,
+      time: payload.time,
+      description: payload.description,
+      tags: payload.tags,
+      guests: payload.guests,
+    };
+
     try {
-      if (tab === "Task" && !isEditing) {
-        await onCreateTask({
-          title: payload.title,
-          date: payload.date,
-          time: payload.time,
-          description: payload.description,
-          tags: payload.tags,
-          guests: payload.guests,
-        });
-      } else if (isEditing && onUpdateEvent) {
-        await onUpdateEvent(payload);
+      if (tab === "Task") {
+        if (isEditing) {
+          if (!onUpdateTask) {
+            throw new Error("Missing update handler");
+          }
+          await onUpdateTask(taskPayload);
+        } else {
+          await onCreateTask(taskPayload);
+        }
       } else if (isEditing) {
-        throw new Error("Missing update handler");
+        if (!onUpdateEvent) {
+          throw new Error("Missing update handler");
+        }
+        await onUpdateEvent(payload);
       } else {
         await onCreateEvent(payload);
       }
       onClose();
     } catch (submitError) {
-      console.error("Failed to create calendar item", submitError);
+      console.error("Failed to save calendar item", submitError);
       setError("Something went wrong while saving. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete || isDeleting) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await onDelete();
+      onClose();
+    } catch (deleteError) {
+      console.error("Failed to delete calendar item", deleteError);
+      setError("Something went wrong while deleting. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRequestClose = useCallback(() => {
+    if (isSubmitting || isDeleting) return;
+    onClose();
+  }, [isDeleting, isSubmitting, onClose]);
+
   return (
     <Modal
       isOpen={isOpen}
-      onRequestClose={onClose}
+      onRequestClose={handleRequestClose}
       overlayClassName={styles.modalOverlay}
       className={styles.modalContent}
       contentLabel="Create calendar item"
-      shouldCloseOnOverlayClick={!isSubmitting}
+      shouldCloseOnOverlayClick={!isSubmitting && !isDeleting}
       closeTimeoutMS={160}
     >
       <div className={styles.modalShell}>
@@ -299,8 +338,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
           <button
             type="button"
             className={styles.iconButton}
-            onClick={onClose}
-            disabled={isSubmitting}
+            onClick={handleRequestClose}
+            disabled={isSubmitting || isDeleting}
             aria-label="Close"
           >
             <X className={styles.icon} />
@@ -592,11 +631,21 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
         <div className={styles.footer}>
           <div className={styles.footerMeta}>Guests visible • Calendar default notifications</div>
           <div className={styles.footerActions}>
+            {isEditing && onDelete && (
+              <button
+                type="button"
+                className={styles.dangerButton}
+                onClick={handleDelete}
+                disabled={isSubmitting || isDeleting}
+              >
+                {isDeleting ? "Deleting…" : "Delete"}
+              </button>
+            )}
             <button
               type="button"
               className={styles.secondaryButton}
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDeleting}
             >
               Cancel
             </button>
@@ -604,7 +653,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
               type="button"
               className={styles.primaryButton}
               onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting}
+              disabled={!canSubmit || isSubmitting || isDeleting}
             >
               {isSubmitting
                 ? isEditing
