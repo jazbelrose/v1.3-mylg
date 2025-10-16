@@ -779,15 +779,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="calendar-footer">
-            <div className="calendar-footer__note">
-              <Check className="calendar-footer__icon" />
-              Connected to project data — events update automatically.
-            </div>
-            <div className="calendar-footer__timezone">
-              Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
-            </div>
+        <div className="calendar-footer">
+          <div className="calendar-footer__note">
+            <Check className="calendar-footer__icon" />
+            Connected to project data — events update automatically.
+          </div>
+          <div className="calendar-footer__timezone">
+            Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
           </div>
         </div>
       </div>
