@@ -79,7 +79,7 @@ const BudgetPageContent = () => {
     setBudgetItems,
     wsOps,
   } = useBudget();
-  const { emitBudgetUpdate } = wsOps;
+  const { emitBudgetUpdate, emitClientRevisionUpdate } = wsOps;
 
   // Simplified state for remaining functionality
   const [error, setError] = useState(null);
@@ -87,6 +87,11 @@ const BudgetPageContent = () => {
   const [areaGroups, setAreaGroups] = useState([]);
   const [invoiceGroups, setInvoiceGroups] = useState([]);
   const [clients, setClients] = useState([]);
+
+  const activeRevisionNumber = useMemo(
+    () => Number((budgetHeader as Record<string, unknown> | null)?.revision ?? NaN),
+    [budgetHeader]
+  );
 
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
@@ -242,23 +247,39 @@ const BudgetPageContent = () => {
     try {
       const revs = await fetchBudgetHeaders(activeProject.projectId);
       setRevisions(revs);
+
       const header =
-        revs.find((h) => h.revision === h.clientRevisionId) || revs[0] || null;
-      if (header) {
-        if (header.budgetId) {
-          const items = await fetchBudgetItems(header.budgetId, header.revision);
-          computeGroupsAndClients(items, header);
-        }
+        revs.find((h) => Number(h.revision) === activeRevisionNumber) ||
+        revs.find((h) => h.revision === h.clientRevisionId) ||
+        revs[0] ||
+        null;
+
+      if (header?.budgetId) {
+        const items = await fetchBudgetItems(header.budgetId, header.revision);
+        computeGroupsAndClients(items, header);
       } else {
         setClients([]);
       }
     } catch (err) {
       console.error("Error fetching budget header", err);
     }
-  }, [activeProject?.projectId, computeGroupsAndClients]);
+  }, [activeProject?.projectId, computeGroupsAndClients, activeRevisionNumber]);
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleClientRevisionEvent = () => {
+      refresh();
+    };
+
+    window.addEventListener("clientRevisionUpdated", handleClientRevisionEvent);
+    return () => {
+      window.removeEventListener("clientRevisionUpdated", handleClientRevisionEvent);
+    };
   }, [refresh]);
 
   const handleNewRevision = async (duplicate = false, fromRevision = null) => {
@@ -417,28 +438,35 @@ const BudgetPageContent = () => {
     }
   };
 
-  const handleSetClientRevision = async (rev) => {
-    if (!activeProject?.projectId || !rev?.budgetItemId) return;
-    const targetRevision = Number(rev.revision ?? null);
+  const handleSetClientRevision = async (revisionNumber: number) => {
+    if (!activeProject?.projectId) return;
+
+    const targetEntry = revisions.find(
+      (h) => Number(h.revision) === Number(revisionNumber) && h.budgetItemId
+    );
+    if (!targetEntry?.budgetItemId) {
+      console.warn("No matching revision header found for client revision update", revisionNumber);
+      return;
+    }
+
+    const targetRevision = Number(targetEntry.revision ?? null);
     if (!Number.isFinite(targetRevision)) return;
 
     try {
-      const updates: Promise<unknown>[] = [];
       const projectId = activeProject.projectId;
-
-      updates.push(
-        updateBudgetItem(projectId, rev.budgetItemId, {
+      const updates: Promise<unknown>[] = [
+        updateBudgetItem(projectId, targetEntry.budgetItemId, {
           clientRevisionId: targetRevision,
-          revision: rev.revision,
-        })
-      );
+          revision: targetEntry.revision,
+        }),
+      ];
 
       revisions
-        .filter((h) => h.budgetItemId !== rev.budgetItemId && h.clientRevisionId != null)
+        .filter((h) => h.budgetItemId && h.budgetItemId !== targetEntry.budgetItemId)
         .forEach((h) => {
           updates.push(
-            updateBudgetItem(projectId, h.budgetItemId, {
-              clientRevisionId: null,
+            updateBudgetItem(projectId, h.budgetItemId!, {
+              clientRevisionId: targetRevision,
               revision: h.revision,
             })
           );
@@ -446,12 +474,23 @@ const BudgetPageContent = () => {
 
       await Promise.all(updates);
 
-      await refresh();
-      setRevisions((prev) => prev.map((h) => ({ ...h, clientRevisionId: targetRevision })));
-      setBudgetHeader((prev) =>
-        prev ? { ...prev, clientRevisionId: targetRevision } : prev
+      setRevisions((prev) =>
+        prev.map((h) =>
+          h.budgetItemId === targetEntry.budgetItemId
+            ? { ...h, clientRevisionId: targetRevision }
+            : { ...h, clientRevisionId: targetRevision }
+        )
       );
+      setBudgetHeader((prev) =>
+        prev
+          ? { ...prev, clientRevisionId: targetRevision }
+          : prev
+      );
+
+      await refresh();
+
       emitBudgetUpdate();
+      emitClientRevisionUpdate(targetRevision);
     } catch (err) {
       console.error("Failed to set client revision", err);
     }

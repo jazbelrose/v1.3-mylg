@@ -13,10 +13,15 @@ interface BudgetContextValue {
   setBudgetItems: (items: BudgetLineShape[]) => void;
   refresh: () => Promise<{ header: BudgetHeaderShape; items: BudgetLineShape[] } | null>;
   loading: boolean;
+  clientBudgetHeader: BudgetHeaderShape;
+  clientBudgetItems: BudgetLineShape[];
+  clientLoading: boolean;
 
   // Memoized selectors
   getStats: () => BudgetStats;
   getPie: (groupBy?: string) => PieDataItem[];
+  getClientStats: () => BudgetStats;
+  getClientPie: (groupBy?: string) => PieDataItem[];
   getRows: () => BudgetLineShape[];
   getLocks: () => string[];
 

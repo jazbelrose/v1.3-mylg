@@ -3,6 +3,7 @@ import useBudgetData from "@/dashboard/project/features/budget/context/useBudget
 import { useSocket } from "@/app/contexts/useSocket";
 import { useData } from "@/app/contexts/useData";
 import { normalizeMessage } from "@/shared/utils/websocketUtils";
+import { fetchBudgetHeader, fetchBudgetItems } from "@/shared/utils/api";
 import { BudgetContext } from "./BudgetContext";
 import type { BudgetStats, PieDataItem, BudgetWebSocketOperations } from "./types";
 
@@ -25,6 +26,12 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
   const { budgetHeader, budgetItems, setBudgetHeader, setBudgetItems, refresh, loading } =
     useBudgetData(projectId, preferredRevision);
   
+  const [clientBudgetHeader, setClientBudgetHeader] = useState<Record<string, unknown> | null>(null);
+  const [clientBudgetItems, setClientBudgetItems] = useState<Record<string, unknown>[]>([]);
+  const [clientLoading, setClientLoading] = useState(false);
+  const clientFetchIdRef = useRef(0);
+  const clientRevisionRef = useRef<number | null>(null);
+
   const refreshRef = useRef(refresh);
   const lockedLinesRef = useRef<string[]>([]);
   const revisionReadyRef = useRef(false);
@@ -122,6 +129,81 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
     sendActiveRevision(revision);
   }, [budgetHeader?.revision, sendActiveRevision]);
 
+  useEffect(() => {
+    if (!projectId) {
+      clientRevisionRef.current = null;
+      setClientBudgetHeader(null);
+      setClientBudgetItems([]);
+      setClientLoading(false);
+      return;
+    }
+
+    if (!budgetHeader) {
+      clientRevisionRef.current = null;
+      setClientBudgetHeader(null);
+      setClientBudgetItems([]);
+      setClientLoading(loading);
+      return;
+    }
+
+    const clientRevision = normalizeRevision(
+      (budgetHeader as { clientRevisionId?: number | string | null })?.clientRevisionId
+    );
+    const workingRevision = normalizeRevision(
+      (budgetHeader as { revision?: number | string | null })?.revision
+    );
+
+    if (clientRevision === null || clientRevision === workingRevision) {
+      clientRevisionRef.current = workingRevision;
+      setClientBudgetHeader(budgetHeader);
+      setClientBudgetItems(budgetItems);
+      setClientLoading(false);
+      return;
+    }
+
+    if (clientRevisionRef.current === clientRevision) {
+      setClientLoading(false);
+      return;
+    }
+
+    const fetchId = ++clientFetchIdRef.current;
+    setClientLoading(true);
+
+    (async () => {
+      try {
+        const header = await fetchBudgetHeader(projectId, clientRevision);
+        if (!header) {
+          throw new Error("Client revision header not found");
+        }
+        const headerRevision = normalizeRevision(
+          (header as { revision?: number | string | null })?.revision
+        );
+        const budgetId = (header as { budgetId?: string | number | null })?.budgetId;
+        let items: Record<string, unknown>[] = [];
+        if (budgetId) {
+          items = (await fetchBudgetItems(
+            String(budgetId),
+            headerRevision ?? undefined
+          )) as unknown as Record<string, unknown>[];
+        }
+
+        if (clientFetchIdRef.current !== fetchId) return;
+        clientRevisionRef.current = headerRevision;
+        setClientBudgetHeader(header as Record<string, unknown>);
+        setClientBudgetItems(items);
+        setClientLoading(false);
+      } catch (err) {
+        if (clientFetchIdRef.current === fetchId) {
+          console.error("Failed to load client revision data", err);
+          clientRevisionRef.current = null;
+          setClientBudgetHeader(null);
+          setClientBudgetItems([]);
+          setClientLoading(false);
+        }
+      }
+    })();
+  }, [projectId, budgetHeader, budgetItems, loading]);
+
   // WebSocket operations - centralized here
   const emitBudgetUpdate = useCallback(() => {
     if (!ws || ws.readyState !== WebSocket.OPEN || !projectId || !budgetHeader) return;
@@ -138,6 +220,20 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
       })
     );
   }, [ws, projectId, budgetHeader, user, userId]);
+
+  const emitClientRevisionUpdate = useCallback((clientRevisionId: number) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !projectId) return;
+    ws.send(
+      JSON.stringify({
+        action: "clientRevisionUpdated",
+        projectId,
+        clientRevisionId,
+        conversationId: `project#${projectId}`,
+        username: user?.firstName || "Someone",
+        senderId: userId,
+      }),
+    );
+  }, [ws, projectId, user, userId]);
 
   const emitLineLock = useCallback((lineId: string) => {
     if (!ws || ws.readyState !== WebSocket.OPEN || !projectId || !budgetHeader) return;
@@ -190,72 +286,124 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
   }, [ws, projectId, budgetHeader, user, userId]);
 
   // Memoized selectors with deep equality
-  const getStats = useCallback((): BudgetStats => {
-    if (!budgetHeader) {
-      return {
-        ballpark: 0,
-        budgetedCost: 0,
-        actualCost: 0,
-        finalCost: 0,
-        effectiveMarkup: 0,
+  const buildStats = useCallback(
+    (header: Record<string, unknown> | null, items: Record<string, unknown>[]): BudgetStats => {
+      if (!header) {
+        return {
+          ballpark: 0,
+          budgetedCost: 0,
+          actualCost: 0,
+          finalCost: 0,
+          effectiveMarkup: 0,
+        };
+      }
+
+      const hasFinalCost = items.some(
+        (item) =>
+          (item as { itemFinalCost?: unknown }).itemFinalCost !== undefined &&
+          (item as { itemFinalCost?: unknown }).itemFinalCost !== null
+      );
+
+      const toNumber = (value: unknown) => Number(value ?? 0);
+      const headerData = header as {
+        headerBallPark?: unknown;
+        headerBudgetedTotalCost?: unknown;
+        headerActualTotalCost?: unknown;
+        headerFinalTotalCost?: unknown;
+        headerEffectiveMarkup?: unknown;
       };
+
+      return {
+        ballpark: hasFinalCost
+          ? toNumber(headerData.headerFinalTotalCost)
+          : toNumber(headerData.headerBallPark),
+        budgetedCost: toNumber(headerData.headerBudgetedTotalCost),
+        actualCost: toNumber(headerData.headerActualTotalCost),
+        finalCost: toNumber(headerData.headerFinalTotalCost),
+        effectiveMarkup: Number(headerData.headerEffectiveMarkup ?? 0),
+      };
+    },
+    []
+  );
+
+  const buildPie = useCallback(
+    (
+      header: Record<string, unknown> | null,
+      items: Record<string, unknown>[],
+      groupBy: string = "invoiceGroup"
+    ): PieDataItem[] => {
+      if (!header) return [];
+
+      const stats = buildStats(header, items);
+
+      if (groupBy === "none") {
+        return [
+          { name: "Ballpark", value: stats.ballpark },
+          { name: "Budgeted Cost", value: stats.budgetedCost },
+          { name: "Actual Cost", value: stats.actualCost },
+          { name: "Effective Markup", value: stats.effectiveMarkup * 100 },
+          { name: "Final Cost", value: stats.finalCost },
+        ].filter((item) => item.value > 0);
+      }
+
+      const hasFinalCost = items.some(
+        (item) =>
+          (item as { itemFinalCost?: unknown }).itemFinalCost !== undefined &&
+          (item as { itemFinalCost?: unknown }).itemFinalCost !== null
+      );
+
+      if (!hasFinalCost) {
+        return [{ name: "Ballpark", value: stats.ballpark }];
+      }
+
+      const totals: Record<string, number> = {};
+      for (const item of items) {
+        const rawKey = (item as Record<string, unknown>)[groupBy];
+        const key =
+          rawKey && String(rawKey).trim() !== "" ? String(rawKey) : "Unspecified";
+        const val = Number((item as { itemFinalCost?: unknown }).itemFinalCost ?? 0) || 0;
+        totals[key] = (totals[key] ?? 0) + val;
+      }
+
+      const entries = Object.entries(totals);
+      if (entries.length === 1 && entries[0][0] === "Unspecified") {
+        return [{ name: "Final Cost", value: entries[0][1] }];
+      }
+
+      return entries
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+    },
+    [buildStats]
+  );
+
+  const getStats = useCallback(
+    (): BudgetStats => buildStats(budgetHeader as Record<string, unknown> | null, budgetItems),
+    [buildStats, budgetHeader, budgetItems]
+  );
+
+  const getClientStats = useCallback((): BudgetStats => {
+    if (clientBudgetHeader) {
+      return buildStats(clientBudgetHeader, clientBudgetItems);
     }
+    return buildStats(budgetHeader as Record<string, unknown> | null, budgetItems);
+  }, [buildStats, clientBudgetHeader, clientBudgetItems, budgetHeader, budgetItems]);
 
-    const hasFinalCost = budgetItems.some(item => 
-      item.itemFinalCost !== undefined && item.itemFinalCost !== null
-    );
+  const getPie = useCallback(
+    (groupBy: string = "invoiceGroup"): PieDataItem[] =>
+      buildPie(budgetHeader as Record<string, unknown> | null, budgetItems, groupBy),
+    [buildPie, budgetHeader, budgetItems]
+  );
 
-    return {
-      ballpark: hasFinalCost 
-        ? Number(budgetHeader.headerFinalTotalCost ?? 0)
-        : Number(budgetHeader.headerBallPark ?? 0),
-      budgetedCost: Number(budgetHeader.headerBudgetedTotalCost ?? 0),
-      actualCost: Number(budgetHeader.headerActualTotalCost ?? 0),
-      finalCost: Number(budgetHeader.headerFinalTotalCost ?? 0),
-      effectiveMarkup: Number(budgetHeader.headerEffectiveMarkup ?? 0),
-    };
-  }, [budgetHeader, budgetItems]);
-
-  const getPie = useCallback((groupBy: string = "invoiceGroup"): PieDataItem[] => {
-    if (!budgetHeader) return [];
-
-    const stats = getStats();
-    
-    if (groupBy === "none") {
-      return [
-        { name: "Ballpark", value: stats.ballpark },
-        { name: "Budgeted Cost", value: stats.budgetedCost },
-        { name: "Actual Cost", value: stats.actualCost },
-        { name: "Effective Markup", value: stats.effectiveMarkup * 100 },
-        { name: "Final Cost", value: stats.finalCost },
-      ].filter(item => item.value > 0);
-    }
-
-    const hasFinalCost = budgetItems.some(
-      item => item.itemFinalCost !== undefined && item.itemFinalCost !== null
-    );
-
-    if (!hasFinalCost) {
-      return [{ name: "Ballpark", value: stats.ballpark }];
-    }
-
-    const totals: Record<string, number> = {};
-    for (const item of budgetItems) {
-      const rawKey = (item as Record<string, unknown>)[groupBy];
-      const key = rawKey && String(rawKey).trim() !== "" ? String(rawKey) : "Unspecified";
-      const val = Number(item.itemFinalCost ?? 0) || 0;
-      totals[key] = (totals[key] ?? 0) + val;
-    }
-
-    const entries = Object.entries(totals);
-    if (entries.length === 1 && entries[0][0] === "Unspecified") {
-      return [{ name: "Final Cost", value: entries[0][1] }];
-    }
-    
-    return entries
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [budgetHeader, budgetItems, getStats]);
+  const getClientPie = useCallback(
+    (groupBy: string = "invoiceGroup"): PieDataItem[] => {
+      if (clientBudgetHeader) {
+        return buildPie(clientBudgetHeader, clientBudgetItems, groupBy);
+      }
+      return buildPie(budgetHeader as Record<string, unknown> | null, budgetItems, groupBy);
+    },
+    [buildPie, clientBudgetHeader, clientBudgetItems, budgetHeader, budgetItems]
+  );
 
   const getRows = useCallback((): Record<string, unknown>[] => {
     return budgetItems as unknown as Record<string, unknown>[];
@@ -271,7 +419,8 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
     emitLineLock,
     emitLineUnlock,
     emitTimelineUpdate,
-  }), [emitBudgetUpdate, emitLineLock, emitLineUnlock, emitTimelineUpdate]);
+    emitClientRevisionUpdate,
+  }), [emitBudgetUpdate, emitLineLock, emitLineUnlock, emitTimelineUpdate, emitClientRevisionUpdate]);
 
   useEffect(() => {
     if (!ws) return;
@@ -299,7 +448,18 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
       
       // Handle budgetUpdated messages
       if (messageData.action === "budgetUpdated") {
+        clientRevisionRef.current = null;
         refreshRef.current();
+        return;
+      }
+      if (messageData.action === "clientRevisionUpdated") {
+        clientRevisionRef.current = null;
+        refreshRef.current();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("clientRevisionUpdated", { detail: messageData })
+          );
+        }
         return;
       }
       
@@ -348,19 +508,41 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
 
   const value = useMemo(
     () => ({ 
-      budgetHeader, 
-      budgetItems, 
-      setBudgetHeader, 
-      setBudgetItems, 
-      refresh, 
+      budgetHeader,
+      budgetItems,
+      setBudgetHeader,
+      setBudgetItems,
+      refresh,
       loading,
+      clientBudgetHeader,
+      clientBudgetItems,
+      clientLoading,
       getStats,
       getPie,
+      getClientStats,
+      getClientPie,
       getRows,
       getLocks,
       wsOps,
     }),
-    [budgetHeader, budgetItems, setBudgetHeader, setBudgetItems, refresh, loading, getStats, getPie, getRows, getLocks, wsOps]
+    [
+      budgetHeader,
+      budgetItems,
+      setBudgetHeader,
+      setBudgetItems,
+      refresh,
+      loading,
+      clientBudgetHeader,
+      clientBudgetItems,
+      clientLoading,
+      getStats,
+      getPie,
+      getClientStats,
+      getClientPie,
+      getRows,
+      getLocks,
+      wsOps,
+    ]
   );
 
   return <BudgetContext.Provider value={value}>{children}</BudgetContext.Provider>;

@@ -27,12 +27,15 @@ vi.mock("../../../app/contexts/useData", () => ({
 
 vi.mock("../context/useBudget", () => ({
   default: vi.fn(() => ({
-    budgetHeader: { projectTitle: "Test Project", revision: 1 },
+    budgetHeader: { projectTitle: "Test Project", revision: 1, clientRevisionId: 1 },
     budgetItems: [],
     setBudgetHeader: vi.fn(),
     setBudgetItems: vi.fn(),
     refresh: vi.fn(() => Promise.resolve(null)),
     loading: false,
+    clientBudgetHeader: null,
+    clientBudgetItems: [],
+    clientLoading: false,
   })),
 }));
 

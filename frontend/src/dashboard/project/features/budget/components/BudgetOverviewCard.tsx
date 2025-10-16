@@ -35,6 +35,7 @@ const RELEVANT_WS_ACTIONS = new Set([
   "budgetUpdated",
   "projectTotalsUpdated",
   "chartDataUpdated",
+  "clientRevisionUpdated",
 ]);
 
 const computeSignature = (slices: BudgetDonutSlice[]): string =>
@@ -57,7 +58,17 @@ type ChartState = {
 
 const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) => {
   const { activeProject, isAdmin } = useData();
-  const { budgetHeader, loading, refresh, getStats, getPie } = useBudget();
+  const {
+    budgetHeader,
+    clientBudgetHeader,
+    loading,
+    clientLoading,
+    refresh,
+    getStats,
+    getPie,
+    getClientStats,
+    getClientPie,
+  } = useBudget();
   const navigate = useNavigate();
 
   const [groupBy] = useState<"invoiceGroup" | "none">("invoiceGroup");
@@ -66,8 +77,15 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
 
   const { ws } = useSocket();
 
-  const stats = getStats();
+  const overviewHeader = clientBudgetHeader ?? budgetHeader;
+  const overviewLoading = loading || clientLoading;
+  const stats = clientBudgetHeader ? getClientStats() : getStats();
   const ballparkValue = stats.ballpark;
+  const displayedRevision =
+    clientBudgetHeader?.revision ??
+    (typeof budgetHeader?.clientRevisionId === "number"
+      ? budgetHeader?.clientRevisionId
+      : budgetHeader?.revision ?? null);
 
   const resolvedProjectKey = useMemo(() => {
     const key = projectId ?? activeProject?.projectId;
@@ -75,7 +93,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   }, [projectId, activeProject?.projectId]);
 
   const computeChartState = useCallback((): ChartState => {
-    const raw = getPie(groupBy) ?? [];
+    const raw = (clientBudgetHeader ? getClientPie : getPie)(groupBy) ?? [];
     const sorted = [...raw].sort((a, b) => b.value - a.value);
     const slices = sorted.map((item, index) => ({
       id: `${groupBy}-${item.name ?? `slice-${index}`}`,
@@ -97,7 +115,14 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
       palette,
       signature: computeSignature(slices),
     };
-  }, [getPie, groupBy, activeProject?.color, resolvedProjectKey]);
+  }, [
+    clientBudgetHeader,
+    getClientPie,
+    getPie,
+    groupBy,
+    activeProject?.color,
+    resolvedProjectKey,
+  ]);
 
   const [chartState, setChartState] = useState<ChartState>(() => computeChartState());
 
@@ -194,8 +219,13 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   );
 
   const openInvoicePreview = async (): Promise<void> => {
-    if (!projectId) return;
+    if (!overviewHeader) return;
     try {
+      if (clientBudgetHeader) {
+        setInvoiceRevision(clientBudgetHeader as BudgetHeaderData);
+        setIsInvoicePreviewOpen(true);
+        return;
+      }
       const data = await refresh();
       if (data && "header" in data && data.header) {
         setInvoiceRevision(data.header as BudgetHeaderData);
@@ -243,12 +273,12 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         <span className="budget-overview-header" style={{ paddingLeft: "6px" }}>
           
           Budget
-          {budgetHeader?.clientRevisionId != null && (
-            <span className="budget-overview-revision">{`Rev.${budgetHeader.clientRevisionId}`}</span>
+          {displayedRevision != null && (
+            <span className="budget-overview-revision">{`Rev.${displayedRevision}`}</span>
           )}
         </span>
 
-        {loading ? (
+        {overviewLoading ? (
           <FontAwesomeIcon
             icon={faSpinner}
             spin
@@ -258,8 +288,8 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         ) : (
           <>
             <span className="budget-overview-amount">
-              {budgetHeader ? formatUSD(ballparkValue) : "Not available"}
-              {budgetHeader && (
+              {overviewHeader ? formatUSD(ballparkValue) : "Not available"}
+              {overviewHeader && (
                 <FontAwesomeIcon
                   icon={faFileInvoiceDollar}
                   className="budget-overview-invoice-icon"
@@ -284,7 +314,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
 
             <span className="budget-overview-date">
               {(() => {
-                const createdAt = budgetHeader?.createdAt;
+                const createdAt = overviewHeader?.createdAt;
                 return createdAt ? new Date(createdAt as string | number | Date).toLocaleDateString() : "No date";
               })()}
             </span>
@@ -292,7 +322,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         )}
       </div>
 
-      {loading ? (
+      {overviewLoading ? (
         <div
           style={{
             marginTop: "16px",
@@ -303,7 +333,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
           <FontAwesomeIcon icon={faSpinner} spin aria-label="Loading chart" />
         </div>
       ) : (
-        budgetHeader && (
+        overviewHeader && (
           <>
             <div className="chart-legend-container">
               <div className="budget-chart">

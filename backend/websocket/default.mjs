@@ -80,6 +80,8 @@ export const handler = async (event) => {
 
     case "setActiveRevision":
       return await handleSetActiveRevision(event, payload);
+    case "clientRevisionUpdated":
+      return await handleClientRevisionUpdated(payload);
 
     case "userLocation":
       return await handleUserLocation(payload);
@@ -219,6 +221,35 @@ const handleSetActiveRevision = async (event, payload) => {
   } catch (err) {
     console.error("❌ Failed to update active revision", err);
     return { statusCode: 500, body: "Failed to update active revision" };
+  }
+};
+
+const handleClientRevisionUpdated = async (payload) => {
+  const { projectId, clientRevisionId, conversationId, senderId, username } = payload || {};
+  const conversation = String(conversationId || (projectId ? `project#${projectId}` : "")).trim();
+
+  if (!projectId || !conversation) {
+    console.warn("⚠️ clientRevisionUpdated missing projectId or conversationId");
+    return { statusCode: 400, body: "Missing projectId or conversationId" };
+  }
+
+  try {
+    await broadcastToConversation(conversation, {
+      action: "clientRevisionUpdated",
+      projectId,
+      clientRevisionId,
+      senderId,
+      username,
+    });
+    console.log("[handleClientRevisionUpdated] broadcast sent", {
+      projectId,
+      clientRevisionId,
+      conversation,
+    });
+    return { statusCode: 200, body: "client revision broadcast" };
+  } catch (err) {
+    console.error("❌ handleClientRevisionUpdated error:", err);
+    return { statusCode: 500, body: "Failed to broadcast client revision update" };
   }
 };
 
