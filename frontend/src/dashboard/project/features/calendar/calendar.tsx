@@ -33,6 +33,7 @@ import {
   createEvent,
   createTask as createTaskApi,
   fetchTasks,
+  updateEvent,
   updateTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
@@ -56,6 +57,14 @@ type CalendarEvent = {
   end?: string; // "HH:MM"
   description?: string;
   category: CalendarCategory;
+  allDay: boolean;
+  repeat?: string;
+  reminder?: string;
+  eventType?: string;
+  platform?: string;
+  tags: string[];
+  guests: string[];
+  source: ApiTimelineEvent;
 };
 
 type CalendarTask = {
@@ -149,15 +158,16 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
   const isoDate = event.date || event.timestamp?.slice(0, 10);
   if (!isoDate) return null;
 
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
   const startCandidate =
     (event as { start?: unknown }).start ??
     (event as { startHour?: unknown }).startHour ??
-    event.payload?.start ??
-    event.payload?.startTime;
+    payload.start ??
+    payload.startTime;
   const endCandidate =
     (event as { end?: unknown }).end ??
-    event.payload?.end ??
-    event.payload?.endTime;
+    payload.end ??
+    payload.endTime;
 
   const start = extractTime(startCandidate);
   const endRaw = extractTime(endCandidate);
@@ -180,6 +190,31 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
     payloadDescription ||
     "Untitled event";
 
+  const allDay = Boolean(
+    (payload as { allDay?: boolean }).allDay ?? (!start && !end)
+  );
+  const repeat = typeof payload.repeat === "string" ? payload.repeat : undefined;
+  const reminder =
+    typeof payload.reminder === "string" ? payload.reminder : undefined;
+  const eventType =
+    typeof payload.eventType === "string"
+      ? payload.eventType
+      : (event as { eventType?: string }).eventType;
+  const platform =
+    typeof payload.platform === "string"
+      ? payload.platform
+      : (event as { platform?: string }).platform;
+  const tags = Array.isArray(payload.tags)
+    ? (payload.tags as unknown[]).flatMap((tag) =>
+        typeof tag === "string" ? [tag] : []
+      )
+    : [];
+  const guests = Array.isArray(payload.guests)
+    ? (payload.guests as unknown[]).flatMap((guest) =>
+        typeof guest === "string" ? [guest] : []
+      )
+    : [];
+
   return {
     id:
       event.id ||
@@ -197,6 +232,14 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
       payloadDescription ||
       undefined,
     category: deriveCategory(event),
+    allDay,
+    repeat,
+    reminder,
+    eventType,
+    platform,
+    tags,
+    guests,
+    source: event,
   };
 };
 
@@ -355,6 +398,7 @@ type MonthGridProps = {
   events: CalendarEvent[];
   onSelectDate: (d: Date) => void;
   onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
+  onEditEvent: (event: CalendarEvent) => void;
 };
 
 function MonthGrid({
@@ -363,6 +407,7 @@ function MonthGrid({
   events,
   onSelectDate,
   onOpenCreate,
+  onEditEvent,
 }: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
@@ -429,7 +474,22 @@ function MonthGrid({
             </button>
             <div className="month-grid__events">
               {dayEvents.slice(0, 4).map((event) => (
-                <div key={event.id} className="month-grid__event">
+                <div
+                  key={event.id}
+                  className="month-grid__event"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(mouseEvent) => {
+                    mouseEvent.stopPropagation();
+                    onEditEvent(event);
+                  }}
+                  onKeyDown={(keyboardEvent) => {
+                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                      keyboardEvent.preventDefault();
+                      onEditEvent(event);
+                    }
+                  }}
+                >
                   <span className={`month-grid__event-dot ${categoryColor[event.category]}`} />
                   <span className="month-grid__event-title" title={event.title}>
                     {event.title}
@@ -465,6 +525,7 @@ function MonthGrid({
 type WeekGridProps = {
   anchorDate: Date;
   events: CalendarEvent[];
+  onEditEvent: (event: CalendarEvent) => void;
 };
 
 type WeekDayEvents = {
@@ -479,7 +540,7 @@ const parseHour = (time?: string) => {
   return h;
 };
 
-function WeekGrid({ anchorDate, events }: WeekGridProps) {
+function WeekGrid({ anchorDate, events, onEditEvent }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 7), []); // 7am - 6pm
@@ -527,6 +588,15 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
                       <div
                         key={event.id}
                         className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onEditEvent(event)}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                            keyboardEvent.preventDefault();
+                            onEditEvent(event);
+                          }
+                        }}
                       >
                         <div className="week-grid__event-title">{event.title}</div>
                         <div className="week-grid__event-time">All day</div>
@@ -540,6 +610,15 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
                     initial={{ opacity: 0.4, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`week-grid__event ${categoryColor[event.category]}`}
+                    onClick={() => onEditEvent(event)}
+                    onKeyDown={(keyboardEvent) => {
+                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                        keyboardEvent.preventDefault();
+                        onEditEvent(event);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="week-grid__event-title">{event.title}</div>
                     <div className="week-grid__event-time">
@@ -563,9 +642,10 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
 type DayListProps = {
   date: Date;
   events: CalendarEvent[];
+  onEditEvent: (event: CalendarEvent) => void;
 };
 
-function DayList({ date, events }: DayListProps) {
+function DayList({ date, events, onEditEvent }: DayListProps) {
   const list = useMemo(
     () =>
       events
@@ -581,7 +661,19 @@ function DayList({ date, events }: DayListProps) {
   return (
     <div className="day-list">
       {list.map((event) => (
-        <div key={event.id} className="day-list__item">
+        <div
+          key={event.id}
+          className="day-list__item"
+          role="button"
+          tabIndex={0}
+          onClick={() => onEditEvent(event)}
+          onKeyDown={(keyboardEvent) => {
+            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+              keyboardEvent.preventDefault();
+              onEditEvent(event);
+            }
+          }}
+        >
           <div className={`day-list__dot ${categoryColor[event.category]}`} />
           <div className="day-list__content">
             <div className="day-list__title">{event.title}</div>
@@ -702,6 +794,7 @@ type CalendarSurfaceProps = {
   currentDate: Date;
   onDateChange: (date: Date) => void;
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
+  onUpdateEvent: (target: ApiTimelineEvent, input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onToggleTask: (id: string) => void;
 };
@@ -712,16 +805,19 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   currentDate,
   onDateChange,
   onCreateEvent,
+  onUpdateEvent,
   onCreateTask,
   onToggleTask,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
-  const [createState, setCreateState] = useState<{
+  const [modalState, setModalState] = useState<{
     open: boolean;
+    mode: "create" | "edit";
     date: Date;
     tab: CreateCalendarItemTab;
-  }>({ open: false, date: currentDate, tab: "Event" });
+    event: CalendarEvent | null;
+  }>({ open: false, mode: "create", date: currentDate, tab: "Event", event: null });
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -763,13 +859,31 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleOpenCreate = useCallback(
     (date: Date, tab: CreateCalendarItemTab = "Event") => {
       setInternalDate(date);
-      setCreateState({ open: true, date, tab });
+      setModalState({ open: true, mode: "create", date, tab, event: null });
     },
     []
   );
 
+  const handleOpenEdit = useCallback((event: CalendarEvent) => {
+    const eventDate = safeDate(event.date) ?? new Date(event.date);
+    setInternalDate(eventDate);
+    setModalState({
+      open: true,
+      mode: "edit",
+      date: eventDate,
+      tab: "Event",
+      event,
+    });
+  }, []);
+
   const handleCloseCreate = useCallback(() => {
-    setCreateState((previous) => ({ ...previous, open: false }));
+    setModalState((previous) => ({
+      open: false,
+      mode: "create",
+      date: previous.date,
+      tab: "Event",
+      event: null,
+    }));
   }, []);
 
   return (
@@ -848,12 +962,23 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     events={events}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
+                    onEditEvent={handleOpenEdit}
                   />
                 )}
                 {view === "week" && (
-                  <WeekGrid anchorDate={internalDate} events={events} />
+                  <WeekGrid
+                    anchorDate={internalDate}
+                    events={events}
+                    onEditEvent={handleOpenEdit}
+                  />
                 )}
-                {view === "day" && <DayList date={internalDate} events={events} />}
+                {view === "day" && (
+                  <DayList
+                    date={internalDate}
+                    events={events}
+                    onEditEvent={handleOpenEdit}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -871,12 +996,41 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       </div>
 
       <CreateCalendarItemModal
-        isOpen={createState.open}
-        initialDate={createState.date}
-        initialTab={createState.tab}
+        isOpen={modalState.open}
+        initialDate={
+          modalState.event
+            ? safeDate(modalState.event.date) ?? modalState.date
+            : modalState.date
+        }
+        initialTab={modalState.tab}
+        mode={modalState.mode}
+        initialValues={
+          modalState.mode === "edit" && modalState.event
+            ? {
+                title: modalState.event.title,
+                date: modalState.event.date,
+                time: modalState.event.start,
+                endTime: modalState.event.end,
+                allDay: modalState.event.allDay,
+                repeat: modalState.event.repeat,
+                reminder: modalState.event.reminder,
+                eventType: modalState.event.eventType,
+                platform: modalState.event.platform,
+                description: modalState.event.description,
+                tags: modalState.event.tags,
+                guests: modalState.event.guests,
+              }
+            : undefined
+        }
+        availableTabs={modalState.mode === "edit" ? ["Event"] : undefined}
         onClose={handleCloseCreate}
         onCreateEvent={onCreateEvent}
         onCreateTask={onCreateTask}
+        onUpdateEvent={
+          modalState.mode === "edit" && modalState.event
+            ? (input) => onUpdateEvent(modalState.event!.source, input)
+            : undefined
+        }
       />
     </div>
   );
@@ -1003,6 +1157,22 @@ const CalendarPage: React.FC = () => {
     }
   }, [projectId, timelineEvents]);
 
+  const getEventIdentifier = useCallback((event: ApiTimelineEvent) => {
+    const candidate =
+      (event.eventId ??
+        event.timelineEventId ??
+        event.id ??
+        (event as { [key: string]: unknown })["timestamp#uuid"] ??
+        (event as { uuid?: string }).uuid ??
+        (event as { event_id?: string }).event_id) ?? null;
+
+    if (candidate != null && candidate !== "") {
+      return String(candidate);
+    }
+
+    return `${event.date ?? ""}#${event.description ?? ""}`;
+  }, []);
+
   const handleCreateEvent = useCallback(
     async (input: CreateEventRequest) => {
       if (!projectId) return;
@@ -1087,6 +1257,182 @@ const CalendarPage: React.FC = () => {
       }
     },
     [projectId, setActiveProject, setProjects]
+  );
+
+  const handleUpdateEvent = useCallback(
+    async (target: ApiTimelineEvent, input: CreateEventRequest) => {
+      if (!projectId) return;
+
+      const identifier = getEventIdentifier(target);
+      const isoDate = input.date;
+      const repeatValue =
+        input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
+
+      const payloadEntries: Record<string, unknown> = {
+        description: input.description?.trim() || input.title,
+        notes: input.description?.trim() || undefined,
+        start: input.allDay ? undefined : input.time,
+        end: input.allDay ? undefined : input.endTime,
+        repeat: repeatValue,
+        reminder: input.reminder,
+        eventType: input.eventType,
+        platform: input.platform,
+        guests: input.guests.length > 0 ? input.guests : undefined,
+        tags: input.tags.length > 0 ? input.tags : undefined,
+        allDay: input.allDay,
+      };
+
+      const filteredPayload = Object.fromEntries(
+        Object.entries(payloadEntries).filter(([, value]) => {
+          if (value === undefined || value === null) return false;
+          if (typeof value === "string") return value.trim().length > 0;
+          if (Array.isArray(value)) return value.length > 0;
+          return true;
+        })
+      );
+
+      const mergedPayload = {
+        ...(target.payload ?? {}),
+        ...filteredPayload,
+      } as Record<string, unknown>;
+
+      if (input.allDay) {
+        delete mergedPayload.start;
+        delete mergedPayload.end;
+        delete mergedPayload.startTime;
+        delete mergedPayload.endTime;
+      }
+
+      const eventId =
+        target.eventId ??
+        target.timelineEventId ??
+        target.id ??
+        (target as { event_id?: string }).event_id;
+
+      if (!eventId) {
+        throw new Error("Unable to determine event id for update");
+      }
+
+      const baseEvent: ApiTimelineEvent = {
+        ...target,
+        projectId,
+        date: isoDate,
+        description: input.title,
+        payload: mergedPayload,
+      };
+
+      if (input.allDay) {
+        delete (baseEvent as Record<string, unknown>).start;
+        delete (baseEvent as Record<string, unknown>).end;
+      } else {
+        (baseEvent as Record<string, unknown>).start = input.time;
+        (baseEvent as Record<string, unknown>).end = input.endTime;
+      }
+
+      try {
+        const updated = await updateEvent({
+          ...baseEvent,
+          projectId,
+          eventId,
+        });
+
+        const combinedPayload = {
+          ...(target.payload ?? {}),
+          ...mergedPayload,
+          ...(updated.payload ?? {}),
+        } as Record<string, unknown>;
+
+        if (input.allDay) {
+          delete combinedPayload.start;
+          delete combinedPayload.end;
+          delete combinedPayload.startTime;
+          delete combinedPayload.endTime;
+        }
+
+        const updatedEvent: ApiTimelineEvent = {
+          ...target,
+          ...updated,
+          projectId,
+          date: updated.date ?? isoDate,
+          description: updated.description ?? input.title,
+          payload: combinedPayload,
+        };
+
+        if (input.allDay) {
+          delete (updatedEvent as Record<string, unknown>).start;
+          delete (updatedEvent as Record<string, unknown>).end;
+        } else {
+          (updatedEvent as Record<string, unknown>).start = input.time;
+          (updatedEvent as Record<string, unknown>).end = input.endTime;
+        }
+
+        setTimelineEvents((previous) => {
+          let found = false;
+          const next = previous.map((event) => {
+            if (getEventIdentifier(event) === identifier) {
+              found = true;
+              return updatedEvent;
+            }
+            return event;
+          });
+          return found ? next : [...next, updatedEvent];
+        });
+
+        setActiveProject((prev) => {
+          if (!prev || prev.projectId !== projectId) return prev;
+          const existing = Array.isArray(prev.timelineEvents)
+            ? prev.timelineEvents
+            : [];
+          let found = false;
+          const nextTimeline = existing.map((event) => {
+            if (getEventIdentifier(event) === identifier) {
+              found = true;
+              return updatedEvent;
+            }
+            return event;
+          });
+          return {
+            ...prev,
+            timelineEvents: found ? nextTimeline : [...nextTimeline, updatedEvent],
+          };
+        });
+
+        setProjects((prev) =>
+          Array.isArray(prev)
+            ? prev.map((project) => {
+                if (project.projectId !== projectId) return project;
+                const existing = Array.isArray(project.timelineEvents)
+                  ? project.timelineEvents
+                  : [];
+                let found = false;
+                const nextTimeline = existing.map((event) => {
+                  if (getEventIdentifier(event) === identifier) {
+                    found = true;
+                    return updatedEvent;
+                  }
+                  return event;
+                });
+                return {
+                  ...project,
+                  timelineEvents: found ? nextTimeline : [...nextTimeline, updatedEvent],
+                };
+              })
+            : prev
+        );
+
+        const normalized = normalizeTimelineEvent(updatedEvent);
+        if (normalized) {
+          const normalizedDate = safeDate(normalized.date);
+          if (normalizedDate) {
+            setCurrentDate(normalizedDate);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to update event", error);
+        throw error;
+      }
+    },
+    [projectId, getEventIdentifier, setActiveProject, setProjects]
   );
 
   const handleCreateTask = useCallback(
@@ -1243,6 +1589,7 @@ const CalendarPage: React.FC = () => {
         currentDate={currentDate}
         onDateChange={setCurrentDate}
         onCreateEvent={handleCreateEvent}
+        onUpdateEvent={handleUpdateEvent}
         onCreateTask={handleCreateTask}
         onToggleTask={handleToggleTask}
       />
