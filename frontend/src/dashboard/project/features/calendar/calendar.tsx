@@ -440,28 +440,17 @@ function MonthGrid({
                 <div className="month-grid__more">+{dayEvents.length - 4} more</div>
               )}
             </div>
-            <div className="month-grid__actions">
-              <button
-                type="button"
-                className="month-grid__actions-button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleOpenCreate(day, "Event");
-                }}
-              >
-                + Event
-              </button>
-              <button
-                type="button"
-                className="month-grid__actions-button month-grid__actions-button--task"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleOpenCreate(day, "Task");
-                }}
-              >
-                + Task
-              </button>
-            </div>
+            <button
+              type="button"
+              className="month-grid__quick-add"
+              aria-label="Add calendar item"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleOpenCreate(day);
+              }}
+            >
+              <Plus className="month-grid__quick-add-icon" aria-hidden />
+            </button>
           </div>
         );
       })}
