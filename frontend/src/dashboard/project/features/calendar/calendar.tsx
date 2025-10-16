@@ -38,6 +38,8 @@ import {
 } from "@/shared/utils/api";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
+import "./calendar-preview.css";
+
 type CalendarCategory = "Work" | "Education" | "Personal";
 
 type CalendarEvent = {
@@ -58,9 +60,9 @@ type CalendarTask = {
 };
 
 const categoryColor: Record<CalendarCategory, string> = {
-  Work: "bg-amber-500",
-  Education: "bg-indigo-500",
-  Personal: "bg-emerald-500",
+  Work: "calendar-pill-work",
+  Education: "calendar-pill-education",
+  Personal: "calendar-pill-personal",
 };
 
 // ------------------------------------------------------
@@ -229,58 +231,68 @@ function MiniCalendar({ value, onChange }: MiniCalendarProps) {
   });
 
   return (
-    <div className="rounded-2xl bg-white/5 backdrop-blur p-4 shadow-sm border border-white/10 text-gray-100">
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-medium">{monthName}</div>
-        <div className="flex gap-1">
+    <div className="mini-calendar">
+      <div className="mini-calendar__header">
+        <div className="mini-calendar__title">{monthName}</div>
+        <div className="mini-calendar__nav">
           <button
-            className="p-2 hover:bg-white/10 rounded-md"
+            type="button"
+            className="mini-calendar__nav-button"
             onClick={() =>
               onChange(new Date(value.getFullYear(), value.getMonth() - 1, 1))
             }
+            aria-label="Previous month"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="mini-calendar__nav-icon" />
           </button>
           <button
-            className="p-2 hover:bg-white/10 rounded-md"
+            type="button"
+            className="mini-calendar__nav-button"
             onClick={() =>
               onChange(new Date(value.getFullYear(), value.getMonth() + 1, 1))
             }
+            aria-label="Next month"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="mini-calendar__nav-icon" />
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-7 text-[11px] text-gray-400 mb-1">
-        {"SMTWTFS".split("").map((c) => (
-          <div key={c} className="text-center py-1">
-            {c}
+      <div className="mini-calendar__weekday-row">
+        {"SMTWTFS".split("").map((char) => (
+          <div key={char} className="mini-calendar__weekday">
+            {char}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((d) => {
-          const isToday = fmt(d) === fmt(new Date());
-          const isCurrentMonth = d.getMonth() === value.getMonth();
-          const isSelected = isSameDay(d, value);
+      <div className="mini-calendar__grid">
+        {days.map((day) => {
+          const isToday = fmt(day) === fmt(new Date());
+          const isCurrentMonth = day.getMonth() === value.getMonth();
+          const isSelected = isSameDay(day, value);
+          const className = [
+            "mini-calendar__day-button",
+            isCurrentMonth ? "is-current" : "is-outside",
+            isToday ? "is-today" : "",
+            isSelected ? "is-selected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
           return (
             <button
-              key={d.toISOString()}
-              onClick={() => onChange(d)}
-              className={`aspect-square rounded-md text-[12px] flex items-center justify-center border border-white/10 transition-colors
-                ${isCurrentMonth ? "bg-white/5 text-gray-100" : "bg-white/0 text-gray-500"}
-                ${isToday ? "ring-2 ring-[#FA3356]" : ""}
-                ${isSelected ? "bg-white/10" : ""}
-                hover:bg-white/10`}
+              key={day.toISOString()}
+              type="button"
+              onClick={() => onChange(day)}
+              className={className}
             >
-              {d.getDate()}
+              {day.getDate()}
             </button>
           );
         })}
       </div>
     </div>
   );
-}
+};
 
 // ------------------------------------------------------
 // Top Bar (dark)
@@ -292,31 +304,28 @@ type TopBarProps = {
 
 function TopBar({ onAdd }: TopBarProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/30 backdrop-blur rounded-t-2xl text-gray-100">
-      <div className="flex items-center gap-3">
-        <div className="h-8 w-8 rounded-xl bg-white/10 grid place-items-center">
-          <CalendarIcon className="h-4 w-4" />
+    <div className="calendar-top-bar">
+      <div className="calendar-top-bar__heading">
+        <div className="calendar-top-bar__icon">
+          <CalendarIcon className="calendar-top-bar__icon-svg" />
         </div>
-        <div className="font-semibold tracking-tight">Calendar</div>
+        <div className="calendar-top-bar__title">Calendar</div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <div className="calendar-top-bar__actions">
+        <div className="calendar-top-bar__search">
+          <Search className="calendar-top-bar__search-icon" />
           <input
             placeholder="Search for anything"
-            className="pl-9 pr-3 py-2 rounded-xl bg-white/10 border border-white/10 shadow-sm w-[280px] placeholder:text-gray-400 text-gray-100 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="calendar-top-bar__search-input"
           />
         </div>
-        <button
-          onClick={onAdd}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FA3356] text-white shadow hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" /> Add Event
+        <button type="button" onClick={onAdd} className="calendar-top-bar__add">
+          <Plus className="calendar-top-bar__add-icon" /> Add Event
         </button>
       </div>
     </div>
   );
-}
+};
 
 // ------------------------------------------------------
 // Month Grid (dark)
@@ -342,13 +351,10 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
   }, [events]);
 
   return (
-    <div className="grid grid-cols-7 border-t border-l border-white/10 text-sm text-gray-100">
-      {"SUN,MON,TUE,WED,THU,FRI,SAT".split(",").map((d) => (
-        <div
-          key={d}
-          className="sticky top-0 z-10 bg-black/30 backdrop-blur px-3 py-2 border-r border-b border-white/10 font-medium"
-        >
-          {d}
+    <div className="month-grid">
+      {"SUN,MON,TUE,WED,THU,FRI,SAT".split(",").map((label) => (
+        <div key={label} className="month-grid__weekday">
+          {label}
         </div>
       ))}
       {days.map((day) => {
@@ -356,34 +362,34 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
         const key = fmt(day);
         const isSelected = isSameDay(day, selectedDate);
         const dayEvents = eventsByDate.get(key) || [];
+        const className = [
+          "month-grid__cell",
+          isCurrentMonth ? "is-current" : "is-outside",
+          isSelected ? "is-selected" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
         return (
-          <div
-            key={key}
-            className={`min-h-[120px] border-r border-b border-white/10 p-2 transition-colors ${
-              isCurrentMonth ? "bg-white/5" : "bg-white/[0.02] text-gray-400"
-            } ${isSelected ? "ring-2 ring-[#FA3356]/70" : ""}`}
-          >
+          <div key={key} className={className}>
             <button
+              type="button"
               onClick={() => onSelectDate(day)}
-              className="text-xs text-gray-400 hover:underline"
+              className="month-grid__date"
             >
               {day.getDate()}
             </button>
-            <div className="mt-2 space-y-1">
+            <div className="month-grid__events">
               {dayEvents.slice(0, 4).map((event) => (
-                <div key={event.id} className="flex items-center gap-2 text-[11px]">
-                  <span
-                    className={`h-2 w-2 rounded-full ${categoryColor[event.category]}`}
-                  />
-                  <span className="truncate" title={event.title}>
+                <div key={event.id} className="month-grid__event">
+                  <span className={`month-grid__event-dot ${categoryColor[event.category]}`} />
+                  <span className="month-grid__event-title" title={event.title}>
                     {event.title}
                   </span>
                 </div>
               ))}
               {dayEvents.length > 4 && (
-                <div className="text-[11px] text-gray-400">
-                  +{dayEvents.length - 4} more
-                </div>
+                <div className="month-grid__more">+{dayEvents.length - 4} more</div>
               )}
             </div>
           </div>
@@ -391,7 +397,7 @@ function MonthGrid({ viewDate, selectedDate, events, onSelectDate }: MonthGridPr
       })}
     </div>
   );
-}
+};
 
 // ------------------------------------------------------
 // Week Grid (dark)
@@ -438,21 +444,16 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
   }, [days, events]);
 
   return (
-    <div className="grid grid-cols-[60px_repeat(7,1fr)] border-t border-white/10 text-sm text-gray-100">
-      <div className="border-b border-r border-white/10" />
+    <div className="week-grid">
+      <div className="week-grid__spacer" />
       {days.map((day) => (
-        <div
-          key={fmt(day)}
-          className="border-b border-r border-white/10 bg-black/30 backdrop-blur py-2 px-3 font-medium sticky top-0 z-10"
-        >
+        <div key={fmt(day)} className="week-grid__weekday">
           {day.toLocaleDateString(undefined, { weekday: "short" })} {day.getDate()}
         </div>
       ))}
       {hours.map((hour, hourIndex) => (
         <React.Fragment key={hour}>
-          <div className="border-t border-r border-white/10 text-xs text-gray-400 px-2 py-6">
-            {pad(hour)}:00
-          </div>
+          <div className="week-grid__hour">{pad(hour)}:00</div>
           {days.map((day) => {
             const key = fmt(day);
             const dayEvents = eventsByDay.get(key) ?? { allDay: [], timed: [] };
@@ -460,21 +461,16 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
               (event) => parseHour(event.start) === hour
             );
             return (
-              <div
-                key={`${key}-${hour}`}
-                className={`relative border-t border-r border-white/10 min-h-[72px] bg-white/[0.03] ${
-                  hourIndex === 0 ? "pt-12" : ""
-                }`}
-              >
+              <div key={`${key}-${hour}`} className="week-grid__cell">
                 {hourIndex === 0 && dayEvents.allDay.length > 0 && (
-                  <div className="absolute left-2 right-2 top-1 z-10 space-y-1">
+                  <div className="week-grid__all-day">
                     {dayEvents.allDay.map((event) => (
                       <div
                         key={event.id}
-                        className={`rounded-lg px-2 py-1 text-[12px] text-white shadow ${categoryColor[event.category]}`}
+                        className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
                       >
-                        <div className="font-medium truncate">{event.title}</div>
-                        <div className="opacity-90">All day</div>
+                        <div className="week-grid__event-title">{event.title}</div>
+                        <div className="week-grid__event-time">All day</div>
                       </div>
                     ))}
                   </div>
@@ -484,11 +480,11 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
                     key={event.id}
                     initial={{ opacity: 0.4, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`absolute left-2 right-2 top-1 rounded-lg p-2 text-[12px] text-white shadow ${categoryColor[event.category]}`}
+                    className={`week-grid__event ${categoryColor[event.category]}`}
                   >
-                    <div className="font-medium truncate">{event.title}</div>
-                    <div className="opacity-90">
-                      {event.start} – {event.end ?? ""}
+                    <div className="week-grid__event-title">{event.title}</div>
+                    <div className="week-grid__event-time">
+                      {event.start} – {event.end || addHoursToTime(event.start!, 1)}
                     </div>
                   </motion.div>
                 ))}
@@ -499,7 +495,7 @@ function WeekGrid({ anchorDate, events }: WeekGridProps) {
       ))}
     </div>
   );
-}
+};
 
 // ------------------------------------------------------
 // Day List (dark)
@@ -520,18 +516,18 @@ function DayList({ date, events }: DayListProps) {
   );
 
   if (list.length === 0) {
-    return <div className="p-6 text-gray-400 text-sm">No events for this day.</div>;
+    return <div className="day-list__empty">No events for this day.</div>;
   }
 
   return (
-    <div className="divide-y divide-white/10 text-gray-100">
+    <div className="day-list">
       {list.map((event) => (
-        <div key={event.id} className="flex items-start gap-3 p-4">
-          <div className={`h-2 w-2 rounded-full mt-2 ${categoryColor[event.category]}`} />
-          <div>
-            <div className="font-medium">{event.title}</div>
-            <div className="text-sm text-gray-400 flex items-center gap-1">
-              <Clock className="h-4 w-4" />
+        <div key={event.id} className="day-list__item">
+          <div className={`day-list__dot ${categoryColor[event.category]}`} />
+          <div className="day-list__content">
+            <div className="day-list__title">{event.title}</div>
+            <div className="day-list__time">
+              <Clock className="day-list__time-icon" />
               {event.start && event.end ? (
                 <>{event.start} – {event.end}</>
               ) : (
@@ -539,14 +535,14 @@ function DayList({ date, events }: DayListProps) {
               )}
             </div>
             {event.description && (
-              <div className="text-sm text-gray-300 mt-1">{event.description}</div>
+              <div className="day-list__description">{event.description}</div>
             )}
           </div>
         </div>
       ))}
     </div>
   );
-}
+};
 
 // ------------------------------------------------------
 // Sidebar: Events & Tasks (dark)
@@ -580,63 +576,62 @@ function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
   );
 
   return (
-    <div className="rounded-2xl bg-white/5 backdrop-blur p-4 shadow-sm border border-white/10 text-gray-100">
-      <div className="font-medium mb-3">Events & Tasks</div>
+    <div className="events-tasks">
+      <div className="events-tasks__title">Events & Tasks</div>
 
-      <div className="mb-4">
-        <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">Upcoming events</div>
-        <ul className="space-y-2 text-sm">
+      <div className="events-tasks__section">
+        <div className="events-tasks__section-title">Upcoming events</div>
+        <ul className="events-tasks__list">
           {upcoming.map((event) => (
-            <li key={event.id} className="flex items-center gap-2">
-              <span
-                className={`h-2 w-2 rounded-full ${categoryColor[event.category]}`}
-              />
-              <span className="truncate" title={event.title}>
+            <li key={event.id} className="events-tasks__list-item">
+              <span className={`events-tasks__dot ${categoryColor[event.category]}`} />
+              <span className="events-tasks__event-title" title={event.title}>
                 {event.title}
               </span>
-              <span className="ml-auto text-xs text-gray-400">
+              <span className="events-tasks__meta">
                 {event.date.slice(5)}
                 {event.start ? ` · ${event.start}` : ""}
               </span>
             </li>
           ))}
           {upcoming.length === 0 && (
-            <li className="text-xs text-gray-500">No upcoming events scheduled.</li>
+            <li className="events-tasks__empty">No upcoming events scheduled.</li>
           )}
         </ul>
       </div>
 
-      <div>
-        <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">Tasks</div>
-        <ul className="space-y-2 text-sm">
+      <div className="events-tasks__section">
+        <div className="events-tasks__section-title">Tasks</div>
+        <ul className="events-tasks__list">
           {tasks.map((task) => (
-            <li key={task.id} className="flex items-center gap-2">
+            <li key={task.id} className="events-tasks__list-item">
               <input
                 type="checkbox"
                 checked={Boolean(task.done)}
                 onChange={() => onToggleTask(task.id)}
-                className="accent-[#FA3356]"
+                className="events-tasks__checkbox"
+                style={{ accentColor: "#FA3356" }}
               />
               <span
-                className={`truncate ${task.done ? "line-through text-gray-500" : ""}`}
+                className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
               >
                 {task.title}
               </span>
               {task.due && (
-                <span className="ml-auto text-xs text-gray-400">
-                  due {task.due.slice(5)}
-                </span>
+                <span className="events-tasks__meta">due {task.due.slice(5)}</span>
               )}
             </li>
           ))}
           {tasks.length === 0 && (
-            <li className="text-xs text-gray-500">No tasks yet. Add tasks to keep track of work.</li>
+            <li className="events-tasks__empty">
+              No tasks yet. Add tasks to keep track of work.
+            </li>
           )}
         </ul>
       </div>
     </div>
   );
-}
+};
 
 // ------------------------------------------------------
 // Calendar Surface
@@ -696,59 +691,66 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-[#0c0c0c] text-gray-100">
-      <div className="mx-auto max-w-[1200px] py-6 px-4">
-        <div className="rounded-3xl overflow-hidden shadow-xl ring-1 ring-white/10 bg-black/40 backdrop-blur">
+    <div className="calendar-surface">
+      <div className="calendar-shell">
+        <div className="calendar-card">
           <TopBar onAdd={() => onAddEvent(internalDate)} />
 
-          <div className="grid grid-cols-[280px_1fr] gap-6 p-6">
-            <div className="space-y-6">
+          <div className="calendar-body">
+            <div className="calendar-sidebar">
               <MiniCalendar value={internalDate} onChange={setInternalDate} />
-              <EventsAndTasks events={events} tasks={tasks} onToggleTask={onToggleTask} />
+              <EventsAndTasks
+                events={events}
+                tasks={tasks}
+                onToggleTask={onToggleTask}
+              />
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="calendar-main">
+              <div className="calendar-controls">
+                <div className="calendar-controls__nav">
                   <button
-                    className="p-2 rounded-xl hover:bg-white/10"
+                    type="button"
+                    className="calendar-controls__button"
                     onClick={() => go(-1)}
                     aria-label="Previous month"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="calendar-controls__icon" />
                   </button>
                   <button
-                    className="p-2 rounded-xl hover:bg-white/10"
+                    type="button"
+                    className="calendar-controls__button"
                     onClick={() => go(1)}
                     aria-label="Next month"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="calendar-controls__icon" />
                   </button>
-                  <div className="text-lg font-semibold tracking-tight ml-2">
-                    {title}
-                  </div>
+                  <div className="calendar-controls__title">{title}</div>
                 </div>
-                <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
+                <div className="calendar-controls__toggle">
                   <button
+                    type="button"
                     onClick={() => setView("day")}
-                    className={`px-3 py-1 rounded-lg text-sm ${
-                      view === "day" ? "bg-white/10 ring-1 ring-white/20" : ""
+                    className={`calendar-controls__toggle-button ${
+                      view === "day" ? "is-active" : ""
                     }`}
                   >
                     Day
                   </button>
                   <button
+                    type="button"
                     onClick={() => setView("week")}
-                    className={`px-3 py-1 rounded-lg text-sm ${
-                      view === "week" ? "bg-white/10 ring-1 ring-white/20" : ""
+                    className={`calendar-controls__toggle-button ${
+                      view === "week" ? "is-active" : ""
                     }`}
                   >
                     Week
                   </button>
                   <button
+                    type="button"
                     onClick={() => setView("month")}
-                    className={`px-3 py-1 rounded-lg text-sm ${
-                      view === "month" ? "bg-white/10 ring-1 ring-white/20" : ""
+                    className={`calendar-controls__toggle-button ${
+                      view === "month" ? "is-active" : ""
                     }`}
                   >
                     Month
@@ -756,7 +758,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 </div>
               </div>
 
-              <div className="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-white/[0.03]">
+              <div className="calendar-view">
                 {view === "month" && (
                   <MonthGrid
                     viewDate={internalDate}
@@ -765,18 +767,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     onSelectDate={handleSelectDate}
                   />
                 )}
-                {view === "week" && <WeekGrid anchorDate={internalDate} events={events} />}
+                {view === "week" && (
+                  <WeekGrid anchorDate={internalDate} events={events} />
+                )}
                 {view === "day" && <DayList date={internalDate} events={events} />}
               </div>
             </div>
           </div>
 
-          <div className="px-6 py-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4" />
+          <div className="calendar-footer">
+            <div className="calendar-footer__note">
+              <Check className="calendar-footer__icon" />
               Connected to project data — events update automatically.
             </div>
-            <div>Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}</div>
+            <div className="calendar-footer__timezone">
+              Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+            </div>
           </div>
         </div>
       </div>
