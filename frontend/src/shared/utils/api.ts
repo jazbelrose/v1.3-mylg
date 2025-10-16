@@ -95,9 +95,10 @@ export interface TimelineEvent extends JsonRecord {
   date?: string; // ISO YYYY-MM-DD
   hours?: string | number;
   description?: string;
+  title?: string;
   createdAt?: string;
   createdBy?: string;
-  payload?: { description?: string } & JsonRecord;
+  payload?: { description?: string; title?: string } & JsonRecord;
 }
 
 export interface NotificationItem extends JsonRecord {

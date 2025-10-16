@@ -82,6 +82,13 @@ const addDays = (d: Date, n: number) =>
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
 const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
 
+const generateEventId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `evt_${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
@@ -130,8 +137,10 @@ const deriveCategory = (event: ApiTimelineEvent): CalendarCategory => {
     event.type,
     (event as { category?: string }).category,
     event.phase,
+    (event as { title?: string }).title,
     event.description,
     event.payload?.description,
+    (event.payload as { title?: string })?.title,
   ]
     .flatMap((chunk) => (typeof chunk === "string" ? [chunk] : []))
     .map((chunk) => chunk.toLowerCase());
@@ -168,17 +177,30 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
     endRaw || (start && Number.isFinite(durationHours) ? addHoursToTime(start, Number(durationHours)) : undefined);
 
   const payloadDescription = event.payload?.description;
+  const payloadTitle = (event.payload as { title?: string })?.title;
   const payloadNotes = (event.payload as { notes?: string; details?: string })?.notes;
   const payloadDetails =
     payloadNotes ||
     (event.payload as { details?: string })?.details ||
-    (payloadDescription && payloadDescription !== event.description ? payloadDescription : undefined);
+    (payloadDescription &&
+    payloadDescription !== event.description &&
+    payloadDescription !== payloadTitle
+      ? payloadDescription
+      : undefined);
 
   const title =
     (event as { title?: string }).title ||
+    payloadTitle ||
     event.description ||
     payloadDescription ||
     "Untitled event";
+
+  const eventDescription = event.description;
+  const normalizedDescription =
+    payloadDetails ||
+    (payloadDescription && payloadDescription !== title ? payloadDescription : undefined) ||
+    (eventDescription && eventDescription !== title ? eventDescription : undefined) ||
+    undefined;
 
   return {
     id:
@@ -190,12 +212,7 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
     date: isoDate,
     start,
     end,
-    description:
-      payloadDetails ||
-      (payloadDescription && payloadDescription !== title ? payloadDescription : undefined) ||
-      event.description ||
-      payloadDescription ||
-      undefined,
+    description: normalizedDescription,
     category: deriveCategory(event),
   };
 };
@@ -1011,9 +1028,14 @@ const CalendarPage: React.FC = () => {
       const repeatValue =
         input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
 
+      const trimmedTitle = input.title.trim();
+      const trimmedDescription = input.description?.trim();
+      const draftEventId = generateEventId();
+
       const payloadEntries: Record<string, unknown> = {
-        description: input.description?.trim() || input.title,
-        notes: input.description?.trim() || undefined,
+        title: trimmedTitle,
+        description: trimmedDescription,
+        notes: trimmedDescription || undefined,
         start: input.allDay ? undefined : input.time,
         end: input.allDay ? undefined : input.endTime,
         repeat: repeatValue,
@@ -1036,8 +1058,12 @@ const CalendarPage: React.FC = () => {
 
       try {
         const eventBody = {
+          id: draftEventId,
+          eventId: draftEventId,
+          timelineEventId: draftEventId,
           date: isoDate,
-          description: input.title,
+          title: trimmedTitle,
+          description: trimmedDescription ?? trimmedTitle,
           payload,
           ...(input.allDay
             ? {}
@@ -1048,12 +1074,46 @@ const CalendarPage: React.FC = () => {
         } as ApiTimelineEvent;
 
         const created = await createEvent(projectId, eventBody);
+        const rawCreatedPayload = created.payload;
+        const createdPayload = rawCreatedPayload ?? {};
+        const mergedPayload = {
+          ...payload,
+          ...createdPayload,
+        } as Record<string, unknown>;
+
+        if (!rawCreatedPayload || (rawCreatedPayload as { title?: unknown }).title == null) {
+          mergedPayload.title = trimmedTitle;
+        }
+        if (
+          trimmedDescription &&
+          (!rawCreatedPayload || (rawCreatedPayload as { description?: unknown }).description == null)
+        ) {
+          mergedPayload.description = trimmedDescription;
+        }
+
+        const resolvedId =
+          created.id || created.eventId || created.timelineEventId || draftEventId;
+        const resolvedEventId = created.eventId || resolvedId;
+        const resolvedTitle = (created as { title?: string }).title ?? trimmedTitle;
+        const resolvedDescription =
+          created.description ?? trimmedDescription ?? trimmedTitle;
+
         const normalized = normalizeTimelineEvent({
           ...created,
+          id: resolvedId,
+          eventId: resolvedEventId,
+          title: resolvedTitle,
+          description: resolvedDescription,
+          payload: mergedPayload,
           date: created.date ?? isoDate,
         });
         const asTimelineEvent: ApiTimelineEvent = {
           ...created,
+          id: resolvedId,
+          eventId: resolvedEventId,
+          title: resolvedTitle,
+          description: resolvedDescription,
+          payload: mergedPayload,
           date: created.date ?? isoDate,
         };
 
