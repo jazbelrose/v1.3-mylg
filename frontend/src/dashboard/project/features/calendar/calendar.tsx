@@ -30,6 +30,8 @@ import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/SocketContext";
 import type { Project } from "@/app/contexts/DataProvider";
 import type { QuickLinksRef } from "@/dashboard/project/components";
+import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import {
   createEvent,
   createTask as createTaskApi,
@@ -1210,6 +1212,7 @@ type CalendarSurfaceProps = {
   onDeleteEvent: (target: ApiTimelineEvent) => Promise<void>;
   onDeleteTask: (target: ApiTask) => Promise<void>;
   onToggleTask: (id: string) => void;
+  teamMembers: ProjectTeamMember[];
 };
 
 const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
@@ -1224,6 +1227,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onDeleteEvent,
   onDeleteTask,
   onToggleTask,
+  teamMembers,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -1453,6 +1457,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         }
         initialTab={modalState.tab}
         mode={modalState.mode}
+        teamMembers={teamMembers}
         initialValues={
           modalState.mode === "edit"
             ? modalState.event
@@ -1532,6 +1537,8 @@ const CalendarPage: React.FC = () => {
 
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef | null>(null);
+
+  const teamMembers = useTeamMembers(activeProject ?? null);
 
   const [timelineEvents, setTimelineEvents] = useState<ApiTimelineEvent[]>([]);
   const [projectTasks, setProjectTasks] = useState<ApiTask[]>([]);
@@ -2253,6 +2260,7 @@ const CalendarPage: React.FC = () => {
         onDeleteEvent={handleDeleteEvent}
         onDeleteTask={handleDeleteTask}
         onToggleTask={handleToggleTask}
+        teamMembers={teamMembers}
       />
     </ProjectPageLayout>
   );

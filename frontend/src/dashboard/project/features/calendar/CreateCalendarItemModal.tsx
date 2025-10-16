@@ -15,6 +15,7 @@ import {
 import Modal from "@/shared/ui/ModalWithStack";
 
 import styles from "./create-calendar-item-modal.module.css";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 
 type EventFormInitialValues = Partial<{
   title: string;
@@ -44,6 +45,7 @@ type BaseProps = {
   mode?: "create" | "edit";
   initialValues?: EventFormInitialValues;
   availableTabs?: CreateCalendarItemTab[];
+  teamMembers?: ProjectTeamMember[];
 };
 
 type Option = {
@@ -144,12 +146,13 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   mode = "create",
   initialValues,
   availableTabs,
+  teamMembers,
 }) => {
   const [tab, setTab] = useState<CreateCalendarItemTab>(initialTab);
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>(["Meeting"]);
   const [guestQuery, setGuestQuery] = useState("");
-  const [guests, setGuests] = useState<string[]>(["Arafat Nayeem", "Jawad", "Washim"]);
+  const [guests, setGuests] = useState<string[]>([]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("11:30");
   const [endTime, setEndTime] = useState<string | undefined>(deriveEndTime("11:30"));
@@ -162,6 +165,29 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
+
+  const guestOptions = useMemo(() => {
+    if (!teamMembers || teamMembers.length === 0) return [];
+    return teamMembers
+      .map((member) => {
+        const fullName = `${member.firstName ?? ""} ${member.lastName ?? ""}`
+          .trim()
+          .replace(/\s+/g, " ");
+        return fullName.length > 0 ? { id: member.userId, name: fullName } : null;
+      })
+      .filter((option): option is { id: string; name: string } => option !== null);
+  }, [teamMembers]);
+
+  const filteredSuggestions = useMemo(() => {
+    if (guestOptions.length === 0) return [];
+    const normalizedQuery = guestQuery.trim().toLowerCase();
+    return guestOptions.filter((option) => {
+      if (guests.includes(option.name)) return false;
+      if (!normalizedQuery) return true;
+      return option.name.toLowerCase().includes(normalizedQuery);
+    });
+  }, [guestOptions, guestQuery, guests]);
 
   const tabs = useMemo<CreateCalendarItemTab[]>(
     () => (availableTabs && availableTabs.length > 0 ? availableTabs : TABS),
@@ -181,6 +207,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setTitle(initialValues?.title ?? "");
     setDescription(initialValues?.description ?? "");
     setGuestQuery("");
+    setGuestError(null);
     setTags(
       initialValues?.tags && initialValues.tags.length > 0
         ? initialValues.tags
@@ -191,9 +218,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setGuests(
       initialValues?.guests && initialValues.guests.length > 0
         ? initialValues.guests
-        : isEditing
-          ? []
-          : ["Arafat Nayeem", "Jawad", "Washim"]
+        : []
     );
     setAllDay(initialValues?.allDay ?? false);
     setRepeat(initialValues?.repeat ?? REPEAT_OPTIONS[0].value);
@@ -205,24 +230,46 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setIsDeleting(false);
   }, [initialDate, initialTab, initialValues, isEditing, isOpen, tabs]);
 
+  useEffect(() => {
+    if (guestError && guestQuery) {
+      setGuestError(null);
+    }
+  }, [guestError, guestQuery]);
+
   const canSubmit = useMemo(() => title.trim().length > 0 && date.trim().length > 0, [title, date]);
 
   const handleAddGuest = (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed) return;
-    setGuests((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    if (!trimmed) return false;
+    const normalized = trimmed.toLowerCase();
+    const match = guestOptions.find(
+      (option) => option.name.toLowerCase() === normalized
+    ) ||
+      guestOptions.find((option) => option.name.toLowerCase().includes(normalized));
+
+    if (!match) {
+      setGuestError("Guests must be selected from the project team");
+      return false;
+    }
+
+    setGuests((prev) => (prev.includes(match.name) ? prev : [...prev, match.name]));
+    setGuestError(null);
+    return true;
   };
 
   const handleGuestKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      handleAddGuest(guestQuery);
-      setGuestQuery("");
+      const added = handleAddGuest(guestQuery);
+      if (added) {
+        setGuestQuery("");
+      }
     }
   };
 
   const handleRemoveGuest = (name: string) => {
     setGuests((prev) => prev.filter((guest) => guest !== name));
+    setGuestError(null);
   };
 
   const handleAddTag = () => {
@@ -400,7 +447,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
 
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="modal-guests">
-              Add guests
+              Add collaborators
             </label>
             <div className={styles.fieldShell}>
               <div className={styles.fieldShellContent}>
@@ -409,7 +456,11 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                   <input
                     id="modal-guests"
                     className={styles.textInput}
-                    placeholder="Type a name and press Enter"
+                    placeholder={
+                      guestOptions.length > 0
+                        ? "Search project team and press Enter"
+                        : "No team members available"
+                    }
                     value={guestQuery}
                     onChange={(event) => setGuestQuery(event.target.value)}
                     onKeyDown={handleGuestKeyDown}
@@ -428,20 +479,41 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                     return (
                       <span key={guest} className={styles.chip}>
                         <span className={styles.chipAvatar}>{initials || "?"}</span>
-                      <span className={styles.chipLabel}>{guest}</span>
-                      <button
-                        type="button"
-                        className={styles.chipRemove}
-                        onClick={() => handleRemoveGuest(guest)}
-                        aria-label={`Remove ${guest}`}
-                        disabled={isSubmitting}
-                      >
-                        ×
-                      </button>
+                        <span className={styles.chipLabel}>{guest}</span>
+                        <button
+                          type="button"
+                          className={styles.chipRemove}
+                          onClick={() => handleRemoveGuest(guest)}
+                          aria-label={`Remove ${guest}`}
+                          disabled={isSubmitting}
+                        >
+                          ×
+                        </button>
                       </span>
                     );
                   })}
                 </div>
+                {filteredSuggestions.length > 0 && (
+                  <div className={styles.suggestions}>
+                    {filteredSuggestions.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={styles.suggestionButton}
+                        onClick={() => {
+                          const added = handleAddGuest(option.name);
+                          if (added) {
+                            setGuestQuery("");
+                          }
+                        }}
+                        disabled={isSubmitting}
+                      >
+                        {option.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {guestError && <div className={styles.guestError}>{guestError}</div>}
               </div>
             </div>
           </div>
