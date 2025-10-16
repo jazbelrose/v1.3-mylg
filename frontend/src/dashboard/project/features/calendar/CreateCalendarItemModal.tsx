@@ -39,6 +39,8 @@ type BaseProps = {
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onUpdateEvent?: (input: CreateEventRequest) => Promise<void>;
+  onUpdateTask?: (input: CreateTaskRequest) => Promise<void>;
+  onDelete?: () => Promise<void>;
   mode?: "create" | "edit";
   initialValues?: EventFormInitialValues;
   availableTabs?: CreateCalendarItemTab[];
@@ -157,6 +159,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const tabs = useMemo<CreateCalendarItemTab[]>(
     () => (availableTabs && availableTabs.length > 0 ? availableTabs : TABS),
@@ -197,7 +200,10 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setReminder(initialValues?.reminder ?? REMINDER_OPTIONS[1].value);
     setError(null);
     setIsSubmitting(false);
+    setIsDeleting(false);
   }, [initialDate, initialTab, initialValues, isEditing, isOpen, tabs]);
+
+  const isBusy = isSubmitting || isDeleting;
 
   const canSubmit = useMemo(() => title.trim().length > 0 && date.trim().length > 0, [title, date]);
 
@@ -232,6 +238,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isBusy) return;
     if (!canSubmit) {
       setError("Title and date are required");
       return;
@@ -265,6 +272,18 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
           tags: payload.tags,
           guests: payload.guests,
         });
+      } else if (tab === "Task" && isEditing) {
+        if (!onUpdateTask) {
+          throw new Error("Missing task update handler");
+        }
+        await onUpdateTask({
+          title: payload.title,
+          date: payload.date,
+          time: payload.time,
+          description: payload.description,
+          tags: payload.tags,
+          guests: payload.guests,
+        });
       } else if (isEditing && onUpdateEvent) {
         await onUpdateEvent(payload);
       } else if (isEditing) {
@@ -281,14 +300,29 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete || isBusy) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await onDelete();
+      onClose();
+    } catch (deleteError) {
+      console.error("Failed to delete calendar item", deleteError);
+      setError("Unable to delete right now. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onRequestClose={onClose}
+      onRequestClose={isBusy ? () => undefined : onClose}
       overlayClassName={styles.modalOverlay}
       className={styles.modalContent}
       contentLabel="Create calendar item"
-      shouldCloseOnOverlayClick={!isSubmitting}
+      shouldCloseOnOverlayClick={!isBusy}
       closeTimeoutMS={160}
     >
       <div className={styles.modalShell}>
@@ -300,7 +334,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
             type="button"
             className={styles.iconButton}
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isBusy}
             aria-label="Close"
           >
             <X className={styles.icon} />
@@ -309,38 +343,38 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
 
         <div className={styles.body}>
           <div className={styles.fieldGroup}>
-            <input
-              className={styles.titleInput}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Write a title here"
-              disabled={isSubmitting}
-            />
+          <input
+            className={styles.titleInput}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Write a title here"
+            disabled={isBusy}
+          />
             <div className={styles.tagsRow}>
               <Tag className={styles.tagsIcon} />
               <div className={styles.tagList}>
                 {tags.map((tag) => (
                   <span key={tag} className={styles.tagChip}>
                     {tag}
-                    <button
-                      type="button"
-                      className={styles.removeChip}
-                      onClick={() => handleRemoveTag(tag)}
-                      aria-label={`Remove ${tag}`}
-                      disabled={isSubmitting}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
                 <button
                   type="button"
-                  className={styles.addTagButton}
-                  onClick={handleAddTag}
-                  disabled={isSubmitting}
+                  className={styles.removeChip}
+                  onClick={() => handleRemoveTag(tag)}
+                  aria-label={`Remove ${tag}`}
+                  disabled={isBusy}
                 >
-                  + Add tag
+                  ×
                 </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              className={styles.addTagButton}
+              onClick={handleAddTag}
+              disabled={isBusy}
+            >
+              + Add tag
+            </button>
               </div>
             </div>
           </div>
@@ -352,7 +386,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                 type="button"
                 className={`${styles.tabButton} ${tab === current ? styles.tabButtonActive : ""}`}
                 onClick={() => setTab(current)}
-                disabled={isSubmitting}
+                disabled={isBusy}
               >
                 {current}
               </button>
@@ -371,11 +405,11 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                     id="modal-guests"
                     className={styles.textInput}
                     placeholder="Type a name and press Enter"
-                    value={guestQuery}
-                    onChange={(event) => setGuestQuery(event.target.value)}
-                    onKeyDown={handleGuestKeyDown}
-                    disabled={isSubmitting}
-                  />
+                  value={guestQuery}
+                  onChange={(event) => setGuestQuery(event.target.value)}
+                  onKeyDown={handleGuestKeyDown}
+                  disabled={isBusy}
+                />
                 </div>
                 <div className={styles.chipList}>
                   {guests.map((guest) => {
@@ -390,15 +424,15 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                       <span key={guest} className={styles.chip}>
                         <span className={styles.chipAvatar}>{initials || "?"}</span>
                       <span className={styles.chipLabel}>{guest}</span>
-                      <button
-                        type="button"
-                        className={styles.chipRemove}
-                        onClick={() => handleRemoveGuest(guest)}
-                        aria-label={`Remove ${guest}`}
-                        disabled={isSubmitting}
-                      >
-                        ×
-                      </button>
+                    <button
+                      type="button"
+                      className={styles.chipRemove}
+                      onClick={() => handleRemoveGuest(guest)}
+                      aria-label={`Remove ${guest}`}
+                      disabled={isBusy}
+                    >
+                      ×
+                    </button>
                       </span>
                     );
                   })}
@@ -413,71 +447,71 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                 Date
               </label>
               <div className={styles.fieldShell}>
-                <div className={styles.fieldShellHeader}>
-                  <CalendarIcon className={styles.fieldIcon} />
-                  <input
-                    id="modal-date"
-                    type="date"
-                    className={styles.textInput}
-                    value={date}
-                    onChange={(event) => setDate(event.target.value)}
-                    disabled={isSubmitting}
-                  />
-                </div>
+              <div className={styles.fieldShellHeader}>
+                <CalendarIcon className={styles.fieldIcon} />
+                <input
+                  id="modal-date"
+                  type="date"
+                  className={styles.textInput}
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                  disabled={isBusy}
+                />
               </div>
             </div>
+          </div>
 
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-time">
-                Time
-              </label>
-              <div className={styles.fieldShell}>
-                <div className={styles.timeRow}>
-                  <Clock className={styles.fieldIcon} />
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="modal-time">
+              Time
+            </label>
+            <div className={styles.fieldShell}>
+              <div className={styles.timeRow}>
+                <Clock className={styles.fieldIcon} />
+                <input
+                  id="modal-time"
+                  type="time"
+                  className={styles.timeInput}
+                  value={time}
+                  onChange={(event) => {
+                    const nextTime = event.target.value;
+                    setTime(nextTime);
+                    setEndTime(deriveEndTime(nextTime));
+                  }}
+                  disabled={isBusy || allDay}
+                />
+                <label className={styles.toggle}>
                   <input
-                    id="modal-time"
-                    type="time"
-                    className={styles.timeInput}
-                    value={time}
+                    type="checkbox"
+                    checked={allDay}
                     onChange={(event) => {
-                      const nextTime = event.target.value;
-                      setTime(nextTime);
-                      setEndTime(deriveEndTime(nextTime));
+                      const checked = event.target.checked;
+                      setAllDay(checked);
+                      if (checked) {
+                        setEndTime(undefined);
+                      } else {
+                        setEndTime((current) => current ?? deriveEndTime(time));
+                      }
                     }}
-                    disabled={isSubmitting || allDay}
+                    disabled={isBusy}
                   />
-                  <label className={styles.toggle}>
-                    <input
-                      type="checkbox"
-                      checked={allDay}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setAllDay(checked);
-                        if (checked) {
-                          setEndTime(undefined);
-                        } else {
-                          setEndTime((current) => current ?? deriveEndTime(time));
-                        }
-                      }}
-                      disabled={isSubmitting}
-                    />
-                    <span>All day</span>
-                  </label>
-                </div>
+                  <span>All day</span>
+                </label>
               </div>
-              <div className={styles.fieldShell}>
-                <div className={styles.fieldShellHeader}>
-                  <Repeat className={styles.fieldIcon} />
-                  <select
-                    className={styles.select}
-                    value={repeat}
-                    onChange={(event) => setRepeat(event.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {REPEAT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+            </div>
+            <div className={styles.fieldShell}>
+              <div className={styles.fieldShellHeader}>
+                <Repeat className={styles.fieldIcon} />
+                <select
+                  className={styles.select}
+                  value={repeat}
+                  onChange={(event) => setRepeat(event.target.value)}
+                  disabled={isBusy}
+                >
+                  {REPEAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                     ))}
                   </select>
                 </div>
@@ -491,17 +525,17 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
               <div className={styles.fieldShell}>
                 <div className={styles.fieldShellHeader}>
                   <Video className={styles.fieldIcon} />
-                  <select
-                    id="modal-event-type"
-                    className={styles.select}
-                    value={eventType}
-                    onChange={(event) => setEventType(event.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {EVENT_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                <select
+                  id="modal-event-type"
+                  className={styles.select}
+                  value={eventType}
+                  onChange={(event) => setEventType(event.target.value)}
+                  disabled={isBusy}
+                >
+                  {EVENT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                     ))}
                   </select>
                 </div>
@@ -524,7 +558,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                     className={styles.select}
                     value={platform}
                     onChange={(event) => setPlatform(event.target.value)}
-                    disabled={isSubmitting}
+                    disabled={isBusy}
                   >
                     {PLATFORM_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -536,7 +570,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                     <button type="button" className={styles.iconButton} title="Settings" disabled>
                       <Settings className={styles.icon} />
                     </button>
-                    <button type="button" className={styles.iconButton} title="Copy" disabled={isSubmitting}>
+                    <button type="button" className={styles.iconButton} title="Copy" disabled={isBusy}>
                       <Copy className={styles.icon} />
                     </button>
                   </div>
@@ -551,17 +585,17 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
               <div className={styles.fieldShell}>
                 <div className={styles.fieldShellHeader}>
                   <Bell className={styles.fieldIcon} />
-                  <select
-                    id="modal-reminder"
-                    className={styles.select}
-                    value={reminder}
-                    onChange={(event) => setReminder(event.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {REMINDER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                <select
+                  id="modal-reminder"
+                  className={styles.select}
+                  value={reminder}
+                  onChange={(event) => setReminder(event.target.value)}
+                  disabled={isBusy}
+                >
+                  {REMINDER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                     ))}
                   </select>
                 </div>
@@ -581,7 +615,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                 placeholder="Write here..."
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                disabled={isSubmitting}
+                disabled={isBusy}
               />
             </div>
           </div>
@@ -592,11 +626,21 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
         <div className={styles.footer}>
           <div className={styles.footerMeta}>Guests visible • Calendar default notifications</div>
           <div className={styles.footerActions}>
+            {isEditing && onDelete && (
+              <button
+                type="button"
+                className={styles.dangerButton}
+                onClick={handleDelete}
+                disabled={isBusy}
+              >
+                {isDeleting ? "Deleting…" : "Delete"}
+              </button>
+            )}
             <button
               type="button"
               className={styles.secondaryButton}
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={isBusy}
             >
               Cancel
             </button>
@@ -604,7 +648,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
               type="button"
               className={styles.primaryButton}
               onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting}
+              disabled={!canSubmit || isBusy}
             >
               {isSubmitting
                 ? isEditing

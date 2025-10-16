@@ -665,6 +665,28 @@
   gap: 10px;
 }
 
+.events-tasks__event-button,
+.events-tasks__task-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.events-tasks__event-button:hover,
+.events-tasks__event-button:focus-visible,
+.events-tasks__task-button:hover,
+.events-tasks__task-button:focus-visible {
+  color: #ffffff;
+}
+
 .events-tasks__dot {
   width: 8px;
   height: 8px;
@@ -694,6 +716,30 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
+}
+
+.events-tasks__delete {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.events-tasks__delete:hover,
+.events-tasks__delete:focus-visible {
+  background: rgba(250, 51, 86, 0.14);
+  color: #fa3356;
+}
+
+.events-tasks__delete-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .events-tasks__empty {

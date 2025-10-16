@@ -14,6 +14,7 @@ import {
   Search,
   Plus,
   Check,
+  Trash,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -35,6 +36,8 @@ import {
   fetchTasks,
   updateEvent,
   updateTask,
+  deleteTask as deleteTaskApi,
+  deleteEvent as deleteEventApi,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
@@ -71,7 +74,10 @@ type CalendarTask = {
   id: string;
   title: string;
   due?: string; // ISO date
+  dueTime?: string;
+  description?: string;
   done?: boolean;
+  source: ApiTask;
 };
 
 const categoryColor: Record<CalendarCategory, string> = {
@@ -413,15 +419,28 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
   };
 };
 
-const normalizeTask = (task: ApiTask): CalendarTask => ({
-  id:
-    task.taskId ||
-    (task as { id?: string }).id ||
-    `${task.projectId}-${Math.random().toString(36).slice(2)}`,
-  title: task.title ?? "Untitled task",
-  due: task.dueDate?.slice(0, 10),
-  done: task.status === "done",
-});
+const normalizeTask = (task: ApiTask): CalendarTask => {
+  const isoDueDate = task.dueDate ? new Date(task.dueDate) : null;
+  const due = isoDueDate && !Number.isNaN(isoDueDate.getTime())
+    ? isoDueDate.toISOString().slice(0, 10)
+    : task.dueDate?.slice(0, 10);
+  const dueTime = isoDueDate && !Number.isNaN(isoDueDate.getTime())
+    ? `${`${isoDueDate.getHours()}`.padStart(2, "0")}:${`${isoDueDate.getMinutes()}`.padStart(2, "0")}`
+    : undefined;
+
+  return {
+    id:
+      task.taskId ||
+      (task as { id?: string }).id ||
+      `${task.projectId}-${Math.random().toString(36).slice(2)}`,
+    title: task.title ?? "Untitled task",
+    due,
+    dueTime,
+    description: task.description,
+    done: task.status === "done",
+    source: task,
+  };
+};
 
 const getMonthMatrix = (viewDate: Date) => {
   const start = startOfMonth(viewDate);
@@ -877,6 +896,9 @@ type EventsAndTasksProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
   onToggleTask: (id: string) => void;
+  onEditEvent: (event: CalendarEvent) => void;
+  onEditTask: (task: CalendarTask) => void;
+  onDeleteTask: (task: CalendarTask) => Promise<void>;
 };
 
 const compareDateStrings = (a?: string, b?: string) => {
@@ -886,7 +908,14 @@ const compareDateStrings = (a?: string, b?: string) => {
   return a.localeCompare(b);
 };
 
-function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
+function EventsAndTasks({
+  events,
+  tasks,
+  onToggleTask,
+  onEditEvent,
+  onEditTask,
+  onDeleteTask,
+}: EventsAndTasksProps) {
   const upcoming = useMemo(
     () =>
       [...events]
@@ -909,14 +938,20 @@ function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
         <ul className="events-tasks__list">
           {upcoming.map((event) => (
             <li key={event.id} className="events-tasks__list-item">
-              <span className={`events-tasks__dot ${categoryColor[event.category]}`} />
-              <span className="events-tasks__event-title" title={event.title}>
-                {event.title}
-              </span>
-              <span className="events-tasks__meta">
-                {event.date.slice(5)}
-                {event.start ? ` · ${event.start}` : ""}
-              </span>
+              <button
+                type="button"
+                className="events-tasks__event-button"
+                onClick={() => onEditEvent(event)}
+              >
+                <span className={`events-tasks__dot ${categoryColor[event.category]}`} />
+                <span className="events-tasks__event-title" title={event.title}>
+                  {event.title}
+                </span>
+                <span className="events-tasks__meta">
+                  {event.date.slice(5)}
+                  {event.start ? ` · ${event.start}` : ""}
+                </span>
+              </button>
             </li>
           ))}
           {upcoming.length === 0 && (
@@ -937,14 +972,33 @@ function EventsAndTasks({ events, tasks, onToggleTask }: EventsAndTasksProps) {
                 className="events-tasks__checkbox"
                 style={{ accentColor: "#FA3356" }}
               />
-              <span
-                className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+              <button
+                type="button"
+                className="events-tasks__task-button"
+                onClick={() => onEditTask(task)}
               >
-                {task.title}
-              </span>
-              {task.due && (
-                <span className="events-tasks__meta">due {task.due.slice(5)}</span>
-              )}
+                <span
+                  className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+                >
+                  {task.title}
+                </span>
+                {task.due && (
+                  <span className="events-tasks__meta">due {task.due.slice(5)}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                className="events-tasks__delete"
+                aria-label="Delete task"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDeleteTask(task).catch((error) => {
+                    console.error("Failed to delete task from calendar sidebar", error);
+                  });
+                }}
+              >
+                <Trash className="events-tasks__delete-icon" aria-hidden="true" />
+              </button>
             </li>
           ))}
           {tasks.length === 0 && (
@@ -971,6 +1025,9 @@ type CalendarSurfaceProps = {
   onUpdateEvent: (target: ApiTimelineEvent, input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onToggleTask: (id: string) => void;
+  onUpdateTask: (task: CalendarTask, input: CreateTaskRequest) => Promise<void>;
+  onDeleteTask: (task: CalendarTask) => Promise<void>;
+  onDeleteEvent: (event: CalendarEvent) => Promise<void>;
 };
 
 const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
@@ -982,6 +1039,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onUpdateEvent,
   onCreateTask,
   onToggleTask,
+  onUpdateTask,
+  onDeleteTask,
+  onDeleteEvent,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -991,7 +1051,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     date: Date;
     tab: CreateCalendarItemTab;
     event: CalendarEvent | null;
-  }>({ open: false, mode: "create", date: currentDate, tab: "Event", event: null });
+    task: CalendarTask | null;
+  }>({
+    open: false,
+    mode: "create",
+    date: currentDate,
+    tab: "Event",
+    event: null,
+    task: null,
+  });
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -1033,7 +1101,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleOpenCreate = useCallback(
     (date: Date, tab: CreateCalendarItemTab = "Event") => {
       setInternalDate(date);
-      setModalState({ open: true, mode: "create", date, tab, event: null });
+      setModalState({ open: true, mode: "create", date, tab, event: null, task: null });
     },
     []
   );
@@ -1047,8 +1115,24 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       date: eventDate,
       tab: "Event",
       event,
+      task: null,
     });
   }, []);
+
+  const handleOpenEditTask = useCallback((task: CalendarTask) => {
+    const dueDate =
+      safeDate(task.due ?? task.source.dueDate?.slice(0, 10)) ??
+      (task.source.dueDate ? new Date(task.source.dueDate) : currentDate);
+    setInternalDate(dueDate);
+    setModalState({
+      open: true,
+      mode: "edit",
+      date: dueDate,
+      tab: "Task",
+      event: null,
+      task,
+    });
+  }, [currentDate]);
 
   const handleCloseCreate = useCallback(() => {
     setModalState((previous) => ({
@@ -1057,6 +1141,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       date: previous.date,
       tab: "Event",
       event: null,
+      task: null,
     }));
   }, []);
 
@@ -1073,6 +1158,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 events={events}
                 tasks={tasks}
                 onToggleTask={onToggleTask}
+                onEditEvent={handleOpenEdit}
+                onEditTask={handleOpenEditTask}
+                onDeleteTask={onDeleteTask}
               />
             </div>
 
@@ -1171,11 +1259,20 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
       <CreateCalendarItemModal
         isOpen={modalState.open}
-        initialDate={
-          modalState.event
-            ? safeDate(modalState.event.date) ?? modalState.date
-            : modalState.date
-        }
+        initialDate={(() => {
+          if (modalState.mode === "edit" && modalState.task) {
+            const taskDate =
+              safeDate(modalState.task.due ?? modalState.task.source.dueDate?.slice(0, 10)) ??
+              (modalState.task.source.dueDate
+                ? new Date(modalState.task.source.dueDate)
+                : modalState.date);
+            return taskDate;
+          }
+          if (modalState.event) {
+            return safeDate(modalState.event.date) ?? modalState.date;
+          }
+          return modalState.date;
+        })()}
         initialTab={modalState.tab}
         mode={modalState.mode}
         initialValues={
@@ -1194,9 +1291,25 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 tags: modalState.event.tags,
                 guests: modalState.event.guests,
               }
+            : modalState.mode === "edit" && modalState.task
+              ? {
+                  title: modalState.task.title,
+                  date:
+                    modalState.task.due ??
+                    modalState.task.source.dueDate?.slice(0, 10) ??
+                    fmt(modalState.date),
+                  time: modalState.task.dueTime,
+                  description: modalState.task.description ?? modalState.task.source.description,
+                }
             : undefined
         }
-        availableTabs={modalState.mode === "edit" ? ["Event"] : undefined}
+        availableTabs={
+          modalState.mode === "edit"
+            ? modalState.task
+              ? ["Task"]
+              : ["Event"]
+            : undefined
+        }
         onClose={handleCloseCreate}
         onCreateEvent={onCreateEvent}
         onCreateTask={onCreateTask}
@@ -1205,6 +1318,21 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             ? (input) => onUpdateEvent(modalState.event!.source, input)
             : undefined
         }
+        onUpdateTask={
+          modalState.mode === "edit" && modalState.task
+            ? (input) => onUpdateTask(modalState.task!, input)
+            : undefined
+        }
+        onDelete={(() => {
+          if (modalState.mode !== "edit") return undefined;
+          if (modalState.task) {
+            return () => onDeleteTask(modalState.task!);
+          }
+          if (modalState.event) {
+            return () => onDeleteEvent(modalState.event!);
+          }
+          return undefined;
+        })()}
       />
     </div>
   );
@@ -1680,6 +1808,77 @@ const CalendarPage: React.FC = () => {
     [projectId]
   );
 
+  const handleUpdateTaskDetails = useCallback(
+    async (task: CalendarTask, input: CreateTaskRequest) => {
+      if (!projectId) return;
+      const source = task.source;
+      const taskId = source.taskId ?? (source as { id?: string }).id;
+      if (!taskId) {
+        throw new Error("Task ID missing");
+      }
+
+      const dueDateIso = input.date
+        ? (() => {
+            const parsed = new Date(`${input.date}T${input.time ?? "00:00"}`);
+            return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+          })()
+        : undefined;
+
+      try {
+        const updated = await updateTask({
+          ...source,
+          projectId,
+          taskId,
+          title: input.title,
+          description: input.description ?? source.description,
+          dueDate: dueDateIso,
+        });
+
+        tasksRef.current = tasksRef.current.map((existing) =>
+          (existing.taskId ?? (existing as { id?: string }).id) === taskId ? updated : existing
+        );
+        setProjectTasks((prev) =>
+          prev.map((existing) =>
+            (existing.taskId ?? (existing as { id?: string }).id) === taskId ? updated : existing
+          )
+        );
+      } catch (error) {
+        console.error("Failed to update task", error);
+        throw error;
+      }
+    },
+    [projectId]
+  );
+
+  const handleDeleteTask = useCallback(
+    async (task: CalendarTask) => {
+      if (!projectId) return;
+      const source = task.source;
+      const taskId = source.taskId ?? (source as { id?: string }).id;
+      if (!taskId) {
+        throw new Error("Task ID missing");
+      }
+
+      const previous = tasksRef.current;
+      const optimistic = previous.filter(
+        (item) => (item.taskId ?? (item as { id?: string }).id) !== taskId
+      );
+
+      tasksRef.current = optimistic;
+      setProjectTasks(optimistic);
+
+      try {
+        await deleteTaskApi({ projectId, taskId });
+      } catch (error) {
+        console.error("Failed to delete task", error);
+        tasksRef.current = previous;
+        setProjectTasks(previous);
+        throw error;
+      }
+    },
+    [projectId]
+  );
+
   const handleToggleTask = useCallback(
     async (taskId: string) => {
       if (!projectId) return;
@@ -1717,6 +1916,54 @@ const CalendarPage: React.FC = () => {
       }
     },
     [projectId]
+  );
+
+  const handleDeleteEvent = useCallback(
+    async (event: CalendarEvent) => {
+      if (!projectId) return;
+      const identifier = getEventIdentifier(event.source);
+      if (!identifier) return;
+
+      try {
+        await deleteEventApi(projectId, identifier);
+
+        setTimelineEvents((prev) =>
+          prev.filter((existing) => getEventIdentifier(existing) !== identifier)
+        );
+
+        setActiveProject((prev) => {
+          if (!prev) return prev;
+          const existing = Array.isArray(prev.timelineEvents) ? prev.timelineEvents : [];
+          return {
+            ...prev,
+            timelineEvents: existing.filter(
+              (item) => getEventIdentifier(item) !== identifier
+            ),
+          };
+        });
+
+        setProjects((prev) =>
+          Array.isArray(prev)
+            ? prev.map((project) => {
+                if (project.projectId !== projectId) return project;
+                const existing = Array.isArray(project.timelineEvents)
+                  ? project.timelineEvents
+                  : [];
+                return {
+                  ...project,
+                  timelineEvents: existing.filter(
+                    (item) => getEventIdentifier(item) !== identifier
+                  ),
+                };
+              })
+            : prev
+        );
+      } catch (error) {
+        console.error("Failed to delete event", error);
+        throw error;
+      }
+    },
+    [projectId, getEventIdentifier, setActiveProject, setProjects]
   );
 
   const parseStatusToNumber = useCallback((status?: string | number | null) => {
@@ -1809,6 +2056,9 @@ const CalendarPage: React.FC = () => {
         onUpdateEvent={handleUpdateEvent}
         onCreateTask={handleCreateTask}
         onToggleTask={handleToggleTask}
+        onUpdateTask={handleUpdateTaskDetails}
+        onDeleteTask={handleDeleteTask}
+        onDeleteEvent={handleDeleteEvent}
       />
     </ProjectPageLayout>
   );
