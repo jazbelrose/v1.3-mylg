@@ -141,6 +141,63 @@ const addHoursToTime = (time: string, hours: number) => {
   return `${pad(outH)}:${pad(outM)}`;
 };
 
+const parseBooleanish = (value: unknown): boolean | undefined => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      return undefined;
+    }
+    if (["true", "1", "yes", "y"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "n"].includes(normalized)) {
+      return false;
+    }
+  }
+  return undefined;
+};
+
+const parseString = (value: unknown): string | undefined => {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+};
+
+const parseStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") {
+          const trimmed = item.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        }
+        if (typeof item === "number" && Number.isFinite(item)) {
+          return String(item);
+        }
+        return null;
+      })
+      .filter((item): item is string => item !== null);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,;]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  return [];
+};
+
 const deriveCategory = (event: ApiTimelineEvent): CalendarCategory => {
   const textChunks = [
     event.type,
@@ -185,6 +242,55 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
   );
   const end =
     endRaw || (start && Number.isFinite(durationHours) ? addHoursToTime(start, Number(durationHours)) : undefined);
+
+  const allDay =
+    parseBooleanish(
+      (event as { allDay?: unknown }).allDay ??
+        payload.allDay ??
+        (payload as { isAllDay?: unknown }).isAllDay ??
+        (payload as { all_day?: unknown }).all_day ??
+        (payload as { is_all_day?: unknown }).is_all_day ??
+        payload["all-day"]
+    ) ?? (!start && !end);
+
+  const repeat = parseString(
+    (event as { repeat?: unknown }).repeat ??
+      payload.repeat ??
+      (payload as { recurrence?: unknown }).recurrence ??
+      (payload as { frequency?: unknown }).frequency
+  );
+
+  const reminder = parseString(
+    (event as { reminder?: unknown }).reminder ??
+      payload.reminder ??
+      (payload as { alert?: unknown }).alert ??
+      (payload as { notification?: unknown }).notification
+  );
+
+  const eventType = parseString(
+    (event as { eventType?: unknown }).eventType ??
+      payload.eventType ??
+      (payload as { type?: unknown }).type ??
+      (payload as { category?: unknown }).category
+  );
+
+  const platform = parseString(
+    (event as { platform?: unknown }).platform ??
+      payload.platform ??
+      (payload as { provider?: unknown }).provider ??
+      (payload as { location?: unknown }).location
+  );
+
+  const tags = parseStringArray(
+    (event as { tags?: unknown }).tags ?? payload.tags ?? (payload as { labels?: unknown }).labels
+  );
+
+  const guests = parseStringArray(
+    (event as { guests?: unknown }).guests ??
+      payload.guests ??
+      (payload as { attendees?: unknown }).attendees ??
+      (payload as { participants?: unknown }).participants
+  );
 
   const payloadDescription = event.payload?.description;
   const payloadTitle = (event.payload as { title?: string })?.title;
