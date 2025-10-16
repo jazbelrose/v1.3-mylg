@@ -258,8 +258,8 @@ function MiniCalendar({ value, onChange }: MiniCalendarProps) {
         </div>
       </div>
       <div className="mini-calendar__weekday-row">
-        {"SMTWTFS".split("").map((char) => (
-          <div key={char} className="mini-calendar__weekday">
+        {"SMTWTFS".split("").map((char, index) => (
+          <div key={`${char}-${index}`} className="mini-calendar__weekday">
             {char}
           </div>
         ))}
@@ -658,10 +658,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
 
   useEffect(() => {
-    if (!isSameDay(currentDate, internalDate)) {
-      setInternalDate(currentDate);
-    }
-  }, [currentDate, internalDate]);
+    setInternalDate((previous) =>
+      isSameDay(previous, currentDate) ? previous : new Date(currentDate)
+    );
+  }, [currentDate]);
 
   useEffect(() => {
     onDateChange(internalDate);
@@ -676,14 +676,19 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [internalDate]
   );
 
-  const go = useCallback(
-    (deltaMonths: number) => {
-      const next = new Date(internalDate);
-      next.setMonth(internalDate.getMonth() + deltaMonths);
-      setInternalDate(next);
-    },
-    [internalDate]
-  );
+  const go = useCallback((deltaMonths: number) => {
+    setInternalDate((previousDate) => {
+      const targetMonthStart = new Date(
+        previousDate.getFullYear(),
+        previousDate.getMonth() + deltaMonths,
+        1
+      );
+      const daysInTargetMonth = endOfMonth(targetMonthStart).getDate();
+      const clampedDay = Math.min(previousDate.getDate(), daysInTargetMonth);
+      targetMonthStart.setDate(clampedDay);
+      return targetMonthStart;
+    });
+  }, []);
 
   const handleSelectDate = useCallback((date: Date) => {
     setInternalDate(date);
