@@ -122,8 +122,23 @@ const safeDate = (value?: string | null) => {
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 };
 
+const extractEventDetails = (event: ApiTimelineEvent): Record<string, unknown> => {
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const meta = ((event as { meta?: Record<string, unknown> }).meta ?? {}) as Record<
+    string,
+    unknown
+  >;
+  return { ...payload, ...meta };
+};
+
 const extractTime = (value: unknown): string | undefined => {
   if (typeof value === "string") {
+    if (value.includes("T")) {
+      const isoMatch = value.match(/T(\d{2}):(\d{2})/);
+      if (isoMatch) {
+        return `${isoMatch[1]}:${isoMatch[2]}`;
+      }
+    }
     const match = value.match(/^(\d{1,2})(:?)(\d{2})?/);
     if (match) {
       const hours = pad(Number(match[1]));
@@ -245,14 +260,16 @@ const extractDateString = (value: unknown): string | undefined => {
 };
 
 const deriveCategory = (event: ApiTimelineEvent): CalendarCategory => {
+  const details = extractEventDetails(event);
   const textChunks = [
     event.type,
     (event as { category?: string }).category,
     event.phase,
     (event as { title?: string }).title,
     event.description,
-    event.payload?.description,
-    (event.payload as { title?: string })?.title,
+    (details as { description?: string }).description,
+    (details as { notes?: string }).notes,
+    (details as { title?: string }).title,
   ]
     .flatMap((chunk) => (typeof chunk === "string" ? [chunk] : []))
     .map((chunk) => chunk.toLowerCase());
@@ -267,15 +284,16 @@ const deriveCategory = (event: ApiTimelineEvent): CalendarCategory => {
 };
 
 const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null => {
+  const details = extractEventDetails(event);
   const dateCandidates: unknown[] = [
     event.date,
     (event as { day?: unknown }).day,
     (event as { scheduledDate?: unknown }).scheduledDate,
     (event as { dueDate?: unknown }).dueDate,
-    (event.payload as { date?: unknown })?.date,
-    (event.payload as { day?: unknown })?.day,
-    (event.payload as { scheduledDate?: unknown })?.scheduledDate,
-    (event.payload as { dueDate?: unknown })?.dueDate,
+    (details as { date?: unknown }).date,
+    (details as { day?: unknown }).day,
+    (details as { scheduledDate?: unknown }).scheduledDate,
+    (details as { dueDate?: unknown }).dueDate,
     event.timestamp,
     event.createdAt,
   ];
@@ -283,36 +301,36 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
     .map(extractDateString)
     .find((value): value is string => Boolean(value));
   if (!isoDate) return null;
-
-  const payload = (event.payload ?? {}) as Record<string, unknown>;
   const startCandidate =
     (event as { start?: unknown }).start ??
     (event as { startHour?: unknown }).startHour ??
     (event as { startTime?: unknown }).startTime ??
-    payload.start ??
-    (payload as { startTime?: unknown }).startTime ??
-    (payload as { start_time?: unknown }).start_time ??
-    (payload as { starttime?: unknown }).starttime ??
-    payload["start-time"] ??
-    (payload as { time?: unknown }).time;
+    (event as { startAt?: unknown }).startAt ??
+    details.start ??
+    (details as { startTime?: unknown }).startTime ??
+    (details as { start_time?: unknown }).start_time ??
+    (details as { starttime?: unknown }).starttime ??
+    (details as { [key: string]: unknown })["start-time"] ??
+    (details as { time?: unknown }).time;
   const endCandidate =
     (event as { end?: unknown }).end ??
     (event as { endHour?: unknown }).endHour ??
     (event as { endTime?: unknown }).endTime ??
-    payload.end ??
-    (payload as { endTime?: unknown }).endTime ??
-    (payload as { end_time?: unknown }).end_time ??
-    (payload as { endtime?: unknown }).endtime ??
-    payload["end-time"];
+    (event as { endAt?: unknown }).endAt ??
+    details.end ??
+    (details as { endTime?: unknown }).endTime ??
+    (details as { end_time?: unknown }).end_time ??
+    (details as { endtime?: unknown }).endtime ??
+    (details as { [key: string]: unknown })["end-time"];
 
   const start = extractTime(startCandidate);
   const endRaw = extractTime(endCandidate);
   const durationHours =
     parseNumberish((event as { hours?: unknown }).hours) ??
     parseNumberish((event as { duration?: unknown }).duration) ??
-    parseNumberish(payload.hours) ??
-    parseNumberish((payload as { duration?: unknown }).duration) ??
-    parseNumberish((payload as { length?: unknown }).length);
+    parseNumberish(details.hours) ??
+    parseNumberish((details as { duration?: unknown }).duration) ??
+    parseNumberish((details as { length?: unknown }).length);
   const end =
     endRaw || (start && typeof durationHours === "number" ? addHoursToTime(start, durationHours) : undefined);
 
@@ -321,63 +339,63 @@ const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent | null =
       (event as { allDay?: unknown }).allDay ??
         (event as { all_day?: unknown }).all_day ??
         (event as { isAllDay?: unknown }).isAllDay ??
-        payload.allDay ??
-        (payload as { all_day?: unknown }).all_day ??
-        (payload as { isAllDay?: unknown }).isAllDay ??
-        (payload as { is_all_day?: unknown }).is_all_day ??
-        payload["all-day"]
+        details.allDay ??
+        (details as { all_day?: unknown }).all_day ??
+        (details as { isAllDay?: unknown }).isAllDay ??
+        (details as { is_all_day?: unknown }).is_all_day ??
+        (details as { [key: string]: unknown })["all-day"]
     ) ?? (!start && !end);
 
   const repeat = parseString(
     (event as { repeat?: unknown }).repeat ??
       (event as { recurrence?: unknown }).recurrence ??
-      payload.repeat ??
-      (payload as { recurrence?: unknown }).recurrence ??
-      (payload as { frequency?: unknown }).frequency
+      details.repeat ??
+      (details as { recurrence?: unknown }).recurrence ??
+      (details as { frequency?: unknown }).frequency
   );
 
   const reminder = parseString(
     (event as { reminder?: unknown }).reminder ??
-      payload.reminder ??
-      (payload as { alert?: unknown }).alert ??
-      (payload as { notification?: unknown }).notification
+      details.reminder ??
+      (details as { alert?: unknown }).alert ??
+      (details as { notification?: unknown }).notification
   );
 
   const eventType = parseString(
     (event as { eventType?: unknown }).eventType ??
-      payload.eventType ??
-      (payload as { type?: unknown }).type ??
-      (payload as { category?: unknown }).category
+      details.eventType ??
+      (details as { type?: unknown }).type ??
+      (details as { category?: unknown }).category
   );
 
   const platform = parseString(
     (event as { platform?: unknown }).platform ??
-      payload.platform ??
-      (payload as { provider?: unknown }).provider ??
-      (payload as { location?: unknown }).location
+      details.platform ??
+      (details as { provider?: unknown }).provider ??
+      (details as { location?: unknown }).location
   );
 
   const tags = parseStringArray(
     (event as { tags?: unknown }).tags ??
-      payload.tags ??
-      (payload as { labels?: unknown }).labels ??
-      payload["tag-list"]
+      details.tags ??
+      (details as { labels?: unknown }).labels ??
+      (details as { [key: string]: unknown })["tag-list"]
   );
 
   const guests = parseStringArray(
     (event as { guests?: unknown }).guests ??
-      payload.guests ??
-      (payload as { attendees?: unknown }).attendees ??
-      (payload as { participants?: unknown }).participants ??
-      payload["guest-list"]
+      details.guests ??
+      (details as { attendees?: unknown }).attendees ??
+      (details as { participants?: unknown }).participants ??
+      (details as { [key: string]: unknown })["guest-list"]
   );
 
-  const payloadDescription = event.payload?.description;
-  const payloadTitle = (event.payload as { title?: string })?.title;
-  const payloadNotes = (event.payload as { notes?: string; details?: string })?.notes;
+  const payloadDescription = (details as { description?: string }).description;
+  const payloadTitle = (details as { title?: string }).title;
+  const payloadNotes = (details as { notes?: string; details?: string }).notes;
   const payloadDetails =
     payloadNotes ||
-    (event.payload as { details?: string })?.details ||
+    (details as { details?: string }).details ||
     (payloadDescription &&
     payloadDescription !== event.description &&
     payloadDescription !== payloadTitle
@@ -1666,12 +1684,26 @@ const CalendarPage: React.FC = () => {
       const trimmedDescription = input.description?.trim();
       const draftEventId = generateEventId();
 
-      const payloadEntries: Record<string, unknown> = {
+      const startAtIso =
+        !input.allDay && input.time
+          ? (() => {
+              const parsed = new Date(`${isoDate}T${input.time}`);
+              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+            })()
+          : undefined;
+
+      const endAtIso =
+        !input.allDay && input.endTime
+          ? (() => {
+              const parsed = new Date(`${isoDate}T${input.endTime}`);
+              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+            })()
+          : undefined;
+
+      const metaEntries: Record<string, unknown> = {
         title: trimmedTitle,
         description: trimmedDescription,
         notes: trimmedDescription || undefined,
-        start: input.allDay ? undefined : input.time,
-        end: input.allDay ? undefined : input.endTime,
         repeat: repeatValue,
         reminder: input.reminder,
         eventType: input.eventType,
@@ -1679,10 +1711,12 @@ const CalendarPage: React.FC = () => {
         guests: input.guests.length > 0 ? input.guests : undefined,
         tags: input.tags.length > 0 ? input.tags : undefined,
         allDay: input.allDay,
+        start: input.allDay ? undefined : input.time,
+        end: input.allDay ? undefined : input.endTime,
       };
 
-      const payload = Object.fromEntries(
-        Object.entries(payloadEntries).filter(([, value]) => {
+      const meta = Object.fromEntries(
+        Object.entries(metaEntries).filter(([, value]) => {
           if (value === undefined || value === null) return false;
           if (typeof value === "string") return value.trim().length > 0;
           if (Array.isArray(value)) return value.length > 0;
@@ -1698,31 +1732,24 @@ const CalendarPage: React.FC = () => {
           date: isoDate,
           title: trimmedTitle,
           description: trimmedDescription ?? trimmedTitle,
-          payload,
-          ...(input.allDay
-            ? {}
-            : {
-                start: input.time,
-                end: input.endTime,
-              }),
+          tags: input.tags,
+          meta,
+          allDay: input.allDay,
+          ...(startAtIso ? { startAt: startAtIso } : {}),
+          ...(endAtIso ? { endAt: endAtIso } : {}),
         } as ApiTimelineEvent;
 
         const created = await createEvent(projectId, eventBody);
-        const rawCreatedPayload = created.payload;
-        const createdPayload = rawCreatedPayload ?? {};
-        const mergedPayload = {
-          ...payload,
-          ...createdPayload,
-        } as Record<string, unknown>;
+        const createdMeta: Record<string, unknown> = {
+          ...(created.meta ?? {}),
+          ...meta,
+        };
 
-        if (!rawCreatedPayload || (rawCreatedPayload as { title?: unknown }).title == null) {
-          mergedPayload.title = trimmedTitle;
+        if (createdMeta["title"] == null) {
+          createdMeta["title"] = trimmedTitle;
         }
-        if (
-          trimmedDescription &&
-          (!rawCreatedPayload || (rawCreatedPayload as { description?: unknown }).description == null)
-        ) {
-          mergedPayload.description = trimmedDescription;
+        if (trimmedDescription && createdMeta["description"] == null) {
+          createdMeta["description"] = trimmedDescription;
         }
 
         const resolvedId =
@@ -1731,6 +1758,20 @@ const CalendarPage: React.FC = () => {
         const resolvedTitle = (created as { title?: string }).title ?? trimmedTitle;
         const resolvedDescription =
           created.description ?? trimmedDescription ?? trimmedTitle;
+        const resolvedAllDay =
+          typeof created.allDay === "boolean" ? created.allDay : input.allDay;
+        const resolvedStartAt =
+          resolvedAllDay
+            ? null
+            : typeof created.startAt === "string"
+              ? created.startAt
+              : startAtIso ?? null;
+        const resolvedEndAt =
+          resolvedAllDay
+            ? null
+            : typeof created.endAt === "string"
+              ? created.endAt
+              : endAtIso ?? null;
 
         const normalized = normalizeTimelineEvent({
           ...created,
@@ -1738,8 +1779,12 @@ const CalendarPage: React.FC = () => {
           eventId: resolvedEventId,
           title: resolvedTitle,
           description: resolvedDescription,
-          payload: mergedPayload,
           date: created.date ?? isoDate,
+          tags: created.tags ?? input.tags,
+          meta: createdMeta,
+          allDay: resolvedAllDay,
+          startAt: resolvedStartAt,
+          endAt: resolvedEndAt,
         });
         const asTimelineEvent: ApiTimelineEvent = {
           ...created,
@@ -1747,9 +1792,14 @@ const CalendarPage: React.FC = () => {
           eventId: resolvedEventId,
           title: resolvedTitle,
           description: resolvedDescription,
-          payload: mergedPayload,
           date: created.date ?? isoDate,
+          tags: created.tags ?? input.tags,
+          meta: createdMeta,
+          allDay: resolvedAllDay,
+          startAt: resolvedStartAt,
+          endAt: resolvedEndAt,
         };
+        delete (asTimelineEvent as Record<string, unknown>).payload;
 
         setTimelineEvents((prev) => [...prev, asTimelineEvent]);
         setActiveProject((prev) => {
@@ -1792,40 +1842,105 @@ const CalendarPage: React.FC = () => {
       const repeatValue =
         input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
 
-      const payloadEntries: Record<string, unknown> = {
-        description: input.description?.trim() || input.title,
-        notes: input.description?.trim() || undefined,
-        start: input.allDay ? undefined : input.time,
-        end: input.allDay ? undefined : input.endTime,
-        repeat: repeatValue,
-        reminder: input.reminder,
-        eventType: input.eventType,
-        platform: input.platform,
-        guests: input.guests.length > 0 ? input.guests : undefined,
-        tags: input.tags.length > 0 ? input.tags : undefined,
-        allDay: input.allDay,
+      const trimmedTitle = input.title.trim();
+      const trimmedDescription = input.description?.trim();
+      const startAtIso =
+        !input.allDay && input.time
+          ? (() => {
+              const parsed = new Date(`${isoDate}T${input.time}`);
+              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+            })()
+          : undefined;
+
+      const endAtIso =
+        !input.allDay && input.endTime
+          ? (() => {
+              const parsed = new Date(`${isoDate}T${input.endTime}`);
+              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+            })()
+          : undefined;
+
+      const existingDetails: Record<string, unknown> = {
+        ...(((target as { meta?: Record<string, unknown> }).meta) ?? {}),
+        ...((target.payload as Record<string, unknown>) ?? {}),
       };
 
-      const filteredPayload = Object.fromEntries(
-        Object.entries(payloadEntries).filter(([, value]) => {
+      const mergedMeta: Record<string, unknown> = { ...existingDetails };
+
+      if (repeatValue) {
+        mergedMeta.repeat = repeatValue;
+      } else {
+        delete mergedMeta.repeat;
+      }
+
+      if (input.reminder && input.reminder.trim()) {
+        mergedMeta.reminder = input.reminder;
+      } else {
+        delete mergedMeta.reminder;
+      }
+
+      if (input.eventType && input.eventType.trim()) {
+        mergedMeta.eventType = input.eventType;
+      } else {
+        delete mergedMeta.eventType;
+      }
+
+      if (input.platform && input.platform.trim()) {
+        mergedMeta.platform = input.platform;
+      } else {
+        delete mergedMeta.platform;
+      }
+
+      if (input.guests.length > 0) {
+        mergedMeta.guests = input.guests;
+      } else {
+        delete mergedMeta.guests;
+      }
+
+      if (input.tags.length > 0) {
+        mergedMeta.tags = input.tags;
+      } else {
+        delete mergedMeta.tags;
+      }
+
+      if (trimmedDescription) {
+        mergedMeta.description = trimmedDescription;
+        mergedMeta.notes = trimmedDescription;
+      } else {
+        delete mergedMeta.description;
+        delete mergedMeta.notes;
+      }
+
+      mergedMeta.allDay = input.allDay;
+
+      if (input.allDay) {
+        delete mergedMeta.start;
+        delete mergedMeta.end;
+        delete mergedMeta.startTime;
+        delete mergedMeta.endTime;
+      } else {
+        if (input.time) {
+          mergedMeta.start = input.time;
+        } else {
+          delete mergedMeta.start;
+          delete mergedMeta.startTime;
+        }
+        if (input.endTime) {
+          mergedMeta.end = input.endTime;
+        } else {
+          delete mergedMeta.end;
+          delete mergedMeta.endTime;
+        }
+      }
+
+      const sanitizedMeta = Object.fromEntries(
+        Object.entries(mergedMeta).filter(([, value]) => {
           if (value === undefined || value === null) return false;
           if (typeof value === "string") return value.trim().length > 0;
           if (Array.isArray(value)) return value.length > 0;
           return true;
         })
       );
-
-      const mergedPayload = {
-        ...(target.payload ?? {}),
-        ...filteredPayload,
-      } as Record<string, unknown>;
-
-      if (input.allDay) {
-        delete mergedPayload.start;
-        delete mergedPayload.end;
-        delete mergedPayload.startTime;
-        delete mergedPayload.endTime;
-      }
 
       const eventId =
         target.eventId ??
@@ -1837,58 +1952,63 @@ const CalendarPage: React.FC = () => {
         throw new Error("Unable to determine event id for update");
       }
 
-      const baseEvent: ApiTimelineEvent = {
-        ...target,
+      const updatePayload = {
         projectId,
+        eventId,
+        title: trimmedTitle,
+        description: trimmedDescription ?? trimmedTitle,
         date: isoDate,
-        description: input.title,
-        payload: mergedPayload,
-      };
-
-      if (input.allDay) {
-        delete (baseEvent as Record<string, unknown>).start;
-        delete (baseEvent as Record<string, unknown>).end;
-      } else {
-        (baseEvent as Record<string, unknown>).start = input.time;
-        (baseEvent as Record<string, unknown>).end = input.endTime;
-      }
+        tags: input.tags,
+        meta: sanitizedMeta,
+        allDay: input.allDay,
+        startAt: input.allDay ? null : startAtIso ?? null,
+        endAt: input.allDay ? null : endAtIso ?? null,
+      } satisfies ApiTimelineEvent & { projectId: string; eventId: string };
 
       try {
-        const updated = await updateEvent({
-          ...baseEvent,
-          projectId,
-          eventId,
-        });
+        const updated = await updateEvent(updatePayload);
 
-        const combinedPayload = {
-          ...(target.payload ?? {}),
-          ...mergedPayload,
-          ...(updated.payload ?? {}),
-        } as Record<string, unknown>;
+        const resolvedMeta: Record<string, unknown> = {
+          ...sanitizedMeta,
+          ...(updated.meta ?? {}),
+        };
 
-        if (input.allDay) {
-          delete combinedPayload.start;
-          delete combinedPayload.end;
-          delete combinedPayload.startTime;
-          delete combinedPayload.endTime;
+        if (resolvedMeta["title"] == null) {
+          resolvedMeta["title"] = trimmedTitle;
         }
+        if (trimmedDescription && resolvedMeta["description"] == null) {
+          resolvedMeta["description"] = trimmedDescription;
+        }
+
+        const resolvedAllDay =
+          typeof updated.allDay === "boolean" ? updated.allDay : input.allDay;
+        const resolvedStartAt =
+          resolvedAllDay
+            ? null
+            : typeof updated.startAt === "string"
+              ? updated.startAt
+              : updatePayload.startAt ?? null;
+        const resolvedEndAt =
+          resolvedAllDay
+            ? null
+            : typeof updated.endAt === "string"
+              ? updated.endAt
+              : updatePayload.endAt ?? null;
 
         const updatedEvent: ApiTimelineEvent = {
           ...target,
           ...updated,
           projectId,
+          title: updated.title ?? trimmedTitle,
+          description: updated.description ?? trimmedDescription ?? trimmedTitle,
           date: updated.date ?? isoDate,
-          description: updated.description ?? input.title,
-          payload: combinedPayload,
+          tags: updated.tags ?? input.tags,
+          meta: resolvedMeta,
+          allDay: resolvedAllDay,
+          startAt: resolvedStartAt,
+          endAt: resolvedEndAt,
         };
-
-        if (input.allDay) {
-          delete (updatedEvent as Record<string, unknown>).start;
-          delete (updatedEvent as Record<string, unknown>).end;
-        } else {
-          (updatedEvent as Record<string, unknown>).start = input.time;
-          (updatedEvent as Record<string, unknown>).end = input.endTime;
-        }
+        delete (updatedEvent as Record<string, unknown>).payload;
 
         setTimelineEvents((previous) => {
           let found = false;

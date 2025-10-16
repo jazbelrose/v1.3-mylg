@@ -98,6 +98,12 @@ export interface TimelineEvent extends JsonRecord {
   title?: string;
   createdAt?: string;
   createdBy?: string;
+  kind?: string;
+  tags?: string[];
+  meta?: JsonRecord;
+  startAt?: string | null;
+  endAt?: string | null;
+  allDay?: boolean;
   payload?: { description?: string; title?: string } & JsonRecord;
 }
 
@@ -702,11 +708,15 @@ export async function fetchEvents(projectId: string): Promise<TimelineEvent[]> {
       const match = String(ev.createdAt).match(/^\d{4}-\d{2}-\d{2}/);
       date = match ? match[0] : undefined;
     }
+    const details = {
+      ...(ev.payload ?? {}),
+      ...(((ev as { meta?: JsonRecord }).meta) ?? {}),
+    } as JsonRecord;
     return {
       ...ev,
       id: ev.id || ev.eventId || ev.timelineEventId,
       date,
-      description: ev.description || ev.payload?.description || '',
+      description: ev.description || (details as { description?: string }).description || '',
     };
   });
 }
