@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Calendar as CalendarIcon,
@@ -23,6 +23,9 @@ type BaseProps = {
   onClose: () => void;
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
   onCreateTask: (input: CreateTaskRequest) => Promise<void>;
+  mode?: "create" | "edit";
+  eventToEdit?: EditableEventFormValues | null;
+  onUpdateEvent?: (eventId: string, input: CreateEventRequest) => Promise<void>;
 };
 
 type Option = {
@@ -54,6 +57,22 @@ export type CreateTaskRequest = {
   description?: string;
   tags: string[];
   guests: string[];
+};
+
+export type EditableEventFormValues = {
+  id: string;
+  title?: string;
+  date?: string;
+  time?: string;
+  endTime?: string;
+  allDay?: boolean;
+  repeat?: string;
+  reminder?: string;
+  eventType?: string;
+  platform?: string;
+  description?: string;
+  tags?: string[];
+  guests?: string[];
 };
 
 const TABS: CreateCalendarItemTab[] = ["Event", "Task", "Appointment"];
@@ -110,6 +129,18 @@ const deriveEndTime = (time?: string) => {
   return `${endHours}:${endMinutes}`;
 };
 
+const parseTimeToMinutes = (value?: string | null) => {
+  if (!value) return null;
+  const [hoursStr, minutesStr] = value.split(":");
+  const hours = Number(hoursStr);
+  const minutes = Number(minutesStr);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+};
+
+const DEFAULT_TAGS = ["Meeting"];
+const DEFAULT_GUESTS = ["Arafat Nayeem", "Jawad", "Washim"];
+
 const CreateCalendarItemModal: React.FC<BaseProps> = ({
   isOpen,
   initialDate,
@@ -117,12 +148,15 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   onClose,
   onCreateEvent,
   onCreateTask,
+  mode = "create",
+  eventToEdit = null,
+  onUpdateEvent,
 }) => {
   const [tab, setTab] = useState<CreateCalendarItemTab>(initialTab);
   const [title, setTitle] = useState("");
-  const [tags, setTags] = useState<string[]>(["Meeting"]);
+  const [tags, setTags] = useState<string[]>(DEFAULT_TAGS);
   const [guestQuery, setGuestQuery] = useState("");
-  const [guests, setGuests] = useState<string[]>(["Arafat Nayeem", "Jawad", "Washim"]);
+  const [guests, setGuests] = useState<string[]>(DEFAULT_GUESTS);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("11:30");
   const [allDay, setAllDay] = useState(false);
@@ -134,26 +168,67 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const computeEndTime = useCallback(
+    (startTime?: string) => {
+      if (!startTime) return undefined;
+      if (mode === "edit" && eventToEdit?.time) {
+        const baseStart = parseTimeToMinutes(eventToEdit.time);
+        const baseEnd = parseTimeToMinutes(eventToEdit.endTime ?? null);
+        const nextStart = parseTimeToMinutes(startTime);
+        if (baseStart != null && baseEnd != null && nextStart != null) {
+          const duration = (baseEnd - baseStart + 24 * 60) % (24 * 60);
+          const result = (nextStart + duration + 24 * 60) % (24 * 60);
+          const hours = `${Math.floor(result / 60)}`.padStart(2, "0");
+          const minutes = `${result % 60}`.padStart(2, "0");
+          return `${hours}:${minutes}`;
+        }
+        if (eventToEdit?.endTime) {
+          return eventToEdit.endTime;
+        }
+      }
+      return deriveEndTime(startTime);
+    },
+    [eventToEdit, mode]
+  );
+
   useEffect(() => {
     if (!isOpen) return;
-    setTab(initialTab);
-    setDate(formatDateInput(initialDate));
-    setTime(formatTimeInput(initialDate));
-    setTitle("");
-    setDescription("");
+    const nextTab = mode === "edit" ? "Event" : initialTab;
+    setTab(nextTab);
+
+    const resolvedDate =
+      (mode === "edit" && eventToEdit?.date) || formatDateInput(initialDate);
+    const resolvedTime =
+      (mode === "edit" && eventToEdit?.time) || formatTimeInput(initialDate);
+
+    setDate(resolvedDate);
+    setTime(resolvedTime);
+    setTitle((mode === "edit" ? eventToEdit?.title : "") || "");
+    setDescription((mode === "edit" ? eventToEdit?.description : "") || "");
     setGuestQuery("");
-    setTags(["Meeting"]);
-    setGuests(["Arafat Nayeem", "Jawad", "Washim"]);
-    setAllDay(false);
-    setRepeat(REPEAT_OPTIONS[0].value);
-    setEventType(EVENT_TYPE_OPTIONS[0].value);
-    setPlatform(PLATFORM_OPTIONS[0].value);
-    setReminder(REMINDER_OPTIONS[1].value);
+    setTags(
+      mode === "edit"
+        ? eventToEdit?.tags?.filter((tag) => typeof tag === "string" && tag.trim()) || []
+        : DEFAULT_TAGS
+    );
+    setGuests(
+      mode === "edit"
+        ? eventToEdit?.guests?.filter((guest) => typeof guest === "string" && guest.trim()) || []
+        : DEFAULT_GUESTS
+    );
+    setAllDay(Boolean(eventToEdit?.allDay));
+    setRepeat(eventToEdit?.repeat || REPEAT_OPTIONS[0].value);
+    setEventType(eventToEdit?.eventType || EVENT_TYPE_OPTIONS[0].value);
+    setPlatform(eventToEdit?.platform || PLATFORM_OPTIONS[0].value);
+    setReminder(eventToEdit?.reminder || REMINDER_OPTIONS[1].value);
     setError(null);
     setIsSubmitting(false);
-  }, [initialDate, initialTab, isOpen]);
+  }, [eventToEdit, initialDate, initialTab, isOpen, mode]);
 
-  const canSubmit = useMemo(() => title.trim().length > 0 && date.trim().length > 0, [title, date]);
+  const canSubmit = useMemo(
+    () => title.trim().length > 0 && date.trim().length > 0,
+    [title, date]
+  );
 
   const handleAddGuest = (value: string) => {
     const trimmed = value.trim();
@@ -198,7 +273,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       title: title.trim(),
       date,
       time: allDay ? undefined : time,
-      endTime: allDay ? undefined : deriveEndTime(time),
+      endTime: allDay ? undefined : computeEndTime(time),
       allDay,
       repeat,
       reminder,
@@ -210,7 +285,12 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     } satisfies CreateEventRequest;
 
     try {
-      if (tab === "Task") {
+      if (mode === "edit") {
+        if (!eventToEdit || !onUpdateEvent) {
+          throw new Error("Cannot update event without context");
+        }
+        await onUpdateEvent(eventToEdit.id, payload);
+      } else if (tab === "Task") {
         await onCreateTask({
           title: payload.title,
           date: payload.date,
@@ -243,7 +323,9 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     >
       <div className={styles.modalShell}>
         <div className={styles.header}>
-          <div className={styles.headerTitle}>Create a new {tab.toLowerCase()}</div>
+          <div className={styles.headerTitle}>
+            {mode === "edit" ? "Edit event" : `Create a new ${tab.toLowerCase()}`}
+          </div>
           <button
             type="button"
             className={styles.iconButton}
@@ -293,19 +375,23 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
             </div>
           </div>
 
-          <div className={styles.tabs}>
-            {TABS.map((current) => (
-              <button
-                key={current}
-                type="button"
-                className={`${styles.tabButton} ${tab === current ? styles.tabButtonActive : ""}`}
-                onClick={() => setTab(current)}
-                disabled={isSubmitting}
-              >
-                {current}
-              </button>
-            ))}
-          </div>
+          {mode !== "edit" && (
+            <div className={styles.tabs}>
+              {TABS.map((current) => (
+                <button
+                  key={current}
+                  type="button"
+                  className={`${styles.tabButton} ${
+                    tab === current ? styles.tabButtonActive : ""
+                  }`}
+                  onClick={() => setTab(current)}
+                  disabled={isSubmitting}
+                >
+                  {current}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className={styles.fieldGroup}>
             <label className={styles.label} htmlFor="modal-guests">
@@ -542,7 +628,11 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
               onClick={handleSubmit}
               disabled={!canSubmit || isSubmitting}
             >
-              {isSubmitting ? "Saving…" : "Save"}
+              {isSubmitting
+                ? "Saving…"
+                : mode === "edit"
+                ? "Update event"
+                : "Save"}
             </button>
           </div>
         </div>
