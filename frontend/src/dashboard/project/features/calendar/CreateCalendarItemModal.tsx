@@ -1,0 +1,554 @@
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Bell,
+  Calendar as CalendarIcon,
+  Clock,
+  Copy,
+  Repeat,
+  Settings,
+  Tag,
+  Users,
+  Video,
+  X,
+} from "lucide-react";
+
+import Modal from "@/shared/ui/ModalWithStack";
+
+import styles from "./create-calendar-item-modal.module.css";
+
+type BaseProps = {
+  isOpen: boolean;
+  initialDate: Date;
+  initialTab: CreateCalendarItemTab;
+  onClose: () => void;
+  onCreateEvent: (input: CreateEventRequest) => Promise<void>;
+  onCreateTask: (input: CreateTaskRequest) => Promise<void>;
+};
+
+type Option = {
+  label: string;
+  value: string;
+};
+
+export type CreateCalendarItemTab = "Event" | "Task" | "Appointment";
+
+export type CreateEventRequest = {
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  endTime?: string; // HH:MM
+  allDay: boolean;
+  repeat: string;
+  reminder: string;
+  eventType: string;
+  platform: string;
+  description?: string;
+  tags: string[];
+  guests: string[];
+};
+
+export type CreateTaskRequest = {
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  description?: string;
+  tags: string[];
+  guests: string[];
+};
+
+const TABS: CreateCalendarItemTab[] = ["Event", "Task", "Appointment"];
+
+const REPEAT_OPTIONS: Option[] = [
+  { label: "Does not repeat", value: "Does not repeat" },
+  { label: "Daily", value: "Daily" },
+  { label: "Weekly", value: "Weekly" },
+  { label: "Monthly", value: "Monthly" },
+];
+
+const EVENT_TYPE_OPTIONS: Option[] = [
+  { label: "Video Conference", value: "Video Conference" },
+  { label: "In person", value: "In person" },
+  { label: "Phone call", value: "Phone call" },
+];
+
+const PLATFORM_OPTIONS: Option[] = [
+  { label: "Google Meet", value: "Google Meet" },
+  { label: "Zoom", value: "Zoom" },
+  { label: "Teams", value: "Teams" },
+];
+
+const REMINDER_OPTIONS: Option[] = [
+  { label: "10 minutes before", value: "10 minutes before" },
+  { label: "30 minutes before", value: "30 minutes before" },
+  { label: "1 hour before", value: "1 hour before" },
+  { label: "1 day before", value: "1 day before" },
+];
+
+const formatDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimeInput = (date: Date) => {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+const deriveEndTime = (time?: string) => {
+  if (!time) return undefined;
+  const [hoursStr, minutesStr] = time.split(":");
+  const hours = Number(hoursStr);
+  const minutes = Number(minutesStr);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return undefined;
+  const total = hours * 60 + minutes + 60;
+  const wrapped = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  const endHours = `${Math.floor(wrapped / 60)}`.padStart(2, "0");
+  const endMinutes = `${wrapped % 60}`.padStart(2, "0");
+  return `${endHours}:${endMinutes}`;
+};
+
+const CreateCalendarItemModal: React.FC<BaseProps> = ({
+  isOpen,
+  initialDate,
+  initialTab,
+  onClose,
+  onCreateEvent,
+  onCreateTask,
+}) => {
+  const [tab, setTab] = useState<CreateCalendarItemTab>(initialTab);
+  const [title, setTitle] = useState("");
+  const [tags, setTags] = useState<string[]>(["Meeting"]);
+  const [guestQuery, setGuestQuery] = useState("");
+  const [guests, setGuests] = useState<string[]>(["Arafat Nayeem", "Jawad", "Washim"]);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("11:30");
+  const [allDay, setAllDay] = useState(false);
+  const [repeat, setRepeat] = useState(REPEAT_OPTIONS[0].value);
+  const [eventType, setEventType] = useState(EVENT_TYPE_OPTIONS[0].value);
+  const [platform, setPlatform] = useState(PLATFORM_OPTIONS[0].value);
+  const [reminder, setReminder] = useState(REMINDER_OPTIONS[1].value);
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTab(initialTab);
+    setDate(formatDateInput(initialDate));
+    setTime(formatTimeInput(initialDate));
+    setTitle("");
+    setDescription("");
+    setGuestQuery("");
+    setTags(["Meeting"]);
+    setGuests(["Arafat Nayeem", "Jawad", "Washim"]);
+    setAllDay(false);
+    setRepeat(REPEAT_OPTIONS[0].value);
+    setEventType(EVENT_TYPE_OPTIONS[0].value);
+    setPlatform(PLATFORM_OPTIONS[0].value);
+    setReminder(REMINDER_OPTIONS[1].value);
+    setError(null);
+    setIsSubmitting(false);
+  }, [initialDate, initialTab, isOpen]);
+
+  const canSubmit = useMemo(() => title.trim().length > 0 && date.trim().length > 0, [title, date]);
+
+  const handleAddGuest = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setGuests((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+  };
+
+  const handleGuestKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleAddGuest(guestQuery);
+      setGuestQuery("");
+    }
+  };
+
+  const handleRemoveGuest = (name: string) => {
+    setGuests((prev) => prev.filter((guest) => guest !== name));
+  };
+
+  const handleAddTag = () => {
+    const next = window.prompt("Add a tag");
+    if (!next) return;
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    setTags((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setTags((prev) => prev.filter((item) => item !== tag));
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit) {
+      setError("Title and date are required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    const payload = {
+      title: title.trim(),
+      date,
+      time: allDay ? undefined : time,
+      endTime: allDay ? undefined : deriveEndTime(time),
+      allDay,
+      repeat,
+      reminder,
+      eventType: tab === "Appointment" ? "Appointment" : eventType,
+      platform,
+      description: description.trim() || undefined,
+      tags,
+      guests,
+    } satisfies CreateEventRequest;
+
+    try {
+      if (tab === "Task") {
+        await onCreateTask({
+          title: payload.title,
+          date: payload.date,
+          time: payload.time,
+          description: payload.description,
+          tags: payload.tags,
+          guests: payload.guests,
+        });
+      } else {
+        await onCreateEvent(payload);
+      }
+      onClose();
+    } catch (submitError) {
+      console.error("Failed to create calendar item", submitError);
+      setError("Something went wrong while saving. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      overlayClassName={styles.modalOverlay}
+      className={styles.modalContent}
+      contentLabel="Create calendar item"
+      shouldCloseOnOverlayClick={!isSubmitting}
+      closeTimeoutMS={160}
+    >
+      <div className={styles.modalShell}>
+        <div className={styles.header}>
+          <div className={styles.headerTitle}>Create a new {tab.toLowerCase()}</div>
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Close"
+          >
+            <X className={styles.icon} />
+          </button>
+        </div>
+
+        <div className={styles.body}>
+          <div className={styles.fieldGroup}>
+            <input
+              className={styles.titleInput}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Write a title here"
+              disabled={isSubmitting}
+            />
+            <div className={styles.tagsRow}>
+              <Tag className={styles.tagsIcon} />
+              <div className={styles.tagList}>
+                {tags.map((tag) => (
+                  <span key={tag} className={styles.tagChip}>
+                    {tag}
+                    <button
+                      type="button"
+                      className={styles.removeChip}
+                      onClick={() => handleRemoveTag(tag)}
+                      aria-label={`Remove ${tag}`}
+                      disabled={isSubmitting}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  className={styles.addTagButton}
+                  onClick={handleAddTag}
+                  disabled={isSubmitting}
+                >
+                  + Add tag
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.tabs}>
+            {TABS.map((current) => (
+              <button
+                key={current}
+                type="button"
+                className={`${styles.tabButton} ${tab === current ? styles.tabButtonActive : ""}`}
+                onClick={() => setTab(current)}
+                disabled={isSubmitting}
+              >
+                {current}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="modal-guests">
+              Add guests
+            </label>
+            <div className={styles.fieldShell}>
+              <div className={styles.fieldShellContent}>
+                <div className={styles.fieldShellHeader}>
+                  <Users className={styles.fieldIcon} />
+                  <input
+                    id="modal-guests"
+                    className={styles.textInput}
+                    placeholder="Type a name and press Enter"
+                    value={guestQuery}
+                    onChange={(event) => setGuestQuery(event.target.value)}
+                    onKeyDown={handleGuestKeyDown}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div className={styles.chipList}>
+                  {guests.map((guest) => {
+                    const initials = guest
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .map((part) => part[0] ?? "")
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
+                    return (
+                      <span key={guest} className={styles.chip}>
+                        <span className={styles.chipAvatar}>{initials || "?"}</span>
+                      <span className={styles.chipLabel}>{guest}</span>
+                      <button
+                        type="button"
+                        className={styles.chipRemove}
+                        onClick={() => handleRemoveGuest(guest)}
+                        aria-label={`Remove ${guest}`}
+                        disabled={isSubmitting}
+                      >
+                        ×
+                      </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.grid}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-date">
+                Date
+              </label>
+              <div className={styles.fieldShell}>
+                <div className={styles.fieldShellHeader}>
+                  <CalendarIcon className={styles.fieldIcon} />
+                  <input
+                    id="modal-date"
+                    type="date"
+                    className={styles.textInput}
+                    value={date}
+                    onChange={(event) => setDate(event.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-time">
+                Time
+              </label>
+              <div className={styles.fieldShell}>
+                <div className={styles.timeRow}>
+                  <Clock className={styles.fieldIcon} />
+                  <input
+                    id="modal-time"
+                    type="time"
+                    className={styles.timeInput}
+                    value={time}
+                    onChange={(event) => setTime(event.target.value)}
+                    disabled={isSubmitting || allDay}
+                  />
+                  <label className={styles.toggle}>
+                    <input
+                      type="checkbox"
+                      checked={allDay}
+                      onChange={(event) => setAllDay(event.target.checked)}
+                      disabled={isSubmitting}
+                    />
+                    <span>All day</span>
+                  </label>
+                </div>
+              </div>
+              <div className={styles.fieldShell}>
+                <div className={styles.fieldShellHeader}>
+                  <Repeat className={styles.fieldIcon} />
+                  <select
+                    className={styles.select}
+                    value={repeat}
+                    onChange={(event) => setRepeat(event.target.value)}
+                    disabled={isSubmitting}
+                  >
+                    {REPEAT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-event-type">
+                Event type
+              </label>
+              <div className={styles.fieldShell}>
+                <div className={styles.fieldShellHeader}>
+                  <Video className={styles.fieldIcon} />
+                  <select
+                    id="modal-event-type"
+                    className={styles.select}
+                    value={eventType}
+                    onChange={(event) => setEventType(event.target.value)}
+                    disabled={isSubmitting}
+                  >
+                    {EVENT_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-platform">
+                Platform
+              </label>
+              <div className={styles.fieldShell}>
+                <div className={styles.platformRow}>
+                  <img
+                    alt="Platform icon"
+                    src="https://www.gstatic.com/images/branding/product/2x/meet_2020q4_48dp.png"
+                    className={styles.platformIcon}
+                  />
+                  <select
+                    id="modal-platform"
+                    className={styles.select}
+                    value={platform}
+                    onChange={(event) => setPlatform(event.target.value)}
+                    disabled={isSubmitting}
+                  >
+                    {PLATFORM_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className={styles.platformActions}>
+                    <button type="button" className={styles.iconButton} title="Settings" disabled>
+                      <Settings className={styles.icon} />
+                    </button>
+                    <button type="button" className={styles.iconButton} title="Copy" disabled={isSubmitting}>
+                      <Copy className={styles.icon} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-reminder">
+                Reminder
+              </label>
+              <div className={styles.fieldShell}>
+                <div className={styles.fieldShellHeader}>
+                  <Bell className={styles.fieldIcon} />
+                  <select
+                    id="modal-reminder"
+                    className={styles.select}
+                    value={reminder}
+                    onChange={(event) => setReminder(event.target.value)}
+                    disabled={isSubmitting}
+                  >
+                    {REMINDER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.label} htmlFor="modal-description">
+              Add description
+            </label>
+            <div className={styles.fieldShell}>
+              <textarea
+                id="modal-description"
+                className={styles.textArea}
+                rows={4}
+                placeholder="Write here..."
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          {error && <div className={styles.error}>{error}</div>}
+        </div>
+
+        <div className={styles.footer}>
+          <div className={styles.footerMeta}>Guests visible • Calendar default notifications</div>
+          <div className={styles.footerActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={handleSubmit}
+              disabled={!canSubmit || isSubmitting}
+            >
+              {isSubmitting ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default CreateCalendarItemModal;
