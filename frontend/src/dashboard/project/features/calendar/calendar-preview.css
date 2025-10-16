@@ -16,19 +16,18 @@
   flex-direction: column;
   margin: 0 auto;
   width: 100%;
- 
-  
   box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 32px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(22px);
+  overflow: hidden;
 }
 
 .calendar-card {
   flex: 1;
   min-height: 0;
-  background: rgba(0, 0, 0, 0.4);
-   border-radius: 32px 32px 0 0;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(22px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -143,10 +142,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(22px);
-  border-radius: 0 0 32px 32px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: none;
-  margin-top: -1px;
+  margin-top: auto;
 }
 
 .calendar-footer__note {
