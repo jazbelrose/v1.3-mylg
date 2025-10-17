@@ -833,23 +833,17 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
-.events-tasks__map-button {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.68rem;
-  font-weight: 600;
+.events-tasks__map-pill {
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: color 0.18s ease, opacity 0.18s ease;
-  padding: 4px 0;
+  font-weight: 600;
+  font-size: 0.68rem;
+  padding-inline: 0.9rem;
 }
 
-.events-tasks__map-button:hover,
-.events-tasks__map-button:focus-visible {
-  color: #ffffff;
-  outline: none;
+.events-tasks__map-pill:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
 }
 
 .events-tasks__list {
