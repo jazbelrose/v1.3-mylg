@@ -15,7 +15,6 @@ import {
   Plus,
   Check,
   CheckSquare,
-  X,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -44,6 +43,27 @@ import {
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
+import { Button } from "@/components/ui/button";
+import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
+import {
+  buildMapMarkers as buildTaskMapMarkers,
+  buildMarkerThumbnail as buildTaskMarkerThumbnail,
+  computeStats as computeTaskStats,
+  createTaskStatusContext as createTaskDrawerStatusContext,
+  formatDueLabel as formatDrawerDueLabel,
+  formatDueDate as formatDrawerDueDate,
+  getViewportHeight as getTaskViewportHeight,
+  normalizeTask as normalizeQuickTask,
+  sortTasksForDrawer,
+  DEFAULT_LOCATION as TASKS_DEFAULT_LOCATION,
+  DRAWER_SNAP_POINTS,
+  type QuickTask,
+  type TaskMapMarker,
+  type TaskStats,
+  type SnapIndex,
+  isSameDay as isSameDayTask,
+} from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
+import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 import "./calendar-preview.css";
@@ -56,7 +76,6 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
-import TasksOverviewCard from "@/dashboard/home/components/TasksOverviewCard";
 
 type CalendarCategory = "Work" | "Education" | "Personal";
 
@@ -1262,13 +1281,15 @@ function EventsAndTasks({
       <div className="events-tasks__section">
         <div className="events-tasks__section-header">
           <div className="events-tasks__section-title">Tasks</div>
-          <button
+          <Button
             type="button"
-            className="events-tasks__map-button"
+            variant="outline"
+            size="sm"
+            className="events-tasks__map-pill"
             onClick={onOpenTasksOverview}
           >
-            Open map
-          </button>
+            Open map view
+          </Button>
         </div>
         <ul className="events-tasks__list">
           {tasks.map((task) => (
@@ -1320,6 +1341,7 @@ function EventsAndTasks({
 type CalendarSurfaceProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
+  taskSources: ApiTask[];
   currentDate: Date;
   onDateChange: (date: Date) => void;
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
@@ -1334,11 +1356,13 @@ type CalendarSurfaceProps = {
   taskProjects: QuickCreateTaskModalProject[];
   activeProjectId?: string | null;
   activeProjectName?: string | null;
+  activeProjectColor?: string | null;
 };
 
 const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   events,
   tasks,
+  taskSources,
   currentDate,
   onDateChange,
   onCreateEvent,
@@ -1353,6 +1377,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   taskProjects,
   activeProjectId,
   activeProjectName,
+  activeProjectColor,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -1373,7 +1398,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   });
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
-  const [isTasksOverviewOpen, setIsTasksOverviewOpen] = useState(false);
+  const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const [drawerSnapIndex, setDrawerSnapIndex] = useState<SnapIndex>(2);
+  const [viewportHeight, setViewportHeight] = useState(() => getTaskViewportHeight());
+  const [activeDrawerTaskId, setActiveDrawerTaskId] = useState<string | null>(null);
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
+  const [isDraggingDrawer, setIsDraggingDrawer] = useState(false);
+  const [dragStartY, setDragStartY] = useState<number | null>(null);
+  const [currentDragY, setCurrentDragY] = useState(0);
+  const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
+  const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollDoneRef = useRef(false);
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -1384,6 +1420,107 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     onDateChange(internalDate);
   }, [internalDate, onDateChange]);
+
+  const quickTasks = useMemo<QuickTask[]>(
+    () =>
+      taskSources
+        .map(normalizeQuickTask)
+        .filter((task): task is QuickTask => task !== null),
+    [taskSources]
+  );
+
+  const taskLookup = useMemo(() => {
+    const map = new Map<string, ApiTask>();
+    taskSources.forEach((task) => {
+      const id = task.taskId ?? (task as { id?: string }).id;
+      if (id) {
+        map.set(id, task);
+      }
+    });
+    return map;
+  }, [taskSources]);
+
+  const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
+
+  const mapTasks = useMemo(
+    () =>
+      drawerTasks.filter(
+        (task): task is QuickTask & { location: { lat: number; lng: number } } =>
+          Boolean(task.location && !Number.isNaN(task.location.lat) && !Number.isNaN(task.location.lng))
+      ),
+    [drawerTasks]
+  );
+
+  const stats = useMemo<TaskStats>(() => computeTaskStats(quickTasks), [quickTasks]);
+
+  const statusMessage = useMemo(() => {
+    if (!quickTasks.length) return "No tasks for this project yet.";
+
+    const openTasks = quickTasks.filter((task) => task.status !== "done");
+    if (!openTasks.length) return "You're all caught up.";
+
+    const datedTasks = openTasks.filter(
+      (task): task is QuickTask & { dueDate: Date } => Boolean(task.dueDate)
+    );
+
+    if (!datedTasks.length) {
+      const noun = openTasks.length === 1 ? "task" : "tasks";
+      return `${openTasks.length} open ${noun} with no due date yet.`;
+    }
+
+    const sorted = datedTasks
+      .slice()
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+    const nextDue = sorted[0];
+    const sameDayCount = sorted.filter((task) => isSameDayTask(task.dueDate, nextDue.dueDate)).length;
+    const noun = sameDayCount === 1 ? "task" : "tasks";
+    return `${sameDayCount} ${noun} due ${formatDrawerDueDate(nextDue.dueDate)}.`;
+  }, [quickTasks]);
+
+  const mapStatusMessage = useMemo(() => {
+    if (!mapTasks.length) {
+      return "Add locations to your tasks to see them appear here.";
+    }
+
+    return `${mapTasks.length === 1 ? "One" : mapTasks.length} task${
+      mapTasks.length === 1 ? "" : "s"
+    } showing on the map.`;
+  }, [mapTasks.length]);
+
+  const hasQuickCreateProject = taskProjects.length > 0;
+
+  const markerThumbnail = useMemo(
+    () => buildTaskMarkerThumbnail(activeProjectColor ?? undefined),
+    [activeProjectColor]
+  );
+
+  const mapMarkers = useMemo<TaskMapMarker[]>(() => {
+    if (!mapTasks.length) return [];
+    return buildTaskMapMarkers(mapTasks, markerThumbnail, activeDrawerTaskId);
+  }, [mapTasks, markerThumbnail, activeDrawerTaskId]);
+
+  const selectedTask = useMemo(
+    () => drawerTasks.find((task) => task.id === activeDrawerTaskId) ?? null,
+    [drawerTasks, activeDrawerTaskId]
+  );
+
+  const selectedAssigneeName = useMemo(
+    () => formatAssigneeDisplay(selectedTask?.assignedTo),
+    [selectedTask]
+  );
+
+  const mapLocation = selectedTask?.location ?? mapTasks[0]?.location ?? TASKS_DEFAULT_LOCATION;
+  const mapAddress = selectedTask?.address ?? mapTasks[0]?.address ?? activeProjectName ?? "Project";
+
+  const formatStatValue = useCallback((value: number) => value, []);
+
+  const sheetHeights = useMemo(
+    () => DRAWER_SNAP_POINTS.map((point) => viewportHeight * point),
+    [viewportHeight]
+  );
+
+  const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[drawerSnapIndex] : 0;
+  const targetY = isDraggingDrawer ? baseTargetY + currentDragY : baseTargetY;
 
   const title = useMemo(
     () =>
@@ -1418,15 +1555,66 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, [onRefreshTasks]);
 
   const handleOpenTasksOverview = useCallback(() => {
-    setIsTasksOverviewOpen(true);
-  }, []);
+    setIsTaskDrawerOpen(true);
+    setDrawerSnapIndex(2);
+    setViewportHeight(getTaskViewportHeight());
+    setMapFocus(null);
+    initialScrollDoneRef.current = false;
+
+    if (!activeDrawerTaskId && drawerTasks.length) {
+      setActiveDrawerTaskId(drawerTasks[0].id);
+    }
+  }, [activeDrawerTaskId, drawerTasks]);
 
   const handleCloseTasksOverview = useCallback(() => {
-    setIsTasksOverviewOpen(false);
+    setIsTaskDrawerOpen(false);
+    setDrawerSnapIndex(2);
+    setMapFocus(null);
+    setIsDraggingDrawer(false);
+    setDragStartY(null);
+    setCurrentDragY(0);
+    initialScrollDoneRef.current = false;
   }, []);
 
   useEffect(() => {
-    if (!isTasksOverviewOpen) return;
+    if (!drawerTasks.length) {
+      setActiveDrawerTaskId(null);
+      return;
+    }
+
+    if (!activeDrawerTaskId || !drawerTasks.some((task) => task.id === activeDrawerTaskId)) {
+      setActiveDrawerTaskId(drawerTasks[0].id);
+    }
+  }, [drawerTasks, activeDrawerTaskId]);
+
+  useEffect(() => {
+    if (!isTaskDrawerOpen || typeof window === "undefined") return;
+
+    const update = () => setViewportHeight(getTaskViewportHeight());
+    update();
+
+    window.addEventListener("resize", update);
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      viewport?.removeEventListener("resize", update);
+    };
+  }, [isTaskDrawerOpen]);
+
+  useEffect(() => {
+    if (!isTaskDrawerOpen || typeof document === "undefined") return;
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+    body.style.overflow = "hidden";
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, [isTaskDrawerOpen]);
+
+  useEffect(() => {
+    if (!isTaskDrawerOpen) return;
     if (typeof window === "undefined") return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1438,7 +1626,208 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleCloseTasksOverview, isTasksOverviewOpen]);
+  }, [handleCloseTasksOverview, isTaskDrawerOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      setIsDesktopDrawer(false);
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateMatch = () => setIsDesktopDrawer(mediaQuery.matches);
+    updateMatch();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateMatch);
+      return () => mediaQuery.removeEventListener("change", updateMatch);
+    }
+
+    mediaQuery.addListener(updateMatch);
+    return () => mediaQuery.removeListener(updateMatch);
+  }, []);
+
+  useEffect(() => {
+    if (!isTaskDrawerOpen || !activeDrawerTaskId || !drawerTaskListRef.current) return;
+
+    const container = drawerTaskListRef.current;
+    const target = container.querySelector<HTMLLIElement>(
+      `[data-task-id="${activeDrawerTaskId}"]`
+    );
+
+    if (target) {
+      const behavior: ScrollBehavior = initialScrollDoneRef.current ? "smooth" : "auto";
+      target.scrollIntoView({ block: "center", behavior });
+      initialScrollDoneRef.current = true;
+    }
+  }, [isTaskDrawerOpen, activeDrawerTaskId, drawerTasks]);
+
+  useEffect(() => {
+    if (!isTaskDrawerOpen) return;
+    const current = drawerTasks.find((task) => task.id === activeDrawerTaskId);
+    if (current?.location) {
+      setMapFocus(current.location);
+    } else {
+      setMapFocus(null);
+    }
+  }, [isTaskDrawerOpen, drawerTasks, activeDrawerTaskId]);
+
+  const handleHandleClick = useCallback(() => {
+    setDrawerSnapIndex((current) => {
+      if (current === 2) return 1;
+      if (current === 1) return 2;
+      return 1;
+    });
+  }, []);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 1) {
+      setIsDraggingDrawer(true);
+      setDragStartY(event.touches[0].clientY);
+      setCurrentDragY(0);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (isDraggingDrawer && dragStartY !== null && event.touches.length === 1) {
+        const deltaY = event.touches[0].clientY - dragStartY;
+        setCurrentDragY(deltaY);
+        event.preventDefault();
+      }
+    },
+    [isDraggingDrawer, dragStartY]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    if (isDraggingDrawer) {
+      setIsDraggingDrawer(false);
+      setDragStartY(null);
+
+      const threshold = viewportHeight * 0.15;
+      if (Math.abs(currentDragY) > threshold) {
+        if (currentDragY > 0) {
+          setDrawerSnapIndex((current) => Math.max(0, current - 1) as SnapIndex);
+        } else {
+          setDrawerSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
+        }
+      }
+
+      setCurrentDragY(0);
+    }
+  }, [isDraggingDrawer, currentDragY, viewportHeight]);
+
+  const openQuickCreateForTask = useCallback(
+    (taskId: string, overrides?: Partial<QuickCreateTaskModalTask>) => {
+      const quickTask = drawerTasks.find((task) => task.id === taskId);
+      const sourceTask = taskLookup.get(taskId);
+
+      const fallbackProjectId =
+        sourceTask?.projectId ?? activeProjectId ?? (taskProjects[0]?.id ?? "");
+      if (!quickTask || !fallbackProjectId) {
+        return;
+      }
+
+      const resolvedProjectName =
+        activeProjectName ??
+        taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
+        undefined;
+
+      const payload: QuickCreateTaskModalTask = {
+        id: taskId,
+        taskId,
+        projectId: fallbackProjectId,
+        projectName: resolvedProjectName ?? null,
+        title: quickTask.title,
+        description: quickTask.description ?? (sourceTask?.description ?? null),
+        dueDate: quickTask.dueDate ? quickTask.dueDate.toISOString() : null,
+        status: (sourceTask?.status as string | undefined) ?? quickTask.status ?? "todo",
+        assigneeId:
+          (sourceTask?.assigneeId as string | undefined) ?? quickTask.assignedTo ?? null,
+        address: (sourceTask as { address?: string | null })?.address ?? quickTask.address ?? null,
+        location:
+          (sourceTask as { location?: QuickCreateTaskModalTask["location"] })?.location ??
+          quickTask.location,
+      };
+
+      setQuickTaskDraft(overrides ? { ...payload, ...overrides } : payload);
+      setIsQuickTaskModalOpen(true);
+    },
+    [
+      drawerTasks,
+      taskLookup,
+      activeProjectId,
+      activeProjectName,
+      taskProjects,
+    ]
+  );
+
+  const handleTaskSelect = useCallback(
+    (taskId: string) => {
+      if (activeDrawerTaskId === taskId) {
+        openQuickCreateForTask(taskId);
+      } else {
+        setActiveDrawerTaskId(taskId);
+        setDrawerSnapIndex((current) => (current === 0 ? 1 : current) as SnapIndex);
+      }
+    },
+    [activeDrawerTaskId, openQuickCreateForTask]
+  );
+
+  const handleTaskEdit = useCallback(
+    (taskId: string) => {
+      setActiveDrawerTaskId(taskId);
+      openQuickCreateForTask(taskId);
+    },
+    [openQuickCreateForTask]
+  );
+
+  const handleTaskMarkDone = useCallback(
+    (taskId: string) => {
+      setActiveDrawerTaskId(taskId);
+      openQuickCreateForTask(taskId, { status: "done" });
+    },
+    [openQuickCreateForTask]
+  );
+
+  const handleMarkerClick = useCallback(
+    (markerId: string) => {
+      handleTaskSelect(markerId);
+      const locatedTask = drawerTasks.find((task) => task.id === markerId);
+      if (locatedTask?.location) {
+        setMapFocus(locatedTask.location);
+      }
+    },
+    [drawerTasks, handleTaskSelect]
+  );
+
+  const handleOpenQuickCreateFromDrawer = useCallback(() => {
+    if (!hasQuickCreateProject) return;
+
+    const fallbackProjectId =
+      activeProjectId ?? taskProjects[0]?.id ?? (drawerTasks[0]?.projectId ?? "");
+    if (!fallbackProjectId) return;
+
+    const fallbackProjectName =
+      activeProjectName ??
+      taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
+      undefined;
+
+    setQuickTaskDraft({
+      projectId: fallbackProjectId,
+      projectName: fallbackProjectName ?? null,
+      status: "todo",
+      dueDate: null,
+    });
+    setIsQuickTaskModalOpen(true);
+  }, [
+    hasQuickCreateProject,
+    activeProjectId,
+    taskProjects,
+    activeProjectName,
+    drawerTasks,
+  ]);
+
 
   const handleOpenQuickTaskModal = useCallback(
     (date: Date) => {
@@ -1701,6 +2090,41 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             : undefined
         }
       />
+      <TaskDrawer
+        open={isTaskDrawerOpen}
+        isDesktop={isDesktopDrawer}
+        viewportHeight={viewportHeight}
+        targetY={targetY}
+        projectName={activeProjectName ?? undefined}
+        mapLocation={mapLocation}
+        mapAddress={mapAddress}
+        mapMarkers={mapMarkers}
+        mapFocus={mapFocus}
+        mapStatusMessage={mapStatusMessage}
+        hasQuickCreateProject={hasQuickCreateProject}
+        loading={false}
+        error={null}
+        stats={stats}
+        formatValue={formatStatValue}
+        statusMessage={statusMessage}
+        tasks={drawerTasks}
+        activeTaskId={activeDrawerTaskId}
+        onTaskSelect={handleTaskSelect}
+        onTaskEdit={handleTaskEdit}
+        onTaskMarkDone={handleTaskMarkDone}
+        formatDueLabel={formatDrawerDueLabel}
+        selectedTask={selectedTask}
+        selectedAssigneeName={selectedAssigneeName}
+        onMarkerClick={handleMarkerClick}
+        onClose={handleCloseTasksOverview}
+        onOpenQuickCreate={handleOpenQuickCreateFromDrawer}
+        onHandleClick={handleHandleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        sheetRef={sheetRef}
+        taskListRef={drawerTaskListRef}
+      />
       <QuickCreateTaskModal
         open={isQuickTaskModalOpen}
         onClose={handleCloseQuickTaskModal}
@@ -1713,31 +2137,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         scopedProjectId={activeProjectId ?? null}
         task={quickTaskDraft}
       />
-      {isTasksOverviewOpen && (
-        <div
-          className="calendar-tasks-overview-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Tasks overview"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              handleCloseTasksOverview();
-            }
-          }}
-        >
-          <div className="calendar-tasks-overview-panel">
-            <button
-              type="button"
-              className="calendar-tasks-overview-close"
-              onClick={handleCloseTasksOverview}
-              aria-label="Close tasks overview"
-            >
-              <X aria-hidden />
-            </button>
-            <TasksOverviewCard className="calendar-tasks-overview-card" />
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -2636,6 +3035,7 @@ const CalendarPage: React.FC = () => {
       <CalendarSurface
         events={calendarEvents}
         tasks={calendarTasks}
+        taskSources={projectTasks}
         currentDate={currentDate}
         onDateChange={setCurrentDate}
         onCreateEvent={handleCreateEvent}
@@ -2650,6 +3050,7 @@ const CalendarPage: React.FC = () => {
         taskProjects={quickCreateProjects}
         activeProjectId={activeProject?.projectId ?? null}
         activeProjectName={activeProject?.title ?? null}
+        activeProjectColor={(activeProject?.color as string | undefined) ?? null}
       />
     </ProjectPageLayout>
   );
