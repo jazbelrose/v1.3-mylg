@@ -126,7 +126,7 @@
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .calendar-footer {
@@ -615,6 +615,118 @@
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.week-grid__weekday-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.week-grid__quick-add-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.week-grid__quick-add-button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), rgba(250, 51, 86, 0.85));
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(250, 51, 86, 0.3);
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.week-grid__quick-add-button:hover {
+  box-shadow: 0 8px 18px rgba(250, 51, 86, 0.45);
+}
+
+.week-grid__quick-add-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+}
+
+.week-grid__weekday:hover .week-grid__quick-add-button,
+.week-grid__weekday:focus-within .week-grid__quick-add-button,
+.week-grid__quick-add-button.is-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.week-grid__quick-add-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.week-grid__quick-add-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: rgba(17, 17, 17, 0.95);
+  border-radius: 999px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.4);
+  transform: translateY(8px) scale(0.94);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.week-grid__quick-add-menu.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.week-grid__quick-add-option {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.week-grid__quick-add-option:hover,
+.week-grid__quick-add-option:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  outline: none;
+}
+
+.week-grid__quick-add-option--task {
+  background: rgba(154, 160, 166, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.week-grid__quick-add-option--task:hover,
+.week-grid__quick-add-option--task:focus-visible {
+  background: rgba(154, 160, 166, 0.2);
+  color: #ffffff;
+}
+
+.week-grid__quick-add-option[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .week-grid__hour {
@@ -635,6 +747,7 @@
   flex-direction: column;
   gap: 6px;
   position: relative;
+  cursor: pointer;
 }
 
 .week-grid__all-day {
