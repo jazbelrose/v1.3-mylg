@@ -1617,6 +1617,19 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     }
   }, [isDragging, currentDragY, viewportHeight]);
 
+  const handleOpenEditTask = useCallback((task: CalendarTask) => {
+    const taskDate = task.due ? safeDate(task.due) ?? new Date(task.due) : new Date();
+    setInternalDate(taskDate);
+    setModalState({
+      open: true,
+      mode: "edit",
+      date: taskDate,
+      tab: "Task",
+      event: null,
+      task,
+    });
+  }, []);
+
   const handleMarkerClick = useCallback((markerId: string) => {
     setActiveDrawerTaskId(markerId);
   }, []);
@@ -1816,19 +1829,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       tab: "Event",
       event,
       task: null,
-    });
-  }, []);
-
-  const handleOpenEditTask = useCallback((task: CalendarTask) => {
-    const taskDate = task.due ? safeDate(task.due) ?? new Date(task.due) : new Date();
-    setInternalDate(taskDate);
-    setModalState({
-      open: true,
-      mode: "edit",
-      date: taskDate,
-      tab: "Task",
-      event: null,
-      task,
     });
   }, []);
 
