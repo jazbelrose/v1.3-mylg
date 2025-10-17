@@ -221,6 +221,27 @@ const parseStringArray = (value: unknown): string[] => {
   return [];
 };
 
+const resolveUpdatedString = (
+  next: string | undefined,
+  previous: unknown,
+): string | null | undefined => {
+  if (typeof next === "string") {
+    const trimmed = next.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  if (typeof previous === "string") {
+    const trimmedPrev = previous.trim();
+    if (trimmedPrev.length > 0) {
+      return null;
+    }
+  }
+
+  return undefined;
+};
+
 const parseNumberish = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -1700,32 +1721,8 @@ const CalendarPage: React.FC = () => {
             })()
           : undefined;
 
-      const metaEntries: Record<string, unknown> = {
-        title: trimmedTitle,
-        description: trimmedDescription,
-        notes: trimmedDescription || undefined,
-        repeat: repeatValue,
-        reminder: input.reminder,
-        eventType: input.eventType,
-        platform: input.platform,
-        guests: input.guests.length > 0 ? input.guests : undefined,
-        tags: input.tags.length > 0 ? input.tags : undefined,
-        allDay: input.allDay,
-        start: input.allDay ? undefined : input.time,
-        end: input.allDay ? undefined : input.endTime,
-      };
-
-      const meta = Object.fromEntries(
-        Object.entries(metaEntries).filter(([, value]) => {
-          if (value === undefined || value === null) return false;
-          if (typeof value === "string") return value.trim().length > 0;
-          if (Array.isArray(value)) return value.length > 0;
-          return true;
-        })
-      );
-
       try {
-        const eventBody = {
+        const baseBody: ApiTimelineEvent = {
           id: draftEventId,
           eventId: draftEventId,
           timelineEventId: draftEventId,
@@ -1733,24 +1730,36 @@ const CalendarPage: React.FC = () => {
           title: trimmedTitle,
           description: trimmedDescription ?? trimmedTitle,
           tags: input.tags,
-          meta,
+          guests: input.guests,
           allDay: input.allDay,
-          ...(startAtIso ? { startAt: startAtIso } : {}),
-          ...(endAtIso ? { endAt: endAtIso } : {}),
+          startAt: input.allDay ? null : startAtIso ?? null,
+          endAt: input.allDay ? null : endAtIso ?? null,
+        };
+
+        const optionalStrings: Record<string, unknown> = {};
+        const nextRepeat = resolveUpdatedString(repeatValue, undefined);
+        if (nextRepeat !== undefined) {
+          optionalStrings.repeat = nextRepeat;
+        }
+        const nextReminder = resolveUpdatedString(input.reminder, undefined);
+        if (nextReminder !== undefined) {
+          optionalStrings.reminder = nextReminder;
+        }
+        const nextEventType = resolveUpdatedString(input.eventType, undefined);
+        if (nextEventType !== undefined) {
+          optionalStrings.eventType = nextEventType;
+        }
+        const nextPlatform = resolveUpdatedString(input.platform, undefined);
+        if (nextPlatform !== undefined) {
+          optionalStrings.platform = nextPlatform;
+        }
+
+        const eventBody = {
+          ...baseBody,
+          ...optionalStrings,
         } as ApiTimelineEvent;
 
         const created = await createEvent(projectId, eventBody);
-        const createdMeta: Record<string, unknown> = {
-          ...(created.meta ?? {}),
-          ...meta,
-        };
-
-        if (createdMeta["title"] == null) {
-          createdMeta["title"] = trimmedTitle;
-        }
-        if (trimmedDescription && createdMeta["description"] == null) {
-          createdMeta["description"] = trimmedDescription;
-        }
 
         const resolvedId =
           created.id || created.eventId || created.timelineEventId || draftEventId;
@@ -1759,19 +1768,29 @@ const CalendarPage: React.FC = () => {
         const resolvedDescription =
           created.description ?? trimmedDescription ?? trimmedTitle;
         const resolvedAllDay =
-          typeof created.allDay === "boolean" ? created.allDay : input.allDay;
+          typeof created.allDay === "boolean" ? created.allDay : eventBody.allDay;
         const resolvedStartAt =
           resolvedAllDay
             ? null
             : typeof created.startAt === "string"
               ? created.startAt
-              : startAtIso ?? null;
+              : (eventBody.startAt as string | null) ?? null;
         const resolvedEndAt =
           resolvedAllDay
             ? null
             : typeof created.endAt === "string"
               ? created.endAt
-              : endAtIso ?? null;
+              : (eventBody.endAt as string | null) ?? null;
+
+        const pickResolvedField = <T,>(field: string): T | undefined => {
+          if (Object.prototype.hasOwnProperty.call(created, field)) {
+            return (created as Record<string, unknown>)[field] as T;
+          }
+          if (Object.prototype.hasOwnProperty.call(eventBody, field)) {
+            return (eventBody as Record<string, unknown>)[field] as T;
+          }
+          return undefined;
+        };
 
         const normalized = normalizeTimelineEvent({
           ...created,
@@ -1780,26 +1799,56 @@ const CalendarPage: React.FC = () => {
           title: resolvedTitle,
           description: resolvedDescription,
           date: created.date ?? isoDate,
-          tags: created.tags ?? input.tags,
-          meta: createdMeta,
+          tags: created.tags ?? eventBody.tags ?? input.tags,
+          guests:
+            (Array.isArray((created as { guests?: unknown }).guests)
+              ? (created as { guests?: string[] }).guests
+              : undefined) ?? eventBody.guests,
+          repeat: pickResolvedField("repeat"),
+          reminder: pickResolvedField("reminder"),
+          eventType: pickResolvedField("eventType"),
+          platform: pickResolvedField("platform"),
           allDay: resolvedAllDay,
           startAt: resolvedStartAt,
           endAt: resolvedEndAt,
         });
+
         const asTimelineEvent: ApiTimelineEvent = {
           ...created,
+          ...eventBody,
           id: resolvedId,
           eventId: resolvedEventId,
           title: resolvedTitle,
           description: resolvedDescription,
           date: created.date ?? isoDate,
-          tags: created.tags ?? input.tags,
-          meta: createdMeta,
+          tags: created.tags ?? eventBody.tags ?? input.tags,
+          guests:
+            (Array.isArray((created as { guests?: unknown }).guests)
+              ? (created as { guests?: string[] }).guests
+              : undefined) ?? eventBody.guests,
           allDay: resolvedAllDay,
           startAt: resolvedStartAt,
           endAt: resolvedEndAt,
         };
+        asTimelineEvent.projectId = (created as { projectId?: string }).projectId ?? projectId;
+        asTimelineEvent.timelineEventId =
+          (created as { timelineEventId?: string }).timelineEventId ?? resolvedEventId;
+
+        const assignOptional = (field: string, value: unknown) => {
+          const container = asTimelineEvent as Record<string, unknown>;
+          if (value !== undefined) {
+            container[field] = value;
+          } else {
+            delete container[field];
+          }
+        };
+
+        assignOptional("repeat", pickResolvedField("repeat"));
+        assignOptional("reminder", pickResolvedField("reminder"));
+        assignOptional("eventType", pickResolvedField("eventType"));
+        assignOptional("platform", pickResolvedField("platform"));
         delete (asTimelineEvent as Record<string, unknown>).payload;
+        delete (asTimelineEvent as Record<string, unknown>).meta;
 
         setTimelineEvents((prev) => [...prev, asTimelineEvent]);
         setActiveProject((prev) => {
@@ -1865,83 +1914,6 @@ const CalendarPage: React.FC = () => {
         ...((target.payload as Record<string, unknown>) ?? {}),
       };
 
-      const mergedMeta: Record<string, unknown> = { ...existingDetails };
-
-      if (repeatValue) {
-        mergedMeta.repeat = repeatValue;
-      } else {
-        delete mergedMeta.repeat;
-      }
-
-      if (input.reminder && input.reminder.trim()) {
-        mergedMeta.reminder = input.reminder;
-      } else {
-        delete mergedMeta.reminder;
-      }
-
-      if (input.eventType && input.eventType.trim()) {
-        mergedMeta.eventType = input.eventType;
-      } else {
-        delete mergedMeta.eventType;
-      }
-
-      if (input.platform && input.platform.trim()) {
-        mergedMeta.platform = input.platform;
-      } else {
-        delete mergedMeta.platform;
-      }
-
-      if (input.guests.length > 0) {
-        mergedMeta.guests = input.guests;
-      } else {
-        delete mergedMeta.guests;
-      }
-
-      if (input.tags.length > 0) {
-        mergedMeta.tags = input.tags;
-      } else {
-        delete mergedMeta.tags;
-      }
-
-      if (trimmedDescription) {
-        mergedMeta.description = trimmedDescription;
-        mergedMeta.notes = trimmedDescription;
-      } else {
-        delete mergedMeta.description;
-        delete mergedMeta.notes;
-      }
-
-      mergedMeta.allDay = input.allDay;
-
-      if (input.allDay) {
-        delete mergedMeta.start;
-        delete mergedMeta.end;
-        delete mergedMeta.startTime;
-        delete mergedMeta.endTime;
-      } else {
-        if (input.time) {
-          mergedMeta.start = input.time;
-        } else {
-          delete mergedMeta.start;
-          delete mergedMeta.startTime;
-        }
-        if (input.endTime) {
-          mergedMeta.end = input.endTime;
-        } else {
-          delete mergedMeta.end;
-          delete mergedMeta.endTime;
-        }
-      }
-
-      const sanitizedMeta = Object.fromEntries(
-        Object.entries(mergedMeta).filter(([, value]) => {
-          if (value === undefined || value === null) return false;
-          if (typeof value === "string") return value.trim().length > 0;
-          if (Array.isArray(value)) return value.length > 0;
-          return true;
-        })
-      );
-
       const eventId =
         target.eventId ??
         target.timelineEventId ??
@@ -1952,48 +1924,90 @@ const CalendarPage: React.FC = () => {
         throw new Error("Unable to determine event id for update");
       }
 
-      const updatePayload = {
+      const baseUpdate: ApiTimelineEvent & { projectId: string; eventId: string } = {
         projectId,
         eventId,
         title: trimmedTitle,
         description: trimmedDescription ?? trimmedTitle,
         date: isoDate,
         tags: input.tags,
-        meta: sanitizedMeta,
+        guests: input.guests,
         allDay: input.allDay,
         startAt: input.allDay ? null : startAtIso ?? null,
         endAt: input.allDay ? null : endAtIso ?? null,
+      };
+
+      const optionalUpdates: Record<string, unknown> = {};
+
+      const previousRepeat =
+        (target as { repeat?: unknown }).repeat ?? existingDetails.repeat;
+      const resolvedRepeat = resolveUpdatedString(repeatValue, previousRepeat);
+      if (resolvedRepeat !== undefined) {
+        optionalUpdates.repeat = resolvedRepeat;
+      }
+
+      const previousReminder =
+        (target as { reminder?: unknown }).reminder ?? existingDetails.reminder;
+      const resolvedReminder = resolveUpdatedString(input.reminder, previousReminder);
+      if (resolvedReminder !== undefined) {
+        optionalUpdates.reminder = resolvedReminder;
+      }
+
+      const previousEventType =
+        (target as { eventType?: unknown }).eventType ?? existingDetails.eventType;
+      const resolvedEventType = resolveUpdatedString(
+        input.eventType,
+        previousEventType,
+      );
+      if (resolvedEventType !== undefined) {
+        optionalUpdates.eventType = resolvedEventType;
+      }
+
+      const previousPlatform =
+        (target as { platform?: unknown }).platform ?? existingDetails.platform;
+      const resolvedPlatform = resolveUpdatedString(input.platform, previousPlatform);
+      if (resolvedPlatform !== undefined) {
+        optionalUpdates.platform = resolvedPlatform;
+      }
+
+      const updatePayload = {
+        ...baseUpdate,
+        ...optionalUpdates,
       } satisfies ApiTimelineEvent & { projectId: string; eventId: string };
 
       try {
         const updated = await updateEvent(updatePayload);
 
-        const resolvedMeta: Record<string, unknown> = {
-          ...sanitizedMeta,
-          ...(updated.meta ?? {}),
-        };
-
-        if (resolvedMeta["title"] == null) {
-          resolvedMeta["title"] = trimmedTitle;
-        }
-        if (trimmedDescription && resolvedMeta["description"] == null) {
-          resolvedMeta["description"] = trimmedDescription;
-        }
-
         const resolvedAllDay =
-          typeof updated.allDay === "boolean" ? updated.allDay : input.allDay;
+          typeof updated.allDay === "boolean" ? updated.allDay : updatePayload.allDay;
         const resolvedStartAt =
           resolvedAllDay
             ? null
             : typeof updated.startAt === "string"
               ? updated.startAt
-              : updatePayload.startAt ?? null;
+              : (updatePayload.startAt as string | null) ?? null;
         const resolvedEndAt =
           resolvedAllDay
             ? null
             : typeof updated.endAt === "string"
               ? updated.endAt
-              : updatePayload.endAt ?? null;
+              : (updatePayload.endAt as string | null) ?? null;
+
+        const pickResolvedField = <T,>(field: string): T | undefined => {
+          if (Object.prototype.hasOwnProperty.call(updated, field)) {
+            return (updated as Record<string, unknown>)[field] as T;
+          }
+          if (Object.prototype.hasOwnProperty.call(updatePayload, field)) {
+            return (updatePayload as Record<string, unknown>)[field] as T;
+          }
+          if (Object.prototype.hasOwnProperty.call(target, field)) {
+            return (target as Record<string, unknown>)[field] as T;
+          }
+          if (Object.prototype.hasOwnProperty.call(existingDetails, field)) {
+            return existingDetails[field] as T;
+          }
+          return undefined;
+        };
 
         const updatedEvent: ApiTimelineEvent = {
           ...target,
@@ -2002,13 +2016,52 @@ const CalendarPage: React.FC = () => {
           title: updated.title ?? trimmedTitle,
           description: updated.description ?? trimmedDescription ?? trimmedTitle,
           date: updated.date ?? isoDate,
-          tags: updated.tags ?? input.tags,
-          meta: resolvedMeta,
+          tags: Array.isArray(updated.tags) ? updated.tags : updatePayload.tags,
+          guests:
+            (Array.isArray((updated as { guests?: unknown }).guests)
+              ? (updated as { guests?: string[] }).guests
+              : undefined) ?? updatePayload.guests,
           allDay: resolvedAllDay,
           startAt: resolvedStartAt,
           endAt: resolvedEndAt,
         };
+
+        updatedEvent.projectId =
+          (updated as { projectId?: string }).projectId ?? projectId;
+
+        updatedEvent.id =
+          updated.id ??
+          target.id ??
+          target.eventId ??
+          target.timelineEventId ??
+          updatePayload.eventId;
+        updatedEvent.eventId = updated.eventId ?? updatePayload.eventId;
+        updatedEvent.timelineEventId =
+          (updated as { timelineEventId?: string }).timelineEventId ??
+          target.timelineEventId ??
+          updatedEvent.eventId;
+
+        const repeatField = pickResolvedField<string | null>("repeat");
+        const reminderField = pickResolvedField<string | null>("reminder");
+        const eventTypeField = pickResolvedField<string | null>("eventType");
+        const platformField = pickResolvedField<string | null>("platform");
+
+        const assignOptional = (field: string, value: unknown) => {
+          const container = updatedEvent as Record<string, unknown>;
+          if (value !== undefined) {
+            container[field] = value;
+          } else {
+            delete container[field];
+          }
+        };
+
+        assignOptional("repeat", repeatField);
+        assignOptional("reminder", reminderField);
+        assignOptional("eventType", eventTypeField);
+        assignOptional("platform", platformField);
+
         delete (updatedEvent as Record<string, unknown>).payload;
+        delete (updatedEvent as Record<string, unknown>).meta;
 
         setTimelineEvents((previous) => {
           let found = false;
