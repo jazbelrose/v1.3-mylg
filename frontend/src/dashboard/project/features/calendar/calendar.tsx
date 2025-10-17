@@ -44,6 +44,7 @@ import {
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
 import {
   buildMapMarkers as buildTaskMapMarkers,
@@ -1296,6 +1297,8 @@ function EventsAndTasks({
     []
   );
 
+  const [activeTaskPopoverId, setActiveTaskPopoverId] = useState<string | null>(null);
+
   return (
     <div className="events-tasks">
       <div className="events-tasks__title">Events & Tasks</div>
@@ -1351,19 +1354,6 @@ function EventsAndTasks({
                       </span>
                     ) : null}
                   </div>
-                  <div className="events-tasks__card-actions">
-                    <button
-                      type="button"
-                      className="events-tasks__icon-button"
-                      aria-label="Edit event"
-                      onClick={(clickEvent) => {
-                        clickEvent.stopPropagation();
-                        onEditEvent(event);
-                      }}
-                    >
-                      <Pencil size={14} aria-hidden />
-                    </button>
-                  </div>
                 </div>
               </li>
             );
@@ -1404,6 +1394,8 @@ function EventsAndTasks({
             const assignedLabel = quickTask?.assignedTo
               ? formatAssigneeDisplay(quickTask.assignedTo)
               : formatAssigneeDisplay(task.assignedTo);
+            const isPopoverOpen = activeTaskPopoverId === task.id;
+            const toggleLabel = isDone ? "Mark as not done" : "Mark as done";
 
             return (
               <li key={task.id} className="events-tasks__list-item">
@@ -1423,11 +1415,54 @@ function EventsAndTasks({
                     <span className="events-tasks__card-title" title={task.title}>
                       {task.title}
                     </span>
-                    <span
-                      className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category}`}
+                    <Popover
+                      open={isPopoverOpen}
+                      onOpenChange={(open) => {
+                        setActiveTaskPopoverId(open ? task.id : null);
+                      }}
                     >
-                      {displayStatusLabel}
-                    </span>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category} events-tasks__status-trigger`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                        >
+                          {displayStatusLabel}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="events-tasks__status-popover"
+                        align="end"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="events-tasks__status-action"
+                          onClick={() => {
+                            setActiveTaskPopoverId(null);
+                            onToggleTask(task.id);
+                          }}
+                        >
+                          <CheckSquare size={14} aria-hidden />
+                          <span>{toggleLabel}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="events-tasks__status-action"
+                          onClick={() => {
+                            setActiveTaskPopoverId(null);
+                            onEditTask(task);
+                          }}
+                        >
+                          <Pencil size={14} aria-hidden />
+                          <span>Open task</span>
+                        </button>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="events-tasks__card-meta">
                     {dueLabel ? (
@@ -1445,31 +1480,6 @@ function EventsAndTasks({
                         <span>{assignedLabel}</span>
                       </span>
                     ) : null}
-                  </div>
-                  <div className="events-tasks__card-actions">
-                    <button
-                      type="button"
-                      className={`events-tasks__icon-button${isDone ? " is-active" : ""}`}
-                      aria-label={isDone ? "Mark task as not done" : "Mark task as done"}
-                      aria-pressed={isDone}
-                      onClick={(clickEvent) => {
-                        clickEvent.stopPropagation();
-                        onToggleTask(task.id);
-                      }}
-                    >
-                      <Check size={14} aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      className="events-tasks__icon-button"
-                      aria-label="Edit task"
-                      onClick={(clickEvent) => {
-                        clickEvent.stopPropagation();
-                        onEditTask(task);
-                      }}
-                    >
-                      <Pencil size={14} aria-hidden />
-                    </button>
                   </div>
                 </div>
               </li>
