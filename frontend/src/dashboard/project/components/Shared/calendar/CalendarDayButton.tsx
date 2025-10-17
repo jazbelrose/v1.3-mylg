@@ -8,6 +8,10 @@ interface CalendarDayButtonProps {
   isToday: boolean;
   isFlashing: boolean;
   inRange: boolean;
+  isRangeStart: boolean;
+  isRangeEnd: boolean;
+  isRangeMiddle: boolean;
+  projectColor: string;
   hasEvents: boolean;
   label: string;
   onOpen: (anchor: HTMLButtonElement, meta: { date: Date; dayKey: string; inMonth: boolean }) => void;
@@ -23,6 +27,10 @@ const CalendarDayButton = React.forwardRef<HTMLButtonElement, CalendarDayButtonP
     isToday,
     isFlashing,
     inRange,
+    isRangeStart,
+    isRangeEnd,
+    isRangeMiddle,
+    projectColor,
     hasEvents,
     label,
     onOpen,
@@ -35,6 +43,9 @@ const CalendarDayButton = React.forwardRef<HTMLButtonElement, CalendarDayButtonP
       isSelected ? "selected" : "",
       isFlashing ? "tile-highlight" : "",
       inRange ? "in-range" : "",
+      isRangeStart ? "range-start" : "",
+      isRangeEnd ? "range-end" : "",
+      isRangeMiddle ? "range-middle" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -60,6 +71,7 @@ const CalendarDayButton = React.forwardRef<HTMLButtonElement, CalendarDayButtonP
         ref={ref}
         data-stopnav
         className={className}
+        style={projectColor ? ({ ["--project-color" as const]: projectColor } as React.CSSProperties) : undefined}
         aria-pressed={isSelected}
         aria-haspopup="dialog"
         aria-label={`${label}${suffix}`}
