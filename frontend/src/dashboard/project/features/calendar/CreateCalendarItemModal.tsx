@@ -35,16 +35,12 @@ type EventFormInitialValues = Partial<{
 type BaseProps = {
   isOpen: boolean;
   initialDate: Date;
-  initialTab: CreateCalendarItemTab;
   onClose: () => void;
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
-  onCreateTask: (input: CreateTaskRequest) => Promise<void>;
   onUpdateEvent?: (input: CreateEventRequest) => Promise<void>;
-  onUpdateTask?: (input: CreateTaskRequest) => Promise<void>;
   onDelete?: () => Promise<void>;
   mode?: "create" | "edit";
   initialValues?: EventFormInitialValues;
-  availableTabs?: CreateCalendarItemTab[];
   teamMembers?: ProjectTeamMember[];
 };
 
@@ -52,8 +48,6 @@ type Option = {
   label: string;
   value: string;
 };
-
-export type CreateCalendarItemTab = "Event" | "Task" | "Appointment";
 
 export type CreateEventRequest = {
   title: string;
@@ -69,17 +63,6 @@ export type CreateEventRequest = {
   tags: string[];
   guests: string[];
 };
-
-export type CreateTaskRequest = {
-  title: string;
-  date: string; // YYYY-MM-DD
-  time?: string; // HH:MM
-  description?: string;
-  tags: string[];
-  guests: string[];
-};
-
-const TABS: CreateCalendarItemTab[] = ["Event", "Task", "Appointment"];
 
 const REPEAT_OPTIONS: Option[] = [
   { label: "Does not repeat", value: "Does not repeat" },
@@ -136,19 +119,14 @@ const deriveEndTime = (time?: string) => {
 const CreateCalendarItemModal: React.FC<BaseProps> = ({
   isOpen,
   initialDate,
-  initialTab,
   onClose,
   onCreateEvent,
-  onCreateTask,
   onUpdateEvent,
-  onUpdateTask,
   onDelete,
   mode = "create",
   initialValues,
-  availableTabs,
   teamMembers,
 }) => {
-  const [tab, setTab] = useState<CreateCalendarItemTab>(initialTab);
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>(["Meeting"]);
   const [guestQuery, setGuestQuery] = useState("");
@@ -189,16 +167,10 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     });
   }, [guestOptions, guestQuery, guests]);
 
-  const tabs = useMemo<CreateCalendarItemTab[]>(
-    () => (availableTabs && availableTabs.length > 0 ? availableTabs : TABS),
-    [availableTabs]
-  );
   const isEditing = mode === "edit";
 
   useEffect(() => {
     if (!isOpen) return;
-    const resolvedTab = tabs.includes(initialTab) ? initialTab : tabs[0];
-    setTab(resolvedTab);
     const resolvedDate = initialValues?.date ?? formatDateInput(initialDate);
     const resolvedTime = initialValues?.time ?? formatTimeInput(initialDate);
     setDate(resolvedDate);
@@ -228,7 +200,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setError(null);
     setIsSubmitting(false);
     setIsDeleting(false);
-  }, [initialDate, initialTab, initialValues, isEditing, isOpen, tabs]);
+  }, [initialDate, initialValues, isEditing, isOpen]);
 
   useEffect(() => {
     if (guestError && guestQuery) {
@@ -304,33 +276,15 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       allDay,
       repeat,
       reminder,
-      eventType: tab === "Appointment" ? "Appointment" : eventType,
+      eventType,
       platform,
       description: description.trim() || undefined,
       tags,
       guests,
     } satisfies CreateEventRequest;
 
-    const taskPayload: CreateTaskRequest = {
-      title: payload.title,
-      date: payload.date,
-      time: payload.time,
-      description: payload.description,
-      tags: payload.tags,
-      guests: payload.guests,
-    };
-
     try {
-      if (tab === "Task") {
-        if (isEditing) {
-          if (!onUpdateTask) {
-            throw new Error("Missing update handler");
-          }
-          await onUpdateTask(taskPayload);
-        } else {
-          await onCreateTask(taskPayload);
-        }
-      } else if (isEditing) {
+      if (isEditing) {
         if (!onUpdateEvent) {
           throw new Error("Missing update handler");
         }
@@ -373,14 +327,14 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       onRequestClose={handleRequestClose}
       overlayClassName={styles.modalOverlay}
       className={styles.modalContent}
-      contentLabel="Create calendar item"
+      contentLabel={isEditing ? "Edit event" : "Create event"}
       shouldCloseOnOverlayClick={!isSubmitting && !isDeleting}
       closeTimeoutMS={160}
     >
       <div className={styles.modalShell}>
         <div className={styles.header}>
           <div className={styles.headerTitle}>
-            {isEditing ? `Edit ${tab.toLowerCase()}` : `Create a new ${tab.toLowerCase()}`}
+            {isEditing ? "Edit event" : "Create a new event"}
           </div>
           <button
             type="button"
@@ -429,20 +383,6 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className={styles.tabs}>
-            {tabs.map((current) => (
-              <button
-                key={current}
-                type="button"
-                className={`${styles.tabButton} ${tab === current ? styles.tabButtonActive : ""}`}
-                onClick={() => setTab(current)}
-                disabled={isSubmitting}
-              >
-                {current}
-              </button>
-            ))}
           </div>
 
           <div className={styles.fieldGroup}>
