@@ -1,12 +1,11 @@
 import React, { useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
-import { endOfWeek, rangePct, startOfWeek } from "@/dashboard/home/utils/dateUtils";
 import { getColor } from "@/shared/utils/colorUtils";
 import CalendarDayButton from "./CalendarDayButton";
 import { DOT_SIZE, DOT_STROKE } from "./constants";
 import type { TimelineEvent } from "./types";
-import { formatDateLabel } from "./utils";
+import { formatDateLabel, getDateKey } from "./utils";
 
 interface CalendarGridDay {
   date: Date;
@@ -47,20 +46,8 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
   onPrevMonth,
   onNextMonth,
 }) => {
-  const weekTracks = useMemo(() => {
-    return weeks.map((week) => {
-      if (!week.length) return null;
-      const rowStart = startOfWeek(week[0].date);
-      const rowEnd = endOfWeek(week[0].date);
-      if (startDate && endDate) {
-        const { left, width } = rangePct(startDate, endDate, rowStart, rowEnd);
-        if (width > 0) {
-          return { left, width };
-        }
-      }
-      return null;
-    });
-  }, [weeks, startDate, endDate]);
+  const rangeStartKey = useMemo(() => getDateKey(startDate), [startDate]);
+  const rangeEndKey = useMemo(() => getDateKey(endDate), [endDate]);
 
   return (
     <div className="month-widget">
@@ -84,22 +71,8 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
 
       <div className="calendar-weeks">
         {weeks.map((week, weekIdx) => {
-          const track = weekTracks[weekIdx];
           return (
             <div className="calendar-week" key={`week-${weekIdx}`}>
-              {track && (
-                <div
-                  className="calendar-week-track"
-                  style={{
-                    left: `calc(${track.left}% - 3px)`,
-                    width: `calc(${track.width}% + 6px)`,
-                    backgroundColor: projectColor,
-                    opacity: 1,
-                  }}
-                  aria-hidden
-                />
-              )}
-
               {week.map(({ date, key, inMonth }) => {
                 const dayEvents = eventsByDate[key] || [];
                 const primaryEvent = dayEvents[0];
@@ -111,6 +84,9 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                 const isToday = todayKey === key;
                 const isFlashing = flashKey === key;
                 const inRange = rangeSet.has(key);
+                const isRangeStart = rangeStartKey === key;
+                const isRangeEnd = rangeEndKey === key;
+                const isRangeMiddle = inRange && !isRangeStart && !isRangeEnd;
                 const label = formatDateLabel(date);
 
                 return (
@@ -123,6 +99,10 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                       isToday={isToday}
                       isFlashing={isFlashing}
                       inRange={inRange}
+                      isRangeStart={isRangeStart}
+                      isRangeEnd={isRangeEnd}
+                      isRangeMiddle={isRangeMiddle}
+                      projectColor={projectColor}
                       hasEvents={hasEvents}
                       label={`Events on ${label}`}
                       onOpen={onDayOpen}
