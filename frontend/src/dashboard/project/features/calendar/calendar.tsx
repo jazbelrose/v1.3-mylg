@@ -34,12 +34,10 @@ import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHea
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import {
   createEvent,
-  createTask as createTaskApi,
   fetchTasks,
   updateEvent,
   updateTask,
   deleteEvent,
-  deleteTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
@@ -68,9 +66,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 import "./calendar-preview.css";
 import CreateCalendarItemModal, {
-  type CreateCalendarItemTab,
   type CreateEventRequest,
-  type CreateTaskRequest,
 } from "./CreateCalendarItemModal";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
@@ -661,7 +657,7 @@ type MonthGridProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
   onSelectDate: (d: Date) => void;
-  onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
+  onOpenCreate: (d: Date) => void;
   onOpenQuickTask: (d: Date) => void;
   canCreateTasks: boolean;
   onEditEvent: (event: CalendarEvent) => void;
@@ -725,10 +721,16 @@ function MonthGrid({
     setHoveredKey((current) => (current === key ? null : current));
   };
 
-  const handleOpenCreate = (day: Date, tab?: CreateCalendarItemTab) => {
+  const handleOpenCreate = (day: Date) => {
     onSelectDate(day);
-    onOpenCreate(day, tab);
+    onOpenCreate(day);
     setQuickAddKey(null);
+  };
+
+  const handleOpenQuickAdd = (day: Date) => {
+    const key = fmt(day);
+    onSelectDate(day);
+    setQuickAddKey(key);
   };
 
   const handleOpenQuickTask = (day: Date) => {
@@ -791,15 +793,11 @@ function MonthGrid({
             className={`${className}${isHovered ? " is-hovered" : ""}`.trim()}
             onMouseEnter={() => setHoveredKey(key)}
             onMouseLeave={() => handleMouseLeave(key)}
-            onClick={() => handleOpenCreate(day)}
+            onClick={() => handleOpenQuickAdd(day)}
             role="presentation"
           >
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                handleOpenCreate(day);
-              }}
               className="month-grid__date"
             >
               {day.getDate()}
@@ -891,7 +889,7 @@ function MonthGrid({
                   className="month-grid__quick-add-option"
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleOpenCreate(day, "Event");
+                    handleOpenCreate(day);
                   }}
                 >
                   Event
@@ -1340,10 +1338,7 @@ type CalendarSurfaceProps = {
   onDateChange: (date: Date) => void;
   onCreateEvent: (input: CreateEventRequest) => Promise<void>;
   onUpdateEvent: (target: ApiTimelineEvent, input: CreateEventRequest) => Promise<void>;
-  onCreateTask: (input: CreateTaskRequest) => Promise<void>;
-  onUpdateTask: (target: ApiTask, input: CreateTaskRequest) => Promise<void>;
   onDeleteEvent: (target: ApiTimelineEvent) => Promise<void>;
-  onDeleteTask: (target: ApiTask) => Promise<void>;
   onToggleTask: (id: string) => void;
   teamMembers: ProjectTeamMember[];
   onRefreshTasks: () => Promise<void> | void;
@@ -1361,10 +1356,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onDateChange,
   onCreateEvent,
   onUpdateEvent,
-  onCreateTask,
-  onUpdateTask,
   onDeleteEvent,
-  onDeleteTask,
   onToggleTask,
   teamMembers,
   onRefreshTasks,
@@ -1379,16 +1371,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     open: boolean;
     mode: "create" | "edit";
     date: Date;
-    tab: CreateCalendarItemTab;
     event: CalendarEvent | null;
-    task: CalendarTask | null;
   }>({
     open: false,
     mode: "create",
     date: currentDate,
-    tab: "Event",
     event: null,
-    task: null,
   });
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
@@ -1878,13 +1866,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     setInternalDate(date);
   }, []);
 
-  const handleOpenCreate = useCallback(
-    (date: Date, tab: CreateCalendarItemTab = "Event") => {
-      setInternalDate(date);
-      setModalState({ open: true, mode: "create", date, tab, event: null, task: null });
-    },
-    []
-  );
+  const handleOpenCreate = useCallback((date: Date) => {
+    setInternalDate(date);
+    setModalState({ open: true, mode: "create", date, event: null });
+  }, []);
 
   const handleOpenEditEvent = useCallback((event: CalendarEvent) => {
     const eventDate = safeDate(event.date) ?? new Date(event.date);
@@ -1893,9 +1878,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       open: true,
       mode: "edit",
       date: eventDate,
-      tab: "Event",
       event,
-      task: null,
     });
   }, []);
 
@@ -1914,9 +1897,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       open: false,
       mode: "create",
       date: previous.date,
-      tab: "Event",
       event: null,
-      task: null,
     }));
   }, []);
 
@@ -1924,7 +1905,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     <div className="calendar-surface">
       <div className="calendar-shell">
         <div className="calendar-card">
-          <TopBar onAdd={() => handleOpenCreate(internalDate, "Event")} />
+          <TopBar onAdd={() => handleOpenCreate(internalDate)} />
 
           <div className="calendar-body">
             <div className="calendar-sidebar">
@@ -2045,63 +2026,38 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         initialDate={
           modalState.event
             ? safeDate(modalState.event.date) ?? modalState.date
-            : modalState.task?.due
-            ? safeDate(modalState.task.due) ?? modalState.date
             : modalState.date
         }
-        initialTab={modalState.tab}
         mode={modalState.mode}
         teamMembers={teamMembers}
         initialValues={
-          modalState.mode === "edit"
-            ? modalState.event
-              ? {
-                  title: modalState.event.title,
-                  date: modalState.event.date,
-                  time: modalState.event.start,
-                  endTime: modalState.event.end,
-                  allDay: modalState.event.allDay,
-                  repeat: modalState.event.repeat,
-                  reminder: modalState.event.reminder,
-                  eventType: modalState.event.eventType,
-                  platform: modalState.event.platform,
-                  description: modalState.event.description,
-                  tags: modalState.event.tags,
-                  guests: modalState.event.guests,
-                }
-              : modalState.task
-              ? {
-                  title: modalState.task.title,
-                  date: modalState.task.due ?? fmt(modalState.date),
-                  time: modalState.task.time,
-                  description: modalState.task.description,
-                  tags: [],
-                  guests: [],
-                }
-              : undefined
+          modalState.mode === "edit" && modalState.event
+            ? {
+                title: modalState.event.title,
+                date: modalState.event.date,
+                time: modalState.event.start,
+                endTime: modalState.event.end,
+                allDay: modalState.event.allDay,
+                repeat: modalState.event.repeat,
+                reminder: modalState.event.reminder,
+                eventType: modalState.event.eventType,
+                platform: modalState.event.platform,
+                description: modalState.event.description,
+                tags: modalState.event.tags,
+                guests: modalState.event.guests,
+              }
             : undefined
         }
-        availableTabs={modalState.mode === "edit" ? [modalState.tab] : undefined}
         onClose={handleCloseCreate}
         onCreateEvent={onCreateEvent}
-        onCreateTask={onCreateTask}
         onUpdateEvent={
           modalState.mode === "edit" && modalState.event
             ? (input) => onUpdateEvent(modalState.event!.source, input)
             : undefined
         }
-        onUpdateTask={
-          modalState.mode === "edit" && modalState.task
-            ? (input) => onUpdateTask(modalState.task!.source, input)
-            : undefined
-        }
         onDelete={
-          modalState.mode === "edit"
-            ? modalState.event
-              ? () => onDeleteEvent(modalState.event!.source)
-              : modalState.task
-              ? () => onDeleteTask(modalState.task!.source)
-              : undefined
+          modalState.mode === "edit" && modalState.event
+            ? () => onDeleteEvent(modalState.event!.source)
             : undefined
         }
       />
@@ -2808,101 +2764,6 @@ const CalendarPage: React.FC = () => {
     ]
   );
 
-  const handleCreateTask = useCallback(
-    async (input: CreateTaskRequest) => {
-      if (!projectId) return;
-
-      const dueDateIso = input.date
-        ? (() => {
-            const parsed = new Date(`${input.date}T${input.time ?? "00:00"}`);
-            return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-          })()
-        : undefined;
-
-      try {
-        const created = await createTaskApi({
-          projectId,
-          title: input.title,
-          description: input.description,
-          dueDate: dueDateIso,
-          status: "todo",
-        });
-        setProjectTasks((prev) => [...prev, created]);
-      } catch (error) {
-        console.error("Failed to create task", error);
-        throw error;
-      }
-    },
-    [projectId]
-  );
-
-  const handleUpdateTask = useCallback(
-    async (target: ApiTask, input: CreateTaskRequest) => {
-      if (!projectId) return;
-
-      const taskId = target.taskId ?? (target as { id?: string }).id;
-      if (!taskId) {
-        throw new Error("Unable to determine task id for update");
-      }
-
-      const dueDateIso = input.date
-        ? (() => {
-            const parsed = new Date(`${input.date}T${input.time ?? "00:00"}`);
-            return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-          })()
-        : undefined;
-
-      try {
-        const updated = await updateTask({
-          ...target,
-          projectId,
-          taskId,
-          title: input.title,
-          description: input.description,
-          dueDate: dueDateIso,
-          status: target.status ?? "todo",
-        });
-
-        const next = tasksRef.current.map((task) =>
-          (task.taskId ?? (task as { id?: string }).id) === taskId ? updated : task
-        );
-        tasksRef.current = next;
-        setProjectTasks(next);
-      } catch (error) {
-        console.error("Failed to update task", error);
-        throw error;
-      }
-    },
-    [projectId]
-  );
-
-  const handleDeleteTask = useCallback(
-    async (target: ApiTask) => {
-      if (!projectId) return;
-
-      const taskId = target.taskId ?? (target as { id?: string }).id;
-      if (!taskId) return;
-
-      const previous = tasksRef.current;
-      const filtered = previous.filter(
-        (task) => (task.taskId ?? (task as { id?: string }).id) !== taskId
-      );
-
-      tasksRef.current = filtered;
-      setProjectTasks(filtered);
-
-      try {
-        await deleteTask({ projectId, taskId });
-      } catch (error) {
-        console.error("Failed to delete task", error);
-        tasksRef.current = previous;
-        setProjectTasks(previous);
-        throw error;
-      }
-    },
-    [projectId]
-  );
-
   const handleToggleTask = useCallback(
     async (taskId: string) => {
       if (!projectId) return;
@@ -3055,10 +2916,7 @@ const CalendarPage: React.FC = () => {
         onDateChange={setCurrentDate}
         onCreateEvent={handleCreateEvent}
         onUpdateEvent={handleUpdateEvent}
-        onCreateTask={handleCreateTask}
-        onUpdateTask={handleUpdateTask}
         onDeleteEvent={handleDeleteEvent}
-        onDeleteTask={handleDeleteTask}
         onToggleTask={handleToggleTask}
         teamMembers={teamMembers}
         onRefreshTasks={refreshProjectTasks}
