@@ -481,10 +481,10 @@
 
 .month-grid__quick-add-container {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  right: 8px;
+  bottom: 8px;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: flex-end;
   gap: 8px;
 }
@@ -529,7 +529,7 @@
 }
 
 .month-grid__quick-add-tooltip {
-  background: rgba(14, 16, 24, 0.95);
+  background: rgba(17, 17, 17, 0.95);
   border-radius: 999px;
   padding: 4px;
   display: flex;
