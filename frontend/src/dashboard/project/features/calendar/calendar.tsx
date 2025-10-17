@@ -15,6 +15,8 @@ import {
   Plus,
   Check,
   CheckSquare,
+  MapPin,
+  X,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -51,6 +53,11 @@ import CreateCalendarItemModal, {
   type CreateEventRequest,
   type CreateTaskRequest,
 } from "./CreateCalendarItemModal";
+import QuickCreateTaskModal, {
+  type QuickCreateTaskModalProject,
+} from "@/dashboard/home/components/QuickCreateTaskModal";
+import Map from "@/shared/ui/Map";
+import { buildDirectionsLinks, parseLocation } from "@/dashboard/project/components/Tasks/utils";
 
 type CalendarCategory = "Work" | "Education" | "Personal";
 
@@ -637,6 +644,8 @@ type MonthGridProps = {
   tasks: CalendarTask[];
   onSelectDate: (d: Date) => void;
   onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
+  onOpenQuickTask: (d: Date) => void;
+  canQuickCreateTask: boolean;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
 };
@@ -648,6 +657,8 @@ function MonthGrid({
   tasks,
   onSelectDate,
   onOpenCreate,
+  onOpenQuickTask,
+  canQuickCreateTask,
   onEditEvent,
   onEditTask,
 }: MonthGridProps) {
@@ -672,15 +683,63 @@ function MonthGrid({
   }, [tasks]);
 
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [quickAddTarget, setQuickAddTarget] = useState<string | null>(null);
+  const quickAddTooltipRef = useRef<HTMLDivElement | null>(null);
+  const quickAddTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const handleMouseLeave = (key: string) => {
     setHoveredKey((current) => (current === key ? null : current));
   };
 
-  const handleOpenCreate = (day: Date, tab?: CreateCalendarItemTab) => {
+  const handleOpenEventCreate = (day: Date, tab?: CreateCalendarItemTab) => {
     onSelectDate(day);
     onOpenCreate(day, tab);
+    setQuickAddTarget(null);
   };
+
+  const handleOpenTaskQuickCreate = (day: Date) => {
+    onSelectDate(day);
+    onOpenQuickTask(day);
+    setQuickAddTarget(null);
+  };
+
+  const toggleQuickAdd = (day: Date) => {
+    const key = fmt(day);
+    setQuickAddTarget((current) => (current === key ? null : key));
+  };
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    if (!quickAddTarget) {
+      quickAddTooltipRef.current = null;
+      quickAddTriggerRef.current = null;
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const targetNode = event.target as Node;
+      if (quickAddTooltipRef.current?.contains(targetNode)) return;
+      if (quickAddTriggerRef.current?.contains(targetNode)) return;
+      setQuickAddTarget(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setQuickAddTarget(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [quickAddTarget]);
 
   return (
     <div className="month-grid">
@@ -730,20 +789,22 @@ function MonthGrid({
 
         const isHovered = hoveredKey === key;
 
+        const isQuickAddOpen = quickAddTarget === key;
+
         return (
           <div
             key={key}
             className={`${className}${isHovered ? " is-hovered" : ""}`.trim()}
             onMouseEnter={() => setHoveredKey(key)}
             onMouseLeave={() => handleMouseLeave(key)}
-            onClick={() => handleOpenCreate(day)}
+            onClick={() => handleOpenEventCreate(day)}
             role="presentation"
           >
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                handleOpenCreate(day);
+                handleOpenEventCreate(day);
               }}
               className="month-grid__date"
             >
@@ -820,11 +881,55 @@ function MonthGrid({
               aria-label="Add calendar item"
               onClick={(event) => {
                 event.stopPropagation();
-                handleOpenCreate(day);
+                toggleQuickAdd(day);
               }}
+              aria-haspopup="menu"
+              aria-expanded={isQuickAddOpen}
+              ref={isQuickAddOpen ? (node) => {
+                quickAddTriggerRef.current = node;
+              } : undefined}
             >
               <Plus className="month-grid__quick-add-icon" aria-hidden />
             </button>
+            {isQuickAddOpen ? (
+              <div
+                className="month-grid__quick-add-tooltip"
+                role="menu"
+                ref={(node) => {
+                  quickAddTooltipRef.current = node;
+                }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="month-grid__quick-add-option"
+                  role="menuitem"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleOpenEventCreate(day, "Event");
+                  }}
+                >
+                  <CalendarIcon className="month-grid__quick-add-option-icon" aria-hidden />
+                  Event
+                </button>
+                <button
+                  type="button"
+                  className={`month-grid__quick-add-option${
+                    canQuickCreateTask ? "" : " is-disabled"
+                  }`}
+                  role="menuitem"
+                  disabled={!canQuickCreateTask}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!canQuickCreateTask) return;
+                    handleOpenTaskQuickCreate(day);
+                  }}
+                >
+                  <CheckSquare className="month-grid__quick-add-option-icon" aria-hidden />
+                  Task
+                </button>
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -1126,6 +1231,7 @@ type EventsAndTasksProps = {
   onToggleTask: (id: string) => void;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
+  onOpenTaskMap: (task: CalendarTask) => void;
 };
 
 const compareDateStrings = (a?: string, b?: string) => {
@@ -1141,6 +1247,7 @@ function EventsAndTasks({
   onToggleTask,
   onEditEvent,
   onEditTask,
+  onOpenTaskMap,
 }: EventsAndTasksProps) {
   const upcoming = useMemo(
     () =>
@@ -1193,37 +1300,60 @@ function EventsAndTasks({
       <div className="events-tasks__section">
         <div className="events-tasks__section-title">Tasks</div>
         <ul className="events-tasks__list">
-          {tasks.map((task) => (
-            <li key={task.id} className="events-tasks__list-item">
-              <input
-                type="checkbox"
-                checked={Boolean(task.done)}
-                onChange={() => onToggleTask(task.id)}
-                className="events-tasks__checkbox"
-                style={{ accentColor: "#FA3356" }}
-              />
-              <button
-                type="button"
-                className="events-tasks__item-button"
-                onClick={() => onEditTask(task)}
-              >
-                <span className="events-tasks__icon events-tasks__icon--task">
-                  <CheckSquare className="events-tasks__icon-svg" aria-hidden />
-                </span>
-                <span
-                  className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+          {tasks.map((task) => {
+            const source = task.source as {
+              location?: unknown;
+              address?: string | null;
+            };
+            const taskLocation = parseLocation(source.location);
+            const address = typeof source.address === "string" ? source.address.trim() : "";
+            const hasMapDetails = Boolean(taskLocation || address);
+
+            return (
+              <li key={task.id} className="events-tasks__list-item">
+                <input
+                  type="checkbox"
+                  checked={Boolean(task.done)}
+                  onChange={() => onToggleTask(task.id)}
+                  className="events-tasks__checkbox"
+                  style={{ accentColor: "#FA3356" }}
+                />
+                <button
+                  type="button"
+                  className="events-tasks__item-button"
+                  onClick={() => onEditTask(task)}
                 >
-                  {task.title}
-                </span>
-                {task.due && (
-                  <span className="events-tasks__meta">
-                    due {task.due.slice(5)}
-                    {task.time ? ` · ${task.time}` : ""}
+                  <span className="events-tasks__icon events-tasks__icon--task">
+                    <CheckSquare className="events-tasks__icon-svg" aria-hidden />
                   </span>
-                )}
-              </button>
-            </li>
-          ))}
+                  <span
+                    className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+                  >
+                    {task.title}
+                  </span>
+                  {task.due && (
+                    <span className="events-tasks__meta">
+                      due {task.due.slice(5)}
+                      {task.time ? ` · ${task.time}` : ""}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="events-tasks__map-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenTaskMap(task);
+                  }}
+                  aria-label="Open task map"
+                  title="Open task map"
+                  disabled={!hasMapDetails}
+                >
+                  <MapPin className="events-tasks__map-icon" aria-hidden />
+                </button>
+              </li>
+            );
+          })}
           {tasks.length === 0 && (
             <li className="events-tasks__empty">
               No tasks yet. Add tasks to keep track of work.
@@ -1251,6 +1381,8 @@ type CalendarSurfaceProps = {
   onDeleteEvent: (target: ApiTimelineEvent) => Promise<void>;
   onDeleteTask: (target: ApiTask) => Promise<void>;
   onToggleTask: (id: string) => void;
+  onOpenQuickCreateTask: (date: Date) => void;
+  canQuickCreateTask: boolean;
   teamMembers: ProjectTeamMember[];
 };
 
@@ -1266,6 +1398,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onDeleteEvent,
   onDeleteTask,
   onToggleTask,
+  onOpenQuickCreateTask,
+  canQuickCreateTask,
   teamMembers,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
@@ -1285,6 +1419,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     event: null,
     task: null,
   });
+  const [mapTask, setMapTask] = useState<CalendarTask | null>(null);
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -1295,6 +1430,39 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     onDateChange(internalDate);
   }, [internalDate, onDateChange]);
+
+  useEffect(() => {
+    if (!mapTask) return;
+    if (typeof window === "undefined") return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMapTask(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mapTask]);
+
+  const mapDetails = useMemo(() => {
+    if (!mapTask) return null;
+    const source = mapTask.source as { location?: unknown; address?: string | null };
+    const location = parseLocation(source.location);
+    const address = typeof source.address === "string" ? source.address.trim() : "";
+    const markers = location
+      ? [
+          {
+            id: mapTask.id,
+            lat: location.lat,
+            lng: location.lng,
+            title: mapTask.title,
+          },
+        ]
+      : [];
+    const directions = address ? buildDirectionsLinks(address) : null;
+    return { location, address, markers, directions };
+  }, [mapTask]);
 
   const title = useMemo(
     () =>
@@ -1330,6 +1498,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     },
     []
   );
+
+  const handleOpenQuickTask = useCallback(
+    (date: Date) => {
+      setInternalDate(date);
+      onOpenQuickCreateTask(date);
+    },
+    [onOpenQuickCreateTask]
+  );
+
+  const handleOpenTaskMap = useCallback((task: CalendarTask) => {
+    setMapTask(task);
+  }, []);
+
+  const handleCloseTaskMap = useCallback(() => {
+    setMapTask(null);
+  }, []);
 
   const handleOpenEditEvent = useCallback((event: CalendarEvent) => {
     const eventDate = safeDate(event.date) ?? new Date(event.date);
@@ -1383,6 +1567,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 onToggleTask={onToggleTask}
                 onEditEvent={handleOpenEditEvent}
                 onEditTask={handleOpenEditTask}
+                onOpenTaskMap={handleOpenTaskMap}
               />
             </div>
 
@@ -1447,6 +1632,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     tasks={tasks}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
+                    onOpenQuickTask={handleOpenQuickTask}
+                    canQuickCreateTask={canQuickCreateTask}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
                   />
@@ -1484,6 +1671,85 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           </div>
         </div>
       </div>
+
+      {mapTask ? (
+        <div
+          className="calendar-map-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calendar-map-modal-title"
+        >
+          <button
+            type="button"
+            className="calendar-map-modal__backdrop"
+            onClick={handleCloseTaskMap}
+            aria-label="Close task map overlay"
+          />
+          <div className="calendar-map-modal__dialog">
+            <div className="calendar-map-modal__header">
+              <div className="calendar-map-modal__header-text">
+                <div className="calendar-map-modal__title" id="calendar-map-modal-title">
+                  {mapTask.title}
+                </div>
+                {mapTask.due ? (
+                  <div className="calendar-map-modal__subtitle">
+                    Due {mapTask.due.slice(5)}
+                    {mapTask.time ? ` · ${mapTask.time}` : ""}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="calendar-map-modal__close"
+                onClick={handleCloseTaskMap}
+                aria-label="Close task map"
+              >
+                <X className="calendar-map-modal__close-icon" aria-hidden />
+              </button>
+            </div>
+            <div className="calendar-map-modal__body">
+              {mapDetails?.location ? (
+                <Map
+                  location={mapDetails.location}
+                  address={mapDetails.address || mapTask.title}
+                  scrollWheelZoom={true}
+                  dragging={true}
+                  touchZoom={true}
+                  showUserLocation={false}
+                  markers={mapDetails.markers}
+                  focusLocation={mapDetails.location}
+                  focusZoom={14}
+                />
+              ) : (
+                <div className="calendar-map-modal__empty">No location available for this task.</div>
+              )}
+            </div>
+            {mapDetails?.directions ? (
+              <div className="calendar-map-modal__footer">
+                <a
+                  href={mapDetails.directions.googleMaps}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="calendar-map-modal__link"
+                >
+                  Open in Google Maps
+                </a>
+                <span className="calendar-map-modal__divider" aria-hidden="true">
+                  •
+                </span>
+                <a
+                  href={mapDetails.directions.appleMaps}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="calendar-map-modal__link"
+                >
+                  Open in Apple Maps
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <CreateCalendarItemModal
         isOpen={modalState.open}
@@ -1576,8 +1842,28 @@ const CalendarPage: React.FC = () => {
 
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef | null>(null);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
 
   const teamMembers = useTeamMembers(activeProject ?? null);
+
+  const quickCreateProjects = useMemo<QuickCreateTaskModalProject[]>(() => {
+    if (activeProject?.projectId) {
+      const name =
+        typeof activeProject.title === "string" && activeProject.title.trim()
+          ? activeProject.title
+          : activeProject.projectId;
+      return [{ id: activeProject.projectId, name }];
+    }
+    return [];
+  }, [activeProject?.projectId, activeProject?.title]);
+
+  const hasQuickCreateProject = quickCreateProjects.length > 0;
+
+  useEffect(() => {
+    if (!hasQuickCreateProject) {
+      setQuickCreateOpen(false);
+    }
+  }, [hasQuickCreateProject]);
 
   const [timelineEvents, setTimelineEvents] = useState<ApiTimelineEvent[]>([]);
   const [projectTasks, setProjectTasks] = useState<ApiTask[]>([]);
@@ -1649,11 +1935,15 @@ const CalendarPage: React.FC = () => {
     fetchTasks(projectId)
       .then((tasks) => {
         if (cancelled) return;
+        tasksRef.current = tasks;
         setProjectTasks(tasks);
       })
       .catch((error) => {
         console.error("Failed to fetch project tasks", error);
-        if (!cancelled) setProjectTasks([]);
+        if (!cancelled) {
+          tasksRef.current = [];
+          setProjectTasks([]);
+        }
       });
 
     return () => {
@@ -2206,6 +2496,18 @@ const CalendarPage: React.FC = () => {
     ]
   );
 
+  const refreshProjectTasks = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const tasks = await fetchTasks(projectId);
+      tasksRef.current = tasks;
+      setProjectTasks(tasks);
+    } catch (error) {
+      console.error("Failed to fetch project tasks", error);
+      throw error;
+    }
+  }, [projectId]);
+
   const handleCreateTask = useCallback(
     async (input: CreateTaskRequest) => {
       if (!projectId) return;
@@ -2365,6 +2667,23 @@ const CalendarPage: React.FC = () => {
     navigate(getProjectDashboardPath(projectId, title));
   }, [navigate, projectId, activeProject?.title]);
 
+  const handleOpenQuickCreateTask = useCallback(
+    (date: Date) => {
+      if (!hasQuickCreateProject) return;
+      setCurrentDate(date);
+      setQuickCreateOpen(true);
+    },
+    [hasQuickCreateProject]
+  );
+
+  const handleCloseQuickCreateTask = useCallback(() => {
+    setQuickCreateOpen(false);
+  }, []);
+
+  const handleQuickCreateTaskCompleted = useCallback(async () => {
+    await refreshProjectTasks();
+  }, [refreshProjectTasks]);
+
   const handleActiveProjectChange = useCallback(
     (updatedProject: Project) => {
       setActiveProject(updatedProject);
@@ -2433,7 +2752,20 @@ const CalendarPage: React.FC = () => {
         onDeleteEvent={handleDeleteEvent}
         onDeleteTask={handleDeleteTask}
         onToggleTask={handleToggleTask}
+        onOpenQuickCreateTask={handleOpenQuickCreateTask}
+        canQuickCreateTask={hasQuickCreateProject}
         teamMembers={teamMembers}
+      />
+      <QuickCreateTaskModal
+        open={quickCreateOpen}
+        onClose={handleCloseQuickCreateTask}
+        projects={quickCreateProjects}
+        onCreated={handleQuickCreateTaskCompleted}
+        onUpdated={handleQuickCreateTaskCompleted}
+        onDeleted={handleQuickCreateTaskCompleted}
+        activeProjectId={activeProject?.projectId}
+        activeProjectName={activeProject?.title}
+        scopedProjectId={activeProject?.projectId ?? null}
       />
     </ProjectPageLayout>
   );
