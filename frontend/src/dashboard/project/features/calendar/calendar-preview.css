@@ -126,7 +126,7 @@
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .calendar-footer {
@@ -484,7 +484,8 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-.month-grid__quick-add-container {
+.month-grid__quick-add-container,
+.week-grid__quick-add-container {
   position: absolute;
   right: 8px;
   bottom: 8px;
@@ -494,7 +495,8 @@
   gap: 8px;
 }
 
-.month-grid__quick-add {
+.month-grid__quick-add,
+.week-grid__quick-add {
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -512,28 +514,35 @@
   pointer-events: auto;
 }
 
-.month-grid__quick-add:hover {
+.month-grid__quick-add:hover,
+.week-grid__quick-add:hover {
   box-shadow: 0 8px 18px rgba(250, 51, 86, 0.45);
 }
 
-.month-grid__quick-add:focus-visible {
+.month-grid__quick-add:focus-visible,
+.week-grid__quick-add:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.85);
   outline-offset: 2px;
 }
 
 .month-grid__cell.is-hovered .month-grid__quick-add,
 .month-grid__cell:focus-within .month-grid__quick-add,
-.month-grid__quick-add.is-open {
+.week-grid__cell:hover .week-grid__quick-add,
+.week-grid__cell:focus-within .week-grid__quick-add,
+.month-grid__quick-add.is-open,
+.week-grid__quick-add.is-open {
   opacity: 1;
   transform: scale(1);
 }
 
-.month-grid__quick-add-icon {
+.month-grid__quick-add-icon,
+.week-grid__quick-add-icon {
   width: 16px;
   height: 16px;
 }
 
-.month-grid__quick-add-tooltip {
+.month-grid__quick-add-tooltip,
+.week-grid__quick-add-tooltip {
   background: rgba(17, 17, 17, 0.95);
   border-radius: 999px;
   padding: 4px;
@@ -546,13 +555,15 @@
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.month-grid__quick-add-tooltip.is-visible {
+.month-grid__quick-add-tooltip.is-visible,
+.week-grid__quick-add-tooltip.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
 
-.month-grid__quick-add-option {
+.month-grid__quick-add-option,
+.week-grid__quick-add-option {
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.78);
@@ -567,24 +578,30 @@
 }
 
 .month-grid__quick-add-option:hover,
-.month-grid__quick-add-option:focus-visible {
+.month-grid__quick-add-option:focus-visible,
+.week-grid__quick-add-option:hover,
+.week-grid__quick-add-option:focus-visible {
   background: rgba(255, 255, 255, 0.14);
   color: #ffffff;
   outline: none;
 }
 
-.month-grid__quick-add-option--task {
+.month-grid__quick-add-option--task,
+.week-grid__quick-add-option--task {
   background: rgba(250, 51, 86, 0.22);
   color: #ffdbe3;
 }
 
 .month-grid__quick-add-option--task:hover,
-.month-grid__quick-add-option--task:focus-visible {
+.month-grid__quick-add-option--task:focus-visible,
+.week-grid__quick-add-option--task:hover,
+.week-grid__quick-add-option--task:focus-visible {
   background: rgba(250, 51, 86, 0.4);
   color: #ffffff;
 }
 
-.month-grid__quick-add-option[disabled] {
+.month-grid__quick-add-option[disabled],
+.week-grid__quick-add-option[disabled] {
   opacity: 0.45;
   cursor: not-allowed;
   background: rgba(255, 255, 255, 0.08);

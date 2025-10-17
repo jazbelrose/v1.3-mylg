@@ -939,6 +939,10 @@ type WeekGridProps = {
   tasks: CalendarTask[];
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
+  onOpenCreate: (date: Date) => void;
+  onOpenQuickTask: (date: Date) => void;
+  canCreateTasks: boolean;
+  onSelectDate?: (date: Date) => void;
 };
 
 type WeekDayEvents = {
@@ -953,10 +957,22 @@ const parseHour = (time?: string) => {
   return h;
 };
 
-function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGridProps) {
+function WeekGrid({
+  anchorDate,
+  events,
+  tasks,
+  onEditEvent,
+  onEditTask,
+  onOpenCreate,
+  onOpenQuickTask,
+  canCreateTasks,
+  onSelectDate,
+}: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 7), []); // 7am - 6pm
+
+  const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, WeekDayEvents>();
@@ -990,6 +1006,28 @@ function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGr
     return map;
   }, [days, tasks]);
 
+  useEffect(() => {
+    if (!quickAddKey) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(".week-grid__quick-add-container")) return;
+      setQuickAddKey(null);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [quickAddKey]);
+
+  useEffect(() => {
+    setQuickAddKey(null);
+  }, [anchorDate]);
+
   return (
     <div className="week-grid">
       <div className="week-grid__spacer" />
@@ -1008,8 +1046,31 @@ function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGr
             const timed = dayEvents.timed.filter(
               (event) => parseHour(event.start) === hour
             );
+            const slotKey = `${key}-${hour}`;
+            const slotDate = new Date(
+              day.getFullYear(),
+              day.getMonth(),
+              day.getDate(),
+              hour
+            );
+            const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+            const quickAddOpen = quickAddKey === slotKey;
             return (
-              <div key={`${key}-${hour}`} className="week-grid__cell">
+              <div
+                key={`${key}-${hour}`}
+                className="week-grid__cell"
+                onClick={(event) => {
+                  if ((event.target as HTMLElement | null)?.closest(".week-grid__quick-add-container")) {
+                    return;
+                  }
+                  const nextKey = quickAddOpen ? null : slotKey;
+                  if (nextKey) {
+                    onSelectDate?.(slotDate);
+                  }
+                  setQuickAddKey(nextKey);
+                }}
+                role="presentation"
+              >
                 {hourIndex === 0 && (dayEvents.allDay.length > 0 || dayTasks.length > 0) && (
                   <div className="week-grid__all-day">
                     {dayEvents.allDay.map((event) => (
@@ -1018,7 +1079,10 @@ function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGr
                         className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
                         role="button"
                         tabIndex={0}
-                        onClick={() => onEditEvent(event)}
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onEditEvent(event);
+                        }}
                         onKeyDown={(keyboardEvent) => {
                           if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                             keyboardEvent.preventDefault();
@@ -1035,7 +1099,10 @@ function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGr
                         key={task.id}
                         type="button"
                         className="week-grid__task"
-                        onClick={() => onEditTask(task)}
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onEditTask(task);
+                        }}
                       >
                         <span className="week-grid__task-icon">
                           <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
@@ -1060,7 +1127,10 @@ function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGr
                     initial={{ opacity: 0.4, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`week-grid__event ${categoryColor[event.category]}`}
-                    onClick={() => onEditEvent(event)}
+                    onClick={(mouseEvent) => {
+                      mouseEvent.stopPropagation();
+                      onEditEvent(event);
+                    }}
                     onKeyDown={(keyboardEvent) => {
                       if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                         keyboardEvent.preventDefault();
@@ -1076,6 +1146,55 @@ function WeekGrid({ anchorDate, events, tasks, onEditEvent, onEditTask }: WeekGr
                     </div>
                   </motion.div>
                 ))}
+                <div className="week-grid__quick-add-container">
+                  <button
+                    type="button"
+                    className={`week-grid__quick-add${quickAddOpen ? " is-open" : ""}`}
+                    aria-label={`Add calendar item on ${day.toLocaleDateString(undefined, {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    })} at ${pad(hour)}:00`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setQuickAddKey((current) => (current === slotKey ? null : slotKey));
+                      if (quickAddOpen) return;
+                      onSelectDate?.(slotDate);
+                    }}
+                  >
+                    <Plus className="week-grid__quick-add-icon" aria-hidden />
+                  </button>
+                  <div
+                    className={`week-grid__quick-add-tooltip${quickAddOpen ? " is-visible" : ""}`}
+                    role="menu"
+                    aria-hidden={quickAddOpen ? undefined : true}
+                  >
+                    <button
+                      type="button"
+                      className="week-grid__quick-add-option"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const targetDate = new Date(slotDate);
+                        onOpenCreate(targetDate);
+                        setQuickAddKey(null);
+                      }}
+                    >
+                      Event
+                    </button>
+                    <button
+                      type="button"
+                      className="week-grid__quick-add-option week-grid__quick-add-option--task"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenQuickTask(dayStart);
+                        setQuickAddKey(null);
+                      }}
+                      disabled={!canCreateTasks}
+                    >
+                      Task
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -2154,6 +2273,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     tasks={tasks}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
+                    onOpenCreate={handleOpenCreate}
+                    onOpenQuickTask={handleOpenQuickTaskModal}
+                    canCreateTasks={canCreateTasks}
+                    onSelectDate={handleSelectDate}
                   />
                 )}
                 {view === "day" && (
