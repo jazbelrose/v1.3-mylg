@@ -435,24 +435,29 @@
 }
 
 .month-grid__item-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #0c0c0c;
+  background: rgba(154, 160, 166, 0.16);
+  color: var(--muted, #9aa0a6);
   flex-shrink: 0;
 }
 
+.month-grid__item-icon--event {
+  background: rgba(154, 160, 166, 0.16);
+}
+
 .month-grid__item-icon--task {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: rgba(154, 160, 166, 0.22);
+  color: var(--muted, #9aa0a6);
 }
 
 .month-grid__item-icon-svg {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 
 .month-grid__event-dot {
@@ -652,33 +657,34 @@
   gap: 8px;
   border-radius: 10px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(154, 160, 166, 0.14);
+  border: 1px solid rgba(154, 160, 166, 0.28);
+  color: var(--muted, #9aa0a6);
   cursor: pointer;
-  transition: background 0.18s ease, border 0.18s ease;
+  transition: background 0.18s ease, border 0.18s ease, color 0.18s ease;
 }
 
 .week-grid__task:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(154, 160, 166, 0.2);
+  border-color: rgba(154, 160, 166, 0.34);
+  color: var(--muted, #9aa0a6);
 }
 
 .week-grid__task-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  background: rgba(154, 160, 166, 0.22);
+  color: var(--muted, #9aa0a6);
   flex-shrink: 0;
 }
 
 .week-grid__task-icon-svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .week-grid__task-body {
@@ -690,6 +696,7 @@
 
 .week-grid__task-title {
   font-weight: 600;
+  color: inherit;
 }
 
 .week-grid__task-title.is-complete {
@@ -699,7 +706,7 @@
 
 .week-grid__task-time {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(154, 160, 166, 0.85);
 }
 
 .week-grid__event {
@@ -741,23 +748,28 @@
 }
 
 .day-list__icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  background: rgba(154, 160, 166, 0.16);
+  color: var(--muted, #9aa0a6);
+}
+
+.day-list__icon--event {
+  background: rgba(154, 160, 166, 0.16);
 }
 
 .day-list__icon--task {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(154, 160, 166, 0.22);
+  color: var(--muted, #9aa0a6);
 }
 
 .day-list__icon-svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .day-list__item--task {
@@ -887,24 +899,29 @@
 }
 
 .events-tasks__icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #0c0c0c;
+  background: rgba(154, 160, 166, 0.16);
+  color: var(--muted, #9aa0a6);
   flex-shrink: 0;
 }
 
+.events-tasks__icon--event {
+  background: rgba(154, 160, 166, 0.16);
+}
+
 .events-tasks__icon-svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .events-tasks__icon--task {
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  background: rgba(154, 160, 166, 0.22);
+  color: var(--muted, #9aa0a6);
 }
 
 .events-tasks__event-title,

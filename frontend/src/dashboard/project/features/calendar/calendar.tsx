@@ -825,9 +825,7 @@ function MonthGrid({
                         }
                       }}
                     >
-                      <span
-                        className={`month-grid__item-icon ${categoryColor[event.category]}`}
-                      >
+                      <span className="month-grid__item-icon month-grid__item-icon--event">
                         <Clock className="month-grid__item-icon-svg" aria-hidden />
                       </span>
                       <span className="month-grid__event-title" title={event.title}>
@@ -1141,9 +1139,7 @@ function DayList({ date, events, tasks, onEditEvent, onEditTask }: DayListProps)
               }}
             >
               <div className="day-list__icon-wrapper">
-                <span
-                  className={`day-list__icon ${categoryColor[event.category]}`}
-                >
+                <span className="day-list__icon day-list__icon--event">
                   <Clock className="day-list__icon-svg" aria-hidden />
                 </span>
               </div>
@@ -1257,9 +1253,7 @@ function EventsAndTasks({
                 className="events-tasks__item-button"
                 onClick={() => onEditEvent(event)}
               >
-                <span
-                  className={`events-tasks__icon events-tasks__icon--event ${categoryColor[event.category]}`}
-                >
+                <span className="events-tasks__icon events-tasks__icon--event">
                   <Clock className="events-tasks__icon-svg" aria-hidden />
                 </span>
                 <span className="events-tasks__event-title" title={event.title}>
