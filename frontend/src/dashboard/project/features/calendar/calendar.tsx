@@ -15,6 +15,8 @@ import {
   Plus,
   Check,
   CheckSquare,
+  Pencil,
+  User2,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -62,6 +64,9 @@ import {
   type TaskStats,
   type SnapIndex,
   isSameDay as isSameDayTask,
+  createTaskStatusContext,
+  getTaskStatusBadge,
+  formatStatusLabel,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
@@ -104,6 +109,8 @@ type CalendarTask = {
   done?: boolean;
   time?: string;
   description?: string;
+  status?: ApiTask["status"];
+  assignedTo?: string;
   source: ApiTask;
 };
 
@@ -489,6 +496,12 @@ const normalizeTask = (task: ApiTask): CalendarTask => {
   const dueSource = task.dueDate ?? undefined;
   let due: string | undefined;
   let time: string | undefined;
+  const rawAssignedTo =
+    typeof task.assigneeId === "string"
+      ? task.assigneeId
+      : typeof (task as { assignedTo?: string }).assignedTo === "string"
+        ? (task as { assignedTo?: string }).assignedTo
+        : undefined;
 
   if (dueSource) {
     const match = dueSource.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))/);
@@ -512,6 +525,8 @@ const normalizeTask = (task: ApiTask): CalendarTask => {
     time,
     done: task.status === "done",
     description: task.description ?? undefined,
+    status: task.status,
+    assignedTo: rawAssignedTo,
     source: task,
   };
 };
@@ -1218,6 +1233,31 @@ const compareDateStrings = (a?: string, b?: string) => {
   return a.localeCompare(b);
 };
 
+const parseIsoDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+};
+
+const formatTimeLabel = (value?: string) => {
+  if (!value) return undefined;
+  const [hoursRaw, minutesRaw] = value.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return value;
+  }
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
 function EventsAndTasks({
   events,
   tasks,
@@ -1239,6 +1279,25 @@ function EventsAndTasks({
     [events]
   );
 
+  const statusContext = useMemo(() => createTaskStatusContext(), []);
+  const compactDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+      }),
+    []
+  );
+  const scheduleDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+    []
+  );
+
   return (
     <div className="events-tasks">
       <div className="events-tasks__title">Events & Tasks</div>
@@ -1246,26 +1305,71 @@ function EventsAndTasks({
       <div className="events-tasks__section">
         <div className="events-tasks__section-title">Upcoming events</div>
         <ul className="events-tasks__list">
-          {upcoming.map((event) => (
-            <li key={event.id} className="events-tasks__list-item">
-              <button
-                type="button"
-                className="events-tasks__item-button"
-                onClick={() => onEditEvent(event)}
-              >
-                <span className="events-tasks__icon events-tasks__icon--event">
-                  <Clock className="events-tasks__icon-svg" aria-hidden />
-                </span>
-                <span className="events-tasks__event-title" title={event.title}>
-                  {event.title}
-                </span>
-                <span className="events-tasks__meta">
-                  {event.date.slice(5)}
-                  {event.start ? ` · ${event.start}` : ""}
-                </span>
-              </button>
-            </li>
-          ))}
+          {upcoming.map((event) => {
+            const eventDate = parseIsoDate(event.date);
+            const badgeLabel = eventDate ? compactDateFormatter.format(eventDate) : event.date;
+            const scheduleLabel = eventDate ? scheduleDateFormatter.format(eventDate) : undefined;
+            const startLabel = event.allDay ? "All day" : formatTimeLabel(event.start);
+            const endLabel = event.allDay ? undefined : formatTimeLabel(event.end);
+            const timeLabel = event.allDay
+              ? "All day"
+              : startLabel && endLabel
+                ? `${startLabel} – ${endLabel}`
+                : startLabel ?? undefined;
+
+            return (
+              <li key={event.id} className="events-tasks__list-item">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="events-tasks__card events-tasks__card--event"
+                  onClick={() => onEditEvent(event)}
+                  onKeyDown={(keyboardEvent) => {
+                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                      keyboardEvent.preventDefault();
+                      onEditEvent(event);
+                    }
+                  }}
+                >
+                  <div className="events-tasks__card-header">
+                    <span className="events-tasks__card-title" title={event.title}>
+                      {event.title}
+                    </span>
+                    <span className="events-tasks__status-badge events-tasks__status-badge--neutral">
+                      {badgeLabel}
+                    </span>
+                  </div>
+                  <div className="events-tasks__card-meta">
+                    {scheduleLabel ? (
+                      <span className="events-tasks__meta-chip">
+                        <CalendarIcon size={12} aria-hidden />
+                        <span>{scheduleLabel}</span>
+                      </span>
+                    ) : null}
+                    {timeLabel ? (
+                      <span className="events-tasks__meta-chip">
+                        <Clock size={12} aria-hidden />
+                        <span>{timeLabel}</span>
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="events-tasks__card-actions">
+                    <button
+                      type="button"
+                      className="events-tasks__icon-button"
+                      aria-label="Edit event"
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        onEditEvent(event);
+                      }}
+                    >
+                      <Pencil size={14} aria-hidden />
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
           {upcoming.length === 0 && (
             <li className="events-tasks__empty">No upcoming events scheduled.</li>
           )}
@@ -1286,37 +1390,93 @@ function EventsAndTasks({
           </Button>
         </div>
         <ul className="events-tasks__list">
-          {tasks.map((task) => (
-            <li key={task.id} className="events-tasks__list-item">
-              <input
-                type="checkbox"
-                checked={Boolean(task.done)}
-                onChange={() => onToggleTask(task.id)}
-                className="events-tasks__checkbox"
-                style={{ accentColor: "#FA3356" }}
-              />
-              <button
-                type="button"
-                className="events-tasks__item-button"
-                onClick={() => onEditTask(task)}
-              >
-                <span className="events-tasks__icon events-tasks__icon--task">
-                  <CheckSquare className="events-tasks__icon-svg" aria-hidden />
-                </span>
-                <span
-                  className={`events-tasks__task-title ${task.done ? "is-complete" : ""}`}
+          {tasks.map((task) => {
+            const quickTask = normalizeQuickTask(task.source);
+            const isDone = Boolean(task.done);
+            const fallbackStatus = (task.status ?? (isDone ? "done" : "todo")) as QuickTask["status"];
+            const statusValue = quickTask?.status ?? fallbackStatus;
+            const dueDate = quickTask?.dueDate ?? parseIsoDate(task.due);
+            const statusData = getTaskStatusBadge(statusValue, dueDate, statusContext);
+            const displayStatusLabel =
+              statusData.label === formatStatusLabel(statusValue)
+                ? statusData.label
+                : `${statusData.label} · ${formatStatusLabel(statusValue)}`;
+            const dueLabel = dueDate ? scheduleDateFormatter.format(dueDate) : undefined;
+            const timeLabel = formatTimeLabel(task.time);
+            const assignedLabel = quickTask?.assignedTo
+              ? formatAssigneeDisplay(quickTask.assignedTo)
+              : formatAssigneeDisplay(task.assignedTo);
+
+            return (
+              <li key={task.id} className="events-tasks__list-item">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`events-tasks__card events-tasks__card--task${isDone ? " is-complete" : ""}`}
+                  onClick={() => onEditTask(task)}
+                  onKeyDown={(keyboardEvent) => {
+                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                      keyboardEvent.preventDefault();
+                      onEditTask(task);
+                    }
+                  }}
                 >
-                  {task.title}
-                </span>
-                {task.due && (
-                  <span className="events-tasks__meta">
-                    due {task.due.slice(5)}
-                    {task.time ? ` · ${task.time}` : ""}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
+                  <div className="events-tasks__card-header">
+                    <span className="events-tasks__card-title" title={task.title}>
+                      {task.title}
+                    </span>
+                    <span
+                      className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category}`}
+                    >
+                      {displayStatusLabel}
+                    </span>
+                  </div>
+                  <div className="events-tasks__card-meta">
+                    {dueLabel ? (
+                      <span className="events-tasks__meta-chip">
+                        <CalendarIcon size={12} aria-hidden />
+                        <span>
+                          Due {dueLabel}
+                          {timeLabel ? ` · ${timeLabel}` : ""}
+                        </span>
+                      </span>
+                    ) : null}
+                    {assignedLabel ? (
+                      <span className="events-tasks__meta-chip">
+                        <User2 size={12} aria-hidden />
+                        <span>{assignedLabel}</span>
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="events-tasks__card-actions">
+                    <button
+                      type="button"
+                      className={`events-tasks__icon-button${isDone ? " is-active" : ""}`}
+                      aria-label={isDone ? "Mark task as not done" : "Mark task as done"}
+                      aria-pressed={isDone}
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        onToggleTask(task.id);
+                      }}
+                    >
+                      <Check size={14} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="events-tasks__icon-button"
+                      aria-label="Edit task"
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        onEditTask(task);
+                      }}
+                    >
+                      <Pencil size={14} aria-hidden />
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
           {tasks.length === 0 && (
             <li className="events-tasks__empty">
               No tasks yet. Add tasks to keep track of work.
