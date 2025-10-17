@@ -1,7 +1,7 @@
 import React from "react";
-import { ArrowUpRight, Calendar, Check, MapPin, Pencil, User } from "lucide-react";
+import { ArrowUpRight, Calendar, Check, MapPin, MoreVertical, Pencil, User } from "lucide-react";
 
-import { Button } from "@/components/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import styles from "../TasksComponentMobile.module.css";
 import { buildDirectionsLinks, formatAssigneeDisplay } from "../utils";
@@ -28,6 +28,74 @@ const BADGE_CLASS_BY_TONE: Record<TaskStatusTone, string> = {
   danger: "statusBadgeDanger",
   warning: "statusBadgeWarning",
   neutral: "statusBadgeNeutral",
+};
+
+type TaskActionsMenuProps = {
+  onOpenMaps?: () => void;
+  onEdit: () => void;
+  onMarkDone?: () => void;
+  isCompleted: boolean;
+};
+
+const TaskActionsMenu: React.FC<TaskActionsMenuProps> = ({ onOpenMaps, onEdit, onMarkDone, isCompleted }) => {
+  const [open, setOpen] = React.useState(false);
+
+  const handleTriggerClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+  };
+
+  const handleAction = (callback: (() => void) | undefined) =>
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      callback?.();
+      setOpen(false);
+    };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={styles.taskActionsTrigger}
+          aria-label="Open task actions"
+          onClick={handleTriggerClick}
+        >
+          <MoreVertical size={16} aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className={styles.taskActionsMenu} align="end">
+        <ul className={styles.taskActionsMenuList}>
+          {onOpenMaps ? (
+            <li>
+              <button type="button" className={styles.taskActionsMenuItem} onClick={handleAction(onOpenMaps)}>
+                <ArrowUpRight aria-hidden="true" size={16} /> Open in Maps
+              </button>
+            </li>
+          ) : null}
+          {!isCompleted ? (
+            <li>
+              <button
+                type="button"
+                className={`${styles.taskActionsMenuItem} ${styles.taskActionsMenuItemPrimary}`}
+                onClick={handleAction(onMarkDone)}
+              >
+                <Check aria-hidden="true" size={16} /> Mark done
+              </button>
+            </li>
+          ) : null}
+          <li>
+            <button
+              type="button"
+              className={styles.taskActionsMenuItem}
+              onClick={handleAction(onEdit)}
+            >
+              <Pencil aria-hidden="true" size={16} /> Edit task
+            </button>
+          </li>
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
 const TaskList: React.FC<TaskListProps> = ({
@@ -106,45 +174,16 @@ const TaskList: React.FC<TaskListProps> = ({
               </div>
             </div>
             <div className={styles.taskActions}>
-              {primaryMapUrl ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`${styles.taskActionButton} ${styles.taskMapButton}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (typeof window !== "undefined") {
-                      window.open(primaryMapUrl, "_blank", "noopener,noreferrer");
-                    }
-                  }}
-                >
-                  Open in Maps
-                  <ArrowUpRight aria-hidden="true" size={16} />
-                </Button>
-              ) : null}
-              {!isCompleted ? (
-                <Button
-                  size="sm"
-                  className={`${styles.taskActionButton} ${styles.taskMarkDoneButton}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onTaskMarkDone(task.id);
-                  }}
-                >
-                  <Check aria-hidden="true" size={16} /> Mark done
-                </Button>
-              ) : null}
-              <Button
-                variant="outline"
-                size="sm"
-                className={`${styles.taskActionButton} ${styles.taskEditButton}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onTaskEdit(task.id);
-                }}
-              >
-                <Pencil aria-hidden="true" size={16} /> Edit task
-              </Button>
+              <TaskActionsMenu
+                onOpenMaps={primaryMapUrl ? () => {
+                  if (typeof window !== "undefined") {
+                    window.open(primaryMapUrl, "_blank", "noopener,noreferrer");
+                  }
+                } : undefined}
+                onEdit={() => onTaskEdit(task.id)}
+                onMarkDone={!isCompleted ? () => onTaskMarkDone(task.id) : undefined}
+                isCompleted={isCompleted}
+              />
             </div>
           </li>
         );

@@ -1,8 +1,9 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronLeft, faChevronRight, faClock } from "@fortawesome/free-solid-svg-icons";
+import { faChevronLeft, faChevronRight, faClock, faEllipsisV } from "@fortawesome/free-solid-svg-icons";
 import { getColor } from "@/shared/utils/colorUtils";
 import type { TimelineEvent } from "./types";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface EventListProps {
   dateLabel: string;
@@ -17,6 +18,52 @@ interface EventListProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
+
+type EventActionsMenuProps = {
+  onEdit: () => void;
+  onDelete: () => void;
+};
+
+const EventActionsMenu: React.FC<EventActionsMenuProps> = ({ onEdit, onDelete }) => {
+  const [open, setOpen] = React.useState(false);
+
+  const handleTriggerClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+  };
+
+  const handleAction = (callback: () => void) => (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    callback();
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="event-action-trigger"
+          aria-label="Open event actions"
+          onClick={handleTriggerClick}
+        >
+          <FontAwesomeIcon icon={faEllipsisV} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="event-actions-menu" align="end">
+        <button type="button" onClick={handleAction(onEdit)} className="event-actions-menu-item">
+          Edit event
+        </button>
+        <button
+          type="button"
+          onClick={handleAction(onDelete)}
+          className="event-actions-menu-item event-actions-menu-item-danger"
+        >
+          Delete event
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const EventList: React.FC<EventListProps> = ({
   dateLabel,
@@ -48,21 +95,26 @@ const EventList: React.FC<EventListProps> = ({
         {events.length === 0 ? (
           <div>No events</div>
         ) : (
-          <ul>
+          <ul className="event-items">
             {events.map((event, index) => {
               const idKey = event.description || String(index);
               const color = projectColor || getColor(idKey);
               return (
                 <li className="event-item" key={event.id || `${index}`}>
-                  <FontAwesomeIcon icon={faClock} className="list-dot" style={{ color }} />
-                  {event.description?.toUpperCase()} ({event.hours}{" "}
-                  {Number(event.hours) === 1 ? "HR" : "HRS"})
-                  <button className="edit-event-btn" onClick={() => onEdit(event.id)}>
-                    Edit
-                  </button>
-                  <button className="delete-event-btn" onClick={() => onDelete(event.id)}>
-                    Delete
-                  </button>
+                  <div className="event-item-main">
+                    <FontAwesomeIcon icon={faClock} className="list-dot" style={{ color }} />
+                    <div className="event-item-body">
+                      <span className="event-item-title">{event.description || "Untitled event"}</span>
+                      <span className="event-item-meta">
+                        <span className="event-item-hours">
+                          {event.hours} {Number(event.hours) === 1 ? "hr" : "hrs"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="event-item-actions">
+                    <EventActionsMenu onEdit={() => onEdit(event.id)} onDelete={() => onDelete(event.id)} />
+                  </div>
                 </li>
               );
             })}
