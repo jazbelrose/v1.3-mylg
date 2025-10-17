@@ -1718,14 +1718,24 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, [isDraggingDrawer, currentDragY, viewportHeight]);
 
   const openQuickCreateForTask = useCallback(
-    (taskId: string, overrides?: Partial<QuickCreateTaskModalTask>) => {
-      const quickTask = drawerTasks.find((task) => task.id === taskId);
-      const sourceTask = taskLookup.get(taskId);
+    (
+      taskId: string,
+      overrides?: Partial<QuickCreateTaskModalTask>,
+      fallbackSource?: ApiTask
+    ): boolean => {
+      const sourceTask = taskLookup.get(taskId) ?? fallbackSource ?? null;
+      const quickTask =
+        drawerTasks.find((task) => task.id === taskId) ??
+        (sourceTask ? normalizeQuickTask(sourceTask) ?? undefined : undefined);
 
       const fallbackProjectId =
-        sourceTask?.projectId ?? activeProjectId ?? (taskProjects[0]?.id ?? "");
-      if (!quickTask || !fallbackProjectId) {
-        return;
+        quickTask?.projectId ??
+        sourceTask?.projectId ??
+        activeProjectId ??
+        (taskProjects[0]?.id ?? "");
+
+      if (!fallbackProjectId) {
+        return false;
       }
 
       const resolvedProjectName =
@@ -1738,20 +1748,34 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         taskId,
         projectId: fallbackProjectId,
         projectName: resolvedProjectName ?? null,
-        title: quickTask.title,
-        description: quickTask.description ?? (sourceTask?.description ?? null),
-        dueDate: quickTask.dueDate ? quickTask.dueDate.toISOString() : null,
-        status: (sourceTask?.status as string | undefined) ?? quickTask.status ?? "todo",
+        title: quickTask?.title ?? sourceTask?.title ?? null,
+        description:
+          quickTask?.description ?? sourceTask?.description ?? null,
+        dueDate:
+          quickTask?.dueDate ??
+          sourceTask?.dueDate ??
+          (sourceTask as { due_at?: string | null })?.due_at ??
+          (sourceTask as { dueAt?: string | number | Date | null })?.dueAt ??
+          null,
+        status:
+          (sourceTask?.status as string | undefined) ??
+          (quickTask?.status as string | undefined) ??
+          "todo",
         assigneeId:
-          (sourceTask?.assigneeId as string | undefined) ?? quickTask.assignedTo ?? null,
-        address: (sourceTask as { address?: string | null })?.address ?? quickTask.address ?? null,
+          sourceTask?.assigneeId ?? quickTask?.assignedTo ?? null,
+        address:
+          (sourceTask as { address?: string | null })?.address ??
+          quickTask?.address ??
+          null,
         location:
           (sourceTask as { location?: QuickCreateTaskModalTask["location"] })?.location ??
-          quickTask.location,
+          quickTask?.location ??
+          null,
       };
 
       setQuickTaskDraft(overrides ? { ...payload, ...overrides } : payload);
       setIsQuickTaskModalOpen(true);
+      return true;
     },
     [
       drawerTasks,
@@ -1881,18 +1905,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     });
   }, []);
 
-  const handleOpenEditTask = useCallback((task: CalendarTask) => {
-    const taskDate = task.due ? safeDate(task.due) ?? new Date(task.due) : new Date();
-    setInternalDate(taskDate);
-    setModalState({
-      open: true,
-      mode: "edit",
-      date: taskDate,
-      tab: "Task",
-      event: null,
-      task,
-    });
-  }, []);
+  const handleOpenEditTask = useCallback(
+    (task: CalendarTask) => {
+      const taskDate = task.due ? safeDate(task.due) ?? new Date(task.due) : new Date();
+      setInternalDate(taskDate);
+      setActiveDrawerTaskId(task.id);
+      openQuickCreateForTask(task.id, undefined, task.source);
+    },
+    [openQuickCreateForTask]
+  );
 
   const handleCloseCreate = useCallback(() => {
     setModalState((previous) => ({
