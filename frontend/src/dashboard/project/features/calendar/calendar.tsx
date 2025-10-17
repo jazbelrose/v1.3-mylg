@@ -15,6 +15,7 @@ import {
   Plus,
   Check,
   CheckSquare,
+  X,
 } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -51,6 +52,11 @@ import CreateCalendarItemModal, {
   type CreateEventRequest,
   type CreateTaskRequest,
 } from "./CreateCalendarItemModal";
+import QuickCreateTaskModal, {
+  type QuickCreateTaskModalProject,
+  type QuickCreateTaskModalTask,
+} from "@/dashboard/home/components/QuickCreateTaskModal";
+import TasksOverviewCard from "@/dashboard/home/components/TasksOverviewCard";
 
 type CalendarCategory = "Work" | "Education" | "Personal";
 
@@ -637,6 +643,8 @@ type MonthGridProps = {
   tasks: CalendarTask[];
   onSelectDate: (d: Date) => void;
   onOpenCreate: (d: Date, tab?: CreateCalendarItemTab) => void;
+  onOpenQuickTask: (d: Date) => void;
+  canCreateTasks: boolean;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
 };
@@ -648,6 +656,8 @@ function MonthGrid({
   tasks,
   onSelectDate,
   onOpenCreate,
+  onOpenQuickTask,
+  canCreateTasks,
   onEditEvent,
   onEditTask,
 }: MonthGridProps) {
@@ -672,6 +682,25 @@ function MonthGrid({
   }, [tasks]);
 
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!quickAddKey) return;
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(".month-grid__quick-add-container")) {
+        return;
+      }
+      setQuickAddKey(null);
+    };
+
+    document.addEventListener("click", handleDocumentClick);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, [quickAddKey]);
 
   const handleMouseLeave = (key: string) => {
     setHoveredKey((current) => (current === key ? null : current));
@@ -680,6 +709,13 @@ function MonthGrid({
   const handleOpenCreate = (day: Date, tab?: CreateCalendarItemTab) => {
     onSelectDate(day);
     onOpenCreate(day, tab);
+    setQuickAddKey(null);
+  };
+
+  const handleOpenQuickTask = (day: Date) => {
+    onSelectDate(day);
+    onOpenQuickTask(day);
+    setQuickAddKey(null);
   };
 
   return (
@@ -814,17 +850,48 @@ function MonthGrid({
               })}
               {remaining > 0 && <div className="month-grid__more">+{remaining} more</div>}
             </div>
-            <button
-              type="button"
-              className="month-grid__quick-add"
-              aria-label="Add calendar item"
-              onClick={(event) => {
-                event.stopPropagation();
-                handleOpenCreate(day);
-              }}
-            >
-              <Plus className="month-grid__quick-add-icon" aria-hidden />
-            </button>
+            <div className="month-grid__quick-add-container">
+              <button
+                type="button"
+                className={`month-grid__quick-add${quickAddKey === key ? " is-open" : ""}`}
+                aria-label="Add calendar item"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setQuickAddKey((current) => (current === key ? null : key));
+                }}
+              >
+                <Plus className="month-grid__quick-add-icon" aria-hidden />
+              </button>
+              <div
+                className={`month-grid__quick-add-tooltip${
+                  quickAddKey === key ? " is-visible" : ""
+                }`}
+                role="menu"
+                aria-hidden={quickAddKey === key ? undefined : true}
+              >
+                <button
+                  type="button"
+                  className="month-grid__quick-add-option"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleOpenCreate(day, "Event");
+                  }}
+                >
+                  Event
+                </button>
+                <button
+                  type="button"
+                  className="month-grid__quick-add-option month-grid__quick-add-option--task"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleOpenQuickTask(day);
+                  }}
+                  disabled={!canCreateTasks}
+                >
+                  Task
+                </button>
+              </div>
+            </div>
           </div>
         );
       })}
@@ -1126,6 +1193,7 @@ type EventsAndTasksProps = {
   onToggleTask: (id: string) => void;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
+  onOpenTasksOverview: () => void;
 };
 
 const compareDateStrings = (a?: string, b?: string) => {
@@ -1141,6 +1209,7 @@ function EventsAndTasks({
   onToggleTask,
   onEditEvent,
   onEditTask,
+  onOpenTasksOverview,
 }: EventsAndTasksProps) {
   const upcoming = useMemo(
     () =>
@@ -1191,7 +1260,16 @@ function EventsAndTasks({
       </div>
 
       <div className="events-tasks__section">
-        <div className="events-tasks__section-title">Tasks</div>
+        <div className="events-tasks__section-header">
+          <div className="events-tasks__section-title">Tasks</div>
+          <button
+            type="button"
+            className="events-tasks__map-button"
+            onClick={onOpenTasksOverview}
+          >
+            Open map
+          </button>
+        </div>
         <ul className="events-tasks__list">
           {tasks.map((task) => (
             <li key={task.id} className="events-tasks__list-item">
@@ -1252,6 +1330,10 @@ type CalendarSurfaceProps = {
   onDeleteTask: (target: ApiTask) => Promise<void>;
   onToggleTask: (id: string) => void;
   teamMembers: ProjectTeamMember[];
+  onRefreshTasks: () => Promise<void> | void;
+  taskProjects: QuickCreateTaskModalProject[];
+  activeProjectId?: string | null;
+  activeProjectName?: string | null;
 };
 
 const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
@@ -1267,6 +1349,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   onDeleteTask,
   onToggleTask,
   teamMembers,
+  onRefreshTasks,
+  taskProjects,
+  activeProjectId,
+  activeProjectName,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -1285,6 +1371,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     event: null,
     task: null,
   });
+  const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
+  const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
+  const [isTasksOverviewOpen, setIsTasksOverviewOpen] = useState(false);
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -1317,6 +1406,65 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       targetMonthStart.setDate(clampedDay);
       return targetMonthStart;
     });
+  }, []);
+
+  const canCreateTasks = useMemo(
+    () => taskProjects.length > 0 || Boolean(activeProjectId),
+    [taskProjects, activeProjectId]
+  );
+
+  const handleRefreshTasks = useCallback(() => {
+    void onRefreshTasks();
+  }, [onRefreshTasks]);
+
+  const handleOpenTasksOverview = useCallback(() => {
+    setIsTasksOverviewOpen(true);
+  }, []);
+
+  const handleCloseTasksOverview = useCallback(() => {
+    setIsTasksOverviewOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isTasksOverviewOpen) return;
+    if (typeof window === "undefined") return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCloseTasksOverview();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleCloseTasksOverview, isTasksOverviewOpen]);
+
+  const handleOpenQuickTaskModal = useCallback(
+    (date: Date) => {
+      setInternalDate(date);
+      const fallbackProjectId =
+        (typeof activeProjectId === "string" && activeProjectId) ||
+        (taskProjects.length > 0 ? taskProjects[0].id : "");
+      const fallbackProjectName =
+        activeProjectName ??
+        taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
+        (taskProjects.length === 1 ? taskProjects[0].name : undefined);
+
+      setQuickTaskDraft({
+        projectId: fallbackProjectId || "",
+        projectName: fallbackProjectName ?? undefined,
+        dueDate: date,
+        status: "todo",
+      });
+      setIsQuickTaskModalOpen(true);
+    },
+    [activeProjectId, activeProjectName, taskProjects]
+  );
+
+  const handleCloseQuickTaskModal = useCallback(() => {
+    setIsQuickTaskModalOpen(false);
+    setQuickTaskDraft(null);
   }, []);
 
   const handleSelectDate = useCallback((date: Date) => {
@@ -1383,6 +1531,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 onToggleTask={onToggleTask}
                 onEditEvent={handleOpenEditEvent}
                 onEditTask={handleOpenEditTask}
+                onOpenTasksOverview={handleOpenTasksOverview}
               />
             </div>
 
@@ -1447,6 +1596,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     tasks={tasks}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
+                    onOpenQuickTask={handleOpenQuickTaskModal}
+                    canCreateTasks={canCreateTasks}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
                   />
@@ -1550,6 +1701,43 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             : undefined
         }
       />
+      <QuickCreateTaskModal
+        open={isQuickTaskModalOpen}
+        onClose={handleCloseQuickTaskModal}
+        projects={taskProjects}
+        onCreated={handleRefreshTasks}
+        onUpdated={handleRefreshTasks}
+        onDeleted={handleRefreshTasks}
+        activeProjectId={activeProjectId ?? null}
+        activeProjectName={activeProjectName ?? undefined}
+        scopedProjectId={activeProjectId ?? null}
+        task={quickTaskDraft}
+      />
+      {isTasksOverviewOpen && (
+        <div
+          className="calendar-tasks-overview-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tasks overview"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseTasksOverview();
+            }
+          }}
+        >
+          <div className="calendar-tasks-overview-panel">
+            <button
+              type="button"
+              className="calendar-tasks-overview-close"
+              onClick={handleCloseTasksOverview}
+              aria-label="Close tasks overview"
+            >
+              <X aria-hidden />
+            </button>
+            <TasksOverviewCard className="calendar-tasks-overview-card" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2340,6 +2528,18 @@ const CalendarPage: React.FC = () => {
     [projectId]
   );
 
+  const refreshProjectTasks = useCallback(async () => {
+    if (!projectId) return;
+
+    try {
+      const tasks = await fetchTasks(projectId);
+      tasksRef.current = tasks;
+      setProjectTasks(tasks);
+    } catch (error) {
+      console.error("Failed to refresh project tasks", error);
+    }
+  }, [projectId]);
+
   const parseStatusToNumber = useCallback((status?: string | number | null) => {
     if (status === undefined || status === null) return 0;
     const str = typeof status === "string" ? status : String(status);
@@ -2396,6 +2596,18 @@ const CalendarPage: React.FC = () => {
     [projectTasks]
   );
 
+  const quickCreateProjects = useMemo<QuickCreateTaskModalProject[]>(() => {
+    if (!activeProject?.projectId) return [];
+
+    const title = typeof activeProject.title === "string" ? activeProject.title.trim() : "";
+    return [
+      {
+        id: activeProject.projectId,
+        name: title || "Untitled project",
+      },
+    ];
+  }, [activeProject]);
+
   return (
     <ProjectPageLayout
       projectId={activeProject?.projectId}
@@ -2434,6 +2646,10 @@ const CalendarPage: React.FC = () => {
         onDeleteTask={handleDeleteTask}
         onToggleTask={handleToggleTask}
         teamMembers={teamMembers}
+        onRefreshTasks={refreshProjectTasks}
+        taskProjects={quickCreateProjects}
+        activeProjectId={activeProject?.projectId ?? null}
+        activeProjectName={activeProject?.title ?? null}
       />
     </ProjectPageLayout>
   );
