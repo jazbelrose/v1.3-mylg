@@ -1,4 +1,4 @@
-import { DragEventHandler, useEffect, useMemo, useRef, useState } from "react";
+import { DragEventHandler, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -10,6 +10,7 @@ import useGalleryData from "./useGalleryData";
 import { Gallery, GalleryController } from "../types";
 import useGalleryCover from "./useGalleryCover";
 import useGalleryUpload from "./useGalleryUpload";
+import { resolveGallerySlug } from "../GalleryUtils";
 
 
 const useGalleryController = (): GalleryController => {
@@ -28,6 +29,8 @@ const useGalleryController = (): GalleryController => {
     isBuilder,
     isDesigner,
     fetchProjects,
+    clientGallerySlug,
+    setClientGallerySlug,
   } = useGalleryData();
 
   const navigate = useNavigate();
@@ -302,13 +305,31 @@ const useGalleryController = (): GalleryController => {
     [legacyGalleries, galleries]
   );
 
+  const clientGallery = useMemo(() => {
+    if (clientGallerySlug) {
+      const match = combinedGalleries.find(
+        (galleryItem) => resolveGallerySlug(galleryItem) === clientGallerySlug
+      );
+      if (match) return match;
+    }
+    return combinedGalleries[0] ?? null;
+  }, [combinedGalleries, clientGallerySlug]);
+
+  const hasClientGallerySelection = Boolean(
+    clientGallerySlug && clientGallery && resolveGallerySlug(clientGallery) === clientGallerySlug
+  );
+
   const legacyCount = legacyGalleries.length;
   const hasGalleries = combinedGalleries.length > 0;
 
   const handleTriggerClick = async () => {
-    if (combinedGalleries.length > 0) {
-      const lastGallery = combinedGalleries[combinedGalleries.length - 1];
-      const slug = lastGallery.slug || slugify(lastGallery.name || "");
+    const targetGallery = clientGallery;
+    if (targetGallery) {
+      const slug = resolveGallerySlug(targetGallery) || slugify(targetGallery.name || "");
+      if (!slug) {
+        openModal();
+        return;
+      }
       if (!activeProjectId) {
         console.warn("Cannot navigate to gallery without an active project ID");
         return;
@@ -349,6 +370,28 @@ const useGalleryController = (): GalleryController => {
     ? []
     : combinedGalleries;
 
+  useEffect(() => {
+    if (!clientGallerySlug) return;
+    const stillExists = combinedGalleries.some(
+      (galleryItem) => resolveGallerySlug(galleryItem) === clientGallerySlug
+    );
+    if (!stillExists) {
+      setClientGallerySlug(null);
+      void queueUpdate({ clientGallerySlug: null });
+    }
+  }, [clientGallerySlug, combinedGalleries, queueUpdate, setClientGallerySlug]);
+
+  const selectClientGallery = useCallback(
+    async (galleryItem: Gallery) => {
+      const slug = resolveGallerySlug(galleryItem);
+      if (!slug) return;
+      if (clientGallerySlug === slug) return;
+      setClientGallerySlug(slug);
+      await queueUpdate({ clientGallerySlug: slug });
+    },
+    [clientGallerySlug, queueUpdate, setClientGallerySlug]
+  );
+
   return {
     saving,
     isAdmin,
@@ -357,6 +400,9 @@ const useGalleryController = (): GalleryController => {
     galleries,
     legacyGalleries,
     combinedGalleries,
+    clientGallerySlug,
+    clientGallery,
+    hasClientGallerySelection,
     displayedGalleries,
     recentlyCreated,
     legacyCount,
@@ -426,6 +472,7 @@ const useGalleryController = (): GalleryController => {
     coverUploadingIndex,
     pendingCover,
     setPendingCover,
+    selectClientGallery,
   };
 };
 

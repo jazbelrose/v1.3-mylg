@@ -37,6 +37,8 @@ export interface GalleryDataState {
   isBuilder: boolean;
   isDesigner: boolean;
   fetchProjects: (page?: number) => Promise<void>;
+  clientGallerySlug: string | null;
+  setClientGallerySlug: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const useGalleryData = (): GalleryDataState => {
@@ -67,6 +69,10 @@ const useGalleryData = (): GalleryDataState => {
   const [pendingSlugs, setPendingSlugs] = useState<string[]>([]);
   const [recentlyCreated, setRecentlyCreated] = useState<string[]>([]);
   const pendingRef = useRef<string[]>([]);
+  const [clientGallerySlug, setClientGallerySlug] = useState<string | null>(() => {
+    const slug = activeProject?.clientGallerySlug;
+    return typeof slug === "string" && slug.trim() ? slug : null;
+  });
 
   useEffect(() => {
     pendingRef.current = pendingSlugs;
@@ -149,6 +155,16 @@ const useGalleryData = (): GalleryDataState => {
   }, [ws, activeProject?.projectId, loadGalleries]);
 
   useEffect(() => {
+    if (!activeProject) {
+      setClientGallerySlug(null);
+      return;
+    }
+
+    const slug = activeProject.clientGallerySlug;
+    setClientGallerySlug(typeof slug === "string" && slug.trim() ? slug : null);
+  }, [activeProject]);
+
+  useEffect(() => {
     if (!activeProject?.projectId || !isBrowser) return;
     try {
       const storedPending = JSON.parse(
@@ -202,6 +218,8 @@ const useGalleryData = (): GalleryDataState => {
     isBuilder,
     isDesigner,
     fetchProjects,
+    clientGallerySlug,
+    setClientGallerySlug,
   };
 };
 

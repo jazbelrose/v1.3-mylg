@@ -18,6 +18,8 @@ const GalleryComponent: React.FC = () => {
   const {
     saving,
     combinedGalleries,
+    clientGallery,
+    hasClientGallerySelection,
     openModal,
     isConfirmingDelete,
     setIsConfirmingDelete,
@@ -30,7 +32,9 @@ const GalleryComponent: React.FC = () => {
       {saving && <div style={{ color: "#FA3356", marginBottom: "10px" }}>Saving...</div>}
 
       <GalleryTrigger
-        galleries={combinedGalleries}
+        gallery={clientGallery}
+        hasGalleries={combinedGalleries.length > 0}
+        hasClientGallerySelection={hasClientGallerySelection}
         onOpenModal={openModal}
       />
 

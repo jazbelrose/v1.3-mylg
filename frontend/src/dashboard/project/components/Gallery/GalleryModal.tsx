@@ -2,11 +2,11 @@ import React, { Fragment } from "react";
 import Modal from "../../../../shared/ui/ModalWithStack";
 import { GalleryVerticalEnd } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faEye, faEyeSlash, faImage, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faEye, faEyeSlash, faImage, faStar, faTrash, faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import styles from "./gallery-component.module.css";
 import { getFileUrl } from "../../../../shared/utils/api";
-import { getPreviewUrl } from "./GalleryUtils";
+import { getPreviewUrl, resolveGallerySlug } from "./GalleryUtils";
 import type { GalleryController } from "./types";
 import { slugify } from "../../../../shared/utils/slug";
 
@@ -69,6 +69,8 @@ const GalleryModal: React.FC<GalleryModalProps> = ({ controller }) => {
     setGalleryUrl,
     uploadProgress,
     isModalDragging,
+    clientGallerySlug,
+    selectClientGallery,
   } = controller;
 
   const canManage = isAdmin || isBuilder || isDesigner;
@@ -168,11 +170,12 @@ const GalleryModal: React.FC<GalleryModalProps> = ({ controller }) => {
                 <ul className={styles.galleryList}>
                   {displayedGalleries.map((galleryItem, idx) => {
                     const index = isEditing ? (editingCombinedIndex as number) : idx;
-                    const slug = galleryItem.slug || slugify(galleryItem.name || "");
+                    const slug = resolveGallerySlug(galleryItem) || slugify(galleryItem.name || "");
                     const isLegacy = index < legacyCount;
                     const isProcessingItem = galleryItem.uploading || galleryItem.processing;
                     const ready = recentlyCreated.includes(slug);
                     const previewUrl = getPreviewUrl(galleryItem);
+                    const isClientGallery = !!slug && clientGallerySlug === slug;
 
                     return (
                       <li key={`${slug}-${idx}`} className={styles.listItem}>
@@ -181,7 +184,9 @@ const GalleryModal: React.FC<GalleryModalProps> = ({ controller }) => {
                             editingIndex !== null && index === (editingIndex as number) + legacyCount
                               ? styles.activeRow
                               : ""
-                          } ${isProcessingItem ? styles.processingRow : ""}`}
+                          } ${isProcessingItem ? styles.processingRow : ""} ${
+                            isClientGallery ? styles.clientRow : ""
+                          }`}
                           role="button"
                           tabIndex={0}
                           onClick={async () => {
@@ -214,6 +219,9 @@ const GalleryModal: React.FC<GalleryModalProps> = ({ controller }) => {
                           <div className={styles.listInfo}>
                             <span className={styles.listLink}>{galleryItem.name}</span>
                             <span className={styles.slugLabel}>{slug}</span>
+                            {isClientGallery && (
+                              <span className={styles.clientGalleryTag}>Client gallery</span>
+                            )}
 
                             {galleryItem.uploading && (
                               <span className={styles.statusMessage}>
@@ -264,6 +272,27 @@ const GalleryModal: React.FC<GalleryModalProps> = ({ controller }) => {
                                 ) : (
                                   <FontAwesomeIcon icon={faImage} />
                                 )}
+                              </button>
+
+                              <button
+                                className={`${styles.iconButton} ${styles.clientSelectButton} ${
+                                  isClientGallery ? styles.clientSelectButtonActive : ""
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void selectClientGallery(galleryItem);
+                                }}
+                                aria-label={
+                                  isClientGallery
+                                    ? `${galleryItem.name} is the client gallery`
+                                    : `Set ${galleryItem.name} as client gallery`
+                                }
+                                title={
+                                  isClientGallery ? "Client gallery" : "Set as client gallery"
+                                }
+                                disabled={isClientGallery}
+                              >
+                                <FontAwesomeIcon icon={faStar} />
                               </button>
 
                               {!isLegacy && (

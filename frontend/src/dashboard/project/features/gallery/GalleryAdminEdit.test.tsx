@@ -242,6 +242,31 @@ describe("GalleryComponent admin edit", () => {
     expect(Object.keys(fields)).toContain("galleries");
   });
 
+  it("allows selecting a client gallery", async () => {
+    updateProjectFields.mockClear();
+
+    render(
+      <MemoryRouter>
+        <GalleryComponent />
+      </MemoryRouter>
+    );
+
+    await userEvent.click(screen.getByText("Galleries"));
+
+    const selectButton = await screen.findByLabelText("Set Old as client gallery");
+    await userEvent.click(selectButton);
+
+    await flushQueue();
+
+    const clientGalleryCall = updateProjectFields.mock.calls.find(
+      ([, payload]) => payload && (payload as { clientGallerySlug?: string }).clientGallerySlug
+    );
+
+    expect(clientGalleryCall).toBeTruthy();
+    const [, payload] = clientGalleryCall!;
+    expect((payload as { clientGallerySlug?: string }).clientGallerySlug).toBe("old");
+  });
+
   it("toggles password visibility", async () => {
     render(
       <MemoryRouter>
