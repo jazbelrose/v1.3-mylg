@@ -62,6 +62,7 @@ export interface ProjectLite {
   gallery?: Gallery[];
   // current
   galleries?: Gallery[];
+  clientGallerySlug?: string;
   [k: string]: unknown;
 }
 
@@ -83,6 +84,9 @@ export interface GalleryController {
   galleries: Gallery[];
   legacyGalleries: Gallery[];
   combinedGalleries: Gallery[];
+  clientGallerySlug: string | null;
+  clientGallery: Gallery | null;
+  hasClientGallerySelection: boolean;
   displayedGalleries: Gallery[];
   recentlyCreated: string[];
   legacyCount: number;
@@ -152,4 +156,5 @@ export interface GalleryController {
   coverUploadingIndex: number | null;
   pendingCover: PendingCover | null;
   setPendingCover: Dispatch<SetStateAction<PendingCover | null>>;
+  selectClientGallery: (gallery: Gallery) => Promise<void>;
 }

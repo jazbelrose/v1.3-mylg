@@ -35,6 +35,18 @@ export function getPreviewUrl(galleryItem: Gallery = {}): string | null {
   );
 }
 
+export function resolveGallerySlug(galleryItem: Gallery = {}): string {
+  const baseName = galleryItem.name || "";
+  const slugFromName = baseName ? slugify(baseName) : "";
+  return (
+    galleryItem.slug ||
+    slugFromName ||
+    (typeof galleryItem.galleryId === "string" ? galleryItem.galleryId : "") ||
+    (typeof galleryItem.id === "string" ? galleryItem.id : "") ||
+    ""
+  );
+}
+
 
 
 
