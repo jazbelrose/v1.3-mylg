@@ -387,7 +387,7 @@
   background: rgba(255, 255, 255, 0.02);
   transition: background 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .month-grid__cell.is-current {
