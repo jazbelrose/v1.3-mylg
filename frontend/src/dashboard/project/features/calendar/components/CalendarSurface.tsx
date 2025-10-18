@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckSquare, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
 import {
@@ -34,7 +34,6 @@ import DayList from "./DayList";
 import EventsAndTasks from "./EventsAndTasks";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
-import TopBar from "./TopBar";
 import WeekGrid from "./WeekGrid";
 import { CalendarEvent, CalendarTask, endOfMonth, safeDate, isSameDay } from "../utils";
 
@@ -99,6 +98,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [dragStartY, setDragStartY] = useState<number | null>(null);
   const [currentDragY, setCurrentDragY] = useState(0);
   const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const initialScrollDoneRef = useRef(false);
@@ -121,6 +121,14 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [taskSources],
   );
 
+  const quickTaskById = useMemo(() => {
+    const map = new Map<string, QuickTask>();
+    quickTasks.forEach((task) => {
+      map.set(task.id, task);
+    });
+    return map;
+  }, [quickTasks]);
+
   const taskLookup = useMemo(() => {
     const map = new Map<string, ApiTask>();
     taskSources.forEach((task) => {
@@ -131,6 +139,96 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     });
     return map;
   }, [taskSources]);
+
+  const normalizedSearchTerm = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm]);
+
+  const visibleEvents = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return events;
+    }
+
+    return events.filter((event) => {
+      const matches = (value?: string | null) =>
+        typeof value === "string" && value.toLowerCase().includes(normalizedSearchTerm);
+
+      if (matches(event.title) || matches(event.description) || matches(event.eventType) || matches(event.platform)) {
+        return true;
+      }
+
+      if (event.tags.some((tag) => matches(tag))) {
+        return true;
+      }
+
+      if (event.guests.some((guest) => matches(guest))) {
+        return true;
+      }
+
+      const sourceDescription = (event.source as { description?: string }).description;
+      if (matches(sourceDescription)) {
+        return true;
+      }
+
+      return false;
+    });
+  }, [events, normalizedSearchTerm]);
+
+  const visibleTasks = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return tasks;
+    }
+
+    return tasks.filter((task) => {
+      const matches = (value?: string | null) =>
+        typeof value === "string" && value.toLowerCase().includes(normalizedSearchTerm);
+
+      if (matches(task.title) || matches(task.description)) {
+        return true;
+      }
+
+      if (matches(typeof task.status === "string" ? task.status : undefined)) {
+        return true;
+      }
+
+      if (matches(task.assignedTo)) {
+        return true;
+      }
+
+      const quickTask = quickTaskById.get(task.id);
+      if (quickTask) {
+        if (matches(quickTask.title) || matches(quickTask.description)) {
+          return true;
+        }
+
+        const displayAssignee = formatAssigneeDisplay(quickTask.assignedTo ?? task.assignedTo);
+        if (matches(displayAssignee)) {
+          return true;
+        }
+
+        const raw = quickTask.raw ?? {};
+        const rawFields: unknown[] = [
+          (raw as { address?: string }).address,
+          (raw as { createdByName?: string }).createdByName,
+          (raw as { createdByUsername?: string }).createdByUsername,
+          (raw as { createdByEmail?: string }).createdByEmail,
+        ];
+
+        if (rawFields.some((value) => matches(typeof value === "string" ? value : undefined))) {
+          return true;
+        }
+      }
+
+      const source = task.source as Partial<ApiTask>;
+      const sourceFields: unknown[] = [
+        source.description,
+        (source as { comments?: string }).comments,
+        (source as { address?: string }).address,
+        (source as { name?: string }).name,
+        (source as { title?: string }).title,
+        (source as { location?: string }).location,
+      ];
+      return sourceFields.some((value) => matches(typeof value === "string" ? value : undefined));
+    });
+  }, [tasks, normalizedSearchTerm, quickTaskById]);
 
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
 
@@ -614,14 +712,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     <div className="calendar-surface">
       <div className="calendar-shell">
         <div className="calendar-card">
-          <TopBar onAdd={() => handleOpenCreate(internalDate)} />
-
           <div className="calendar-body">
             <div className="calendar-sidebar">
               <MiniCalendar value={internalDate} onChange={setInternalDate} />
               <EventsAndTasks
-                events={events}
-                tasks={tasks}
+                events={visibleEvents}
+                tasks={visibleTasks}
                 onToggleTask={onToggleTask}
                 onEditEvent={handleOpenEditEvent}
                 onEditTask={handleOpenEditTask}
@@ -650,34 +746,47 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                   </button>
                   <div className="calendar-controls__title">{title}</div>
                 </div>
-                <div className="calendar-controls__toggle">
-                  <button
-                    type="button"
-                    onClick={() => setView("day")}
-                    className={`calendar-controls__toggle-button ${
-                      view === "day" ? "is-active" : ""
-                    }`}
-                  >
-                    Day
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("week")}
-                    className={`calendar-controls__toggle-button ${
-                      view === "week" ? "is-active" : ""
-                    }`}
-                  >
-                    Week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("month")}
-                    className={`calendar-controls__toggle-button ${
-                      view === "month" ? "is-active" : ""
-                    }`}
-                  >
-                    Month
-                  </button>
+                <div className="calendar-controls__actions">
+                  <div className="calendar-controls__toggle">
+                    <button
+                      type="button"
+                      onClick={() => setView("day")}
+                      className={`calendar-controls__toggle-button ${
+                        view === "day" ? "is-active" : ""
+                      }`}
+                    >
+                      Day
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView("week")}
+                      className={`calendar-controls__toggle-button ${
+                        view === "week" ? "is-active" : ""
+                      }`}
+                    >
+                      Week
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView("month")}
+                      className={`calendar-controls__toggle-button ${
+                        view === "month" ? "is-active" : ""
+                      }`}
+                    >
+                      Month
+                    </button>
+                  </div>
+                  <div className="calendar-controls__search">
+                    <Search className="calendar-controls__search-icon" aria-hidden />
+                    <input
+                      type="search"
+                      placeholder="Search events and tasks"
+                      aria-label="Search events and tasks"
+                      className="calendar-controls__search-input"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -686,8 +795,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                   <MonthGrid
                     viewDate={internalDate}
                     selectedDate={internalDate}
-                    events={events}
-                    tasks={tasks}
+                    events={visibleEvents}
+                    tasks={visibleTasks}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
                     onOpenQuickTask={handleOpenQuickTaskModal}
@@ -699,8 +808,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 {view === "week" && (
                   <WeekGrid
                     anchorDate={internalDate}
-                    events={events}
-                    tasks={tasks}
+                    events={visibleEvents}
+                    tasks={visibleTasks}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
                     onCreateEvent={handleOpenCreate}
@@ -711,8 +820,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 {view === "day" && (
                   <DayList
                     date={internalDate}
-                    events={events}
-                    tasks={tasks}
+                    events={visibleEvents}
+                    tasks={visibleTasks}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
                   />
