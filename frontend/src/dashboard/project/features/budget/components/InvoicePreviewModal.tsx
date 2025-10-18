@@ -1,24 +1,14 @@
 import React, {
   Fragment,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import Modal from "@/shared/ui/ModalWithStack";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faChevronLeft,
-  faChevronRight,
-  faDownload,
-  faSave,
-  faTrash,
-  faXmark,
-  faFilePdf,
-} from "@fortawesome/free-solid-svg-icons";
 import { saveAs } from "file-saver";
 import { uploadData, list } from "aws-amplify/storage";
 import {
@@ -33,79 +23,24 @@ import { useData } from "@/app/contexts/useData";
 import { slugify } from "@/shared/utils/slug";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import { toast } from "react-toastify";
-import styles from "./invoice-preview-modal.module.css";
 import useModalStack from "@/shared/utils/useModalStack";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import { UserLite } from "@/app/contexts/DataProvider";
 
-// ---------- Types ----------
-interface RevisionLike {
-  revision?: number;
-  [k: string]: unknown;
-}
-
-interface ProjectLike {
-  projectId?: string;
-  title?: string;
-  company?: string;
-  clientName?: string;
-  clientAddress?: string;
-  clientPhone?: string;
-  clientEmail?: string;
-  invoiceBrandName?: string;
-  invoiceBrandAddress?: string;
-  invoiceBrandPhone?: string;
-  address?: string;
-  [k: string]: unknown;
-}
-
-interface InvoicePreviewModalProps {
-  isOpen: boolean;
-  onRequestClose: () => void;
-  revision: RevisionLike;
-  project?: ProjectLike | null;
-  showSidebar?: boolean;
-  allowSave?: boolean;
-  itemsOverride?: BudgetItem[] | null;
-}
-
-type GroupField = "invoiceGroup" | "areaGroup" | "category";
-
-interface BudgetItem {
-  budgetItemId?: string;
-  description?: string;
-  quantity?: number | string;
-  unit?: string;
-  itemFinalCost?: number | string;
-  invoiceGroup?: string;
-  areaGroup?: string;
-  category?: string;
-  [k: string]: unknown;
-}
-
-type RowData =
-  | { type: "group"; group: string }
-  | { type: "item"; item: BudgetItem };
-
-interface SavedInvoice {
-  name: string;
-  url: string;
-}
-
-// ---------- Utils ----------
-const formatCurrency = (val: number | string | null | undefined): string => {
-  const num =
-    typeof val === "number"
-      ? val
-      : parseFloat(String(val ?? "").replace(/[$,]/g, ""));
-  if (Number.isNaN(num)) return (val as string) || "";
-  return num.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
+import InvoiceModalHeader from "./InvoiceModalHeader";
+import InvoiceFileActions from "./InvoiceFileActions";
+import InvoiceNavControls from "./InvoiceNavControls";
+import InvoiceSidebar from "./InvoiceSidebar";
+import InvoicePreviewContent from "./InvoicePreviewContent";
+import styles from "./invoice-preview-modal.module.css";
+import type {
+  BudgetItem,
+  GroupField,
+  InvoicePreviewModalProps,
+  RowData,
+  SavedInvoice,
+} from "./invoicePreviewTypes";
+import { formatCurrency } from "./invoicePreviewUtils";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -119,7 +54,6 @@ const groupFields: Array<{ label: string; value: GroupField }> = [
 
 const DEFAULT_NOTES_HTML = "<p>Notes...</p>";
 
-// ---------- Component ----------
 const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   isOpen,
   onRequestClose,
@@ -129,7 +63,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   allowSave = true,
   itemsOverride = null,
 }) => {
-  // data
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [groupField, setGroupField] = useState<GroupField>("invoiceGroup");
   const [groupValues, setGroupValues] = useState<string[]>([]);
@@ -137,17 +70,14 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const { budgetItems: contextBudgetItems } = useBudget();
   const budgetItems = (itemsOverride ?? (contextBudgetItems as unknown as BudgetItem[])) as BudgetItem[];
 
-  // layout/refs
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
 
-  // pagination
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const currentRows = pages[currentPage] || [];
 
-  // branding/header
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
   const [brandAddress, setBrandAddress] = useState("");
@@ -158,17 +88,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [showSaved, setShowSaved] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
-  // invoice meta
   const [invoiceDirty, setInvoiceDirty] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState("0000");
-  const [issueDate, setIssueDate] = useState<string>(
-    () => new Date().toLocaleDateString()
-  );
+  const [issueDate, setIssueDate] = useState<string>(() => new Date().toLocaleDateString());
   const [dueDate, setDueDate] = useState("");
   const [serviceDate, setServiceDate] = useState("");
-  const [projectTitle, setProjectTitle] = useState(
-    project?.title || "Project Title"
-  );
+  const [projectTitle, setProjectTitle] = useState(project?.title || "Project Title");
   const [customerSummary, setCustomerSummary] = useState("Customer");
   const [invoiceSummary, setInvoiceSummary] = useState("Invoice Details");
   const [paymentSummary, setPaymentSummary] = useState("Payment");
@@ -176,27 +101,31 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [depositReceived, setDepositReceived] = useState<number>(0);
   const [totalDue, setTotalDue] = useState<number>(0);
 
-  // saved invoices
   const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
-  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(() => new Set());
   const [currentFileName, setCurrentFileName] = useState<string>("");
 
-  // delete confirm
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
-  // logo file input
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // modal stack (keep focus/scroll behavior)
   useModalStack(isOpen);
 
-  // ---------- Handlers ----------
   const handleLogoSelect: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoDataUrl(reader.result as string);
+      setIsDirty(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
@@ -223,18 +152,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setShowUnsavedPrompt(false);
   }, []);
 
-  const handleLogoDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setLogoDataUrl(reader.result as string);
-      setIsDirty(true);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const fetchInvoiceFiles = useCallback(async (): Promise<SavedInvoice[]> => {
     if (!project?.projectId) return [];
     const prefix = `projects/${project.projectId}/invoices/`;
@@ -244,9 +161,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         .filter((item) => item.key && !String(item.key).endsWith("/"))
         .map((item) => {
           const rawKey = String(item.key);
-          const storageKey = rawKey.startsWith("public/")
-            ? rawKey
-            : `public/${rawKey}`;
+          const storageKey = rawKey.startsWith("public/") ? rawKey : `public/${rawKey}`;
           return {
             name: rawKey.split("/").pop() || "",
             url: getFileUrl(storageKey),
@@ -272,6 +187,17 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       setSelectedInvoices(new Set(savedInvoices.map((i) => i.url)));
     } else {
       setSelectedInvoices(new Set());
+    }
+  };
+
+  const handleDeleteInvoice = (url: string) => {
+    setSelectedInvoices(new Set([url]));
+    setIsConfirmingDelete(true);
+  };
+
+  const handleDeleteSelectedInvoices = () => {
+    if (selectedInvoices.size > 0) {
+      setIsConfirmingDelete(true);
     }
   };
 
@@ -321,9 +247,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
       const q = (sel: string) => page.querySelector(sel);
 
-      setBrandLogoKey(
-        q(".invoice-header img")?.getAttribute("src") || ""
-      );
+      setBrandLogoKey(q(".invoice-header img")?.getAttribute("src") || "");
       setLogoDataUrl(null);
       setBrandName(q(".brand-name")?.textContent || "");
       setBrandAddress(q(".brand-address")?.textContent || "");
@@ -355,23 +279,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       const notesEl = q(".notes");
       if (notesEl) setNotes(notesEl.innerHTML || "");
 
-      // Try to infer grouping field from headers
       const parsedGroups = Array.from(
         doc.querySelectorAll(".group-header td")
       ).map((td) => (td.textContent || "").trim());
       if (parsedGroups.length) {
-        const candidate = (groupFields.map((g) => g.value) as GroupField[]).find(
-          (field) => {
-            const opts = Array.from(
-              new Set(
-                items
-                  .map((it) => (String((it as BudgetItem)[field] || "")).trim())
-                  .filter(Boolean)
-              )
-            );
-            return parsedGroups.every((g) => opts.includes(g));
-          }
-        );
+        const candidate = (groupFields.map((g) => g.value) as GroupField[]).find((field) => {
+          const opts = Array.from(
+            new Set(
+              items
+                .map((it) => (String((it as BudgetItem)[field] || "")).trim())
+                .filter(Boolean)
+            )
+          );
+          return parsedGroups.every((g) => opts.includes(g));
+        });
         if (candidate) setGroupField(candidate);
         setGroupValues(parsedGroups);
       }
@@ -383,8 +304,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   };
 
-  // ---------- Effects ----------
-  // Initialize branding each time the modal opens
   useEffect(() => {
     if (!isOpen) return;
     const u = (userData || {}) as {
@@ -411,7 +330,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setIsDirty(false);
   }, [isOpen, userData]);
 
-  // Reset invoice fields on open / project change
   useEffect(() => {
     if (!isOpen) return;
     setInvoiceNumber("0000");
@@ -433,7 +351,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   }, [isOpen, project, revision]);
 
-  // Is header dirty vs saved branding?
   useEffect(() => {
     const u = (userData || {}) as {
       brandLogoKey?: string;
@@ -454,7 +371,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setIsDirty(dirty);
   }, [brandLogoKey, brandName, brandAddress, brandPhone, brandTagline, userData]);
 
-  // Load items
   useEffect(() => {
     if (!isOpen) return;
     const arr = Array.isArray(budgetItems) ? (budgetItems as BudgetItem[]) : [];
@@ -465,7 +381,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   }, [isOpen, budgetItems]);
 
-  // Load saved invoices
   useEffect(() => {
     if (!isOpen || !project?.projectId) return;
     fetchInvoiceFiles()
@@ -473,7 +388,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       .catch((err) => console.error("Failed to fetch invoices", err));
   }, [isOpen, project?.projectId, fetchInvoiceFiles]);
 
-  // Maintain selected group values present in items
   useEffect(() => {
     const vals = Array.from(
       new Set(
@@ -490,7 +404,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         setGroupValues(filteredVals);
       }
     }
-  }, [items, groupField]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items, groupField]);
 
   const groupOptions = Array.from(
     new Set(
@@ -500,16 +414,16 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     )
   );
 
-  const filtered = groupValues.length === 0
-    ? items
-    : items.filter((it) => groupValues.includes(String((it as BudgetItem)[groupField]).trim()));
+  const filtered =
+    groupValues.length === 0
+      ? items
+      : items.filter((it) => groupValues.includes(String((it as BudgetItem)[groupField]).trim()));
 
   const subtotal = filtered.reduce((sum, it) => {
     const amt = parseFloat(String(it.itemFinalCost ?? 0)) || 0;
     return sum + amt;
   }, 0);
 
-  // total due ties to subtotal and deposit
   useEffect(() => {
     const dep = parseFloat(String(depositReceived)) || 0;
     setTotalDue(subtotal - dep);
@@ -527,21 +441,17 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     return arr;
   }, [items, groupValues, groupField, groupOptions]);
 
-  // Calculate page splits by measuring a hidden full page
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
-    const pageHeight = 1122; // ~A4 at 96dpi
+    const pageHeight = 1122;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
-    const notes = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
+    const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
     const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
 
     const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
-    const bottomHeight =
-      (totals?.offsetHeight || 0) +
-      (notes?.offsetHeight || 0) +
-      (footer?.offsetHeight || 0);
+    const bottomHeight = (totals?.offsetHeight || 0) + (notesEl?.offsetHeight || 0) + (footer?.offsetHeight || 0);
 
     const rowEls = Array.from(
       invoiceRef.current.querySelectorAll(".items-table tbody tr")
@@ -571,7 +481,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       pages.every((p, i) => p.length === pagesAccum[i].length);
 
     if (!same) setPages(pagesAccum);
-  }, [rowsData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rowsData]);
 
   useEffect(() => {
     setSelectedPages(pages.map((_, i) => i));
@@ -584,12 +494,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   }, [isOpen]);
 
-  // ---------- Build / Export / Save ----------
   const buildInvoiceHtml = (): string => {
     if (!previewRef.current) return "";
-    const style = (document.getElementById("invoice-preview-styles")?.innerHTML || "");
-    const pageIndexes =
-      selectedPages.length > 0 ? selectedPages : pages.map((_, i) => i);
+    const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
+    const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, i) => i);
 
     const htmlPages = pageIndexes
       .map((idx) => {
@@ -614,9 +522,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           .join("");
 
         const headerName = brandName || project?.company || "Company Name";
-        const headerAddress = useProjectAddress
-          ? project?.address || "Address"
-          : brandAddress || "Address";
+        const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
         const headerPhone = brandPhone || "Phone";
         const headerTag = brandTagline || "";
         const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
@@ -628,8 +534,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
         const billContact = project?.clientName || "Client Name";
         const billCompany = project?.invoiceBrandName || "Client Company";
-        const billAddress =
-          project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
+        const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
         const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
         const billEmail = project?.clientEmail || "";
 
@@ -714,8 +619,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       .join("");
 
     const title = invoiceNumber ? `Invoice ${invoiceNumber}` : "Invoice";
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>${htmlPages}</body></html>`;
-    return html;
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>${htmlPages}</body></html>`;
   };
 
   const exportHtml = () => {
@@ -805,7 +709,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     try {
       let uploadedKey = brandLogoKey;
 
-      // If a new data URL logo is present, upload it to public S3
       if (logoDataUrl && logoDataUrl.startsWith("data:") && userData?.userId) {
         const res = await fetch(logoDataUrl);
         const blob = await res.blob();
@@ -841,7 +744,97 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   };
 
-  // ---------- Render ----------
+  const handleGroupFieldChange = (field: GroupField) => {
+    setGroupField(field);
+    setGroupValues([]);
+  };
+
+  const handleToggleGroupValue = (val: string) => {
+    setGroupValues((prev) =>
+      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
+    );
+  };
+
+  const handleToggleAllGroupValues = (checked: boolean) => {
+    setGroupValues(checked ? groupOptions : []);
+  };
+
+  const handleTogglePage = (idx: number) => {
+    setSelectedPages((prev) =>
+      prev.includes(idx) ? prev.filter((p) => p !== idx) : [...prev, idx]
+    );
+  };
+
+  const handleToggleAllPages = (checked: boolean) => {
+    setSelectedPages(checked ? pages.map((_, i) => i) : []);
+  };
+
+  const handleBrandNameBlur = (value: string) => {
+    setBrandName(value);
+    setInvoiceDirty(true);
+  };
+  const handleBrandTaglineBlur = (value: string) => {
+    setBrandTagline(value);
+    setInvoiceDirty(true);
+  };
+  const handleBrandAddressBlur = (value: string) => {
+    setBrandAddress(value);
+    setInvoiceDirty(true);
+  };
+  const handleBrandPhoneBlur = (value: string) => {
+    setBrandPhone(value);
+    setInvoiceDirty(true);
+  };
+  const handleToggleProjectAddress = (checked: boolean) => {
+    setUseProjectAddress(checked);
+  };
+  const handleInvoiceNumberBlur = (value: string) => {
+    setInvoiceNumber(value);
+    setInvoiceDirty(true);
+  };
+  const handleIssueDateBlur = (value: string) => {
+    setIssueDate(value);
+    setInvoiceDirty(true);
+  };
+  const handleDueDateChange = (value: string) => {
+    setDueDate(value);
+    setInvoiceDirty(true);
+  };
+  const handleServiceDateChange = (value: string) => {
+    setServiceDate(value);
+    setInvoiceDirty(true);
+  };
+  const handleProjectTitleBlur = (value: string) => {
+    setProjectTitle(value);
+    setInvoiceDirty(true);
+  };
+  const handleCustomerSummaryBlur = (value: string) => {
+    setCustomerSummary(value);
+    setInvoiceDirty(true);
+  };
+  const handleInvoiceSummaryBlur = (value: string) => {
+    setInvoiceSummary(value);
+    setInvoiceDirty(true);
+  };
+  const handlePaymentSummaryBlur = (value: string) => {
+    setPaymentSummary(value);
+    setInvoiceDirty(true);
+  };
+  const handleDepositBlur = (value: string) => {
+    const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
+    setDepositReceived(parsed);
+    setInvoiceDirty(true);
+  };
+  const handleTotalDueBlur = (value: string) => {
+    const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
+    setTotalDue(parsed);
+    setInvoiceDirty(true);
+  };
+  const handleNotesBlur = (value: string) => {
+    setNotes(value);
+    setInvoiceDirty(true);
+  };
+
   return (
     <Fragment>
       <Modal
@@ -860,892 +853,107 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           beforeClose: styles.modalOverlayBeforeClose,
         }}
       >
-        <div className={styles.modalHeader}>
-          <div className={styles.modalTitle}>Invoice Preview</div>
-          <button className={styles.iconButton} onClick={handleAttemptClose} aria-label="Close">
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
-        </div>
+        <InvoiceModalHeader onClose={handleAttemptClose} />
 
-        <div className={styles.currentFileRow}>
-          <div className={styles.fileName}>{currentFileName || "Unsaved Invoice"}</div>
-          <div className={styles.buttonGroup}>
-            {allowSave && (
-              <button
-                className={styles.iconButton}
-                onClick={handleSaveClick}
-                aria-label="Save invoice"
-              >
-                <FontAwesomeIcon icon={faSave} />
-              </button>
-            )}
-            <button
-              className={styles.iconButton}
-              onClick={exportPdf}
-              aria-label="Download PDF"
-            >
-              <FontAwesomeIcon icon={faFilePdf} />
-            </button>
-            <button
-              className={styles.iconButton}
-              onClick={exportHtml}
-              aria-label="Download HTML"
-            >
-              <FontAwesomeIcon icon={faDownload} />
-            </button>
-          </div>
-        </div>
+        <InvoiceFileActions
+          fileName={currentFileName}
+          allowSave={allowSave}
+          onSave={handleSaveClick}
+          onExportPdf={exportPdf}
+          onExportHtml={exportHtml}
+        />
 
         <div className={styles.modalBody}>
           {items.length === 0 ? (
             <div className={styles.emptyPlaceholder}>No budget line items available</div>
           ) : (
             <Fragment>
-              <div className={styles.navControls}>
-                <button
-                  className={styles.navButton}
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                  aria-label="Previous Page"
-                >
-                  <FontAwesomeIcon icon={faChevronLeft} />
-                </button>
-                <span>
-                  Page {currentPage + 1} of {pages.length || 1}
-                </span>
-                <button
-                  className={styles.navButton}
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, Math.max(0, pages.length - 1)))
-                  }
-                  disabled={currentPage >= Math.max(0, pages.length - 1)}
-                  aria-label="Next Page"
-                >
-                  <FontAwesomeIcon icon={faChevronRight} />
-                </button>
-              </div>
+              <InvoiceNavControls
+                currentPage={currentPage}
+                totalPages={pages.length}
+                onPrev={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                onNext={() =>
+                  setCurrentPage((p) => Math.min(p + 1, Math.max(0, pages.length - 1)))
+                }
+              />
 
               <div
                 className={styles.contentRow}
                 style={showSidebar ? undefined : { minWidth: "850px" }}
               >
                 {showSidebar && (
-                  <div className={styles.sidebar}>
-                    {/* Grouping */}
-                    <label htmlFor="group-field-select">Group By:&nbsp;</label>
-                    <select
-                      id="group-field-select"
-                      value={groupField}
-                      onChange={(e) => {
-                        setGroupField(e.target.value as GroupField);
-                        setGroupValues([]);
-                      }}
-                    >
-                      {groupFields.map((g) => (
-                        <option key={g.value} value={g.value}>
-                          {g.label}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className={styles.groupSelect} role="group" aria-label="Groups">
-                      <label className={styles.groupItem}>
-                        <input
-                          type="checkbox"
-                          checked={groupValues.length === groupOptions.length}
-                          onChange={(e) =>
-                            setGroupValues(e.target.checked ? groupOptions : [])
-                          }
-                        />
-                        Select All
-                      </label>
-                      {groupOptions.map((val) => (
-                        <label key={val} className={styles.groupItem}>
-                          <input
-                            type="checkbox"
-                            checked={groupValues.includes(val)}
-                            onChange={() =>
-                              setGroupValues((prev) =>
-                                prev.includes(val)
-                                  ? prev.filter((v) => v !== val)
-                                  : [...prev, val]
-                              )
-                            }
-                          />
-                          {val}
-                        </label>
-                      ))}
-                    </div>
-
-                    {/* Page selection */}
-                    <div className={styles.pageSelect} role="group" aria-label="Pages">
-                      <label className={styles.groupItem}>
-                        <input
-                          type="checkbox"
-                          checked={selectedPages.length === pages.length}
-                          onChange={(e) =>
-                            setSelectedPages(
-                              e.target.checked ? pages.map((_, i) => i) : []
-                            )
-                          }
-                        />
-                        Select All Pages
-                      </label>
-                      {pages.map((_, idx) => (
-                        <label key={idx} className={styles.groupItem}>
-                          <input
-                            type="checkbox"
-                            checked={selectedPages.includes(idx)}
-                            onChange={() =>
-                              setSelectedPages((prev) =>
-                                prev.includes(idx)
-                                  ? prev.filter((p) => p !== idx)
-                                  : [...prev, idx]
-                              )
-                            }
-                          />
-                          Page {idx + 1}
-                        </label>
-                      ))}
-                    </div>
-
-                    {/* Saved invoices */}
-                    {savedInvoices.length > 0 && (
-                      <div className={styles.invoiceList}>
-                        <div className={styles.listHeader}>Saved Invoices</div>
-                        <label className={styles.groupItem}>
-                          <input
-                            type="checkbox"
-                            checked={selectedInvoices.size === savedInvoices.length}
-                            onChange={(e) => selectAllInvoices(e.target.checked)}
-                          />
-                          Select All
-                        </label>
-                        {savedInvoices.map((inv, idx) => (
-                          <div key={idx} className={styles.invoiceRow}>
-                            <input
-                              type="checkbox"
-                              checked={selectedInvoices.has(inv.url)}
-                              onChange={() => toggleInvoiceSelect(inv.url)}
-                            />
-                            <button
-                              type="button"
-                              className={styles.linkButton}
-                              onClick={() => loadInvoice(inv.url)}
-                              title="Load invoice"
-                            >
-                              {inv.name}
-                            </button>
-                            <button
-                              className={styles.iconButton}
-                              onClick={() => {
-                                setSelectedInvoices(new Set([inv.url]));
-                                setIsConfirmingDelete(true);
-                              }}
-                              aria-label="Delete invoice"
-                              title="Delete"
-                            >
-                              <FontAwesomeIcon icon={faTrash} />
-                            </button>
-                          </div>
-                        ))}
-                        {selectedInvoices.size > 0 && (
-                          <button
-                            className={styles.iconButton}
-                            onClick={() => setIsConfirmingDelete(true)}
-                            aria-label="Delete selected invoices"
-                          >
-                            <FontAwesomeIcon icon={faTrash} /> Delete Selected
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Save default header */}
-                    {isDirty && (
-                      <button className={styles.saveButton} onClick={handleSaveHeader}>
-                        Save as my default invoice header
-                      </button>
-                    )}
-                    {showSaved && (
-                      <div className={styles.savedMsg} role="status">
-                        Header info saved! Future invoices will use this by default.
-                      </div>
-                    )}
-                  </div>
+                  <InvoiceSidebar
+                    groupFields={groupFields}
+                    groupField={groupField}
+                    onGroupFieldChange={handleGroupFieldChange}
+                    groupOptions={groupOptions}
+                    groupValues={groupValues}
+                    onToggleGroupValue={handleToggleGroupValue}
+                    onToggleAllGroupValues={handleToggleAllGroupValues}
+                    pages={pages}
+                    selectedPages={selectedPages}
+                    onTogglePage={handleTogglePage}
+                    onToggleAllPages={handleToggleAllPages}
+                    savedInvoices={savedInvoices}
+                    selectedInvoices={selectedInvoices}
+                    onToggleInvoice={toggleInvoiceSelect}
+                    onSelectAllInvoices={selectAllInvoices}
+                    onLoadInvoice={loadInvoice}
+                    onDeleteInvoice={handleDeleteInvoice}
+                    onDeleteSelected={handleDeleteSelectedInvoices}
+                    isDirty={isDirty}
+                    onSaveHeader={handleSaveHeader}
+                    showSaved={showSaved}
+                  />
                 )}
 
-                {/* Preview */}
-                <div className={styles.previewWrapper} ref={previewRef}>
-                  {/* Styles used for export */}
-                  <style id="invoice-preview-styles">{`
-                    @page { margin: 0; }
-                    body { margin: 0; }
-                    .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
-                    .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px;box-sizing:border-box;position:relative;overflow-x:hidden;display:flex;flex-direction:column;}
-                    .invoice-header{display:flex;align-items:flex-start;gap:20px;}
-                    .logo-upload{width:100px;height:100px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
-                    .logo-upload img{max-width:100%;max-height:100%;}
-                    .company-block{flex:1;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
-                    .company-info{display:flex;flex-direction:column;margin-top:10px;}
-                    .brand-name{font-size:1.2rem;font-weight:bold;}
-                    .brand-tagline,.brand-address,.brand-phone{font-size:0.7rem;}
-                    .invoice-meta{text-align:right;font-size:0.85rem;}
-                    .billing-info{margin-top:20px;display:flex;justify-content:space-between;gap:20px;font-size:0.85rem;}
-                    .invoice-title{font-size:2rem;color:#FA3356;font-weight:bold;text-align:right;margin-left:auto;}
-                    .project-title{font-size:1.5rem;font-weight:bold;text-align:center;margin:10px 0;}
-                    .summary{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;}
-                    .summary>div{flex:1;}
-                    .summary-divider{border:0;border-top:1px solid #ccc;margin-bottom:10px;}
-                    .items-table-wrapper{flex:1 0 auto;}
-                    .items-table{width:100%;border-collapse:collapse;margin-top:20px;box-sizing:border-box;}
-                    .items-table th,.items-table td{border:1px solid #ddd;padding:8px;}
-                    .items-table th{background:#f5f5f5;text-align:left;}
-                    .group-header{background:#fafafa;font-weight:bold;}
-                    .bottom-block{margin-top:auto;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;margin-bottom:40px;}
-                    .totals{margin-top:20px;margin-left:auto;}
-                    .notes{margin-top:20px;}
-                    .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-                    .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
-                    @media screen and (max-width:768px){
-                      .invoice-container{padding:16px;width:100%;}
-                      .invoice-page{padding:16px;width:100%;min-height:auto;}
-                      .invoice-header{flex-direction:column;align-items:flex-start;gap:12px;}
-                      .company-block{flex-direction:column;align-items:flex-start;gap:8px;width:100%;}
-                      .invoice-meta{text-align:left;width:100%;}
-                      .billing-info{flex-direction:column;align-items:flex-start;gap:12px;font-size:0.82rem;}
-                      .invoice-title{margin-left:0;text-align:left;font-size:1.6rem;}
-                      .summary{flex-direction:column;gap:12px;}
-                      .items-table th,.items-table td{padding:6px;font-size:0.85rem;}
-                      .bottom-block{margin-bottom:28px;}
-                    }
-                    @media screen and (max-width:480px){
-                      .invoice-page{padding:12px;}
-                      .invoice-header{gap:10px;}
-                      .brand-name{font-size:1.05rem;}
-                      .invoice-title{font-size:1.4rem;}
-                      .company-info,.billing-info{font-size:0.78rem;}
-                      .summary{gap:10px;}
-                      .items-table th,.items-table td{padding:5px;font-size:0.78rem;}
-                      .bottom-block{margin-bottom:24px;}
-                    }
-                    @media print{
-                      .invoice-container{width:210mm;max-width:210mm;padding:20px;}
-                      .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;}
-                      .invoice-page:last-child{page-break-after:auto;}
-                    }
-                  `}</style>
-
-                  {/* Hidden full layout (for measuring pagination) */}
-                  <div
-                    className="invoice-page invoice-container"
-                    ref={invoiceRef}
-                    data-preview-role="measure"
-                    style={{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}
-                  >
-                    <div className="invoice-top">
-                      <header className="invoice-header">
-                        <div
-                          className="logo-upload"
-                          onClick={() => fileInputRef.current?.click()}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={handleLogoDrop}
-                          aria-label="Company logo"
-                        >
-                          {logoDataUrl || brandLogoKey ? (
-                            <img src={logoDataUrl || getFileUrl(brandLogoKey || '')} alt="Company logo" />
-                          ) : (
-                            <span>Upload Logo</span>
-                          )}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            style={{ display: "none" }}
-                            onChange={handleLogoSelect}
-                          />
-                        </div>
-
-                        <div className="company-block">
-                          <div className="company-info">
-                            <div
-                              className="brand-name"
-                              contentEditable
-                              suppressContentEditableWarning
-                              aria-label="Company Name"
-                              onBlur={(e) => {
-                                setBrandName(e.currentTarget.textContent || "");
-                                setInvoiceDirty(true);
-                              }}
-                            >
-                              {brandName || "Your Business Name"}
-                            </div>
-
-                            <div
-                              className="brand-tagline"
-                              contentEditable
-                              suppressContentEditableWarning
-                              aria-label="Tagline"
-                              onBlur={(e) => {
-                                setBrandTagline(e.currentTarget.textContent || "");
-                                setInvoiceDirty(true);
-                              }}
-                            >
-                              {brandTagline || "Tagline"}
-                            </div>
-
-                            <div
-                              className="brand-address"
-                              contentEditable
-                              suppressContentEditableWarning
-                              aria-label="Company Address"
-                              onBlur={(e) => {
-                                setBrandAddress(e.currentTarget.textContent || "");
-                                setInvoiceDirty(true);
-                              }}
-                            >
-                              {useProjectAddress
-                                ? project?.address || "Project Address"
-                                : brandAddress || "Business Address"}
-                            </div>
-
-                            <div
-                              className="brand-phone"
-                              contentEditable
-                              suppressContentEditableWarning
-                              aria-label="Company Phone"
-                              onBlur={(e) => {
-                                setBrandPhone(e.currentTarget.textContent || "");
-                                setInvoiceDirty(true);
-                              }}
-                            >
-                              {brandPhone || "Phone Number"}
-                            </div>
-
-                            {project?.address && (
-                              <label style={{ fontSize: "0.8rem" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={useProjectAddress}
-                                  onChange={(e) => setUseProjectAddress(e.target.checked)}
-                                />{" "}
-                                Use project address
-                              </label>
-                            )}
-                          </div>
-
-                          <div className="invoice-meta">
-                            <div>
-                              Invoice #:{" "}
-                              <span
-                                contentEditable
-                                suppressContentEditableWarning
-                                onBlur={(e) => {
-                                  setInvoiceNumber(e.currentTarget.textContent || "");
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {invoiceNumber}
-                              </span>
-                            </div>
-                            <div>
-                              Issue date:{" "}
-                              <span
-                                contentEditable
-                                suppressContentEditableWarning
-                                onBlur={(e) => {
-                                  setIssueDate(e.currentTarget.textContent || "");
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {issueDate}
-                              </span>
-                            </div>
-                            <div>
-                              Due date:{" "}
-                              <input
-                                type="date"
-                                className={styles.metaInput}
-                                value={dueDate}
-                                onChange={(e) => {
-                                  setDueDate(e.target.value);
-                                  setInvoiceDirty(true);
-                                }}
-                              />
-                            </div>
-                            <div>
-                              Service date:{" "}
-                              <input
-                                type="date"
-                                className={styles.metaInput}
-                                value={serviceDate}
-                                onChange={(e) => {
-                                  setServiceDate(e.target.value);
-                                  setInvoiceDirty(true);
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </header>
-                    </div>
-
-                    <h1
-                      className="project-title"
-                      contentEditable
-                      suppressContentEditableWarning
-                      aria-label="Project Title"
-                      onBlur={(e) => {
-                        setProjectTitle(e.currentTarget.textContent || "");
-                        setInvoiceDirty(true);
-                      }}
-                    >
-                      {projectTitle}
-                    </h1>
-
-                    <div className="summary">
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        aria-label="Customer Summary"
-                        onBlur={(e) => {
-                          setCustomerSummary(e.currentTarget.textContent || "");
-                          setInvoiceDirty(true);
-                        }}
-                      >
-                        {customerSummary}
-                      </div>
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        aria-label="Invoice Details"
-                        onBlur={(e) => {
-                          setInvoiceSummary(e.currentTarget.textContent || "");
-                          setInvoiceDirty(true);
-                        }}
-                      >
-                        {invoiceSummary}
-                      </div>
-                      <div
-                        contentEditable
-                        suppressContentEditableWarning
-                        aria-label="Payment"
-                        onBlur={(e) => {
-                          setPaymentSummary(e.currentTarget.textContent || "");
-                          setInvoiceDirty(true);
-                        }}
-                      >
-                        {paymentSummary}
-                      </div>
-                    </div>
-
-                    <hr className="summary-divider" />
-
-                    <div className="items-table-wrapper">
-                      <table className="items-table">
-                        <thead>
-                          <tr>
-                            <th>Description</th>
-                            <th>QTY</th>
-                            <th>Unit</th>
-                            <th>Unit Price</th>
-                            <th>Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rowsData.map((row, idx) =>
-                            row.type === "group" ? (
-                              <tr className="group-header" key={`g-${idx}`}>
-                                <td colSpan={5}>{row.group}</td>
-                              </tr>
-                            ) : (
-                              <tr key={row.item.budgetItemId || `row-${idx}`}>
-                                <td>{row.item.description || ""}</td>
-                                <td>{row.item.quantity || ""}</td>
-                                <td>{row.item.unit || ""}</td>
-                                <td>
-                                  {formatCurrency(
-                                    (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                                      (parseFloat(String(row.item.quantity || 1)) || 1)
-                                  )}
-                                </td>
-                                <td>
-                                  {formatCurrency(
-                                    parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="bottom-block">
-                      <div className="totals">
-                        <div>
-                          Subtotal: <span>{formatCurrency(subtotal)}</span>
-                        </div>
-                        <div>
-                          Deposit received:
-                          <span
-                            contentEditable
-                            suppressContentEditableWarning
-                            onBlur={(e) => {
-                              setDepositReceived(
-                                parseFloat(
-                                  (e.currentTarget.textContent || "").replace(/[$,]/g, "")
-                                ) || 0
-                              );
-                              setInvoiceDirty(true);
-                            }}
-                          >
-                            {formatCurrency(depositReceived)}
-                          </span>
-                        </div>
-                        <div>
-                          <strong>
-                            Total Due:
-                            <span
-                              contentEditable
-                              suppressContentEditableWarning
-                              onBlur={(e) => {
-                                setTotalDue(
-                                  parseFloat(
-                                    (e.currentTarget.textContent || "").replace(/[$,]/g, "")
-                                  ) || 0
-                                );
-                                setInvoiceDirty(true);
-                              }}
-                            >
-                              {formatCurrency(totalDue)}
-                            </span>
-                          </strong>
-                        </div>
-                      </div>
-
-                      <div
-                        className="notes"
-                        contentEditable
-                        suppressContentEditableWarning
-                        onBlur={(e) => {
-                          setNotes(e.currentTarget.innerHTML || "");
-                          setInvoiceDirty(true);
-                        }}
-                        dangerouslySetInnerHTML={{ __html: notes }}
-                      />
-
-                      <div className="footer" contentEditable suppressContentEditableWarning>
-                        {project?.company || "Company Name"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Visible paginated preview */}
-                  {pages[currentPage] && (
-                    <div className={styles.previewViewport}>
-                      <div className="invoice-page invoice-container">
-                      <div className="invoice-top">
-                        <header className="invoice-header">
-                          <div
-                            className="logo-upload"
-                            onClick={() => fileInputRef.current?.click()}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={handleLogoDrop}
-                            aria-label="Company logo"
-                          >
-                            {logoDataUrl || brandLogoKey ? (
-                              <img src={logoDataUrl || getFileUrl(brandLogoKey || '')} alt="Company logo" />
-                            ) : (
-                              <span>Upload Logo</span>
-                            )}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              ref={fileInputRef}
-                              style={{ display: "none" }}
-                              onChange={handleLogoSelect}
-                            />
-                          </div>
-
-                          <div className="company-block">
-                            <div className="company-info">
-                              <div
-                                className="brand-name"
-                                contentEditable
-                                suppressContentEditableWarning
-                                aria-label="Company Name"
-                                onBlur={(e) => {
-                                  setBrandName(e.currentTarget.textContent || "");
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {brandName || "Your Business Name"}
-                              </div>
-                              <div
-                                className="brand-tagline"
-                                contentEditable
-                                suppressContentEditableWarning
-                                aria-label="Tagline"
-                                onBlur={(e) => {
-                                  setBrandTagline(e.currentTarget.textContent || "");
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {brandTagline || "Tagline"}
-                              </div>
-                              <div
-                                className="brand-address"
-                                contentEditable
-                                suppressContentEditableWarning
-                                aria-label="Company Address"
-                                onBlur={(e) => {
-                                  setBrandAddress(e.currentTarget.textContent || "");
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {useProjectAddress
-                                  ? project?.address || "Project Address"
-                                  : brandAddress || "Business Address"}
-                              </div>
-                              <div
-                                className="brand-phone"
-                                contentEditable
-                                suppressContentEditableWarning
-                                aria-label="Company Phone"
-                                onBlur={(e) => {
-                                  setBrandPhone(e.currentTarget.textContent || "");
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {brandPhone || "Phone Number"}
-                              </div>
-                              {project?.address && (
-                                <label style={{ fontSize: "0.8rem" }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={useProjectAddress}
-                                    onChange={(e) => setUseProjectAddress(e.target.checked)}
-                                  />{" "}
-                                  Use project address
-                                </label>
-                              )}
-                            </div>
-
-                            <div className="invoice-meta">
-                              <div>
-                                Invoice #:{" "}
-                                <span
-                                  contentEditable
-                                  suppressContentEditableWarning
-                                  onBlur={(e) => {
-                                    setInvoiceNumber(e.currentTarget.textContent || "");
-                                    setInvoiceDirty(true);
-                                  }}
-                                >
-                                  {invoiceNumber}
-                                </span>
-                              </div>
-                              <div>
-                                Issue date:{" "}
-                                <span
-                                  contentEditable
-                                  suppressContentEditableWarning
-                                  onBlur={(e) => {
-                                    setIssueDate(e.currentTarget.textContent || "");
-                                    setInvoiceDirty(true);
-                                  }}
-                                >
-                                  {issueDate}
-                                </span>
-                              </div>
-                              <div>
-                                Due date:{" "}
-                                <input
-                                  type="date"
-                                  className={styles.metaInput}
-                                  value={dueDate}
-                                  onChange={(e) => {
-                                    setDueDate(e.target.value);
-                                    setInvoiceDirty(true);
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                Service date:{" "}
-                                <input
-                                  type="date"
-                                  className={styles.metaInput}
-                                  value={serviceDate}
-                                  onChange={(e) => {
-                                    setServiceDate(e.target.value);
-                                    setInvoiceDirty(true);
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </header>
-                      </div>
-
-                      <h1
-                        className="project-title"
-                        contentEditable
-                        suppressContentEditableWarning
-                        aria-label="Project Title"
-                        onBlur={(e) => {
-                          setProjectTitle(e.currentTarget.textContent || "");
-                          setInvoiceDirty(true);
-                        }}
-                      >
-                        {projectTitle}
-                      </h1>
-
-                      <div className="summary">
-                        <div
-                          contentEditable
-                          suppressContentEditableWarning
-                          aria-label="Customer Summary"
-                          onBlur={(e) => {
-                            setCustomerSummary(e.currentTarget.textContent || "");
-                            setInvoiceDirty(true);
-                          }}
-                        >
-                          {customerSummary}
-                        </div>
-                        <div
-                          contentEditable
-                          suppressContentEditableWarning
-                          aria-label="Invoice Details"
-                          onBlur={(e) => {
-                            setInvoiceSummary(e.currentTarget.textContent || "");
-                            setInvoiceDirty(true);
-                          }}
-                        >
-                          {invoiceSummary}
-                        </div>
-                        <div
-                          contentEditable
-                          suppressContentEditableWarning
-                          aria-label="Payment"
-                          onBlur={(e) => {
-                            setPaymentSummary(e.currentTarget.textContent || "");
-                            setInvoiceDirty(true);
-                          }}
-                        >
-                          {paymentSummary}
-                        </div>
-                      </div>
-
-                      <hr className="summary-divider" />
-
-                      <div className="items-table-wrapper">
-                        <table className="items-table">
-                          <thead>
-                            <tr>
-                              <th>Description</th>
-                              <th>QTY</th>
-                              <th>Unit</th>
-                              <th>Unit Price</th>
-                              <th>Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {currentRows.map((row, idx2) =>
-                              row.type === "group" ? (
-                                <tr
-                                  className="group-header"
-                                  key={`g-${currentPage}-${idx2}`}
-                                >
-                                  <td colSpan={5}>{row.group}</td>
-                                </tr>
-                              ) : (
-                                <tr key={row.item.budgetItemId || `r-${currentPage}-${idx2}`}>
-                                  <td>{row.item.description || ""}</td>
-                                  <td>{row.item.quantity || ""}</td>
-                                  <td>{row.item.unit || ""}</td>
-                                  <td>
-                                    {formatCurrency(
-                                      (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                                        (parseFloat(String(row.item.quantity || 1)) || 1)
-                                    )}
-                                  </td>
-                                  <td>
-                                    {formatCurrency(
-                                      parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {currentPage === Math.max(0, pages.length - 1) && (
-                        <div className="bottom-block">
-                          <div className="totals">
-                            <div>
-                              Subtotal: <span>{formatCurrency(subtotal)}</span>
-                            </div>
-                            <div>
-                              Deposit received:
-                              <span
-                                contentEditable
-                                suppressContentEditableWarning
-                                onBlur={(e) => {
-                                  setDepositReceived(
-                                    parseFloat(
-                                      (e.currentTarget.textContent || "").replace(/[$,]/g, "")
-                                    ) || 0
-                                  );
-                                  setInvoiceDirty(true);
-                                }}
-                              >
-                                {formatCurrency(depositReceived)}
-                              </span>
-                            </div>
-                            <div>
-                              <strong>
-                                Total Due:
-                                <span
-                                  contentEditable
-                                  suppressContentEditableWarning
-                                  onBlur={(e) => {
-                                    setTotalDue(
-                                      parseFloat(
-                                        (e.currentTarget.textContent || "").replace(/[$,]/g, "")
-                                      ) || 0
-                                    );
-                                    setInvoiceDirty(true);
-                                  }}
-                                >
-                                  {formatCurrency(totalDue)}
-                                </span>
-                              </strong>
-                            </div>
-                          </div>
-
-                            <div
-                              className="notes"
-                              contentEditable
-                              suppressContentEditableWarning
-                              onBlur={(e) => {
-                                setNotes(e.currentTarget.innerHTML || "");
-                                setInvoiceDirty(true);
-                              }}
-                              dangerouslySetInnerHTML={{ __html: notes }}
-                            />
-
-                          <div className="footer" contentEditable suppressContentEditableWarning>
-                            {project?.company || "Company Name"}
-                          </div>
-                        </div>
-                      )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <InvoicePreviewContent
+                  invoiceRef={invoiceRef}
+                  previewRef={previewRef}
+                  fileInputRef={fileInputRef}
+                  logoDataUrl={logoDataUrl}
+                  brandLogoKey={brandLogoKey}
+                  onLogoSelect={handleLogoSelect}
+                  onLogoDrop={handleLogoDrop}
+                  brandName={brandName}
+                  onBrandNameBlur={handleBrandNameBlur}
+                  brandTagline={brandTagline}
+                  onBrandTaglineBlur={handleBrandTaglineBlur}
+                  brandAddress={brandAddress}
+                  onBrandAddressBlur={handleBrandAddressBlur}
+                  brandPhone={brandPhone}
+                  onBrandPhoneBlur={handleBrandPhoneBlur}
+                  useProjectAddress={useProjectAddress}
+                  onToggleProjectAddress={handleToggleProjectAddress}
+                  project={project}
+                  invoiceNumber={invoiceNumber}
+                  onInvoiceNumberBlur={handleInvoiceNumberBlur}
+                  issueDate={issueDate}
+                  onIssueDateBlur={handleIssueDateBlur}
+                  dueDate={dueDate}
+                  onDueDateChange={handleDueDateChange}
+                  serviceDate={serviceDate}
+                  onServiceDateChange={handleServiceDateChange}
+                  projectTitle={projectTitle}
+                  onProjectTitleBlur={handleProjectTitleBlur}
+                  customerSummary={customerSummary}
+                  onCustomerSummaryBlur={handleCustomerSummaryBlur}
+                  invoiceSummary={invoiceSummary}
+                  onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
+                  paymentSummary={paymentSummary}
+                  onPaymentSummaryBlur={handlePaymentSummaryBlur}
+                  rowsData={rowsData}
+                  currentRows={currentRows}
+                  currentPage={currentPage}
+                  totalPages={pages.length}
+                  subtotal={subtotal}
+                  depositReceived={depositReceived}
+                  onDepositBlur={handleDepositBlur}
+                  totalDue={totalDue}
+                  onTotalDueBlur={handleTotalDueBlur}
+                  notes={notes}
+                  onNotesBlur={handleNotesBlur}
+                />
               </div>
             </Fragment>
           )}
@@ -1805,14 +1013,3 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 };
 
 export default InvoicePreviewModal;
-
-
-
-
-
-
-
-
-
-
-
