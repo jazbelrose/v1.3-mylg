@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, CheckSquare, Clock, Pencil, User2 } from "lucide-react";
+import { Calendar as CalendarIcon, CheckSquare, Clock, Pencil } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import { compareDateStrings, formatTimeLabel, parseIsoDate, fmt } from "../utils";
@@ -264,19 +264,16 @@ function EventsAndTasks({
                         </span>
                       </span>
                     ) : null}
-                    {assignedInitials ? (
-                      <span
-                        className="events-tasks__meta-chip"
-                        title={assignedLabel ?? undefined}
-                        aria-label={
-                          assignedLabel ? `Assigned to ${assignedLabel}` : undefined
-                        }
-                      >
-                        <User2 size={12} aria-hidden />
-                        <span>{assignedInitials}</span>
-                      </span>
-                    ) : null}
                   </div>
+                  {assignedInitials ? (
+                    <span
+                      className="events-tasks__assignee-badge"
+                      title={assignedLabel ?? undefined}
+                      aria-label={assignedLabel ? `Assigned to ${assignedLabel}` : undefined}
+                    >
+                      {assignedInitials}
+                    </span>
+                  ) : null}
                 </div>
               </li>
             );
