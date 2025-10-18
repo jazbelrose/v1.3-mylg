@@ -309,8 +309,6 @@
 .month-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.9);
 }
@@ -329,6 +327,15 @@
   letter-spacing: 0.08em;
 }
 
+.month-grid__weekday:first-child {
+  border-top-left-radius: 18px;
+}
+
+.month-grid__weekday:last-child {
+  border-right: none;
+  border-top-right-radius: 18px;
+}
+
 .month-grid__cell {
   position: relative;
   min-height: 120px;
@@ -342,6 +349,30 @@
   transition: background 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
   overflow: visible;
+}
+
+.month-grid__cell:nth-child(7n + 7) {
+  border-right: none;
+}
+
+.month-grid__cell:nth-last-child(-n + 7) {
+  border-bottom: none;
+}
+
+.month-grid__cell:nth-child(8) {
+  border-top-left-radius: 18px;
+}
+
+.month-grid__cell:nth-child(14) {
+  border-top-right-radius: 18px;
+}
+
+.month-grid__cell:nth-last-child(7) {
+  border-bottom-left-radius: 18px;
+}
+
+.month-grid__cell:last-child {
+  border-bottom-right-radius: 18px;
 }
 
 .month-grid__cell.is-current {
