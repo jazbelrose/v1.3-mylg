@@ -987,7 +987,7 @@
 }
 
 .events-tasks__status-badge {
-  --events-status-pill-padding: 0.15rem 0.5rem;
+  --events-status-pill-padding: 0.18rem 0.55rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1015,21 +1015,21 @@
 
 .events-tasks__status-badge--completed,
 .events-tasks__status-badge--scheduled {
-  background: color-mix(in srgb, var(--events-status-green) 22%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-green) 55%, transparent);
-  color: color-mix(in srgb, #ffffff 92%, var(--events-status-green) 8%);
+  background: color-mix(in srgb, var(--events-status-green) 30%, transparent);
+  border-color: color-mix(in srgb, var(--events-status-green) 52%, transparent);
+  color: color-mix(in srgb, #ffffff 88%, var(--events-status-green) 12%);
 }
 
 .events-tasks__status-badge--overdue {
-  background: color-mix(in srgb, var(--events-status-red) 24%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-red) 58%, transparent);
-  color: color-mix(in srgb, #ffffff 94%, var(--events-status-red) 6%);
+  background: color-mix(in srgb, var(--events-status-red) 32%, transparent);
+  border-color: color-mix(in srgb, var(--events-status-red) 56%, transparent);
+  color: color-mix(in srgb, #ffffff 90%, var(--events-status-red) 10%);
 }
 
 .events-tasks__status-badge--dueSoon {
-  background: color-mix(in srgb, var(--events-status-orange) 26%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-orange) 52%, transparent);
-  color: color-mix(in srgb, #1f1200 28%, #ffffff 72%);
+  background: color-mix(in srgb, var(--events-status-orange) 32%, transparent);
+  border-color: color-mix(in srgb, var(--events-status-orange) 54%, transparent);
+  color: color-mix(in srgb, #1f1200 26%, #ffffff 74%);
 }
 
 .events-tasks__status-badge--unscheduled {
@@ -1082,7 +1082,9 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-  padding: var(--events-status-pill-padding, 0.15rem 0.5rem);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .events-tasks__status-trigger:focus-visible {

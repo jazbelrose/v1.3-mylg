@@ -214,14 +214,18 @@ function EventsAndTasks({
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category} events-tasks__status-trigger`}
+                          className="events-tasks__status-trigger"
                           title={statusDescription}
                           aria-label={`Task status: ${statusDescription}`}
                           onClick={(event) => {
                             event.stopPropagation();
                           }}
                         >
-                          {displayStatusLabel}
+                          <span
+                            className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category}`}
+                          >
+                            {displayStatusLabel}
+                          </span>
                         </button>
                       </PopoverTrigger>
                       <PopoverContent
