@@ -126,18 +126,20 @@ function EventsAndTasks({
                     </span>
                   </div>
                   <div className="events-tasks__card-meta">
-                    {scheduleLabel ? (
-                      <span className="events-tasks__meta-chip">
-                        <CalendarIcon size={12} aria-hidden />
-                        <span>{scheduleLabel}</span>
-                      </span>
-                    ) : null}
-                    {timeLabel ? (
-                      <span className="events-tasks__meta-chip">
-                        <Clock size={12} aria-hidden />
-                        <span>{timeLabel}</span>
-                      </span>
-                    ) : null}
+                    <div className="events-tasks__meta-group">
+                      {scheduleLabel ? (
+                        <span className="events-tasks__meta-chip">
+                          <CalendarIcon size={12} aria-hidden />
+                          <span>{scheduleLabel}</span>
+                        </span>
+                      ) : null}
+                      {timeLabel ? (
+                        <span className="events-tasks__meta-chip">
+                          <Clock size={12} aria-hidden />
+                          <span>{timeLabel}</span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </li>
@@ -255,25 +257,27 @@ function EventsAndTasks({
                     </Popover>
                   </div>
                   <div className="events-tasks__card-meta">
-                    {dueLabel ? (
-                      <span className="events-tasks__meta-chip">
-                        <CalendarIcon size={12} aria-hidden />
-                        <span>
-                          Due {dueLabel}
-                          {timeLabel ? ` · ${timeLabel}` : ""}
+                    <div className="events-tasks__meta-group">
+                      {dueLabel ? (
+                        <span className="events-tasks__meta-chip">
+                          <CalendarIcon size={12} aria-hidden />
+                          <span>
+                            Due {dueLabel}
+                            {timeLabel ? ` · ${timeLabel}` : ""}
+                          </span>
                         </span>
+                      ) : null}
+                    </div>
+                    {assignedInitials ? (
+                      <span
+                        className="events-tasks__assignee-badge"
+                        title={assignedLabel ?? undefined}
+                        aria-label={assignedLabel ? `Assigned to ${assignedLabel}` : undefined}
+                      >
+                        {assignedInitials}
                       </span>
                     ) : null}
                   </div>
-                  {assignedInitials ? (
-                    <span
-                      className="events-tasks__assignee-badge"
-                      title={assignedLabel ?? undefined}
-                      aria-label={assignedLabel ? `Assigned to ${assignedLabel}` : undefined}
-                    >
-                      {assignedInitials}
-                    </span>
-                  ) : null}
                 </div>
               </li>
             );

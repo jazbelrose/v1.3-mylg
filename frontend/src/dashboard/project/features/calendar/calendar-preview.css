@@ -944,8 +944,8 @@
   --events-status-green: var(--color-success, #4caf50);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px 16px;
+  gap: 6px;
+  padding: 10px 14px;
   border-radius: 14px;
   background: rgba(18, 20, 31, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -963,10 +963,6 @@
 .events-tasks__card:focus-visible {
   outline: 2px solid rgba(250, 51, 86, 0.65);
   outline-offset: 2px;
-}
-
-.events-tasks__card--task {
-  padding-bottom: 42px;
 }
 
 .events-tasks__card--task.is-complete {
@@ -991,15 +987,15 @@
 }
 
 .events-tasks__status-badge {
-  --events-status-pill-padding: 0.2rem 0.6rem;
+  --events-status-pill-padding: 0.15rem 0.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   padding: var(--events-status-pill-padding);
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  font-size: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.55rem;
   line-height: 1;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1012,51 +1008,55 @@
 }
 
 .events-tasks__status-badge--neutral {
-  background: rgba(148, 163, 184, 0.18);
-  border-color: rgba(148, 163, 184, 0.32);
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.28);
   color: rgba(226, 232, 240, 0.85);
 }
 
-.events-tasks__status-badge--completed {
-  background: color-mix(in srgb, var(--events-status-green) 80%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-green) 60%, transparent);
-  color: color-mix(in srgb, #ffffff 88%, var(--events-status-green) 12%);
+.events-tasks__status-badge--completed,
+.events-tasks__status-badge--scheduled {
+  background: color-mix(in srgb, var(--events-status-green) 22%, transparent);
+  border-color: color-mix(in srgb, var(--events-status-green) 55%, transparent);
+  color: color-mix(in srgb, #ffffff 92%, var(--events-status-green) 8%);
 }
 
 .events-tasks__status-badge--overdue {
-  background: color-mix(in srgb, var(--events-status-red) 80%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-red) 60%, transparent);
-  color: color-mix(in srgb, #ffffff 92%, var(--events-status-red) 8%);
+  background: color-mix(in srgb, var(--events-status-red) 24%, transparent);
+  border-color: color-mix(in srgb, var(--events-status-red) 58%, transparent);
+  color: color-mix(in srgb, #ffffff 94%, var(--events-status-red) 6%);
 }
 
 .events-tasks__status-badge--dueSoon {
-  background: color-mix(in srgb, var(--events-status-orange) 80%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-orange) 60%, transparent);
-  color: color-mix(in srgb, #1f1200 35%, #ffffff 65%);
-}
-
-.events-tasks__status-badge--scheduled {
-  background: color-mix(in srgb, var(--events-status-green) 30%, transparent);
-  border-color: color-mix(in srgb, var(--events-status-green) 38%, transparent);
-  color: color-mix(in srgb, #ffffff 90%, var(--events-status-green) 10%);
+  background: color-mix(in srgb, var(--events-status-orange) 26%, transparent);
+  border-color: color-mix(in srgb, var(--events-status-orange) 52%, transparent);
+  color: color-mix(in srgb, #1f1200 28%, #ffffff 72%);
 }
 
 .events-tasks__status-badge--unscheduled {
-  background: rgba(148, 163, 184, 0.18);
-  border-color: rgba(148, 163, 184, 0.32);
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.28);
   color: rgba(226, 232, 240, 0.85);
 }
 
 .events-tasks__card-meta {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 6px;
-  row-gap: 4px;
-  padding-right: 36px;
 }
 
-.events-tasks__card--task .events-tasks__card-meta {
-  padding-right: 48px;
+.events-tasks__meta-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.events-tasks__meta-group:empty {
+  display: none;
 }
 
 .events-tasks__meta-chip {
@@ -1082,7 +1082,7 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-  padding: var(--events-status-pill-padding, 0.2rem 0.6rem);
+  padding: var(--events-status-pill-padding, 0.15rem 0.5rem);
 }
 
 .events-tasks__status-trigger:focus-visible {
@@ -1091,23 +1091,21 @@
 }
 
 .events-tasks__assignee-badge {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  min-width: 24px;
-  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
   padding: 0 6px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.12);
   color: rgba(246, 247, 251, 0.95);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  margin-left: auto;
   pointer-events: none;
 }
 
