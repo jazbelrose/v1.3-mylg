@@ -58,9 +58,9 @@
 
 .calendar-controls {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .calendar-controls__nav {
@@ -122,6 +122,76 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
+.calendar-controls__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.calendar-controls__search {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.calendar-controls__search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.calendar-controls__search-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.calendar-controls__search-input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.calendar-controls__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.45);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.calendar-controls__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  border: none;
+  background: #fa3356;
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.calendar-controls__add:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.calendar-controls__add-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .calendar-view {
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -152,104 +222,6 @@
 }
 
 .calendar-footer__icon {
-  width: 16px;
-  height: 16px;
-}
-
-.calendar-top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  background: rgba(0, 0, 0, 0.45);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.calendar-top-bar__heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.calendar-top-bar__icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  display: grid;
-  place-items: center;
-}
-
-.calendar-top-bar__icon-svg {
-  width: 16px;
-  height: 16px;
-}
-
-.calendar-top-bar__title {
-  font-weight: 600;
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
-}
-
-.calendar-top-bar__actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.calendar-top-bar__search {
-  position: relative;
-}
-
-.calendar-top-bar__search-input {
-  width: 280px;
-  padding: 8px 12px 8px 36px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.08);
-  color: inherit;
-  font-size: 0.85rem;
-  outline: none;
-}
-
-.calendar-top-bar__search-input::placeholder {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.calendar-top-bar__search-input:focus {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
-}
-
-.calendar-top-bar__search-icon {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  width: 16px;
-  height: 16px;
-  color: rgba(255, 255, 255, 0.45);
-  transform: translateY(-50%);
-}
-
-.calendar-top-bar__add {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 14px;
-  border: none;
-  background: #fa3356;
-  color: #fff;
-  font-weight: 500;
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.calendar-top-bar__add:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.calendar-top-bar__add-icon {
   width: 16px;
   height: 16px;
 }
@@ -1243,27 +1215,31 @@
 @media (max-width: 720px) {
   .calendar-controls {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
   }
 
-  .calendar-top-bar {
+  .calendar-controls__nav {
+    width: 100%;
+  }
+
+  .calendar-controls__actions {
+    width: 100%;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .calendar-top-bar__actions {
-    width: 100%;
-    flex-wrap: wrap;
+    align-items: stretch;
     gap: 12px;
   }
 
-  .calendar-top-bar__search-input {
-    width: 100%;
+  .calendar-controls__toggle {
+    align-self: flex-start;
   }
 
-  .calendar-top-bar__add {
+  .calendar-controls__search {
+    width: 100%;
+    max-width: none;
+  }
+
+  .calendar-controls__add {
     width: 100%;
     justify-content: center;
   }
