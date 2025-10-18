@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { CheckSquare, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
 import {
@@ -787,13 +787,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onChange={(event) => setSearchTerm(event.target.value)}
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCreate(internalDate)}
-                    className="calendar-controls__add"
-                  >
-                    <Plus className="calendar-controls__add-icon" aria-hidden /> Add Event
-                  </button>
                 </div>
               </div>
 

@@ -167,30 +167,6 @@
   pointer-events: none;
 }
 
-.calendar-controls__add {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 14px;
-  border: none;
-  background: #fa3356;
-  color: #fff;
-  font-weight: 500;
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  white-space: nowrap;
-}
-
-.calendar-controls__add:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.calendar-controls__add-icon {
-  width: 16px;
-  height: 16px;
-}
 
 .calendar-view {
   border-radius: 20px;
@@ -1239,8 +1215,4 @@
     max-width: none;
   }
 
-  .calendar-controls__add {
-    width: 100%;
-    justify-content: center;
-  }
 }
