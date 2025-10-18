@@ -14,6 +14,25 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 
+function formatInitials(value?: string): string | undefined {
+  if (!value) return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const tokens = trimmed
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase());
+
+  if (tokens.length === 0) {
+    const fallback = trimmed.slice(0, 2).toUpperCase();
+    return fallback || undefined;
+  }
+
+  return tokens.join("").slice(0, 3) || undefined;
+}
+
 export type EventsAndTasksProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
@@ -151,15 +170,18 @@ function EventsAndTasks({
             const statusValue = quickTask?.status ?? fallbackStatus;
             const dueDate = quickTask?.dueDate ?? parseIsoDate(task.due);
             const statusData = getTaskStatusBadge(statusValue, dueDate, statusContext);
-            const displayStatusLabel =
-              statusData.label === formatStatusLabel(statusValue)
-                ? statusData.label
-                : `${statusData.label} · ${formatStatusLabel(statusValue)}`;
+            const formattedStatusLabel = formatStatusLabel(statusValue);
+            const displayStatusLabel = statusData.label;
+            const statusDescription =
+              statusData.label === formattedStatusLabel
+                ? formattedStatusLabel
+                : `${statusData.label} (${formattedStatusLabel})`;
             const dueLabel = dueDate ? scheduleDateFormatter.format(dueDate) : undefined;
             const timeLabel = formatTimeLabel(task.time);
             const assignedLabel = quickTask?.assignedTo
               ? formatAssigneeDisplay(quickTask.assignedTo)
               : formatAssigneeDisplay(task.assignedTo);
+            const assignedInitials = formatInitials(assignedLabel);
             const isPopoverOpen = activeTaskPopoverId === task.id;
             const toggleLabel = isDone ? "Mark as not done" : "Mark as done";
 
@@ -191,6 +213,8 @@ function EventsAndTasks({
                         <button
                           type="button"
                           className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category} events-tasks__status-trigger`}
+                          title={statusDescription}
+                          aria-label={`Task status: ${statusDescription}`}
                           onClick={(event) => {
                             event.stopPropagation();
                           }}
@@ -240,10 +264,16 @@ function EventsAndTasks({
                         </span>
                       </span>
                     ) : null}
-                    {assignedLabel ? (
-                      <span className="events-tasks__meta-chip">
+                    {assignedInitials ? (
+                      <span
+                        className="events-tasks__meta-chip"
+                        title={assignedLabel ?? undefined}
+                        aria-label={
+                          assignedLabel ? `Assigned to ${assignedLabel}` : undefined
+                        }
+                      >
                         <User2 size={12} aria-hidden />
-                        <span>{assignedLabel}</span>
+                        <span>{assignedInitials}</span>
                       </span>
                     ) : null}
                   </div>
