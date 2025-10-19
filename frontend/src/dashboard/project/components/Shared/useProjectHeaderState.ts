@@ -93,6 +93,8 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     displayStatus,
     rangeLabel,
     mobileRangeLabel,
+    dateRangeLabel: rangeDateLabel,
+    hoursLabel: rangeHoursLabel,
     resolvedProjectId,
   } = useLocalProjectState(activeProject);
 
@@ -479,6 +481,8 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     progressValue,
     rangeLabel,
     mobileRangeLabel,
+    rangeDateLabel,
+    rangeHoursLabel,
     handleKeyDown,
     navigation,
     editNameModal,
