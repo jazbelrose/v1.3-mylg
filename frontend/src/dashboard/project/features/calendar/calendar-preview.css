@@ -564,10 +564,11 @@
 .week-grid__spacer {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 10;
   background: var(--bg2);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-top-left-radius: 20px;
 }
 
 
@@ -601,6 +602,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.week-grid__weekday:last-of-type {
+  border-top-right-radius: 20px;
 }
 
 .week-grid__weekday::after {
