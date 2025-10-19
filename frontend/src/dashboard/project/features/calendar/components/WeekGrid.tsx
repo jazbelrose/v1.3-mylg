@@ -122,11 +122,14 @@ function WeekGrid({
   return (
     <div className="week-grid">
       <div className="week-grid__spacer" />
-      {days.map((day) => {
+      {days.map((day, index) => {
         const key = fmt(day);
         const isOpen = quickAddKey === key;
+        const weekdayClassName = `week-grid__weekday${
+          index === days.length - 1 ? " week-grid__weekday--end" : ""
+        }`;
         return (
-          <div key={key} className="week-grid__weekday">
+          <div key={key} className={weekdayClassName}>
             <span className="week-grid__weekday-label">
               {day.toLocaleDateString(undefined, { weekday: "short" })} {day.getDate()}
             </span>
