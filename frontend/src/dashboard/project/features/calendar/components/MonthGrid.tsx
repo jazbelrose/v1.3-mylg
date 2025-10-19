@@ -80,10 +80,9 @@ function MonthGrid({
     setQuickAddKey(null);
   };
 
-  const handleOpenQuickAdd = (day: Date) => {
-    const key = fmt(day);
+  const handleSelectDay = (day: Date) => {
     onSelectDate(day);
-    setQuickAddKey(key);
+    setQuickAddKey(null);
   };
 
   const handleOpenQuickTask = (day: Date) => {
@@ -151,10 +150,17 @@ function MonthGrid({
               className={`${className}${isHovered ? " is-hovered" : ""}`.trim()}
               onMouseEnter={() => setHoveredKey(key)}
               onMouseLeave={() => handleMouseLeave(key)}
-              onClick={() => handleOpenQuickAdd(day)}
+              onClick={() => handleSelectDay(day)}
               role="presentation"
             >
-              <button type="button" className="month-grid__date">
+              <button
+                type="button"
+                className="month-grid__date"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleSelectDay(day);
+                }}
+              >
                 {day.getDate()}
               </button>
               <div className="month-grid__events">
@@ -227,7 +233,11 @@ function MonthGrid({
                 aria-label="Add calendar item"
                 onClick={(event) => {
                   event.stopPropagation();
-                  setQuickAddKey((current) => (current === key ? null : key));
+                  const isOpen = quickAddKey === key;
+                  if (!isOpen) {
+                    onSelectDate(day);
+                  }
+                  setQuickAddKey(isOpen ? null : key);
                 }}
               >
                 <Plus className="month-grid__quick-add-icon" aria-hidden />
