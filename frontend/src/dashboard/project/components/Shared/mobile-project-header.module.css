@@ -180,14 +180,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .dateRange,
 .hours {
+  display: inline;
   white-space: nowrap;
 }
 
 .separator {
+  display: inline;
   color: currentColor;
   line-height: 1;
 }

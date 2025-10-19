@@ -204,12 +204,23 @@
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
+.project-header:not(.new-project-header) .finish-line-header .finish-line-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 .project-header:not(.new-project-header) .finish-line-header .finish-line-date,
 .project-header:not(.new-project-header) .finish-line-header .finish-line-hours {
+  display: inline;
   white-space: nowrap;
 }
 
 .project-header:not(.new-project-header) .finish-line-header .finish-line-separator {
+  display: inline;
   color: inherit;
   line-height: 1;
 }

@@ -121,15 +121,17 @@ const DesktopProjectHeader = ({
                 aria-label={rangeLabel}
                 style={{ cursor: "pointer" }}
               >
-                {dateRangeLabel ? (
-                  <span className="finish-line-date">{dateRangeLabel}</span>
-                ) : null}
-                {dateRangeLabel ? (
-                  <span className="finish-line-separator" aria-hidden="true">
-                    •
-                  </span>
-                ) : null}
-                <span className="finish-line-hours">{hoursLabel}</span>
+                <span className="finish-line-label">
+                  {dateRangeLabel ? (
+                    <span className="finish-line-date">{dateRangeLabel}</span>
+                  ) : null}
+                  {dateRangeLabel ? (
+                    <span className="finish-line-separator" aria-hidden="true">
+                      •
+                    </span>
+                  ) : null}
+                  <span className="finish-line-hours">{hoursLabel}</span>
+                </span>
               </div>
             </div>
           </div>
