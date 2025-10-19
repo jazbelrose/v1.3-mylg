@@ -124,23 +124,16 @@ export function useRangeLabels(project: Project) {
       ),
     [project?.timelineEvents]
   );
-
-  const rangeLabel = useMemo(() => {
+const rangeLabel = useMemo(() => {
     const totalPart = `${totalHours} hrs`;
     if (!startDate || !endDate) return totalPart;
     const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
     const startStr = startDate.toLocaleDateString(undefined, options);
     const endStr = endDate.toLocaleDateString(undefined, options);
-    return `${startStr} – ${endStr}  ⏱ ${totalPart}`;
+    return `${startStr} – ${endStr} · ${totalPart}`;
   }, [startDate, endDate, totalHours]);
 
-  const mobileRangeLabel = useMemo(() => {
-    if (!rangeLabel.includes("⏱")) {
-      return rangeLabel;
-    }
-
-    return rangeLabel.replace("  ⏱ ", " • ");
-  }, [rangeLabel]);
+  const mobileRangeLabel = useMemo(() => rangeLabel, [rangeLabel]);
 
   return { rangeLabel, mobileRangeLabel, totalHours };
 }
