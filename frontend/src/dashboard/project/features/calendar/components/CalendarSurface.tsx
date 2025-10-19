@@ -55,6 +55,8 @@ export type CalendarSurfaceProps = {
   activeProjectId?: string | null;
   activeProjectName?: string | null;
   activeProjectColor?: string | null;
+  activeProjectStartDate?: Date | null;
+  activeProjectEndDate?: Date | null;
 };
 
 const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
@@ -73,6 +75,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   activeProjectId,
   activeProjectName,
   activeProjectColor,
+  activeProjectStartDate,
+  activeProjectEndDate,
 }) => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -112,6 +116,33 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     onDateChange(internalDate);
   }, [internalDate, onDateChange]);
+
+  const projectRange = useMemo(() => {
+    const start = activeProjectStartDate
+      ? new Date(
+          activeProjectStartDate.getFullYear(),
+          activeProjectStartDate.getMonth(),
+          activeProjectStartDate.getDate(),
+        )
+      : null;
+    const end = activeProjectEndDate
+      ? new Date(
+          activeProjectEndDate.getFullYear(),
+          activeProjectEndDate.getMonth(),
+          activeProjectEndDate.getDate(),
+        )
+      : null;
+
+    if (start && end && end.getTime() < start.getTime()) {
+      return { start: end, end: start } as const;
+    }
+
+    if (start || end) {
+      return { start, end } as const;
+    }
+
+    return null;
+  }, [activeProjectStartDate, activeProjectEndDate]);
 
   const quickTasks = useMemo<QuickTask[]>(
     () =>
@@ -696,7 +727,13 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         <div className="calendar-card">
           <div className="calendar-body">
             <div className="calendar-sidebar">
-              <MiniCalendar value={internalDate} onChange={setInternalDate} />
+              <MiniCalendar
+                value={internalDate}
+                onChange={setInternalDate}
+                rangeStart={projectRange?.start ?? null}
+                rangeEnd={projectRange?.end ?? null}
+                rangeColor={activeProjectColor ?? null}
+              />
               <EventsAndTasks
                 events={visibleEvents}
                 tasks={visibleTasks}
