@@ -616,8 +616,8 @@
 
 .week-grid__weekday:last-of-type {
   border-top-right-radius: 20px;
+  border-right: none;
 }
-
 .week-grid__weekday::after {
   content: "";
   position: absolute;
