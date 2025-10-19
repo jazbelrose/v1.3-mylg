@@ -806,25 +806,29 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                   />
                 )}
                 {view === "week" && (
-                  <WeekGrid
-                    anchorDate={internalDate}
-                    events={visibleEvents}
-                    tasks={visibleTasks}
-                    onEditEvent={handleOpenEditEvent}
-                    onEditTask={handleOpenEditTask}
-                    onCreateEvent={handleOpenCreate}
-                    onCreateTask={handleOpenQuickTaskModal}
-                    canCreateTasks={canCreateTasks}
-                  />
+                  <div className="calendar-view__scroller">
+                    <WeekGrid
+                      anchorDate={internalDate}
+                      events={visibleEvents}
+                      tasks={visibleTasks}
+                      onEditEvent={handleOpenEditEvent}
+                      onEditTask={handleOpenEditTask}
+                      onCreateEvent={handleOpenCreate}
+                      onCreateTask={handleOpenQuickTaskModal}
+                      canCreateTasks={canCreateTasks}
+                    />
+                  </div>
                 )}
                 {view === "day" && (
-                  <DayList
-                    date={internalDate}
-                    events={visibleEvents}
-                    tasks={visibleTasks}
-                    onEditEvent={handleOpenEditEvent}
-                    onEditTask={handleOpenEditTask}
-                  />
+                  <div className="calendar-view__scroller">
+                    <DayList
+                      date={internalDate}
+                      events={visibleEvents}
+                      tasks={visibleTasks}
+                      onEditEvent={handleOpenEditEvent}
+                      onEditTask={handleOpenEditTask}
+                    />
+                  </div>
                 )}
               </div>
             </div>
