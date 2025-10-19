@@ -30,7 +30,7 @@ import CreateCalendarItemModal, {
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import type { ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
 
-import DayList from "./DayList";
+import DayGrid from "./DayGrid";
 import EventsAndTasks from "./EventsAndTasks";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
@@ -782,7 +782,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 )}
                 {view === "day" && (
                   <div className="calendar-view__scroller">
-                    <DayList
+                    <DayGrid
                       date={internalDate}
                       events={visibleEvents}
                       tasks={visibleTasks}

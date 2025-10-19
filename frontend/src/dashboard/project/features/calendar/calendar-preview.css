@@ -834,89 +834,54 @@
   opacity: 0.9;
 }
 
-.day-list {
+.day-grid {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.day-grid__spacer {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.day-grid__header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg2);
+  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.day-list__item {
-  display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  align-items: flex-start;
-}
-
-.day-list__icon-wrapper {
-  flex-shrink: 0;
-  display: flex;
-}
-
-.day-list__icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(154, 160, 166, 0.16);
-  color: var(--muted, #9aa0a6);
-}
-
-.day-list__icon--event {
-  background: rgba(154, 160, 166, 0.16);
-}
-
-.day-list__icon--task {
-  background: rgba(154, 160, 166, 0.22);
-  color: var(--muted, #9aa0a6);
-}
-
-.day-list__icon-svg {
-  width: 12px;
-  height: 12px;
-}
-
-.day-list__item--task {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-}
-
-.day-list__title {
-  font-weight: 600;
-}
-
-.day-list__title.is-complete {
-  text-decoration: line-through;
-  opacity: 0.7;
-}
-
-.day-list__time {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 4px;
 }
 
-.day-list__time-icon {
-  width: 16px;
-  height: 16px;
+.day-grid__header-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-.day-list__description {
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.75);
-  margin-top: 6px;
-}
-
-.day-list__empty {
-  padding: 24px;
-  text-align: center;
-  font-size: 0.85rem;
+.day-grid__header-subtitle {
+  font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.day-grid__cell {
+  min-height: 64px;
+}
+
+.day-grid__all-day {
+  margin-bottom: 8px;
 }
 
 .events-tasks {
