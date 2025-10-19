@@ -66,41 +66,6 @@
   flex-wrap: wrap;
 }
 
-.calendar-controls__nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.calendar-controls__button {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.calendar-controls__button:hover {
-  background: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
-}
-
-.calendar-controls__icon {
-  width: 16px;
-  height: 16px;
-}
-
-.calendar-controls__title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
 .calendar-controls__toggle {
   display: inline-flex;
   padding: 4px;
@@ -125,14 +90,6 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
-.calendar-controls__actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-left: auto;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-}
 
 .calendar-controls__toggle {
   flex-shrink: 0;
@@ -143,6 +100,7 @@
   flex: 1 0 220px;
   min-width: 200px;
   max-width: 320px;
+  margin-right: auto;
 }
 
 .calendar-controls__search-input {
@@ -1332,17 +1290,6 @@
 
 @media (max-width: 720px) {
   .calendar-controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .calendar-controls__nav {
-    width: 100%;
-  }
-
-  .calendar-controls__actions {
-    width: 100%;
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
