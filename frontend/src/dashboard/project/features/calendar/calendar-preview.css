@@ -342,7 +342,7 @@
 }
 .month-grid__body > .month-grid__cell {
   position: relative;
-  min-height: 120px;
+  min-height: 160px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px;
@@ -363,20 +363,11 @@
   border-bottom: none;
 }
 
-.month-grid__body > .month-grid__cell:first-child {
-  border-top-left-radius: 18px;
-}
-
-.month-grid__body > .month-grid__cell:nth-child(7) {
-  border-top-right-radius: 18px;
-}
-
-.month-grid__body > .month-grid__cell:nth-last-child(7) {
-  border-bottom-left-radius: 18px;
-}
-
+.month-grid__body > .month-grid__cell:first-child,
+.month-grid__body > .month-grid__cell:nth-child(7),
+.month-grid__body > .month-grid__cell:nth-last-child(7),
 .month-grid__body > .month-grid__cell:last-child {
-  border-bottom-right-radius: 18px;
+  border-radius: 0;
 }
 
 .month-grid__cell.is-current {
