@@ -830,23 +830,25 @@ const CalendarPage: React.FC = () => {
         folder="uploads"
       />
 
-      <CalendarSurface
-        events={calendarEvents}
-        tasks={calendarTasks}
-        taskSources={projectTasks}
-        currentDate={currentDate}
-        onDateChange={setCurrentDate}
-        onCreateEvent={handleCreateEvent}
-        onUpdateEvent={handleUpdateEvent}
-        onDeleteEvent={handleDeleteEvent}
-        onToggleTask={handleToggleTask}
-        teamMembers={teamMembers}
-        onRefreshTasks={refreshProjectTasks}
-        taskProjects={quickCreateProjects}
-        activeProjectId={activeProject?.projectId ?? null}
-        activeProjectName={activeProject?.title ?? null}
-        activeProjectColor={(activeProject?.color as string | undefined) ?? null}
-      />
+      <div className="calendar-page-wrapper">
+        <CalendarSurface
+          events={calendarEvents}
+          tasks={calendarTasks}
+          taskSources={projectTasks}
+          currentDate={currentDate}
+          onDateChange={setCurrentDate}
+          onCreateEvent={handleCreateEvent}
+          onUpdateEvent={handleUpdateEvent}
+          onDeleteEvent={handleDeleteEvent}
+          onToggleTask={handleToggleTask}
+          teamMembers={teamMembers}
+          onRefreshTasks={refreshProjectTasks}
+          taskProjects={quickCreateProjects}
+          activeProjectId={activeProject?.projectId ?? null}
+          activeProjectName={activeProject?.title ?? null}
+          activeProjectColor={(activeProject?.color as string | undefined) ?? null}
+        />
+      </div>
     </ProjectPageLayout>
   );
 };
