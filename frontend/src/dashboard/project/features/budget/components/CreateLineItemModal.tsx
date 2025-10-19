@@ -331,6 +331,8 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     return map;
   }, []);
 
+  const captureOptions = useMemo<AddEventListenerOptions>(() => ({ capture: true }), []);
+
   /* --------------------------- Lifecycle & Setup --------------------------- */
 
   useEffect(() => {
@@ -705,8 +707,10 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" || event.key === "Esc" || event.code === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         setSwipeOffset(0);
         setIsDragging(false);
         isDraggingRef.current = false;
@@ -729,9 +733,22 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, item, initialItemString, onRequestClose, persistItem]);
+    if (typeof window === "undefined") return;
+
+    window.addEventListener("keydown", handleKeyDown, captureOptions);
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("keydown", handleKeyDown, captureOptions);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, captureOptions);
+
+      if (typeof document !== "undefined") {
+        document.removeEventListener("keydown", handleKeyDown, captureOptions);
+      }
+    };
+  }, [isOpen, item, initialItemString, onRequestClose, persistItem, captureOptions]);
 
   /* --------------------------------- Render -------------------------------- */
 
@@ -871,6 +888,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
         onRequestClose={handleClose}
         contentLabel={title}
         closeTimeoutMS={300}
+        shouldCloseOnEsc={false}
         className={{
           base: "",
           afterOpen: "",
