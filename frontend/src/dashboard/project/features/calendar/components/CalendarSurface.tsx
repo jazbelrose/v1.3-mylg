@@ -193,6 +193,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         return true;
       }
 
+      const formattedAssignee = formatAssigneeDisplay(task.assignedTo);
+      if (matches(formattedAssignee)) {
+        return true;
+      }
+
       const quickTask = quickTaskById.get(task.id);
       if (quickTask) {
         if (matches(quickTask.title) || matches(quickTask.description)) {
