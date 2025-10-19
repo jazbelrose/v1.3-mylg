@@ -92,67 +92,72 @@ function MonthGrid({
     setQuickAddKey(null);
   };
 
+  const weekdayLabels = useMemo(() => "SUN,MON,TUE,WED,THU,FRI,SAT".split(","), []);
+
   return (
     <div className="month-grid">
-      {"SUN,MON,TUE,WED,THU,FRI,SAT".split(",").map((label) => (
-        <div key={label} className="month-grid__weekday">
-          {label}
-        </div>
-      ))}
-      {days.map((day) => {
-        const isCurrentMonth = day.getMonth() === month;
-        const key = fmt(day);
-        const isSelected = isSameDay(day, selectedDate);
-        const dayEvents = eventsByDate.get(key) || [];
-        const dayTasks = tasksByDate.get(key) || [];
-        const combined = [
-          ...dayEvents.map((event) => ({
-            type: "event" as const,
-            sortKey: event.start ?? "99:99",
-            event,
-          })),
-          ...dayTasks.map((task) => ({
-            type: "task" as const,
-            sortKey: task.time ?? "99:99",
-            task,
-          })),
-        ].sort((a, b) => {
-          const timeCompare = a.sortKey.localeCompare(b.sortKey);
-          if (timeCompare !== 0) return timeCompare;
-          if (a.type === b.type) {
-            const titleA = a.type === "event" ? a.event.title : a.task.title;
-            const titleB = b.type === "event" ? b.event.title : b.task.title;
-            return titleA.localeCompare(titleB);
-          }
-          return a.type === "event" ? -1 : 1;
-        });
+      <div className="month-grid__header">
+        {weekdayLabels.map((label) => (
+          <div key={label} className="month-grid__weekday">
+            {label}
+          </div>
+        ))}
+      </div>
+      <div className="month-grid__body">
+        {days.map((day) => {
+          const isCurrentMonth = day.getMonth() === month;
+          const key = fmt(day);
+          const isSelected = isSameDay(day, selectedDate);
+          const dayEvents = eventsByDate.get(key) || [];
+          const dayTasks = tasksByDate.get(key) || [];
+          const combined = [
+            ...dayEvents.map((event) => ({
+              type: "event" as const,
+              sortKey: event.start ?? "99:99",
+              event,
+            })),
+            ...dayTasks.map((task) => ({
+              type: "task" as const,
+              sortKey: task.time ?? "99:99",
+              task,
+            })),
+          ].sort((a, b) => {
+            const timeCompare = a.sortKey.localeCompare(b.sortKey);
+            if (timeCompare !== 0) return timeCompare;
+            if (a.type === b.type) {
+              const titleA = a.type === "event" ? a.event.title : a.task.title;
+              const titleB = b.type === "event" ? b.event.title : b.task.title;
+              return titleA.localeCompare(titleB);
+            }
+            return a.type === "event" ? -1 : 1;
+          });
 
-        const visible = combined.slice(0, 4);
-        const remaining = combined.length - visible.length;
+          const visible = combined.slice(0, 4);
+          const remaining = combined.length - visible.length;
 
-        const className = [
-          "month-grid__cell",
-          isCurrentMonth ? "is-current" : "is-outside",
-          isSelected ? "is-selected" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
+          const className = [
+            "month-grid__cell",
+            isCurrentMonth ? "is-current" : "is-outside",
+            isSelected ? "is-selected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
-        const isHovered = hoveredKey === key;
+          const isHovered = hoveredKey === key;
 
-        return (
-          <div
-            key={key}
-            className={`${className}${isHovered ? " is-hovered" : ""}`.trim()}
-            onMouseEnter={() => setHoveredKey(key)}
-            onMouseLeave={() => handleMouseLeave(key)}
-            onClick={() => handleOpenQuickAdd(day)}
-            role="presentation"
-          >
-            <button type="button" className="month-grid__date">
-              {day.getDate()}
-            </button>
-            <div className="month-grid__events">
+          return (
+            <div
+              key={key}
+              className={`${className}${isHovered ? " is-hovered" : ""}`.trim()}
+              onMouseEnter={() => setHoveredKey(key)}
+              onMouseLeave={() => handleMouseLeave(key)}
+              onClick={() => handleOpenQuickAdd(day)}
+              role="presentation"
+            >
+              <button type="button" className="month-grid__date">
+                {day.getDate()}
+              </button>
+              <div className="month-grid__events">
               {visible.map((item) => {
                 if (item.type === "event") {
                   const { event } = item;
@@ -260,6 +265,7 @@ function MonthGrid({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
