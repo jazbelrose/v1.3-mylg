@@ -11,10 +11,8 @@ export type CalendarEvent = {
   description?: string;
   category: CalendarCategory;
   allDay: boolean;
-  repeat?: string;
-  reminder?: string;
   eventType?: string;
-  platform?: string;
+  location?: string;
   tags: string[];
   guests: string[];
   source: ApiTimelineEvent;
@@ -323,21 +321,6 @@ export const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent |
         (details as { [key: string]: unknown })["all-day"],
     ) ?? (!start && !end);
 
-  const repeat = parseString(
-    (event as { repeat?: unknown }).repeat ??
-      (event as { recurrence?: unknown }).recurrence ??
-      details.repeat ??
-      (details as { recurrence?: unknown }).recurrence ??
-      (details as { frequency?: unknown }).frequency,
-  );
-
-  const reminder = parseString(
-    (event as { reminder?: unknown }).reminder ??
-      details.reminder ??
-      (details as { alert?: unknown }).alert ??
-      (details as { notification?: unknown }).notification,
-  );
-
   const eventType = parseString(
     (event as { eventType?: unknown }).eventType ??
       details.eventType ??
@@ -345,11 +328,14 @@ export const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent |
       (details as { category?: unknown }).category,
   );
 
-  const platform = parseString(
-    (event as { platform?: unknown }).platform ??
+  const location = parseString(
+    (event as { location?: unknown }).location ??
+      details.location ??
+      (details as { venue?: unknown }).venue ??
+      (details as { address?: unknown }).address ??
+      (event as { platform?: unknown }).platform ??
       details.platform ??
-      (details as { provider?: unknown }).provider ??
-      (details as { location?: unknown }).location,
+      (details as { provider?: unknown }).provider,
   );
 
   const tags = parseStringArray(
@@ -406,10 +392,8 @@ export const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent |
     description: normalizedDescription,
     category: deriveCategory(event),
     allDay,
-    repeat,
-    reminder,
     eventType,
-    platform,
+    location,
     tags,
     guests,
     source: event,

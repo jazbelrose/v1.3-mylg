@@ -178,9 +178,6 @@ const CalendarPage: React.FC = () => {
       if (!projectId) return;
 
       const isoDate = input.date;
-      const repeatValue =
-        input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
-
       const trimmedTitle = input.title.trim();
       const trimmedDescription = input.description?.trim();
       const draftEventId = generateEventId();
@@ -217,21 +214,13 @@ const CalendarPage: React.FC = () => {
         };
 
         const optionalStrings: Record<string, unknown> = {};
-        const nextRepeat = resolveUpdatedString(repeatValue, undefined);
-        if (nextRepeat !== undefined) {
-          optionalStrings.repeat = nextRepeat;
-        }
-        const nextReminder = resolveUpdatedString(input.reminder, undefined);
-        if (nextReminder !== undefined) {
-          optionalStrings.reminder = nextReminder;
-        }
         const nextEventType = resolveUpdatedString(input.eventType, undefined);
         if (nextEventType !== undefined) {
           optionalStrings.eventType = nextEventType;
         }
-        const nextPlatform = resolveUpdatedString(input.platform, undefined);
-        if (nextPlatform !== undefined) {
-          optionalStrings.platform = nextPlatform;
+        const nextLocation = resolveUpdatedString(input.location, undefined);
+        if (nextLocation !== undefined) {
+          optionalStrings.location = nextLocation;
         }
 
         const eventBody = {
@@ -284,10 +273,8 @@ const CalendarPage: React.FC = () => {
             (Array.isArray((created as { guests?: unknown }).guests)
               ? (created as { guests?: string[] }).guests
               : undefined) ?? eventBody.guests,
-          repeat: pickResolvedField("repeat"),
-          reminder: pickResolvedField("reminder"),
           eventType: pickResolvedField("eventType"),
-          platform: pickResolvedField("platform"),
+          location: pickResolvedField("location"),
           allDay: resolvedAllDay,
           startAt: resolvedStartAt,
           endAt: resolvedEndAt,
@@ -323,10 +310,11 @@ const CalendarPage: React.FC = () => {
           }
         };
 
-        assignOptional("repeat", pickResolvedField("repeat"));
-        assignOptional("reminder", pickResolvedField("reminder"));
         assignOptional("eventType", pickResolvedField("eventType"));
-        assignOptional("platform", pickResolvedField("platform"));
+        assignOptional("location", pickResolvedField("location"));
+        delete (asTimelineEvent as Record<string, unknown>).repeat;
+        delete (asTimelineEvent as Record<string, unknown>).reminder;
+        delete (asTimelineEvent as Record<string, unknown>).platform;
         delete (asTimelineEvent as Record<string, unknown>).payload;
         delete (asTimelineEvent as Record<string, unknown>).meta;
 
@@ -368,9 +356,6 @@ const CalendarPage: React.FC = () => {
 
       const identifier = getEventIdentifier(target);
       const isoDate = input.date;
-      const repeatValue =
-        input.repeat && input.repeat !== "Does not repeat" ? input.repeat : undefined;
-
       const trimmedTitle = input.title.trim();
       const trimmedDescription = input.description?.trim();
       const startAtIso =
@@ -419,20 +404,6 @@ const CalendarPage: React.FC = () => {
 
       const optionalUpdates: Record<string, unknown> = {};
 
-      const previousRepeat =
-        (target as { repeat?: unknown }).repeat ?? existingDetails.repeat;
-      const resolvedRepeat = resolveUpdatedString(repeatValue, previousRepeat);
-      if (resolvedRepeat !== undefined) {
-        optionalUpdates.repeat = resolvedRepeat;
-      }
-
-      const previousReminder =
-        (target as { reminder?: unknown }).reminder ?? existingDetails.reminder;
-      const resolvedReminder = resolveUpdatedString(input.reminder, previousReminder);
-      if (resolvedReminder !== undefined) {
-        optionalUpdates.reminder = resolvedReminder;
-      }
-
       const previousEventType =
         (target as { eventType?: unknown }).eventType ?? existingDetails.eventType;
       const resolvedEventType = resolveUpdatedString(
@@ -443,11 +414,14 @@ const CalendarPage: React.FC = () => {
         optionalUpdates.eventType = resolvedEventType;
       }
 
-      const previousPlatform =
-        (target as { platform?: unknown }).platform ?? existingDetails.platform;
-      const resolvedPlatform = resolveUpdatedString(input.platform, previousPlatform);
-      if (resolvedPlatform !== undefined) {
-        optionalUpdates.platform = resolvedPlatform;
+      const previousLocation =
+        (target as { location?: unknown }).location ??
+        existingDetails.location ??
+        (target as { platform?: unknown }).platform ??
+        existingDetails.platform;
+      const resolvedLocation = resolveUpdatedString(input.location, previousLocation);
+      if (resolvedLocation !== undefined) {
+        optionalUpdates.location = resolvedLocation;
       }
 
       const updatePayload = {
@@ -521,10 +495,8 @@ const CalendarPage: React.FC = () => {
           target.timelineEventId ??
           updatedEvent.eventId;
 
-        const repeatField = pickResolvedField<string | null>("repeat");
-        const reminderField = pickResolvedField<string | null>("reminder");
         const eventTypeField = pickResolvedField<string | null>("eventType");
-        const platformField = pickResolvedField<string | null>("platform");
+        const locationField = pickResolvedField<string | null>("location");
 
         const assignOptional = (field: string, value: unknown) => {
           const container = updatedEvent as Record<string, unknown>;
@@ -535,10 +507,11 @@ const CalendarPage: React.FC = () => {
           }
         };
 
-        assignOptional("repeat", repeatField);
-        assignOptional("reminder", reminderField);
         assignOptional("eventType", eventTypeField);
-        assignOptional("platform", platformField);
+        assignOptional("location", locationField);
+        delete (updatedEvent as Record<string, unknown>).repeat;
+        delete (updatedEvent as Record<string, unknown>).reminder;
+        delete (updatedEvent as Record<string, unknown>).platform;
 
         delete (updatedEvent as Record<string, unknown>).payload;
         delete (updatedEvent as Record<string, unknown>).meta;

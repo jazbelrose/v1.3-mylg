@@ -104,6 +104,11 @@ export interface TimelineEvent extends JsonRecord {
   startAt?: string | null;
   endAt?: string | null;
   allDay?: boolean;
+  eventType?: string;
+  location?: string;
+  repeat?: string;
+  reminder?: string;
+  platform?: string;
   payload?: { description?: string; title?: string } & JsonRecord;
 }
 
