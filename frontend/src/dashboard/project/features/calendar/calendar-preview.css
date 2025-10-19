@@ -150,6 +150,7 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  border-top-right-radius: inherit;
 }
 
 .calendar-footer {
