@@ -939,6 +939,13 @@
   min-height: 0;
 }
 
+.events-tasks__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .events-tasks__content {
   display: flex;
   flex-direction: column;

@@ -86,7 +86,18 @@ function EventsAndTasks({
 
   return (
     <div className="events-tasks">
-      <div className="events-tasks__title">Events & Tasks</div>
+      <div className="events-tasks__header">
+        <div className="events-tasks__title">Events & Tasks</div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="events-tasks__map-pill"
+          onClick={onOpenTasksOverview}
+        >
+          OPEN MAP
+        </Button>
+      </div>
 
       <div className="events-tasks__content">
         <div className="events-tasks__section">
@@ -155,15 +166,6 @@ function EventsAndTasks({
         <div className="events-tasks__section">
           <div className="events-tasks__section-header">
             <div className="events-tasks__section-title">Tasks</div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="events-tasks__map-pill"
-              onClick={onOpenTasksOverview}
-            >
-              Open map view
-            </Button>
           </div>
           <ul className="events-tasks__list">
             {tasks.map((task) => {
