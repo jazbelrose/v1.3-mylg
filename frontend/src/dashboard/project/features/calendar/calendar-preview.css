@@ -342,7 +342,7 @@
 }
 .month-grid__body > .month-grid__cell {
   position: relative;
-  min-height: 160px;
+  min-height: 15vh;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px;
