@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { CheckSquare, Search } from "lucide-react";
 
 import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
 import {
@@ -35,7 +35,7 @@ import EventsAndTasks from "./EventsAndTasks";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
-import { CalendarEvent, CalendarTask, endOfMonth, safeDate, isSameDay } from "../utils";
+import { CalendarEvent, CalendarTask, safeDate, isSameDay } from "../utils";
 
 import "../calendar-preview.css";
 
@@ -316,29 +316,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[drawerSnapIndex] : 0;
   const targetY = isDraggingDrawer ? baseTargetY + currentDragY : baseTargetY;
-
-  const title = useMemo(
-    () =>
-      internalDate.toLocaleString(undefined, {
-        month: "long",
-        year: "numeric",
-      }),
-    [internalDate],
-  );
-
-  const go = useCallback((deltaMonths: number) => {
-    setInternalDate((previousDate) => {
-      const targetMonthStart = new Date(
-        previousDate.getFullYear(),
-        previousDate.getMonth() + deltaMonths,
-        1,
-      );
-      const daysInTargetMonth = endOfMonth(targetMonthStart).getDate();
-      const clampedDay = Math.min(previousDate.getDate(), daysInTargetMonth);
-      targetMonthStart.setDate(clampedDay);
-      return targetMonthStart;
-    });
-  }, []);
 
   const canCreateTasks = useMemo(
     () => taskProjects.length > 0 || Boolean(activeProjectId),
@@ -732,66 +709,45 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
             <div className="calendar-main">
               <div className="calendar-controls">
-                <div className="calendar-controls__nav">
-                  <button
-                    type="button"
-                    className="calendar-controls__button"
-                    onClick={() => go(-1)}
-                    aria-label="Previous month"
-                  >
-                    <ChevronLeft className="calendar-controls__icon" />
-                  </button>
-                  <button
-                    type="button"
-                    className="calendar-controls__button"
-                    onClick={() => go(1)}
-                    aria-label="Next month"
-                  >
-                    <ChevronRight className="calendar-controls__icon" />
-                  </button>
-                  <div className="calendar-controls__title">{title}</div>
+                <div className="calendar-controls__search">
+                  <Search className="calendar-controls__search-icon" aria-hidden />
+                  <input
+                    type="search"
+                    placeholder="Search events and tasks"
+                    aria-label="Search events and tasks"
+                    className="calendar-controls__search-input"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                  />
                 </div>
-                <div className="calendar-controls__actions">
-                  <div className="calendar-controls__toggle">
-                    <button
-                      type="button"
-                      onClick={() => setView("day")}
-                      className={`calendar-controls__toggle-button ${
-                        view === "day" ? "is-active" : ""
-                      }`}
-                    >
-                      Day
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setView("week")}
-                      className={`calendar-controls__toggle-button ${
-                        view === "week" ? "is-active" : ""
-                      }`}
-                    >
-                      Week
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setView("month")}
-                      className={`calendar-controls__toggle-button ${
-                        view === "month" ? "is-active" : ""
-                      }`}
-                    >
-                      Month
-                    </button>
-                  </div>
-                  <div className="calendar-controls__search">
-                    <Search className="calendar-controls__search-icon" aria-hidden />
-                    <input
-                      type="search"
-                      placeholder="Search events and tasks"
-                      aria-label="Search events and tasks"
-                      className="calendar-controls__search-input"
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                    />
-                  </div>
+                <div className="calendar-controls__toggle">
+                  <button
+                    type="button"
+                    onClick={() => setView("day")}
+                    className={`calendar-controls__toggle-button ${
+                      view === "day" ? "is-active" : ""
+                    }`}
+                  >
+                    Day
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("week")}
+                    className={`calendar-controls__toggle-button ${
+                      view === "week" ? "is-active" : ""
+                    }`}
+                  >
+                    Week
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("month")}
+                    className={`calendar-controls__toggle-button ${
+                      view === "month" ? "is-active" : ""
+                    }`}
+                  >
+                    Month
+                  </button>
                 </div>
               </div>
 
