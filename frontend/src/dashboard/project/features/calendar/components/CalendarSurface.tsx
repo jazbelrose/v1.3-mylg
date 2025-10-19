@@ -182,7 +182,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       const matches = (value?: string | null) =>
         typeof value === "string" && value.toLowerCase().includes(normalizedSearchTerm);
 
-      if (matches(event.title) || matches(event.description) || matches(event.eventType) || matches(event.platform)) {
+      if (
+        matches(event.title) ||
+        matches(event.description) ||
+        matches(event.eventType) ||
+        matches(event.location)
+      ) {
         return true;
       }
 
@@ -864,10 +869,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 time: modalState.event.start,
                 endTime: modalState.event.end,
                 allDay: modalState.event.allDay,
-                repeat: modalState.event.repeat,
-                reminder: modalState.event.reminder,
                 eventType: modalState.event.eventType,
-                platform: modalState.event.platform,
+                location:
+                  modalState.event.location ??
+                  (modalState.event as { platform?: string }).platform,
                 description: modalState.event.description,
                 tags: modalState.event.tags,
                 guests: modalState.event.guests,

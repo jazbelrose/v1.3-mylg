@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState, useId } from "react";
 import {
-  Bell,
   Calendar as CalendarIcon,
   Clock,
-  Copy,
-  Repeat,
-  Settings,
+  MapPin,
   Tag,
   Users,
   Video,
@@ -23,10 +20,8 @@ type EventFormInitialValues = Partial<{
   time?: string;
   endTime?: string;
   allDay?: boolean;
-  repeat?: string;
-  reminder?: string;
   eventType?: string;
-  platform?: string;
+  location?: string;
   description?: string;
   tags?: string[];
   guests?: string[];
@@ -55,39 +50,17 @@ export type CreateEventRequest = {
   time?: string; // HH:MM
   endTime?: string; // HH:MM
   allDay: boolean;
-  repeat: string;
-  reminder: string;
   eventType: string;
-  platform: string;
+  location?: string;
   description?: string;
   tags: string[];
   guests: string[];
 };
 
-const REPEAT_OPTIONS: Option[] = [
-  { label: "Does not repeat", value: "Does not repeat" },
-  { label: "Daily", value: "Daily" },
-  { label: "Weekly", value: "Weekly" },
-  { label: "Monthly", value: "Monthly" },
-];
-
 const EVENT_TYPE_OPTIONS: Option[] = [
   { label: "Video Conference", value: "Video Conference" },
   { label: "In person", value: "In person" },
   { label: "Phone call", value: "Phone call" },
-];
-
-const PLATFORM_OPTIONS: Option[] = [
-  { label: "Google Meet", value: "Google Meet" },
-  { label: "Zoom", value: "Zoom" },
-  { label: "Teams", value: "Teams" },
-];
-
-const REMINDER_OPTIONS: Option[] = [
-  { label: "10 minutes before", value: "10 minutes before" },
-  { label: "30 minutes before", value: "30 minutes before" },
-  { label: "1 hour before", value: "1 hour before" },
-  { label: "1 day before", value: "1 day before" },
 ];
 
 const formatDateInput = (date: Date) => {
@@ -135,10 +108,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [time, setTime] = useState("11:30");
   const [endTime, setEndTime] = useState<string | undefined>(deriveEndTime("11:30"));
   const [allDay, setAllDay] = useState(false);
-  const [repeat, setRepeat] = useState(REPEAT_OPTIONS[0].value);
   const [eventType, setEventType] = useState(EVENT_TYPE_OPTIONS[0].value);
-  const [platform, setPlatform] = useState(PLATFORM_OPTIONS[0].value);
-  const [reminder, setReminder] = useState(REMINDER_OPTIONS[1].value);
+  const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -199,10 +170,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
         : []
     );
     setAllDay(initialValues?.allDay ?? false);
-    setRepeat(initialValues?.repeat ?? REPEAT_OPTIONS[0].value);
     setEventType(initialValues?.eventType ?? EVENT_TYPE_OPTIONS[0].value);
-    setPlatform(initialValues?.platform ?? PLATFORM_OPTIONS[0].value);
-    setReminder(initialValues?.reminder ?? REMINDER_OPTIONS[1].value);
+    setLocation(initialValues?.location ?? "");
     setError(null);
     setIsSubmitting(false);
     setIsDeleting(false);
@@ -280,10 +249,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       time: allDay ? undefined : time,
       endTime: allDay ? undefined : endTime ?? deriveEndTime(time),
       allDay,
-      repeat,
-      reminder,
       eventType,
-      platform,
+      location: location.trim() || undefined,
       description: description.trim() || undefined,
       tags,
       guests,
@@ -531,23 +498,6 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                   </label>
                 </div>
               </div>
-              <div className={styles.fieldShell}>
-                <div className={styles.fieldShellHeader}>
-                  <Repeat className={styles.fieldIcon} />
-                  <select
-                    className={styles.select}
-                    value={repeat}
-                    onChange={(event) => setRepeat(event.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {REPEAT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
             </div>
 
             <div className={styles.fieldGroup}>
@@ -575,61 +525,20 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
             </div>
 
             <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-platform">
-                Platform
-              </label>
-              <div className={styles.fieldShell}>
-                <div className={styles.platformRow}>
-                  <img
-                    alt="Platform icon"
-                    src="https://www.gstatic.com/images/branding/product/2x/meet_2020q4_48dp.png"
-                    className={styles.platformIcon}
-                  />
-                  <select
-                    id="modal-platform"
-                    className={styles.select}
-                    value={platform}
-                    onChange={(event) => setPlatform(event.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {PLATFORM_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className={styles.platformActions}>
-                    <button type="button" className={styles.iconButton} title="Settings" disabled>
-                      <Settings className={styles.icon} />
-                    </button>
-                    <button type="button" className={styles.iconButton} title="Copy" disabled={isSubmitting}>
-                      <Copy className={styles.icon} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-reminder">
-                Reminder
+              <label className={styles.label} htmlFor="modal-location">
+                Location
               </label>
               <div className={styles.fieldShell}>
                 <div className={styles.fieldShellHeader}>
-                  <Bell className={styles.fieldIcon} />
-                  <select
-                    id="modal-reminder"
-                    className={styles.select}
-                    value={reminder}
-                    onChange={(event) => setReminder(event.target.value)}
+                  <MapPin className={styles.fieldIcon} />
+                  <input
+                    id="modal-location"
+                    className={styles.textInput}
+                    placeholder="Add a location"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
                     disabled={isSubmitting}
-                  >
-                    {REMINDER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
             </div>
@@ -657,7 +566,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
 
         <div className={styles.footer}>
           <div className={styles.footerMeta}>
-            Guests can view this event • Default calendar reminders apply
+            Guests can view this event • Share the location with your team
           </div>
           <div className={styles.footerActions}>
             {isEditing && onDelete && (
