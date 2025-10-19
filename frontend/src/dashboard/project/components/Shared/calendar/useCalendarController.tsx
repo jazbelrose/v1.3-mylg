@@ -61,8 +61,6 @@ export interface CalendarControllerResult {
   rangeSet: Set<string>;
   eventsByDate: Record<string, TimelineEvent[]>;
   openDay: (anchor: HTMLButtonElement, meta: { date: Date; dayKey: string; inMonth: boolean }) => void;
-  goToPrevMonth: () => void;
-  goToNextMonth: () => void;
   overlayState: {
     isOpen: boolean;
     isMobile: boolean;
@@ -551,18 +549,6 @@ export function useCalendarController({
     [budgetItems, events, selectedDate]
   );
 
-  const goToPrevMonth = useCallback(() => {
-    const prev = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
-    setActiveStartDate(prev);
-    userNavigatedRef.current = true;
-  }, [monthStart]);
-
-  const goToNextMonth = useCallback(() => {
-    const next = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
-    setActiveStartDate(next);
-    userNavigatedRef.current = true;
-  }, [monthStart]);
-
   const notifyAnalytics = useCallback((action: "open" | "create" | "edit", dayKey: string, projectId?: string) => {
     if (typeof window === "undefined") return;
     const analytics = (window as typeof window & {
@@ -575,7 +561,7 @@ export function useCalendarController({
     });
   }, []);
 
-const handleDayOpen = useCallback(
+  const handleDayOpen = useCallback(
     (
       anchor: HTMLButtonElement,
       { date, dayKey }: { date: Date; dayKey: string; inMonth: boolean }
@@ -983,8 +969,6 @@ const handleDayOpen = useCallback(
     rangeSet,
     eventsByDate,
     openDay: handleDayOpen,
-    goToPrevMonth,
-    goToNextMonth,
     overlayState,
     eventList: eventListComponent,
     modal: { component: modalComponent },

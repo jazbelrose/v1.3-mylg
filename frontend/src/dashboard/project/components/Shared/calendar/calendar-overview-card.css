@@ -416,27 +416,15 @@
 
 .calendar-overview-card-wrapper .month-widget-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-bottom: 6px;
+  text-align: center;
 }
 
 .calendar-overview-card-wrapper .month-title {
   font-weight: 600;
   color: #fff;
-}
-
-.calendar-overview-card-wrapper .month-nav-btn {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.9);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px 10px;
-  border-radius: 8px;
-}
-.calendar-overview-card-wrapper .month-nav-btn:hover {
-  background: rgba(255,255,255,0.06);
 }
 
 .calendar-overview-card-wrapper .calendar-weekdays {

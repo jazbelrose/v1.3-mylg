@@ -1,6 +1,4 @@
 import React, { useMemo } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { endOfWeek, rangePct, startOfWeek } from "@/dashboard/home/utils/dateUtils";
 import { getColor } from "@/shared/utils/colorUtils";
 import CalendarDayButton from "./CalendarDayButton";
@@ -27,8 +25,6 @@ interface CalendarGridProps {
   rangeSet: Set<string>;
   eventsByDate: Record<string, TimelineEvent[]>;
   onDayOpen: (anchor: HTMLButtonElement, meta: { date: Date; dayKey: string; inMonth: boolean }) => void;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
 }
 
 const CalendarGrid: React.FC<CalendarGridProps> = ({
@@ -44,8 +40,6 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
   rangeSet,
   eventsByDate,
   onDayOpen,
-  onPrevMonth,
-  onNextMonth,
 }) => {
   const weekTracks = useMemo(() => {
     return weeks.map((week) => {
@@ -65,13 +59,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
   return (
     <div className="month-widget">
       <div className="month-widget-header">
-        <button className="month-nav-btn" onClick={onPrevMonth} aria-label="Previous month">
-          <FontAwesomeIcon icon={faChevronLeft} />
-        </button>
         <span className="month-title">{monthTitle}</span>
-        <button className="month-nav-btn" onClick={onNextMonth} aria-label="Next month">
-          <FontAwesomeIcon icon={faChevronRight} />
-        </button>
       </div>
 
       <div className="calendar-weekdays">

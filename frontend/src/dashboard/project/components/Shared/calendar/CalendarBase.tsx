@@ -57,8 +57,6 @@ const CalendarBase: React.FC<CalendarBaseProps> = ({
           rangeSet={controller.rangeSet}
           eventsByDate={controller.eventsByDate}
           onDayOpen={controller.openDay}
-          onPrevMonth={controller.goToPrevMonth}
-          onNextMonth={controller.goToNextMonth}
         />
 
         {overlay.isOpen && overlay.anchor && overlay.dayKey && (
