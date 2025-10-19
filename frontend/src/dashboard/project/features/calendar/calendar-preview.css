@@ -55,6 +55,8 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-height: 0;
+  flex: 1;
 }
 
 .calendar-controls {
@@ -179,6 +181,10 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   overflow: visible;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .calendar-footer {
@@ -312,18 +318,25 @@
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.9);
   position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .month-grid__header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .month-grid__body {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
   position: relative;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 .month-grid__weekday {
@@ -342,7 +355,6 @@
 }
 .month-grid__body > .month-grid__cell {
   position: relative;
-  min-height: 15vh;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px;
@@ -353,6 +365,8 @@
   transition: background 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
   overflow: visible;
+  min-height: 0;
+  height: 100%;
 }
 
 .month-grid__body > .month-grid__cell:nth-child(7n) {
@@ -404,6 +418,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .month-grid__event {
