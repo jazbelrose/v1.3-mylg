@@ -244,7 +244,7 @@
 .mini-calendar__day-button {
   aspect-ratio: 1 / 1;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
   display: flex;
@@ -257,7 +257,7 @@
 
 .mini-calendar__day-button.is-current {
   color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.05);
+  background: none;
 }
 
 .mini-calendar__day-button.is-outside {
@@ -265,12 +265,12 @@
 }
 
 .mini-calendar__day-button.is-selected {
-  background: rgba(255, 255, 255, 0.16);
+  background: none;
   border-color: rgba(255, 255, 255, 0.24);
 }
 
 .mini-calendar__day-button.is-today {
-  box-shadow: 0 0 0 2px #fa3356;
+  box-shadow: 0 0 0 2px white;
 }
 
 .mini-calendar__day-button:hover {
