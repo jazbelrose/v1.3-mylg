@@ -613,7 +613,6 @@
 .week-grid {
   display: grid;
   grid-template-columns: 60px repeat(7, 1fr);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.9);
   border-top-left-radius: 20px;
@@ -627,6 +626,7 @@
   z-index: 10;
   background: var(--bg2);
   backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-top-left-radius: 20px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -676,11 +676,18 @@
   inset: 0;
   z-index: -1;
   background: var(--bg2);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
 }
 
 .week-grid__weekday:last-of-type {
+  border-right: none;
+  border-top-right-radius: 20px;
+}
+
+.week-grid__weekday:last-of-type::before {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-top-right-radius: 20px;
 }
 
