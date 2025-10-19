@@ -124,18 +124,25 @@ export function useRangeLabels(project: Project) {
       ),
     [project?.timelineEvents]
   );
-const rangeLabel = useMemo(() => {
-    const totalPart = `${totalHours} hrs`;
-    if (!startDate || !endDate) return totalPart;
+
+  const hoursLabel = useMemo(() => `${totalHours} hrs`, [totalHours]);
+
+  const dateRangeLabel = useMemo(() => {
+    if (!startDate || !endDate) return null;
     const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
     const startStr = startDate.toLocaleDateString(undefined, options);
     const endStr = endDate.toLocaleDateString(undefined, options);
-    return `${startStr} – ${endStr} · ${totalPart}`;
-  }, [startDate, endDate, totalHours]);
+    return `${startStr} – ${endStr}`;
+  }, [startDate, endDate]);
+
+  const rangeLabel = useMemo(() => {
+    if (!dateRangeLabel) return hoursLabel;
+    return `${dateRangeLabel} · ${hoursLabel}`;
+  }, [dateRangeLabel, hoursLabel]);
 
   const mobileRangeLabel = useMemo(() => rangeLabel, [rangeLabel]);
 
-  return { rangeLabel, mobileRangeLabel, totalHours };
+  return { rangeLabel, mobileRangeLabel, totalHours, dateRangeLabel, hoursLabel };
 }
 
 export function deriveProjectInitialState(props: ProjectHeaderProps) {

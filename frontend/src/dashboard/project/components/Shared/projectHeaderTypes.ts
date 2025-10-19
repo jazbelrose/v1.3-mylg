@@ -149,6 +149,8 @@ export interface ProjectHeaderState {
   progressValue: number;
   rangeLabel: string;
   mobileRangeLabel: string;
+  rangeDateLabel: string | null;
+  rangeHoursLabel: string;
   handleKeyDown: (event: KeyboardEvent, action: () => void) => void;
   navigation: NavigationState;
   editNameModal: EditNameModalState;

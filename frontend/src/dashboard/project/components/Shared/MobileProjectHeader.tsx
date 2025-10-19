@@ -26,6 +26,8 @@ interface MobileProjectHeaderProps {
   statusLabel: string;
   progressValue: number;
   rangeLabel?: string;
+  dateRangeLabel?: string;
+  hoursLabel: string;
   teamMembers: TeamMember[];
   onOpenQuickLinks: () => void;
   onOpenFiles: () => void;
@@ -47,6 +49,8 @@ const MobileProjectHeader: React.FC<MobileProjectHeaderProps> = ({
   statusLabel,
   progressValue,
   rangeLabel,
+  dateRangeLabel,
+  hoursLabel,
   teamMembers,
   onOpenQuickLinks,
   onOpenFiles,
@@ -145,7 +149,7 @@ const MobileProjectHeader: React.FC<MobileProjectHeaderProps> = ({
               </button>
             </div>
 
-            {rangeLabel ? (
+            {hoursLabel ? (
               <button
                 type="button"
                 onClick={onOpenFinishLine}
@@ -159,7 +163,21 @@ const MobileProjectHeader: React.FC<MobileProjectHeaderProps> = ({
                 }}
                 aria-label="Edit project schedule"
               >
-                <div className={styles.dateText}>{rangeLabel}</div>
+                <div
+                  className={styles.dateText}
+                  aria-label={rangeLabel ?? hoursLabel}
+                  title={rangeLabel ?? hoursLabel}
+                >
+                  {dateRangeLabel ? (
+                    <span className={styles.dateRange}>{dateRangeLabel}</span>
+                  ) : null}
+                  {dateRangeLabel ? (
+                    <span className={styles.separator} aria-hidden="true">
+                      •
+                    </span>
+                  ) : null}
+                  <span className={styles.hours}>{hoursLabel}</span>
+                </div>
               </button>
             ) : null}
           </div>

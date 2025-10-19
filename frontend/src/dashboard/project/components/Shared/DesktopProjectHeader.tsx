@@ -25,6 +25,8 @@ interface DesktopProjectHeaderProps {
   displayStatus: string;
   progressValue: number;
   rangeLabel: string;
+  dateRangeLabel: string | null;
+  hoursLabel: string;
   handleKeyDown: (event: KeyboardEvent, action: () => void) => void;
   onOpenStatus: () => void;
   onOpenFinishLine: () => void;
@@ -46,6 +48,8 @@ const DesktopProjectHeader = ({
   displayStatus,
   progressValue,
   rangeLabel,
+  dateRangeLabel,
+  hoursLabel,
   handleKeyDown,
   onOpenStatus,
   onOpenFinishLine,
@@ -113,11 +117,19 @@ const DesktopProjectHeader = ({
                 onKeyDown={(event) => handleKeyDown(event, onOpenFinishLine)}
                 role="button"
                 tabIndex={0}
-                title="Production dates"
-                aria-label="Production dates"
+                title={rangeLabel}
+                aria-label={rangeLabel}
                 style={{ cursor: "pointer" }}
               >
-                <span>{rangeLabel}</span>
+                {dateRangeLabel ? (
+                  <span className="finish-line-date">{dateRangeLabel}</span>
+                ) : null}
+                {dateRangeLabel ? (
+                  <span className="finish-line-separator" aria-hidden="true">
+                    •
+                  </span>
+                ) : null}
+                <span className="finish-line-hours">{hoursLabel}</span>
               </div>
             </div>
           </div>

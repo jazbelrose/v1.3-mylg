@@ -29,6 +29,8 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
     progressValue,
     rangeLabel,
     mobileRangeLabel,
+    rangeDateLabel,
+    rangeHoursLabel,
     handleKeyDown,
     navigation,
     editNameModal,
@@ -58,6 +60,8 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
           statusLabel={displayStatus}
           progressValue={progressValue}
           rangeLabel={mobileRangeLabel || undefined}
+          dateRangeLabel={rangeDateLabel || undefined}
+          hoursLabel={rangeHoursLabel}
           teamMembers={teamModal.members}
           onOpenQuickLinks={props.onOpenQuickLinks}
           onOpenFiles={props.onOpenFiles}
@@ -78,6 +82,8 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
           displayStatus={displayStatus}
           progressValue={progressValue}
           rangeLabel={rangeLabel}
+          dateRangeLabel={rangeDateLabel}
+          hoursLabel={rangeHoursLabel}
           handleKeyDown={handleKeyDown}
           onOpenStatus={editStatusModal.open}
           onOpenFinishLine={finishLineModal.open}

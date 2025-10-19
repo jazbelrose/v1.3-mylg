@@ -172,11 +172,24 @@
 }
 
 .dateText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.75rem;
   color: #f87171;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dateRange,
+.hours {
+  white-space: nowrap;
+}
+
+.separator {
+  color: currentColor;
+  line-height: 1;
 }
 
 .tabs {
