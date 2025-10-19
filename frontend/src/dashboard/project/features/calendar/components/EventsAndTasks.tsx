@@ -42,6 +42,33 @@ export type EventsAndTasksProps = {
   onOpenTasksOverview: () => void;
 };
 
+type EventFilter = "all" | "upcoming" | "past";
+type TaskFilter = "all" | "open" | "completed";
+
+const EVENT_FILTER_LABELS: Record<EventFilter, string> = {
+  all: "All events",
+  upcoming: "Upcoming events",
+  past: "Past events",
+};
+
+const EVENT_FILTER_SUMMARY: Record<EventFilter, string> = {
+  all: "All events",
+  upcoming: "Upcoming",
+  past: "Past",
+};
+
+const TASK_FILTER_LABELS: Record<TaskFilter, string> = {
+  all: "All tasks",
+  open: "Open tasks",
+  completed: "Completed tasks",
+};
+
+const TASK_FILTER_SUMMARY: Record<TaskFilter, string> = {
+  all: "All tasks",
+  open: "Open",
+  completed: "Completed",
+};
+
 function EventsAndTasks({
   events,
   tasks,
@@ -50,18 +77,72 @@ function EventsAndTasks({
   onEditTask,
   onOpenTasksOverview,
 }: EventsAndTasksProps) {
-  const upcoming = useMemo(
+  const [eventFilter, setEventFilter] = useState<EventFilter>("all");
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
+  const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
+
+  const sortedEvents = useMemo(
     () =>
-      [...events]
-        .filter((event) => event.date >= fmt(new Date()))
-        .sort((a, b) => {
-          const dateCompare = a.date.localeCompare(b.date);
-          if (dateCompare !== 0) return dateCompare;
-          return compareDateStrings(a.start, b.start);
-        })
-        .slice(0, 6),
+      [...events].sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return compareDateStrings(a.start, b.start);
+      }),
     [events],
   );
+
+  const filteredEvents = useMemo(() => {
+    if (eventFilter === "all") {
+      return sortedEvents;
+    }
+
+    const today = fmt(new Date());
+    return sortedEvents.filter((event) => {
+      if (eventFilter === "upcoming") {
+        return event.date >= today;
+      }
+      return event.date < today;
+    });
+  }, [eventFilter, sortedEvents]);
+
+  const normalizedTasks = useMemo(
+    () =>
+      tasks.map((task) => ({
+        task,
+        quickTask: normalizeQuickTask(task.source),
+      })),
+    [tasks],
+  );
+
+  const filteredTasks = useMemo(() => {
+    return normalizedTasks.filter(({ task, quickTask }) => {
+      if (taskFilter === "all") {
+        return true;
+      }
+
+      const rawStatus = quickTask?.status ?? task.status ?? (task.done ? "done" : "todo");
+      const normalizedStatus = typeof rawStatus === "string" ? rawStatus.trim().toLowerCase() : "";
+      const isCompleted =
+        Boolean(task.done) ||
+        normalizedStatus === "done" ||
+        normalizedStatus === "completed" ||
+        normalizedStatus === "complete";
+
+      if (taskFilter === "completed") {
+        return isCompleted;
+      }
+
+      return !isCompleted;
+    });
+  }, [normalizedTasks, taskFilter]);
+
+  const hasActiveFilters = eventFilter !== "all" || taskFilter !== "all";
+  const filterButtonLabel = hasActiveFilters
+    ? `${EVENT_FILTER_SUMMARY[eventFilter]} · ${TASK_FILTER_SUMMARY[taskFilter]}`
+    : "Filter";
+  const filterButtonAriaLabel = hasActiveFilters
+    ? `Filtering by ${EVENT_FILTER_LABELS[eventFilter]} and ${TASK_FILTER_LABELS[taskFilter]}`
+    : "Filter events and tasks";
 
   const statusContext = useMemo(() => createTaskStatusContext(), []);
   const compactDateFormatter = useMemo(
@@ -88,22 +169,96 @@ function EventsAndTasks({
     <div className="events-tasks">
       <div className="events-tasks__header">
         <div className="events-tasks__title">Events & Tasks</div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="events-tasks__map-pill"
-          onClick={onOpenTasksOverview}
-        >
-          OPEN MAP
-        </Button>
+        <div className="events-tasks__header-actions">
+            <Popover open={isFilterPopoverOpen} onOpenChange={setIsFilterPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={`events-tasks__filter-trigger${hasActiveFilters ? " is-active" : ""}`}
+                  aria-haspopup="menu"
+                  aria-expanded={isFilterPopoverOpen}
+                  aria-label={filterButtonAriaLabel}
+                >
+                <span className="events-tasks__filter-dot" aria-hidden />
+                <span className="events-tasks__filter-label">{filterButtonLabel}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="events-tasks__filter-popover" align="end" sideOffset={8}>
+              <div className="events-tasks__filter-section">
+                <div className="events-tasks__filter-heading">Events</div>
+                <div className="events-tasks__filter-options" role="group" aria-label="Filter events">
+                  {(Object.keys(EVENT_FILTER_LABELS) as EventFilter[]).map((option) => {
+                    const isActive = eventFilter === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`events-tasks__filter-option${isActive ? " is-active" : ""}`}
+                        onClick={() => setEventFilter(option)}
+                        aria-pressed={isActive}
+                      >
+                        {EVENT_FILTER_LABELS[option]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="events-tasks__filter-section">
+                <div className="events-tasks__filter-heading">Tasks</div>
+                <div className="events-tasks__filter-options" role="group" aria-label="Filter tasks">
+                  {(Object.keys(TASK_FILTER_LABELS) as TaskFilter[]).map((option) => {
+                    const isActive = taskFilter === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`events-tasks__filter-option${isActive ? " is-active" : ""}`}
+                        onClick={() => setTaskFilter(option)}
+                        aria-pressed={isActive}
+                      >
+                        {TASK_FILTER_LABELS[option]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="events-tasks__filter-footer">
+                <button
+                  type="button"
+                  className="events-tasks__filter-reset"
+                  onClick={() => {
+                    setEventFilter("all");
+                    setTaskFilter("all");
+                  }}
+                  disabled={!hasActiveFilters}
+                >
+                  Reset filters
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="events-tasks__map-pill"
+            onClick={onOpenTasksOverview}
+          >
+            OPEN MAP
+          </Button>
+        </div>
       </div>
 
       <div className="events-tasks__content">
         <div className="events-tasks__section">
-          <div className="events-tasks__section-title">Upcoming events</div>
+          <div className="events-tasks__section-header">
+            <div className="events-tasks__section-title">{EVENT_FILTER_LABELS[eventFilter]}</div>
+            <div className="events-tasks__section-count" aria-live="polite">
+              {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+            </div>
+          </div>
           <ul className="events-tasks__list">
-            {upcoming.map((event) => {
+            {filteredEvents.map((event) => {
               const eventDate = parseIsoDate(event.date);
               const badgeLabel = eventDate ? compactDateFormatter.format(eventDate) : event.date;
               const scheduleLabel = eventDate ? scheduleDateFormatter.format(eventDate) : undefined;
@@ -157,22 +312,27 @@ function EventsAndTasks({
                 </li>
               );
             })}
-            {upcoming.length === 0 && (
-              <li className="events-tasks__empty">No upcoming events scheduled.</li>
+            {filteredEvents.length === 0 && (
+              <li className="events-tasks__empty">
+                {events.length === 0
+                  ? "No events scheduled."
+                  : "No events match the current filters."}
+              </li>
             )}
           </ul>
         </div>
 
         <div className="events-tasks__section">
           <div className="events-tasks__section-header">
-            <div className="events-tasks__section-title">Tasks</div>
+            <div className="events-tasks__section-title">{TASK_FILTER_LABELS[taskFilter]}</div>
+            <div className="events-tasks__section-count" aria-live="polite">
+              {filteredTasks.length} {filteredTasks.length === 1 ? "task" : "tasks"}
+            </div>
           </div>
           <ul className="events-tasks__list">
-            {tasks.map((task) => {
-              const quickTask = normalizeQuickTask(task.source);
-              const isDone = Boolean(task.done);
-              const fallbackStatus = (task.status ?? (isDone ? "done" : "todo")) as QuickTask["status"];
-              const statusValue = quickTask?.status ?? fallbackStatus;
+            {filteredTasks.map(({ task, quickTask }) => {
+              const rawStatus = quickTask?.status ?? task.status ?? (task.done ? "done" : "todo");
+              const statusValue = rawStatus as QuickTask["status"];
               const dueDate = quickTask?.dueDate ?? parseIsoDate(task.due);
               const statusData = getTaskStatusBadge(statusValue, dueDate, statusContext);
               const formattedStatusLabel = formatStatusLabel(statusValue);
@@ -188,6 +348,12 @@ function EventsAndTasks({
                 : formatAssigneeDisplay(task.assignedTo);
               const assignedInitials = formatInitials(assignedLabel);
               const isPopoverOpen = activeTaskPopoverId === task.id;
+              const normalizedStatus = typeof rawStatus === "string" ? rawStatus.trim().toLowerCase() : "";
+              const isDone =
+                Boolean(task.done) ||
+                normalizedStatus === "done" ||
+                normalizedStatus === "completed" ||
+                normalizedStatus === "complete";
               const toggleLabel = isDone ? "Mark as not done" : "Mark as done";
 
               return (
@@ -289,9 +455,11 @@ function EventsAndTasks({
                 </li>
               );
             })}
-            {tasks.length === 0 && (
+            {filteredTasks.length === 0 && (
               <li className="events-tasks__empty">
-                No tasks yet. Add tasks to keep track of work.
+                {tasks.length === 0
+                  ? "No tasks yet. Add tasks to keep track of work."
+                  : "No tasks match the current filters."}
               </li>
             )}
           </ul>
