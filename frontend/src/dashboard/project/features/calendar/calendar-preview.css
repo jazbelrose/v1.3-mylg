@@ -564,7 +564,7 @@
 .week-grid__spacer {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 2;
   background: var(--bg2);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
