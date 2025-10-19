@@ -850,6 +850,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+
 .day-grid__header {
   position: sticky;
   top: 0;
@@ -860,7 +861,28 @@
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.day-grid__header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.day-grid__header-main {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.day-grid__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .day-grid__header-label {
@@ -874,6 +896,15 @@
   color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
   letter-spacing: 0.12em;
+}
+
+.day-grid__quick-add {
+  justify-content: flex-end;
+}
+
+.day-grid__quick-add .week-grid__quick-add-button {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .day-grid__cell {

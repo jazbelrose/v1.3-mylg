@@ -788,6 +788,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       tasks={visibleTasks}
                       onEditEvent={handleOpenEditEvent}
                       onEditTask={handleOpenEditTask}
+                      onCreateEvent={handleOpenCreate}
+                      onCreateTask={handleOpenQuickTaskModal}
+                      canCreateTasks={canCreateTasks}
                     />
                   </div>
                 )}
