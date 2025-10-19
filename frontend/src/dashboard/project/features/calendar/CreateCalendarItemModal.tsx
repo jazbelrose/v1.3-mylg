@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useId } from "react";
 import {
   Bell,
   Calendar as CalendarIcon,
@@ -168,6 +168,12 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   }, [guestOptions, guestQuery, guests]);
 
   const isEditing = mode === "edit";
+  const titleId = useId();
+  const descriptionId = useId();
+  const headerTitle = isEditing ? "Edit event" : "Create a new event";
+  const headerDescription = isEditing
+    ? "Adjust the schedule and share updates with your collaborators."
+    : "Bring your collaborators together by sharing the when, where, and why.";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -331,10 +337,19 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       shouldCloseOnOverlayClick={!isSubmitting && !isDeleting}
       closeTimeoutMS={160}
     >
-      <div className={styles.modalShell}>
+      <div
+        className={styles.modalShell}
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+      >
         <div className={styles.header}>
-          <div className={styles.headerTitle}>
-            {isEditing ? "Edit event" : "Create a new event"}
+          <div className={styles.headerContent}>
+            <h2 id={titleId} className={styles.headerTitle}>
+              {headerTitle}
+            </h2>
+            <p id={descriptionId} className={styles.headerDescription}>
+              {headerDescription}
+            </p>
           </div>
           <button
             type="button"
@@ -641,7 +656,9 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
         </div>
 
         <div className={styles.footer}>
-          <div className={styles.footerMeta}>Guests visible • Calendar default notifications</div>
+          <div className={styles.footerMeta}>
+            Guests can view this event • Default calendar reminders apply
+          </div>
           <div className={styles.footerActions}>
             {isEditing && onDelete && (
               <button
