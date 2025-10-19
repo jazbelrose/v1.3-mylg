@@ -253,6 +253,8 @@
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border 0.2s ease;
+  position: relative;
+  isolation: isolate;
 }
 
 .mini-calendar__day-button.is-current {
@@ -275,6 +277,60 @@
 
 .mini-calendar__day-button:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+.mini-calendar__day-button.is-in-range {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.mini-calendar__day-button.is-in-range::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  z-index: -2;
+}
+
+.mini-calendar__day-button.is-in-range:not(.is-range-start)::before {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  left: -2px;
+}
+
+.mini-calendar__day-button.is-in-range:not(.is-range-end)::before {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  right: -2px;
+}
+
+.mini-calendar__day-button.is-range-start::before {
+  left: 0;
+}
+
+.mini-calendar__day-button.is-range-end::before {
+  right: 0;
+}
+
+.mini-calendar__day-button.is-range-start,
+.mini-calendar__day-button.is-range-end {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.mini-calendar__day-button.is-range-start::after,
+.mini-calendar__day-button.is-range-end::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: var(--mini-calendar-accent, rgba(94, 234, 212, 1));
+  z-index: -1;
+}
+
+.mini-calendar__day-button.is-range-start.is-range-end::before {
+  left: 0;
+  right: 0;
 }
 
 .month-grid {

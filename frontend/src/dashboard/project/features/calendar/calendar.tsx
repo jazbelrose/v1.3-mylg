@@ -777,6 +777,17 @@ const CalendarPage: React.FC = () => {
     color: activeProject?.color,
   });
 
+  const activeProjectStartDate = useMemo(() => {
+    const productionStart = safeDate(activeProject?.productionStart as string);
+    const createdAt = safeDate(activeProject?.dateCreated as string);
+    return productionStart ?? createdAt ?? null;
+  }, [activeProject?.productionStart, activeProject?.dateCreated]);
+
+  const activeProjectEndDate = useMemo(
+    () => safeDate(activeProject?.finishline as string) ?? null,
+    [activeProject?.finishline],
+  );
+
   const calendarEvents = useMemo(() => {
     const mapped = timelineEvents
       .map(normalizeTimelineEvent)
@@ -846,6 +857,8 @@ const CalendarPage: React.FC = () => {
         activeProjectId={activeProject?.projectId ?? null}
         activeProjectName={activeProject?.title ?? null}
         activeProjectColor={(activeProject?.color as string | undefined) ?? null}
+        activeProjectStartDate={activeProjectStartDate}
+        activeProjectEndDate={activeProjectEndDate}
       />
     </ProjectPageLayout>
   );
