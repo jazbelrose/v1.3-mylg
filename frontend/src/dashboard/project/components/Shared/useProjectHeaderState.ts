@@ -232,7 +232,6 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     setIsEditStatusOpen(false);
     if (editStatusFromSettings) {
       setEditStatusFromSettings(false);
-      reopenSettings();
     }
   };
 
@@ -298,7 +297,6 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     setIsFinishLineOpen(false);
     if (finishLineFromSettings) {
       setFinishLineFromSettings(false);
-      reopenSettings();
     }
   };
 

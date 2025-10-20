@@ -1,0 +1,221 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 14000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(24px, 6vh, 64px) clamp(16px, 6vw, 48px);
+  background: rgba(17, 17, 17, 0.45);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.overlayAfterOpen {
+  opacity: 1;
+}
+
+.overlayBeforeClose {
+  opacity: 0;
+}
+
+.modalContent {
+  position: relative;
+  inset: auto;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.modalContentAfterOpen {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modalContentBeforeClose {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.modal {
+  --settings-accent: #6e7bff;
+  --settings-accent-rgb: 110, 123, 255;
+  background: rgba(18, 18, 19, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 32px 60px rgba(0, 0, 0, 0.6);
+  color: #f7f8fc;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: clamp(24px, 4vw, 32px);
+  width: min(520px, 100%);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 1.6rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  color: rgba(247, 248, 252, 0.68);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.closeButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7f8fc;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+}
+
+.closeButton:active {
+  transform: translateY(0);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.label {
+  font-size: 0.92rem;
+  color: rgba(247, 248, 252, 0.68);
+}
+
+.input,
+.dateInput {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(28, 28, 30, 0.9);
+  color: #f7f8fc;
+  padding: 14px 18px;
+  font-size: 1rem;
+  transition: border 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input:focus,
+.dateInput:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-width: 120px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.primaryButton {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--settings-accent-rgb), 1) 0%,
+    rgba(var(--settings-accent-rgb), 0.85) 100%
+  );
+  color: #0f1014;
+  box-shadow: 0 16px 32px rgba(var(--settings-accent-rgb), 0.25);
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 44px rgba(var(--settings-accent-rgb), 0.35);
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7f8fc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.secondaryButton:hover {
+  filter: brightness(1.05);
+}
+
+.secondaryButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .modal {
+    border-radius: 20px;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    flex: 1 1 auto;
+    min-width: unset;
+  }
+}
