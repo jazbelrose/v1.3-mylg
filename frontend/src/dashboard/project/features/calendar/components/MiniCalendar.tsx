@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useCallback, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Target } from "lucide-react";
 
 import { getMonthMatrix, fmt, isSameDay } from "../utils";
 
@@ -9,18 +9,31 @@ export type MiniCalendarProps = {
   rangeStart?: Date | null;
   rangeEnd?: Date | null;
   rangeColor?: string | null;
+  finishLineDate?: Date | null;
 };
 
 type MiniCalendarStyle = React.CSSProperties & {
   "--mini-calendar-accent"?: string;
 };
 
-function MiniCalendar({ value, onChange, rangeStart, rangeEnd, rangeColor }: MiniCalendarProps) {
+function MiniCalendar({
+  value,
+  onChange,
+  rangeStart,
+  rangeEnd,
+  rangeColor,
+  finishLineDate,
+}: MiniCalendarProps) {
   const days = useMemo(() => getMonthMatrix(value), [value]);
   const monthName = value.toLocaleString(undefined, {
     month: "long",
     year: "numeric",
   });
+
+  const handleFocusFinishLine = useCallback(() => {
+    if (!finishLineDate) return;
+    onChange(finishLineDate);
+  }, [finishLineDate, onChange]);
 
   const normalizedRange = useMemo(() => {
     if (!rangeStart && !rangeEnd) return null;
@@ -45,7 +58,19 @@ function MiniCalendar({ value, onChange, rangeStart, rangeEnd, rangeColor }: Min
   return (
     <div className="mini-calendar">
       <div className="mini-calendar__header">
-        <div className="mini-calendar__title">{monthName}</div>
+        <div className="mini-calendar__title">
+          <span>{monthName}</span>
+          <button
+            type="button"
+            className="mini-calendar__target-button"
+            onClick={handleFocusFinishLine}
+            aria-label="Jump to project finishline"
+            title="Jump to project finishline"
+            disabled={!finishLineDate}
+          >
+            <Target className="mini-calendar__target-icon" aria-hidden />
+          </button>
+        </div>
         <div className="mini-calendar__nav">
           <button
             type="button"

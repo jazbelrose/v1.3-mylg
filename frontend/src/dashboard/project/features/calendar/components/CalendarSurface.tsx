@@ -738,6 +738,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 rangeStart={projectRange?.start ?? null}
                 rangeEnd={projectRange?.end ?? null}
                 rangeColor={activeProjectColor ?? null}
+                finishLineDate={activeProjectEndDate ?? null}
               />
               <EventsAndTasks
                 events={visibleEvents}
