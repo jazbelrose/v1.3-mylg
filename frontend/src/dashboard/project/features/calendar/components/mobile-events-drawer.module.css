@@ -1,18 +1,22 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 16000;
+  z-index: 14000;
+  --drawer-top-gap: max(48px, calc(env(safe-area-inset-top, 0px) + 24px));
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 16px 12px max(20px, env(safe-area-inset-bottom));
+  padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 12px));
+  padding-right: 12px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  padding-left: 12px;
   background: var(--overlay-color);
   backdrop-filter: blur(8px);
 }
 
 .drawer {
   width: min(640px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - var(--drawer-top-gap, 48px));
   background: var(--bg3);
   border: 1px solid var(--border-color);
   border-radius: 24px 24px 0 0;
@@ -147,11 +151,12 @@
 @media (min-width: 720px) {
   .overlay {
     align-items: center;
+    --drawer-top-gap: clamp(96px, 14vh, 144px);
     padding: clamp(24px, 5vh, 48px);
   }
 
   .drawer {
     border-radius: 28px;
-    max-height: calc(100vh - clamp(96px, 14vh, 144px));
+    max-height: calc(100vh - var(--drawer-top-gap, clamp(96px, 14vh, 144px)));
   }
 }
