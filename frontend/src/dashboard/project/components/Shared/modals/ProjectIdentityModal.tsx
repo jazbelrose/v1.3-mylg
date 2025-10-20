@@ -8,18 +8,18 @@ import type { Project } from "@/app/contexts/DataProvider";
 import { generateSequentialPalette } from "@/shared/utils/colorUtils";
 import Modal from "@/shared/ui/ModalWithStack";
 
-import styles from "./project-settings-modal.module.css";
+import styles from "./project-identity-modal.module.css";
 
 import type {
   ColorModalState,
   DeleteConfirmationModalState,
   EditNameModalState,
   InvoiceInfoModalState,
-  SettingsModalState,
+  IdentityModalState,
 } from "../projectHeaderTypes";
 
-interface SettingsModalProps {
-  modal: SettingsModalState;
+interface ProjectIdentityModalProps {
+  modal: IdentityModalState;
   project: Project | null;
   editNameModal: EditNameModalState;
   colorModal: ColorModalState;
@@ -31,7 +31,7 @@ interface SettingsModalProps {
 const DEFAULT_ACCENT = "#6e7bff";
 const DEFAULT_ACCENT_RGB = "110, 123, 255";
 
-const SettingsModal = ({
+const ProjectIdentityModal = ({
   modal,
   project,
   editNameModal,
@@ -39,7 +39,7 @@ const SettingsModal = ({
   invoiceInfoModal,
   deleteModal,
   isAdmin,
-}: SettingsModalProps) => {
+}: ProjectIdentityModalProps) => {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -156,7 +156,7 @@ const SettingsModal = ({
     <Modal
       isOpen={modal.isOpen}
       onRequestClose={handleClose}
-      contentLabel="Project Settings"
+      contentLabel="Project Identity"
       closeTimeoutMS={300}
       className={{ base: "", afterOpen: "", beforeClose: "" }}
       overlayClassName={{
@@ -168,9 +168,9 @@ const SettingsModal = ({
       <div className={styles.modal} style={accentStyles}>
         <header className={styles.header}>
           <div className={styles.headerText}>
-            <h2 className={styles.title}>Project Settings</h2>
+            <h2 className={styles.title}>Project Identity</h2>
             <p className={styles.subtitle}>
-              Fine-tune your project details, branding, billing preferences, and administrative actions in one place.
+              Customize how your project appears across the dashboard by updating its name and accent color.
             </p>
           </div>
           <button type="button" className={styles.closeButton} onClick={handleClose} aria-label="Close settings">
@@ -183,7 +183,7 @@ const SettingsModal = ({
             <div className={styles.sectionHeader}>
               <h3 className={styles.sectionTitle}>Project Identity</h3>
               <p className={styles.sectionDescription}>
-                Update the project name and thumbnail that appear across dashboards and shared views.
+                Update the project name and visual accent that appear across dashboards and shared views.
               </p>
             </div>
 
@@ -208,71 +208,52 @@ const SettingsModal = ({
                   </button>
                 </div>
               </form>
-
-              <div className={styles.thumbnailSection}>
-                <div className={styles.thumbnailSummary}>
-                  <span className={styles.sectionDescription}>Thumbnail</span>
-                  <p className={styles.mutedText}>
-                    Manage the project thumbnail from the dedicated modal. Recommended resolution: at least
-                    512 × 512px. Square images look best.
-                  </p>
-                  <div className={styles.actionsRow}>
-                    <button type="button" className={styles.secondaryButton} onClick={modal.triggerThumbnail}>
-                      Change thumbnail
+              <div className={styles.colorPanel}>
+                <span className={styles.sectionDescription}>Project color</span>
+                <div className={styles.colorPickerRow}>
+                  <HexColorPicker
+                    color={colorModal.selectedColor || resolvedProjectColor}
+                    onChange={colorModal.setSelectedColor}
+                  />
+                  <div className={styles.colorInputs}>
+                    <HexColorInput
+                      prefixed
+                      color={colorModal.selectedColor || resolvedProjectColor}
+                      onChange={colorModal.setSelectedColor}
+                      className={styles.textInput}
+                    />
+                    <div className={styles.rgbText}>
+                      RGB: {colorModal.hexToRgb(colorModal.selectedColor || resolvedProjectColor)}
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={colorModal.pickColorFromScreen}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                        <Pipette size={18} /> Pick from screen
+                      </span>
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          </section>
-
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>Branding Color</h3>
-              <p className={styles.sectionDescription}>
-                Align the project accent color with your brand palette. Preview updates instantly before saving.
-              </p>
-            </div>
-
-            <div className={styles.colorSection}>
-              <HexColorPicker color={colorModal.selectedColor || resolvedProjectColor} onChange={colorModal.setSelectedColor} />
-              <div className={styles.colorInputs}>
-                <HexColorInput
-                  prefixed
-                  color={colorModal.selectedColor || resolvedProjectColor}
-                  onChange={colorModal.setSelectedColor}
-                  className={styles.textInput}
-                />
-                <div className={styles.rgbText}>
-                  RGB: {colorModal.hexToRgb(colorModal.selectedColor || resolvedProjectColor)}
+                <div className={styles.actionsRow}>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={colorModal.save}
+                    disabled={!isColorDirty}
+                  >
+                    Save color
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={handleResetColor}
+                    disabled={!isColorDirty}
+                  >
+                    Reset
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={colorModal.pickColorFromScreen}
-                >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                    <Pipette size={18} /> Pick from screen
-                  </span>
-                </button>
-              </div>
-              <div className={styles.actionsRow}>
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={colorModal.save}
-                  disabled={!isColorDirty}
-                >
-                  Save color
-                </button>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={handleResetColor}
-                  disabled={!isColorDirty}
-                >
-                  Reset
-                </button>
               </div>
             </div>
           </section>
@@ -326,4 +307,4 @@ const SettingsModal = ({
   );
 };
 
-export default SettingsModal;
+export default ProjectIdentityModal;

@@ -5,7 +5,7 @@ import {
   Link as LinkIcon,
   MoreVertical,
   MessageCircle,
-  Settings,
+  Palette,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ interface MobileProjectHeaderProps {
   teamMembers: TeamMember[];
   onOpenQuickLinks: () => void;
   onOpenFiles: () => void;
-  onOpenSettings: () => void;
+  onOpenIdentity: () => void;
   onOpenTeam: () => void;
   onOpenFinishLine: () => void;
   onOpenStatus: () => void;
@@ -54,7 +54,7 @@ const MobileProjectHeader: React.FC<MobileProjectHeaderProps> = ({
   teamMembers,
   onOpenQuickLinks,
   onOpenFiles,
-  onOpenSettings,
+  onOpenIdentity,
   onOpenTeam,
   onOpenFinishLine,
   onOpenStatus,
@@ -261,11 +261,11 @@ const MobileProjectHeader: React.FC<MobileProjectHeaderProps> = ({
                 className={styles.menuItem}
                 onClick={() => {
                   setMenuOpen(false);
-                  onOpenSettings();
+                  onOpenIdentity();
                 }}
               >
-                <Settings />
-                Settings
+                <Palette />
+                Identity
               </button>
             </PopoverContent>
           </Popover>

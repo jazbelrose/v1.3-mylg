@@ -15,7 +15,7 @@ import EditStatusModal from "./modals/EditStatusModal";
 import ThumbnailModal from "./modals/ThumbnailModal";
 import ColorModal from "./modals/ColorModal";
 import InvoiceInfoModal from "./modals/InvoiceInfoModal";
-import SettingsModal from "./modals/SettingsModal";
+import ProjectIdentityModal from "./modals/ProjectIdentityModal";
 import DeleteConfirmationModal from "./modals/DeleteConfirmationModal";
 
 const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
@@ -40,7 +40,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
     thumbnailModal,
     colorModal,
     invoiceInfoModal,
-    settingsModal,
+    settingsModal: identityModal,
     teamModal,
     getFileUrlForThumbnail,
     isAdmin,
@@ -74,7 +74,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
           teamMembers={teamModal.members}
           onOpenQuickLinks={props.onOpenQuickLinks}
           onOpenFiles={props.onOpenFiles}
-          onOpenSettings={settingsModal.open}
+          onOpenIdentity={identityModal.open}
           onOpenTeam={teamModal.open}
           onOpenFinishLine={finishLineModal.open}
           onOpenStatus={editStatusModal.open}
@@ -96,7 +96,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
           handleKeyDown={handleKeyDown}
           onOpenStatus={editStatusModal.open}
           onOpenFinishLine={finishLineModal.open}
-          onOpenSettings={settingsModal.open}
+          onOpenIdentity={identityModal.open}
           onOpenQuickLinks={props.onOpenQuickLinks}
           onOpenFiles={props.onOpenFiles}
           onOpenThumbnail={() => thumbnailModal.open()}
@@ -121,8 +121,8 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
       <ThumbnailModal modal={thumbnailModal} currentThumbnailUrl={currentThumbnailUrl} />
       <ColorModal modal={colorModal} />
       <InvoiceInfoModal modal={invoiceInfoModal} />
-      <SettingsModal
-        modal={settingsModal}
+      <ProjectIdentityModal
+        modal={identityModal}
         project={localActiveProject}
         editNameModal={editNameModal}
         colorModal={colorModal}
