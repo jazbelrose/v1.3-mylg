@@ -1,9 +1,8 @@
-import Cropper from "react-easy-crop";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { Image as ImageIcon, Pipette, Trash } from "lucide-react";
+import { Pipette, Trash } from "lucide-react";
 
 import type { Project } from "@/app/contexts/DataProvider";
 import { generateSequentialPalette } from "@/shared/utils/colorUtils";
@@ -17,19 +16,16 @@ import type {
   EditNameModalState,
   InvoiceInfoModalState,
   SettingsModalState,
-  ThumbnailModalState,
 } from "../projectHeaderTypes";
 
 interface SettingsModalProps {
   modal: SettingsModalState;
   project: Project | null;
   editNameModal: EditNameModalState;
-  thumbnailModal: ThumbnailModalState;
   colorModal: ColorModalState;
   invoiceInfoModal: InvoiceInfoModalState;
   deleteModal: DeleteConfirmationModalState;
   isAdmin: boolean;
-  getFileUrlForThumbnail: (thumbnail: string) => string;
 }
 
 const DEFAULT_ACCENT = "#6e7bff";
@@ -39,12 +35,10 @@ const SettingsModal = ({
   modal,
   project,
   editNameModal,
-  thumbnailModal,
   colorModal,
   invoiceInfoModal,
   deleteModal,
   isAdmin,
-  getFileUrlForThumbnail,
 }: SettingsModalProps) => {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -125,21 +119,6 @@ const SettingsModal = ({
       "--settings-shadow-rgb": rgbFromHex(end),
     } as CSSProperties;
   }, [colorModal.selectedColor, resolvedProjectColor]);
-
-  const handleDropzoneClick = useCallback(() => {
-    thumbnailModal.fileInputRef.current?.click();
-  }, [thumbnailModal.fileInputRef]);
-
-  const currentThumbnailKey = (project?.thumbnails?.[0] as string | undefined) || "";
-  const currentThumbnailUrl = useMemo(() => {
-    if (!currentThumbnailKey) return "";
-    try {
-      return getFileUrlForThumbnail(currentThumbnailKey);
-    } catch (error) {
-      console.error("Failed to resolve thumbnail url", error);
-      return "";
-    }
-  }, [currentThumbnailKey, getFileUrlForThumbnail]);
 
   const baseProjectName = project?.title || "";
   const isNameDirty = editNameModal.updatedName.trim() !== baseProjectName.trim();
@@ -231,127 +210,18 @@ const SettingsModal = ({
               </form>
 
               <div className={styles.thumbnailSection}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className={`${styles.thumbnailDropzone} ${
-                    thumbnailModal.isDragging ? styles.thumbnailDropzoneActive : ""
-                }`}
-                onClick={handleDropzoneClick}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    handleDropzoneClick();
-                  }
-                }}
-                onDragOver={thumbnailModal.onDragOver}
-                onDragLeave={thumbnailModal.onDragLeave}
-                onDrop={thumbnailModal.onDrop}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={thumbnailModal.fileInputRef}
-                  style={{ display: "none" }}
-                  onChange={thumbnailModal.onFileChange}
-                />
-                {thumbnailModal.preview ? (
-                  <div className={styles.thumbnailCropper}>
-                    <Cropper
-                      image={thumbnailModal.preview}
-                      crop={thumbnailModal.crop}
-                      zoom={thumbnailModal.zoom}
-                      aspect={1}
-                      onCropChange={thumbnailModal.onCropChange}
-                      onZoomChange={thumbnailModal.onZoomChange}
-                      onCropComplete={(_, area) => thumbnailModal.onCropComplete(area)}
-                      objectFit="cover"
-                    />
-                  </div>
-                ) : currentThumbnailUrl ? (
-                  <img
-                    src={currentThumbnailUrl}
-                    alt="Current project thumbnail"
-                    className={styles.thumbnailPreviewImage}
-                  />
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                    <ImageIcon size={32} aria-hidden="true" />
-                    <span>Click or drag an image to upload</span>
-                  </div>
-                )}
-
-                {thumbnailModal.isDragging && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: "rgba(10, 10, 12, 0.65)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#f7f8fc",
-                    }}
-                  >
-                    Drop to upload
-                  </div>
-                )}
-
-                {thumbnailModal.isUploading && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: "rgba(10, 10, 12, 0.65)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div className="dot-loader">
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {thumbnailModal.preview ? (
-                <div className={styles.thumbnailControls}>
-                  <input
-                    type="range"
-                    min={1}
-                    max={3}
-                    step={0.1}
-                    value={thumbnailModal.zoom}
-                    onChange={(event) => thumbnailModal.onZoomChange(parseFloat(event.target.value))}
-                    className={styles.rangeInput}
-                  />
+                <div className={styles.thumbnailSummary}>
+                  <span className={styles.sectionDescription}>Thumbnail</span>
+                  <p className={styles.mutedText}>
+                    Manage the project thumbnail from the dedicated modal. Recommended resolution: at least
+                    512 × 512px. Square images look best.
+                  </p>
                   <div className={styles.actionsRow}>
-                    <button
-                      type="button"
-                      className={styles.primaryButton}
-                      onClick={thumbnailModal.upload}
-                      disabled={thumbnailModal.isUploading || !thumbnailModal.preview}
-                    >
-                      Save thumbnail
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.secondaryButton}
-                      onClick={thumbnailModal.remove}
-                      disabled={thumbnailModal.isUploading}
-                    >
-                      Clear selection
+                    <button type="button" className={styles.secondaryButton} onClick={modal.triggerThumbnail}>
+                      Change thumbnail
                     </button>
                   </div>
                 </div>
-              ) : (
-                <p className={styles.mutedText}>
-                  Recommended resolution: at least 512 × 512px. Square images look best.
-                </p>
-              )}
               </div>
             </div>
           </section>

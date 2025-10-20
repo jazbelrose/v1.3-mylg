@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 import "./project-header.css";
 
@@ -47,6 +47,15 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
   } = state;
 
   const thumbnailKey = localActiveProject?.thumbnails?.[0] as string | undefined;
+  const currentThumbnailUrl = useMemo(() => {
+    if (!thumbnailKey) return "";
+    try {
+      return getFileUrlForThumbnail(thumbnailKey);
+    } catch (error) {
+      console.error("Failed to resolve thumbnail url", error);
+      return "";
+    }
+  }, [thumbnailKey, getFileUrlForThumbnail]);
 
   return (
     <div>
@@ -109,19 +118,17 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
       <EditNameModal modal={editNameModal} />
       <FinishLineModal modal={finishLineModal} />
       <EditStatusModal modal={editStatusModal} />
-      <ThumbnailModal modal={thumbnailModal} />
+      <ThumbnailModal modal={thumbnailModal} currentThumbnailUrl={currentThumbnailUrl} />
       <ColorModal modal={colorModal} />
       <InvoiceInfoModal modal={invoiceInfoModal} />
       <SettingsModal
         modal={settingsModal}
         project={localActiveProject}
         editNameModal={editNameModal}
-        thumbnailModal={thumbnailModal}
         colorModal={colorModal}
         invoiceInfoModal={invoiceInfoModal}
         deleteModal={deleteConfirmationModal}
         isAdmin={isAdmin}
-        getFileUrlForThumbnail={getFileUrlForThumbnail}
       />
       <DeleteConfirmationModal modal={deleteConfirmationModal} />
 
