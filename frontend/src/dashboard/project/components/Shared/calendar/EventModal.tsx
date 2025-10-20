@@ -82,6 +82,16 @@ const EventModal: React.FC<EventModalProps> = ({
       contentLabel={isEditing ? "Edit Event" : "Add Event"}
       overlayClassName={styles.modalOverlay}
       className={styles.modalContent}
+      style={{
+        content: {
+          position: "static",
+          inset: "unset",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          overflow: "visible",
+        },
+      }}
       bodyOpenClassName="ReactModal__Body--open"
     >
       <div className={styles.modalShell}>

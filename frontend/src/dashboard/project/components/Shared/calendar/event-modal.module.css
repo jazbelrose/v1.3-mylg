@@ -113,6 +113,11 @@
   padding: clamp(20px, 4vw, 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
+<<<<<<< HEAD
+=======
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+>>>>>>> pr-69
 }
 
 .checkboxRow {
@@ -166,6 +171,10 @@
   .modalContent {
     width: 100%;
     max-height: calc(100vh - 24px);
+<<<<<<< HEAD
+=======
+    max-height: calc(100dvh - 24px);
+>>>>>>> pr-69
   }
 
   .formBody {
