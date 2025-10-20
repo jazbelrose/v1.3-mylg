@@ -36,6 +36,12 @@
   align-items: baseline;
 }
 
+.dateControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .title {
   font-size: 1.05rem;
   font-weight: 600;
