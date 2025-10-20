@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from "react";
 
-import { Folder, Link2, MessageCircle, Settings } from "lucide-react";
+import { Folder, Link2, MessageCircle } from "lucide-react";
 
 import AvatarStack from "@/shared/ui/AvatarStack";
 import Squircle from "@/shared/ui/Squircle";
@@ -30,7 +30,7 @@ interface DesktopProjectHeaderProps {
   handleKeyDown: (event: KeyboardEvent, action: () => void) => void;
   onOpenStatus: () => void;
   onOpenFinishLine: () => void;
-  onOpenSettings: () => void;
+  onOpenIdentity: () => void;
   onOpenQuickLinks: () => void;
   onOpenFiles: () => void;
   onOpenThumbnail: () => void;
@@ -53,7 +53,7 @@ const DesktopProjectHeader = ({
   handleKeyDown,
   onOpenStatus,
   onOpenFinishLine,
-  onOpenSettings,
+  onOpenIdentity,
   onOpenQuickLinks,
   onOpenFiles,
   onOpenThumbnail,
@@ -96,19 +96,18 @@ const DesktopProjectHeader = ({
 
             <div className="project-text-group">
               <div className="single-project-title project-title-row">
-                <h2 className="project-title-heading">{project?.title || "Summary"}</h2>
-
-                <div
-                  onClick={onOpenSettings}
-                  onKeyDown={(event) => handleKeyDown(event, onOpenSettings)}
-                  role="button"
-                  tabIndex={0}
-                  title="Project settings"
-                  aria-label="Project settings"
-                  className="interactive icon-button project-settings-button"
-                >
-                  <Settings size={18} className="settings-icon" />
-                </div>
+                <h2 className="project-title-heading">
+                  <button
+                    type="button"
+                    className="project-title-button interactive"
+                    onClick={onOpenIdentity}
+                    onKeyDown={(event) => handleKeyDown(event, onOpenIdentity)}
+                    title="Edit project identity"
+                    aria-label="Edit project identity"
+                  >
+                    {project?.title || "Summary"}
+                  </button>
+                </h2>
               </div>
 
               <div

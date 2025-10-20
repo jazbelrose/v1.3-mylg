@@ -148,6 +148,24 @@
   max-width: 520px;
 }
 
+.colorPanel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(24, 24, 26, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 100%;
+  max-width: 420px;
+}
+
+.colorPickerRow {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  align-items: center;
+}
+
 .textInput,
 .selectInput,
 .textArea {
@@ -301,12 +319,6 @@
   font-size: 0.9rem;
 }
 
-.colorSection {
-  display: grid;
-  gap: 18px;
-  max-width: 420px;
-}
-
 .colorInputs {
   display: flex;
   flex-direction: column;
@@ -369,5 +381,9 @@
 
   .body {
     padding-bottom: clamp(140px, 18vh, 180px);
+  }
+
+  .colorPickerRow {
+    grid-template-columns: 1fr;
   }
 }

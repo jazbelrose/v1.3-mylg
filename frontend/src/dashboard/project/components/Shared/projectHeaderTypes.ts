@@ -122,15 +122,10 @@ export interface ThumbnailModalState {
   setPreview: (preview: string | null) => void;
 }
 
-export interface SettingsModalState {
+export interface IdentityModalState {
   isOpen: boolean;
   open: () => void;
   close: () => void;
-  triggerEditName: () => void;
-  triggerThumbnail: () => void;
-  triggerColor: () => void;
-  triggerInvoiceInfo: () => void;
-  triggerDelete: () => void;
 }
 
 export interface TeamModalState {
@@ -160,7 +155,7 @@ export interface ProjectHeaderState {
   thumbnailModal: ThumbnailModalState;
   colorModal: ColorModalState;
   invoiceInfoModal: InvoiceInfoModalState;
-  settingsModal: SettingsModalState;
+  settingsModal: IdentityModalState;
   teamModal: TeamModalState;
   getFileUrlForThumbnail: (thumbnail: string) => string;
   isAdmin: boolean;

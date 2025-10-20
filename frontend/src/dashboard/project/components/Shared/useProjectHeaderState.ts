@@ -34,7 +34,7 @@ import type {
   NavigationState,
   ProjectHeaderProps,
   ProjectHeaderState,
-  SettingsModalState,
+  IdentityModalState,
   TeamModalState,
 } from "./projectHeaderTypes";
 
@@ -432,30 +432,10 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
   };
   const closeSettings = () => setIsSettingsOpen(false);
 
-  const settingsModal: SettingsModalState = {
+  const settingsModal: IdentityModalState = {
     isOpen: isSettingsOpen,
     open: openSettings,
     close: closeSettings,
-    triggerEditName: () => {
-      closeSettings();
-      openEditName(true);
-    },
-    triggerThumbnail: () => {
-      closeSettings();
-      thumbnailModal.open(true);
-    },
-    triggerColor: () => {
-      closeSettings();
-      colorModal.open(true);
-    },
-    triggerInvoiceInfo: () => {
-      closeSettings();
-      invoiceInfoModal.open(true);
-    },
-    triggerDelete: () => {
-      closeSettings();
-      openDeleteConfirmation(true);
-    },
   };
 
   const teamModal: TeamModalState = {
