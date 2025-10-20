@@ -246,33 +246,34 @@ const SettingsModal = ({
               </p>
             </div>
 
-            <form className={styles.inlineForm} onSubmit={editNameModal.submit}>
-              <label>
-                <span className={styles.sectionDescription}>Project name</span>
-                <input
-                  className={styles.textInput}
-                  type="text"
-                  value={editNameModal.updatedName}
-                  onChange={(event) => editNameModal.setUpdatedName(event.target.value)}
-                  placeholder="Project name"
-                />
-              </label>
-              <div className={styles.actionsRow}>
-                <button className={styles.primaryButton} type="submit" disabled={!isNameDirty}>
-                  Save name
-                </button>
-                <button className={styles.secondaryButton} type="button" onClick={handleResetName} disabled={!isNameDirty}>
-                  Reset
-                </button>
-              </div>
-            </form>
+            <div className={styles.identityGrid}>
+              <form className={styles.inlineForm} onSubmit={editNameModal.submit}>
+                <label>
+                  <span className={styles.sectionDescription}>Project name</span>
+                  <input
+                    className={styles.textInput}
+                    type="text"
+                    value={editNameModal.updatedName}
+                    onChange={(event) => editNameModal.setUpdatedName(event.target.value)}
+                    placeholder="Project name"
+                  />
+                </label>
+                <div className={styles.actionsRow}>
+                  <button className={styles.primaryButton} type="submit" disabled={!isNameDirty}>
+                    Save name
+                  </button>
+                  <button className={styles.secondaryButton} type="button" onClick={handleResetName} disabled={!isNameDirty}>
+                    Reset
+                  </button>
+                </div>
+              </form>
 
-            <div className={styles.thumbnailSection}>
-              <div
-                role="button"
-                tabIndex={0}
-                className={`${styles.thumbnailDropzone} ${
-                  thumbnailModal.isDragging ? styles.thumbnailDropzoneActive : ""
+              <div className={styles.thumbnailSection}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={`${styles.thumbnailDropzone} ${
+                    thumbnailModal.isDragging ? styles.thumbnailDropzoneActive : ""
                 }`}
                 onClick={handleDropzoneClick}
                 onKeyDown={(event) => {
@@ -389,6 +390,7 @@ const SettingsModal = ({
                   Recommended resolution: at least 512 × 512px. Square images look best.
                 </p>
               )}
+              </div>
             </div>
           </section>
 
