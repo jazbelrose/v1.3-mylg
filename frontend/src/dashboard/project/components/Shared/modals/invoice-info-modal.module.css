@@ -1,0 +1,147 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 12, 12, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 16000;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+}
+
+.modalContent {
+  background: rgba(26, 26, 26, 0.97);
+  color: #f7f8fc;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 28px clamp(24px, 4vw, 36px);
+  max-width: 420px;
+  width: calc(100% - 56px);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.modalContentAfterOpen {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modalContentBeforeClose {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+.heading {
+  margin: 0 0 20px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: rgba(22, 22, 22, 0.9);
+  color: #f7f8fc;
+  padding: 11px 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.input::placeholder {
+  color: rgba(247, 248, 252, 0.55);
+}
+
+.input:focus {
+  outline: none;
+  background: rgba(20, 20, 20, 0.98);
+  box-shadow: 0 0 0 1px rgba(110, 123, 255, 0.8), 0 16px 28px rgba(31, 45, 124, 0.25);
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.primaryButton,
+.secondaryButton {
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  font-family: inherit;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #6e7bff, #4662ff);
+  color: #0b0c10;
+  box-shadow: 0 14px 28px rgba(31, 45, 124, 0.35);
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(31, 45, 124, 0.45);
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7f8fc;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.secondaryButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 600px) {
+  .modalContent {
+    padding: 24px clamp(20px, 6vw, 28px);
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+  }
+}
