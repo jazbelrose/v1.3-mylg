@@ -138,26 +138,12 @@ export const PopoverTrigger = React.forwardRef<HTMLElement, PopoverTriggerProps>
 PopoverTrigger.displayName = "PopoverTrigger";
 
 interface PopoverContentProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, "children"> {
+  extends React.HTMLAttributes<HTMLDivElement> {
   align?: "start" | "center" | "end";
-  side?: "top" | "right" | "bottom" | "left";
-  sideOffset?: number;
-  children?: React.ReactNode;
 }
 
 export const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
-  (
-    {
-      className,
-      style,
-      align = "end",
-      side = "bottom",
-      sideOffset = 8,
-      children,
-      ...props
-    },
-    forwardedRef,
-  ) => {
+  ({ className, style, align = "end", children, ...props }, forwardedRef) => {
     const { open, contentRef, triggerRef } = usePopoverContext();
 
     const [positionStyle, setPositionStyle] = React.useState<React.CSSProperties>({});
@@ -168,62 +154,22 @@ export const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentPro
       if (!trigger) return;
 
       const rect = trigger.getBoundingClientRect();
-      const baseStyle: React.CSSProperties = {};
-      let translateX = 0;
-      let translateY = 0;
+      const baseStyle: React.CSSProperties = {
+        top: rect.bottom + 8,
+        left: rect.left,
+        transform: "translateX(0)",
+      };
 
-      switch (side) {
-        case "top":
-          baseStyle.top = rect.top - sideOffset;
-          baseStyle.left = rect.left;
-          translateY = -100;
-          break;
-        case "right":
-          baseStyle.top = rect.top;
-          baseStyle.left = rect.right + sideOffset;
-          break;
-        case "left":
-          baseStyle.top = rect.top;
-          baseStyle.left = rect.left - sideOffset;
-          translateX = -100;
-          break;
-        case "bottom":
-        default:
-          baseStyle.top = rect.bottom + sideOffset;
-          baseStyle.left = rect.left;
-          break;
+      if (align === "center") {
+        baseStyle.left = rect.left + rect.width / 2;
+        baseStyle.transform = "translateX(-50%)";
+      } else if (align === "end") {
+        baseStyle.left = rect.right;
+        baseStyle.transform = "translateX(-100%)";
       }
-
-      if (side === "top" || side === "bottom") {
-        if (align === "center") {
-          baseStyle.left = rect.left + rect.width / 2;
-          translateX = -50;
-        } else if (align === "end") {
-          baseStyle.left = rect.right;
-          translateX = -100;
-        }
-      } else {
-        if (align === "center") {
-          baseStyle.top = rect.top + rect.height / 2;
-          translateY = -50;
-        } else if (align === "end") {
-          baseStyle.top = rect.bottom;
-          translateY = -100;
-        }
-      }
-
-      const transforms: string[] = [];
-      if (translateX !== 0) {
-        transforms.push(`translateX(${translateX}%)`);
-      }
-      if (translateY !== 0) {
-        transforms.push(`translateY(${translateY}%)`);
-      }
-
-      baseStyle.transform = transforms.length > 0 ? transforms.join(" ") : undefined;
 
       setPositionStyle(baseStyle);
-    }, [align, side, sideOffset, triggerRef]);
+    }, [align, triggerRef]);
 
     const refCallback = (node: HTMLDivElement | null) => {
       contentRef.current = node;
