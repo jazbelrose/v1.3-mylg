@@ -134,11 +134,10 @@
 }
 
 .identityGrid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: clamp(18px, 3vw, 32px);
-  align-items: start;
-  justify-items: start;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
 }
 
 .inlineForm {
@@ -156,7 +155,7 @@
   background: rgba(24, 24, 26, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.12);
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
 }
 
 .colorPickerRow {
