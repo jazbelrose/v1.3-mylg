@@ -1,0 +1,191 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vh, 48px) clamp(16px, 4vw, 48px);
+  background: var(--overlay-color);
+  backdrop-filter: blur(10px);
+}
+
+.modalContent {
+  --invoice-accent: var(--color-accent, #FA3356);
+  --invoice-accent-rgb: 250, 51, 86;
+  --invoice-accent-gradient-start: color-mix(in srgb, var(--invoice-accent) 90%, white 10%);
+  --invoice-accent-gradient-end: color-mix(in srgb, var(--invoice-accent) 82%, black 18%);
+  --invoice-shadow-rgb: 18, 18, 18;
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100vh - clamp(72px, 14vh, 124px));
+  border-radius: 26px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+  background: color-mix(in srgb, var(--bg3) 96%, transparent);
+  color: var(--text);
+  overflow: hidden;
+  box-shadow: 0 32px 70px rgba(var(--invoice-shadow-rgb), 0.55);
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.modalContentAfterOpen {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.modalContentBeforeClose {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+}
+
+.modalInner {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 5vw, 36px);
+  gap: clamp(20px, 4vh, 28px);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 3vh, 24px);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldLabel {
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--bg2) 82%, transparent);
+  color: var(--text);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input::placeholder {
+  color: color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+.input:hover {
+  border-color: color-mix(in srgb, var(--text) 28%, transparent);
+  background: color-mix(in srgb, var(--bg3) 92%, transparent);
+}
+
+.input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--invoice-accent) 85%, white 15%);
+  background: color-mix(in srgb, var(--bg3) 94%, transparent);
+  box-shadow: 0 0 0 3px rgba(var(--invoice-accent-rgb), 0.18);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.secondaryButton,
+.primaryButton {
+  appearance: none;
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.secondaryButton {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--text) 22%, transparent);
+  color: var(--text);
+}
+
+.secondaryButton:hover {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  border-color: color-mix(in srgb, var(--text) 34%, transparent);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:active {
+  transform: translateY(0);
+}
+
+.primaryButton {
+  background: linear-gradient(
+    135deg,
+    var(--invoice-accent-gradient-start),
+    var(--invoice-accent-gradient-end)
+  );
+  border-color: color-mix(in srgb, var(--invoice-accent) 82%, transparent);
+  color: #ffffff;
+  box-shadow: 0 18px 36px rgba(var(--invoice-shadow-rgb), 0.32);
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 42px rgba(var(--invoice-shadow-rgb), 0.4);
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 540px) {
+  .modalContent {
+    border-radius: 22px;
+  }
+
+  .modalInner {
+    padding: clamp(20px, 8vw, 28px);
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+    text-align: center;
+  }
+}
