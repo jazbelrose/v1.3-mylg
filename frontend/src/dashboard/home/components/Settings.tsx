@@ -245,81 +245,79 @@ const Settings: React.FC = () => {
         <div className="settings-container">
           <h2 className="section-heading">Account Info</h2>
 
-          <form onSubmit={handleSubmit}>
-            <div className="settings-row">
-              <UserProfilePicture
-                thumbnail={thumbnail}
-                thumbnailUrl={userData?.thumbnailUrl as string | undefined}
-                localPreview={localPreview || undefined}
-                onChange={handleThumbnailChange}
-              />
-              <div className="role-display">
-                <span
-                  className={`role-badge role-${roleKey}`}
-                  title={ROLE_DESCRIPTIONS[roleKey]}
-                >
-                  {userData?.role}
-                </span>
-                <span title={ROLE_DESCRIPTIONS[roleKey]}>
-                  <HelpCircle size={14} className="role-info" />
-                </span>
+          <form onSubmit={handleSubmit} className="settings-form">
+            <section className="account-info-card">
+              <div className="account-identity">
+                <UserProfilePicture
+                  thumbnail={thumbnail}
+                  thumbnailUrl={userData?.thumbnailUrl as string | undefined}
+                  localPreview={localPreview || undefined}
+                  onChange={handleThumbnailChange}
+                />
+                <div className="role-display" title={ROLE_DESCRIPTIONS[roleKey]}>
+                  <span className={`role-badge role-${roleKey}`}>{userData?.role}</span>
+                  <HelpCircle size={16} className="role-info" aria-hidden="true" />
+                </div>
               </div>
-            </div>
 
-            <div className="field-grid">
-              <EditableTextField
-                id="firstName"
-                label="First Name"
-                value={firstName}
-                onChange={(v: string) => setFormData((p) => ({ ...p, firstName: v }))}
-              />
-              <EditableTextField
-                id="lastName"
-                label="Last Name"
-                value={lastName}
-                onChange={(v: string) => setFormData((p) => ({ ...p, lastName: v }))}
-              />
-              <EditableTextField
-                id="email"
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(v: string) => setFormData((p) => ({ ...p, email: v }))}
-              />
-              <EditableTextField
-                id="phoneNumber"
-                label="Phone Number"
-                type="tel"
-                value={phoneNumber}
-                onChange={(v: string) => setFormData((p) => ({ ...p, phoneNumber: v }))}
-              />
-              <EditableTextField
-                id="company"
-                label="Organization"
-                value={company}
-                onChange={(v: string) => setFormData((p) => ({ ...p, company: v }))}
-              />
-              <EditableTextField
-                id="occupation"
-                label="Occupation"
-                value={occupation}
-                onChange={(v: string) => setFormData((p) => ({ ...p, occupation: v }))}
-              />
-            </div>
+              <div className="field-grid">
+                <EditableTextField
+                  id="firstName"
+                  label="First Name"
+                  value={firstName}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, firstName: v }))}
+                />
+                <EditableTextField
+                  id="lastName"
+                  label="Last Name"
+                  value={lastName}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, lastName: v }))}
+                />
+                <EditableTextField
+                  id="email"
+                  label="Email"
+                  type="email"
+                  value={email}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, email: v }))}
+                />
+                <EditableTextField
+                  id="phoneNumber"
+                  label="Phone Number"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, phoneNumber: v }))}
+                />
+                <EditableTextField
+                  id="company"
+                  label="Organization"
+                  value={company}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, company: v }))}
+                />
+                <EditableTextField
+                  id="occupation"
+                  label="Occupation"
+                  value={occupation}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, occupation: v }))}
+                />
+              </div>
+            </section>
 
-            <div className="password-section">
+            <section className="password-section">
               <button
                 type="button"
-                className="modal-submit-button secondary password-toggle"
+                className="settings-action-button"
                 onClick={() => setShowPasswordFields((p) => !p)}
               >
                 Change Password
               </button>
 
               {showPasswordFields && (
-                <div className="form-group form-group-password">
-                  <label htmlFor="password">Password Change</label>
+                <div className="password-fields">
+                  <label className="password-label" htmlFor="currentPassword">
+                    Password Change
+                  </label>
                   <input
+                    id="currentPassword"
                     type="password"
                     className="modal-input-password"
                     value={oldPassword}
@@ -327,6 +325,7 @@ const Settings: React.FC = () => {
                     placeholder="Old Password"
                   />
                   <input
+                    id="newPassword"
                     type="password"
                     className="modal-input-password"
                     value={newPassword}
@@ -334,21 +333,24 @@ const Settings: React.FC = () => {
                     placeholder="New Password"
                   />
                   <input
+                    id="confirmPassword"
                     type="password"
                     className="modal-input-password"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     placeholder="Confirm New Password"
                   />
-                  {passwordChangeStatus && <div>{passwordChangeStatus}</div>}
+                  {passwordChangeStatus && (
+                    <div className="password-status">{passwordChangeStatus}</div>
+                  )}
                 </div>
               )}
-            </div>
+            </section>
 
             <div className="save-row">
               <button
                 type="submit"
-                className="modal-submit-button settings primary"
+                className="settings-save-button"
                 disabled={isSaving || !isFormDirty}
               >
                 {isSaving ? "Saving..." : showSavedWindow ? "Saved. Nice." : "Save"}

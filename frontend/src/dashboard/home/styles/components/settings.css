@@ -1,214 +1,305 @@
 /* Dashboard Settings styles */
 
-.settings-header {
-  max-width: 1920px;
-  width: 100%;
-  margin: 10px auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  box-sizing: border-box;
-  border: 2px solid white;
-  border-radius: 20px;
-}
-
-.settings-container {
-  max-width: 1920px;
-  width: 100%;
-  margin: 0 auto;
-  overflow: auto;
-  box-sizing: border-box;
-  border: 2px solid white;
-  border-radius: 20px;
-  padding: 30px 50px;
-}
-
-.settings-container input,
-.settings-container textarea {
-  font-size: min(1.2rem, 2vw);
-}
-
-.settings-container label {
-  font-size: 20px;
-}
-
 .settings-content {
   display: flex;
   justify-content: center;
   width: 100%;
-  height: 100%;
+  padding: clamp(16px, 5vw, 48px);
+  background: var(--bg);
+  color: var(--text-color);
+  box-sizing: border-box;
 }
 
-.form-group {
-  width: 100%;
+.settings-container {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 48px);
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: linear-gradient(180deg, var(--bg2) 0%, var(--bg3) 100%);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(24px, 4vw, 40px);
+}
+
+.settings-container .section-heading {
+  margin: 0;
+  font-size: clamp(1.5rem, 2vw, 1.875rem);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(24px, 4vw, 32px);
+}
+
+.account-info-card,
+.password-section {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 3vw, 24px);
+  padding: clamp(20px, 3vw, 32px);
+  background: linear-gradient(
+    180deg,
+    rgba(24, 26, 27, 0.85) 0%,
+    rgba(17, 18, 19, 0.92) 100%
+  );
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+}
+
+.account-identity {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
-}
-
-.form-group label {
-  width: 200px;
-  margin-right: 15px;
-  flex-shrink: 0;
-}
-
-.form-group input,
-.form-group textarea {
-  flex: 1;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
 .thumbnail-group {
-  padding: 10px 0;
   width: auto;
+  gap: 12px;
 }
 
-.profile-thumbnail {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.thumbnail-placeholder {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  opacity: 0.5;
-}
-
-.thumbnail-input {
-  display: none;
+.thumbnail-group label {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color-muted);
 }
 
 .thumbnail-label {
   cursor: pointer;
   position: relative;
-}
-
-.edit-overlay {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 50%;
-  padding: 2px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-color);
+  background: var(--bg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.settings-row {
-  display: flex;
+.thumbnail-label:hover,
+.thumbnail-label:focus-within {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--brand-08);
+  transform: translateY(-1px);
+}
+
+.profile-thumbnail,
+.thumbnail-placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.role-display {
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 10px;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--brand-08);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.role-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--brand);
+  text-transform: capitalize;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.role-admin { background: #f04747; }
+.role-designer { background: #2d8cff; }
+.role-builder { background: #ffb347; }
+.role-vendor { background: #4caf50; }
+.role-client { background: #7c4dff; }
+
+.role-info {
+  color: var(--text-color-muted);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.role-info:hover,
+.role-info:focus {
+  color: var(--color-active);
+  transform: translateY(-1px);
 }
 
 .field-grid {
   display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(16px, 3vw, 24px);
+  width: 100%;
+}
+
+.form-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
 }
 
-.role-display {
+.form-group label {
+  width: 100%;
+  margin-right: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-color-muted);
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+}
+
+.modal-input.settings,
+.modal-input-password {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg);
+  color: var(--text-color);
+  padding: 12px 16px;
+  box-sizing: border-box;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.modal-input.settings:focus,
+.modal-input-password:focus {
+  outline: none;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--brand-08);
+  transform: translateY(-1px);
+}
+
+.password-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-color-muted);
+}
+
+.password-fields {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.password-status {
   font-size: 0.9rem;
+  color: var(--color-info);
 }
 
-.role-badge {
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 0.8rem;
-  text-transform: capitalize;
-  cursor: help;
+.settings-action-button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  font-weight: 500;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
-.role-admin { background-color: #d9534f; }
-.role-designer { background-color: #0275d8; }
-.role-builder { background-color: #f0ad4e; }
-.role-vendor { background-color: #5cb85c; }
-.role-client { background-color: #6f42c1; }
-.role-info { cursor: help; color: #ccc; }
 
-.password-toggle { margin-bottom: 10px; }
-.password-section { margin-top: 10px; }
+.settings-action-button:hover,
+.settings-action-button:focus-visible {
+  border-color: var(--color-focus);
+  color: var(--color-active);
+  background: var(--brand-08);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.save-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 36px;
+  border-radius: 999px;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.settings-save-button:hover:not(:disabled),
+.settings-save-button:focus-visible:not(:disabled) {
+  background: var(--color-hover);
+  border-color: var(--color-hover);
+  box-shadow: 0 18px 42px rgba(250, 51, 86, 0.35);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.settings-save-button:disabled {
+  background: var(--border-color);
+  border-color: var(--border-color);
+  color: var(--text-color-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
 
 .section-divider {
-  margin: 40px 0;
+  margin: clamp(16px, 5vw, 40px) 0;
   border: none;
-  border-top: 1px solid #444;
+  border-top: 1px solid var(--border-color);
+  opacity: 0.6;
 }
 
-input[type="file"] {
-  flex: 1;
-  height: auto;
-}
-
-.modal-submit-button.settings {
-  display: block;
-  margin: 30px 0;
-  padding: 10px 100px;
-  font-size: 1.2rem;
-  background: #FA3356;
-  color: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #FA3356;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-.modal-submit-button.settings:hover,
-.modal-submit-button.settings:focus {
-  background: #e42e4d;
-  border-color: #e42e4d;
-}
-
-/* .thumbnail-icon consolidated in project-containers.css */
-/* Responsive */
-@media (max-width: 1920px) {
-  .settings-container { padding: 0 20px; }
-}
-
-@media (max-width: var(--breakpoint-lg)) {
-  .form-group { align-items: flex-start; }
-  .modal-input-password { margin-bottom: 20px; width: 100%; }
-  .form-group-password { display: flex; flex-direction: column; align-items: flex-start; }
-  .form-group-password label,
-  .form-group-password input { width: 100%; margin-right: 0; margin-bottom: 15px; }
-}
-
-/* Phone-specific adjustments migrated from overrides */
-@media (max-width: var(--breakpoint-sm)) {
-  .settings-container input,
-  .settings-container textarea {
-    font-size: min(1rem, 3vw);
+@media (max-width: 768px) {
+  .settings-container {
+    padding: clamp(20px, 6vw, 32px);
   }
-  .settings-container label {
-    font-size: 14px;
+
+  .account-info-card,
+  .password-section {
+    padding: clamp(16px, 6vw, 24px);
   }
-  .form-group label {
-    width: 150px;
+
+  .settings-action-button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
   }
-  .modal-submit-button.settings {
-    padding: 10px 60px;
-    font-size: 1rem;
+
+  .save-row {
+    justify-content: center;
   }
-  .modal-input-password {
+
+  .settings-save-button {
     width: 100%;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
