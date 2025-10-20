@@ -6,7 +6,7 @@ import ConfirmModal from "@/shared/ui/ConfirmModal";
 import styles from "./create-line-item-modal.module.css";
 import { parseBudget, formatUSD } from "@/shared/utils/budgetUtils";
 import { useData } from "@/app/contexts/useData";
-import { generateSequentialPalette } from "@/shared/utils/colorUtils";
+import { buildBudgetAccentStyles } from "./budgetAccent";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -283,44 +283,9 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const isDraggingRef = useRef(false);
   const lastOffsetRef = useRef(0);
 
-  const accentColor = useMemo(() => {
-    if (typeof activeProject?.color === "string" && activeProject.color.trim() !== "") {
-      const normalized = normalizeHexColor(activeProject.color);
-      if (normalized) {
-        return normalized;
-      }
-    }
-    return DEFAULT_ACCENT_COLOR;
-  }, [activeProject?.color]);
-
-  const accentRgbString = useMemo(() => {
-    const rgb = hexToRgb(accentColor);
-    if (!rgb) return DEFAULT_ACCENT_RGB;
-    return `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`;
-  }, [accentColor]);
-
-  const [gradientStart, gradientEnd] = useMemo(() => {
-    const palette = generateSequentialPalette(accentColor, 3);
-    const start = palette[0] ?? accentColor;
-    const end = palette[palette.length - 1] ?? accentColor;
-    return [start, end] as const;
-  }, [accentColor]);
-
-  const shadowRgbString = useMemo(() => {
-    const rgb = hexToRgb(gradientEnd) ?? hexToRgb(accentColor);
-    if (!rgb) return DEFAULT_SHADOW_RGB;
-    return `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`;
-  }, [gradientEnd, accentColor]);
-
-  const accentStyles = useMemo<Record<string, string>>(
-    () => ({
-      "--line-item-accent": accentColor,
-      "--line-item-accent-rgb": accentRgbString,
-      "--line-item-accent-gradient-start": gradientStart,
-      "--line-item-accent-gradient-end": gradientEnd,
-      "--line-item-accent-shadow-rgb": shadowRgbString,
-    }),
-    [accentColor, accentRgbString, gradientStart, gradientEnd, shadowRgbString]
+  const accentStyles = useMemo(
+    () => buildBudgetAccentStyles(activeProject?.color ?? null),
+    [activeProject?.color]
   );
 
   const fieldMap = useMemo(() => {
@@ -999,44 +964,3 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
 };
 
 export default CreateLineItemModal;
-
-
-
-
-
-
-
-
-
-const DEFAULT_ACCENT_COLOR = "#6E7BFF";
-const DEFAULT_ACCENT_RGB = "110, 123, 255";
-const DEFAULT_SHADOW_RGB = "31, 45, 124";
-
-const normalizeHexColor = (value: string): string | null => {
-  const trimmed = value.trim();
-  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
-    return null;
-  }
-
-  if (trimmed.length === 4) {
-    const [, r, g, b] = trimmed;
-    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
-  }
-
-  return trimmed.toUpperCase();
-};
-
-const hexToRgb = (value: string): [number, number, number] | null => {
-  const normalized = value.startsWith("#") ? value.slice(1) : value;
-  if (normalized.length !== 6) return null;
-
-  const r = Number.parseInt(normalized.slice(0, 2), 16);
-  const g = Number.parseInt(normalized.slice(2, 4), 16);
-  const b = Number.parseInt(normalized.slice(4, 6), 16);
-
-  if ([r, g, b].some((component) => Number.isNaN(component))) {
-    return null;
-  }
-
-  return [r, g, b];
-};

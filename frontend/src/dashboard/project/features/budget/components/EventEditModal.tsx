@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { v4 as uuid } from "uuid";
@@ -8,6 +8,7 @@ import type { TimelineEvent } from "@/shared/utils/api";
 import { createEvent, updateEvent, deleteEvent } from "@/shared/utils/api";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import { useData } from "@/app/contexts/useData";
+import { buildBudgetAccentStyles } from "./budgetAccent";
 
 if (typeof document !== "undefined") {
   const rootElement = document.getElementById("root");
@@ -53,7 +54,11 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
   const [eventError, setEventError] = useState("");
   const originalEventsRef = useRef<TimelineEvent[]>([]);
   const { wsOps } = useBudget();
-  const { userId } = useData();
+  const { userId, activeProject } = useData();
+  const accentStyles = useMemo(
+    () => buildBudgetAccentStyles(activeProject?.color ?? null),
+    [activeProject?.color]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -202,7 +207,7 @@ const EventEditModal: React.FC<EventEditModalProps> = ({
         beforeClose: styles.sheetOverlay,
       }}
     >
-      <div className={styles.sheetModal}>
+      <div className={styles.sheetModal} style={accentStyles}>
         <div className={styles.grabZone}>
           <div className={styles.grabHandle} />
         </div>
