@@ -168,17 +168,28 @@ function EventsAndTasks({
   return (
     <div className="events-tasks">
       <div className="events-tasks__header">
-        <div className="events-tasks__title">Events & Tasks</div>
-        <div className="events-tasks__header-actions">
-            <Popover open={isFilterPopoverOpen} onOpenChange={setIsFilterPopoverOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={`events-tasks__filter-trigger${hasActiveFilters ? " is-active" : ""}`}
-                  aria-haspopup="menu"
-                  aria-expanded={isFilterPopoverOpen}
-                  aria-label={filterButtonAriaLabel}
-                >
+        <div className="events-tasks__header-row events-tasks__header-row--primary">
+          <div className="events-tasks__title">Events & Tasks</div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="events-tasks__map-pill"
+            onClick={onOpenTasksOverview}
+          >
+            Open Map
+          </Button>
+        </div>
+        <div className="events-tasks__header-row events-tasks__header-row--secondary">
+          <Popover open={isFilterPopoverOpen} onOpenChange={setIsFilterPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={`events-tasks__filter-trigger${hasActiveFilters ? " is-active" : ""}`}
+                aria-haspopup="menu"
+                aria-expanded={isFilterPopoverOpen}
+                aria-label={filterButtonAriaLabel}
+              >
                 <span className="events-tasks__filter-dot" aria-hidden />
                 <span className="events-tasks__filter-label">{filterButtonLabel}</span>
               </button>
@@ -237,15 +248,6 @@ function EventsAndTasks({
               </div>
             </PopoverContent>
           </Popover>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="events-tasks__map-pill"
-            onClick={onOpenTasksOverview}
-          >
-            OPEN MAP
-          </Button>
         </div>
       </div>
 
