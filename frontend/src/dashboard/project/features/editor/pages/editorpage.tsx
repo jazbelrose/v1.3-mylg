@@ -298,10 +298,10 @@ const EditorPage: React.FC = () => {
                         className="dashboard-layout editor-mode-layout"
                         style={{ paddingBottom: "5px" }}
                       >
-                        {activeProject?.description ? (
+                        {activeProject?.description !== undefined ? (
                           <LexicalEditor
-                            key={activeProject.projectId}
-                            initialContent={activeProject.description}
+                            key={activeProject?.projectId ?? "default-project"}
+                            initialContent={activeProject?.description ?? null}
                             onChange={handleBriefChange}
                             registerToolbar={setBriefToolbarActions}
                           />
