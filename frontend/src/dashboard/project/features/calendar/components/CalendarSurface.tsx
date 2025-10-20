@@ -103,6 +103,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [currentDragY, setCurrentDragY] = useState(0);
   const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isTabletLayout, setIsTabletLayout] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [activeMobileSidebarPanel, setActiveMobileSidebarPanel] =
+    useState<"calendar" | "agenda">("agenda");
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const initialScrollDoneRef = useRef(false);
@@ -116,6 +120,44 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     onDateChange(internalDate);
   }, [internalDate, onDateChange]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      setIsTabletLayout(false);
+      setIsMobileLayout(false);
+      return;
+    }
+
+    const tabletQuery = window.matchMedia("(max-width: 1024px)");
+    const mobileQuery = window.matchMedia("(max-width: 720px)");
+
+    const updateTablet = () => setIsTabletLayout(tabletQuery.matches);
+    const updateMobile = () => setIsMobileLayout(mobileQuery.matches);
+
+    updateTablet();
+    updateMobile();
+
+    const attach = (
+      query: MediaQueryList,
+      listener: () => void,
+    ): (() => void) => {
+      if (typeof query.addEventListener === "function") {
+        query.addEventListener("change", listener);
+        return () => query.removeEventListener("change", listener);
+      }
+
+      query.addListener(listener);
+      return () => query.removeListener(listener);
+    };
+
+    const detachTablet = attach(tabletQuery, updateTablet);
+    const detachMobile = attach(mobileQuery, updateMobile);
+
+    return () => {
+      detachTablet();
+      detachMobile();
+    };
+  }, []);
 
   const projectRange = useMemo(() => {
     const start = activeProjectStartDate
@@ -726,29 +768,78 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     }));
   }, []);
 
+  const handleMobileTabsKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        setActiveMobileSidebarPanel((previous) =>
+          previous === "calendar" ? "agenda" : "calendar",
+        );
+      }
+    },
+    [],
+  );
+
+  const calendarBodyClassName = useMemo(
+    () =>
+      [
+        "calendar-body",
+        isTabletLayout ? "is-tablet" : "",
+        isMobileLayout ? "is-mobile" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    [isTabletLayout, isMobileLayout],
+  );
+
+  const miniCalendarProps = useMemo(
+    () => ({
+      value: internalDate,
+      onChange: setInternalDate,
+      rangeStart: projectRange?.start ?? null,
+      rangeEnd: projectRange?.end ?? null,
+      rangeColor: activeProjectColor ?? null,
+      finishLineDate: activeProjectEndDate ?? null,
+    }),
+    [
+      activeProjectColor,
+      activeProjectEndDate,
+      internalDate,
+      projectRange,
+      setInternalDate,
+    ],
+  );
+
+  const eventsAndTasksProps = useMemo(
+    () => ({
+      events: visibleEvents,
+      tasks: visibleTasks,
+      onToggleTask,
+      onEditEvent: handleOpenEditEvent,
+      onEditTask: handleOpenEditTask,
+      onOpenTasksOverview: handleOpenTasksOverview,
+    }),
+    [
+      handleOpenEditEvent,
+      handleOpenEditTask,
+      handleOpenTasksOverview,
+      onToggleTask,
+      visibleEvents,
+      visibleTasks,
+    ],
+  );
+
   return (
     <div className="calendar-surface">
       <div className="calendar-shell">
         <div className="calendar-card">
-          <div className="calendar-body">
-            <div className="calendar-sidebar">
-              <MiniCalendar
-                value={internalDate}
-                onChange={setInternalDate}
-                rangeStart={projectRange?.start ?? null}
-                rangeEnd={projectRange?.end ?? null}
-                rangeColor={activeProjectColor ?? null}
-                finishLineDate={activeProjectEndDate ?? null}
-              />
-              <EventsAndTasks
-                events={visibleEvents}
-                tasks={visibleTasks}
-                onToggleTask={onToggleTask}
-                onEditEvent={handleOpenEditEvent}
-                onEditTask={handleOpenEditTask}
-                onOpenTasksOverview={handleOpenTasksOverview}
-              />
-            </div>
+          <div className={calendarBodyClassName}>
+            {!isMobileLayout && (
+              <aside className="calendar-sidebar" aria-label="Project calendar summary">
+                <MiniCalendar {...miniCalendarProps} />
+                <EventsAndTasks {...eventsAndTasksProps} />
+              </aside>
+            )}
 
             <div className="calendar-main">
               <div className="calendar-controls">
@@ -839,6 +930,68 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 )}
               </div>
             </div>
+
+            {isMobileLayout && (
+              <section
+                className="calendar-mobile-panels"
+                aria-label="Calendar summary panels"
+              >
+                <div
+                  className="calendar-mobile-panels__tabs"
+                  role="tablist"
+                  aria-label="Calendar details"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    id="calendar-mobile-tab-calendar"
+                    tabIndex={activeMobileSidebarPanel === "calendar" ? 0 : -1}
+                    aria-selected={activeMobileSidebarPanel === "calendar"}
+                    aria-controls="calendar-mobile-panel-calendar"
+                    className={`calendar-mobile-panels__tab ${
+                      activeMobileSidebarPanel === "calendar" ? "is-active" : ""
+                    }`}
+                    onClick={() => setActiveMobileSidebarPanel("calendar")}
+                    onKeyDown={handleMobileTabsKeyDown}
+                  >
+                    Mini calendar
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    id="calendar-mobile-tab-agenda"
+                    tabIndex={activeMobileSidebarPanel === "agenda" ? 0 : -1}
+                    aria-selected={activeMobileSidebarPanel === "agenda"}
+                    aria-controls="calendar-mobile-panel-agenda"
+                    className={`calendar-mobile-panels__tab ${
+                      activeMobileSidebarPanel === "agenda" ? "is-active" : ""
+                    }`}
+                    onClick={() => setActiveMobileSidebarPanel("agenda")}
+                    onKeyDown={handleMobileTabsKeyDown}
+                  >
+                    Agenda
+                  </button>
+                </div>
+                <div
+                  id="calendar-mobile-panel-calendar"
+                  role="tabpanel"
+                  aria-labelledby="calendar-mobile-tab-calendar"
+                  hidden={activeMobileSidebarPanel !== "calendar"}
+                  className="calendar-mobile-panels__panel"
+                >
+                  <MiniCalendar {...miniCalendarProps} />
+                </div>
+                <div
+                  id="calendar-mobile-panel-agenda"
+                  role="tabpanel"
+                  aria-labelledby="calendar-mobile-tab-agenda"
+                  hidden={activeMobileSidebarPanel !== "agenda"}
+                  className="calendar-mobile-panels__panel"
+                >
+                  <EventsAndTasks {...eventsAndTasksProps} />
+                </div>
+              </section>
+            )}
           </div>
         </div>
 
