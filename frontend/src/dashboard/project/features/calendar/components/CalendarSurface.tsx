@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, Search } from "lucide-react";
+import { Calendar as CalendarIcon, CheckSquare, Search } from "lucide-react";
 
 import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
 import {
@@ -24,6 +24,7 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
+import { Button } from "@/components/ui/button";
 import CreateCalendarItemModal, {
   type CreateEventRequest,
 } from "../CreateCalendarItemModal";
@@ -32,10 +33,12 @@ import type { ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/
 
 import DayGrid from "./DayGrid";
 import EventsAndTasks from "./EventsAndTasks";
+import EventsTasksDrawer from "./EventsTasksDrawer";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
 import { CalendarEvent, CalendarTask, safeDate, isSameDay } from "../utils";
+import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
 import "../calendar-preview.css";
 
@@ -102,9 +105,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [dragStartY, setDragStartY] = useState<number | null>(null);
   const [currentDragY, setCurrentDragY] = useState(0);
   const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
+  const isMobileView = useIsMobile();
+  const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
+  const [eventsDrawerSnapIndex, setEventsDrawerSnapIndex] = useState<SnapIndex>(2);
+  const [eventsViewportHeight, setEventsViewportHeight] = useState(() => getTaskViewportHeight());
+  const [isDraggingEventsDrawer, setIsDraggingEventsDrawer] = useState(false);
+  const [eventsDragStartY, setEventsDragStartY] = useState<number | null>(null);
+  const [eventsCurrentDragY, setEventsCurrentDragY] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const eventsDrawerRef = useRef<HTMLDivElement | null>(null);
   const initialScrollDoneRef = useRef(false);
 
   useEffect(() => {
@@ -273,6 +284,14 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
 
+  const eventsDrawerSummary = useMemo(() => {
+    const eventCount = visibleEvents.length;
+    const taskCount = visibleTasks.length;
+    const eventLabel = `${eventCount} ${eventCount === 1 ? "event" : "events"}`;
+    const taskLabel = `${taskCount} ${taskCount === 1 ? "task" : "tasks"}`;
+    return `${eventLabel} · ${taskLabel}`;
+  }, [visibleEvents.length, visibleTasks.length]);
+
   const mapTasks = useMemo(
     () =>
       drawerTasks.filter(
@@ -353,6 +372,19 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[drawerSnapIndex] : 0;
   const targetY = isDraggingDrawer ? baseTargetY + currentDragY : baseTargetY;
 
+  const eventsDrawerSheetHeights = useMemo(
+    () => DRAWER_SNAP_POINTS.map((point) => eventsViewportHeight * point),
+    [eventsViewportHeight],
+  );
+
+  const eventsDrawerBaseTargetY = eventsViewportHeight
+    ? eventsViewportHeight - eventsDrawerSheetHeights[eventsDrawerSnapIndex]
+    : 0;
+
+  const eventsDrawerTargetY = isDraggingEventsDrawer
+    ? eventsDrawerBaseTargetY + eventsCurrentDragY
+    : eventsDrawerBaseTargetY;
+
   const canCreateTasks = useMemo(
     () => taskProjects.length > 0 || Boolean(activeProjectId),
     [taskProjects, activeProjectId],
@@ -382,6 +414,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     setDragStartY(null);
     setCurrentDragY(0);
     initialScrollDoneRef.current = false;
+  }, []);
+
+  const handleOpenEventsDrawer = useCallback(() => {
+    setIsEventsDrawerOpen(true);
+    setEventsDrawerSnapIndex(2);
+    setEventsViewportHeight(getTaskViewportHeight());
+    setEventsDragStartY(null);
+    setEventsCurrentDragY(0);
+  }, []);
+
+  const handleCloseEventsDrawer = useCallback(() => {
+    setIsEventsDrawerOpen(false);
+    setEventsDrawerSnapIndex(2);
+    setIsDraggingEventsDrawer(false);
+    setEventsDragStartY(null);
+    setEventsCurrentDragY(0);
   }, []);
 
   useEffect(() => {
@@ -456,6 +504,58 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, []);
 
   useEffect(() => {
+    if (!isMobileView) {
+      setIsEventsDrawerOpen(false);
+      setEventsDrawerSnapIndex(2);
+      setIsDraggingEventsDrawer(false);
+      setEventsDragStartY(null);
+      setEventsCurrentDragY(0);
+    }
+  }, [isMobileView]);
+
+  useEffect(() => {
+    if (!isEventsDrawerOpen || typeof window === "undefined") return;
+
+    const update = () => setEventsViewportHeight(getTaskViewportHeight());
+    update();
+
+    window.addEventListener("resize", update);
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      viewport?.removeEventListener("resize", update);
+    };
+  }, [isEventsDrawerOpen]);
+
+  useEffect(() => {
+    if (!isEventsDrawerOpen || typeof document === "undefined") return;
+
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+    body.style.overflow = "hidden";
+
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, [isEventsDrawerOpen]);
+
+  useEffect(() => {
+    if (!isEventsDrawerOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCloseEventsDrawer();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEventsDrawerOpen, handleCloseEventsDrawer]);
+
+  useEffect(() => {
     if (!isTaskDrawerOpen || !activeDrawerTaskId || !drawerTaskListRef.current) return;
 
     const container = drawerTaskListRef.current;
@@ -524,6 +624,62 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       setCurrentDragY(0);
     }
   }, [isDraggingDrawer, currentDragY, viewportHeight]);
+
+  const handleEventsDrawerHandleClick = useCallback(() => {
+    setEventsDrawerSnapIndex((current) => {
+      if (current === 2) return 1;
+      if (current === 1) return 2;
+      return 1;
+    });
+  }, []);
+
+  const handleEventsDrawerTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 1) {
+      setIsDraggingEventsDrawer(true);
+      setEventsDragStartY(event.touches[0].clientY);
+      setEventsCurrentDragY(0);
+    }
+  }, []);
+
+  const handleEventsDrawerTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (isDraggingEventsDrawer && eventsDragStartY !== null && event.touches.length === 1) {
+        const deltaY = event.touches[0].clientY - eventsDragStartY;
+        setEventsCurrentDragY(deltaY);
+        event.preventDefault();
+      }
+    },
+    [isDraggingEventsDrawer, eventsDragStartY],
+  );
+
+  const handleEventsDrawerTouchEnd = useCallback(() => {
+    if (!isDraggingEventsDrawer) return;
+
+    setIsDraggingEventsDrawer(false);
+    setEventsDragStartY(null);
+
+    const threshold = eventsViewportHeight * 0.15;
+    if (Math.abs(eventsCurrentDragY) > threshold) {
+      if (eventsCurrentDragY > 0) {
+        setEventsDrawerSnapIndex((current) => {
+          if (current === 0) {
+            handleCloseEventsDrawer();
+            return current;
+          }
+          return Math.max(0, current - 1) as SnapIndex;
+        });
+      } else {
+        setEventsDrawerSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
+      }
+    }
+
+    setEventsCurrentDragY(0);
+  }, [
+    isDraggingEventsDrawer,
+    eventsViewportHeight,
+    eventsCurrentDragY,
+    handleCloseEventsDrawer,
+  ]);
 
   const openQuickCreateForTask = useCallback(
     (
@@ -717,6 +873,13 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [openQuickCreateForTask],
   );
 
+  const handleOpenTasksOverviewFromEvents = useCallback(() => {
+    if (isMobileView) {
+      handleCloseEventsDrawer();
+    }
+    handleOpenTasksOverview();
+  }, [isMobileView, handleCloseEventsDrawer, handleOpenTasksOverview]);
+
   const handleCloseCreate = useCallback(() => {
     setModalState((previous) => ({
       open: false,
@@ -740,14 +903,30 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 rangeColor={activeProjectColor ?? null}
                 finishLineDate={activeProjectEndDate ?? null}
               />
-              <EventsAndTasks
-                events={visibleEvents}
-                tasks={visibleTasks}
-                onToggleTask={onToggleTask}
-                onEditEvent={handleOpenEditEvent}
-                onEditTask={handleOpenEditTask}
-                onOpenTasksOverview={handleOpenTasksOverview}
-              />
+              {isMobileView ? (
+                <div className="calendar-mobile-events-launcher">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="calendar-mobile-events-button"
+                    onClick={handleOpenEventsDrawer}
+                    aria-label={`Open events and tasks drawer (${eventsDrawerSummary})`}
+                  >
+                    <CalendarIcon size={16} aria-hidden />
+                    View events & tasks
+                  </Button>
+                  <p className="calendar-mobile-events-summary">{eventsDrawerSummary}</p>
+                </div>
+              ) : (
+                <EventsAndTasks
+                  events={visibleEvents}
+                  tasks={visibleTasks}
+                  onToggleTask={onToggleTask}
+                  onEditEvent={handleOpenEditEvent}
+                  onEditTask={handleOpenEditTask}
+                  onOpenTasksOverview={handleOpenTasksOverviewFromEvents}
+                />
+              )}
             </div>
 
             <div className="calendar-main">
@@ -893,6 +1072,28 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             : undefined
         }
       />
+      <EventsTasksDrawer
+        open={isEventsDrawerOpen && isMobileView}
+        viewportHeight={eventsViewportHeight}
+        targetY={eventsDrawerTargetY}
+        title="Events & Tasks"
+        subtitle={eventsDrawerSummary}
+        sheetRef={eventsDrawerRef}
+        onClose={handleCloseEventsDrawer}
+        onHandleClick={handleEventsDrawerHandleClick}
+        onTouchStart={handleEventsDrawerTouchStart}
+        onTouchMove={handleEventsDrawerTouchMove}
+        onTouchEnd={handleEventsDrawerTouchEnd}
+      >
+        <EventsAndTasks
+          events={visibleEvents}
+          tasks={visibleTasks}
+          onToggleTask={onToggleTask}
+          onEditEvent={handleOpenEditEvent}
+          onEditTask={handleOpenEditTask}
+          onOpenTasksOverview={handleOpenTasksOverviewFromEvents}
+        />
+      </EventsTasksDrawer>
       <TaskDrawer
         open={isTaskDrawerOpen}
         isDesktop={isDesktopDrawer}
