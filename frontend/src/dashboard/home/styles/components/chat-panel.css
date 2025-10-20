@@ -88,10 +88,9 @@ body.chat-panel-docked {
   height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
-  border-radius: 20px 20px 0 0;
+  border-radius: 12px 12px 0 0;
   overflow: hidden;
 }
-
 .chat-panel.bottom.floating {
   height: 100vh;
   height: 100dvh;
