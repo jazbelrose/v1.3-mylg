@@ -1,7 +1,10 @@
+
+
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 14000;
+  /* Keep below the ReactModal portal (2000) so stacked modals appear above the drawer */
+  z-index: 1800;
   --drawer-top-gap: max(48px, calc(env(safe-area-inset-top, 0px) + 24px));
   display: flex;
   align-items: flex-end;
