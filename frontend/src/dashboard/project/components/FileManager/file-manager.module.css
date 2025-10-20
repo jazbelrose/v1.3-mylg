@@ -602,6 +602,24 @@
   flex-wrap: wrap;
 }
 
+.closeButton {
+  position: static;
+}
+
+@media (max-width: 640px) {
+  .modalHeader {
+    position: relative;
+    padding-right: 3rem;
+  }
+
+  .closeButton {
+    position: absolute;
+    top: 0;
+    right: 1rem;
+    z-index: 1;
+  }
+}
+
 .searchInput {
   background: rgba(255, 255, 255, 0.1);
   border: none;
