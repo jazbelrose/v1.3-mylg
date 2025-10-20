@@ -9,6 +9,9 @@ import { formatCurrency } from "./invoicePreviewUtils";
 interface InvoicePreviewContentProps {
   invoiceRef: React.RefObject<HTMLDivElement>;
   previewRef: React.RefObject<HTMLDivElement>;
+  previewScale: number;
+  pageWidth: number;
+  pageHeight: number;
   fileInputRef: React.RefObject<HTMLInputElement>;
   logoDataUrl: string | null;
   brandLogoKey: string;
@@ -57,6 +60,9 @@ interface InvoicePreviewContentProps {
 const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   invoiceRef,
   previewRef,
+  previewScale,
+  pageWidth,
+  pageHeight,
   fileInputRef,
   logoDataUrl,
   brandLogoKey,
@@ -314,7 +320,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   );
 
   return (
-    <div className={styles.previewWrapper} ref={previewRef}>
+    <div className={styles.previewWrapper} ref={previewRef} data-preview-role="preview-wrapper">
       <style id="invoice-preview-styles">{`
         @page { margin: 0; }
         body { margin: 0; }
@@ -377,7 +383,15 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         className="invoice-page invoice-container"
         ref={invoiceRef}
         data-preview-role="measure"
-        style={{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}
+        style={{
+          position: "absolute",
+          visibility: "hidden",
+          pointerEvents: "none",
+          top: 0,
+          left: 0,
+          transform: "none",
+        }}
+        aria-hidden
       >
         {renderHeader()}
 
@@ -426,58 +440,86 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </div>
 
-      <div className="invoice-container">
-        <div className="invoice-page">
-          {renderHeader()}
+      <div
+        className={styles.previewViewport}
+        data-preview-role="viewport"
+        style={
+          pageWidth && pageHeight
+            ? {
+                width: `${pageWidth * previewScale}px`,
+                height: `${pageHeight * previewScale}px`,
+              }
+            : undefined
+        }
+      >
+        <div
+          className={styles.previewSurface}
+          data-preview-role="page-surface"
+          style={
+            pageWidth && pageHeight
+              ? {
+                  width: `${pageWidth}px`,
+                  height: `${pageHeight}px`,
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: "top left",
+                }
+              : undefined
+          }
+        >
+          <div className="invoice-container" data-preview-role="page-container">
+            <div className="invoice-page" data-preview-role="page">
+              {renderHeader()}
 
-          {renderSummary(currentRows, `page-${currentPage}`)}
+              {renderSummary(currentRows, `page-${currentPage}`)}
 
-          {currentPage === Math.max(0, totalPages - 1) && (
-            <div className="bottom-block">
-              <div className="totals">
-                <div>
-                  Subtotal: <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div>
-                  Deposit received:
-                  <span
+              {currentPage === Math.max(0, totalPages - 1) && (
+                <div className="bottom-block">
+                  <div className="totals">
+                    <div>
+                      Subtotal: <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    <div>
+                      Deposit received:
+                      <span
+                        contentEditable
+                        suppressContentEditableWarning
+                        onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
+                      >
+                        {formatCurrency(depositReceived)}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>
+                        Total Due:
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                        >
+                          {formatCurrency(totalDue)}
+                        </span>
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div
+                    className="notes"
                     contentEditable
                     suppressContentEditableWarning
-                    onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-                  >
-                    {formatCurrency(depositReceived)}
-                  </span>
-                </div>
-                <div>
-                  <strong>
-                    Total Due:
-                    <span
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
-                    >
-                      {formatCurrency(totalDue)}
-                    </span>
-                  </strong>
-                </div>
-              </div>
+                    onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
+                    dangerouslySetInnerHTML={{ __html: notes }}
+                  />
 
-              <div
-                className="notes"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-                dangerouslySetInnerHTML={{ __html: notes }}
-              />
+                  <div className="footer" contentEditable suppressContentEditableWarning>
+                    {project?.company || "Company Name"}
+                  </div>
+                </div>
+              )}
 
-              <div className="footer" contentEditable suppressContentEditableWarning>
-                {project?.company || "Company Name"}
+              <div className="pageNumber">
+                Page {currentPage + 1} of {totalPages || 1}
               </div>
             </div>
-          )}
-
-          <div className="pageNumber">
-            Page {currentPage + 1} of {totalPages || 1}
           </div>
         </div>
       </div>

@@ -110,9 +110,8 @@
   flex: 1;
   display: flex;
   gap: 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  min-width: calc(850px + 280px + 10px);
+  overflow: hidden;
+  min-width: 0;
 }
 .sidebar {
   width: 280px;
@@ -158,30 +157,62 @@
   cursor: default;
 }
 .previewWrapper {
+  position: relative;
   overflow: auto;
-  flex: 1 0 850px;
-  min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
+  flex: 1 1 0%;
+  min-width: 0;
+  padding: clamp(16px, 3vw, 32px);
+  border-radius: 12px;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 60%),
+    #050505;
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
 }
 
 .previewViewport {
-  width: 100%;
-  max-width: 210mm;
+  position: relative;
   display: flex;
   justify-content: center;
-  overflow: hidden;
+  align-items: flex-start;
+  width: min(100%, 210mm);
+  max-width: 100%;
+  aspect-ratio: 210 / 297;
 }
 
-.previewViewport :global(.invoice-page) {
+.previewSurface {
+  position: relative;
   width: 100%;
-  max-width: 210mm;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border-radius: 12px;
+  background: #ffffff;
   transition: transform 0.2s ease;
+}
+
+.previewSurface::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  z-index: -1;
+}
+
+.previewSurface :global(.invoice-container) {
+  width: 210mm;
+  max-width: 210mm;
+  color: #000;
+}
+
+.previewSurface :global(.invoice-page) {
+  width: 210mm;
+  max-width: 210mm;
+  min-height: 297mm;
+  border-radius: 8px;
 }
 
 .groupSelect,
@@ -305,13 +336,23 @@
   .previewWrapper {
     order: 1;
     width: 100%;
-    padding: 0;
+    padding: clamp(12px, 4vw, 20px);
     background: transparent;
-    overflow: visible;
+    overflow: auto;
   }
 
   .previewViewport {
     overflow: visible;
+  }
+
+  .previewSurface {
+    box-shadow: none;
+    border-radius: 8px;
+    background: transparent;
+  }
+
+  .previewSurface::before {
+    display: none;
   }
 
   .previewViewport :global(.invoice-page) {
@@ -376,6 +417,7 @@
 
   .previewWrapper {
     align-items: stretch;
+    padding: 12px 10px 20px;
   }
 
   .previewViewport {

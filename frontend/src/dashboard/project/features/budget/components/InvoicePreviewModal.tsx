@@ -108,6 +108,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
+  const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [previewScale, setPreviewScale] = useState(1);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useModalStack(isOpen);
@@ -151,6 +154,86 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const handleStayOpen = useCallback(() => {
     setShowUnsavedPrompt(false);
   }, []);
+
+  const updatePreviewScale = useCallback(() => {
+    if (!previewRef.current || !invoiceRef.current) return;
+
+    const measuredRect = invoiceRef.current.getBoundingClientRect();
+    if (!measuredRect.width || !measuredRect.height) return;
+
+    const previewEl = previewRef.current;
+    const computed = window.getComputedStyle(previewEl);
+    const paddingX =
+      parseFloat(computed.paddingLeft || "0") + parseFloat(computed.paddingRight || "0");
+    const paddingY =
+      parseFloat(computed.paddingTop || "0") + parseFloat(computed.paddingBottom || "0");
+
+    const availableWidth = previewEl.clientWidth - paddingX;
+    const availableHeight = previewEl.clientHeight - paddingY;
+
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      return;
+    }
+
+    const nextScale = Math.min(
+      availableWidth / measuredRect.width,
+      availableHeight / measuredRect.height,
+      1
+    );
+
+    setPageSize((prev) => {
+      if (
+        Math.abs(prev.width - measuredRect.width) > 0.5 ||
+        Math.abs(prev.height - measuredRect.height) > 0.5
+      ) {
+        return { width: measuredRect.width, height: measuredRect.height };
+      }
+      return prev;
+    });
+
+    setPreviewScale((prev) => (Math.abs(prev - nextScale) > 0.001 ? nextScale : prev));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    let frame = requestAnimationFrame(updatePreviewScale);
+
+    const previewEl = previewRef.current;
+    const invoiceEl = invoiceRef.current;
+    if (!previewEl || !invoiceEl) {
+      return () => cancelAnimationFrame(frame);
+    }
+
+    const handleWindowResize = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(updatePreviewScale);
+    };
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(updatePreviewScale);
+      });
+
+      resizeObserver.observe(previewEl);
+      resizeObserver.observe(invoiceEl);
+    }
+    window.addEventListener("resize", handleWindowResize);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", handleWindowResize);
+    };
+  }, [isOpen, updatePreviewScale]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(updatePreviewScale);
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, updatePreviewScale, currentPage, pages.length]);
 
   const fetchInvoiceFiles = useCallback(async (): Promise<SavedInvoice[]> => {
     if (!project?.projectId) return [];
@@ -910,6 +993,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 <InvoicePreviewContent
                   invoiceRef={invoiceRef}
                   previewRef={previewRef}
+                  previewScale={previewScale}
+                  pageWidth={pageSize.width}
+                  pageHeight={pageSize.height}
                   fileInputRef={fileInputRef}
                   logoDataUrl={logoDataUrl}
                   brandLogoKey={brandLogoKey}
