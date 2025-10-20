@@ -202,6 +202,44 @@
   font-weight: 600;
 }
 
+.mini-calendar__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mini-calendar__target-button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mini-calendar__target-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mini-calendar__target-button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.mini-calendar__target-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mini-calendar__target-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .mini-calendar__nav {
   display: inline-flex;
   gap: 8px;
