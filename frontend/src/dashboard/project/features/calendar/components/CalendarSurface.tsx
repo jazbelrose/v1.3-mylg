@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, Search } from "lucide-react";
+import { CheckSquare, Menu, Search } from "lucide-react";
 
 import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
 import {
@@ -29,9 +29,11 @@ import CreateCalendarItemModal, {
 } from "../CreateCalendarItemModal";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import type { ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
 import DayGrid from "./DayGrid";
 import EventsAndTasks from "./EventsAndTasks";
+import MobileEventsDrawer from "./MobileEventsDrawer";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
@@ -78,6 +80,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   activeProjectStartDate,
   activeProjectEndDate,
 }) => {
+  const isMobile = useIsMobile();
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
   const [modalState, setModalState] = useState<{
@@ -94,6 +97,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [drawerSnapIndex, setDrawerSnapIndex] = useState<SnapIndex>(2);
   const [viewportHeight, setViewportHeight] = useState(() => getTaskViewportHeight());
   const [activeDrawerTaskId, setActiveDrawerTaskId] = useState<string | null>(null);
@@ -116,6 +120,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     onDateChange(internalDate);
   }, [internalDate, onDateChange]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsEventsDrawerOpen(false);
+    }
+  }, [isMobile]);
 
   const projectRange = useMemo(() => {
     const start = activeProjectStartDate
@@ -362,7 +372,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     void onRefreshTasks();
   }, [onRefreshTasks]);
 
+  const handleOpenMobileDrawer = useCallback(() => {
+    setIsEventsDrawerOpen(true);
+  }, []);
+
+  const handleCloseMobileDrawer = useCallback(() => {
+    setIsEventsDrawerOpen(false);
+  }, []);
+
   const handleOpenTasksOverview = useCallback(() => {
+    if (isMobile) {
+      setIsEventsDrawerOpen(false);
+    }
     setIsTaskDrawerOpen(true);
     setDrawerSnapIndex(2);
     setViewportHeight(getTaskViewportHeight());
@@ -372,7 +393,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     if (!activeDrawerTaskId && drawerTasks.length) {
       setActiveDrawerTaskId(drawerTasks[0].id);
     }
-  }, [activeDrawerTaskId, drawerTasks]);
+  }, [activeDrawerTaskId, drawerTasks, isMobile]);
 
   const handleCloseTasksOverview = useCallback(() => {
     setIsTaskDrawerOpen(false);
@@ -740,17 +761,29 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 rangeColor={activeProjectColor ?? null}
                 finishLineDate={activeProjectEndDate ?? null}
               />
-              <EventsAndTasks
-                events={visibleEvents}
-                tasks={visibleTasks}
-                onToggleTask={onToggleTask}
-                onEditEvent={handleOpenEditEvent}
-                onEditTask={handleOpenEditTask}
-                onOpenTasksOverview={handleOpenTasksOverview}
-              />
+              {isMobile ? (
+                <button
+                  type="button"
+                  className="calendar-mobile-toggle"
+                  onClick={handleOpenMobileDrawer}
+                >
+                  <Menu className="calendar-mobile-toggle__icon" aria-hidden />
+                  <span>View events & tasks</span>
+                </button>
+              ) : (
+                <EventsAndTasks
+                  events={visibleEvents}
+                  tasks={visibleTasks}
+                  onToggleTask={onToggleTask}
+                  onEditEvent={handleOpenEditEvent}
+                  onEditTask={handleOpenEditTask}
+                  onOpenTasksOverview={handleOpenTasksOverview}
+                />
+              )}
             </div>
 
-            <div className="calendar-main">
+            {!isMobile && (
+              <div className="calendar-main">
               <div className="calendar-controls">
                 <div className="calendar-controls__search">
                   <Search className="calendar-controls__search-icon" aria-hidden />
@@ -838,7 +871,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -893,6 +927,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             : undefined
         }
       />
+      {isMobile ? (
+        <MobileEventsDrawer
+          open={isEventsDrawerOpen}
+          events={visibleEvents}
+          tasks={visibleTasks}
+          onClose={handleCloseMobileDrawer}
+          onToggleTask={onToggleTask}
+          onEditEvent={handleOpenEditEvent}
+          onEditTask={handleOpenEditTask}
+          onOpenTasksOverview={handleOpenTasksOverview}
+        />
+      ) : null}
       <TaskDrawer
         open={isTaskDrawerOpen}
         isDesktop={isDesktopDrawer}
