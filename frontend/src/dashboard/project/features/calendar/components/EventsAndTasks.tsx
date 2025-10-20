@@ -13,6 +13,16 @@ import {
   type QuickTask,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
+import {
+  DEFAULT_EVENT_FILTER,
+  DEFAULT_TASK_FILTER,
+  EVENT_FILTER_LABELS,
+  EVENT_FILTER_SUMMARY,
+  TASK_FILTER_LABELS,
+  TASK_FILTER_SUMMARY,
+  type EventFilter,
+  type TaskFilter,
+} from "./events-and-tasks-filters";
 
 function formatInitials(value?: string): string | undefined {
   if (!value) return undefined;
@@ -40,36 +50,11 @@ export type EventsAndTasksProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onOpenTasksOverview: () => void;
-};
-
-type EventFilter = "all" | "upcoming" | "past";
-type TaskFilter = "all" | "open" | "completed";
-
-const DEFAULT_EVENT_FILTER: EventFilter = "upcoming";
-const DEFAULT_TASK_FILTER: TaskFilter = "open";
-
-const EVENT_FILTER_LABELS: Record<EventFilter, string> = {
-  all: "All events",
-  upcoming: "Upcoming events",
-  past: "Past events",
-};
-
-const EVENT_FILTER_SUMMARY: Record<EventFilter, string> = {
-  all: "All events",
-  upcoming: "Upcoming",
-  past: "Past",
-};
-
-const TASK_FILTER_LABELS: Record<TaskFilter, string> = {
-  all: "All tasks",
-  open: "Open tasks",
-  completed: "Completed tasks",
-};
-
-const TASK_FILTER_SUMMARY: Record<TaskFilter, string> = {
-  all: "All tasks",
-  open: "Open",
-  completed: "Completed",
+  eventFilter?: EventFilter;
+  taskFilter?: TaskFilter;
+  onEventFilterChange?: (next: EventFilter) => void;
+  onTaskFilterChange?: (next: TaskFilter) => void;
+  hideFilterControls?: boolean;
 };
 
 function EventsAndTasks({
@@ -79,10 +64,41 @@ function EventsAndTasks({
   onEditEvent,
   onEditTask,
   onOpenTasksOverview,
+  eventFilter: eventFilterProp,
+  taskFilter: taskFilterProp,
+  onEventFilterChange,
+  onTaskFilterChange,
+  hideFilterControls = false,
 }: EventsAndTasksProps) {
-  const [eventFilter, setEventFilter] = useState<EventFilter>(DEFAULT_EVENT_FILTER);
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>(DEFAULT_TASK_FILTER);
+  const isEventFilterControlled = eventFilterProp !== undefined;
+  const isTaskFilterControlled = taskFilterProp !== undefined;
+
+  const [internalEventFilter, setInternalEventFilter] = useState<EventFilter>(
+    eventFilterProp ?? DEFAULT_EVENT_FILTER,
+  );
+  const [internalTaskFilter, setInternalTaskFilter] = useState<TaskFilter>(
+    taskFilterProp ?? DEFAULT_TASK_FILTER,
+  );
   const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
+
+  const resolvedEventFilter = isEventFilterControlled
+    ? eventFilterProp!
+    : internalEventFilter;
+  const resolvedTaskFilter = isTaskFilterControlled ? taskFilterProp! : internalTaskFilter;
+
+  const handleEventFilterChange = (next: EventFilter) => {
+    if (!isEventFilterControlled) {
+      setInternalEventFilter(next);
+    }
+    onEventFilterChange?.(next);
+  };
+
+  const handleTaskFilterChange = (next: TaskFilter) => {
+    if (!isTaskFilterControlled) {
+      setInternalTaskFilter(next);
+    }
+    onTaskFilterChange?.(next);
+  };
 
   const sortedEvents = useMemo(
     () =>
@@ -95,18 +111,18 @@ function EventsAndTasks({
   );
 
   const filteredEvents = useMemo(() => {
-    if (eventFilter === "all") {
+    if (resolvedEventFilter === "all") {
       return sortedEvents;
     }
 
     const today = fmt(new Date());
     return sortedEvents.filter((event) => {
-      if (eventFilter === "upcoming") {
+      if (resolvedEventFilter === "upcoming") {
         return event.date >= today;
       }
       return event.date < today;
     });
-  }, [eventFilter, sortedEvents]);
+  }, [resolvedEventFilter, sortedEvents]);
 
   const normalizedTasks = useMemo(
     () =>
@@ -119,7 +135,7 @@ function EventsAndTasks({
 
   const filteredTasks = useMemo(() => {
     return normalizedTasks.filter(({ task, quickTask }) => {
-      if (taskFilter === "all") {
+      if (resolvedTaskFilter === "all") {
         return true;
       }
 
@@ -131,20 +147,20 @@ function EventsAndTasks({
         normalizedStatus === "completed" ||
         normalizedStatus === "complete";
 
-      if (taskFilter === "completed") {
+      if (resolvedTaskFilter === "completed") {
         return isCompleted;
       }
 
       return !isCompleted;
     });
-  }, [normalizedTasks, taskFilter]);
+  }, [normalizedTasks, resolvedTaskFilter]);
 
-  const hasActiveFilters = eventFilter !== "all" || taskFilter !== "all";
+  const hasActiveFilters = resolvedEventFilter !== "all" || resolvedTaskFilter !== "all";
   const filterButtonLabel = hasActiveFilters
-    ? `${EVENT_FILTER_SUMMARY[eventFilter]} · ${TASK_FILTER_SUMMARY[taskFilter]}`
+    ? `${EVENT_FILTER_SUMMARY[resolvedEventFilter]} · ${TASK_FILTER_SUMMARY[resolvedTaskFilter]}`
     : "Filter";
   const filterButtonAriaLabel = hasActiveFilters
-    ? `Filtering by ${EVENT_FILTER_LABELS[eventFilter]} and ${TASK_FILTER_LABELS[taskFilter]}`
+    ? `Filtering by ${EVENT_FILTER_LABELS[resolvedEventFilter]} and ${TASK_FILTER_LABELS[resolvedTaskFilter]}`
     : "Filter events and tasks";
 
   const statusContext = useMemo(() => createTaskStatusContext(), []);
@@ -183,86 +199,88 @@ function EventsAndTasks({
             Open Map
           </Button>
         </div>
-        <div className="events-tasks__header-row events-tasks__header-row--secondary">
-          <Popover open={isFilterPopoverOpen} onOpenChange={setIsFilterPopoverOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={`events-tasks__filter-trigger${hasActiveFilters ? " is-active" : ""}`}
-                aria-haspopup="menu"
-                aria-expanded={isFilterPopoverOpen}
-                aria-label={filterButtonAriaLabel}
-              >
-                <span className="events-tasks__filter-dot" aria-hidden />
-                <span className="events-tasks__filter-label">{filterButtonLabel}</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="events-tasks__filter-popover"
-              align="start"
-              side="right"
-              sideOffset={12}
-            >
-              <div className="events-tasks__filter-section">
-                <div className="events-tasks__filter-heading">Events</div>
-                <div className="events-tasks__filter-options" role="group" aria-label="Filter events">
-                  {(Object.keys(EVENT_FILTER_LABELS) as EventFilter[]).map((option) => {
-                    const isActive = eventFilter === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`events-tasks__filter-option${isActive ? " is-active" : ""}`}
-                        onClick={() => setEventFilter(option)}
-                        aria-pressed={isActive}
-                      >
-                        {EVENT_FILTER_LABELS[option]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="events-tasks__filter-section">
-                <div className="events-tasks__filter-heading">Tasks</div>
-                <div className="events-tasks__filter-options" role="group" aria-label="Filter tasks">
-                  {(Object.keys(TASK_FILTER_LABELS) as TaskFilter[]).map((option) => {
-                    const isActive = taskFilter === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`events-tasks__filter-option${isActive ? " is-active" : ""}`}
-                        onClick={() => setTaskFilter(option)}
-                        aria-pressed={isActive}
-                      >
-                        {TASK_FILTER_LABELS[option]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="events-tasks__filter-footer">
+        {hideFilterControls ? null : (
+          <div className="events-tasks__header-row events-tasks__header-row--secondary">
+            <Popover open={isFilterPopoverOpen} onOpenChange={setIsFilterPopoverOpen}>
+              <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="events-tasks__filter-reset"
-                  onClick={() => {
-                    setEventFilter(DEFAULT_EVENT_FILTER);
-                    setTaskFilter(DEFAULT_TASK_FILTER);
-                  }}
-                  disabled={!hasActiveFilters}
+                  className={`events-tasks__filter-trigger${hasActiveFilters ? " is-active" : ""}`}
+                  aria-haspopup="menu"
+                  aria-expanded={isFilterPopoverOpen}
+                  aria-label={filterButtonAriaLabel}
                 >
-                  Reset filters
+                  <span className="events-tasks__filter-dot" aria-hidden />
+                  <span className="events-tasks__filter-label">{filterButtonLabel}</span>
                 </button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+              </PopoverTrigger>
+              <PopoverContent
+                className="events-tasks__filter-popover"
+                align="start"
+                side="right"
+                sideOffset={12}
+              >
+                <div className="events-tasks__filter-section">
+                  <div className="events-tasks__filter-heading">Events</div>
+                  <div className="events-tasks__filter-options" role="group" aria-label="Filter events">
+                    {(Object.keys(EVENT_FILTER_LABELS) as EventFilter[]).map((option) => {
+                      const isActive = resolvedEventFilter === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`events-tasks__filter-option${isActive ? " is-active" : ""}`}
+                          onClick={() => handleEventFilterChange(option)}
+                          aria-pressed={isActive}
+                        >
+                          {EVENT_FILTER_LABELS[option]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="events-tasks__filter-section">
+                  <div className="events-tasks__filter-heading">Tasks</div>
+                  <div className="events-tasks__filter-options" role="group" aria-label="Filter tasks">
+                    {(Object.keys(TASK_FILTER_LABELS) as TaskFilter[]).map((option) => {
+                      const isActive = resolvedTaskFilter === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`events-tasks__filter-option${isActive ? " is-active" : ""}`}
+                          onClick={() => handleTaskFilterChange(option)}
+                          aria-pressed={isActive}
+                        >
+                          {TASK_FILTER_LABELS[option]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="events-tasks__filter-footer">
+                  <button
+                    type="button"
+                    className="events-tasks__filter-reset"
+                    onClick={() => {
+                      handleEventFilterChange(DEFAULT_EVENT_FILTER);
+                      handleTaskFilterChange(DEFAULT_TASK_FILTER);
+                    }}
+                    disabled={!hasActiveFilters}
+                  >
+                    Reset filters
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
       </div>
 
       <div className="events-tasks__content">
         <div className="events-tasks__section">
           <div className="events-tasks__section-header">
-            <div className="events-tasks__section-title">{EVENT_FILTER_LABELS[eventFilter]}</div>
+            <div className="events-tasks__section-title">{EVENT_FILTER_LABELS[resolvedEventFilter]}</div>
             <div className="events-tasks__section-count" aria-live="polite">
               {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
             </div>
@@ -334,7 +352,7 @@ function EventsAndTasks({
 
         <div className="events-tasks__section">
           <div className="events-tasks__section-header">
-            <div className="events-tasks__section-title">{TASK_FILTER_LABELS[taskFilter]}</div>
+            <div className="events-tasks__section-title">{TASK_FILTER_LABELS[resolvedTaskFilter]}</div>
             <div className="events-tasks__section-count" aria-live="polite">
               {filteredTasks.length} {filteredTasks.length === 1 ? "task" : "tasks"}
             </div>

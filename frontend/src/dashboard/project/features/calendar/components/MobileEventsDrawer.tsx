@@ -1,8 +1,16 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 
 import EventsAndTasks from "./EventsAndTasks";
+import {
+  DEFAULT_EVENT_FILTER,
+  DEFAULT_TASK_FILTER,
+  EVENT_FILTER_LABELS,
+  TASK_FILTER_LABELS,
+  type EventFilter,
+  type TaskFilter,
+} from "./events-and-tasks-filters";
 import type { CalendarEvent, CalendarTask } from "../utils";
 
 import styles from "./mobile-events-drawer.module.css";
@@ -28,6 +36,33 @@ const MobileEventsDrawer: React.FC<MobileEventsDrawerProps> = ({
   onEditTask,
   onOpenTasksOverview,
 }) => {
+  const [eventFilter, setEventFilter] = useState<EventFilter>(DEFAULT_EVENT_FILTER);
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>(DEFAULT_TASK_FILTER);
+
+  const eventFilterOptions = React.useMemo(
+    () => Object.keys(EVENT_FILTER_LABELS) as EventFilter[],
+    [],
+  );
+  const taskFilterOptions = React.useMemo(
+    () => Object.keys(TASK_FILTER_LABELS) as TaskFilter[],
+    [],
+  );
+
+  const hasActiveFilters = eventFilter !== "all" || taskFilter !== "all";
+
+  const handleEventFilterChange = (next: EventFilter) => {
+    setEventFilter(next);
+  };
+
+  const handleTaskFilterChange = (next: TaskFilter) => {
+    setTaskFilter(next);
+  };
+
+  const handleResetFilters = () => {
+    handleEventFilterChange(DEFAULT_EVENT_FILTER);
+    handleTaskFilterChange(DEFAULT_TASK_FILTER);
+  };
+
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -92,6 +127,57 @@ const MobileEventsDrawer: React.FC<MobileEventsDrawerProps> = ({
               <span className={styles.handleIndicator} aria-hidden="true" />
             </div>
             <div className={styles.scrollArea}>
+              <div className={styles.filters}>
+                <div className={styles.filtersHeader}>
+                  <span className={styles.filtersTitle}>Filters</span>
+                  <button
+                    type="button"
+                    className={styles.resetButton}
+                    onClick={handleResetFilters}
+                    disabled={!hasActiveFilters}
+                  >
+                    Reset
+                  </button>
+                </div>
+                <div className={styles.filterSection}>
+                  <span className={styles.filterLabel}>Events</span>
+                  <div className={styles.filterOptions} role="group" aria-label="Filter events">
+                    {eventFilterOptions.map((option) => {
+                      const isActive = eventFilter === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`${styles.filterButton}${isActive ? ` ${styles.filterButtonActive}` : ""}`}
+                          onClick={() => handleEventFilterChange(option)}
+                          aria-pressed={isActive}
+                        >
+                          {EVENT_FILTER_LABELS[option]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className={styles.filterSection}>
+                  <span className={styles.filterLabel}>Tasks</span>
+                  <div className={styles.filterOptions} role="group" aria-label="Filter tasks">
+                    {taskFilterOptions.map((option) => {
+                      const isActive = taskFilter === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`${styles.filterButton}${isActive ? ` ${styles.filterButtonActive}` : ""}`}
+                          onClick={() => handleTaskFilterChange(option)}
+                          aria-pressed={isActive}
+                        >
+                          {TASK_FILTER_LABELS[option]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
               <EventsAndTasks
                 events={events}
                 tasks={tasks}
@@ -99,6 +185,11 @@ const MobileEventsDrawer: React.FC<MobileEventsDrawerProps> = ({
                 onEditEvent={onEditEvent}
                 onEditTask={onEditTask}
                 onOpenTasksOverview={onOpenTasksOverview}
+                eventFilter={eventFilter}
+                taskFilter={taskFilter}
+                onEventFilterChange={handleEventFilterChange}
+                onTaskFilterChange={handleTaskFilterChange}
+                hideFilterControls
               />
             </div>
           </motion.div>
