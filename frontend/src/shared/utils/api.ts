@@ -211,7 +211,20 @@ export function getFileUrl(keyOrUrl: string): string {
   );
 
   const base = FILE_CDN || `https://${FILE_BUCKET}.s3.${FILE_REGION}.amazonaws.com`;
-  return `${base.replace(/\/$/, '')}/${encodeURIComponent(keyOrUrl)}`;
+
+  const encodedKey = keyOrUrl
+    .split('/')
+    .map((segment) => {
+      if (!segment) return segment;
+      try {
+        return encodeURIComponent(decodeURIComponent(segment)).replace(/\+/g, '%20');
+      } catch {
+        return encodeURIComponent(segment).replace(/\+/g, '%20');
+      }
+    })
+    .join('/');
+
+  return `${base.replace(/\/$/, '')}/${encodedKey}`;
 }
 
 export function normalizeFileUrl(urlOrKey: string): string {
