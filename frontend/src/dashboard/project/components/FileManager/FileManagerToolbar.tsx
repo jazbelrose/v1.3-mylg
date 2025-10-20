@@ -78,7 +78,11 @@ export const FileManagerToolbar = ({
         <button className={styles.iconButton} onClick={onToggleView} aria-label="Toggle view">
           <FontAwesomeIcon icon={layoutIcon} />
         </button>
-        <button className={styles.iconButton} onClick={onClose} aria-label="Close">
+        <button
+          className={`${styles.iconButton} ${styles.closeButton}`}
+          onClick={onClose}
+          aria-label="Close"
+        >
           <FontAwesomeIcon icon={faXmark} />
         </button>
       </div>
