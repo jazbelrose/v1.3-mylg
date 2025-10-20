@@ -75,6 +75,7 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
       centered
       okButtonProps={{ style: { background: "#FA3356", borderColor: "#FA3356" } }}
       forceRender
+      rootClassName={styles.taskModalRoot}
     >
       <Form layout="vertical" form={form} preserve={false}>
         <Form.Item

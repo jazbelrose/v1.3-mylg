@@ -1,0 +1,178 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 6, 7, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 12000;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 640px) {
+  .modalOverlay {
+    align-items: center;
+  }
+}
+
+.modalContent {
+  width: min(480px, 100%);
+  max-height: min(90vh, 720px);
+  background: rgba(17, 17, 19, 0.96);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f6f7fb;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  outline: none;
+}
+
+@media (max-width: 639px) {
+  .modalContent {
+    border-radius: 22px 22px 0 0;
+    margin-top: auto;
+  }
+}
+
+.modalShell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px clamp(20px, 4vw, 32px) 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.headerEyebrow {
+  margin: 0 0 6px 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(246, 247, 251, 0.6);
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.closeButton:hover,
+.closeButton:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.7);
+  outline-offset: 2px;
+}
+
+.closeIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.form {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.formBody {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: clamp(20px, 4vw, 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.checkboxRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: rgba(246, 247, 251, 0.85);
+}
+
+.checkboxRow input {
+  accent-color: #fa3356;
+  width: 18px;
+  height: 18px;
+}
+
+.lineItemFields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 20px clamp(20px, 4vw, 32px) max(20px, env(safe-area-inset-bottom) + 20px);
+  background: linear-gradient(
+    180deg,
+    rgba(17, 17, 19, 0) 0%,
+    rgba(17, 17, 19, 0.85) 40%,
+    rgba(17, 17, 19, 0.95) 100%
+  );
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.saveButton {
+  width: 100%;
+  max-width: 180px;
+}
+
+@media (min-width: 720px) {
+  .saveButton {
+    width: auto;
+  }
+}
+
+@media (max-width: 639px) {
+  .modalContent {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+  }
+
+  .formBody {
+    padding-bottom: 16px;
+  }
+
+  .footer {
+    padding: 16px clamp(20px, 4vw, 32px) max(20px, env(safe-area-inset-bottom) + 16px);
+  }
+}
