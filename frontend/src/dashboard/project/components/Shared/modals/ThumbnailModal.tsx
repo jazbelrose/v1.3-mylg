@@ -1,69 +1,60 @@
 import Cropper from "react-easy-crop";
+import { Image as ImageIcon } from "lucide-react";
 
 import Modal from "@/shared/ui/ModalWithStack";
 
-import styles from "@/dashboard/home/components/finish-line-component.module.css";
+import modalStyles from "@/dashboard/home/components/finish-line-component.module.css";
 
 import type { ThumbnailModalState } from "../projectHeaderTypes";
 
+import styles from "./thumbnail-modal.module.css";
+
 interface ThumbnailModalProps {
   modal: ThumbnailModalState;
+  currentThumbnailUrl?: string;
 }
 
-const ThumbnailModal = ({ modal }: ThumbnailModalProps) => (
+const ThumbnailModal = ({ modal, currentThumbnailUrl = "" }: ThumbnailModalProps) => (
   <Modal
     isOpen={modal.isOpen}
     onRequestClose={modal.close}
     contentLabel="Change Thumbnail"
     closeTimeoutMS={300}
     className={{
-      base: styles.modalContent,
-      afterOpen: styles.modalContentAfterOpen,
-      beforeClose: styles.modalContentBeforeClose,
+      base: modalStyles.modalContent,
+      afterOpen: modalStyles.modalContentAfterOpen,
+      beforeClose: modalStyles.modalContentBeforeClose,
     }}
-    overlayClassName={styles.modalOverlay}
+    overlayClassName={modalStyles.modalOverlay}
   >
-    <h4 style={{ marginBottom: "20px" }}>Choose a Thumbnail</h4>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h4 className={styles.title}>Choose a Thumbnail</h4>
+        <p className={styles.subtitle}>
+          Upload a new image to refresh how your project appears across dashboards and shared views.
+        </p>
+      </div>
 
-    <div
-      style={{
-        marginBottom: "20px",
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div className={styles.dropzoneWrapper}>
         <div
-          style={{
-            width: "150px",
-            height: "150px",
-            borderRadius: "20px",
-            border: modal.preview
-              ? "none"
-              : `2px dashed ${modal.isDragging ? "#FA3356" : "#ccc"}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            color: "#ccc",
-            cursor: modal.preview ? "default" : "pointer",
-            position: "relative",
+          role="button"
+          tabIndex={0}
+          className={`${styles.dropzone} ${modal.isDragging ? styles.dropzoneActive : ""}`}
+          onClick={() => modal.fileInputRef.current?.click()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              modal.fileInputRef.current?.click();
+            }
           }}
-          onClick={!modal.preview ? () => modal.fileInputRef.current?.click() : undefined}
-          onDragOver={!modal.preview ? modal.onDragOver : undefined}
-          onDragLeave={!modal.preview ? modal.onDragLeave : undefined}
-          onDrop={!modal.preview ? modal.onDrop : undefined}
+          onDragOver={modal.onDragOver}
+          onDragLeave={modal.onDragLeave}
+          onDrop={modal.onDrop}
         >
-          <input
-            type="file"
-            accept="image/*"
-            ref={modal.fileInputRef}
-            onChange={modal.onFileChange}
-            style={{ display: "none" }}
-          />
+          <input type="file" accept="image/*" ref={modal.fileInputRef} onChange={modal.onFileChange} hidden />
 
           {modal.preview ? (
-            <div style={{ position: "relative", width: 150, height: 150 }}>
+            <div className={styles.cropper}>
               <Cropper
                 image={modal.preview}
                 crop={modal.crop}
@@ -75,46 +66,19 @@ const ThumbnailModal = ({ modal }: ThumbnailModalProps) => (
                 objectFit="cover"
               />
             </div>
+          ) : currentThumbnailUrl ? (
+            <img src={currentThumbnailUrl} alt="Current project thumbnail" className={styles.previewImage} />
           ) : (
-            <span style={{ width: "100%" }}>Click or drag thumbnail here</span>
-          )}
-
-          {modal.isDragging && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: "rgba(0,0,0,0.6)",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-                borderRadius: "20px",
-              }}
-            >
-              Drop to upload
+            <div className={styles.placeholder}>
+              <ImageIcon size={32} aria-hidden="true" />
+              <span>Click or drag an image to upload</span>
             </div>
           )}
 
+          {modal.isDragging && <div className={styles.dragOverlay}>Drop to upload</div>}
+
           {modal.isUploading && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: "rgba(0,0,0,0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: "20px",
-              }}
-            >
+            <div className={styles.uploadOverlay}>
               <div className="dot-loader">
                 <span />
                 <span />
@@ -123,8 +87,10 @@ const ThumbnailModal = ({ modal }: ThumbnailModalProps) => (
             </div>
           )}
         </div>
+      </div>
 
-        {modal.preview && (
+      {modal.preview ? (
+        <div className={styles.controls}>
           <input
             type="range"
             min={1}
@@ -132,46 +98,38 @@ const ThumbnailModal = ({ modal }: ThumbnailModalProps) => (
             step={0.1}
             value={modal.zoom}
             onChange={(event) => modal.onZoomChange(parseFloat(event.target.value))}
-            style={{ width: "150px", marginTop: "10px" }}
+            className={styles.rangeInput}
           />
-        )}
+          <div className={styles.actionsRow}>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={modal.upload}
+              disabled={modal.isUploading || !modal.preview}
+            >
+              Save thumbnail
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={modal.remove}
+              disabled={modal.isUploading}
+            >
+              Clear selection
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className={styles.mutedText}>
+          Recommended resolution: at least 512 × 512px. Square images look best.
+        </p>
+      )}
 
-        {modal.preview && (
-          <button
-            className="modal-button secondary"
-            type="button"
-            onClick={modal.remove}
-            style={{ marginTop: "10px", borderRadius: "5px", padding: "5px 10px" }}
-          >
-            Remove
-          </button>
-        )}
+      <div className={styles.footer}>
+        <button type="button" className={styles.cancelButton} onClick={modal.close} disabled={modal.isUploading}>
+          Cancel
+        </button>
       </div>
-    </div>
-
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        gap: "10px",
-        marginTop: "30px",
-      }}
-    >
-      <button
-        className="modal-button primary"
-        onClick={modal.upload}
-        style={{ padding: "10px 20px", borderRadius: "5px" }}
-        disabled={modal.isUploading}
-      >
-        Save
-      </button>
-      <button
-        className="modal-button secondary"
-        onClick={modal.close}
-        style={{ padding: "10px 20px", borderRadius: "5px" }}
-      >
-        Cancel
-      </button>
     </div>
   </Modal>
 );
