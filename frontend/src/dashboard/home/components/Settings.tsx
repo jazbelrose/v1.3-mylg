@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ChangeEvent } from "react";
+import React, { useEffect, useMemo, useRef, useState, ChangeEvent } from "react";
 import { useData } from "@/app/contexts/useData";
 import { uploadData } from "aws-amplify/storage";
 import { updatePassword } from "aws-amplify/auth";
@@ -6,9 +6,7 @@ import { updatePassword } from "aws-amplify/auth";
 import { toast } from "react-toastify";
 import { updateUserProfile } from "@/shared/utils/api";
 import PaymentsSection from "@/dashboard/home/components/paymentsection";
-import EditableTextField from "@/shared/ui/EditableTextField";
-import UserProfilePicture from "@/shared/ui/UserProfilePicture";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, User as UserIcon } from "lucide-react";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
 
 type RoleKey = "admin" | "designer" | "builder" | "vendor" | "client" | "";
@@ -55,7 +53,7 @@ const Settings: React.FC = () => {
     occupation: userData?.occupation || "",
   });
 
-  const { firstName, lastName, company, email, phoneNumber, occupation, thumbnail } = formData;
+  const { firstName, lastName, company, email, phoneNumber, occupation } = formData;
 
   const [oldPassword, setOldPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
@@ -68,6 +66,10 @@ const Settings: React.FC = () => {
 
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [uploadedKey, setUploadedKey] = useState<string | null>(null);
+  const [isRoleTooltipOpen, setIsRoleTooltipOpen] = useState<boolean>(false);
+  const roleTooltipRef = useRef<HTMLDivElement | null>(null);
+  const roleHelpButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isHoveringRoleTooltip = useRef<boolean>(false);
 
   const ROLE_DESCRIPTIONS: Record<RoleKey, string> = {
     admin: "Full administrative access",
@@ -238,138 +240,314 @@ const Settings: React.FC = () => {
   };
 
   const roleKey = ((userData?.role || "").toLowerCase() as RoleKey) || "";
+  const roleTooltipId = "account-role-tooltip";
+
+  const avatarSrc = useMemo(() => {
+    if (localPreview) {
+      return localPreview;
+    }
+
+    return resolveStoredFileUrl(formData.thumbnail || undefined, userData?.thumbnailUrl as string | undefined);
+  }, [formData.thumbnail, localPreview, userData?.thumbnailUrl]);
+
+  useEffect(() => {
+    if (
+      isRoleTooltipOpen &&
+      roleTooltipRef.current &&
+      document.activeElement === roleHelpButtonRef.current
+    ) {
+      roleTooltipRef.current.focus();
+    }
+  }, [isRoleTooltipOpen]);
+
+  useEffect(() => {
+    setIsRoleTooltipOpen(false);
+    isHoveringRoleTooltip.current = false;
+  }, [roleKey]);
+
+  const closeRoleTooltip = () => setIsRoleTooltipOpen(false);
+
+  const toggleRoleTooltip = () => {
+    setIsRoleTooltipOpen((prev) => {
+      if (isHoveringRoleTooltip.current && prev) {
+        return prev;
+      }
+
+      return !prev;
+    });
+  };
+
+  const handleRoleTooltipKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeRoleTooltip();
+    }
+  };
 
   return (
-    <>
-      <div className="settings-content">
-        <div className="settings-container">
-          <h2 className="section-heading">Account Info</h2>
+    <section className="accountPage" aria-labelledby="account-info-title">
+      <div className="accountCard">
+        <div className="section">
+          <h2 id="account-info-title">Account Info</h2>
 
-          <form onSubmit={handleSubmit}>
-            <div className="settings-row">
-              <UserProfilePicture
-                thumbnail={thumbnail}
-                thumbnailUrl={userData?.thumbnailUrl as string | undefined}
-                localPreview={localPreview || undefined}
-                onChange={handleThumbnailChange}
-              />
-              <div className="role-display">
-                <span
-                  className={`role-badge role-${roleKey}`}
-                  title={ROLE_DESCRIPTIONS[roleKey]}
-                >
-                  {userData?.role}
-                </span>
-                <span title={ROLE_DESCRIPTIONS[roleKey]}>
-                  <HelpCircle size={14} className="role-info" />
-                </span>
-              </div>
+          <div className="headerRow">
+            <div className="avatarStack">
+              <span className="avatarLabel" id="profile-picture-label">
+                Profile picture
+              </span>
+              <label
+                htmlFor="account-avatar"
+                className="avatarUpload"
+                aria-label="Update profile picture"
+                role="button"
+              >
+                <div className="avatar" aria-hidden="true">
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt="" className="avatarImage" />
+                  ) : (
+                    <UserIcon className="avatarPlaceholder" aria-hidden="true" />
+                  )}
+                  <span className="avatarAffordance" aria-hidden="true">
+                    ＋
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  id="account-avatar"
+                  className="avatarInput"
+                  accept="image/*"
+                  onChange={handleThumbnailChange}
+                  aria-labelledby="profile-picture-label"
+                />
+              </label>
             </div>
 
-            <div className="field-grid">
-              <EditableTextField
+            <div className="headerMeta">
+              <div
+                className="badgeCluster"
+                onMouseEnter={() => {
+                  isHoveringRoleTooltip.current = true;
+                  setIsRoleTooltipOpen(true);
+                }}
+                onMouseLeave={() => {
+                  isHoveringRoleTooltip.current = false;
+                  closeRoleTooltip();
+                }}
+              >
+                <div className="badgeRow">
+                  {roleKey ? (
+                    <span className="badgeAdmin" role="status">
+                      {userData?.role}
+                    </span>
+                  ) : null}
+                  {ROLE_DESCRIPTIONS[roleKey] ? (
+                    <button
+                      ref={roleHelpButtonRef}
+                      type="button"
+                      className="badgeHelp"
+                      aria-label="What does this role mean?"
+                      aria-expanded={isRoleTooltipOpen}
+                      aria-controls={roleTooltipId}
+                      aria-describedby={isRoleTooltipOpen ? roleTooltipId : undefined}
+                      onClick={toggleRoleTooltip}
+                      onFocus={() => setIsRoleTooltipOpen(true)}
+                      onBlur={closeRoleTooltip}
+                      onKeyDown={handleRoleTooltipKeyDown}
+                    >
+                      <HelpCircle size={18} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
+                {ROLE_DESCRIPTIONS[roleKey] ? (
+                  <div
+                    id={roleTooltipId}
+                    ref={roleTooltipRef}
+                    role="tooltip"
+                    tabIndex={-1}
+                    className={`roleTooltip${isRoleTooltipOpen ? " is-visible" : ""}`}
+                    aria-hidden={!isRoleTooltipOpen}
+                  >
+                    {ROLE_DESCRIPTIONS[roleKey]}
+                  </div>
+                ) : null}
+              </div>
+              <p className="headerName">
+                {[firstName, lastName].filter(Boolean).join(" ") || userData?.email || ""}
+              </p>
+              <p className="headerEmail">{userData?.email}</p>
+            </div>
+          </div>
+
+          <form className="form" onSubmit={handleSubmit} noValidate>
+            <div>
+              <label className="formLabel" htmlFor="firstName">
+                First Name
+              </label>
+              <input
                 id="firstName"
-                label="First Name"
+                className="input"
+                aria-label="First Name"
                 value={firstName}
-                onChange={(v: string) => setFormData((p) => ({ ...p, firstName: v }))}
+                autoComplete="given-name"
+                onChange={(event) => setFormData((prev) => ({ ...prev, firstName: event.target.value }))}
               />
-              <EditableTextField
+            </div>
+
+            <div>
+              <label className="formLabel" htmlFor="lastName">
+                Last Name
+              </label>
+              <input
                 id="lastName"
-                label="Last Name"
+                className="input"
+                aria-label="Last Name"
                 value={lastName}
-                onChange={(v: string) => setFormData((p) => ({ ...p, lastName: v }))}
+                autoComplete="family-name"
+                onChange={(event) => setFormData((prev) => ({ ...prev, lastName: event.target.value }))}
               />
-              <EditableTextField
+            </div>
+
+            <div className="span-2">
+              <label className="formLabel" htmlFor="email">
+                Email
+              </label>
+              <input
                 id="email"
-                label="Email"
+                className="input"
+                aria-label="Email"
                 type="email"
                 value={email}
-                onChange={(v: string) => setFormData((p) => ({ ...p, email: v }))}
+                autoComplete="email"
+                onChange={(event) => setFormData((prev) => ({ ...prev, email: event.target.value }))}
               />
-              <EditableTextField
+            </div>
+
+            <div>
+              <label className="formLabel" htmlFor="phoneNumber">
+                Phone Number
+              </label>
+              <input
                 id="phoneNumber"
-                label="Phone Number"
+                className="input"
+                aria-label="Phone Number"
                 type="tel"
                 value={phoneNumber}
-                onChange={(v: string) => setFormData((p) => ({ ...p, phoneNumber: v }))}
+                autoComplete="tel"
+                onChange={(event) => setFormData((prev) => ({ ...prev, phoneNumber: event.target.value }))}
               />
-              <EditableTextField
+            </div>
+
+            <div>
+              <label className="formLabel" htmlFor="company">
+                Organization
+              </label>
+              <input
                 id="company"
-                label="Organization"
+                className="input"
+                aria-label="Organization"
                 value={company}
-                onChange={(v: string) => setFormData((p) => ({ ...p, company: v }))}
+                autoComplete="organization"
+                onChange={(event) => setFormData((prev) => ({ ...prev, company: event.target.value }))}
               />
-              <EditableTextField
+            </div>
+
+            <div className="span-2">
+              <label className="formLabel" htmlFor="occupation">
+                Occupation
+              </label>
+              <input
                 id="occupation"
-                label="Occupation"
+                className="input"
+                aria-label="Occupation"
                 value={occupation}
-                onChange={(v: string) => setFormData((p) => ({ ...p, occupation: v }))}
+                autoComplete="organization-title"
+                onChange={(event) => setFormData((prev) => ({ ...prev, occupation: event.target.value }))}
               />
             </div>
 
-            <div className="password-section">
-              <button
-                type="button"
-                className="modal-submit-button secondary password-toggle"
-                onClick={() => setShowPasswordFields((p) => !p)}
-              >
-                Change Password
-              </button>
-
-              {showPasswordFields && (
-                <div className="form-group form-group-password">
-                  <label htmlFor="password">Password Change</label>
-                  <input
-                    type="password"
-                    className="modal-input-password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="Old Password"
-                  />
-                  <input
-                    type="password"
-                    className="modal-input-password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="New Password"
-                  />
-                  <input
-                    type="password"
-                    className="modal-input-password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    placeholder="Confirm New Password"
-                  />
-                  {passwordChangeStatus && <div>{passwordChangeStatus}</div>}
-                </div>
-              )}
-            </div>
-
-            <div className="save-row">
-              <button
-                type="submit"
-                className="modal-submit-button settings primary"
-                disabled={isSaving || !isFormDirty}
-              >
+            <div className="formActions span-2">
+              <button type="submit" className="saveButton" disabled={isSaving || !isFormDirty}>
                 {isSaving ? "Saving..." : showSavedWindow ? "Saved. Nice." : "Save"}
               </button>
             </div>
+
+            <div className="formEndSpacer span-2" aria-hidden="true" />
           </form>
+        </div>
 
-          <hr className="section-divider" />
+        <div className="section">
+          <h3 className="sectionTitle">Security</h3>
+          <button
+            type="button"
+            className="passwordToggle"
+            onClick={() => setShowPasswordFields((previous) => !previous)}
+          >
+            {showPasswordFields ? "Hide password fields" : "Change Password"}
+          </button>
 
-          <PaymentsSection
-            lastInvoiceDate={userData?.invoices?.[0]?.date}
-            lastInvoiceAmount={
-              typeof userData?.invoices?.[0]?.amount === 'number'
-                ? userData.invoices[0].amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-                : String(userData?.invoices?.[0]?.amount || 'N/A')
-            }
-            invoiceList={[]}
-          />
+          {showPasswordFields && (
+            <div className="passwordGrid">
+              <div>
+                <label className="formLabel" htmlFor="oldPassword">
+                  Current Password
+                </label>
+                <input
+                  id="oldPassword"
+                  type="password"
+                  className="input"
+                  aria-label="Current Password"
+                  value={oldPassword}
+                  onChange={(event) => setOldPassword(event.target.value)}
+                />
+              </div>
+              <div>
+                <label className="formLabel" htmlFor="newPassword">
+                  New Password
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  className="input"
+                  aria-label="New Password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                />
+              </div>
+              <div>
+                <label className="formLabel" htmlFor="confirmNewPassword">
+                  Confirm New Password
+                </label>
+                <input
+                  id="confirmNewPassword"
+                  type="password"
+                  className="input"
+                  aria-label="Confirm New Password"
+                  value={confirmNewPassword}
+                  onChange={(event) => setConfirmNewPassword(event.target.value)}
+                />
+              </div>
+              {passwordChangeStatus && (
+                <div className="passwordStatus span-2" role="status">
+                  {passwordChangeStatus}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
-    </>
+
+      <div className="accountPayments">
+        <PaymentsSection
+          lastInvoiceDate={userData?.invoices?.[0]?.date}
+          lastInvoiceAmount={
+            typeof userData?.invoices?.[0]?.amount === "number"
+              ? userData.invoices[0].amount.toLocaleString("en-US", { style: "currency", currency: "USD" })
+              : String(userData?.invoices?.[0]?.amount || "N/A")
+          }
+          invoiceList={[]}
+        />
+      </div>
+    </section>
   );
 };
 
