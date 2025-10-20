@@ -73,6 +73,7 @@ const NewProject: React.FC = () => {
   const [budget, setBudget] = useState<string>("");
   const [finishline, setFinishLine] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [descriptionPlainText, setDescriptionPlainText] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedFileNames, setSelectedFileNames] = useState<string>("");
 
@@ -180,7 +181,13 @@ const NewProject: React.FC = () => {
 
   // Basic validation
   const validateForm = (): boolean => {
-    return !!(projectName && budget && finishline && description && address);
+    return !!(
+      projectName &&
+      budget &&
+      finishline &&
+      descriptionPlainText.trim().length > 0 &&
+      address
+    );
   };
 
   /**
@@ -336,7 +343,13 @@ const NewProject: React.FC = () => {
                     />
                   </div>
                   <div className={styles.descriptionContainer}>
-                    <NewProjectDescription description={description} setDescription={setDescription} />
+                    <NewProjectDescription
+                      description={description}
+                      setDescription={(value, plainText) => {
+                        setDescription(value);
+                        setDescriptionPlainText(plainText);
+                      }}
+                    />
                   </div>
                 </div>
               </div>
