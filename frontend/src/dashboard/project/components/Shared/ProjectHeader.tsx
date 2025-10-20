@@ -112,7 +112,17 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
       <ThumbnailModal modal={thumbnailModal} />
       <ColorModal modal={colorModal} />
       <InvoiceInfoModal modal={invoiceInfoModal} />
-      <SettingsModal modal={settingsModal} isAdmin={isAdmin} />
+      <SettingsModal
+        modal={settingsModal}
+        project={localActiveProject}
+        editNameModal={editNameModal}
+        thumbnailModal={thumbnailModal}
+        colorModal={colorModal}
+        invoiceInfoModal={invoiceInfoModal}
+        deleteModal={deleteConfirmationModal}
+        isAdmin={isAdmin}
+        getFileUrlForThumbnail={getFileUrlForThumbnail}
+      />
       <DeleteConfirmationModal modal={deleteConfirmationModal} />
 
       <TeamModal
