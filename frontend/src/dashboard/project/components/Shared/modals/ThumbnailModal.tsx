@@ -1,3 +1,4 @@
+import type { KeyboardEvent, MouseEvent } from "react";
 import Cropper from "react-easy-crop";
 import { Image as ImageIcon } from "lucide-react";
 
@@ -14,39 +15,59 @@ interface ThumbnailModalProps {
   currentThumbnailUrl?: string;
 }
 
-const ThumbnailModal = ({ modal, currentThumbnailUrl = "" }: ThumbnailModalProps) => (
-  <Modal
-    isOpen={modal.isOpen}
-    onRequestClose={modal.close}
-    contentLabel="Change Thumbnail"
-    closeTimeoutMS={300}
-    className={{
-      base: modalStyles.modalContent,
-      afterOpen: modalStyles.modalContentAfterOpen,
-      beforeClose: modalStyles.modalContentBeforeClose,
-    }}
-    overlayClassName={modalStyles.modalOverlay}
-  >
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h4 className={styles.title}>Choose a Thumbnail</h4>
-        <p className={styles.subtitle}>
-          Upload a new image to refresh how your project appears across dashboards and shared views.
-        </p>
-      </div>
+const ThumbnailModal = ({ modal, currentThumbnailUrl = "" }: ThumbnailModalProps) => {
+  const handleDropzoneClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (modal.preview) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
 
-      <div className={styles.dropzoneWrapper}>
-        <div
-          role="button"
-          tabIndex={0}
+    modal.fileInputRef.current?.click();
+  };
+
+  const handleDropzoneKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (modal.preview) {
+      return;
+    }
+
+    modal.fileInputRef.current?.click();
+  };
+
+  return (
+    <Modal
+      isOpen={modal.isOpen}
+      onRequestClose={modal.close}
+      contentLabel="Change Thumbnail"
+      closeTimeoutMS={300}
+      className={{
+        base: modalStyles.modalContent,
+        afterOpen: modalStyles.modalContentAfterOpen,
+        beforeClose: modalStyles.modalContentBeforeClose,
+      }}
+      overlayClassName={modalStyles.modalOverlay}
+    >
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h4 className={styles.title}>Choose a Thumbnail</h4>
+          <p className={styles.subtitle}>
+            Upload a new image to refresh how your project appears across dashboards and shared views.
+          </p>
+        </div>
+
+        <div className={styles.dropzoneWrapper}>
+          <div
+          role={modal.preview ? undefined : "button"}
+          tabIndex={modal.preview ? -1 : 0}
           className={`${styles.dropzone} ${modal.isDragging ? styles.dropzoneActive : ""}`}
-          onClick={() => modal.fileInputRef.current?.click()}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              modal.fileInputRef.current?.click();
-            }
-          }}
+          onClick={handleDropzoneClick}
+          onKeyDown={handleDropzoneKeyDown}
           onDragOver={modal.onDragOver}
           onDragLeave={modal.onDragLeave}
           onDrop={modal.onDrop}
@@ -132,6 +153,7 @@ const ThumbnailModal = ({ modal, currentThumbnailUrl = "" }: ThumbnailModalProps
       </div>
     </div>
   </Modal>
-);
+  );
+};
 
 export default ThumbnailModal;
