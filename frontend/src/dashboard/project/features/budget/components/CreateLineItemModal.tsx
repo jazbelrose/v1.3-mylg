@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/shared/ui/ModalWithStack";
@@ -282,6 +282,16 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const touchStartYRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const lastOffsetRef = useRef(0);
+  const swipeCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetSwipeState = useCallback(() => {
+    setSwipeOffset(0);
+    setIsDragging(false);
+    isDraggingRef.current = false;
+    touchStartYRef.current = null;
+    lastOffsetRef.current = 0;
+  }, []);
 
   const accentColor = useMemo(() => {
     if (typeof activeProject?.color === "string" && activeProject.color.trim() !== "") {
@@ -390,14 +400,48 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) return;
+    if (isOpen) {
+      if (closeResetTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(closeResetTimeoutRef.current);
+        closeResetTimeoutRef.current = null;
+      }
+      return;
+    }
 
-    setSwipeOffset(0);
-    setIsDragging(false);
-    isDraggingRef.current = false;
-    touchStartYRef.current = null;
-    lastOffsetRef.current = 0;
-  }, [isOpen]);
+    if (typeof window === "undefined") {
+      resetSwipeState();
+      return;
+    }
+
+    if (closeResetTimeoutRef.current) {
+      window.clearTimeout(closeResetTimeoutRef.current);
+    }
+
+    closeResetTimeoutRef.current = window.setTimeout(() => {
+      resetSwipeState();
+      closeResetTimeoutRef.current = null;
+    }, 300);
+
+    return () => {
+      if (closeResetTimeoutRef.current) {
+        window.clearTimeout(closeResetTimeoutRef.current);
+        closeResetTimeoutRef.current = null;
+      }
+    };
+  }, [isOpen, resetSwipeState]);
+
+  useEffect(() => {
+    return () => {
+      if (swipeCloseTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(swipeCloseTimeoutRef.current);
+        swipeCloseTimeoutRef.current = null;
+      }
+      if (closeResetTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(closeResetTimeoutRef.current);
+        closeResetTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   /* ------------------------------- Helpers -------------------------------- */
 
@@ -557,6 +601,11 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (event.touches.length !== 1) return;
 
+    if (swipeCloseTimeoutRef.current && typeof window !== "undefined") {
+      window.clearTimeout(swipeCloseTimeoutRef.current);
+      swipeCloseTimeoutRef.current = null;
+    }
+
     touchStartYRef.current = event.touches[0].clientY;
     isDraggingRef.current = true;
     lastOffsetRef.current = 0;
@@ -581,24 +630,61 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const handleTouchEnd = () => {
     if (!isDraggingRef.current) return;
 
-    const threshold = 140;
-    const shouldClose = lastOffsetRef.current > threshold;
+    isDraggingRef.current = false;
+    setIsDragging(false);
 
-    if (shouldClose) {
+    const threshold = 140;
+    const offset = lastOffsetRef.current;
+    const shouldClose = offset > threshold;
+
+    touchStartYRef.current = null;
+    lastOffsetRef.current = 0;
+
+    if (!shouldClose) {
       setSwipeOffset(0);
-      setIsDragging(false);
-      isDraggingRef.current = false;
-      touchStartYRef.current = null;
-      lastOffsetRef.current = 0;
+      return;
+    }
+
+    const currentItemString = JSON.stringify(item);
+    const hasChanges = currentItemString !== initialItemString;
+
+    if (hasChanges) {
+      setSwipeOffset(0);
       handleClose();
       return;
     }
 
-    setSwipeOffset(0);
-    setIsDragging(false);
-    isDraggingRef.current = false;
-    touchStartYRef.current = null;
-    lastOffsetRef.current = 0;
+    const exitOffset = (() => {
+      if (typeof window !== "undefined") {
+        const viewportHeight = window.innerHeight || 0;
+        return Math.max(viewportHeight, offset || 0);
+      }
+      return offset + 200;
+    })();
+
+    setSwipeOffset(exitOffset);
+
+    const closeDelay = 300;
+
+    if (typeof window === "undefined") {
+      setTimeout(() => {
+        handleClose({ preserveSwipeOffset: true });
+      }, closeDelay);
+      return;
+    }
+
+    if (swipeCloseTimeoutRef.current) {
+      window.clearTimeout(swipeCloseTimeoutRef.current);
+      swipeCloseTimeoutRef.current = null;
+    }
+
+    swipeCloseTimeoutRef.current = window.setTimeout(() => {
+      handleClose({ preserveSwipeOffset: true });
+      if (swipeCloseTimeoutRef.current) {
+        window.clearTimeout(swipeCloseTimeoutRef.current);
+        swipeCloseTimeoutRef.current = null;
+      }
+    }, closeDelay);
   };
 
   const handleOverlayMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -668,14 +754,25 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     return result;
   };
 
-  const handleClose = () => {
-    setSwipeOffset(0);
-    setIsDragging(false);
-    isDraggingRef.current = false;
-    touchStartYRef.current = null;
-    lastOffsetRef.current = 0;
+  const handleClose = (options?: { preserveSwipeOffset?: boolean }) => {
+    const { preserveSwipeOffset = false } = options ?? {};
+
     const currentItemString = JSON.stringify(item);
     const hasChanges = currentItemString !== initialItemString;
+
+    if (hasChanges || !preserveSwipeOffset) {
+      resetSwipeState();
+    } else {
+      setIsDragging(false);
+      isDraggingRef.current = false;
+      touchStartYRef.current = null;
+      lastOffsetRef.current = 0;
+    }
+
+    if (swipeCloseTimeoutRef.current && typeof window !== "undefined") {
+      window.clearTimeout(swipeCloseTimeoutRef.current);
+      swipeCloseTimeoutRef.current = null;
+    }
 
     if (hasChanges) {
       setShowUnsavedConfirm(true);
