@@ -29,9 +29,11 @@ import CreateCalendarItemModal, {
 } from "../CreateCalendarItemModal";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import type { ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import { useIsMobile } from "../../../components/Shared/calendar/hooks";
 
 import DayGrid from "./DayGrid";
 import EventsAndTasks from "./EventsAndTasks";
+import CalendarEventsDrawer from "./CalendarEventsDrawer";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
@@ -94,17 +96,24 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
-  const [drawerSnapIndex, setDrawerSnapIndex] = useState<SnapIndex>(2);
-  const [viewportHeight, setViewportHeight] = useState(() => getTaskViewportHeight());
+  const [taskDrawerSnapIndex, setTaskDrawerSnapIndex] = useState<SnapIndex>(2);
+  const [taskDrawerViewportHeight, setTaskDrawerViewportHeight] = useState(() => getTaskViewportHeight());
   const [activeDrawerTaskId, setActiveDrawerTaskId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
-  const [isDraggingDrawer, setIsDraggingDrawer] = useState(false);
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
-  const [currentDragY, setCurrentDragY] = useState(0);
-  const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
+  const [isDraggingTaskDrawer, setIsDraggingTaskDrawer] = useState(false);
+  const [taskDrawerDragStartY, setTaskDrawerDragStartY] = useState<number | null>(null);
+  const [taskDrawerCurrentDragY, setTaskDrawerCurrentDragY] = useState(0);
+  const [isTaskDrawerDesktop, setIsTaskDrawerDesktop] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const isMobile = useIsMobile();
+  const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
+  const [eventsDrawerSnapIndex, setEventsDrawerSnapIndex] = useState<SnapIndex>(1);
+  const [eventsDrawerViewportHeight, setEventsDrawerViewportHeight] = useState(() => getTaskViewportHeight());
+  const [isDraggingEventsDrawer, setIsDraggingEventsDrawer] = useState(false);
+  const [eventsDrawerDragStartY, setEventsDrawerDragStartY] = useState<number | null>(null);
+  const [eventsDrawerCurrentDragY, setEventsDrawerCurrentDragY] = useState(0);
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
-  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const taskDrawerSheetRef = useRef<HTMLDivElement | null>(null);
   const initialScrollDoneRef = useRef(false);
 
   useEffect(() => {
@@ -116,6 +125,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     onDateChange(internalDate);
   }, [internalDate, onDateChange]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsEventsDrawerOpen(false);
+      setIsDraggingEventsDrawer(false);
+      setEventsDrawerDragStartY(null);
+      setEventsDrawerCurrentDragY(0);
+      return;
+    }
+
+    setEventsDrawerViewportHeight(getTaskViewportHeight());
+
+    if (!isTaskDrawerOpen) {
+      setIsEventsDrawerOpen(true);
+    }
+  }, [isMobile, isTaskDrawerOpen]);
 
   const projectRange = useMemo(() => {
     const start = activeProjectStartDate
@@ -345,13 +370,25 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const formatStatValue = useCallback((value: number) => value, []);
 
-  const sheetHeights = useMemo(
-    () => DRAWER_SNAP_POINTS.map((point) => viewportHeight * point),
-    [viewportHeight],
+  const taskDrawerSheetHeights = useMemo(
+    () => DRAWER_SNAP_POINTS.map((point) => taskDrawerViewportHeight * point),
+    [taskDrawerViewportHeight],
   );
 
-  const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[drawerSnapIndex] : 0;
-  const targetY = isDraggingDrawer ? baseTargetY + currentDragY : baseTargetY;
+  const taskDrawerBaseTargetY = taskDrawerViewportHeight ? taskDrawerViewportHeight - taskDrawerSheetHeights[taskDrawerSnapIndex] : 0;
+  const taskDrawerTargetY = isDraggingTaskDrawer ? taskDrawerBaseTargetY + taskDrawerCurrentDragY : taskDrawerBaseTargetY;
+
+  const eventsDrawerSheetHeights = useMemo(
+    () => DRAWER_SNAP_POINTS.map((point) => eventsDrawerViewportHeight * point),
+    [eventsDrawerViewportHeight],
+  );
+
+  const eventsDrawerBaseTargetY = eventsDrawerViewportHeight
+    ? eventsDrawerViewportHeight - eventsDrawerSheetHeights[eventsDrawerSnapIndex]
+    : 0;
+  const eventsDrawerTargetY = isDraggingEventsDrawer
+    ? eventsDrawerBaseTargetY + eventsDrawerCurrentDragY
+    : eventsDrawerBaseTargetY;
 
   const canCreateTasks = useMemo(
     () => taskProjects.length > 0 || Boolean(activeProjectId),
@@ -364,25 +401,32 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const handleOpenTasksOverview = useCallback(() => {
     setIsTaskDrawerOpen(true);
-    setDrawerSnapIndex(2);
-    setViewportHeight(getTaskViewportHeight());
+    setTaskDrawerSnapIndex(2);
+    setTaskDrawerViewportHeight(getTaskViewportHeight());
     setMapFocus(null);
     initialScrollDoneRef.current = false;
 
     if (!activeDrawerTaskId && drawerTasks.length) {
       setActiveDrawerTaskId(drawerTasks[0].id);
     }
-  }, [activeDrawerTaskId, drawerTasks]);
+    if (isMobile) {
+      setIsEventsDrawerOpen(false);
+    }
+  }, [activeDrawerTaskId, drawerTasks, isMobile]);
 
   const handleCloseTasksOverview = useCallback(() => {
     setIsTaskDrawerOpen(false);
-    setDrawerSnapIndex(2);
+    setTaskDrawerSnapIndex(2);
     setMapFocus(null);
-    setIsDraggingDrawer(false);
-    setDragStartY(null);
-    setCurrentDragY(0);
+    setIsDraggingTaskDrawer(false);
+    setTaskDrawerDragStartY(null);
+    setTaskDrawerCurrentDragY(0);
     initialScrollDoneRef.current = false;
-  }, []);
+    if (isMobile) {
+      setIsEventsDrawerOpen(true);
+      setEventsDrawerViewportHeight(getTaskViewportHeight());
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     if (!drawerTasks.length) {
@@ -398,7 +442,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   useEffect(() => {
     if (!isTaskDrawerOpen || typeof window === "undefined") return;
 
-    const update = () => setViewportHeight(getTaskViewportHeight());
+    const update = () => setTaskDrawerViewportHeight(getTaskViewportHeight());
     update();
 
     window.addEventListener("resize", update);
@@ -412,14 +456,32 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, [isTaskDrawerOpen]);
 
   useEffect(() => {
-    if (!isTaskDrawerOpen || typeof document === "undefined") return;
+    if (!isEventsDrawerOpen || typeof window === "undefined") return;
+
+    const update = () => setEventsDrawerViewportHeight(getTaskViewportHeight());
+    update();
+
+    window.addEventListener("resize", update);
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      viewport?.removeEventListener("resize", update);
+    };
+  }, [isEventsDrawerOpen]);
+
+  useEffect(() => {
+    if (!(isTaskDrawerOpen || isEventsDrawerOpen) || typeof document === "undefined") {
+      return;
+    }
     const { body } = document;
     const previousOverflow = body.style.overflow;
     body.style.overflow = "hidden";
     return () => {
       body.style.overflow = previousOverflow;
     };
-  }, [isTaskDrawerOpen]);
+  }, [isTaskDrawerOpen, isEventsDrawerOpen]);
 
   useEffect(() => {
     if (!isTaskDrawerOpen) return;
@@ -438,12 +500,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      setIsDesktopDrawer(false);
+      setIsTaskDrawerDesktop(false);
       return;
     }
 
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateMatch = () => setIsDesktopDrawer(mediaQuery.matches);
+    const updateMatch = () => setIsTaskDrawerDesktop(mediaQuery.matches);
     updateMatch();
 
     if (typeof mediaQuery.addEventListener === "function") {
@@ -480,50 +542,99 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     }
   }, [isTaskDrawerOpen, drawerTasks, activeDrawerTaskId]);
 
-  const handleHandleClick = useCallback(() => {
-    setDrawerSnapIndex((current) => {
+  const handleTaskDrawerHandleClick = useCallback(() => {
+    setTaskDrawerSnapIndex((current) => {
       if (current === 2) return 1;
       if (current === 1) return 2;
       return 1;
     });
   }, []);
 
-  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+  const handleTaskDrawerTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (event.touches.length === 1) {
-      setIsDraggingDrawer(true);
-      setDragStartY(event.touches[0].clientY);
-      setCurrentDragY(0);
+      setIsDraggingTaskDrawer(true);
+      setTaskDrawerDragStartY(event.touches[0].clientY);
+      setTaskDrawerCurrentDragY(0);
     }
   }, []);
 
-  const handleTouchMove = useCallback(
+  const handleTaskDrawerTouchMove = useCallback(
     (event: React.TouchEvent<HTMLDivElement>) => {
-      if (isDraggingDrawer && dragStartY !== null && event.touches.length === 1) {
-        const deltaY = event.touches[0].clientY - dragStartY;
-        setCurrentDragY(deltaY);
+      if (isDraggingTaskDrawer && taskDrawerDragStartY !== null && event.touches.length === 1) {
+        const deltaY = event.touches[0].clientY - taskDrawerDragStartY;
+        setTaskDrawerCurrentDragY(deltaY);
         event.preventDefault();
       }
     },
-    [isDraggingDrawer, dragStartY],
+    [isDraggingTaskDrawer, taskDrawerDragStartY],
   );
 
-  const handleTouchEnd = useCallback(() => {
-    if (isDraggingDrawer) {
-      setIsDraggingDrawer(false);
-      setDragStartY(null);
+  const handleTaskDrawerTouchEnd = useCallback(() => {
+    if (isDraggingTaskDrawer) {
+      setIsDraggingTaskDrawer(false);
+      setTaskDrawerDragStartY(null);
 
-      const threshold = viewportHeight * 0.15;
-      if (Math.abs(currentDragY) > threshold) {
-        if (currentDragY > 0) {
-          setDrawerSnapIndex((current) => Math.max(0, current - 1) as SnapIndex);
+      const threshold = taskDrawerViewportHeight * 0.15;
+      if (Math.abs(taskDrawerCurrentDragY) > threshold) {
+        if (taskDrawerCurrentDragY > 0) {
+          setTaskDrawerSnapIndex((current) => Math.max(0, current - 1) as SnapIndex);
         } else {
-          setDrawerSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
+          setTaskDrawerSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
         }
       }
 
-      setCurrentDragY(0);
+      setTaskDrawerCurrentDragY(0);
     }
-  }, [isDraggingDrawer, currentDragY, viewportHeight]);
+  }, [isDraggingTaskDrawer, taskDrawerCurrentDragY, taskDrawerViewportHeight]);
+
+  const handleEventsDrawerHandleClick = useCallback(() => {
+    setEventsDrawerSnapIndex((current) => {
+      if (current === 2) return 1;
+      if (current === 1) return 2;
+      return 1;
+    });
+  }, []);
+
+  const handleEventsDrawerTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 1) {
+      setIsDraggingEventsDrawer(true);
+      setEventsDrawerDragStartY(event.touches[0].clientY);
+      setEventsDrawerCurrentDragY(0);
+    }
+  }, []);
+
+  const handleEventsDrawerTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (isDraggingEventsDrawer && eventsDrawerDragStartY !== null && event.touches.length === 1) {
+        const deltaY = event.touches[0].clientY - eventsDrawerDragStartY;
+        setEventsDrawerCurrentDragY(deltaY);
+        event.preventDefault();
+      }
+    },
+    [isDraggingEventsDrawer, eventsDrawerDragStartY],
+  );
+
+  const handleEventsDrawerTouchEnd = useCallback(() => {
+    if (isDraggingEventsDrawer) {
+      setIsDraggingEventsDrawer(false);
+      setEventsDrawerDragStartY(null);
+
+      const threshold = eventsDrawerViewportHeight * 0.15;
+      if (Math.abs(eventsDrawerCurrentDragY) > threshold) {
+        if (eventsDrawerCurrentDragY > 0) {
+          setEventsDrawerSnapIndex((current) => Math.max(0, current - 1) as SnapIndex);
+        } else {
+          setEventsDrawerSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
+        }
+      }
+
+      setEventsDrawerCurrentDragY(0);
+    }
+  }, [
+    isDraggingEventsDrawer,
+    eventsDrawerCurrentDragY,
+    eventsDrawerViewportHeight,
+  ]);
 
   const openQuickCreateForTask = useCallback(
     (
@@ -600,7 +711,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         openQuickCreateForTask(taskId);
       } else {
         setActiveDrawerTaskId(taskId);
-        setDrawerSnapIndex((current) => (current === 0 ? 1 : current) as SnapIndex);
+        setTaskDrawerSnapIndex((current) => (current === 0 ? 1 : current) as SnapIndex);
       }
     },
     [activeDrawerTaskId, openQuickCreateForTask],
@@ -740,105 +851,109 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 rangeColor={activeProjectColor ?? null}
                 finishLineDate={activeProjectEndDate ?? null}
               />
-              <EventsAndTasks
-                events={visibleEvents}
-                tasks={visibleTasks}
-                onToggleTask={onToggleTask}
-                onEditEvent={handleOpenEditEvent}
-                onEditTask={handleOpenEditTask}
-                onOpenTasksOverview={handleOpenTasksOverview}
-              />
+              {!isMobile ? (
+                <EventsAndTasks
+                  events={visibleEvents}
+                  tasks={visibleTasks}
+                  onToggleTask={onToggleTask}
+                  onEditEvent={handleOpenEditEvent}
+                  onEditTask={handleOpenEditTask}
+                  onOpenTasksOverview={handleOpenTasksOverview}
+                />
+              ) : null}
             </div>
 
-            <div className="calendar-main">
-              <div className="calendar-controls">
-                <div className="calendar-controls__search">
-                  <Search className="calendar-controls__search-icon" aria-hidden />
-                  <input
-                    type="search"
-                    placeholder="Search events and tasks"
-                    aria-label="Search events and tasks"
-                    className="calendar-controls__search-input"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                  />
+            {!isMobile ? (
+              <div className="calendar-main">
+                <div className="calendar-controls">
+                  <div className="calendar-controls__search">
+                    <Search className="calendar-controls__search-icon" aria-hidden />
+                    <input
+                      type="search"
+                      placeholder="Search events and tasks"
+                      aria-label="Search events and tasks"
+                      className="calendar-controls__search-input"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                    />
+                  </div>
+                  <div className="calendar-controls__toggle">
+                    <button
+                      type="button"
+                      onClick={() => setView("day")}
+                      className={`calendar-controls__toggle-button ${
+                        view === "day" ? "is-active" : ""
+                      }`}
+                    >
+                      Day
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView("week")}
+                      className={`calendar-controls__toggle-button ${
+                        view === "week" ? "is-active" : ""
+                      }`}
+                    >
+                      Week
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setView("month")}
+                      className={`calendar-controls__toggle-button ${
+                        view === "month" ? "is-active" : ""
+                      }`}
+                    >
+                      Month
+                    </button>
+                  </div>
                 </div>
-                <div className="calendar-controls__toggle">
-                  <button
-                    type="button"
-                    onClick={() => setView("day")}
-                    className={`calendar-controls__toggle-button ${
-                      view === "day" ? "is-active" : ""
-                    }`}
-                  >
-                    Day
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("week")}
-                    className={`calendar-controls__toggle-button ${
-                      view === "week" ? "is-active" : ""
-                    }`}
-                  >
-                    Week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("month")}
-                    className={`calendar-controls__toggle-button ${
-                      view === "month" ? "is-active" : ""
-                    }`}
-                  >
-                    Month
-                  </button>
-                </div>
-              </div>
 
-              <div className="calendar-view">
-                {view === "month" && (
-                  <MonthGrid
-                    viewDate={internalDate}
-                    selectedDate={internalDate}
-                    events={visibleEvents}
-                    tasks={visibleTasks}
-                    onSelectDate={handleSelectDate}
-                    onOpenCreate={handleOpenCreate}
-                    onOpenQuickTask={handleOpenQuickTaskModal}
-                    canCreateTasks={canCreateTasks}
-                    onEditEvent={handleOpenEditEvent}
-                    onEditTask={handleOpenEditTask}
-                  />
-                )}
-                {view === "week" && (
-                  <div className="calendar-view__scroller">
-                    <WeekGrid
-                      anchorDate={internalDate}
+                <div className="calendar-view">
+                  {view === "month" && (
+                    <MonthGrid
+                      viewDate={internalDate}
+                      selectedDate={internalDate}
                       events={visibleEvents}
                       tasks={visibleTasks}
+                      onSelectDate={handleSelectDate}
+                      onOpenCreate={handleOpenCreate}
+                      onOpenQuickTask={handleOpenQuickTaskModal}
+                      canCreateTasks={canCreateTasks}
                       onEditEvent={handleOpenEditEvent}
                       onEditTask={handleOpenEditTask}
-                      onCreateEvent={handleOpenCreate}
-                      onCreateTask={handleOpenQuickTaskModal}
-                      canCreateTasks={canCreateTasks}
                     />
-                  </div>
-                )}
-                {view === "day" && (
-                  <div className="calendar-view__scroller">
-                    <DayGrid
-                      date={internalDate}
-                      events={visibleEvents}
-                      tasks={visibleTasks}
-                      onEditEvent={handleOpenEditEvent}
-                      onEditTask={handleOpenEditTask}
-                      onCreateEvent={handleOpenCreate}
-                      onCreateTask={handleOpenQuickTaskModal}
-                      canCreateTasks={canCreateTasks}
-                    />
-                  </div>
-                )}
+                  )}
+                  {view === "week" && (
+                    <div className="calendar-view__scroller">
+                      <WeekGrid
+                        anchorDate={internalDate}
+                        events={visibleEvents}
+                        tasks={visibleTasks}
+                        onEditEvent={handleOpenEditEvent}
+                        onEditTask={handleOpenEditTask}
+                        onCreateEvent={handleOpenCreate}
+                        onCreateTask={handleOpenQuickTaskModal}
+                        canCreateTasks={canCreateTasks}
+                      />
+                    </div>
+                  )}
+                  {view === "day" && (
+                    <div className="calendar-view__scroller">
+                      <DayGrid
+                        date={internalDate}
+                        events={visibleEvents}
+                        tasks={visibleTasks}
+                        onEditEvent={handleOpenEditEvent}
+                        onEditTask={handleOpenEditTask}
+                        onCreateEvent={handleOpenCreate}
+                        onCreateTask={handleOpenQuickTaskModal}
+                        canCreateTasks={canCreateTasks}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         </div>
 
@@ -893,11 +1008,28 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             : undefined
         }
       />
+      <CalendarEventsDrawer
+        open={isMobile && isEventsDrawerOpen}
+        viewportHeight={eventsDrawerViewportHeight}
+        targetY={eventsDrawerTargetY}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
+        events={visibleEvents}
+        tasks={visibleTasks}
+        onToggleTask={onToggleTask}
+        onEditEvent={handleOpenEditEvent}
+        onEditTask={handleOpenEditTask}
+        onOpenTasksOverview={handleOpenTasksOverview}
+        onHandleClick={handleEventsDrawerHandleClick}
+        onTouchStart={handleEventsDrawerTouchStart}
+        onTouchMove={handleEventsDrawerTouchMove}
+        onTouchEnd={handleEventsDrawerTouchEnd}
+      />
       <TaskDrawer
         open={isTaskDrawerOpen}
-        isDesktop={isDesktopDrawer}
-        viewportHeight={viewportHeight}
-        targetY={targetY}
+        isDesktop={isTaskDrawerDesktop}
+        viewportHeight={taskDrawerViewportHeight}
+        targetY={taskDrawerTargetY}
         projectName={activeProjectName ?? undefined}
         mapLocation={mapLocation}
         mapAddress={mapAddress}
@@ -921,11 +1053,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         onMarkerClick={handleMarkerClick}
         onClose={handleCloseTasksOverview}
         onOpenQuickCreate={handleOpenQuickCreateFromDrawer}
-        onHandleClick={handleHandleClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        sheetRef={sheetRef}
+        onHandleClick={handleTaskDrawerHandleClick}
+        onTouchStart={handleTaskDrawerTouchStart}
+        onTouchMove={handleTaskDrawerTouchMove}
+        onTouchEnd={handleTaskDrawerTouchEnd}
+        sheetRef={taskDrawerSheetRef}
         taskListRef={drawerTaskListRef}
       />
       <QuickCreateTaskModal
