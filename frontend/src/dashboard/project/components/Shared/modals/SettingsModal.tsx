@@ -144,44 +144,6 @@ const SettingsModal = ({
   const baseProjectName = project?.title || "";
   const isNameDirty = editNameModal.updatedName.trim() !== baseProjectName.trim();
 
-  const invoiceDefaults = useMemo(
-    () => ({
-      invoiceBrandName: String(project?.invoiceBrandName ?? ""),
-      invoiceBrandAddress: String(project?.invoiceBrandAddress ?? ""),
-      invoiceBrandPhone: String(project?.invoiceBrandPhone ?? ""),
-      clientName: String(project?.clientName ?? ""),
-      clientAddress: String(project?.clientAddress ?? ""),
-      clientPhone: String(project?.clientPhone ?? ""),
-      clientEmail: String(project?.clientEmail ?? ""),
-    }),
-    [
-      project?.invoiceBrandName,
-      project?.invoiceBrandAddress,
-      project?.invoiceBrandPhone,
-      project?.clientName,
-      project?.clientAddress,
-      project?.clientPhone,
-      project?.clientEmail,
-    ]
-  );
-
-  const isInvoiceDirty = useMemo(
-    () =>
-      Object.entries(invoiceDefaults).some(
-        ([key, value]) => invoiceInfoModal.fields[key as keyof typeof invoiceDefaults] !== value
-      ),
-    [invoiceDefaults, invoiceInfoModal.fields]
-  );
-
-  const resetInvoiceFields = useCallback(() => {
-    (Object.keys(invoiceDefaults) as Array<keyof typeof invoiceDefaults>).forEach((key) => {
-      const desiredValue = invoiceDefaults[key];
-      if (invoiceInfoModal.fields[key] !== desiredValue) {
-        invoiceInfoModal.setField(key, desiredValue);
-      }
-    });
-  }, [invoiceDefaults, invoiceInfoModal]);
-
   const baseColor = resolvedProjectColor.toLowerCase();
   const selectedColor = (colorModal.selectedColor || resolvedProjectColor).toLowerCase();
   const isColorDirty = baseColor !== selectedColor;
@@ -443,82 +405,6 @@ const SettingsModal = ({
                 </button>
               </div>
             </div>
-          </section>
-
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>Invoice Details</h3>
-              <p className={styles.sectionDescription}>
-                Set the default billing information that appears on generated invoices and client communications.
-              </p>
-            </div>
-
-            <form className={styles.inlineForm} onSubmit={invoiceInfoModal.submit}>
-              <div className={styles.invoiceGrid}>
-                <input
-                  className={styles.textInput}
-                  type="text"
-                  placeholder="Brand name"
-                  value={invoiceInfoModal.fields.invoiceBrandName}
-                  onChange={(event) => invoiceInfoModal.setField("invoiceBrandName", event.target.value)}
-                />
-                <input
-                  className={styles.textInput}
-                  type="text"
-                  placeholder="Brand address"
-                  value={invoiceInfoModal.fields.invoiceBrandAddress}
-                  onChange={(event) => invoiceInfoModal.setField("invoiceBrandAddress", event.target.value)}
-                />
-                <input
-                  className={styles.textInput}
-                  type="text"
-                  placeholder="Brand phone"
-                  value={invoiceInfoModal.fields.invoiceBrandPhone}
-                  onChange={(event) => invoiceInfoModal.setField("invoiceBrandPhone", event.target.value)}
-                />
-                <input
-                  className={styles.textInput}
-                  type="text"
-                  placeholder="Client name"
-                  value={invoiceInfoModal.fields.clientName}
-                  onChange={(event) => invoiceInfoModal.setField("clientName", event.target.value)}
-                />
-                <input
-                  className={`${styles.textInput} ${styles.invoiceGridFull}`}
-                  type="text"
-                  placeholder="Client address"
-                  value={invoiceInfoModal.fields.clientAddress}
-                  onChange={(event) => invoiceInfoModal.setField("clientAddress", event.target.value)}
-                />
-                <input
-                  className={styles.textInput}
-                  type="text"
-                  placeholder="Client phone"
-                  value={invoiceInfoModal.fields.clientPhone}
-                  onChange={(event) => invoiceInfoModal.setField("clientPhone", event.target.value)}
-                />
-                <input
-                  className={styles.textInput}
-                  type="email"
-                  placeholder="Client email"
-                  value={invoiceInfoModal.fields.clientEmail}
-                  onChange={(event) => invoiceInfoModal.setField("clientEmail", event.target.value)}
-                />
-              </div>
-              <div className={styles.actionsRow}>
-                <button className={styles.primaryButton} type="submit" disabled={!isInvoiceDirty}>
-                  Save invoice info
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={resetInvoiceFields}
-                  disabled={!isInvoiceDirty}
-                >
-                  Reset
-                </button>
-              </div>
-            </form>
           </section>
 
           {isAdmin && (

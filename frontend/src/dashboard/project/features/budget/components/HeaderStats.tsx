@@ -7,6 +7,7 @@ import {
   faPercent,
   faFileInvoiceDollar,
   faCalculator,
+  faGear,
 } from "@fortawesome/free-solid-svg-icons";
 
 import EditBallparkModal from "@/dashboard/project/features/budget/components/EditBallparkModal";
@@ -27,6 +28,7 @@ import {
 
 import summaryStyles from "./budget-header-summary.module.css";
 import mobileStyles from "./budget-header-mobile.module.css";
+import { OPEN_INVOICE_INFO_MODAL_EVENT } from "@/dashboard/project/components/Shared/projectHeaderState/useInvoiceInfoModal";
 
 /* =========================
    Types
@@ -836,12 +838,26 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
   const desktopAccentStyle = accentStyle;
 
+  const handleOpenInvoiceSettings = useCallback(() => {
+    window.dispatchEvent(new CustomEvent(OPEN_INVOICE_INFO_MODAL_EVENT));
+  }, []);
+
   const desktopContent = (
     <div className={summaryStyles.surface} style={desktopAccentStyle}>
       <div className={summaryStyles.headerRow}>
         <div className={summaryStyles.titleGroup}>
           <span className={summaryStyles.title}>Budget</span>
-          <span className={summaryStyles.dateLabel}>{headerDateText}</span>
+          <div className={summaryStyles.dateControls}>
+            <span className={summaryStyles.dateLabel}>{headerDateText}</span>
+            <button
+              type="button"
+              className={summaryStyles.iconButton}
+              onClick={handleOpenInvoiceSettings}
+              aria-label="Edit invoice details"
+            >
+              <FontAwesomeIcon icon={faGear} />
+            </button>
+          </div>
         </div>
         <div className={summaryStyles.headerActions}>
           <button
@@ -1004,6 +1020,14 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
       <div className={mobileStyles.headerRow}>
         <div className={mobileStyles.titleGroup}>
           <span>Budget</span>
+          <button
+            type="button"
+            className={mobileStyles.iconButton}
+            onClick={handleOpenInvoiceSettings}
+            aria-label="Edit invoice details"
+          >
+            <FontAwesomeIcon icon={faGear} />
+          </button>
           <button
             type="button"
             className={mobileStyles.iconButton}
