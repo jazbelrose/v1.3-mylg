@@ -889,13 +889,15 @@
   flex-direction: column;
   gap: 6px;
 }
-
 .week-grid__all-day-pill {
   border-radius: 10px;
   padding: 6px 10px;
   font-size: 0.75rem;
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+  color: rgba(226, 232, 240, 0.95);
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: none;
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
 .week-grid__task {
@@ -960,10 +962,18 @@
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 0.75rem;
-  color: #fff;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+  color: rgba(226, 232, 240, 0.95);
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  box-shadow: none;
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
+.week-grid__event:hover,
+.week-grid__all-day-pill:hover {
+  background: rgba(148, 163, 184, 0.24);
+  border-color: rgba(148, 163, 184, 0.4);
+}
 .week-grid__event-title {
   font-weight: 600;
   overflow: hidden;
@@ -1519,17 +1529,13 @@
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.45);
 }
-
-.calendar-pill-work {
-  background: linear-gradient(120deg, #f7b955, #f59e0b);
-}
-
-.calendar-pill-education {
-  background: linear-gradient(120deg, #7c6cff, #4f46e5);
-}
-
+.calendar-pill-work,
+.calendar-pill-education,
 .calendar-pill-personal {
-  background: linear-gradient(120deg, #34d399, #059669);
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: rgba(226, 232, 240, 0.95);
+  box-shadow: none;
 }
 
 .calendar-tasks-overview-overlay {
