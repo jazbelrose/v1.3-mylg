@@ -45,6 +45,9 @@ export type EventsAndTasksProps = {
 type EventFilter = "all" | "upcoming" | "past";
 type TaskFilter = "all" | "open" | "completed";
 
+const DEFAULT_EVENT_FILTER: EventFilter = "upcoming";
+const DEFAULT_TASK_FILTER: TaskFilter = "open";
+
 const EVENT_FILTER_LABELS: Record<EventFilter, string> = {
   all: "All events",
   upcoming: "Upcoming events",
@@ -77,8 +80,8 @@ function EventsAndTasks({
   onEditTask,
   onOpenTasksOverview,
 }: EventsAndTasksProps) {
-  const [eventFilter, setEventFilter] = useState<EventFilter>("all");
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
+  const [eventFilter, setEventFilter] = useState<EventFilter>(DEFAULT_EVENT_FILTER);
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>(DEFAULT_TASK_FILTER);
   const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
 
   const sortedEvents = useMemo(
@@ -194,7 +197,12 @@ function EventsAndTasks({
                 <span className="events-tasks__filter-label">{filterButtonLabel}</span>
               </button>
             </PopoverTrigger>
-            <PopoverContent className="events-tasks__filter-popover" align="end" sideOffset={8}>
+            <PopoverContent
+              className="events-tasks__filter-popover"
+              align="end"
+              side="right"
+              sideOffset={8}
+            >
               <div className="events-tasks__filter-section">
                 <div className="events-tasks__filter-heading">Events</div>
                 <div className="events-tasks__filter-options" role="group" aria-label="Filter events">
@@ -238,8 +246,8 @@ function EventsAndTasks({
                   type="button"
                   className="events-tasks__filter-reset"
                   onClick={() => {
-                    setEventFilter("all");
-                    setTaskFilter("all");
+                    setEventFilter(DEFAULT_EVENT_FILTER);
+                    setTaskFilter(DEFAULT_TASK_FILTER);
                   }}
                   disabled={!hasActiveFilters}
                 >
