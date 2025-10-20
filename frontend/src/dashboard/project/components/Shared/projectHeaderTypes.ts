@@ -130,6 +130,7 @@ export interface SettingsModalState {
   triggerThumbnail: () => void;
   triggerColor: () => void;
   triggerInvoiceInfo: () => void;
+  triggerBudgetCreateLineItem?: () => void;
   triggerDelete: () => void;
 }
 

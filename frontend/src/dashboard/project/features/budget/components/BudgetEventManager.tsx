@@ -38,6 +38,8 @@ interface BudgetEventManagerProps {
     editItem: unknown;
   };
   children: (handlers: BudgetEventHandlers) => React.ReactNode;
+  shouldOpenCreateModal?: boolean;
+  onConsumeShouldOpenCreateModal?: () => void;
 }
 
 interface BudgetEventHandlers {
@@ -94,6 +96,8 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
   userId,
   stateManager,
   children,
+  shouldOpenCreateModal = false,
+  onConsumeShouldOpenCreateModal,
 }) => {
   const { budgetHeader, budgetItems, setBudgetItems, getLocks, wsOps } = useBudget();
   
@@ -141,6 +145,13 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
     stateManager.setPrefillItem(null);
     stateManager.setCreateModalOpen(true);
   }, [getNextElementKey, stateManager]);
+
+  useEffect(() => {
+    if (shouldOpenCreateModal) {
+      openCreateModal();
+      onConsumeShouldOpenCreateModal?.();
+    }
+  }, [shouldOpenCreateModal, openCreateModal, onConsumeShouldOpenCreateModal]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

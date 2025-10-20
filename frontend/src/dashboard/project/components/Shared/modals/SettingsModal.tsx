@@ -1,6 +1,7 @@
+import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPen } from "@fortawesome/free-solid-svg-icons";
-import { Image as ImageIcon, Palette, Pencil, Trash } from "lucide-react";
+import { CircleDollarSign, Image as ImageIcon, Palette, Pencil, Trash } from "lucide-react";
 
 import Modal from "@/shared/ui/ModalWithStack";
 
@@ -12,6 +13,15 @@ interface SettingsModalProps {
   modal: SettingsModalState;
   isAdmin: boolean;
 }
+
+const buttonStyle: React.CSSProperties = {
+  borderRadius: "5px",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  width: "100%",
+  justifyContent: "flex-start",
+};
 
 const SettingsModal = ({ modal, isAdmin }: SettingsModalProps) => (
   <Modal
@@ -33,12 +43,7 @@ const SettingsModal = ({ modal, isAdmin }: SettingsModalProps) => (
         className="modal-button primary"
         aria-label="Edit project name"
         onClick={modal.triggerEditName}
-        style={{
-          borderRadius: "5px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
+        style={buttonStyle}
       >
         <Pencil size={20} color="white" aria-hidden="true" />
         Edit Name
@@ -48,12 +53,7 @@ const SettingsModal = ({ modal, isAdmin }: SettingsModalProps) => (
         className="modal-button primary"
         aria-label="Edit project thumbnail"
         onClick={modal.triggerThumbnail}
-        style={{
-          borderRadius: "5px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
+        style={buttonStyle}
       >
         <ImageIcon size={20} color="white" aria-hidden="true" />
         Edit Thumbnail
@@ -63,12 +63,7 @@ const SettingsModal = ({ modal, isAdmin }: SettingsModalProps) => (
         className="modal-button primary"
         aria-label="Change project color"
         onClick={modal.triggerColor}
-        style={{
-          borderRadius: "5px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
+        style={buttonStyle}
       >
         <Palette size={20} color="white" aria-hidden="true" />
         Change Color
@@ -78,16 +73,23 @@ const SettingsModal = ({ modal, isAdmin }: SettingsModalProps) => (
         className="modal-button primary"
         aria-label="Edit invoice info"
         onClick={modal.triggerInvoiceInfo}
-        style={{
-          borderRadius: "5px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
+        style={buttonStyle}
       >
         <FontAwesomeIcon icon={faPen} color="white" />
         Invoice Info
       </button>
+
+      {modal.triggerBudgetCreateLineItem && (
+        <button
+          className="modal-button primary"
+          aria-label="Create budget line item"
+          onClick={modal.triggerBudgetCreateLineItem}
+          style={buttonStyle}
+        >
+          <CircleDollarSign size={20} color="white" aria-hidden="true" />
+          Add Budget Line Item
+        </button>
+      )}
 
       {isAdmin && (
         <>
@@ -102,10 +104,7 @@ const SettingsModal = ({ modal, isAdmin }: SettingsModalProps) => (
             aria-label="Delete project"
             onClick={modal.triggerDelete}
             style={{
-              borderRadius: "5px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
+              ...buttonStyle,
               background: "#1a1a1a",
               border: "1px solid #ffffff",
             }}

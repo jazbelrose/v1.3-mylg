@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -79,6 +80,7 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
 
   const isMobile = useResponsiveLayout();
   const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
 
   const queueUpdate = useQueueUpdate(
     updateProjectFields,
@@ -104,6 +106,10 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
   );
 
   const tabsState = useProjectTabs(resolvedProjectId, localProject?.title);
+  const budgetTab = useMemo(
+    () => tabsState.tabs.find((tab) => tab.key === "budget"),
+    [tabsState.tabs]
+  );
   const navigation = useMemo(
     () => createNavigationState(localProject?.title, tabsState),
     [localProject?.title, tabsState]
@@ -452,6 +458,18 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
       closeSettings();
       invoiceInfoModal.open(true);
     },
+    triggerBudgetCreateLineItem: budgetTab
+      ? () => {
+          closeSettings();
+          const fromTab = tabsState.getActiveIndex();
+          navigate(budgetTab.path, {
+            state: {
+              fromTab,
+              openBudgetCreateLineItem: true,
+            },
+          });
+        }
+      : undefined,
     triggerDelete: () => {
       closeSettings();
       openDeleteConfirmation(true);

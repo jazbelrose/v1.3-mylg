@@ -70,6 +70,7 @@ const BudgetPageContent = () => {
   const tableRef = useRef(null);
   const [tableHeight, setTableHeight] = useState(0);
   const [saving] = useState(false);
+  const [shouldOpenBudgetCreate, setShouldOpenBudgetCreate] = useState(false);
   
   // Budget data from context
   const {
@@ -151,6 +152,18 @@ const BudgetPageContent = () => {
     location.pathname,
     navigate,
   ]);
+
+  useEffect(() => {
+    const state = location.state as
+      | { openBudgetCreateLineItem?: boolean; fromTab?: number }
+      | undefined;
+    if (state?.openBudgetCreateLineItem) {
+      setShouldOpenBudgetCreate(true);
+      const { openBudgetCreateLineItem: _ignored, ...rest } = state;
+      const cleanedState = Object.keys(rest).length > 0 ? rest : undefined;
+      navigate(location.pathname, { replace: true, state: cleanedState });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const handleBack = () => {
     if (!projectId) {
@@ -599,6 +612,10 @@ const BudgetPageContent = () => {
                     userId={userId}
                     user={user}
                     stateManager={stateManager}
+                    shouldOpenCreateModal={shouldOpenBudgetCreate}
+                    onConsumeShouldOpenCreateModal={() =>
+                      setShouldOpenBudgetCreate(false)
+                    }
                   >
                     {(eventHandlers) => (
                         <BudgetTableLogic
