@@ -1603,8 +1603,9 @@
 
 @media (max-width: 640px) {
   .calendar-body {
-    padding: 20px 16px;
+    padding: 0px;
     gap: 18px;
+    border: none;
   }
 
   .calendar-sidebar {
@@ -1649,6 +1650,15 @@
     height: 20px;
     opacity: 0.85;
   }
+  .calendar-footer{
+    border: none;
+  }
+
+  .calendar-sidebar {
+    border: none;
+    gap: 6px;
+  }
+  
 }
 
 @media (max-width: 1024px) {
@@ -1658,8 +1668,9 @@
 
   .calendar-sidebar {
     flex-direction: row;
-    gap: 16px;
+    gap: 6px;
     flex-wrap: wrap;
+    border: none;
   }
 
   .mini-calendar,

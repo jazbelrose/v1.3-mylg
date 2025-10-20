@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion, type PanInfo, useDragControls } from "framer-motion";
 
 import EventsAndTasks from "./EventsAndTasks";
 import {
@@ -36,6 +36,7 @@ const MobileEventsDrawer: React.FC<MobileEventsDrawerProps> = ({
   onEditTask,
   onOpenTasksOverview,
 }) => {
+  const dragControls = useDragControls();
   const [eventFilter, setEventFilter] = useState<EventFilter>(DEFAULT_EVENT_FILTER);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>(DEFAULT_TASK_FILTER);
 
@@ -118,12 +119,21 @@ const MobileEventsDrawer: React.FC<MobileEventsDrawerProps> = ({
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 40 }}
             drag="y"
+            dragControls={dragControls}
+            dragListener={false}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0.08, bottom: 0.2 }}
             onDragEnd={handleDragEnd}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className={styles.handleArea} role="presentation">
+            <div
+              className={styles.handleArea}
+              role="presentation"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                dragControls.start(event.nativeEvent);
+              }}
+            >
               <span className={styles.handleIndicator} aria-hidden="true" />
             </div>
             <div className={styles.scrollArea}>
