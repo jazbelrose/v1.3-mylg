@@ -37,7 +37,7 @@ import MobileEventsDrawer from "./MobileEventsDrawer";
 import MiniCalendar from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
-import { CalendarEvent, CalendarTask, safeDate, isSameDay } from "../utils";
+import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay } from "../utils";
 
 import "../calendar-preview.css";
 
@@ -282,6 +282,27 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, [tasks, normalizedSearchTerm, quickTaskById]);
 
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
+
+  const miniCalendarActivityDates = useMemo(() => {
+    const set = new Set<string>();
+
+    visibleEvents.forEach((event) => {
+      const eventDate = safeDate(event.date) ?? new Date(event.date);
+      if (!Number.isNaN(eventDate.getTime())) {
+        set.add(fmt(eventDate));
+      }
+    });
+
+    visibleTasks.forEach((task) => {
+      if (!task.due) return;
+      const taskDate = safeDate(task.due) ?? new Date(task.due);
+      if (!Number.isNaN(taskDate.getTime())) {
+        set.add(fmt(taskDate));
+      }
+    });
+
+    return Array.from(set);
+  }, [visibleEvents, visibleTasks]);
 
   const mapTasks = useMemo(
     () =>
@@ -760,6 +781,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 rangeEnd={projectRange?.end ?? null}
                 rangeColor={activeProjectColor ?? null}
                 finishLineDate={activeProjectEndDate ?? null}
+                activityDates={miniCalendarActivityDates}
               />
               {isMobile ? (
                 <button
