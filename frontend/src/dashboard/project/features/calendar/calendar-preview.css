@@ -289,11 +289,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 4px;
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border 0.2s ease;
   position: relative;
   isolation: isolate;
+}
+
+.mini-calendar__day-number {
+  line-height: 1;
+}
+
+.mini-calendar__day-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .mini-calendar__day-button.is-current {

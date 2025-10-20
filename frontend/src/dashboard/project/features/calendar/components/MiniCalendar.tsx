@@ -10,6 +10,7 @@ export type MiniCalendarProps = {
   rangeEnd?: Date | null;
   rangeColor?: string | null;
   finishLineDate?: Date | null;
+  activityDates?: string[];
 };
 
 type MiniCalendarStyle = React.CSSProperties & {
@@ -23,12 +24,15 @@ function MiniCalendar({
   rangeEnd,
   rangeColor,
   finishLineDate,
+  activityDates,
 }: MiniCalendarProps) {
   const days = useMemo(() => getMonthMatrix(value), [value]);
   const monthName = value.toLocaleString(undefined, {
     month: "long",
     year: "numeric",
   });
+
+  const activityDateSet = useMemo(() => new Set(activityDates ?? []), [activityDates]);
 
   const handleFocusFinishLine = useCallback(() => {
     if (!finishLineDate) return;
@@ -118,6 +122,7 @@ function MiniCalendar({
               : false;
           const isRangeEdge = rangeStartMatch || rangeEndMatch;
           const isInRange = isBetweenRange || isRangeEdge;
+          const hasActivity = activityDateSet.has(fmt(day));
           const className = [
             "mini-calendar__day-button",
             isCurrentMonth ? "is-current" : "is-outside",
@@ -126,6 +131,7 @@ function MiniCalendar({
             isInRange ? "is-in-range" : "",
             rangeStartMatch ? "is-range-start" : "",
             rangeEndMatch ? "is-range-end" : "",
+            hasActivity ? "has-activity" : "",
           ]
             .filter(Boolean)
             .join(" ");
@@ -143,7 +149,8 @@ function MiniCalendar({
               className={className}
               style={style}
             >
-              {day.getDate()}
+              <span className="mini-calendar__day-number">{day.getDate()}</span>
+              {hasActivity ? <span className="mini-calendar__day-indicator" aria-hidden /> : null}
             </button>
           );
         })}
