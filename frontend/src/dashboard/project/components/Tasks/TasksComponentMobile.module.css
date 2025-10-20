@@ -1291,3 +1291,75 @@
     display: none;
   }
 }
+
+
+.taskModalRoot :global(.ant-modal) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.taskModalRoot :global(.ant-modal-content) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+}
+
+.taskModalRoot :global(.ant-modal-body) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: 32px;
+}
+
+.taskModalRoot :global(.ant-modal-footer) {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 16px 24px 24px;
+  background: linear-gradient(
+    180deg,
+    rgba(13, 14, 16, 0) 0%,
+    rgba(13, 14, 16, 0.85) 45%,
+    rgba(13, 14, 16, 0.95) 100%
+  );
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.taskModalRoot :global(.ant-modal-footer .ant-btn-primary) {
+  background: #fa3356;
+  border-color: #fa3356;
+}
+
+.taskModalRoot :global(.ant-modal-footer .ant-btn-primary:hover),
+.taskModalRoot :global(.ant-modal-footer .ant-btn-primary:focus-visible) {
+  background: #ff4d6d;
+  border-color: #ff4d6d;
+}
+
+@media (max-width: 640px) {
+  .taskModalRoot :global(.ant-modal-wrap) {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .taskModalRoot :global(.ant-modal) {
+    width: 100% !important;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .taskModalRoot :global(.ant-modal-content) {
+    border-radius: 22px 22px 0 0;
+    max-height: calc(100vh - 16px);
+  }
+
+  .taskModalRoot :global(.ant-modal-body) {
+    padding: 16px 20px 64px;
+  }
+
+  .taskModalRoot :global(.ant-modal-footer) {
+    padding: 16px 20px max(20px, env(safe-area-inset-bottom) + 20px);
+  }
+}
