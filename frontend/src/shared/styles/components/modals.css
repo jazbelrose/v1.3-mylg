@@ -2,7 +2,7 @@
 
 .ReactModalPortal {
   position: fixed;
-  z-index: 2000 !important;
+  z-index: 16000 !important;
 }
 
 body.ReactModal__Body--open .dashboard-wrapper {
