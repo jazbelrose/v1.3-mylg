@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { apiFetch } from './api';
+import { apiFetch, getFileUrl } from './api';
 import { rateLimiter } from './securityUtils';
 
 vi.mock('./waitForAuthReady', () => ({
@@ -21,7 +21,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});describe('apiFetch', () => {
+});
+
+describe('apiFetch', () => {
   it('returns primitive JSON values without replacing them with empty objects', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response('"hello"', { headers: { 'Content-Type': 'application/json' } })
@@ -38,6 +40,41 @@ afterEach(() => {
 
     const data = await apiFetch<null>('https://example.com/null');
     expect(data).toBeNull();
+  });
+});
+
+describe('getFileUrl', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_FILE_CDN', '');
+    vi.stubEnv('VITE_FILE_BUCKET', '');
+    vi.stubEnv('VITE_S3_FILES_BUCKET', '');
+    vi.stubEnv('VITE_AWS_REGION', '');
+    vi.stubEnv('VITE_S3_REGION', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('encodes each path segment without encoding slashes', () => {
+    const result = getFileUrl('public/projects/My Folder/image 1.png');
+    expect(result).toBe(
+      'https://mylg-files-v12.s3.us-west-2.amazonaws.com/public/projects/My%20Folder/image%201.png'
+    );
+  });
+
+  it('does not double-encode already encoded segments', () => {
+    const result = getFileUrl('public/projects/My%20Folder/image%201.png');
+    expect(result).toBe(
+      'https://mylg-files-v12.s3.us-west-2.amazonaws.com/public/projects/My%20Folder/image%201.png'
+    );
+  });
+
+  it('rewrites matching http urls to use the configured bucket base', () => {
+    const result = getFileUrl('https://mylg-files-v12.s3.us-west-2.amazonaws.com/public/avatars/me.png');
+    expect(result).toBe(
+      'https://mylg-files-v12.s3.us-west-2.amazonaws.com/public/avatars/me.png'
+    );
   });
 });
 
