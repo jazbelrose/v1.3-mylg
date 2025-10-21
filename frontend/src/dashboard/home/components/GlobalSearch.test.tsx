@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import GlobalSearch from './GlobalSearch';
 import '@testing-library/jest-dom';
 
@@ -96,7 +96,7 @@ const mockUsers = [
 const mockUseData = {
   projects: mockProjects,
   projectMessages: mockProjectMessages,
-  fetchProjectDetails: vi.fn(),
+  fetchProjectDetails: vi.fn(() => Promise.resolve(true)),
   allUsers: [] as unknown[],
   userData: {
     userId: 'current-user',
@@ -105,7 +105,8 @@ const mockUseData = {
     collaborators: ['user-2'],
     role: 'designer'
   },
-  isAdmin: false
+  isAdmin: false,
+  activeProject: mockProjects[0],
 };
 
 const PLACEHOLDER_TEXT = 'Find anything...';
@@ -124,14 +125,16 @@ describe('GlobalSearch', () => {
     };
     mockUseData.allUsers = mockUsers.map(user => ({ ...user }));
     mockUseData.isAdmin = false;
+    mockUseData.activeProject = mockProjects[0];
+    mockUseData.fetchProjectDetails = vi.fn(() => Promise.resolve(true));
     mockNavigate.mockReset();
   });
 
-  const renderGlobalSearch = () => {
+  const renderGlobalSearch = (initialEntries: string[] = ['/']) => {
     return render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <GlobalSearch />
-      </BrowserRouter>
+      </MemoryRouter>
     );
   };
 
@@ -308,6 +311,39 @@ describe('GlobalSearch', () => {
     await waitFor(() => {
       expect(mockUseData.fetchProjectDetails).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalled();
+    });
+  });
+
+  it('preserves current project feature suffix when navigating to another project', async () => {
+    renderGlobalSearch(['/dashboard/projects/project-1/Test%20Project%20One/budget']);
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'demo' } });
+
+    await waitFor(() => {
+      const demoElements = screen.getAllByText((content, element) => {
+        if (!element) return false;
+        const textContent = element.textContent || '';
+        return textContent.includes('Demo Application');
+      });
+      expect(demoElements.length).toBeGreaterThan(0);
+    });
+
+    const buttons = screen.getAllByRole('button');
+    const demoProjectButton = buttons.find(button => {
+      const textContent = button.textContent || '';
+      return textContent.includes('Demo Application') && !textContent.includes('Message in');
+    });
+
+    if (demoProjectButton) {
+      fireEvent.click(demoProjectButton);
+    }
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/dashboard/projects/project-2/Demo%20Application/budget'
+      );
     });
   });
 

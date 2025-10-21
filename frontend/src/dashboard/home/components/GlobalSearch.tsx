@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, X, FileText, FolderOpen, MessageSquare, User } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { slugify } from '@/shared/utils/slug';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import type { Project, Message, UserLite } from '@/app/contexts/DataProvider';
@@ -10,6 +10,7 @@ import type { AppUser } from '@/dashboard/features/messages/types';
 import { getUserDisplayName, getUserThumbnail } from '@/dashboard/features/messages/utils/userHelpers';
 import SVGThumbnail from './SvgThumbnail';
 import Squircle from '@/shared/ui/Squircle';
+import Spinner from '@/shared/ui/Spinner';
 
 interface HighlightPart {
   text: string;
@@ -332,6 +333,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const data = useData();
   const projects = useMemo(() => (Array.isArray(data?.projects) ? data.projects : []) as Project[], [data?.projects]);
@@ -344,6 +346,85 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const userData = useMemo(() => (data?.userData ?? null) as UserLite | null, [data?.userData]);
   const allUsers = useMemo(() => (Array.isArray(data?.allUsers) ? data.allUsers : []) as UserLite[], [data?.allUsers]);
   const isAdmin = useMemo(() => Boolean((data as { isAdmin?: boolean })?.isAdmin), [data]);
+  const activeProject = useMemo(() => (data?.activeProject ?? null) as Project | null, [data?.activeProject]);
+
+  const getCurrentProjectFeatureSuffix = useCallback(() => {
+    const pathname = location.pathname;
+    const projectPrefix = '/dashboard/projects/';
+
+    if (!pathname.startsWith(projectPrefix)) {
+      return '';
+    }
+
+    const remainder = pathname.slice(projectPrefix.length);
+    if (!remainder) {
+      return '';
+    }
+
+    const rawSegments = remainder.split('/').filter(Boolean);
+    if (rawSegments.length === 0) {
+      return '';
+    }
+
+    const [projectSegment, ...rest] = rawSegments;
+    const disallowedProjectSegments = new Set(['allprojects', 'features', 'welcome', 'new']);
+    if (!projectSegment || disallowedProjectSegments.has(projectSegment)) {
+      return '';
+    }
+
+    let remaining = rest;
+
+    if (remaining.length > 0) {
+      const [possibleTitle, ...afterTitle] = remaining;
+      const currentProject =
+        (activeProject && activeProject.projectId === projectSegment ? activeProject : null) ??
+        projects.find((project) => project.projectId === projectSegment);
+
+      const normalizedTitle = currentProject?.title?.trim();
+      let matchesTitle = false;
+
+      if (normalizedTitle) {
+        const lowerNormalized = normalizedTitle.toLowerCase();
+        const encodedNormalized = encodeURIComponent(normalizedTitle).toLowerCase();
+        const lowerSegment = possibleTitle.toLowerCase();
+        let decodedSegment = lowerSegment;
+        try {
+          decodedSegment = decodeURIComponent(possibleTitle).toLowerCase();
+        } catch {
+          decodedSegment = lowerSegment;
+        }
+
+        matchesTitle =
+          lowerSegment === lowerNormalized ||
+          decodedSegment === lowerNormalized ||
+          lowerSegment === encodedNormalized;
+      }
+
+      const knownViewRoots = new Set(['budget', 'calendar', 'editor', 'moodboard', 'features']);
+
+      if (matchesTitle) {
+        remaining = afterTitle;
+      } else if (!knownViewRoots.has(possibleTitle)) {
+        remaining = afterTitle;
+      }
+    }
+
+    if (remaining.length === 0) {
+      return '';
+    }
+
+    const [first, second] = remaining;
+
+    if (['budget', 'calendar', 'editor', 'moodboard'].includes(first)) {
+      return `/${first}`;
+    }
+
+    if (first === 'features' && second) {
+      return `/${first}/${second}`;
+    }
+
+    return '';
+  }, [location.pathname, activeProject, projects]);
 
   // Close search when clicking outside
   useEffect(() => {
@@ -529,22 +610,36 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
 
     if (result.type === 'project' && result.projectId) {
       try {
-        if (fetchProjectDetails) {
-          await fetchProjectDetails(result.projectId);
-        }
         const project = projects?.find((p: Project) => p.projectId === result.projectId);
-        const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+        const suffix = getCurrentProjectFeatureSuffix();
+        const path = getProjectDashboardPath(
+          result.projectId,
+          project?.title ?? result.title,
+          suffix
+        );
+        if (fetchProjectDetails) {
+          void fetchProjectDetails(result.projectId).catch((error) => {
+            console.error('Error fetching project before navigation:', error);
+          });
+        }
         navigate(path);
       } catch (error) {
         console.error('Error navigating to project:', error);
       }
     } else if (result.type === 'message' && result.projectId) {
       try {
-        if (fetchProjectDetails) {
-          await fetchProjectDetails(result.projectId);
-        }
         const project = projects?.find((p: Project) => p.projectId === result.projectId);
-        const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+        const suffix = getCurrentProjectFeatureSuffix();
+        const path = getProjectDashboardPath(
+          result.projectId,
+          project?.title ?? result.title,
+          suffix
+        );
+        if (fetchProjectDetails) {
+          void fetchProjectDetails(result.projectId).catch((error) => {
+            console.error('Error fetching project before navigating to message:', error);
+          });
+        }
         navigate(path, {
           state: { highlightMessage: result.messageId }
         });
@@ -624,13 +719,9 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
       {isOpen && (query || results.length > 0) && (
         <div className="global-search-results">
           {loading && (
-            <div className="global-search-result loading">
-              <div className="global-search-result-icon">
-                <Search size={16} />
-              </div>
-              <div className="global-search-result-content">
-                <div className="global-search-result-title">Searching...</div>
-              </div>
+            <div className="global-search-loading">
+              <Spinner className="global-search-spinner" />
+              <div className="global-search-loading-text">Searching...</div>
             </div>
           )}
           

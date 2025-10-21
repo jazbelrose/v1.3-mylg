@@ -138,6 +138,31 @@
   background: none;
 }
 
+.global-search-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.global-search-spinner.spinner-container {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+}
+
+.global-search-spinner .spin {
+  width: 12px;
+  height: 12px;
+}
+
+.global-search-loading-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .global-search-result-icon {
   display: flex;
   align-items: center;
