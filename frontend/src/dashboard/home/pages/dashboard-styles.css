@@ -45,9 +45,15 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  
+
   overflow: hidden;
   padding-bottom: 16px;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .dashboard-wrapper {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
 }
 
 .dashboard-wrapper.welcome-screen {
@@ -64,10 +70,13 @@
   .dashboard-main {
     min-height: 100vh;
     min-height: 100dvh;
+    min-height: 100svh;
     height: 100vh;
     height: 100dvh;
+    height: 100svh;
     max-height: 100vh;
     max-height: 100dvh;
+    max-height: 100svh;
     display: flex;
     flex-direction: column;
     overflow: auto;

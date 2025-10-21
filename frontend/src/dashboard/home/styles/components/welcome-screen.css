@@ -83,6 +83,7 @@
   /* allow vertical overflow for bottom CTA but prevent horizontal overscroll */
   overflow-y: visible;
   overflow-x: clip;
+  padding-bottom: 0;
 }
 
 .mobile-projects-tasks {
@@ -127,6 +128,14 @@
   overflow-y: visible;
   overflow-x: clip;
   margin-top: auto;
+  padding-bottom: 0;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-welcome-layout,
+  .mobile-tasks-section {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 .dashboard-footer {
