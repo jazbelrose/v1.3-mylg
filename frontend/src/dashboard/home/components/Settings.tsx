@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ChangeEvent } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState, ChangeEvent } from "react";
 import { useData } from "@/app/contexts/useData";
 import { uploadData } from "aws-amplify/storage";
 import { updatePassword } from "aws-amplify/auth";
@@ -68,6 +68,11 @@ const Settings: React.FC = () => {
 
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [uploadedKey, setUploadedKey] = useState<string | null>(null);
+  const [isRoleTooltipOpen, setIsRoleTooltipOpen] = useState<boolean>(false);
+  const roleTooltipRef = useRef<HTMLDivElement | null>(null);
+  const roleTooltipButtonRef = useRef<HTMLButtonElement | null>(null);
+  const roleTooltipId = useId();
+  const passwordSectionId = useId();
 
   const ROLE_DESCRIPTIONS: Record<RoleKey, string> = {
     admin: "Full administrative access",
@@ -168,6 +173,65 @@ const Settings: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, oldPassword, newPassword, confirmNewPassword, uploadedKey]);
 
+  const closeRoleTooltip = useCallback(() => {
+    setIsRoleTooltipOpen(false);
+  }, []);
+
+  const handleTogglePasswordFields = useCallback(() => {
+    setShowPasswordFields((prev) => {
+      if (prev) {
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setPasswordChangeStatus("");
+      }
+      return !prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isRoleTooltipOpen) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        !roleTooltipRef.current?.contains(target) &&
+        !roleTooltipButtonRef.current?.contains(target)
+      ) {
+        closeRoleTooltip();
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRoleTooltip();
+        roleTooltipButtonRef.current?.focus();
+      }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        roleTooltipRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeRoleTooltip, isRoleTooltipOpen]);
+
+  useEffect(() => {
+    if (isRoleTooltipOpen) {
+      requestAnimationFrame(() => {
+        roleTooltipRef.current?.focus();
+      });
+    }
+  }, [isRoleTooltipOpen]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
@@ -240,33 +304,71 @@ const Settings: React.FC = () => {
   const roleKey = ((userData?.role || "").toLowerCase() as RoleKey) || "";
 
   return (
-    <>
-      <div className="settings-content">
-        <div className="settings-container">
-          <h2 className="section-heading">Account Info</h2>
-
-          <form onSubmit={handleSubmit}>
-            <div className="settings-row">
+    <div className="settings-content">
+      <div className="settings-container">
+        <section className="account-card squircle" aria-labelledby="account-info-heading">
+          <header className="settings-header">
+            <div className="settings-identity">
               <UserProfilePicture
                 thumbnail={thumbnail}
                 thumbnailUrl={userData?.thumbnailUrl as string | undefined}
                 localPreview={localPreview || undefined}
                 onChange={handleThumbnailChange}
+                hideLabel
               />
-              <div className="role-display">
-                <span
-                  className={`role-badge role-${roleKey}`}
-                  title={ROLE_DESCRIPTIONS[roleKey]}
-                >
-                  {userData?.role}
-                </span>
-                <span title={ROLE_DESCRIPTIONS[roleKey]}>
-                  <HelpCircle size={14} className="role-info" />
-                </span>
+              <div className="settings-header-text">
+                <span className="settings-header-eyebrow">Account</span>
+                <h2 id="account-info-heading" className="settings-title">
+                  Account Info
+                </h2>
+                <div className="role-display">
+                  <span className={`role-badge role-${roleKey}`}>
+                    {userData?.role}
+                  </span>
+                  <button
+                    type="button"
+                    className="role-info-button"
+                    aria-expanded={isRoleTooltipOpen}
+                    aria-controls={roleTooltipId}
+                    onClick={() => setIsRoleTooltipOpen((prev) => !prev)}
+                    ref={roleTooltipButtonRef}
+                    aria-label={`Learn about the ${userData?.role ?? 'current'} role`}
+                  >
+                    <HelpCircle size={18} className="role-info" aria-hidden="true" focusable="false" />
+                  </button>
+                  {isRoleTooltipOpen && (
+                    <div
+                      id={roleTooltipId}
+                      className="role-tooltip"
+                      role="dialog"
+                      aria-label={`${userData?.role ?? 'Account'} role details`}
+                      ref={roleTooltipRef}
+                      tabIndex={-1}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Tab') {
+                          event.preventDefault();
+                        }
+                      }}
+                    >
+                      <p>{ROLE_DESCRIPTIONS[roleKey]}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+            <div className="settings-header-actions">
+              <button
+                type="button"
+                className="settings-quick-action"
+                onClick={handleTogglePasswordFields}
+              >
+                {showPasswordFields ? 'Cancel password update' : 'Change password'}
+              </button>
+            </div>
+          </header>
 
-            <div className="field-grid">
+          <form className="account-form" onSubmit={handleSubmit} aria-labelledby="account-info-heading">
+            <div className="account-form-grid">
               <EditableTextField
                 id="firstName"
                 label="First Name"
@@ -307,45 +409,58 @@ const Settings: React.FC = () => {
               />
             </div>
 
-            <div className="password-section">
-              <button
-                type="button"
-                className="modal-submit-button secondary password-toggle"
-                onClick={() => setShowPasswordFields((p) => !p)}
-              >
-                Change Password
-              </button>
-
-              {showPasswordFields && (
-                <div className="form-group form-group-password">
-                  <label htmlFor="password">Password Change</label>
-                  <input
-                    type="password"
-                    className="modal-input-password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="Old Password"
-                  />
-                  <input
-                    type="password"
-                    className="modal-input-password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="New Password"
-                  />
-                  <input
-                    type="password"
-                    className="modal-input-password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    placeholder="Confirm New Password"
-                  />
-                  {passwordChangeStatus && <div>{passwordChangeStatus}</div>}
+            {showPasswordFields && (
+              <section className="account-password-section" aria-labelledby={passwordSectionId}>
+                <h3 id={passwordSectionId} className="account-subheading">
+                  Update password
+                </h3>
+                <div className="account-password-grid">
+                  <div className="form-group">
+                    <label htmlFor="oldPassword">Current password</label>
+                    <input
+                      id="oldPassword"
+                      type="password"
+                      className="modal-input-password"
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      placeholder="Current password"
+                      aria-label="Current password"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="newPassword">New password</label>
+                    <input
+                      id="newPassword"
+                      type="password"
+                      className="modal-input-password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="New password"
+                      aria-label="New password"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="confirmNewPassword">Confirm new password</label>
+                    <input
+                      id="confirmNewPassword"
+                      type="password"
+                      className="modal-input-password"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      aria-label="Confirm new password"
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
+                {passwordChangeStatus && (
+                  <p className="account-password-status" role="status">
+                    {passwordChangeStatus}
+                  </p>
+                )}
+              </section>
+            )}
 
-            <div className="save-row">
+            <div className="form-footer">
               <button
                 type="submit"
                 className="modal-submit-button settings primary"
@@ -361,15 +476,15 @@ const Settings: React.FC = () => {
           <PaymentsSection
             lastInvoiceDate={userData?.invoices?.[0]?.date}
             lastInvoiceAmount={
-              typeof userData?.invoices?.[0]?.amount === 'number'
-                ? userData.invoices[0].amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-                : String(userData?.invoices?.[0]?.amount || 'N/A')
+              typeof userData?.invoices?.[0]?.amount === "number"
+                ? userData.invoices[0].amount.toLocaleString("en-US", { style: "currency", currency: "USD" })
+                : String(userData?.invoices?.[0]?.amount || "N/A")
             }
             invoiceList={[]}
           />
-        </div>
+        </section>
       </div>
-    </>
+    </div>
   );
 };
 

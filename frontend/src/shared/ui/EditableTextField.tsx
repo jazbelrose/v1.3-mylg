@@ -23,6 +23,7 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({
       className="modal-input settings"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      aria-label={label}
     />
   </div>
 );

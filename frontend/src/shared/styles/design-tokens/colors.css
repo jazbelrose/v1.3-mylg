@@ -22,6 +22,9 @@
   --text-color-secondary: #666;
   --text-color-muted: #9aa0a6;
   --muted: #9aa0a6;
+  --fg-1: #f4f6f8; /* High emphasis foreground */
+  --fg-2: rgba(244, 246, 248, 0.72); /* Medium emphasis foreground */
+  --fg-subtle: rgba(244, 246, 248, 0.6);
 
   /* Overlay */
   --overlay-color: rgb(12 12 12 / 63%);
