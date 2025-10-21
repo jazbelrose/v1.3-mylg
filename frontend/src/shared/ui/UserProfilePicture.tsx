@@ -1,13 +1,15 @@
-import React from 'react';
+import React from "react";
 
-import User from '@/assets/svg/user.svg?react';
-import { resolveStoredFileUrl } from '../utils/media';
+import User from "@/assets/svg/user.svg?react";
+import { resolveStoredFileUrl } from "../utils/media";
 
 export interface UserProfilePictureProps {
   thumbnail?: string | null;
   thumbnailUrl?: string | null;
   localPreview?: string | null;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  id?: string;
+  label?: string;
 }
 
 const UserProfilePicture: React.FC<UserProfilePictureProps> = ({
@@ -15,6 +17,8 @@ const UserProfilePicture: React.FC<UserProfilePictureProps> = ({
   thumbnailUrl,
   localPreview,
   onChange,
+  id = "thumbnail",
+  label = "Profile picture",
 }) => {
   const src = React.useMemo(() => {
     if (localPreview) {
@@ -25,21 +29,35 @@ const UserProfilePicture: React.FC<UserProfilePictureProps> = ({
   }, [localPreview, thumbnail, thumbnailUrl]);
 
   return (
-    <div className="form-group thumbnail-group">
-      <label htmlFor="thumbnail">Profile picture</label>
-      <label htmlFor="thumbnail" className="thumbnail-label">
+    <div className="profile-uploader">
+      <span className="profile-uploader__label" id={`${id}-label`}>
+        {label}
+      </span>
+      <label
+        htmlFor={id}
+        className="profile-uploader__control"
+        aria-labelledby={`${id}-label`}
+        aria-describedby={`${id}-hint`}
+      >
         {src ? (
-          <img src={src} alt="Profile Thumbnail" className="profile-thumbnail" />
+          <img src={src} alt="Profile" className="profile-uploader__image" />
         ) : (
-          <User className="thumbnail-placeholder" />
+          <User className="profile-uploader__placeholder" aria-hidden="true" focusable="false" />
         )}
+        <span className="profile-uploader__overlay" aria-hidden="true">
+          <span className="profile-uploader__plus">＋</span>
+        </span>
         <input
           type="file"
-          id="thumbnail"
-          className="thumbnail-input"
+          id={id}
+          className="profile-uploader__input"
           onChange={onChange}
+          aria-label={label}
         />
       </label>
+      <span className="profile-uploader__hint" id={`${id}-hint`}>
+        Tap or click to update
+      </span>
     </div>
   );
 };

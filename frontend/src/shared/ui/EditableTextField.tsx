@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface EditableTextFieldProps {
   id: string;
@@ -13,14 +13,17 @@ const EditableTextField: React.FC<EditableTextFieldProps> = ({
   label,
   value,
   onChange,
-  type = 'text',
+  type = "text",
 }) => (
-  <div className="form-group">
-    <label htmlFor={id}>{label}</label>
+  <div className="account-field">
+    <label htmlFor={id} className="account-field__label">
+      {label}
+    </label>
     <input
       type={type}
       id={id}
-      className="modal-input settings"
+      aria-label={label}
+      className="account-settings-input"
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
