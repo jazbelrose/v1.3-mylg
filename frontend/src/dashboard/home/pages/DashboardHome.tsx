@@ -464,6 +464,7 @@ const WelcomeScreen: React.FC = () => {
           isNavigationOpen={!isDesktop ? isNavigationOpen : undefined}
           navigationDrawerId={!isDesktop ? drawerId : undefined}
           isDesktopLayout={isDesktop}
+          showGreeting={false}
         />
 
         <div className="row-layout">

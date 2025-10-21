@@ -4,6 +4,8 @@ import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import ChatPanel from "./ChatPanel";
 import type { ProjectAccentPalette } from "@/dashboard/project/hooks/useProjectPalette";
+import "@/dashboard/home/styles/components/welcome-header.css";
+import "./project-page-layout.css";
 
 type ProjectPageLayoutProps = {
   projectId?: string;
@@ -226,6 +228,7 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
     >
       <div
         ref={projectHeaderRef}
+        className="welcome-header-desktop project-page-layout__header"
         style={{ position: "sticky", top: 0, zIndex: 5, backgroundColor: "#0c0c0c" }}
       >
         {React.isValidElement(header)

@@ -17,6 +17,7 @@ interface WelcomeHeaderProps {
   isNavigationOpen?: boolean;
   navigationDrawerId?: string;
   isDesktopLayout?: boolean;
+  showGreeting?: boolean;
 }
 
 const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
@@ -26,6 +27,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   isNavigationOpen,
   navigationDrawerId,
   isDesktopLayout,
+  showGreeting = true,
 }) => {
   const { userData } = useData();
   const { isOnline } = useOnlineStatus(); // <-- only need this now
@@ -63,7 +65,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   const showBrandInHeader = !isDesktopShell;
 
   const greetingMessage = useMemo(() => {
-    if (!isDesktopShell) return null;
+    if (!isDesktopShell || !showGreeting) return null;
 
     const hour = new Date().getHours();
     let baseGreeting = 'Good evening';
@@ -72,7 +74,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     else if (hour < 18) baseGreeting = 'Good afternoon';
 
     return `${baseGreeting}, ${normalizedFirstName}!`;
-  }, [isDesktopShell, normalizedFirstName]);
+  }, [isDesktopShell, normalizedFirstName, showGreeting]);
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {

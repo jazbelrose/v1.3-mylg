@@ -203,7 +203,10 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   }, []);
 
   const pageHeader = (
-    <header ref={pageHeaderRef} className={styles.pageHeader}>
+    <header
+      ref={pageHeaderRef}
+      className={`${styles.pageHeader} welcome-header-desktop`}
+    >
       <div className={styles.pageHeading}>
         <div className={styles.headingCopy}>
           <h1 className={styles.pageTitle}>{title}</h1>
@@ -217,7 +220,10 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   );
 
   const mobilePageHeader = (
-    <header ref={pageHeaderRef} className={styles.mobilePageHeader}>
+    <header
+      ref={pageHeaderRef}
+      className={`${styles.mobilePageHeader} welcome-header-desktop`}
+    >
       <div className={styles.headingCopy}>
         <h1 className={styles.mobilePageTitle}>{title}</h1>
         {description ? (

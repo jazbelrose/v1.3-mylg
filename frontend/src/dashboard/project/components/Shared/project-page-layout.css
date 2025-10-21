@@ -1,0 +1,8 @@
+.project-page-layout__header {
+  box-sizing: border-box;
+}
+
+.project-page-layout__header > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
