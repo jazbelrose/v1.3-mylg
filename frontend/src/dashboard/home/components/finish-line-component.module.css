@@ -16,7 +16,7 @@
   background: #0c0c0c;
   backdrop-filter: blur(20px);
   color: #ffffff;
-  border: 2px solid #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.10);
   border-radius: 24px; /* 8 * 3 = 24px - 8pt grid aligned */
   padding: 32px; /* 8 * 4 = 32px - 8pt grid aligned */
   width: 90%;
