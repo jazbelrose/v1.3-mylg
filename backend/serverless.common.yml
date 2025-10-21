@@ -33,6 +33,7 @@ env:
   TASKS_TABLE: Tasks
   EVENTS_TABLE: Events
   EVENTS_STARTAT_INDEX: ""                   # leave blank if you don’t have projectId-startAt-index
+  CALENDAR_TOKENS_TABLE: ProjectCalendarTokens
 
   # ---- Budgets
   BUDGETS_TABLE: Budgets

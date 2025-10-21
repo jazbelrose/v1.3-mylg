@@ -10,7 +10,8 @@
     "remove:prod": "node scripts/orchestrate.mjs remove prod",
     "logs": "serverless logs",
     "invoke": "serverless invoke",
-    "offline": "serverless offline"
+    "offline": "serverless offline",
+    "test": "tsx tests/cal/ics.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.0.0",
@@ -23,7 +24,12 @@
   },
   "devDependencies": {
     "serverless": "^3.0.0",
-    "serverless-offline": "^13.0.0"
+    "serverless-offline": "^13.0.0",
+    "serverless-esbuild": "^1.48.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "@types/aws-lambda": "^8.10.129",
+    "@types/node": "^20.11.25"
   },
   "keywords": [
     "serverless",

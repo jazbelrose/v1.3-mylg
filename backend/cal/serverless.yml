@@ -1,0 +1,62 @@
+service: calendar
+frameworkVersion: '3'
+
+useDotenv: true
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: false
+    target: node20
+    platform: node
+    external:
+      - '@aws-sdk/*'
+    tsconfig: ../tsconfig.json
+    keepOutputDirectory: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 10
+  httpApi:
+    cors: false
+  environment:
+    ${self:custom.env}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CALENDAR_TOKENS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:EVENTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:EVENTS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:TASKS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:TASKS_TABLE}/index/*
+
+functions:
+  projectCalendarFeed:
+    handler: src/cal/icsHandler.handler
+    events:
+      - httpApi:
+          path: /cal/{projectId}/{token}.ics
+          method: GET
+    environment:
+      DEFAULT_TIMEZONE: ${env:DEFAULT_TIMEZONE, 'America/Los_Angeles'}
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!**/*.test.*'
