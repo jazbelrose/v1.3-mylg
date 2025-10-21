@@ -248,12 +248,12 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
           backgroundColor: "#0c0c0c",
           display: "flex",
           flexDirection: "column",
-          gap: "12px",
+          
         }}
       >
         <WelcomeHeader isDesktopLayout={isDesktop} showDesktopGreeting={false} />
         {headerNode ? (
-          <div style={{ padding: "0 8px 16px" }}>{headerNode}</div>
+          <div style={{ padding: "0" }}>{headerNode}</div>
         ) : null}
       </div>
 
