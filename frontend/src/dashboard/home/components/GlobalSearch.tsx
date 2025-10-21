@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Search, X, FileText, FolderOpen, MessageSquare, User } from 'lucide-react';
+import { Search, X, FileText, FolderOpen, MessageSquare, User, Loader2 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
 import { useNavigate } from 'react-router-dom';
 import { slugify } from '@/shared/utils/slug';
@@ -327,6 +327,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [navigatingId, setNavigatingId] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -519,7 +520,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
     return () => clearTimeout(timeoutId);
   }, [query, performSearch]);
 
-  const handleResultClick = async (result: SearchResult) => {
+  const handleResultClick = (result: SearchResult) => {
+    if (navigatingId) {
+      return;
+    }
+
+    setNavigatingId(result.id);
     setIsOpen(false);
     setQuery('');
     setSelectedIndex(-1);
@@ -527,43 +533,59 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
       onNavigate();
     }
 
-    if (result.type === 'project' && result.projectId) {
+    const finishNavigation = () => {
+      setNavigatingId(current => (current === result.id ? null : current));
+    };
+
+    void (async () => {
       try {
-        if (fetchProjectDetails) {
-          await fetchProjectDetails(result.projectId);
+        if (result.type === 'project' && result.projectId) {
+          let fetchPromise: Promise<unknown> | null = null;
+          if (fetchProjectDetails) {
+            fetchPromise = fetchProjectDetails(result.projectId);
+          }
+          const project = projects?.find((p: Project) => p.projectId === result.projectId);
+          const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+          navigate(path);
+          if (fetchPromise) {
+            try {
+              await fetchPromise;
+            } catch (error) {
+              console.error('Error fetching project details before navigation:', error);
+            }
+          }
+        } else if (result.type === 'message' && result.projectId) {
+          let fetchPromise: Promise<unknown> | null = null;
+          if (fetchProjectDetails) {
+            fetchPromise = fetchProjectDetails(result.projectId);
+          }
+          const project = projects?.find((p: Project) => p.projectId === result.projectId);
+          const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+          navigate(path, {
+            state: { highlightMessage: result.messageId }
+          });
+          if (fetchPromise) {
+            try {
+              await fetchPromise;
+            } catch (error) {
+              console.error('Error fetching project details before navigating to message:', error);
+            }
+          }
+        } else if (result.type === 'collaborator' && result.userId) {
+          const collaborator = allUsers.find(user => user.userId === result.userId);
+          const slugSource = collaborator
+            ? `${collaborator.firstName || ''}-${collaborator.lastName || ''}`.trim()
+            : '';
+          const fallback = collaborator?.userId || result.userId || 'conversation';
+          const slug = slugify(slugSource || fallback);
+          navigate(`/dashboard/features/messages/${slug}`);
         }
-        const project = projects?.find((p: Project) => p.projectId === result.projectId);
-        const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
-        navigate(path);
       } catch (error) {
-        console.error('Error navigating to project:', error);
+        console.error('Error navigating from global search:', error);
+      } finally {
+        finishNavigation();
       }
-    } else if (result.type === 'message' && result.projectId) {
-      try {
-        if (fetchProjectDetails) {
-          await fetchProjectDetails(result.projectId);
-        }
-        const project = projects?.find((p: Project) => p.projectId === result.projectId);
-        const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
-        navigate(path, {
-          state: { highlightMessage: result.messageId }
-        });
-      } catch (error) {
-        console.error('Error navigating to message:', error);
-      }
-    } else if (result.type === 'collaborator' && result.userId) {
-      try {
-        const collaborator = allUsers.find(user => user.userId === result.userId);
-        const slugSource = collaborator
-          ? `${collaborator.firstName || ''}-${collaborator.lastName || ''}`.trim()
-          : '';
-        const fallback = collaborator?.userId || result.userId || 'conversation';
-        const slug = slugify(slugSource || fallback);
-        navigate(`/dashboard/features/messages/${slug}`);
-      } catch (error) {
-        console.error('Error navigating to collaborator conversation:', error);
-      }
-    }
+    })();
   };
 
   const handleInputFocus = () => {
@@ -626,7 +648,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
           {loading && (
             <div className="global-search-result loading">
               <div className="global-search-result-icon">
-                <Search size={16} />
+                <Loader2 size={16} className="global-search-spinner-icon" />
               </div>
               <div className="global-search-result-content">
                 <div className="global-search-result-title">Searching...</div>
@@ -668,12 +690,15 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
               .filter(Boolean)
               .join(' ');
 
+            const isNavigating = navigatingId === result.id;
+
             return (
               <button
                 key={result.id}
                 type="button"
                 onClick={() => handleResultClick(result)}
                 className={resultClasses}
+                aria-busy={isNavigating}
               >
                 {isProject ? (
                   <Squircle
@@ -753,6 +778,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
                     <div className="global-search-result-excerpt">{result.excerpt}</div>
                   )}
                 </div>
+                {isNavigating && (
+                  <div className="global-search-result-spinner" aria-hidden>
+                    <Loader2 size={18} className="global-search-spinner-icon" />
+                  </div>
+                )}
               </button>
             );
           })}
