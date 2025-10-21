@@ -58,20 +58,20 @@
   .dashboard-root {
     display: block;
     min-height: 100vh;
-    min-height: 100dvh;
+    /* Ensure the layout never extends below the visible Safari viewport */
+    min-height: 100svh;
   }
 
   .dashboard-main {
     min-height: 100vh;
-    min-height: 100dvh;
     height: 100vh;
-    height: 100dvh;
     max-height: 100vh;
-    max-height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: auto;
     padding: 0;
+    /* Keep space for the iOS Safari address bar so content never overflows */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .dashboard-wrapper,
@@ -81,6 +81,21 @@
     padding: 0;
   }
 }
+
+@media (max-width: 1023px) {
+  @supports (height: 100svh) {
+    .dashboard-root {
+      min-height: 100svh;
+    }
+
+    .dashboard-main {
+      min-height: 100svh;
+      height: 100svh;
+      max-height: 100svh;
+    }
+  }
+}
+
 
 
 
