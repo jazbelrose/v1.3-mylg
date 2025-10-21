@@ -217,7 +217,8 @@
   .welcome-header-desktop {
     padding: 0px 12px;
     gap: 12px;
-     min-height: 42px;
+    min-height: 45px;
+    
   }
 
   .welcome-header-toc {
