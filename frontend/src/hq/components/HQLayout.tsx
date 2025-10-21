@@ -81,7 +81,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     () => `hq-nav-${rawDrawerId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
     [rawDrawerId]
   );
-  const pageHeaderRef = useRef<HTMLElement | null>(null);
+  const pageHeaderRef = useRef<HTMLDivElement | null>(null);
   const [headerOffset, setHeaderOffset] = useState<number>(0);
   const mobileWelcomeHeaderRef = useRef<HTMLDivElement | null>(null);
   const [floatingThread, setFloatingThread] = useState<boolean>(() => {
@@ -203,7 +203,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   }, []);
 
   const pageHeader = (
-    <header ref={pageHeaderRef} className={styles.pageHeader}>
+    <header className={styles.pageHeader}>
       <div className={styles.pageHeading}>
         <div className={styles.headingCopy}>
           <h1 className={styles.pageTitle}>{title}</h1>
@@ -217,7 +217,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   );
 
   const mobilePageHeader = (
-    <header ref={pageHeaderRef} className={styles.mobilePageHeader}>
+    <header className={styles.mobilePageHeader}>
       <div className={styles.headingCopy}>
         <h1 className={styles.mobilePageTitle}>{title}</h1>
         {description ? (
@@ -254,15 +254,28 @@ const HQLayout: React.FC<HQLayoutProps> = ({
         isNavigationOpen={isNavigationOpen}
         navigationDrawerId={drawerId}
         isDesktopLayout={flags.isDesktop}
+        showDesktopGreeting={false}
       />
     </div>
+  ) : null;
+
+  const desktopWelcomeHeader = flags.isDesktop ? (
+    <WelcomeHeader
+      userName={userName}
+      setActiveView={handleSetActiveView}
+      isDesktopLayout={flags.isDesktop}
+      showDesktopGreeting
+    />
   ) : null;
 
   const mainContent = (
     <main className="dashboard-main">
       {mobileWelcomeHeader}
       <div className={`dashboard-wrapper ${styles.wrapper}`}>
-        {flags.isDesktop ? pageHeader : mobilePageHeader}
+        <div ref={pageHeaderRef} className={styles.headerContainer}>
+          {desktopWelcomeHeader}
+          {flags.isDesktop ? pageHeader : mobilePageHeader}
+        </div>
         <div className={styles.contentArea}>
           <div className={styles.content}>{children}</div>
           {shouldRenderDockedThread ? (

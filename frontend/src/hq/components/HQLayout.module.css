@@ -15,6 +15,12 @@
   margin: 16px 0;
 }
 
+.headerContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .pageHeader {
   display: flex;
   flex-direction: column;

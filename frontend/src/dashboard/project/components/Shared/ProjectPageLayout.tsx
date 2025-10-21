@@ -2,6 +2,7 @@ import React from "react";
 import ProjectMessagesThread from "@/dashboard/features/messages/ProjectMessagesThread";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
+import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import ChatPanel from "./ChatPanel";
 import type { ProjectAccentPalette } from "@/dashboard/project/hooks/useProjectPalette";
 
@@ -198,6 +199,20 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
     }
   }, [isMobile, setFloatingThread, setIsChatHidden, setChatOpenSignal]);
 
+  const headerNode = React.useMemo(() => {
+    if (React.isValidElement(header)) {
+      return React.cloneElement(
+        header as React.ReactElement<Record<string, unknown>>,
+        {
+          onOpenChat: handleShowChat,
+          isChatHidden,
+        }
+      );
+    }
+
+    return header;
+  }, [header, handleShowChat, isChatHidden]);
+
   const viewportUnit = React.useMemo(() => {
     if (typeof window === "undefined") {
       return "100vh";
@@ -226,14 +241,20 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
     >
       <div
         ref={projectHeaderRef}
-        style={{ position: "sticky", top: 0, zIndex: 5, backgroundColor: "#0c0c0c" }}
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+          backgroundColor: "#0c0c0c",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}
       >
-        {React.isValidElement(header)
-          ? React.cloneElement(header as React.ReactElement<Record<string, unknown>>, {
-              onOpenChat: handleShowChat,
-              isChatHidden,
-            })
-          : header}
+        <WelcomeHeader isDesktopLayout={isDesktop} showDesktopGreeting={false} />
+        {headerNode ? (
+          <div style={{ padding: "0 8px 16px" }}>{headerNode}</div>
+        ) : null}
       </div>
 
       <div
