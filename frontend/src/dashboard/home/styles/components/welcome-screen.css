@@ -90,8 +90,7 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
-  
+  overflow: visible;
 }
 
 .mobile-projects-section {
@@ -127,6 +126,7 @@
   overflow-y: visible;
   overflow-x: clip;
   margin-top: auto;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 
 .dashboard-footer {
