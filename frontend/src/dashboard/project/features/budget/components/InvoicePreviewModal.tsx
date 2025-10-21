@@ -75,6 +75,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
+  const [measuredRowHeights, setMeasuredRowHeights] = useState<number[]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const currentRows = pages[currentPage] || [];
 
@@ -443,7 +444,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
-    const pageHeight = 1122;
+    const measuredPage = invoiceRef.current.querySelector(
+      ".invoice-page"
+    ) as HTMLElement | null;
+    const pageHeight = measuredPage
+      ? Math.ceil(measuredPage.getBoundingClientRect().height)
+      : 1122;
     const pageNumberHeight = 40;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
@@ -469,6 +475,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const rowEls = Array.from(
       invoiceRef.current.querySelectorAll(".items-table tbody tr")
     ) as HTMLElement[];
+
+    const rowHeights = rowEls.map((el) =>
+      Math.ceil(el.getBoundingClientRect().height)
+    );
+    setMeasuredRowHeights(rowHeights);
 
     let available = Math.max(pageHeight - staticHeights, 0);
     const pagesAccum: RowData[][] = [];
@@ -516,22 +527,28 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       .map((idx) => {
         const pageRows = pages[idx] || [];
         const rowsHtml = pageRows
-          .map((row) =>
-            row.type === "group"
-              ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
-              : `<tr>
-                   <td>${row.item.description || ""}</td>
-                   <td>${row.item.quantity || ""}</td>
-                   <td>${row.item.unit || ""}</td>
-                   <td>${formatCurrency(
-                     (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                       (parseFloat(String(row.item.quantity || 1)) || 1)
-                   )}</td>
-                   <td>${formatCurrency(
-                     parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                   )}</td>
-                 </tr>`
-          )
+          .map((row) => {
+            const globalIdx = rowsData.indexOf(row);
+            const height = measuredRowHeights[globalIdx];
+            const styleAttr = height ? ` style="height:${height}px"` : "";
+
+            if (row.type === "group") {
+              return `<tr class="group-header"${styleAttr}><td colSpan="5">${row.group}</td></tr>`;
+            }
+
+            return `<tr${styleAttr}>
+              <td>${row.item.description || ""}</td>
+              <td>${row.item.quantity || ""}</td>
+              <td>${row.item.unit || ""}</td>
+              <td>${formatCurrency(
+                (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
+                  (parseFloat(String(row.item.quantity || 1)) || 1)
+              )}</td>
+              <td>${formatCurrency(
+                parseFloat(String(row.item.itemFinalCost || 0)) || 0
+              )}</td>
+            </tr>`;
+          })
           .join("");
 
         const headerName = brandName || project?.company || "Company Name";
@@ -578,56 +595,57 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             : "";
 
         return `
-          <div class="invoice-page invoice-container">
-            <div class="invoice-top">
-              <div class="invoice-header">
-                <div>${logoHtml}</div>
-                <div class="company-info">
-                  <div class="brand-name">${headerName}</div>
-                  ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                  <div class="brand-address">${headerAddress}</div>
-                  <div class="brand-phone">${headerPhone}</div>
-                </div>
-                <div class="invoice-title">INVOICE</div>
-              </div>
-              <div class="billing-info">
-                <div>
-                  <strong>Bill To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
-                </div>
-                <div>
-                  <div>Invoice #: <span>${invNum}</span></div>
-                  <div>Issue date: <span>${issue}</span></div>
-                  <div>Due date: <span>${due}</span></div>
-                  <div>Service date: <span>${service}</span></div>
-                </div>
-              </div>
-            </div>
-            <h1 class="project-title">${projTitle}</h1>
-            <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
-            <hr class="summary-divider" />
-            <div class="items-table-wrapper">
-              <table class="items-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>QTY</th>
-                    <th>Unit</th>
-                    <th>Unit Price</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+  <div class="invoice-container">
+    <div class="invoice-page">
+      <div class="invoice-top">
+        <div class="invoice-header">
+          <div>${logoHtml}</div>
+          <div class="company-info">
+            <div class="brand-name">${headerName}</div>
+            ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
+            <div class="brand-address">${headerAddress}</div>
+            <div class="brand-phone">${headerPhone}</div>
           </div>
-        `;
+          <div class="invoice-title">INVOICE</div>
+        </div>
+        <div class="billing-info">
+          <div>
+            <strong>Bill To:</strong>
+            <div>${billContact}</div>
+            <div>${billCompany}</div>
+            <div>${billAddress}</div>
+            ${billPhone ? `<div>${billPhone}</div>` : ""}
+            ${billEmail ? `<div>${billEmail}</div>` : ""}
+          </div>
+          <div>
+            <div>Invoice #: <span>${invNum}</span></div>
+            <div>Issue date: <span>${issue}</span></div>
+            <div>Due date: <span>${due}</span></div>
+            <div>Service date: <span>${service}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h1 class="project-title">${projTitle}</h1>
+      <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
+      <hr class="summary-divider" />
+
+      <div class="items-table-wrapper">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Description</th><th>QTY</th><th>Unit</th><th>Unit Price</th><th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+
+      ${totalsHtml}
+      <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+    </div>
+  </div>
+`;
       })
       .join("");
 
@@ -669,9 +687,38 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     frameDoc.write(html);
     frameDoc.close();
 
-    iframe.onload = () => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
+    iframe.onload = async () => {
+      const win = iframe.contentWindow;
+      const doc = win?.document;
+      if (!win || !doc) return;
+
+      const fonts = (doc as Document & { fonts?: FontFaceSet }).fonts;
+      if (fonts?.ready) {
+        try {
+          await fonts.ready;
+        } catch {
+          // Ignore font readiness errors
+        }
+      }
+
+      const imgs = Array.from(doc.images || []);
+      await Promise.all(
+        imgs.map((img) => {
+          if (img.complete) {
+            return Promise.resolve();
+          }
+          return new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      win.focus();
+      win.print();
+
       setTimeout(() => {
         document.body.removeChild(iframe);
       }, 0);
