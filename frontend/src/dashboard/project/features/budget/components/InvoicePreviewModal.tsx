@@ -75,6 +75,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
+  const [pageRowIndexes, setPageRowIndexes] = useState<number[][]>([]);
+  const [measuredRowHeights, setMeasuredRowHeights] = useState<number[]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const currentRows = pages[currentPage] || [];
 
@@ -443,7 +445,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
-    const pageHeight = 1122;
+    const pageElement = invoiceRef.current.querySelector(".invoice-page") as HTMLElement | null;
+    const measuredPageHeight = Math.ceil(pageElement?.getBoundingClientRect().height || 1122);
+    const pageHeight = measuredPageHeight > 0 ? measuredPageHeight : 1122;
     const pageNumberHeight = 40;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
@@ -470,31 +474,60 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       invoiceRef.current.querySelectorAll(".items-table tbody tr")
     ) as HTMLElement[];
 
+    const rowHeights = rowEls.map((el) => Math.ceil(el.getBoundingClientRect().height));
+    const heightsSame =
+      measuredRowHeights.length === rowHeights.length &&
+      measuredRowHeights.every((h, idx) => h === rowHeights[idx]);
+    if (!heightsSame) {
+      setMeasuredRowHeights(rowHeights);
+    }
+
     let available = Math.max(pageHeight - staticHeights, 0);
     const pagesAccum: RowData[][] = [];
     let current: RowData[] = [];
+    const indexesAccum: number[][] = [];
+    let currentIndexes: number[] = [];
 
     rowEls.forEach((row, idx) => {
-      const rowHeight = row.offsetHeight;
+      const rowHeight = rowHeights[idx] ?? Math.ceil(row.getBoundingClientRect().height);
       const isLast = idx === rowEls.length - 1;
       const needed = rowHeight + (isLast ? bottomHeight : 0);
       if (needed > available && current.length) {
         pagesAccum.push(current);
+        indexesAccum.push(currentIndexes);
         current = [];
+        currentIndexes = [];
         available = Math.max(pageHeight - staticHeights, 0);
       }
       current.push(rowsData[idx]);
+      currentIndexes.push(idx);
       available -= rowHeight;
     });
 
-    if (current.length) pagesAccum.push(current);
+    if (current.length) {
+      pagesAccum.push(current);
+      indexesAccum.push(currentIndexes);
+    }
 
-    const same =
+    const pagesSame =
       pages.length === pagesAccum.length &&
-      pages.every((p, i) => p.length === pagesAccum[i].length);
+      pages.every((p, i) => {
+        const next = pagesAccum[i];
+        if (!next || p.length !== next.length) return false;
+        return p.every((row, j) => row === next[j]);
+      });
 
-    if (!same) setPages(pagesAccum);
-  }, [rowsData]);
+    const indexesSame =
+      pageRowIndexes.length === indexesAccum.length &&
+      pageRowIndexes.every((arr, i) => {
+        const next = indexesAccum[i];
+        if (!next || arr.length !== next.length) return false;
+        return arr.every((val, j) => val === next[j]);
+      });
+
+    if (!pagesSame) setPages(pagesAccum);
+    if (!indexesSame) setPageRowIndexes(indexesAccum);
+  }, [rowsData, pages, pageRowIndexes]);
 
   useEffect(() => {
     setSelectedPages(pages.map((_, i) => i));
@@ -515,23 +548,32 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const htmlPages = pageIndexes
       .map((idx) => {
         const pageRows = pages[idx] || [];
+        const rowIndexes = pageRowIndexes[idx] || [];
         const rowsHtml = pageRows
-          .map((row) =>
-            row.type === "group"
-              ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
-              : `<tr>
-                   <td>${row.item.description || ""}</td>
-                   <td>${row.item.quantity || ""}</td>
-                   <td>${row.item.unit || ""}</td>
-                   <td>${formatCurrency(
-                     (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                       (parseFloat(String(row.item.quantity || 1)) || 1)
-                   )}</td>
-                   <td>${formatCurrency(
-                     parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                   )}</td>
-                 </tr>`
-          )
+          .map((row, localIdx) => {
+            const globalIdx = rowIndexes[localIdx];
+            const height =
+              typeof globalIdx === "number" && globalIdx >= 0
+                ? measuredRowHeights[globalIdx]
+                : undefined;
+            const heightStyle =
+              typeof height === "number" && height > 0 ? ` style="height:${height}px"` : "";
+
+            if (row.type === "group") {
+              return `<tr class="group-header"${heightStyle}><td colSpan="5">${row.group}</td></tr>`;
+            }
+
+            return `<tr${heightStyle}>
+              <td>${row.item.description || ""}</td>
+              <td>${row.item.quantity || ""}</td>
+              <td>${row.item.unit || ""}</td>
+              <td>${formatCurrency(
+                (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
+                  (parseFloat(String(row.item.quantity || 1)) || 1)
+              )}</td>
+              <td>${formatCurrency(parseFloat(String(row.item.itemFinalCost || 0)) || 0)}</td>
+            </tr>`;
+          })
           .join("");
 
         const headerName = brandName || project?.company || "Company Name";
@@ -578,54 +620,55 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             : "";
 
         return `
-          <div class="invoice-page invoice-container">
-            <div class="invoice-top">
-              <div class="invoice-header">
-                <div>${logoHtml}</div>
-                <div class="company-info">
-                  <div class="brand-name">${headerName}</div>
-                  ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                  <div class="brand-address">${headerAddress}</div>
-                  <div class="brand-phone">${headerPhone}</div>
+          <div class="invoice-container">
+            <div class="invoice-page">
+              <div class="invoice-top">
+                <div class="invoice-header">
+                  <div>${logoHtml}</div>
+                  <div class="company-info">
+                    <div class="brand-name">${headerName}</div>
+                    ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
+                    <div class="brand-address">${headerAddress}</div>
+                    <div class="brand-phone">${headerPhone}</div>
+                  </div>
+                  <div class="invoice-title">INVOICE</div>
                 </div>
-                <div class="invoice-title">INVOICE</div>
+                <div class="billing-info">
+                  <div>
+                    <strong>Bill To:</strong>
+                    <div>${billContact}</div>
+                    <div>${billCompany}</div>
+                    <div>${billAddress}</div>
+                    ${billPhone ? `<div>${billPhone}</div>` : ""}
+                    ${billEmail ? `<div>${billEmail}</div>` : ""}
+                  </div>
+                  <div>
+                    <div>Invoice #: <span>${invNum}</span></div>
+                    <div>Issue date: <span>${issue}</span></div>
+                    <div>Due date: <span>${due}</span></div>
+                    <div>Service date: <span>${service}</span></div>
+                  </div>
+                </div>
               </div>
-              <div class="billing-info">
-                <div>
-                  <strong>Bill To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
-                </div>
-                <div>
-                  <div>Invoice #: <span>${invNum}</span></div>
-                  <div>Issue date: <span>${issue}</span></div>
-                  <div>Due date: <span>${due}</span></div>
-                  <div>Service date: <span>${service}</span></div>
-                </div>
+
+              <h1 class="project-title">${projTitle}</h1>
+              <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
+              <hr class="summary-divider" />
+
+              <div class="items-table-wrapper">
+                <table class="items-table">
+                  <thead>
+                    <tr>
+                      <th>Description</th><th>QTY</th><th>Unit</th><th>Unit Price</th><th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rowsHtml}</tbody>
+                </table>
               </div>
+
+              ${totalsHtml}
+              <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
             </div>
-            <h1 class="project-title">${projTitle}</h1>
-            <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
-            <hr class="summary-divider" />
-            <div class="items-table-wrapper">
-              <table class="items-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>QTY</th>
-                    <th>Unit</th>
-                    <th>Unit Price</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
           </div>
         `;
       })
@@ -665,17 +708,41 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       return;
     }
 
-    frameDoc.open();
-    frameDoc.write(html);
-    frameDoc.close();
+    iframe.onload = async () => {
+      const win = iframe.contentWindow;
+      const doc = win?.document;
+      if (!win || !doc) return;
 
-    iframe.onload = () => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
+      try {
+        await (doc as any).fonts?.ready;
+      } catch (err) {
+        // ignore font loading errors
+      }
+
+      const imgs = Array.from(doc.images || []);
+      await Promise.all(
+        imgs.map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      win.focus();
+      win.print();
+
       setTimeout(() => {
         document.body.removeChild(iframe);
       }, 0);
     };
+
+    frameDoc.open();
+    frameDoc.write(html);
+    frameDoc.close();
   };
 
   const saveInvoice = async () => {

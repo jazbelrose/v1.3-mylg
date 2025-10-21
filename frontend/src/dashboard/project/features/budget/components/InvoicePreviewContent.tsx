@@ -316,7 +316,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   return (
     <div className={styles.previewWrapper} ref={previewRef}>
       <style id="invoice-preview-styles">{`
-        @page { margin: 0; }
+        @page {
+          size: A4;
+          margin: 0;
+        }
         body { margin: 0; }
         .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
         .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px 20px 60px;box-sizing:border-box;position:relative;overflow-x:hidden;display:flex;flex-direction:column;}
@@ -338,6 +341,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .items-table{width:100%;border-collapse:collapse;margin-top:20px;box-sizing:border-box;}
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;}
         .items-table th{background:#f5f5f5;text-align:left;}
+        .items-table,.items-table tr,.items-table td,.items-table th{page-break-inside:avoid;}
         .group-header{background:#fafafa;font-weight:bold;}
         .bottom-block{margin-top:auto;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;margin-bottom:40px;}
         .totals{margin-top:20px;margin-left:auto;}
@@ -367,61 +371,64 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           .bottom-block{margin-bottom:24px;}
         }
         @media print{
-          .invoice-container{width:210mm;max-width:210mm;padding:20px;}
-          .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;padding:20px 20px 60px;}
+          html,body{margin:0;padding:0;}
+          .invoice-container{width:210mm;max-width:210mm;margin:0;padding:20px;}
+          .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:297mm;margin:0;box-shadow:none;page-break-after:always;overflow:hidden;padding:20px 20px 60px;}
           .invoice-page:last-child{page-break-after:auto;}
         }
       `}</style>
 
       <div
-        className="invoice-page invoice-container"
+        className="invoice-container"
         ref={invoiceRef}
         data-preview-role="measure"
         style={{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}
       >
-        {renderHeader()}
+        <div className="invoice-page">
+          {renderHeader()}
 
-        {renderSummary(rowsData, "measure")}
+          {renderSummary(rowsData, "measure")}
 
-        <div className="bottom-block">
-          <div className="totals">
-            <div>
-              Subtotal: <span>{formatCurrency(subtotal)}</span>
-            </div>
-            <div>
-              Deposit received:
-              <span
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-              >
-                {formatCurrency(depositReceived)}
-              </span>
-            </div>
-            <div>
-              <strong>
-                Total Due:
+          <div className="bottom-block">
+            <div className="totals">
+              <div>
+                Subtotal: <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div>
+                Deposit received:
                 <span
                   contentEditable
                   suppressContentEditableWarning
-                  onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                  onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
                 >
-                  {formatCurrency(totalDue)}
+                  {formatCurrency(depositReceived)}
                 </span>
-              </strong>
+              </div>
+              <div>
+                <strong>
+                  Total Due:
+                  <span
+                    contentEditable
+                    suppressContentEditableWarning
+                    onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                  >
+                    {formatCurrency(totalDue)}
+                  </span>
+                </strong>
+              </div>
             </div>
-          </div>
 
-          <div
-            className="notes"
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-            dangerouslySetInnerHTML={{ __html: notes }}
-          />
+            <div
+              className="notes"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
+              dangerouslySetInnerHTML={{ __html: notes }}
+            />
 
-          <div className="footer" contentEditable suppressContentEditableWarning>
-            {project?.company || "Company Name"}
+            <div className="footer" contentEditable suppressContentEditableWarning>
+              {project?.company || "Company Name"}
+            </div>
           </div>
         </div>
       </div>
