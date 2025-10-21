@@ -108,29 +108,29 @@ const DesktopProjectHeader = ({
                     {project?.title || "Summary"}
                   </button>
                 </h2>
-              </div>
 
-              <div
-                className="finish-line-header interactive"
-                onClick={onOpenFinishLine}
-                onKeyDown={(event) => handleKeyDown(event, onOpenFinishLine)}
-                role="button"
-                tabIndex={0}
-                title={rangeLabel}
-                aria-label={rangeLabel}
-                style={{ cursor: "pointer" }}
-              >
-                <span className="finish-line-label">
-                  {dateRangeLabel ? (
-                    <span className="finish-line-date">{dateRangeLabel}</span>
-                  ) : null}
-                  {dateRangeLabel ? (
-                    <span className="finish-line-separator" aria-hidden="true">
-                      •
-                    </span>
-                  ) : null}
-                  <span className="finish-line-hours">{hoursLabel}</span>
-                </span>
+                <div
+                  className="finish-line-header interactive"
+                  onClick={onOpenFinishLine}
+                  onKeyDown={(event) => handleKeyDown(event, onOpenFinishLine)}
+                  role="button"
+                  tabIndex={0}
+                  title={rangeLabel}
+                  aria-label={rangeLabel}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="finish-line-label">
+                    {dateRangeLabel ? (
+                      <span className="finish-line-date">{dateRangeLabel}</span>
+                    ) : null}
+                    {dateRangeLabel ? (
+                      <span className="finish-line-separator" aria-hidden="true">
+                        •
+                      </span>
+                    ) : null}
+                    <span className="finish-line-hours">{hoursLabel}</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
