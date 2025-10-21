@@ -343,7 +343,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .totals{margin-top:20px;margin-left:auto;}
         .notes{margin-top:20px;}
         .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-        .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
+        .pageNumber{margin-top:auto;padding-top:16px;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media screen and (max-width:768px){
           .invoice-container{padding:16px;width:100%;}
           .invoice-page{padding:16px 16px 56px;width:100%;min-height:auto;}
@@ -423,6 +423,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           <div className="footer" contentEditable suppressContentEditableWarning>
             {project?.company || "Company Name"}
           </div>
+        </div>
+
+        <div className="pageNumber" aria-hidden="true">
+          Page 1 of 1
         </div>
       </div>
 
