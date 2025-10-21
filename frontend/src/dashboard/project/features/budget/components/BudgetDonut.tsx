@@ -51,6 +51,7 @@ export interface BudgetDonutProps {
   explodeOnHover?: boolean;
   explodeOnClick?: boolean;
   className?: string;
+  animateOnMount?: boolean;
 }
 
 const srOnlyStyles: React.CSSProperties = {
@@ -195,8 +196,10 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
   explodeOnHover = true,
   explodeOnClick = true,
   className,
+  animateOnMount = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hasMountedRef = useRef(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [lockedIndex, setLockedIndex] = useState<number | null>(null);
   const [isCenterOpen, setIsCenterOpen] = useState(false);
@@ -212,6 +215,12 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
   const centerButtonRef = useRef<HTMLButtonElement | null>(null);
   const centerPopoverRef = useRef<HTMLDivElement | null>(null);
   const [centerButtonSize, setCenterButtonSize] = useState<number | null>(null);
+
+  useEffect(() => {
+    hasMountedRef.current = true;
+  }, []);
+
+  const shouldAnimate = animateOnMount && hasMountedRef.current;
 
   const shapedData = useMemo(() => {
     if (!Array.isArray(data)) return [] as InternalSlice[];
@@ -723,7 +732,7 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
       onPointerLeave={handleContainerPointerLeave}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+        <PieChart width={200} height={200} style={{ width: "100%", height: "100%" }}>
           <Pie
             data={stableData}
             dataKey="value"
@@ -732,8 +741,8 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
             outerRadius={pieOuterRadius}
             paddingAngle={1}
             cornerRadius={2}
-            isAnimationActive
-            animationDuration={350}
+            isAnimationActive={shouldAnimate}
+            animationDuration={shouldAnimate ? 350 : 0}
             activeIndex={activeIndex as number | undefined}
             activeShape={renderActiveShape as never}
             onMouseEnter={handleMouseEnter}
@@ -814,4 +823,3 @@ export default React.memo(BudgetDonut, (prev, next) => {
   if (!slicesAreEqual(prev.data, next.data)) return false;
   return true;
 });
-

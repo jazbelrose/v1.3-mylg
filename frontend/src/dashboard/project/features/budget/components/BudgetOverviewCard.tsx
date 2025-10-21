@@ -13,6 +13,7 @@ import BudgetDonut, {
   type BudgetDonutDatum,
 } from "@/dashboard/project/features/budget/components/BudgetDonut";
 import { useSocket } from "@/app/contexts/useSocket";
+import DonutSlot from "@/components/DonutSlot";
 import { generateSequentialPalette, getColor } from "@/shared/utils/colorUtils";
 import { fetchBudgetHeader, fetchBudgetItems } from "@/shared/utils/api";
 
@@ -357,13 +358,17 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
           <>
             <div className="chart-legend-container">
               <div className="budget-chart">
-                <BudgetDonut
-                  data={chartState.slices}
-                  total={chartState.total}
-                  palette={chartState.palette}
-                  formatTooltip={formatTooltip}
-                  totalFormatter={totalFormatter}
-                />
+                <DonutSlot>
+                  <div className="donut-slot-fade-in">
+                    <BudgetDonut
+                      data={chartState.slices}
+                      total={chartState.total}
+                      palette={chartState.palette}
+                      formatTooltip={formatTooltip}
+                      totalFormatter={totalFormatter}
+                    />
+                  </div>
+                </DonutSlot>
               </div>
             </div>
           </>
