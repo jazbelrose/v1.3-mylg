@@ -723,7 +723,7 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
       onPointerLeave={handleContainerPointerLeave}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+        <PieChart width={200} height={200}>
           <Pie
             data={stableData}
             dataKey="value"
@@ -732,8 +732,8 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
             outerRadius={pieOuterRadius}
             paddingAngle={1}
             cornerRadius={2}
-            isAnimationActive
-            animationDuration={350}
+            isAnimationActive={false}
+            animationDuration={0}
             activeIndex={activeIndex as number | undefined}
             activeShape={renderActiveShape as never}
             onMouseEnter={handleMouseEnter}

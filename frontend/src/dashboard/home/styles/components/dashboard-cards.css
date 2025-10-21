@@ -193,7 +193,6 @@
   width: 100%;
   height: 100%;
   max-width: none;
-  aspect-ratio: 1 / 1;
   position: relative;
   margin: auto;
   min-height: 0;
@@ -201,9 +200,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  --donut-slot-min: 220px;
+  --donut-slot-max: 300px;
 }
 
-.budget-chart > .recharts-responsive-container {
+.budget-chart .donut-slot {
+  width: 100%;
+  display: block;
+}
+
+.budget-chart .donut-slot__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.budget-chart .recharts-responsive-container {
   width: 100%;
   height: 100%;
   display: flex;
@@ -213,6 +225,32 @@
 
 .budget-chart .recharts-surface {
   display: block;
+}
+
+.budget-donut-fade-in {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  animation: budget-donut-fade-in 320ms ease forwards;
+  transform-origin: center;
+  will-change: opacity, transform;
+  display: flex;
+}
+
+.budget-donut-fade-in > * {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes budget-donut-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .budget-legend {
@@ -283,19 +321,23 @@
   .budget-chart {
     margin: auto;
     max-width: 220px;
+    --donut-slot-max: 260px;
   }
 }
 
 @container budget-card (max-width: 760px) {
   .budget-chart {
     max-width: 200px;
+    --donut-slot-min: 200px;
+    --donut-slot-max: 240px;
   }
 }
 
 @media (max-height: 750px) {
   .budget-chart {
     width: 180px;
-    height: 180px;
+    --donut-slot-min: 180px;
+    --donut-slot-max: 220px;
   }
   .budget-legend {
     min-width: 100px;
@@ -415,6 +457,8 @@
     height: 160px;
     margin: 0 auto;
     flex-shrink: 0;
+    --donut-slot-min: 160px;
+    --donut-slot-max: 200px;
   }
   .budget-legend {
     gap: 4px;
@@ -434,6 +478,8 @@
     width: 140px !important;
     height: 140px !important;
     margin: auto;
+    --donut-slot-min: 140px;
+    --donut-slot-max: 170px;
   }
 }
 
@@ -455,6 +501,8 @@
     width: 130px !important;
     height: 130px !important;
     margin: auto;
+    --donut-slot-min: 130px;
+    --donut-slot-max: 160px;
   }
   .budget-overview-header {
     gap: 4px;

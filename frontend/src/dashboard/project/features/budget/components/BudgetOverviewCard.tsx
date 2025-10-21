@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileInvoiceDollar, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import ClientInvoicePreviewModal from "@/dashboard/project/features/budget/ClientInvoicePreviewModal";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
+import DonutSlot from "@/components/DonutSlot";
 import BudgetDonut, {
   type BudgetDonutSlice,
   type BudgetDonutDatum,
@@ -357,13 +358,17 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
           <>
             <div className="chart-legend-container">
               <div className="budget-chart">
-                <BudgetDonut
-                  data={chartState.slices}
-                  total={chartState.total}
-                  palette={chartState.palette}
-                  formatTooltip={formatTooltip}
-                  totalFormatter={totalFormatter}
-                />
+                <DonutSlot>
+                  <div className="budget-donut-fade-in">
+                    <BudgetDonut
+                      data={chartState.slices}
+                      total={chartState.total}
+                      palette={chartState.palette}
+                      formatTooltip={formatTooltip}
+                      totalFormatter={totalFormatter}
+                    />
+                  </div>
+                </DonutSlot>
               </div>
             </div>
           </>
