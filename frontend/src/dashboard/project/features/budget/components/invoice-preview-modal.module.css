@@ -453,13 +453,22 @@
   flex: 1 0 auto;
 }
 
-.bottom-block {
+
+.bottomSection {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.bottom-block {
   margin-left: auto;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  margin-bottom: 40px;
+  gap: 12px;
+  margin-bottom: 0;
 }
 
 
@@ -513,10 +522,6 @@
 }
 
 .pageNumber {
-  position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
   text-align: center;
   font-family: 'Roboto', Arial, sans-serif;
   font-size: 0.85rem;
@@ -524,6 +529,7 @@
   font-weight: normal;
   pointer-events: none;
   user-select: none;
+  padding-top: 12px;
 }
 
 .emptyPlaceholder {

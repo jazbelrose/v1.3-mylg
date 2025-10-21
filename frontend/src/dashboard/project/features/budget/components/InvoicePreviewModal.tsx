@@ -444,13 +444,13 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
     const pageHeight = 1122;
-    const pageNumberHeight = 40;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
     const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
     const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
     const bottomBlock = invoiceRef.current.querySelector(".bottom-block") as HTMLElement | null;
+    const pageNumberEl = invoiceRef.current.querySelector(".pageNumber") as HTMLElement | null;
 
     const getTotalHeight = (el: HTMLElement | null) => {
       if (!el) return 0;
@@ -461,6 +461,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     };
 
     const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
+    const pageNumberHeight = getTotalHeight(pageNumberEl) || 40;
     const bottomHeight =
       getTotalHeight(bottomBlock) ||
       getTotalHeight(totals) + getTotalHeight(notesEl) + getTotalHeight(footer);
@@ -564,7 +565,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           ? `<img src="${logoSrc}" alt="logo" style="max-width:100px;max-height:100px" />`
           : "";
 
-        const totalsHtml =
+        const bottomBlockHtml =
           idx === pages.length - 1
             ? `<div class="bottom-block">
                  <div class="totals">
@@ -576,6 +577,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                  <div class="footer">${projTitle}</div>
                </div>`
             : "";
+
+        const bottomSectionHtml = `<div class="bottom-section">${bottomBlockHtml}<div class="pageNumber">Page ${idx + 1} of ${
+          pages.length
+        }</div></div>`;
 
         return `
           <div class="invoice-page invoice-container">
@@ -624,8 +629,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 <tbody>${rowsHtml}</tbody>
               </table>
             </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+            ${bottomSectionHtml}
           </div>
         `;
       })

@@ -339,11 +339,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;}
         .items-table th{background:#f5f5f5;text-align:left;}
         .group-header{background:#fafafa;font-weight:bold;}
-        .bottom-block{margin-top:auto;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;margin-bottom:40px;}
+        .bottom-section{margin-top:auto;display:flex;flex-direction:column;gap:12px;width:100%;}
+        .bottom-block{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:12px;margin-bottom:0;}
         .totals{margin-top:20px;margin-left:auto;}
         .notes{margin-top:20px;}
         .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-        .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
+        .pageNumber{text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;padding-top:12px;}
         @media screen and (max-width:768px){
           .invoice-container{padding:16px;width:100%;}
           .invoice-page{padding:16px 16px 56px;width:100%;min-height:auto;}
@@ -383,46 +384,50 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
         {renderSummary(rowsData, "measure")}
 
-        <div className="bottom-block">
-          <div className="totals">
-            <div>
-              Subtotal: <span>{formatCurrency(subtotal)}</span>
-            </div>
-            <div>
-              Deposit received:
-              <span
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-              >
-                {formatCurrency(depositReceived)}
-              </span>
-            </div>
-            <div>
-              <strong>
-                Total Due:
+        <div className="bottom-section">
+          <div className="bottom-block">
+            <div className="totals">
+              <div>
+                Subtotal: <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div>
+                Deposit received:
                 <span
                   contentEditable
                   suppressContentEditableWarning
-                  onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                  onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
                 >
-                  {formatCurrency(totalDue)}
+                  {formatCurrency(depositReceived)}
                 </span>
-              </strong>
+              </div>
+              <div>
+                <strong>
+                  Total Due:
+                  <span
+                    contentEditable
+                    suppressContentEditableWarning
+                    onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                  >
+                    {formatCurrency(totalDue)}
+                  </span>
+                </strong>
+              </div>
+            </div>
+
+            <div
+              className="notes"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
+              dangerouslySetInnerHTML={{ __html: notes }}
+            />
+
+            <div className="footer" contentEditable suppressContentEditableWarning>
+              {project?.company || "Company Name"}
             </div>
           </div>
 
-          <div
-            className="notes"
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-            dangerouslySetInnerHTML={{ __html: notes }}
-          />
-
-          <div className="footer" contentEditable suppressContentEditableWarning>
-            {project?.company || "Company Name"}
-          </div>
+          <div className="pageNumber">Page 1 of {totalPages || 1}</div>
         </div>
       </div>
 
@@ -432,52 +437,54 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
           {renderSummary(currentRows, `page-${currentPage}`)}
 
-          {currentPage === Math.max(0, totalPages - 1) && (
-            <div className="bottom-block">
-              <div className="totals">
-                <div>
-                  Subtotal: <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div>
-                  Deposit received:
-                  <span
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-                  >
-                    {formatCurrency(depositReceived)}
-                  </span>
-                </div>
-                <div>
-                  <strong>
-                    Total Due:
+          <div className="bottom-section">
+            {currentPage === Math.max(0, totalPages - 1) && (
+              <div className="bottom-block">
+                <div className="totals">
+                  <div>
+                    Subtotal: <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div>
+                    Deposit received:
                     <span
                       contentEditable
                       suppressContentEditableWarning
-                      onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                      onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
                     >
-                      {formatCurrency(totalDue)}
+                      {formatCurrency(depositReceived)}
                     </span>
-                  </strong>
+                  </div>
+                  <div>
+                    <strong>
+                      Total Due:
+                      <span
+                        contentEditable
+                        suppressContentEditableWarning
+                        onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                      >
+                        {formatCurrency(totalDue)}
+                      </span>
+                    </strong>
+                  </div>
+                </div>
+
+                <div
+                  className="notes"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
+                  dangerouslySetInnerHTML={{ __html: notes }}
+                />
+
+                <div className="footer" contentEditable suppressContentEditableWarning>
+                  {project?.company || "Company Name"}
                 </div>
               </div>
+            )}
 
-              <div
-                className="notes"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-                dangerouslySetInnerHTML={{ __html: notes }}
-              />
-
-              <div className="footer" contentEditable suppressContentEditableWarning>
-                {project?.company || "Company Name"}
-              </div>
+            <div className="pageNumber">
+              Page {currentPage + 1} of {totalPages || 1}
             </div>
-          )}
-
-          <div className="pageNumber">
-            Page {currentPage + 1} of {totalPages || 1}
           </div>
         </div>
       </div>
