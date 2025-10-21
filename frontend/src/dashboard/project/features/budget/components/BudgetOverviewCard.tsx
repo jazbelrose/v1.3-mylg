@@ -290,9 +290,13 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         zIndex: 2,
       }}
     >
-      <div className="budget-overview-summary">
+      <div
+        className={`budget-overview-summary${
+          overviewLoading ? " budget-overview-summary--loading" : ""
+        }`}
+      >
         <span className="budget-overview-header" style={{ paddingLeft: "6px" }}>
-          
+
           Budget
           {displayedRevision != null && (
             <span className="budget-overview-revision">{`Rev.${displayedRevision}`}</span>
@@ -300,12 +304,14 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         </span>
 
         {overviewLoading ? (
-          <FontAwesomeIcon
-            icon={faSpinner}
-            spin
-            className="budget-overview-spinner"
-            aria-label="Loading budget"
-          />
+          <div className="budget-overview-loading" role="status" aria-live="polite">
+            <FontAwesomeIcon
+              icon={faSpinner}
+              spin
+              className="budget-overview-spinner"
+              aria-label="Loading budget"
+            />
+          </div>
         ) : (
           <>
             <span className="budget-overview-amount">
@@ -344,13 +350,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
       </div>
 
       {overviewLoading ? (
-        <div
-          style={{
-            marginTop: "16px",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
+        <div className="chart-legend-container budget-overview-chart--loading" role="status" aria-live="polite">
           <FontAwesomeIcon icon={faSpinner} spin aria-label="Loading chart" />
         </div>
       ) : (
