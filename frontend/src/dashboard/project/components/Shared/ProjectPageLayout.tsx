@@ -228,6 +228,27 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
   const headerOffset = headerHeights.global + headerHeights.project;
   const contentHeight = `calc(${viewportUnit} - ${headerOffset}px)`;
 
+  const layoutStyles = React.useMemo<React.CSSProperties>(
+    () => ({
+      height: isMobile ? undefined : contentHeight,
+      minHeight: isMobile ? contentHeight : 0,
+      flexDirection: isMobile ? "column" : "row",
+      overflow: isMobile ? "visible" : "hidden",
+    }),
+    [contentHeight, isMobile]
+  );
+
+  const contentContainerStyles = React.useMemo<React.CSSProperties>(
+    () => ({
+      flex: 1,
+      minWidth: 0,
+      minHeight: 0,
+      overflowY: isMobile ? "visible" : "auto",
+      overflowX: "hidden",
+    }),
+    [isMobile]
+  );
+
   const handleSetActiveView = React.useCallback(() => {}, []);
   const handleToggleNavigationCollapse = React.useCallback(() => {
     setIsNavCollapsed((prev) => !prev);
@@ -257,24 +278,8 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
         ) : null}
       </div>
 
-      <div
-        className="dashboard-layout"
-        ref={layoutRef}
-        style={{
-          height: contentHeight,
-          flexDirection: isMobile ? "column" : "row",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            minHeight: 0,
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
-        >
+      <div className="dashboard-layout" ref={layoutRef} style={layoutStyles}>
+        <div style={contentContainerStyles}>
           {children}
         </div>
 
