@@ -327,13 +327,13 @@
   }
 
   .global-search-input-container {
-    min-height: 40px;
-    padding-inline: 2px;
+    min-height: 30px;
+    padding-inline: 3px;
   }
 
   .global-search-input {
-    padding: 10px 44px 10px 38px;
-    min-height: 40px;
+    padding: 3px 39px 3px 33px;
+    min-height: 30px;
     font-size: 14px;
   }
 
