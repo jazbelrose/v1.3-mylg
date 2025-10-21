@@ -84,7 +84,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const showGlobalSearchInHeader = !isMobile;
+  // Always show global search in the welcome header, regardless of viewport size
+  const showGlobalSearchInHeader = true;
 
   const handleHomeClick = () => navigate('/');
   const handleNotificationsToggle = () => setNotificationsOpen(!notificationsOpen);
