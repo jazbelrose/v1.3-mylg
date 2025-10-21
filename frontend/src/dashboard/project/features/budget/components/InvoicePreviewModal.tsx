@@ -100,6 +100,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [notes, setNotes] = useState(DEFAULT_NOTES_HTML);
   const [depositReceived, setDepositReceived] = useState<number>(0);
   const [totalDue, setTotalDue] = useState<number>(0);
+  const [measuredRowHeights, setMeasuredRowHeights] = useState<number[]>([]);
 
   const [savedInvoices, setSavedInvoices] = useState<SavedInvoice[]>([]);
   const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(() => new Set());
@@ -443,8 +444,13 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
-    const pageHeight = 1122;
-    const pageNumberHeight = 40;
+    const pageEl = invoiceRef.current.querySelector(".invoice-page") as HTMLElement | null;
+    const measuredPageHeight = pageEl?.getBoundingClientRect().height;
+    const pageHeight = Math.ceil(measuredPageHeight || 1122);
+
+    const pageNumber = invoiceRef.current.querySelector(".pageNumber") as HTMLElement | null;
+    const pageNumberHeight = Math.ceil(pageNumber?.getBoundingClientRect().height || 0);
+
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
@@ -469,13 +475,15 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const rowEls = Array.from(
       invoiceRef.current.querySelectorAll(".items-table tbody tr")
     ) as HTMLElement[];
+    const rowHeights = rowEls.map((el) => Math.ceil(el.getBoundingClientRect().height));
+    setMeasuredRowHeights(rowHeights);
 
     let available = Math.max(pageHeight - staticHeights, 0);
     const pagesAccum: RowData[][] = [];
     let current: RowData[] = [];
 
     rowEls.forEach((row, idx) => {
-      const rowHeight = row.offsetHeight;
+      const rowHeight = rowHeights[idx] ?? row.offsetHeight;
       const isLast = idx === rowEls.length - 1;
       const needed = rowHeight + (isLast ? bottomHeight : 0);
       if (needed > available && current.length) {
@@ -496,6 +504,15 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     if (!same) setPages(pagesAccum);
   }, [rowsData]);
 
+  const pageOffsets = useMemo(() => {
+    let offset = 0;
+    return pages.map((p) => {
+      const current = offset;
+      offset += p.length;
+      return current;
+    });
+  }, [pages]);
+
   useEffect(() => {
     setSelectedPages(pages.map((_, i) => i));
     setCurrentPage(0);
@@ -513,13 +530,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, i) => i);
 
     const htmlPages = pageIndexes
-      .map((idx) => {
-        const pageRows = pages[idx] || [];
+      .map((pageIndex) => {
+        const pageRows = pages[pageIndex] || [];
+        const pageOffset = pageOffsets[pageIndex] ?? 0;
         const rowsHtml = pageRows
-          .map((row) =>
-            row.type === "group"
-              ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
-              : `<tr>
+          .map((row, localIdx) => {
+            const globalIdx = pageOffset + localIdx;
+            const height = measuredRowHeights[globalIdx];
+            const heightStyle = height ? ` style="height:${height}px"` : "";
+
+            if (row.type === "group") {
+              return `<tr class="group-header"${heightStyle}><td colSpan="5">${row.group}</td></tr>`;
+            }
+
+            return `<tr${heightStyle}>
                    <td>${row.item.description || ""}</td>
                    <td>${row.item.quantity || ""}</td>
                    <td>${row.item.unit || ""}</td>
@@ -530,8 +554,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                    <td>${formatCurrency(
                      parseFloat(String(row.item.itemFinalCost || 0)) || 0
                    )}</td>
-                 </tr>`
-          )
+                 </tr>`;
+          })
           .join("");
 
         const headerName = brandName || project?.company || "Company Name";
@@ -565,7 +589,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           : "";
 
         const totalsHtml =
-          idx === pages.length - 1
+          pageIndex === pages.length - 1
             ? `<div class="bottom-block">
                  <div class="totals">
                    <div>Subtotal: <span>${formatCurrency(subtotal)}</span></div>
@@ -578,10 +602,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             : "";
 
         return `
-          <div class="invoice-page invoice-container">
-            <div class="invoice-top">
-              <div class="invoice-header">
-                <div>${logoHtml}</div>
+          <div class="invoice-container">
+            <div class="invoice-page">
+              <div class="invoice-top">
+                <div class="invoice-header">
+                  <div>${logoHtml}</div>
                 <div class="company-info">
                   <div class="brand-name">${headerName}</div>
                   ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
@@ -624,8 +649,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 <tbody>${rowsHtml}</tbody>
               </table>
             </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+              ${totalsHtml}
+              <div class="pageNumber">Page ${pageIndex + 1} of ${pages.length}</div>
+            </div>
           </div>
         `;
       })
@@ -669,9 +695,33 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     frameDoc.write(html);
     frameDoc.close();
 
-    iframe.onload = () => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
+    iframe.onload = async () => {
+      const win = iframe.contentWindow;
+      const doc = win?.document;
+      if (!win || !doc) return;
+
+      try {
+        await (doc as unknown as { fonts?: { ready: Promise<void> } }).fonts?.ready;
+      } catch {
+        // Ignore font readiness errors; printing should proceed regardless.
+      }
+
+      const imgs = Array.from(doc.images || []) as HTMLImageElement[];
+      await Promise.all(
+        imgs.map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise<void>((res) => {
+            img.onload = () => res();
+            img.onerror = () => res();
+          });
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      win.focus();
+      win.print();
+
       setTimeout(() => {
         document.body.removeChild(iframe);
       }, 0);
