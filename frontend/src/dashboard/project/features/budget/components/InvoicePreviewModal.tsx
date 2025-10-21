@@ -444,20 +444,33 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
     const pageHeight = 1122;
+    const pageNumberHeight = 40;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
     const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
     const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
+    const bottomBlock = invoiceRef.current.querySelector(".bottom-block") as HTMLElement | null;
+
+    const getTotalHeight = (el: HTMLElement | null) => {
+      if (!el) return 0;
+      const style = window.getComputedStyle(el);
+      const marginTop = parseFloat(style.marginTop || "0");
+      const marginBottom = parseFloat(style.marginBottom || "0");
+      return el.offsetHeight + marginTop + marginBottom;
+    };
 
     const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
-    const bottomHeight = (totals?.offsetHeight || 0) + (notesEl?.offsetHeight || 0) + (footer?.offsetHeight || 0);
+    const bottomHeight =
+      getTotalHeight(bottomBlock) ||
+      getTotalHeight(totals) + getTotalHeight(notesEl) + getTotalHeight(footer);
+    const staticHeights = topHeight + pageNumberHeight;
 
     const rowEls = Array.from(
       invoiceRef.current.querySelectorAll(".items-table tbody tr")
     ) as HTMLElement[];
 
-    let available = pageHeight - topHeight;
+    let available = Math.max(pageHeight - staticHeights, 0);
     const pagesAccum: RowData[][] = [];
     let current: RowData[] = [];
 
@@ -468,7 +481,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       if (needed > available && current.length) {
         pagesAccum.push(current);
         current = [];
-        available = pageHeight - topHeight;
+        available = Math.max(pageHeight - staticHeights, 0);
       }
       current.push(rowsData[idx]);
       available -= rowHeight;
