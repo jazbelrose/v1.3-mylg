@@ -319,7 +319,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         @page { margin: 0; }
         body { margin: 0; }
         .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
-        .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px 20px 60px;box-sizing:border-box;position:relative;overflow-x:hidden;display:flex;flex-direction:column;}
+        .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px 20px 60px;box-sizing:border-box;overflow-x:hidden;display:flex;flex-direction:column;}
         .invoice-header{display:flex;align-items:flex-start;gap:20px;}
         .logo-upload{width:100px;height:100px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
         .logo-upload img{max-width:100%;max-height:100%;}
@@ -343,7 +343,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .totals{margin-top:20px;margin-left:auto;}
         .notes{margin-top:20px;}
         .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-        .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
+        .pageNumber{margin-top:auto;padding-top:16px;min-height:32px;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media screen and (max-width:768px){
           .invoice-container{padding:16px;width:100%;}
           .invoice-page{padding:16px 16px 56px;width:100%;min-height:auto;}
@@ -423,6 +423,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           <div className="footer" contentEditable suppressContentEditableWarning>
             {project?.company || "Company Name"}
           </div>
+        </div>
+
+        <div className="pageNumber" aria-hidden="true">
+          Page 1 of 1
         </div>
       </div>
 
