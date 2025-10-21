@@ -138,6 +138,26 @@
   background: none;
 }
 
+.global-search-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.global-search-spinner .spinner-container {
+  width: 20px;
+  height: 20px;
+}
+
+.global-search-spinner .spin {
+  width: 4px;
+  height: 4px;
+}
+
 .global-search-result-icon {
   display: flex;
   align-items: center;

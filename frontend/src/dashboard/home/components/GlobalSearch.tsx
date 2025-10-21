@@ -10,6 +10,7 @@ import type { AppUser } from '@/dashboard/features/messages/types';
 import { getUserDisplayName, getUserThumbnail } from '@/dashboard/features/messages/utils/userHelpers';
 import SVGThumbnail from './SvgThumbnail';
 import Squircle from '@/shared/ui/Squircle';
+import Spinner from '@/shared/ui/Spinner';
 
 interface HighlightPart {
   text: string;
@@ -519,38 +520,50 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
     return () => clearTimeout(timeoutId);
   }, [query, performSearch]);
 
-  const handleResultClick = async (result: SearchResult) => {
+  const preloadProjectDetails = useCallback(
+    (projectId: string, logMessage: string) => {
+      if (!fetchProjectDetails) return;
+
+      try {
+        const maybePromise = fetchProjectDetails(projectId);
+        if (maybePromise && typeof (maybePromise as Promise<unknown>).catch === 'function') {
+          (maybePromise as Promise<unknown>).catch((error) => {
+            console.error(logMessage, error);
+          });
+        }
+      } catch (error) {
+        console.error(logMessage, error);
+      }
+    },
+    [fetchProjectDetails]
+  );
+
+  const handleResultClick = (result: SearchResult) => {
     setIsOpen(false);
     setQuery('');
     setSelectedIndex(-1);
+    setLoading(false);
+    setResults([]);
     if (onNavigate) {
       onNavigate();
     }
 
     if (result.type === 'project' && result.projectId) {
-      try {
-        if (fetchProjectDetails) {
-          await fetchProjectDetails(result.projectId);
-        }
-        const project = projects?.find((p: Project) => p.projectId === result.projectId);
-        const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
-        navigate(path);
-      } catch (error) {
-        console.error('Error navigating to project:', error);
-      }
+      const project = projects?.find((p: Project) => p.projectId === result.projectId);
+      const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+
+      preloadProjectDetails(result.projectId, 'Error preloading project details:');
+
+      navigate(path);
     } else if (result.type === 'message' && result.projectId) {
-      try {
-        if (fetchProjectDetails) {
-          await fetchProjectDetails(result.projectId);
-        }
-        const project = projects?.find((p: Project) => p.projectId === result.projectId);
-        const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
-        navigate(path, {
-          state: { highlightMessage: result.messageId }
-        });
-      } catch (error) {
-        console.error('Error navigating to message:', error);
-      }
+      const project = projects?.find((p: Project) => p.projectId === result.projectId);
+      const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+
+      preloadProjectDetails(result.projectId, 'Error preloading project details for message:');
+
+      navigate(path, {
+        state: { highlightMessage: result.messageId }
+      });
     } else if (result.type === 'collaborator' && result.userId) {
       try {
         const collaborator = allUsers.find(user => user.userId === result.userId);
@@ -624,9 +637,9 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
       {isOpen && (query || results.length > 0) && (
         <div className="global-search-results">
           {loading && (
-            <div className="global-search-result loading">
-              <div className="global-search-result-icon">
-                <Search size={16} />
+            <div className="global-search-result loading" role="status" aria-live="polite">
+              <div className="global-search-spinner" aria-hidden>
+                <Spinner className="global-search-spinner__indicator" />
               </div>
               <div className="global-search-result-content">
                 <div className="global-search-result-title">Searching...</div>
