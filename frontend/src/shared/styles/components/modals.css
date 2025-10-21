@@ -5,6 +5,10 @@
   z-index: 16000 !important;
 }
 
+.ReactModal__Overlay {
+  z-index: 17000 !important;
+}
+
 body.ReactModal__Body--open .dashboard-wrapper {
   filter: blur(4px);
   transition: filter 0.3s ease-in-out;

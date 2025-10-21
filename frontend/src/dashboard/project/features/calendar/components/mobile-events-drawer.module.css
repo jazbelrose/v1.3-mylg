@@ -2,7 +2,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 14000;
+  z-index: 11000;
   --drawer-top-gap: max(72px, calc(env(safe-area-inset-top, 0px) + 56px));
   display: flex;
   align-items: flex-end;
