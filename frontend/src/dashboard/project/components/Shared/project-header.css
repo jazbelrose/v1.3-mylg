@@ -385,6 +385,15 @@
   gap: 10px;
   min-width: 0;
   flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.project-header:not(.new-project-header) .project-title-row .project-title-heading {
+  min-width: 0;
+}
+
+.project-header:not(.new-project-header) .project-title-row .finish-line-header {
+  margin-left: auto;
 }
 
 .project-header:not(.new-project-header) .project-settings-button {
