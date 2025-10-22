@@ -134,7 +134,7 @@ const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
               type="button"
               className={styles.linkButton}
               onClick={() => onLoadInvoice(inv.url)}
-              title="Load invoice"
+              title="Open invoice"
             >
               {inv.name}
             </button>

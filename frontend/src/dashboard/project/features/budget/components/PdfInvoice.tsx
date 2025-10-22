@@ -186,10 +186,51 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 700,
   },
-  notes: {
+  notesContainer: {
     marginTop: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  notesParagraph: {
     fontSize: 10,
-    lineHeight: 1.5,
+    lineHeight: 1.4,
+  },
+  notesList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    marginBottom: 4,
+    paddingLeft: 12,
+  },
+  notesListItem: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
+  },
+  notesBullet: {
+    width: 12,
+    fontSize: 10,
+    lineHeight: 1.4,
+  },
+  notesListItemText: {
+    flex: 1,
+    fontSize: 10,
+    lineHeight: 1.4,
+  },
+  notesBold: {
+    fontWeight: 700,
+  },
+  notesItalic: {
+    fontStyle: "italic",
+  },
+  notesUnderline: {
+    textDecoration: "underline",
+  },
+  notesLink: {
+    color: "#4ea1ff",
+    textDecoration: "underline",
   },
   footer: {
     marginTop: 24,
@@ -252,6 +293,208 @@ const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string =>
   return getFileUrl(brandLogoKey);
 };
 
+const normalizeText = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const normalized = value.replace(/\s+/g, " ");
+  if (!normalized.trim()) return null;
+  return normalized;
+};
+
+const renderInlineChildren = (
+  nodes: NodeListOf<ChildNode>,
+  keyPrefix: string
+): React.ReactNode[] => {
+  const parts: React.ReactNode[] = [];
+  nodes.forEach((child, index) => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const text = normalizeText(child.textContent);
+      if (text) {
+        parts.push(<Text key={`${keyPrefix}-text-${index}`}>{text}</Text>);
+      }
+      return;
+    }
+
+    if (!(child instanceof Element)) {
+      return;
+    }
+
+    const tag = child.tagName.toLowerCase();
+
+    if (tag === "br") {
+      parts.push(<Text key={`${keyPrefix}-br-${index}`}>{"\n"}</Text>);
+      return;
+    }
+
+    const nested = renderInlineChildren(child.childNodes, `${keyPrefix}-${index}`);
+    if (nested.length === 0) {
+      const fallback = normalizeText(child.textContent);
+      if (fallback) {
+        parts.push(<Text key={`${keyPrefix}-text-${index}`}>{fallback}</Text>);
+      }
+      return;
+    }
+
+    if (tag === "strong" || tag === "b") {
+      parts.push(
+        <Text key={`${keyPrefix}-bold-${index}`} style={styles.notesBold}>
+          {nested}
+        </Text>
+      );
+      return;
+    }
+
+    if (tag === "em" || tag === "i") {
+      parts.push(
+        <Text key={`${keyPrefix}-italic-${index}`} style={styles.notesItalic}>
+          {nested}
+        </Text>
+      );
+      return;
+    }
+
+    if (tag === "u") {
+      parts.push(
+        <Text key={`${keyPrefix}-underline-${index}`} style={styles.notesUnderline}>
+          {nested}
+        </Text>
+      );
+      return;
+    }
+
+    if (tag === "a") {
+      parts.push(
+        <Text key={`${keyPrefix}-link-${index}`} style={styles.notesLink}>
+          {nested}
+        </Text>
+      );
+      return;
+    }
+
+    parts.push(
+      <Text key={`${keyPrefix}-span-${index}`}>
+        {nested}
+      </Text>
+    );
+  });
+  return parts;
+};
+
+const renderBlockNode = (node: ChildNode, index: number): React.ReactNode | null => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = normalizeText(node.textContent);
+    if (!text) return null;
+    return (
+      <Text key={`text-${index}`} style={styles.notesParagraph}>
+        {text}
+      </Text>
+    );
+  }
+
+  if (!(node instanceof Element)) {
+    return null;
+  }
+
+  const tag = node.tagName.toLowerCase();
+
+  if (tag === "ul" || tag === "ol") {
+    const items = Array.from(node.children)
+      .filter((child) => child.tagName.toLowerCase() === "li")
+      .map((child, itemIndex) => {
+        const li = child as Element;
+        const inline = renderInlineChildren(li.childNodes, `li-${index}-${itemIndex}`);
+        const fallbackText = normalizeText(li.textContent);
+        const content = inline.length
+          ? inline
+          : fallbackText
+          ? [<Text key={`li-text-${index}-${itemIndex}`}>{fallbackText}</Text>]
+          : [];
+        if (!content.length) return null;
+        const bullet = tag === "ol" ? `${itemIndex + 1}.` : "\u2022";
+        return (
+          <View key={`li-${index}-${itemIndex}`} style={styles.notesListItem}>
+            <Text style={styles.notesBullet}>{bullet}</Text>
+            <Text style={styles.notesListItemText}>{content}</Text>
+          </View>
+        );
+      })
+      .filter(Boolean) as React.ReactNode[];
+
+    if (!items.length) return null;
+    return (
+      <View key={`list-${index}`} style={styles.notesList}>
+        {items}
+      </View>
+    );
+  }
+
+  if (tag === "br") {
+    return (
+      <Text key={`br-block-${index}`} style={styles.notesParagraph}>
+        {"\n"}
+      </Text>
+    );
+  }
+
+  const inline = renderInlineChildren(node.childNodes, `block-${index}`);
+  if (inline.length === 0) {
+    const fallback = normalizeText(node.textContent);
+    if (!fallback) return null;
+    return (
+      <Text key={`block-${index}`} style={styles.notesParagraph}>
+        {fallback}
+      </Text>
+    );
+  }
+
+  return (
+    <Text key={`block-${index}`} style={styles.notesParagraph}>
+      {inline}
+    </Text>
+  );
+};
+
+const buildNotesContent = (html: string): React.ReactNode[] => {
+  if (!html) return [];
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    const fallback = toPlainText(html);
+    return fallback ? [
+      <Text key="plain" style={styles.notesParagraph}>
+        {fallback}
+      </Text>,
+    ] : [];
+  }
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const nodes = Array.from(doc.body.childNodes);
+    const rendered = nodes
+      .map((node, index) => renderBlockNode(node, index))
+      .filter(Boolean) as React.ReactNode[];
+    if (rendered.length === 0) {
+      const fallback = toPlainText(html);
+      return fallback
+        ? [
+            <Text key="plain" style={styles.notesParagraph}>
+              {fallback}
+            </Text>,
+          ]
+        : [];
+    }
+    return rendered;
+  } catch (err) {
+    console.error("Failed to render notes html", err);
+    const fallback = toPlainText(html);
+    return fallback
+      ? [
+          <Text key="plain" style={styles.notesParagraph}>
+            {fallback}
+          </Text>,
+        ]
+      : [];
+  }
+};
+
 const PdfInvoice: React.FC<PdfInvoiceProps> = ({
   brandName,
   brandTagline,
@@ -275,7 +518,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
   notes,
 }) => {
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
-  const notesText = useMemo(() => toPlainText(notes), [notes]);
+  const notesContent = useMemo(() => buildNotesContent(notes), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
 
   const renderItemRow = (item: BudgetItem, key: string | number) => {
@@ -395,7 +638,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
           </View>
         </View>
 
-        {notesText ? <Text style={styles.notes}>{notesText}</Text> : null}
+        {notesContent.length ? <View style={styles.notesContainer}>{notesContent}</View> : null}
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 

@@ -159,74 +159,197 @@
 }
 .previewWrapper {
   position: relative;
-  overflow: auto;
   flex: 1 0 850px;
   min-width: 850px;
-  background: #fff;
-  color: #000;
+  overflow: hidden;
   padding: 10px;
+  background: transparent;
+  display: flex;
+}
+
+.previewLayout {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+
+.formColumn {
+  flex: 0 0 360px;
+  max-width: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formSection {
+  background: #1a1a1a;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.textInput,
+.textArea,
+.richTextInput {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+}
+
+.textInput:disabled,
+.textArea:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.textArea {
+  min-height: 72px;
+}
+
+.richTextInput {
+  min-height: 120px;
+  overflow-y: auto;
+}
+
+.richTextInput:focus,
+.textInput:focus,
+.textArea:focus {
+  outline: none;
+  border-color: #4ea1ff;
+  box-shadow: 0 0 0 2px rgba(78, 161, 255, 0.25);
+}
+
+.inlineFields {
+  display: flex;
+  gap: 12px;
+}
+
+.inlineFields .fieldGroup {
+  flex: 1;
+}
+
+.checkboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.logoInput {
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
-}
-
-.previewViewport {
-  width: 100%;
-  max-width: 210mm;
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.previewViewport :global(.invoice-page) {
-  width: 100%;
-  max-width: 210mm;
-  transition: transform 0.2s ease;
-}
-
-.pdfPreviewOverlay {
-  position: absolute;
-  inset: 12px;
-  background: rgba(18, 18, 18, 0.92);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
+  width: 120px;
+  height: 120px;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
   border-radius: 12px;
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
-  padding: 16px;
-  z-index: 2;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.pdfPreviewHeader {
+.logoInput:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.logoInput img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.readonlyValue {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+
+.previewColumn {
+  flex: 1;
+  background: #111111;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.previewHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
   margin-bottom: 12px;
-  font-weight: 600;
 }
 
-.pdfPreviewHeader button {
-  background: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.pdfPreviewCanvasWrapper {
+.previewCanvasWrapper {
   flex: 1;
-  overflow: auto;
   background: #1f1f1f;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
 }
 
 .pdfPreviewCanvas {
   max-width: 100%;
   border-radius: 6px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.previewPlaceholder {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.hiddenInvoice {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  width: 210mm;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .groupSelect,
