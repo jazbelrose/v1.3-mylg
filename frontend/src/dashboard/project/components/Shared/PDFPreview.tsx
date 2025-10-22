@@ -1,11 +1,18 @@
 ﻿// PDFPreview.tsx
 import React, { useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
-import pdfWorkerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+import pdfWorkerFactory from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker';
 import { normalizeFileUrl } from '@/shared/utils/api';
 
-// Set the worker (required by pdf.js)
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+// Set the worker (required by pdf.js). Using the worker factory avoids relying on
+// script URLs which can fail to load in the Vite dev server and lead to a blank
+// preview canvas.
+if (typeof window !== 'undefined') {
+  const PdfWorker = pdfWorkerFactory as unknown as { new (): Worker };
+  if (!pdfjsLib.GlobalWorkerOptions.workerPort) {
+    pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+  }
+}
 
 type PDFPreviewProps = {
   url: string;
