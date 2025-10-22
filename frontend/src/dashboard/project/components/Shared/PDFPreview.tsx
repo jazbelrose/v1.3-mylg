@@ -15,6 +15,8 @@ type PDFPreviewProps = {
   page?: number;
   /** Render scale for the canvas. Defaults to 1.5. */
   scale?: number;
+  /** Callback fired when the PDF document has loaded. */
+  onDocumentLoad?: (info: { totalPages: number }) => void;
 };
 
 const resolvePdfUrl = (input: string): string => {
@@ -29,6 +31,7 @@ const PDFPreview: React.FC<PDFPreviewProps> = ({
   title = 'PDF preview',
   page = 1,
   scale = 1.5,
+  onDocumentLoad,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -49,6 +52,10 @@ const PDFPreview: React.FC<PDFPreviewProps> = ({
         if (!task) return;
         const pdf = await task.promise;
         if (cancelled) return;
+
+        if (onDocumentLoad) {
+          onDocumentLoad({ totalPages: pdf.numPages || 0 });
+        }
 
         const pg = await pdf.getPage(page);
         if (cancelled) return;
@@ -79,7 +86,7 @@ const PDFPreview: React.FC<PDFPreviewProps> = ({
         }
       }
     };
-  }, [url, page, scale]);
+  }, [url, page, scale, onDocumentLoad]);
 
   return (
     <canvas

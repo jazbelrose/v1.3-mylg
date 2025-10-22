@@ -110,8 +110,7 @@
   flex: 1;
   display: flex;
   gap: 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   min-width: calc(850px + 280px + 10px);
 }
 .sidebar {
@@ -159,74 +158,175 @@
 }
 .previewWrapper {
   position: relative;
-  overflow: auto;
   flex: 1 0 850px;
   min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
-}
-
-.previewViewport {
-  width: 100%;
-  max-width: 210mm;
-  display: flex;
-  justify-content: center;
+  gap: 12px;
+  color: #111;
   overflow: hidden;
 }
 
-.previewViewport :global(.invoice-page) {
+.previewLayout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  gap: 16px;
+  align-items: flex-start;
   width: 100%;
-  max-width: 210mm;
-  transition: transform 0.2s ease;
+  height: 100%;
 }
 
-.pdfPreviewOverlay {
-  position: absolute;
-  inset: 12px;
-  background: rgba(18, 18, 18, 0.92);
-  color: #fff;
+.editorPanel {
+  background: #f4f5f7;
+  border-radius: 12px;
+  padding: 16px;
+  color: #111;
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
-  padding: 16px;
-  z-index: 2;
+  gap: 16px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
-.pdfPreviewHeader {
+.sectionTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.editorGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logoDropZone {
+  width: 128px;
+  height: 128px;
+  border: 2px dashed #c5c7d0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #fff;
+  color: #555;
+  font-weight: 500;
+  gap: 8px;
+}
+
+.logoDropZone img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.editorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.editorGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.editorGrid input,
+.editorGrid textarea {
+  border: 1px solid #d0d3da;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #111;
+  background: #fff;
+}
+
+.editorGrid textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.gridFull {
+  grid-column: 1 / -1;
+}
+
+.pdfPanel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.pdfHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  font-weight: 600;
 }
 
-.pdfPreviewHeader button {
-  background: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-weight: 600;
+.pdfHeader h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #111;
 }
 
-.pdfPreviewCanvasWrapper {
+.pdfStatus {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.pdfCanvasWrapper {
   flex: 1;
   overflow: auto;
-  background: #1f1f1f;
-  border-radius: 10px;
-  padding: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .pdfPreviewCanvas {
-  max-width: 100%;
+  width: 100%;
+  max-width: 210mm;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
   border-radius: 6px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  background: #fff;
+}
+
+.pdfPlaceholder {
+  width: 100%;
+  min-height: 420px;
+  border: 2px dashed #d0d3da;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.hiddenPreview {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  width: 210mm;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .groupSelect,
@@ -322,7 +422,7 @@
 
   .contentRow {
     min-width: 0;
-    overflow-x: visible;
+    overflow: visible;
   }
 
   .previewWrapper {
@@ -330,8 +430,8 @@
     min-width: 0;
   }
 
-  .previewViewport {
-    max-width: 100%;
+  .previewLayout {
+    grid-template-columns: minmax(280px, 340px) 1fr;
   }
 }
 
@@ -348,36 +448,22 @@
   }
 
   .previewWrapper {
-    order: 1;
     width: 100%;
-    padding: 0;
-    background: transparent;
-    overflow: visible;
+    min-width: 0;
   }
 
-  .previewViewport {
-    overflow: visible;
+  .previewLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
-  .previewViewport :global(.invoice-page) {
-    padding: 14px 14px 54px;
+  .pdfPanel {
+    order: 1;
   }
 
-  .previewViewport :global(.invoice-header) {
-    gap: 12px;
-  }
-
-  .previewViewport :global(.invoice-title) {
-    font-size: 1.6rem;
-  }
-
-  .previewViewport :global(.billing-info) {
-    font-size: 0.82rem;
-  }
-
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
-    padding: 6px;
+  .editorPanel {
+    order: 2;
   }
 
   .sidebar {
@@ -419,52 +505,17 @@
     gap: 8px;
   }
 
-  .previewWrapper {
-    align-items: stretch;
+  .previewLayout {
+    gap: 12px;
   }
 
-  .previewViewport {
-    padding-bottom: 16px;
+  .editorPanel,
+  .pdfPanel {
+    padding: 12px;
   }
 
-  .previewViewport :global(.invoice-page) {
-    padding: 12px 12px 48px;
-  }
-
-  .previewViewport :global(.invoice-header) {
-    gap: 10px;
-  }
-
-  .previewViewport :global(.invoice-title) {
-    font-size: 1.4rem;
-  }
-
-  .previewViewport :global(.company-info),
-  .previewViewport :global(.billing-info) {
-    font-size: 0.78rem;
-  }
-
-  .previewViewport :global(.summary) {
-    gap: 10px;
-  }
-
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
-    font-size: 0.78rem;
-    padding: 5px;
-  }
-
-  .previewViewport :global(.bottom-block) {
-    margin-bottom: 24px;
-  }
-
-  .invoice-container,
-  .invoice-page {
-    width: 100%;
-  }
-
-  .invoice-page {
-    padding: 16px 16px 52px;
+  .editorGrid {
+    grid-template-columns: 1fr;
   }
 }
 
