@@ -79,8 +79,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
-  const currentRows = pages[currentPage] || [];
-
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
   const [brandAddress, setBrandAddress] = useState("");
@@ -1017,7 +1015,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   paymentSummary={paymentSummary}
                   onPaymentSummaryBlur={handlePaymentSummaryBlur}
                   rowsData={rowsData}
-                  currentRows={currentRows}
                   currentPage={currentPage}
                   totalPages={pages.length}
                   subtotal={subtotal}
