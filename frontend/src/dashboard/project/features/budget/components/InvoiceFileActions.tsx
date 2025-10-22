@@ -1,6 +1,11 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faFilePdf, faSave } from "@fortawesome/free-solid-svg-icons";
+import {
+  faEye,
+  faFilePdf,
+  faPenToSquare,
+  faSave,
+} from "@fortawesome/free-solid-svg-icons";
 
 import styles from "./invoice-preview-modal.module.css";
 
@@ -10,6 +15,8 @@ interface InvoiceFileActionsProps {
   onSave: () => void;
   onSavePdf: () => void;
   onPreviewPdf: () => void;
+  onToggleEditing: () => void;
+  isEditing: boolean;
 }
 
 const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
@@ -18,10 +25,19 @@ const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
   onSave,
   onSavePdf,
   onPreviewPdf,
+  onToggleEditing,
+  isEditing,
 }) => (
   <div className={styles.currentFileRow}>
     <div className={styles.fileName}>{fileName || "Unsaved Invoice"}</div>
     <div className={styles.buttonGroup}>
+      <button
+        className={styles.iconButton}
+        onClick={onToggleEditing}
+        aria-label={isEditing ? "Hide editing overlay" : "Show editing overlay"}
+      >
+        <FontAwesomeIcon icon={faPenToSquare} />
+      </button>
       {allowSave && (
         <button
           className={styles.iconButton}

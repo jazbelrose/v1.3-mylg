@@ -54,7 +54,7 @@ interface InvoicePreviewContentProps {
   notes: string;
   onNotesBlur: (value: string) => void;
   pdfPreviewUrl: string | null;
-  onClosePdfPreview: () => void;
+  isEditing: boolean;
 }
 
 const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
@@ -104,7 +104,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   notes,
   onNotesBlur,
   pdfPreviewUrl,
-  onClosePdfPreview,
+  isEditing,
 }) => {
   const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
@@ -320,23 +320,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
   return (
     <div className={styles.previewWrapper} ref={previewRef}>
-      {pdfPreviewUrl ? (
-        <div className={styles.pdfPreviewOverlay}>
-          <div className={styles.pdfPreviewHeader}>
-            <span>PDF Preview</span>
-            <button type="button" onClick={onClosePdfPreview}>
-              Close
-            </button>
-          </div>
-          <div className={styles.pdfPreviewCanvasWrapper}>
-            <PDFPreview
-              url={pdfPreviewUrl}
-              page={Math.max(1, currentPage + 1)}
-              className={styles.pdfPreviewCanvas}
-            />
-          </div>
-        </div>
-      ) : null}
       <style id="invoice-preview-styles">{`
         @page { margin: 0; }
         body { margin: 0; }
@@ -448,61 +431,86 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </div>
 
-      <div className="invoice-container">
-        <div className="invoice-page">
-          {renderHeader()}
+      <div className={styles.pdfLayer}>
+        {pdfPreviewUrl ? (
+          <PDFPreview
+            url={pdfPreviewUrl}
+            page={Math.max(1, currentPage + 1)}
+            className={styles.pdfPreviewCanvas}
+            scale={1.2}
+          />
+        ) : (
+          <div className={styles.pdfPlaceholder} role="status">
+            Building PDF preview…
+          </div>
+        )}
+      </div>
 
-          {renderSummary(currentRows, `page-${currentPage}`)}
+      {!isEditing && (
+        <div className={styles.previewHint} role="status">
+          Use the edit button to update invoice details. Changes appear in this PDF preview automatically.
+        </div>
+      )}
 
-          {currentPage === Math.max(0, totalPages - 1) && (
-            <div className="bottom-block">
-              <div className="totals">
-                <div>
-                  Subtotal: <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div>
-                  Deposit received:
-                  <span
+      {isEditing && (
+        <div className={styles.editorOverlay}>
+          <div className={`${styles.editorSheet} invoice-container`}>
+            <div className="invoice-page">
+              {renderHeader()}
+
+              {renderSummary(currentRows, `page-${currentPage}`)}
+
+              {currentPage === Math.max(0, totalPages - 1) && (
+                <div className="bottom-block">
+                  <div className="totals">
+                    <div>
+                      Subtotal: <span>{formatCurrency(subtotal)}</span>
+                    </div>
+                    <div>
+                      Deposit received:
+                      <span
+                        contentEditable
+                        suppressContentEditableWarning
+                        onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
+                      >
+                        {formatCurrency(depositReceived)}
+                      </span>
+                    </div>
+                    <div>
+                      <strong>
+                        Total Due:
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                        >
+                          {formatCurrency(totalDue)}
+                        </span>
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div
+                    className="notes"
                     contentEditable
                     suppressContentEditableWarning
-                    onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-                  >
-                    {formatCurrency(depositReceived)}
-                  </span>
-                </div>
-                <div>
-                  <strong>
-                    Total Due:
-                    <span
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
-                    >
-                      {formatCurrency(totalDue)}
-                    </span>
-                  </strong>
-                </div>
-              </div>
+                    onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
+                    dangerouslySetInnerHTML={{ __html: notes }}
+                  />
 
-              <div
-                className="notes"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-                dangerouslySetInnerHTML={{ __html: notes }}
-              />
+                  <div className="footer" contentEditable suppressContentEditableWarning>
+                    {project?.company || "Company Name"}
+                  </div>
+                </div>
+              )}
 
-              <div className="footer" contentEditable suppressContentEditableWarning>
-                {project?.company || "Company Name"}
+              <div className="pageNumber">
+                Page {currentPage + 1} of {totalPages || 1}
               </div>
             </div>
-          )}
-
-          <div className="pageNumber">
-            Page {currentPage + 1} of {totalPages || 1}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

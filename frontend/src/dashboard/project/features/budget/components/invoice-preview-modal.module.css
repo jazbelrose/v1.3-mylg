@@ -86,6 +86,11 @@
   gap: 8px;
   margin-bottom: 0.5rem;
 }
+.buttonGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .modalTitle {
   font-size: 1.25rem;
 }
@@ -162,71 +167,80 @@
   overflow: auto;
   flex: 1 0 850px;
   min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-}
-
-.previewViewport {
-  width: 100%;
-  max-width: 210mm;
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.previewViewport :global(.invoice-page) {
-  width: 100%;
-  max-width: 210mm;
-  transition: transform 0.2s ease;
-}
-
-.pdfPreviewOverlay {
-  position: absolute;
-  inset: 12px;
-  background: rgba(18, 18, 18, 0.92);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
+  background: #0f0f0f;
   border-radius: 12px;
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
   padding: 16px;
-  z-index: 2;
-}
-
-.pdfPreviewHeader {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-weight: 600;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-.pdfPreviewHeader button {
-  background: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.pdfPreviewCanvasWrapper {
-  flex: 1;
-  overflow: auto;
-  background: #1f1f1f;
-  border-radius: 10px;
-  padding: 12px;
+.pdfLayer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .pdfPreviewCanvas {
-  max-width: 100%;
-  border-radius: 6px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  width: min(100%, 210mm);
+  max-width: 210mm;
+  border-radius: 12px;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.45);
+  background: #ffffff;
+}
+
+.pdfPlaceholder {
+  width: min(100%, 210mm);
+  min-height: 297mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(62, 62, 62, 0.85), rgba(28, 28, 28, 0.85));
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1rem;
+  letter-spacing: 0.4px;
+  padding: 24px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.previewHint {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(16, 16, 16, 0.78);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.editorOverlay {
+  position: absolute;
+  inset: 16px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.editorSheet {
+  pointer-events: auto;
+  width: min(100%, 210mm);
+  max-width: 210mm;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+  padding: 0;
+}
+
+.editorSheet :global(.invoice-page) {
+  box-shadow: none;
+  background: transparent;
 }
 
 .groupSelect,
@@ -329,9 +343,8 @@
     flex: 1 1 auto;
     min-width: 0;
   }
-
-  .previewViewport {
-    max-width: 100%;
+  .pdfPreviewCanvas {
+    width: 100%;
   }
 }
 
@@ -355,28 +368,42 @@
     overflow: visible;
   }
 
-  .previewViewport {
-    overflow: visible;
+  .pdfLayer {
+    padding-bottom: 16px;
   }
 
-  .previewViewport :global(.invoice-page) {
+  .editorOverlay {
+    inset: 0;
+    padding: 0 12px 20px;
+  }
+
+  .previewHint {
+    bottom: 18px;
+  }
+
+  .editorSheet {
+    width: 100%;
+    max-width: none;
+  }
+
+  .editorSheet :global(.invoice-page) {
     padding: 14px 14px 54px;
   }
 
-  .previewViewport :global(.invoice-header) {
+  .editorSheet :global(.invoice-header) {
     gap: 12px;
   }
 
-  .previewViewport :global(.invoice-title) {
+  .editorSheet :global(.invoice-title) {
     font-size: 1.6rem;
   }
 
-  .previewViewport :global(.billing-info) {
+  .editorSheet :global(.billing-info) {
     font-size: 0.82rem;
   }
 
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
+  .editorSheet :global(.items-table th),
+  .editorSheet :global(.items-table td) {
     padding: 6px;
   }
 
@@ -423,38 +450,50 @@
     align-items: stretch;
   }
 
-  .previewViewport {
-    padding-bottom: 16px;
+  .pdfLayer {
+    padding-bottom: 14px;
   }
 
-  .previewViewport :global(.invoice-page) {
+  .editorOverlay {
+    inset: 0;
+    padding: 0 10px 18px;
+  }
+
+  .previewHint {
+    bottom: 16px;
+    max-width: calc(100% - 32px);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .editorSheet :global(.invoice-page) {
     padding: 12px 12px 48px;
   }
 
-  .previewViewport :global(.invoice-header) {
+  .editorSheet :global(.invoice-header) {
     gap: 10px;
   }
 
-  .previewViewport :global(.invoice-title) {
+  .editorSheet :global(.invoice-title) {
     font-size: 1.4rem;
   }
 
-  .previewViewport :global(.company-info),
-  .previewViewport :global(.billing-info) {
+  .editorSheet :global(.company-info),
+  .editorSheet :global(.billing-info) {
     font-size: 0.78rem;
   }
 
-  .previewViewport :global(.summary) {
+  .editorSheet :global(.summary) {
     gap: 10px;
   }
 
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
+  .editorSheet :global(.items-table th),
+  .editorSheet :global(.items-table td) {
     font-size: 0.78rem;
     padding: 5px;
   }
 
-  .previewViewport :global(.bottom-block) {
+  .editorSheet :global(.bottom-block) {
     margin-bottom: 24px;
   }
 
