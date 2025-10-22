@@ -2,12 +2,13 @@ import React, {
   Fragment,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { pdf as createPdf } from "@react-pdf/renderer";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+import pdfWorkerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { createPortal } from "react-dom";
 import Modal from "@/shared/ui/ModalWithStack";
 import { saveAs } from "file-saver";
@@ -30,7 +31,6 @@ import { UserLite } from "@/app/contexts/DataProvider";
 
 import InvoiceModalHeader from "./InvoiceModalHeader";
 import InvoiceFileActions from "./InvoiceFileActions";
-import InvoiceNavControls from "./InvoiceNavControls";
 import InvoiceSidebar from "./InvoiceSidebar";
 import InvoicePreviewContent from "./InvoicePreviewContent";
 import PdfInvoice from "./PdfInvoice";
@@ -42,7 +42,6 @@ import type {
   RowData,
   SavedInvoice,
 } from "./invoicePreviewTypes";
-import { formatCurrency } from "./invoicePreviewUtils";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -55,6 +54,8 @@ const groupFields: Array<{ label: string; value: GroupField }> = [
 ];
 
 const DEFAULT_NOTES_HTML = "<p>Notes...</p>";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   isOpen,
@@ -72,14 +73,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const { budgetItems: contextBudgetItems } = useBudget();
   const budgetItems = (itemsOverride ?? (contextBudgetItems as unknown as BudgetItem[])) as BudgetItem[];
 
-  const invoiceRef = useRef<HTMLDivElement | null>(null);
-  const previewRef = useRef<HTMLDivElement | null>(null);
   const pdfPreviewUrlRef = useRef<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
-  const [pages, setPages] = useState<RowData[][]>([]);
-  const [selectedPages, setSelectedPages] = useState<number[]>([]);
-  const currentRows = pages[currentPage] || [];
+  const [pdfPageCount, setPdfPageCount] = useState(1);
+  const [isPdfRendering, setIsPdfRendering] = useState(false);
 
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
@@ -161,41 +159,97 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const prefix = `projects/${project.projectId}/invoices/`;
     try {
       const res = await list({ prefix, options: { accessLevel: "guest" } });
-      return (res.items || [])
-        .filter((item) => item.key && !String(item.key).endsWith("/"))
-        .map((item) => {
-          const rawKey = String(item.key);
-          const storageKey = rawKey.startsWith("public/") ? rawKey : `public/${rawKey}`;
-          return {
-            name: rawKey.split("/").pop() || "",
-            url: getFileUrl(storageKey),
-          };
-        });
+      const items = (res.items || []).filter((item) => item.key && !String(item.key).endsWith("/"));
+
+      const pdfEntries = new Map<
+        string,
+        { name: string; key: string; url: string; metadataKey: string | null; metadataUrl: string | null }
+      >();
+      const metadataMap = new Map<string, { key: string; url: string }>();
+      const htmlInvoices: SavedInvoice[] = [];
+
+      items.forEach((item) => {
+        const rawKey = String(item.key);
+        const fileName = rawKey.split("/").pop() || "";
+        const storageKey = rawKey.startsWith("public/") ? rawKey : `public/${rawKey}`;
+        const fileUrl = getFileUrl(storageKey);
+
+        if (fileName.toLowerCase().endsWith(".json")) {
+          const base = fileName.slice(0, -5);
+          metadataMap.set(base, { key: storageKey, url: fileUrl });
+          return;
+        }
+
+        if (fileName.toLowerCase().endsWith(".pdf")) {
+          const base = fileName.slice(0, -4);
+          pdfEntries.set(base, {
+            name: fileName,
+            key: storageKey,
+            url: fileUrl,
+            metadataKey: null,
+            metadataUrl: null,
+          });
+          return;
+        }
+
+        if (fileName.toLowerCase().endsWith(".html")) {
+          htmlInvoices.push({
+            name: fileName,
+            url: fileUrl,
+            key: storageKey,
+            type: "html",
+            metadataKey: null,
+            metadataUrl: null,
+          });
+        }
+      });
+
+      metadataMap.forEach((meta, base) => {
+        const entry = pdfEntries.get(base);
+        if (entry) {
+          entry.metadataKey = meta.key;
+          entry.metadataUrl = meta.url;
+        }
+      });
+
+      const pdfInvoices: SavedInvoice[] = Array.from(pdfEntries.values()).map((entry) => ({
+        name: entry.name,
+        url: entry.url,
+        key: entry.key,
+        type: "pdf",
+        metadataKey: entry.metadataKey,
+        metadataUrl: entry.metadataUrl,
+      }));
+
+      const combined = [...pdfInvoices, ...htmlInvoices];
+      combined.sort((a, b) => a.name.localeCompare(b.name));
+      return combined;
     } catch (err) {
       console.error("Failed to list invoice files", err);
       return [];
     }
   }, [project?.projectId]);
 
-  const toggleInvoiceSelect = (url: string) => {
+  const toggleInvoiceSelect = (invoice: SavedInvoice) => {
+    const key = invoice.key;
     setSelectedInvoices((prev) => {
       const next = new Set(prev);
-      if (next.has(url)) next.delete(url);
-      else next.add(url);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
 
   const selectAllInvoices = (checked: boolean) => {
     if (checked) {
-      setSelectedInvoices(new Set(savedInvoices.map((i) => i.url)));
+      setSelectedInvoices(new Set(savedInvoices.map((i) => i.key)));
     } else {
       setSelectedInvoices(new Set());
     }
   };
 
-  const handleDeleteInvoice = (url: string) => {
-    setSelectedInvoices(new Set([url]));
+  const handleDeleteInvoice = (invoice: SavedInvoice) => {
+    setSelectedInvoices(new Set([invoice.key]));
     setIsConfirmingDelete(true);
   };
 
@@ -206,9 +260,17 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   };
 
   const performDeleteInvoices = async () => {
-    const fileUrls = Array.from(selectedInvoices);
-    const fileKeys = fileUrlsToKeys(fileUrls);
-    if (!fileKeys.length || !project?.projectId) return;
+    if (selectedInvoices.size === 0 || !project?.projectId) return;
+    const keysToDelete = new Set<string>();
+    selectedInvoices.forEach((key) => {
+      keysToDelete.add(key);
+      const match = savedInvoices.find((inv) => inv.key === key);
+      if (match?.metadataKey) {
+        keysToDelete.add(match.metadataKey);
+      }
+    });
+    const fileKeys = Array.from(keysToDelete);
+    if (!fileKeys.length) return;
     const { projectId } = project;
     setIsConfirmingDelete(false);
     const toastId = toast.loading("Deleting invoices...");
@@ -220,7 +282,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           fileKeys,
         }),
       });
-      setSavedInvoices((prev) => prev.filter((inv) => !fileUrls.includes(inv.url)));
+      setSavedInvoices((prev) => prev.filter((inv) => !keysToDelete.has(inv.key)));
       setSelectedInvoices(new Set());
       toast.update(toastId, {
         render: "Invoices deleted.",
@@ -239,70 +301,129 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   };
 
-  const loadInvoice = async (url: string) => {
+  const loadInvoice = async (invoice: SavedInvoice) => {
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const text = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "text/html");
-      const page = doc.querySelector(".invoice-page");
-      if (!page) return;
+      if (invoice.type === "pdf") {
+        if (!invoice.metadataUrl) {
+          toast.error("Saved invoice metadata is missing");
+          return;
+        }
+        const res = await fetch(invoice.metadataUrl);
+        if (!res.ok) throw new Error("Failed to fetch metadata");
+        const metadata = (await res.json()) as {
+          version?: number;
+          brandLogoKey?: string;
+          brandName?: string;
+          brandAddress?: string;
+          brandPhone?: string;
+          brandTagline?: string;
+          useProjectAddress?: boolean;
+          invoiceNumber?: string;
+          issueDate?: string;
+          dueDate?: string;
+          serviceDate?: string;
+          projectTitle?: string;
+          customerSummary?: string;
+          invoiceSummary?: string;
+          paymentSummary?: string;
+          depositReceived?: number;
+          totalDue?: number;
+          notes?: string;
+          groupField?: GroupField;
+          groupValues?: string[];
+        };
 
-      const q = (sel: string) => page.querySelector(sel);
+        setBrandLogoKey(metadata.brandLogoKey || "");
+        setLogoDataUrl(null);
+        setBrandName(metadata.brandName || "");
+        setBrandAddress(metadata.brandAddress || "");
+        setBrandPhone(metadata.brandPhone || "");
+        setBrandTagline(metadata.brandTagline || "");
+        setUseProjectAddress(Boolean(metadata.useProjectAddress));
 
-      setBrandLogoKey(q(".invoice-header img")?.getAttribute("src") || "");
-      setLogoDataUrl(null);
-      setBrandName(q(".brand-name")?.textContent || "");
-      setBrandAddress(q(".brand-address")?.textContent || "");
-      setBrandPhone(q(".brand-phone")?.textContent || "");
-      setBrandTagline(q(".brand-tagline")?.textContent || "");
+        setInvoiceNumber(metadata.invoiceNumber || "");
+        setIssueDate(metadata.issueDate || "");
+        setDueDate(metadata.dueDate || "");
+        setServiceDate(metadata.serviceDate || "");
 
-      const infoSpans = page.querySelectorAll(".billing-info > div:last-child span");
-      setInvoiceNumber(infoSpans[0]?.textContent || "");
-      setIssueDate(infoSpans[1]?.textContent || "");
-      setDueDate(infoSpans[2]?.textContent || "");
-      setServiceDate(infoSpans[3]?.textContent || "");
+        setProjectTitle(metadata.projectTitle || "");
+        setCustomerSummary(metadata.customerSummary || "");
+        setInvoiceSummary(metadata.invoiceSummary || "");
+        setPaymentSummary(metadata.paymentSummary || "");
 
-      setProjectTitle(q(".project-title")?.textContent || "");
+        setDepositReceived(Number(metadata.depositReceived) || 0);
+        setTotalDue(Number(metadata.totalDue) || 0);
+        setNotes(metadata.notes || DEFAULT_NOTES_HTML);
 
-      const summaryDivs = page.querySelectorAll(".summary > div");
-      setCustomerSummary(summaryDivs[0]?.textContent || "");
-      setInvoiceSummary(summaryDivs[1]?.textContent || "");
-      setPaymentSummary(summaryDivs[2]?.textContent || "");
+        if (metadata.groupField) setGroupField(metadata.groupField);
+        if (Array.isArray(metadata.groupValues)) setGroupValues(metadata.groupValues);
+      } else {
+        const res = await fetch(invoice.url);
+        if (!res.ok) throw new Error("Failed to fetch");
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, "text/html");
+        const page = doc.querySelector(".invoice-page");
+        if (!page) return;
 
-      const totals = page.querySelectorAll(".totals span");
-      const parseMoney = (v: string | null) =>
-        parseFloat(String(v || "").replace(/[$,]/g, "")) || 0;
+        const q = (sel: string) => page.querySelector(sel);
 
-      if (totals.length >= 3) {
-        setDepositReceived(parseMoney(totals[1]?.textContent));
-        setTotalDue(parseMoney(totals[2]?.textContent));
-      }
+        setBrandLogoKey(q(".invoice-header img")?.getAttribute("src") || "");
+        setLogoDataUrl(null);
+        setBrandName(q(".brand-name")?.textContent || "");
+        setBrandAddress(q(".brand-address")?.textContent || "");
+        setBrandPhone(q(".brand-phone")?.textContent || "");
+        setBrandTagline(q(".brand-tagline")?.textContent || "");
+        setUseProjectAddress(false);
 
-      const notesEl = q(".notes");
-      if (notesEl) setNotes(notesEl.innerHTML || "");
+        const infoSpans = page.querySelectorAll(".billing-info > div:last-child span");
+        setInvoiceNumber(infoSpans[0]?.textContent || "");
+        setIssueDate(infoSpans[1]?.textContent || "");
+        setDueDate(infoSpans[2]?.textContent || "");
+        setServiceDate(infoSpans[3]?.textContent || "");
 
-      const parsedGroups = Array.from(
-        doc.querySelectorAll(".group-header td")
-      ).map((td) => (td.textContent || "").trim());
-      if (parsedGroups.length) {
-        const candidate = (groupFields.map((g) => g.value) as GroupField[]).find((field) => {
-          const opts = Array.from(
-            new Set(
-              items
-                .map((it) => (String((it as BudgetItem)[field] || "")).trim())
-                .filter(Boolean)
-            )
-          );
-          return parsedGroups.every((g) => opts.includes(g));
-        });
-        if (candidate) setGroupField(candidate);
-        setGroupValues(parsedGroups);
+        setProjectTitle(q(".project-title")?.textContent || "");
+
+        const summaryDivs = page.querySelectorAll(".summary > div");
+        setCustomerSummary(summaryDivs[0]?.textContent || "");
+        setInvoiceSummary(summaryDivs[1]?.textContent || "");
+        setPaymentSummary(summaryDivs[2]?.textContent || "");
+
+        const totals = page.querySelectorAll(".totals span");
+        const parseMoney = (v: string | null) =>
+          parseFloat(String(v || "").replace(/[$,]/g, "")) || 0;
+
+        if (totals.length >= 3) {
+          setDepositReceived(parseMoney(totals[1]?.textContent));
+          setTotalDue(parseMoney(totals[2]?.textContent));
+        }
+
+        const notesEl = q(".notes");
+        if (notesEl) setNotes(notesEl.innerHTML || "");
+
+        const parsedGroups = Array.from(
+          doc.querySelectorAll(".group-header td")
+        ).map((td) => (td.textContent || "").trim());
+        if (parsedGroups.length) {
+          const candidate = (groupFields.map((g) => g.value) as GroupField[]).find((field) => {
+            const opts = Array.from(
+              new Set(
+                items
+                  .map((it) => (String((it as BudgetItem)[field] || "")).trim())
+                  .filter(Boolean)
+              )
+            );
+            return parsedGroups.every((g) => opts.includes(g));
+          });
+          if (candidate) setGroupField(candidate);
+          setGroupValues(parsedGroups);
+        }
       }
 
       setInvoiceDirty(false);
-      setCurrentFileName(url.split("/").pop() || "");
+      setIsDirty(false);
+      setShowSaved(false);
+      setCurrentFileName(invoice.name);
     } catch (err) {
       console.error("Failed to load invoice", err);
     }
@@ -408,7 +529,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         setGroupValues(filteredVals);
       }
     }
-  }, [items, groupField]);
+  }, [items, groupField, groupValues]);
 
   const groupOptions = Array.from(
     new Set(
@@ -495,91 +616,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     useProjectAddress,
   ]);
 
-  useLayoutEffect(() => {
-    if (!invoiceRef.current) return;
-    const pageHeight = 1122;
-    const pageNumberHeight = 40;
-    const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
-    const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
-    const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
-    const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
-    const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
-    const bottomBlock = invoiceRef.current.querySelector(".bottom-block") as HTMLElement | null;
-
-    const getTotalHeight = (el: HTMLElement | null) => {
-      if (!el) return 0;
-      const style = window.getComputedStyle(el);
-      const marginTop = parseFloat(style.marginTop || "0");
-      const marginBottom = parseFloat(style.marginBottom || "0");
-      return el.offsetHeight + marginTop + marginBottom;
-    };
-
-    const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
-    const bottomHeight =
-      getTotalHeight(bottomBlock) ||
-      getTotalHeight(totals) + getTotalHeight(notesEl) + getTotalHeight(footer);
-    const staticHeights = topHeight + pageNumberHeight;
-
-    const rowEls = Array.from(
-      invoiceRef.current.querySelectorAll(".items-table tbody tr")
-    ) as HTMLElement[];
-
-    let available = Math.max(pageHeight - staticHeights, 0);
-    const pagesAccum: RowData[][] = [];
-    let current: RowData[] = [];
-
-    rowEls.forEach((row, idx) => {
-      const rowHeight = row.offsetHeight;
-      const data = rowsData[idx];
-      const isLast = idx === rowEls.length - 1;
-      const nextRow = rowEls[idx + 1];
-      const nextData = rowsData[idx + 1];
-      const isGroupHeader = row.classList.contains("group-header");
-      const bundleHeight =
-        isGroupHeader && nextRow && nextData?.type === "item"
-          ? rowHeight + nextRow.offsetHeight
-          : rowHeight;
-      const needed = bundleHeight + (isLast ? bottomHeight : 0);
-      if (needed > available && current.length) {
-        pagesAccum.push(current);
-        current = [];
-        available = Math.max(pageHeight - staticHeights, 0);
-      }
-      current.push(data);
-      available -= rowHeight;
-    });
-
-    if (current.length) pagesAccum.push(current);
-
-    const same =
-      pages.length === pagesAccum.length &&
-      pages.every((p, i) => p.length === pagesAccum[i].length);
-
-    if (!same) setPages(pagesAccum);
-  }, [rowsData]);
-
-  useEffect(() => {
-    setSelectedPages(pages.map((_, i) => i));
-    setCurrentPage(0);
-  }, [pages]);
-
-  const closePdfPreview = useCallback(() => {
-    if (pdfPreviewUrlRef.current) {
-      URL.revokeObjectURL(pdfPreviewUrlRef.current);
-      pdfPreviewUrlRef.current = null;
-    }
-    setPdfPreviewUrl(null);
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setShowUnsavedPrompt(false);
-      closePdfPreview();
-    }
-  }, [isOpen, closePdfPreview]);
-
-  useEffect(() => () => closePdfPreview(), [closePdfPreview]);
-
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
       const instance = createPdf(buildPdfInvoiceElement());
@@ -592,185 +628,171 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   }, [buildPdfInvoiceElement]);
 
+  const closePdfPreview = useCallback(() => {
+    if (pdfPreviewUrlRef.current) {
+      URL.revokeObjectURL(pdfPreviewUrlRef.current);
+      pdfPreviewUrlRef.current = null;
+    }
+    setPdfPreviewUrl(null);
+  }, []);
+
+  const countPdfPages = useCallback(async (blob: Blob): Promise<number> => {
+    try {
+      const task = pdfjsLib.getDocument({ data: await blob.arrayBuffer() });
+      const pdf = await task.promise;
+      const total = pdf?.numPages || 1;
+      await task.destroy();
+      return Math.max(total || 1, 1);
+    } catch (err) {
+      console.error('Failed to count invoice PDF pages', err);
+      return 1;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowUnsavedPrompt(false);
+      closePdfPreview();
+      setPdfPageCount(1);
+      setCurrentPage(0);
+      return;
+    }
+
+    let cancelled = false;
+    setIsPdfRendering(true);
+
+    (async () => {
+      const blob = await renderPdfBlob();
+      if (!blob || cancelled) {
+        setIsPdfRendering(false);
+        return;
+      }
+
+      closePdfPreview();
+      const objectUrl = URL.createObjectURL(blob);
+      pdfPreviewUrlRef.current = objectUrl;
+      setPdfPreviewUrl(objectUrl);
+
+      const totalPages = await countPdfPages(blob);
+      if (!cancelled) {
+        setPdfPageCount(totalPages);
+        setCurrentPage((prev) => Math.min(prev, Math.max(totalPages - 1, 0)));
+        setIsPdfRendering(false);
+      }
+    })().catch((err) => {
+      console.error('Failed to render invoice preview', err);
+      if (!cancelled) {
+        setIsPdfRendering(false);
+        setPdfPageCount(1);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, renderPdfBlob, closePdfPreview, countPdfPages]);
+
+  useEffect(() => () => closePdfPreview(), [closePdfPreview]);
+
   const handleSavePdf = useCallback(async () => {
     const blob = await renderPdfBlob();
     if (!blob) return;
     const file =
       revision?.revision != null
         ? `invoice-revision-${revision.revision}.pdf`
-        : "invoice.pdf";
+        : 'invoice.pdf';
     saveAs(blob, file);
   }, [renderPdfBlob, revision]);
 
   const handlePreviewPdf = useCallback(async () => {
     const blob = await renderPdfBlob();
     if (!blob) return;
-    closePdfPreview();
     const objectUrl = URL.createObjectURL(blob);
-    pdfPreviewUrlRef.current = objectUrl;
-    setPdfPreviewUrl(objectUrl);
-  }, [renderPdfBlob, closePdfPreview]);
-
-  const buildInvoiceHtml = (): string => {
-    if (!previewRef.current) return "";
-    const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
-    const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, i) => i);
-
-    const htmlPages = pageIndexes
-      .map((idx) => {
-        const pageRows = pages[idx] || [];
-        const rowsHtml = pageRows
-          .map((row) =>
-            row.type === "group"
-              ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
-              : `<tr>
-                   <td>${row.item.description || ""}</td>
-                   <td>${row.item.quantity || ""}</td>
-                   <td>${row.item.unit || ""}</td>
-                   <td>${formatCurrency(
-                     (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                       (parseFloat(String(row.item.quantity || 1)) || 1)
-                   )}</td>
-                   <td>${formatCurrency(
-                     parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                   )}</td>
-                 </tr>`
-          )
-          .join("");
-
-        const headerName = brandName || project?.company || "Company Name";
-        const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
-        const headerPhone = brandPhone || "Phone";
-        const headerTag = brandTagline || "";
-        const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
-
-        const invNum = invoiceNumber || "";
-        const issue = issueDate || "";
-        const due = dueDate || "";
-        const service = serviceDate || "";
-
-        const billContact = project?.clientName || "Client Name";
-        const billCompany = project?.invoiceBrandName || "Client Company";
-        const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
-        const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
-        const billEmail = project?.clientEmail || "";
-
-        const projTitle = projectTitle || "";
-        const custSum = customerSummary || "";
-        const invSum = invoiceSummary || "";
-        const paySum = paymentSummary || "";
-        const notesText = notes || "";
-
-        const deposit = formatCurrency(depositReceived);
-        const total = formatCurrency(totalDue);
-
-        const logoHtml = logoSrc
-          ? `<img src="${logoSrc}" alt="logo" style="max-width:100px;max-height:100px" />`
-          : "";
-
-        const totalsHtml =
-          idx === pages.length - 1
-            ? `<div class="bottom-block">
-                 <div class="totals">
-                   <div>Subtotal: <span>${formatCurrency(subtotal)}</span></div>
-                   <div>Deposit received: <span>${deposit}</span></div>
-                   <div><strong>Total Due: <span>${total}</span></strong></div>
-                 </div>
-                 <div class="notes">${notesText}</div>
-                 <div class="footer">${projTitle}</div>
-               </div>`
-            : "";
-
-        return `
-          <div class="invoice-page invoice-container">
-            <div class="invoice-top">
-              <div class="invoice-header">
-                <div>${logoHtml}</div>
-                <div class="company-info">
-                  <div class="brand-name">${headerName}</div>
-                  ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                  <div class="brand-address">${headerAddress}</div>
-                  <div class="brand-phone">${headerPhone}</div>
-                </div>
-                <div class="invoice-title">INVOICE</div>
-              </div>
-              <div class="billing-info">
-                <div>
-                  <strong>Bill To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
-                </div>
-                <div>
-                  <div>Invoice #: <span>${invNum}</span></div>
-                  <div>Issue date: <span>${issue}</span></div>
-                  <div>Due date: <span>${due}</span></div>
-                  <div>Service date: <span>${service}</span></div>
-                </div>
-              </div>
-            </div>
-            <h1 class="project-title">${projTitle}</h1>
-            <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
-            <hr class="summary-divider" />
-            <div class="items-table-wrapper">
-              <table class="items-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>QTY</th>
-                    <th>Unit</th>
-                    <th>Unit Price</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
-          </div>
-        `;
-      })
-      .join("");
-
-    const title = invoiceNumber ? `Invoice ${invoiceNumber}` : "Invoice";
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>${htmlPages}</body></html>`;
-  };
+    window.open(objectUrl, '_blank', 'noopener,noreferrer');
+    setTimeout(() => {
+      URL.revokeObjectURL(objectUrl);
+    }, 30_000);
+  }, [renderPdfBlob]);
 
   const saveInvoice = async () => {
-    const html = buildInvoiceHtml();
-    if (!html || !project?.projectId) return;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+    const blob = await renderPdfBlob();
+    if (!blob || !project?.projectId) return;
+
+    const metadata = {
+      version: 1,
+      brandLogoKey,
+      brandName,
+      brandAddress,
+      brandPhone,
+      brandTagline,
+      useProjectAddress,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      serviceDate,
+      projectTitle,
+      customerSummary,
+      invoiceSummary,
+      paymentSummary,
+      depositReceived,
+      totalDue,
+      notes,
+      groupField,
+      groupValues: Array.from(groupValues),
+    };
+
+    const metadataBlob = new Blob([JSON.stringify(metadata)], {
+      type: "application/json",
+    });
 
     const unique = uuid().slice(0, 8);
     const date = new Date().toISOString().split("T")[0];
     const projectSlug = slugify(project.title || "project");
     const rev = revision?.revision ?? "0";
-    const fileName = `${projectSlug}-${rev}-${date}-${unique}.html`;
-    const key = `projects/${project.projectId}/invoices/${fileName}`;
+    const baseName = `${projectSlug}-${rev}-${date}-${unique}`;
+    const fileName = `${baseName}.pdf`;
+    const metadataFileName = `${baseName}.json`;
+    const pdfKey = `projects/${project.projectId}/invoices/${fileName}`;
+    const metadataKey = `projects/${project.projectId}/invoices/${metadataFileName}`;
 
     try {
-      const uploadTask = uploadData({
-        key,
+      const uploadPdf = uploadData({
+        key: pdfKey,
         data: blob,
         options: {
           accessLevel: "guest",
           metadata: { friendlyName: fileName },
         },
       });
-      await uploadTask.result;
-      const storageKey = key.startsWith("public/") ? key : `public/${key}`;
-      const url = getFileUrl(storageKey);
+      const uploadMetadata = uploadData({
+        key: metadataKey,
+        data: metadataBlob,
+        options: { accessLevel: "guest" },
+      });
+
+      await Promise.all([uploadPdf.result, uploadMetadata.result]);
+
+      const pdfStorageKey = pdfKey.startsWith("public/") ? pdfKey : `public/${pdfKey}`;
+      const metadataStorageKey = metadataKey.startsWith("public/") ? metadataKey : `public/${metadataKey}`;
+      const url = getFileUrl(pdfStorageKey);
+      const metadataUrl = getFileUrl(metadataStorageKey);
+
       setSavedInvoices((prev) => {
-        const next = prev.filter((inv) => inv.url !== url);
-        return [...next, { name: fileName, url }];
+        const filtered = prev.filter((inv) => inv.key !== pdfStorageKey);
+        return [...filtered, {
+          name: fileName,
+          url,
+          key: pdfStorageKey,
+          type: "pdf",
+          metadataKey: metadataStorageKey,
+          metadataUrl,
+        }].sort((a, b) => a.name.localeCompare(b.name));
       });
       setInvoiceDirty(false);
       setCurrentFileName(fileName);
     } catch (err) {
       console.error("Failed to save invoice", err);
+      toast.error("Failed to save invoice PDF");
     }
   };
 
@@ -833,40 +855,31 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setGroupValues(checked ? groupOptions : []);
   };
 
-  const handleTogglePage = (idx: number) => {
-    setSelectedPages((prev) =>
-      prev.includes(idx) ? prev.filter((p) => p !== idx) : [...prev, idx]
-    );
-  };
-
-  const handleToggleAllPages = (checked: boolean) => {
-    setSelectedPages(checked ? pages.map((_, i) => i) : []);
-  };
-
-  const handleBrandNameBlur = (value: string) => {
+  const handleBrandNameChange = (value: string) => {
     setBrandName(value);
     setInvoiceDirty(true);
   };
-  const handleBrandTaglineBlur = (value: string) => {
+  const handleBrandTaglineChange = (value: string) => {
     setBrandTagline(value);
     setInvoiceDirty(true);
   };
-  const handleBrandAddressBlur = (value: string) => {
+  const handleBrandAddressChange = (value: string) => {
     setBrandAddress(value);
     setInvoiceDirty(true);
   };
-  const handleBrandPhoneBlur = (value: string) => {
+  const handleBrandPhoneChange = (value: string) => {
     setBrandPhone(value);
     setInvoiceDirty(true);
   };
   const handleToggleProjectAddress = (checked: boolean) => {
     setUseProjectAddress(checked);
+    setInvoiceDirty(true);
   };
-  const handleInvoiceNumberBlur = (value: string) => {
+  const handleInvoiceNumberChange = (value: string) => {
     setInvoiceNumber(value);
     setInvoiceDirty(true);
   };
-  const handleIssueDateBlur = (value: string) => {
+  const handleIssueDateChange = (value: string) => {
     setIssueDate(value);
     setInvoiceDirty(true);
   };
@@ -878,33 +891,33 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setServiceDate(value);
     setInvoiceDirty(true);
   };
-  const handleProjectTitleBlur = (value: string) => {
+  const handleProjectTitleChange = (value: string) => {
     setProjectTitle(value);
     setInvoiceDirty(true);
   };
-  const handleCustomerSummaryBlur = (value: string) => {
+  const handleCustomerSummaryChange = (value: string) => {
     setCustomerSummary(value);
     setInvoiceDirty(true);
   };
-  const handleInvoiceSummaryBlur = (value: string) => {
+  const handleInvoiceSummaryChange = (value: string) => {
     setInvoiceSummary(value);
     setInvoiceDirty(true);
   };
-  const handlePaymentSummaryBlur = (value: string) => {
+  const handlePaymentSummaryChange = (value: string) => {
     setPaymentSummary(value);
     setInvoiceDirty(true);
   };
-  const handleDepositBlur = (value: string) => {
+  const handleDepositChange = (value: string) => {
     const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
     setDepositReceived(parsed);
     setInvoiceDirty(true);
   };
-  const handleTotalDueBlur = (value: string) => {
+  const handleTotalDueChange = (value: string) => {
     const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
     setTotalDue(parsed);
     setInvoiceDirty(true);
   };
-  const handleNotesBlur = (value: string) => {
+  const handleNotesChange = (value: string) => {
     setNotes(value);
     setInvoiceDirty(true);
   };
@@ -942,15 +955,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <div className={styles.emptyPlaceholder}>No budget line items available</div>
           ) : (
             <Fragment>
-              <InvoiceNavControls
-                currentPage={currentPage}
-                totalPages={pages.length}
-                onPrev={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                onNext={() =>
-                  setCurrentPage((p) => Math.min(p + 1, Math.max(0, pages.length - 1)))
-                }
-              />
-
               <div
                 className={styles.contentRow}
                 style={showSidebar ? undefined : { minWidth: "850px" }}
@@ -964,12 +968,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                     groupValues={groupValues}
                     onToggleGroupValue={handleToggleGroupValue}
                     onToggleAllGroupValues={handleToggleAllGroupValues}
-                    pages={pages}
-                    selectedPages={selectedPages}
-                    onTogglePage={handleTogglePage}
-                    onToggleAllPages={handleToggleAllPages}
                     savedInvoices={savedInvoices}
-                    selectedInvoices={selectedInvoices}
+                    selectedInvoiceKeys={selectedInvoices}
                     onToggleInvoice={toggleInvoiceSelect}
                     onSelectAllInvoices={selectAllInvoices}
                     onLoadInvoice={loadInvoice}
@@ -982,53 +982,55 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 )}
 
                 <InvoicePreviewContent
-                  invoiceRef={invoiceRef}
-                  previewRef={previewRef}
+                  pdfUrl={pdfPreviewUrl}
+                  isPdfLoading={isPdfRendering}
+                  currentPage={currentPage}
+                  totalPages={pdfPageCount}
+                  onPrevPage={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  onNextPage={() =>
+                    setCurrentPage((p) =>
+                      pdfPageCount > 0 ? Math.min(p + 1, Math.max(0, pdfPageCount - 1)) : 0
+                    )
+                  }
                   fileInputRef={fileInputRef}
                   logoDataUrl={logoDataUrl}
                   brandLogoKey={brandLogoKey}
                   onLogoSelect={handleLogoSelect}
                   onLogoDrop={handleLogoDrop}
                   brandName={brandName}
-                  onBrandNameBlur={handleBrandNameBlur}
+                  onBrandNameChange={handleBrandNameChange}
                   brandTagline={brandTagline}
-                  onBrandTaglineBlur={handleBrandTaglineBlur}
+                  onBrandTaglineChange={handleBrandTaglineChange}
                   brandAddress={brandAddress}
-                  onBrandAddressBlur={handleBrandAddressBlur}
+                  onBrandAddressChange={handleBrandAddressChange}
                   brandPhone={brandPhone}
-                  onBrandPhoneBlur={handleBrandPhoneBlur}
+                  onBrandPhoneChange={handleBrandPhoneChange}
                   useProjectAddress={useProjectAddress}
                   onToggleProjectAddress={handleToggleProjectAddress}
-                  project={project}
+                  projectAddress={project?.address || null}
                   invoiceNumber={invoiceNumber}
-                  onInvoiceNumberBlur={handleInvoiceNumberBlur}
+                  onInvoiceNumberChange={handleInvoiceNumberChange}
                   issueDate={issueDate}
-                  onIssueDateBlur={handleIssueDateBlur}
+                  onIssueDateChange={handleIssueDateChange}
                   dueDate={dueDate}
                   onDueDateChange={handleDueDateChange}
                   serviceDate={serviceDate}
                   onServiceDateChange={handleServiceDateChange}
                   projectTitle={projectTitle}
-                  onProjectTitleBlur={handleProjectTitleBlur}
+                  onProjectTitleChange={handleProjectTitleChange}
                   customerSummary={customerSummary}
-                  onCustomerSummaryBlur={handleCustomerSummaryBlur}
+                  onCustomerSummaryChange={handleCustomerSummaryChange}
                   invoiceSummary={invoiceSummary}
-                  onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
+                  onInvoiceSummaryChange={handleInvoiceSummaryChange}
                   paymentSummary={paymentSummary}
-                  onPaymentSummaryBlur={handlePaymentSummaryBlur}
-                  rowsData={rowsData}
-                  currentRows={currentRows}
-                  currentPage={currentPage}
-                  totalPages={pages.length}
+                  onPaymentSummaryChange={handlePaymentSummaryChange}
                   subtotal={subtotal}
                   depositReceived={depositReceived}
-                  onDepositBlur={handleDepositBlur}
+                  onDepositChange={handleDepositChange}
                   totalDue={totalDue}
-                  onTotalDueBlur={handleTotalDueBlur}
+                  onTotalDueChange={handleTotalDueChange}
                   notes={notes}
-                  onNotesBlur={handleNotesBlur}
-                  pdfPreviewUrl={pdfPreviewUrl}
-                  onClosePdfPreview={closePdfPreview}
+                  onNotesChange={handleNotesChange}
                 />
               </div>
             </Fragment>

@@ -36,9 +36,15 @@ export type RowData =
   | { type: "group"; group: string }
   | { type: "item"; item: BudgetItem };
 
+export type SavedInvoiceType = "html" | "pdf";
+
 export interface SavedInvoice {
   name: string;
   url: string;
+  key: string;
+  type: SavedInvoiceType;
+  metadataUrl?: string | null;
+  metadataKey?: string | null;
 }
 
 export interface InvoicePreviewModalProps {

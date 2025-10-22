@@ -3,11 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash } from "@fortawesome/free-solid-svg-icons";
 
 import styles from "./invoice-preview-modal.module.css";
-import type {
-  GroupField,
-  RowData,
-  SavedInvoice,
-} from "./invoicePreviewTypes";
+import type { GroupField, SavedInvoice } from "./invoicePreviewTypes";
 
 interface InvoiceSidebarProps {
   groupFields: Array<{ label: string; value: GroupField }>;
@@ -17,16 +13,12 @@ interface InvoiceSidebarProps {
   groupValues: string[];
   onToggleGroupValue: (value: string) => void;
   onToggleAllGroupValues: (checked: boolean) => void;
-  pages: RowData[][];
-  selectedPages: number[];
-  onTogglePage: (index: number) => void;
-  onToggleAllPages: (checked: boolean) => void;
   savedInvoices: SavedInvoice[];
-  selectedInvoices: Set<string>;
-  onToggleInvoice: (url: string) => void;
+  selectedInvoiceKeys: Set<string>;
+  onToggleInvoice: (invoice: SavedInvoice) => void;
   onSelectAllInvoices: (checked: boolean) => void;
-  onLoadInvoice: (url: string) => void;
-  onDeleteInvoice: (url: string) => void;
+  onLoadInvoice: (invoice: SavedInvoice) => void;
+  onDeleteInvoice: (invoice: SavedInvoice) => void;
   onDeleteSelected: () => void;
   isDirty: boolean;
   onSaveHeader: () => void;
@@ -41,12 +33,8 @@ const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
   groupValues,
   onToggleGroupValue,
   onToggleAllGroupValues,
-  pages,
-  selectedPages,
-  onTogglePage,
-  onToggleAllPages,
   savedInvoices,
-  selectedInvoices,
+  selectedInvoiceKeys,
   onToggleInvoice,
   onSelectAllInvoices,
   onLoadInvoice,
@@ -91,34 +79,13 @@ const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
       ))}
     </div>
 
-    <div className={styles.pageSelect} role="group" aria-label="Pages">
-      <label className={styles.groupItem}>
-        <input
-          type="checkbox"
-          checked={selectedPages.length === pages.length}
-          onChange={(e) => onToggleAllPages(e.target.checked)}
-        />
-        Select All Pages
-      </label>
-      {pages.map((_, idx) => (
-        <label key={idx} className={styles.groupItem}>
-          <input
-            type="checkbox"
-            checked={selectedPages.includes(idx)}
-            onChange={() => onTogglePage(idx)}
-          />
-          Page {idx + 1}
-        </label>
-      ))}
-    </div>
-
     {savedInvoices.length > 0 && (
       <div className={styles.invoiceList}>
         <div className={styles.listHeader}>Saved Invoices</div>
         <label className={styles.groupItem}>
           <input
             type="checkbox"
-            checked={selectedInvoices.size === savedInvoices.length}
+            checked={selectedInvoiceKeys.size === savedInvoices.length}
             onChange={(e) => onSelectAllInvoices(e.target.checked)}
           />
           Select All
@@ -127,20 +94,20 @@ const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
           <div key={idx} className={styles.invoiceRow}>
             <input
               type="checkbox"
-              checked={selectedInvoices.has(inv.url)}
-              onChange={() => onToggleInvoice(inv.url)}
+              checked={selectedInvoiceKeys.has(inv.key)}
+              onChange={() => onToggleInvoice(inv)}
             />
             <button
               type="button"
               className={styles.linkButton}
-              onClick={() => onLoadInvoice(inv.url)}
+              onClick={() => onLoadInvoice(inv)}
               title="Load invoice"
             >
               {inv.name}
             </button>
             <button
               className={styles.iconButton}
-              onClick={() => onDeleteInvoice(inv.url)}
+              onClick={() => onDeleteInvoice(inv)}
               aria-label="Delete invoice"
               title="Delete"
             >
@@ -148,7 +115,7 @@ const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
             </button>
           </div>
         ))}
-        {selectedInvoices.size > 0 && (
+        {selectedInvoiceKeys.size > 0 && (
           <button
             className={styles.iconButton}
             onClick={onDeleteSelected}
