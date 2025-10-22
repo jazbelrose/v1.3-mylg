@@ -75,11 +75,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const pdfPreviewUrlRef = useRef<string | null>(null);
+  const livePdfUrlRef = useRef<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
-  const currentRows = pages[currentPage] || [];
 
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
@@ -110,7 +110,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [overlayPdfUrl, setOverlayPdfUrl] = useState<string | null>(null);
+  const [livePdfUrl, setLivePdfUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -568,17 +569,57 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       URL.revokeObjectURL(pdfPreviewUrlRef.current);
       pdfPreviewUrlRef.current = null;
     }
-    setPdfPreviewUrl(null);
+    setOverlayPdfUrl(null);
   }, []);
 
   useEffect(() => {
     if (!isOpen) {
       setShowUnsavedPrompt(false);
       closePdfPreview();
+      if (livePdfUrlRef.current) {
+        URL.revokeObjectURL(livePdfUrlRef.current);
+        livePdfUrlRef.current = null;
+      }
+      setLivePdfUrl(null);
     }
   }, [isOpen, closePdfPreview]);
 
   useEffect(() => () => closePdfPreview(), [closePdfPreview]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    const timer: ReturnType<typeof setTimeout> = setTimeout(async () => {
+      const blob = await renderPdfBlob();
+      if (!blob || cancelled) return;
+      const objectUrl = URL.createObjectURL(blob);
+      if (cancelled) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      if (livePdfUrlRef.current) {
+        URL.revokeObjectURL(livePdfUrlRef.current);
+      }
+      livePdfUrlRef.current = objectUrl;
+      setLivePdfUrl(objectUrl);
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isOpen, renderPdfBlob]);
+
+  useEffect(
+    () => () => {
+      if (livePdfUrlRef.current) {
+        URL.revokeObjectURL(livePdfUrlRef.current);
+        livePdfUrlRef.current = null;
+      }
+    },
+    []
+  );
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
@@ -608,7 +649,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     closePdfPreview();
     const objectUrl = URL.createObjectURL(blob);
     pdfPreviewUrlRef.current = objectUrl;
-    setPdfPreviewUrl(objectUrl);
+    setOverlayPdfUrl(objectUrl);
   }, [renderPdfBlob, closePdfPreview]);
 
   const buildInvoiceHtml = (): string => {
@@ -843,30 +884,30 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setSelectedPages(checked ? pages.map((_, i) => i) : []);
   };
 
-  const handleBrandNameBlur = (value: string) => {
+  const handleBrandNameChange = (value: string) => {
     setBrandName(value);
     setInvoiceDirty(true);
   };
-  const handleBrandTaglineBlur = (value: string) => {
+  const handleBrandTaglineChange = (value: string) => {
     setBrandTagline(value);
     setInvoiceDirty(true);
   };
-  const handleBrandAddressBlur = (value: string) => {
+  const handleBrandAddressChange = (value: string) => {
     setBrandAddress(value);
     setInvoiceDirty(true);
   };
-  const handleBrandPhoneBlur = (value: string) => {
+  const handleBrandPhoneChange = (value: string) => {
     setBrandPhone(value);
     setInvoiceDirty(true);
   };
   const handleToggleProjectAddress = (checked: boolean) => {
     setUseProjectAddress(checked);
   };
-  const handleInvoiceNumberBlur = (value: string) => {
+  const handleInvoiceNumberChange = (value: string) => {
     setInvoiceNumber(value);
     setInvoiceDirty(true);
   };
-  const handleIssueDateBlur = (value: string) => {
+  const handleIssueDateChange = (value: string) => {
     setIssueDate(value);
     setInvoiceDirty(true);
   };
@@ -878,33 +919,33 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setServiceDate(value);
     setInvoiceDirty(true);
   };
-  const handleProjectTitleBlur = (value: string) => {
+  const handleProjectTitleChange = (value: string) => {
     setProjectTitle(value);
     setInvoiceDirty(true);
   };
-  const handleCustomerSummaryBlur = (value: string) => {
+  const handleCustomerSummaryChange = (value: string) => {
     setCustomerSummary(value);
     setInvoiceDirty(true);
   };
-  const handleInvoiceSummaryBlur = (value: string) => {
+  const handleInvoiceSummaryChange = (value: string) => {
     setInvoiceSummary(value);
     setInvoiceDirty(true);
   };
-  const handlePaymentSummaryBlur = (value: string) => {
+  const handlePaymentSummaryChange = (value: string) => {
     setPaymentSummary(value);
     setInvoiceDirty(true);
   };
-  const handleDepositBlur = (value: string) => {
+  const handleDepositChange = (value: string) => {
     const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
     setDepositReceived(parsed);
     setInvoiceDirty(true);
   };
-  const handleTotalDueBlur = (value: string) => {
+  const handleTotalDueChange = (value: string) => {
     const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
     setTotalDue(parsed);
     setInvoiceDirty(true);
   };
-  const handleNotesBlur = (value: string) => {
+  const handleNotesChange = (value: string) => {
     setNotes(value);
     setInvoiceDirty(true);
   };
@@ -990,44 +1031,44 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onLogoSelect={handleLogoSelect}
                   onLogoDrop={handleLogoDrop}
                   brandName={brandName}
-                  onBrandNameBlur={handleBrandNameBlur}
+                  onBrandNameChange={handleBrandNameChange}
                   brandTagline={brandTagline}
-                  onBrandTaglineBlur={handleBrandTaglineBlur}
+                  onBrandTaglineChange={handleBrandTaglineChange}
                   brandAddress={brandAddress}
-                  onBrandAddressBlur={handleBrandAddressBlur}
+                  onBrandAddressChange={handleBrandAddressChange}
                   brandPhone={brandPhone}
-                  onBrandPhoneBlur={handleBrandPhoneBlur}
+                  onBrandPhoneChange={handleBrandPhoneChange}
                   useProjectAddress={useProjectAddress}
                   onToggleProjectAddress={handleToggleProjectAddress}
                   project={project}
                   invoiceNumber={invoiceNumber}
-                  onInvoiceNumberBlur={handleInvoiceNumberBlur}
+                  onInvoiceNumberChange={handleInvoiceNumberChange}
                   issueDate={issueDate}
-                  onIssueDateBlur={handleIssueDateBlur}
+                  onIssueDateChange={handleIssueDateChange}
                   dueDate={dueDate}
                   onDueDateChange={handleDueDateChange}
                   serviceDate={serviceDate}
                   onServiceDateChange={handleServiceDateChange}
                   projectTitle={projectTitle}
-                  onProjectTitleBlur={handleProjectTitleBlur}
+                  onProjectTitleChange={handleProjectTitleChange}
                   customerSummary={customerSummary}
-                  onCustomerSummaryBlur={handleCustomerSummaryBlur}
+                  onCustomerSummaryChange={handleCustomerSummaryChange}
                   invoiceSummary={invoiceSummary}
-                  onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
+                  onInvoiceSummaryChange={handleInvoiceSummaryChange}
                   paymentSummary={paymentSummary}
-                  onPaymentSummaryBlur={handlePaymentSummaryBlur}
+                  onPaymentSummaryChange={handlePaymentSummaryChange}
                   rowsData={rowsData}
-                  currentRows={currentRows}
                   currentPage={currentPage}
                   totalPages={pages.length}
                   subtotal={subtotal}
                   depositReceived={depositReceived}
-                  onDepositBlur={handleDepositBlur}
+                  onDepositChange={handleDepositChange}
                   totalDue={totalDue}
-                  onTotalDueBlur={handleTotalDueBlur}
+                  onTotalDueChange={handleTotalDueChange}
                   notes={notes}
-                  onNotesBlur={handleNotesBlur}
-                  pdfPreviewUrl={pdfPreviewUrl}
+                  onNotesChange={handleNotesChange}
+                  livePdfUrl={livePdfUrl}
+                  pdfPreviewUrl={overlayPdfUrl}
                   onClosePdfPreview={closePdfPreview}
                 />
               </div>
