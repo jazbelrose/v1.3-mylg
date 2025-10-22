@@ -133,12 +133,18 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: "#dddddd",
     flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
   },
   descriptionColumn: {
     flexGrow: 2.6,
+    flexShrink: 1,
+    flexBasis: 0,
   },
   numericColumn: {
     flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
     textAlign: "right",
   },
   tableRow: {
@@ -152,6 +158,8 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: "#f0f0f0",
     flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
   },
   groupRow: {
     backgroundColor: "#fafafa",
