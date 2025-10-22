@@ -110,9 +110,19 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrlState] = useState<string | null>(null);
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const previewJobRef = useRef(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const updatePdfPreviewUrl = useCallback((next: string | null) => {
+    if (pdfPreviewUrlRef.current && pdfPreviewUrlRef.current !== next) {
+      URL.revokeObjectURL(pdfPreviewUrlRef.current);
+    }
+    pdfPreviewUrlRef.current = next;
+    setPdfPreviewUrlState(next);
+  }, []);
 
   useModalStack(isOpen);
 
@@ -563,22 +573,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setCurrentPage(0);
   }, [pages]);
 
-  const closePdfPreview = useCallback(() => {
-    if (pdfPreviewUrlRef.current) {
-      URL.revokeObjectURL(pdfPreviewUrlRef.current);
-      pdfPreviewUrlRef.current = null;
-    }
-    setPdfPreviewUrl(null);
-  }, []);
+  const clearPdfPreview = useCallback(() => {
+    previewJobRef.current += 1;
+    updatePdfPreviewUrl(null);
+    setIsPdfGenerating(false);
+  }, [updatePdfPreviewUrl]);
 
   useEffect(() => {
     if (!isOpen) {
       setShowUnsavedPrompt(false);
-      closePdfPreview();
+      clearPdfPreview();
     }
-  }, [isOpen, closePdfPreview]);
+  }, [isOpen, clearPdfPreview]);
 
-  useEffect(() => () => closePdfPreview(), [closePdfPreview]);
+  useEffect(() => () => clearPdfPreview(), [clearPdfPreview]);
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
@@ -602,14 +610,37 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     saveAs(blob, file);
   }, [renderPdfBlob, revision]);
 
-  const handlePreviewPdf = useCallback(async () => {
+  const handleOpenPdf = useCallback(async () => {
+    const url = (await regeneratePdfPreview()) || pdfPreviewUrl;
+    if (!url || typeof window === "undefined") return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [regeneratePdfPreview, pdfPreviewUrl]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void regeneratePdfPreview();
+  }, [isOpen, regeneratePdfPreview]);
+
+  const regeneratePdfPreview = useCallback(async () => {
+    const jobId = previewJobRef.current + 1;
+    previewJobRef.current = jobId;
+    setIsPdfGenerating(true);
     const blob = await renderPdfBlob();
-    if (!blob) return;
-    closePdfPreview();
+    if (!blob) {
+      if (previewJobRef.current === jobId) {
+        setIsPdfGenerating(false);
+      }
+      return null;
+    }
     const objectUrl = URL.createObjectURL(blob);
-    pdfPreviewUrlRef.current = objectUrl;
-    setPdfPreviewUrl(objectUrl);
-  }, [renderPdfBlob, closePdfPreview]);
+    if (previewJobRef.current !== jobId) {
+      URL.revokeObjectURL(objectUrl);
+      return pdfPreviewUrlRef.current;
+    }
+    updatePdfPreviewUrl(objectUrl);
+    setIsPdfGenerating(false);
+    return objectUrl;
+  }, [renderPdfBlob, updatePdfPreviewUrl]);
 
   const buildInvoiceHtml = (): string => {
     if (!previewRef.current) return "";
@@ -934,7 +965,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           allowSave={allowSave}
           onSave={handleSaveClick}
           onSavePdf={handleSavePdf}
-          onPreviewPdf={handlePreviewPdf}
+          onOpenPdf={handleOpenPdf}
         />
 
         <div className={styles.modalBody}>
@@ -1028,7 +1059,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   notes={notes}
                   onNotesBlur={handleNotesBlur}
                   pdfPreviewUrl={pdfPreviewUrl}
-                  onClosePdfPreview={closePdfPreview}
+                  isPdfGenerating={isPdfGenerating}
                 />
               </div>
             </Fragment>

@@ -9,7 +9,7 @@ interface InvoiceFileActionsProps {
   allowSave: boolean;
   onSave: () => void;
   onSavePdf: () => void;
-  onPreviewPdf: () => void;
+  onOpenPdf: () => void;
 }
 
 const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
@@ -17,7 +17,7 @@ const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
   allowSave,
   onSave,
   onSavePdf,
-  onPreviewPdf,
+  onOpenPdf,
 }) => (
   <div className={styles.currentFileRow}>
     <div className={styles.fileName}>{fileName || "Unsaved Invoice"}</div>
@@ -40,8 +40,8 @@ const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
       </button>
       <button
         className={styles.iconButton}
-        onClick={onPreviewPdf}
-        aria-label="Preview PDF"
+        onClick={onOpenPdf}
+        aria-label="Open PDF preview in new tab"
       >
         <FontAwesomeIcon icon={faEye} />
       </button>

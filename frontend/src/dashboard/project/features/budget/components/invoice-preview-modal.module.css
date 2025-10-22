@@ -158,25 +158,29 @@
   cursor: default;
 }
 .previewWrapper {
-  position: relative;
-  overflow: auto;
   flex: 1 0 850px;
   min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
   display: flex;
+  gap: 16px;
+  align-items: flex-start;
   justify-content: center;
-  align-items: center;
-  flex-direction: column;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 .previewViewport {
-  width: 100%;
-  max-width: 210mm;
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  color: #000;
   display: flex;
-  justify-content: center;
-  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15);
+  position: relative;
 }
 
 .previewViewport :global(.invoice-page) {
@@ -185,48 +189,53 @@
   transition: transform 0.2s ease;
 }
 
-.pdfPreviewOverlay {
-  position: absolute;
-  inset: 12px;
-  background: rgba(18, 18, 18, 0.92);
-  color: #fff;
+.pdfPane {
+  flex: 0 0 340px;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
+  background: #111111;
+  color: #ffffff;
+  border-radius: 10px;
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
   padding: 16px;
-  z-index: 2;
+  gap: 12px;
 }
 
-.pdfPreviewHeader {
+.pdfPaneHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
   font-weight: 600;
 }
 
-.pdfPreviewHeader button {
-  background: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-weight: 600;
+.pdfPanePage {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.pdfPreviewCanvasWrapper {
+.pdfPaneBody {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
   background: #1f1f1f;
   border-radius: 10px;
   padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pdfPreviewCanvas {
   max-width: 100%;
+  width: 100%;
   border-radius: 6px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.pdfStatus {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
 }
 
 .groupSelect,
@@ -328,10 +337,17 @@
   .previewWrapper {
     flex: 1 1 auto;
     min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .previewViewport {
     max-width: 100%;
+  }
+
+  .pdfPane {
+    width: 100%;
+    max-width: none;
   }
 }
 
@@ -353,10 +369,14 @@
     padding: 0;
     background: transparent;
     overflow: visible;
+    gap: 12px;
   }
 
   .previewViewport {
     overflow: visible;
+    padding: 0;
+    box-shadow: none;
+    background: transparent;
   }
 
   .previewViewport :global(.invoice-page) {
@@ -380,8 +400,12 @@
     padding: 6px;
   }
 
-  .sidebar {
+  .pdfPane {
     order: 2;
+  }
+
+  .sidebar {
+    order: 3;
     width: 100%;
     max-width: none;
     background: #121212;
