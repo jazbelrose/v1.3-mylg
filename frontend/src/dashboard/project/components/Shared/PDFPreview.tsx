@@ -1,7 +1,7 @@
 ﻿// PDFPreview.tsx
 import React, { useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
-import pdfWorkerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+import pdfWorkerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.js?url';
 import { normalizeFileUrl } from '@/shared/utils/api';
 
 // Set the worker (required by pdf.js)
