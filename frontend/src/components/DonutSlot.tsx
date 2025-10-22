@@ -11,9 +11,8 @@ export default function DonutSlot({
 }) {
   return (
     <div
+      className="relative w-full"
       style={{
-        position: "relative",
-        width: "100%",
         aspectRatio: "1 / 1",
         minHeight: min,
         maxHeight: max,
@@ -21,7 +20,7 @@ export default function DonutSlot({
         borderRadius: 16,
       }}
     >
-      <div style={{ position: "absolute", inset: 0 }}>{children}</div>
+      <div className="absolute inset-0">{children}</div>
     </div>
   );
 }

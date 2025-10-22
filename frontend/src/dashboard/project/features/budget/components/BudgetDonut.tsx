@@ -441,6 +441,10 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
 
   const pieInnerRadius = isCompactLayout ? "48%" : "52%";
   const pieOuterRadius = isCompactLayout ? "98%" : "90%";
+  const chartViewBox = useMemo(
+    () => ({ x: 0, y: 0, width: 200, height: 200 }),
+    []
+  );
 
   const percentageFormatter = useMemo(
     () =>
@@ -732,7 +736,13 @@ const BudgetDonut: React.FC<BudgetDonutProps> = ({
       onPointerLeave={handleContainerPointerLeave}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart width={200} height={200} style={{ width: "100%", height: "100%" }}>
+        <PieChart
+          width={200}
+          height={200}
+          viewBox={chartViewBox}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ width: "100%", height: "100%" }}
+        >
           <Pie
             data={stableData}
             dataKey="value"
