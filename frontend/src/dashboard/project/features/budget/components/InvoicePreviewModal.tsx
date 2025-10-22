@@ -75,11 +75,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const pdfPreviewUrlRef = useRef<string | null>(null);
+  const inlinePdfUrlRef = useRef<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
-  const currentRows = pages[currentPage] || [];
 
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
@@ -111,6 +111,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [inlinePdfUrl, setInlinePdfUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -408,7 +409,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         setGroupValues(filteredVals);
       }
     }
-  }, [items, groupField]);
+  }, [items, groupField, groupValues]);
 
   const groupOptions = Array.from(
     new Set(
@@ -556,7 +557,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       pages.every((p, i) => p.length === pagesAccum[i].length);
 
     if (!same) setPages(pagesAccum);
-  }, [rowsData]);
+  }, [rowsData, pages]);
 
   useEffect(() => {
     setSelectedPages(pages.map((_, i) => i));
@@ -610,6 +611,32 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     pdfPreviewUrlRef.current = objectUrl;
     setPdfPreviewUrl(objectUrl);
   }, [renderPdfBlob, closePdfPreview]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    (async () => {
+      const blob = await renderPdfBlob();
+      if (!blob || !isActive) return;
+
+      const objectUrl = URL.createObjectURL(blob);
+      inlinePdfUrlRef.current = objectUrl;
+      setInlinePdfUrl((prev) => {
+        if (prev && prev !== objectUrl) {
+          URL.revokeObjectURL(prev);
+        }
+        return objectUrl;
+      });
+    })();
+
+    return () => {
+      isActive = false;
+      if (inlinePdfUrlRef.current) {
+        URL.revokeObjectURL(inlinePdfUrlRef.current);
+        inlinePdfUrlRef.current = null;
+      }
+    };
+  }, [renderPdfBlob]);
 
   const buildInvoiceHtml = (): string => {
     if (!previewRef.current) return "";
@@ -1016,20 +1043,19 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
                   paymentSummary={paymentSummary}
                   onPaymentSummaryBlur={handlePaymentSummaryBlur}
-                  rowsData={rowsData}
-                  currentRows={currentRows}
-                  currentPage={currentPage}
-                  totalPages={pages.length}
-                  subtotal={subtotal}
-                  depositReceived={depositReceived}
-                  onDepositBlur={handleDepositBlur}
-                  totalDue={totalDue}
-                  onTotalDueBlur={handleTotalDueBlur}
-                  notes={notes}
-                  onNotesBlur={handleNotesBlur}
-                  pdfPreviewUrl={pdfPreviewUrl}
-                  onClosePdfPreview={closePdfPreview}
-                />
+                rowsData={rowsData}
+                currentPage={currentPage}
+                subtotal={subtotal}
+                depositReceived={depositReceived}
+                onDepositBlur={handleDepositBlur}
+                totalDue={totalDue}
+                onTotalDueBlur={handleTotalDueBlur}
+                notes={notes}
+                onNotesBlur={handleNotesBlur}
+                inlinePdfUrl={inlinePdfUrl}
+                pdfPreviewUrl={pdfPreviewUrl}
+                onClosePdfPreview={closePdfPreview}
+              />
               </div>
             </Fragment>
           )}

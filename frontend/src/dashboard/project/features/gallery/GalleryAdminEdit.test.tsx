@@ -10,9 +10,6 @@ import { vi, describe, it, expect } from "vitest";
 
 // Create spies for functions that need to be tested
 const updateProjectFields = vi.fn();
-const deleteGallerySpy = vi.fn();
-const deleteGalleryFilesSpy = vi.fn();
-const updateGallerySpy = vi.fn();
 
 // ---- Mocks ----
 vi.mock("lucide-react", () => ({ GalleryVerticalEnd: () => <div /> }));
@@ -121,9 +118,6 @@ import {
   S3_PUBLIC_BASE,
 } from "../../../../shared/utils/api";
 
-const mockDeleteGallery = vi.mocked(deleteGallery);
-const mockDeleteGalleryFiles = vi.mocked(deleteGalleryFiles);
-const mockUpdateGallery = vi.mocked(updateGallery);
 import { flushQueue } from "../../../../shared/utils/requestQueue";
 
 const mockUseData = vi.mocked(useData);

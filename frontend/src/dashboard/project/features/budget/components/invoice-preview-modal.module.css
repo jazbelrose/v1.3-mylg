@@ -159,30 +159,13 @@
 }
 .previewWrapper {
   position: relative;
-  overflow: auto;
   flex: 1 0 850px;
   min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
+  padding: 0;
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
-}
-
-.previewViewport {
-  width: 100%;
-  max-width: 210mm;
-  display: flex;
-  justify-content: center;
+  gap: 16px;
   overflow: hidden;
-}
-
-.previewViewport :global(.invoice-page) {
-  width: 100%;
-  max-width: 210mm;
-  transition: transform 0.2s ease;
 }
 
 .pdfPreviewOverlay {
@@ -227,6 +210,140 @@
   max-width: 100%;
   border-radius: 6px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.pdfEditorLayout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 10px;
+  background: #121212;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f5f5f5;
+  min-height: 0;
+}
+
+.pdfCanvasPanel {
+  flex: 0 0 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.inlinePdfCanvas {
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  background: #1f1f1f;
+}
+
+.pdfPlaceholder {
+  width: 100%;
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.logoDropZone {
+  width: 180px;
+  height: 180px;
+  border: 1px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.logoDropZone img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.logoDropZone span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.pdfFormPanel {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pdfFormPanel section {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pdfFormPanel h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.pdfFormPanel label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.pdfFormPanel input,
+.pdfFormPanel textarea {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.4);
+  color: #f5f5f5;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.pdfFormPanel input:disabled,
+.pdfFormPanel textarea:disabled {
+  opacity: 0.6;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.numberFields {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hiddenInvoicePreview {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
+  overflow: hidden;
 }
 
 .groupSelect,
@@ -329,9 +446,15 @@
     flex: 1 1 auto;
     min-width: 0;
   }
-
-  .previewViewport {
-    max-width: 100%;
+  .pdfEditorLayout {
+    flex-direction: column;
+  }
+  .pdfCanvasPanel {
+    width: 100%;
+  }
+  .pdfFormPanel {
+    width: 100%;
+    max-height: none;
   }
 }
 
@@ -354,30 +477,8 @@
     background: transparent;
     overflow: visible;
   }
-
-  .previewViewport {
-    overflow: visible;
-  }
-
-  .previewViewport :global(.invoice-page) {
-    padding: 14px 14px 54px;
-  }
-
-  .previewViewport :global(.invoice-header) {
-    gap: 12px;
-  }
-
-  .previewViewport :global(.invoice-title) {
-    font-size: 1.6rem;
-  }
-
-  .previewViewport :global(.billing-info) {
-    font-size: 0.82rem;
-  }
-
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
-    padding: 6px;
+  .pdfEditorLayout {
+    padding: 8px;
   }
 
   .sidebar {
@@ -421,50 +522,19 @@
 
   .previewWrapper {
     align-items: stretch;
+    padding: 12px;
   }
 
-  .previewViewport {
-    padding-bottom: 16px;
+  .pdfEditorLayout {
+    padding: 6px;
   }
 
-  .previewViewport :global(.invoice-page) {
-    padding: 12px 12px 48px;
-  }
-
-  .previewViewport :global(.invoice-header) {
-    gap: 10px;
-  }
-
-  .previewViewport :global(.invoice-title) {
-    font-size: 1.4rem;
-  }
-
-  .previewViewport :global(.company-info),
-  .previewViewport :global(.billing-info) {
-    font-size: 0.78rem;
-  }
-
-  .previewViewport :global(.summary) {
-    gap: 10px;
-  }
-
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
-    font-size: 0.78rem;
-    padding: 5px;
-  }
-
-  .previewViewport :global(.bottom-block) {
-    margin-bottom: 24px;
-  }
-
-  .invoice-container,
-  .invoice-page {
+  .pdfCanvasPanel {
     width: 100%;
   }
 
-  .invoice-page {
-    padding: 16px 16px 52px;
+  .pdfFormPanel {
+    grid-template-columns: 1fr;
   }
 }
 
