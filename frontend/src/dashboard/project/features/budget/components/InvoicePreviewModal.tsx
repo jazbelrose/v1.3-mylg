@@ -323,16 +323,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     if (!logoKey && u.brandLogoUrl) {
       logoKey = fileUrlsToKeys([u.brandLogoUrl])[0] || "";
     }
+    const projectBrandName = (project?.invoiceBrandName || "").trim();
+    const projectBrandAddress = (project?.invoiceBrandAddress || "").trim();
+    const projectBrandPhone = (project?.invoiceBrandPhone || "").trim();
+
     setBrandLogoKey(logoKey);
-    setBrandName(u.brandName || u.company || "");
-    setBrandAddress(u.brandAddress || "");
-    setBrandPhone(u.brandPhone || "");
+    setBrandName(projectBrandName || u.brandName || u.company || "");
+    setBrandAddress(projectBrandAddress || u.brandAddress || "");
+    setBrandPhone(projectBrandPhone || u.brandPhone || "");
     setBrandTagline(u.brandTagline || "");
     setLogoDataUrl(null);
     setUseProjectAddress(false);
     setShowSaved(false);
     setIsDirty(false);
-  }, [isOpen, userData]);
+  }, [isOpen, project?.invoiceBrandAddress, project?.invoiceBrandName, project?.invoiceBrandPhone, userData]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -346,7 +350,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setPaymentSummary("Payment");
     setNotes(DEFAULT_NOTES_HTML);
     setDepositReceived(0);
-    setInvoiceDirty(true);
+    setInvoiceDirty(false);
 
     if (revision?.revision != null) {
       setCurrentFileName(`invoice-revision-${revision.revision}.html`);
@@ -638,9 +642,14 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           )
           .join("");
 
-        const headerName = brandName || project?.company || "Company Name";
-        const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
-        const headerPhone = brandPhone || "Phone";
+        const headerName =
+          brandName || project?.invoiceBrandName || project?.company || "Company Name";
+        const headerAddressBase =
+          brandAddress || project?.invoiceBrandAddress || project?.address || "";
+        const headerAddress = useProjectAddress
+          ? project?.address || headerAddressBase || "Address"
+          : headerAddressBase || "Address";
+        const headerPhone = brandPhone || project?.invoiceBrandPhone || "Phone Number";
         const headerTag = brandTagline || "";
         const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
@@ -650,9 +659,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         const service = serviceDate || "";
 
         const billContact = project?.clientName || "Client Name";
-        const billCompany = project?.invoiceBrandName || "Client Company";
-        const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
-        const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
+        const billAddress = project?.clientAddress || "Client Address";
+        const billPhone = project?.clientPhone || "";
         const billEmail = project?.clientEmail || "";
 
         const projTitle = projectTitle || "";
@@ -698,7 +706,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 <div>
                   <strong>Bill To:</strong>
                   <div>${billContact}</div>
-                  <div>${billCompany}</div>
                   <div>${billAddress}</div>
                   ${billPhone ? `<div>${billPhone}</div>` : ""}
                   ${billEmail ? `<div>${billEmail}</div>` : ""}

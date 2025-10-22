@@ -108,86 +108,108 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 }) => {
   const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
-  const renderHeader = () => (
-    <div className="invoice-top">
-      <header className="invoice-header">
-        <div
-          className="logo-upload"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={onLogoDrop}
-          aria-label="Company logo"
-        >
-          {logoSrc ? (
-            <img src={logoSrc} alt="Company logo" />
-          ) : (
-            <span>Upload Logo</span>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            style={{ display: "none" }}
-            onChange={onLogoSelect}
-          />
-        </div>
+  const renderHeader = () => {
+    const displayBrandName =
+      brandName || project?.invoiceBrandName || project?.company || "Your Business Name";
+    const displayAddress = useProjectAddress
+      ? project?.address || project?.invoiceBrandAddress || "Project Address"
+      : brandAddress || project?.invoiceBrandAddress || "Business Address";
+    const displayPhone = brandPhone || project?.invoiceBrandPhone || "Phone Number";
+    const displayClientName = project?.clientName || "Client Name";
+    const displayClientAddress = project?.clientAddress || "Client Address";
+    const displayClientPhone = project?.clientPhone || "";
+    const displayClientEmail = project?.clientEmail || "";
 
-        <div className="company-block">
-          <div className="company-info">
-            <div
-              className="brand-name"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Company Name"
-              onBlur={(e) => onBrandNameBlur(e.currentTarget.textContent || "")}
-            >
-              {brandName || project?.company || "Your Business Name"}
-            </div>
-
-            <div
-              className="brand-tagline"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Tagline"
-              onBlur={(e) => onBrandTaglineBlur(e.currentTarget.textContent || "")}
-            >
-              {brandTagline || "Tagline"}
-            </div>
-
-            <div
-              className="brand-address"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Company Address"
-              onBlur={(e) => onBrandAddressBlur(e.currentTarget.textContent || "")}
-            >
-              {useProjectAddress
-                ? project?.address || "Project Address"
-                : brandAddress || "Business Address"}
-            </div>
-
-            <div
-              className="brand-phone"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Company Phone"
-              onBlur={(e) => onBrandPhoneBlur(e.currentTarget.textContent || "")}
-            >
-              {brandPhone || "Phone Number"}
-            </div>
-
-            {project?.address && (
-              <label style={{ fontSize: "0.8rem" }}>
-                <input
-                  type="checkbox"
-                  checked={useProjectAddress}
-                  onChange={(e) => onToggleProjectAddress(e.target.checked)}
-                />{" "}
-                Use project address
-              </label>
+    return (
+      <div className="invoice-top">
+        <header className="invoice-header">
+          <div
+            className="logo-upload"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={onLogoDrop}
+            aria-label="Company logo"
+          >
+            {logoSrc ? (
+              <img src={logoSrc} alt="Company logo" />
+            ) : (
+              <span>Upload Logo</span>
             )}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={onLogoSelect}
+            />
           </div>
 
+          <div className="company-block">
+            <div className="company-info">
+              <div
+                className="brand-name"
+                contentEditable
+                suppressContentEditableWarning
+                aria-label="Company Name"
+                onBlur={(e) => onBrandNameBlur(e.currentTarget.textContent || "")}
+              >
+                {displayBrandName}
+              </div>
+
+              <div
+                className="brand-tagline"
+                contentEditable
+                suppressContentEditableWarning
+                aria-label="Tagline"
+                onBlur={(e) => onBrandTaglineBlur(e.currentTarget.textContent || "")}
+              >
+                {brandTagline || "Tagline"}
+              </div>
+
+              <div
+                className="brand-address"
+                contentEditable
+                suppressContentEditableWarning
+                aria-label="Company Address"
+                onBlur={(e) => onBrandAddressBlur(e.currentTarget.textContent || "")}
+              >
+                {displayAddress}
+              </div>
+
+              <div
+                className="brand-phone"
+                contentEditable
+                suppressContentEditableWarning
+                aria-label="Company Phone"
+                onBlur={(e) => onBrandPhoneBlur(e.currentTarget.textContent || "")}
+              >
+                {displayPhone}
+              </div>
+
+              {project?.address && (
+                <label style={{ fontSize: "0.8rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={useProjectAddress}
+                    onChange={(e) => onToggleProjectAddress(e.target.checked)}
+                  />{" "}
+                  Use project address
+                </label>
+              )}
+            </div>
+
+            <div className="invoice-title">INVOICE</div>
+          </div>
+        </header>
+
+        <div className="billing-info">
+          <div>
+            <strong>Bill To:</strong>
+            <div>{displayClientName}</div>
+            <div>{displayClientAddress}</div>
+            {displayClientPhone ? <div>{displayClientPhone}</div> : null}
+            {displayClientEmail ? <div>{displayClientEmail}</div> : null}
+          </div>
           <div className="invoice-meta">
             <div>
               Invoice #: {" "}
@@ -229,9 +251,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
           </div>
         </div>
-      </header>
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderSummary = (rows: RowData[], rowsKeyPrefix: string) => (
     <Fragment>
