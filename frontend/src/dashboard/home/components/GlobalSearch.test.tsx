@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import GlobalSearch from './GlobalSearch';
+import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import '@testing-library/jest-dom';
 
 // Mock the required hooks and modules
@@ -127,11 +128,11 @@ describe('GlobalSearch', () => {
     mockNavigate.mockReset();
   });
 
-  const renderGlobalSearch = () => {
+  const renderGlobalSearch = (initialEntries: string[] = ['/']) => {
     return render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <GlobalSearch />
-      </BrowserRouter>
+      </MemoryRouter>
     );
   };
 
@@ -308,6 +309,40 @@ describe('GlobalSearch', () => {
     await waitFor(() => {
       expect(mockUseData.fetchProjectDetails).toHaveBeenCalled();
       expect(mockNavigate).toHaveBeenCalled();
+    });
+  });
+
+  it('preserves the current project view suffix when navigating to another project', async () => {
+    renderGlobalSearch(['/dashboard/projects/project-1/Test%20Project/budget']);
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'demo' } });
+
+    await waitFor(() => {
+      const demoProjectElements = screen.getAllByText((content, element) => {
+        if (!element) return false;
+        const textContent = element.textContent || '';
+        return textContent.includes('Demo Application');
+      });
+      expect(demoProjectElements.length).toBeGreaterThan(0);
+    });
+
+    const allButtons = screen.getAllByRole('button');
+    const demoProjectButton = allButtons.find(button => {
+      const textContent = button.textContent || '';
+      return textContent.includes('Demo Application') && !textContent.includes('Message in');
+    });
+
+    expect(demoProjectButton).toBeDefined();
+
+    fireEvent.click(demoProjectButton!);
+
+    const expectedPath = getProjectDashboardPath('project-2', 'Demo Application', '/budget');
+
+    await waitFor(() => {
+      expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
+      expect(mockNavigate).toHaveBeenCalledWith(expectedPath);
     });
   });
 

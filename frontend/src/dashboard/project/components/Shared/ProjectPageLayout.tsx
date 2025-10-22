@@ -5,6 +5,8 @@ import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import ChatPanel from "./ChatPanel";
 import type { ProjectAccentPalette } from "@/dashboard/project/hooks/useProjectPalette";
+import { useData } from "@/app/contexts/useData";
+import Spinner from "@/shared/ui/Spinner";
 
 type ProjectPageLayoutProps = {
   projectId?: string;
@@ -72,7 +74,20 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
     } as React.CSSProperties;
   }, [theme]);
 
+  const { activeProject } = useData();
+  const activeProjectId = React.useMemo(
+    () => (activeProject?.projectId ? String(activeProject.projectId) : null),
+    [activeProject?.projectId]
+  );
   const safeProjectId = projectId ?? "";
+  const isProjectLoading = React.useMemo(
+    () => Boolean(projectId && activeProjectId !== projectId),
+    [activeProjectId, projectId]
+  );
+  const shouldShowUnavailableState = React.useMemo(
+    () => Boolean(projectId && !isProjectLoading && !activeProjectId),
+    [activeProjectId, isProjectLoading, projectId]
+  );
 
   const threadWidth = MIN_THREAD_WIDTH;
   const [headerHeights, setHeaderHeights] = React.useState<{ global: number; project: number }>({
@@ -254,6 +269,45 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
     setIsNavCollapsed((prev) => !prev);
   }, [setIsNavCollapsed]);
 
+  const loader = (
+    <div
+      style={{
+        alignItems: "center",
+        display: "flex",
+        justifyContent: "center",
+        minHeight: "40vh",
+        padding: "2rem 0",
+        width: "100%",
+      }}
+    >
+      <Spinner />
+    </div>
+  );
+
+  const unavailableState = (
+    <div
+      style={{
+        alignItems: "center",
+        color: "var(--text-muted, #6b7280)",
+        display: "flex",
+        fontSize: "1rem",
+        justifyContent: "center",
+        minHeight: "40vh",
+        padding: "2rem",
+        textAlign: "center",
+        width: "100%",
+      }}
+    >
+      We're having trouble loading this project right now.
+    </div>
+  );
+
+  const bodyContent = isProjectLoading
+    ? loader
+    : shouldShowUnavailableState
+    ? unavailableState
+    : children;
+
   const mainContent = (
     <div
       className="dashboard-wrapper active-project-details"
@@ -280,7 +334,7 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
 
       <div className="dashboard-layout" ref={layoutRef} style={layoutStyles}>
         <div style={contentContainerStyles}>
-          {children}
+          {bodyContent}
         </div>
 
         {!isChatHidden && !floatingThread && !isMobile && (

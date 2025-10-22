@@ -223,7 +223,7 @@ const EditorPage: React.FC = () => {
 
   return (
     <ProjectPageLayout
-      projectId={activeProject?.projectId}
+      projectId={projectId}
       theme={projectPalette}
       header={
         <ProjectHeader

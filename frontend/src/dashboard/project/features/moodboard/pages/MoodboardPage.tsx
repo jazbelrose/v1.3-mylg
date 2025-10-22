@@ -195,7 +195,7 @@ const MoodboardPage: React.FC = () => {
 
   return (
     <ProjectPageLayout
-      projectId={resolvedProjectId}
+      projectId={projectId}
       theme={projectPalette}
       header={
         <ProjectHeader

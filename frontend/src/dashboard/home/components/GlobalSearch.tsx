@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, X, FileText, FolderOpen, MessageSquare, User, Loader2 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { slugify } from '@/shared/utils/slug';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import type { Project, Message, UserLite } from '@/app/contexts/DataProvider';
@@ -321,6 +321,8 @@ interface GlobalSearchProps {
   onNavigate?: () => void;
 }
 
+const PROJECT_VIEW_SUFFIXES = new Set(['budget', 'calendar', 'editor', 'moodboard']);
+
 const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -333,6 +335,27 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentProjectViewSuffix = useMemo(() => {
+    const path = location.pathname.split(/[?#]/)[0];
+    if (!path.startsWith('/dashboard/projects/')) {
+      return '';
+    }
+
+    const segments = path.split('/').filter(Boolean);
+    if (segments[0] !== 'dashboard' || segments[1] !== 'projects') {
+      return '';
+    }
+
+    const maybeSuffixIndex = segments.length >= 5 ? 4 : segments.length >= 4 ? 3 : -1;
+    if (maybeSuffixIndex === -1) {
+      return '';
+    }
+
+    const suffixCandidate = segments[maybeSuffixIndex];
+    return PROJECT_VIEW_SUFFIXES.has(suffixCandidate) ? `/${suffixCandidate}` : '';
+  }, [location.pathname]);
 
   const data = useData();
   const projects = useMemo(() => (Array.isArray(data?.projects) ? data.projects : []) as Project[], [data?.projects]);
@@ -545,7 +568,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
             fetchPromise = fetchProjectDetails(result.projectId);
           }
           const project = projects?.find((p: Project) => p.projectId === result.projectId);
-          const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+          const path = getProjectDashboardPath(
+            result.projectId,
+            project?.title ?? result.title,
+            currentProjectViewSuffix
+          );
           navigate(path);
           if (fetchPromise) {
             try {

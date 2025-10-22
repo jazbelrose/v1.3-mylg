@@ -554,7 +554,7 @@ const BudgetPageContent = () => {
         }
       `}</style>
       <ProjectPageLayout
-        projectId={activeProject?.projectId}
+        projectId={projectId}
         theme={projectPalette}
         header={
           <ProjectHeader
@@ -833,10 +833,10 @@ const BudgetPageContent = () => {
 
 // Main component that provides the budget context
 const BudgetPage = () => {
-  const { activeProject } = useData();
-  
+  const { projectId } = useParams<{ projectId: string }>();
+
   return (
-    <BudgetProvider projectId={activeProject?.projectId}>
+    <BudgetProvider projectId={projectId}>
       <BudgetPageContent />
     </BudgetProvider>
   );
