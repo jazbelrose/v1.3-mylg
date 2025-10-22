@@ -5,7 +5,8 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   background: rgba(5, 6, 7, 0.72);
   backdrop-filter: blur(6px);
@@ -64,6 +65,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
 }
 
 .header {
@@ -123,14 +125,23 @@
   height: 18px;
 }
 
-.body {
+.content {
   flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.body {
+  flex: 1 0 auto;
+  min-height: 0;
   padding: 24px clamp(24px, 4vw, 40px) clamp(40px, 6vw, 56px);
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .fieldGroup {
@@ -422,12 +433,19 @@
 }
 
 .footer {
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px clamp(24px, 4vw, 40px) clamp(28px, 5vw, 40px);
+  padding: 20px clamp(24px, 4vw, 40px)
+    calc(clamp(28px, 5vw, 40px) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 14, 16, 0.96);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 -18px 32px rgba(0, 0, 0, 0.35);
+  z-index: 1;
 }
 
 .footerMeta {
@@ -495,6 +513,7 @@
   .footer {
     flex-direction: column;
     align-items: flex-start;
+    width: 100%;
   }
 
   .footerActions {
@@ -513,10 +532,16 @@
     border-radius: 20px;
   }
 
-  .header,
-  .body,
-  .footer {
+  .header {
     padding: 20px;
+  }
+
+  .body {
+    padding: 20px 20px 28px;
+  }
+
+  .footer {
+    padding: 18px 20px calc(20px + env(safe-area-inset-bottom, 0px));
   }
 
   .grid {

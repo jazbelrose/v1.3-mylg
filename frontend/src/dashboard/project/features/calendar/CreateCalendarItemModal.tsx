@@ -294,6 +294,11 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     onClose();
   }, [isDeleting, isSubmitting, onClose]);
 
+  const handleCancel = useCallback(() => {
+    if (isSubmitting || isDeleting) return;
+    onClose();
+  }, [isDeleting, isSubmitting, onClose]);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -329,278 +334,280 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
           </button>
         </div>
 
-        <div className={styles.body}>
-          <div className={styles.fieldGroup}>
-            <input
-              className={styles.titleInput}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Write a title here"
-              disabled={isSubmitting}
-            />
-            <div className={styles.tagsRow}>
-              <Tag className={styles.tagsIcon} />
-              <div className={styles.tagList}>
-                {tags.map((tag) => (
-                  <span key={tag} className={styles.tagChip}>
-                    {tag}
-                    <button
-                      type="button"
-                      className={styles.removeChip}
-                      onClick={() => handleRemoveTag(tag)}
-                      aria-label={`Remove ${tag}`}
-                      disabled={isSubmitting}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                <button
-                  type="button"
-                  className={styles.addTagButton}
-                  onClick={handleAddTag}
-                  disabled={isSubmitting}
-                >
-                  + Add tag
-                </button>
+        <div className={styles.content}>
+          <div className={styles.body}>
+            <div className={styles.fieldGroup}>
+              <input
+                className={styles.titleInput}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Write a title here"
+                disabled={isSubmitting}
+              />
+              <div className={styles.tagsRow}>
+                <Tag className={styles.tagsIcon} />
+                <div className={styles.tagList}>
+                  {tags.map((tag) => (
+                    <span key={tag} className={styles.tagChip}>
+                      {tag}
+                      <button
+                        type="button"
+                        className={styles.removeChip}
+                        onClick={() => handleRemoveTag(tag)}
+                        aria-label={`Remove ${tag}`}
+                        disabled={isSubmitting}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    className={styles.addTagButton}
+                    onClick={handleAddTag}
+                    disabled={isSubmitting}
+                  >
+                    + Add tag
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="modal-guests">
-              Add collaborators
-            </label>
-            <div className={styles.fieldShell}>
-              <div className={styles.fieldShellContent}>
-                <div className={styles.fieldShellHeader}>
-                  <Users className={styles.fieldIcon} />
-                  <input
-                    id="modal-guests"
-                    className={styles.textInput}
-                    placeholder={
-                      guestOptions.length > 0
-                        ? "Search project team and press Enter"
-                        : "No team members available"
-                    }
-                    value={guestQuery}
-                    onChange={(event) => setGuestQuery(event.target.value)}
-                    onKeyDown={handleGuestKeyDown}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <div className={styles.chipList}>
-                  {guests.map((guest) => {
-                    const initials = guest
-                      .split(/\s+/)
-                      .filter(Boolean)
-                      .map((part) => part[0] ?? "")
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase();
-                    return (
-                      <span key={guest} className={styles.chip}>
-                        <span className={styles.chipAvatar}>{initials || "?"}</span>
-                        <span className={styles.chipLabel}>{guest}</span>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-guests">
+                Add collaborators
+              </label>
+              <div className={styles.fieldShell}>
+                <div className={styles.fieldShellContent}>
+                  <div className={styles.fieldShellHeader}>
+                    <Users className={styles.fieldIcon} />
+                    <input
+                      id="modal-guests"
+                      className={styles.textInput}
+                      placeholder={
+                        guestOptions.length > 0
+                          ? "Search project team and press Enter"
+                          : "No team members available"
+                      }
+                      value={guestQuery}
+                      onChange={(event) => setGuestQuery(event.target.value)}
+                      onKeyDown={handleGuestKeyDown}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className={styles.chipList}>
+                    {guests.map((guest) => {
+                      const initials = guest
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .map((part) => part[0] ?? "")
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase();
+                      return (
+                        <span key={guest} className={styles.chip}>
+                          <span className={styles.chipAvatar}>{initials || "?"}</span>
+                          <span className={styles.chipLabel}>{guest}</span>
+                          <button
+                            type="button"
+                            className={styles.chipRemove}
+                            onClick={() => handleRemoveGuest(guest)}
+                            aria-label={`Remove ${guest}`}
+                            disabled={isSubmitting}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {filteredSuggestions.length > 0 && (
+                    <div className={styles.suggestions}>
+                      {filteredSuggestions.map((option) => (
                         <button
+                          key={option.id}
                           type="button"
-                          className={styles.chipRemove}
-                          onClick={() => handleRemoveGuest(guest)}
-                          aria-label={`Remove ${guest}`}
+                          className={styles.suggestionButton}
+                          onClick={() => {
+                            const added = handleAddGuest(option.name);
+                            if (added) {
+                              setGuestQuery("");
+                            }
+                          }}
                           disabled={isSubmitting}
                         >
-                          ×
+                          {option.name}
                         </button>
-                      </span>
-                    );
-                  })}
+                      ))}
+                    </div>
+                  )}
+                  {guestError && <div className={styles.guestError}>{guestError}</div>}
                 </div>
-                {filteredSuggestions.length > 0 && (
-                  <div className={styles.suggestions}>
-                    {filteredSuggestions.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={styles.suggestionButton}
-                        onClick={() => {
-                          const added = handleAddGuest(option.name);
-                          if (added) {
-                            setGuestQuery("");
+              </div>
+            </div>
+
+            <div className={styles.grid}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="modal-date">
+                  Date
+                </label>
+                <div className={styles.fieldShell}>
+                  <div className={styles.fieldShellHeader}>
+                    <CalendarIcon className={styles.fieldIcon} />
+                    <input
+                      id="modal-date"
+                      type="date"
+                      className={styles.textInput}
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="modal-time">
+                  Time
+                </label>
+                <div className={styles.fieldShell}>
+                  <div className={styles.timeRow}>
+                    <Clock className={styles.fieldIcon} />
+                    <input
+                      id="modal-time"
+                      type="time"
+                      className={styles.timeInput}
+                      value={time}
+                      onChange={(event) => {
+                        const nextTime = event.target.value;
+                        setTime(nextTime);
+                        setEndTime(deriveEndTime(nextTime));
+                      }}
+                      disabled={isSubmitting || allDay}
+                    />
+                    <label className={styles.toggle}>
+                      <input
+                        type="checkbox"
+                        checked={allDay}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setAllDay(checked);
+                          if (checked) {
+                            setEndTime(undefined);
+                          } else {
+                            setEndTime((current) => current ?? deriveEndTime(time));
                           }
                         }}
                         disabled={isSubmitting}
-                      >
-                        {option.name}
-                      </button>
-                    ))}
+                      />
+                      <span>All day</span>
+                    </label>
                   </div>
-                )}
-                {guestError && <div className={styles.guestError}>{guestError}</div>}
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.grid}>
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-date">
-                Date
-              </label>
-              <div className={styles.fieldShell}>
-                <div className={styles.fieldShellHeader}>
-                  <CalendarIcon className={styles.fieldIcon} />
-                  <input
-                    id="modal-date"
-                    type="date"
-                    className={styles.textInput}
-                    value={date}
-                    onChange={(event) => setDate(event.target.value)}
-                    disabled={isSubmitting}
-                  />
                 </div>
               </div>
-            </div>
 
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-time">
-                Time
-              </label>
-              <div className={styles.fieldShell}>
-                <div className={styles.timeRow}>
-                  <Clock className={styles.fieldIcon} />
-                  <input
-                    id="modal-time"
-                    type="time"
-                    className={styles.timeInput}
-                    value={time}
-                    onChange={(event) => {
-                      const nextTime = event.target.value;
-                      setTime(nextTime);
-                      setEndTime(deriveEndTime(nextTime));
-                    }}
-                    disabled={isSubmitting || allDay}
-                  />
-                  <label className={styles.toggle}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="modal-event-type">
+                  Event type
+                </label>
+                <div className={styles.fieldShell}>
+                  <div className={styles.fieldShellHeader}>
+                    <Video className={styles.fieldIcon} />
+                    <select
+                      id="modal-event-type"
+                      className={styles.select}
+                      value={eventType}
+                      onChange={(event) => setEventType(event.target.value)}
+                      disabled={isSubmitting}
+                    >
+                      {EVENT_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label className={styles.label} htmlFor="modal-location">
+                  Location
+                </label>
+                <div className={styles.fieldShell}>
+                  <div className={styles.fieldShellHeader}>
+                    <MapPin className={styles.fieldIcon} />
                     <input
-                      type="checkbox"
-                      checked={allDay}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setAllDay(checked);
-                        if (checked) {
-                          setEndTime(undefined);
-                        } else {
-                          setEndTime((current) => current ?? deriveEndTime(time));
-                        }
-                      }}
+                      id="modal-location"
+                      className={styles.textInput}
+                      placeholder="Add a location"
+                      value={location}
+                      onChange={(event) => setLocation(event.target.value)}
                       disabled={isSubmitting}
                     />
-                    <span>All day</span>
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-event-type">
-                Event type
+              <label className={styles.label} htmlFor="modal-description">
+                Add description
               </label>
               <div className={styles.fieldShell}>
-                <div className={styles.fieldShellHeader}>
-                  <Video className={styles.fieldIcon} />
-                  <select
-                    id="modal-event-type"
-                    className={styles.select}
-                    value={eventType}
-                    onChange={(event) => setEventType(event.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {EVENT_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <textarea
+                  id="modal-description"
+                  className={styles.textArea}
+                  rows={4}
+                  placeholder="Write here..."
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  disabled={isSubmitting}
+                />
               </div>
             </div>
 
-            <div className={styles.fieldGroup}>
-              <label className={styles.label} htmlFor="modal-location">
-                Location
-              </label>
-              <div className={styles.fieldShell}>
-                <div className={styles.fieldShellHeader}>
-                  <MapPin className={styles.fieldIcon} />
-                  <input
-                    id="modal-location"
-                    className={styles.textInput}
-                    placeholder="Add a location"
-                    value={location}
-                    onChange={(event) => setLocation(event.target.value)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
+            {error && <div className={styles.error}>{error}</div>}
+          </div>
+
+          <div className={styles.footer}>
+            <div className={styles.footerMeta}>
+              Guests can view this event • Share the location with your team
             </div>
-          </div>
-
-          <div className={styles.fieldGroup}>
-            <label className={styles.label} htmlFor="modal-description">
-              Add description
-            </label>
-            <div className={styles.fieldShell}>
-              <textarea
-                id="modal-description"
-                className={styles.textArea}
-                rows={4}
-                placeholder="Write here..."
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
-
-          {error && <div className={styles.error}>{error}</div>}
-        </div>
-
-        <div className={styles.footer}>
-          <div className={styles.footerMeta}>
-            Guests can view this event • Share the location with your team
-          </div>
-          <div className={styles.footerActions}>
-            {isEditing && onDelete && (
+            <div className={styles.footerActions}>
+              {isEditing && onDelete && (
+                <button
+                  type="button"
+                  className={styles.dangerButton}
+                  onClick={handleDelete}
+                  disabled={isSubmitting || isDeleting}
+                >
+                  {isDeleting ? "Deleting…" : "Delete"}
+                </button>
+              )}
               <button
                 type="button"
-                className={styles.dangerButton}
-                onClick={handleDelete}
+                className={styles.secondaryButton}
+                onClick={handleCancel}
                 disabled={isSubmitting || isDeleting}
               >
-                {isDeleting ? "Deleting…" : "Delete"}
+                Cancel
               </button>
-            )}
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={onClose}
-              disabled={isSubmitting || isDeleting}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting || isDeleting}
-            >
-              {isSubmitting
-                ? isEditing
-                  ? "Updating…"
-                  : "Saving…"
-                : isEditing
-                  ? "Update"
-                  : "Save"}
-            </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={handleSubmit}
+                disabled={!canSubmit || isSubmitting || isDeleting}
+              >
+                {isSubmitting
+                  ? isEditing
+                    ? "Updating…"
+                    : "Saving…"
+                  : isEditing
+                    ? "Update"
+                    : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
