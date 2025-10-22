@@ -9,7 +9,7 @@ import {
 } from "@react-pdf/renderer";
 
 import type { BudgetItem, ProjectLike, RowData } from "./invoicePreviewTypes";
-import { formatCurrency } from "./invoicePreviewUtils";
+import { formatCurrency, htmlToPlainText } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
 
 interface PdfInvoiceProps {
@@ -231,21 +231,6 @@ const groupRowsForPdf = (rows: RowData[]): PdfRowSegment[] => {
   return segments;
 };
 
-const toPlainText = (html: string): string => {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/>/gi, "\n")
-    .replace(/<p[^>]*>/gi, "")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-};
-
 const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string => {
   if (logoDataUrl) return logoDataUrl;
   if (!brandLogoKey) return "";
@@ -275,7 +260,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
   notes,
 }) => {
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
-  const notesText = useMemo(() => toPlainText(notes), [notes]);
+  const notesText = useMemo(() => htmlToPlainText(notes), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
 
   const renderItemRow = (item: BudgetItem, key: string | number) => {
