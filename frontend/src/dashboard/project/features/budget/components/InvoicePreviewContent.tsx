@@ -1,6 +1,7 @@
 import React, { Fragment } from "react";
 
 import { getFileUrl } from "@/shared/utils/api";
+import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 import styles from "./invoice-preview-modal.module.css";
 import type { ProjectLike, RowData } from "./invoicePreviewTypes";
@@ -52,6 +53,8 @@ interface InvoicePreviewContentProps {
   onTotalDueBlur: (value: string) => void;
   notes: string;
   onNotesBlur: (value: string) => void;
+  pdfPreviewUrl: string | null;
+  onClosePdfPreview: () => void;
 }
 
 const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
@@ -100,6 +103,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onTotalDueBlur,
   notes,
   onNotesBlur,
+  pdfPreviewUrl,
+  onClosePdfPreview,
 }) => {
   const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
@@ -315,6 +320,23 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
   return (
     <div className={styles.previewWrapper} ref={previewRef}>
+      {pdfPreviewUrl ? (
+        <div className={styles.pdfPreviewOverlay}>
+          <div className={styles.pdfPreviewHeader}>
+            <span>PDF Preview</span>
+            <button type="button" onClick={onClosePdfPreview}>
+              Close
+            </button>
+          </div>
+          <div className={styles.pdfPreviewCanvasWrapper}>
+            <PDFPreview
+              url={pdfPreviewUrl}
+              page={Math.max(1, currentPage + 1)}
+              className={styles.pdfPreviewCanvas}
+            />
+          </div>
+        </div>
+      ) : null}
       <style id="invoice-preview-styles">{`
         @page { margin: 0; }
         body { margin: 0; }
