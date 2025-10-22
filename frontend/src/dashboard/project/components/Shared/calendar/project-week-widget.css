@@ -1,5 +1,6 @@
 .project-week-widget {
   position: relative;
+  z-index: 3;
 }
 
 .project-week-widget-inner {

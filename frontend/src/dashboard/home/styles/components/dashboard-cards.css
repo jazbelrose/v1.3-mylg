@@ -256,6 +256,8 @@
   width: 100%;
   container-type: inline-size;
   container-name: calendar-panel;
+  position: relative;
+  z-index: 3;
 }
 
 .chart-legend-container {
