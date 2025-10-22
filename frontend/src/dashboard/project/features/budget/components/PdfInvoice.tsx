@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 700,
     color: "#FA3356",
+    marginBottom: 3,
   },
   summary: {
     display: "flex",
