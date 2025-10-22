@@ -67,7 +67,6 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
     clientBudgetItems,
     loading,
     clientLoading,
-    refresh,
     getStats,
     getPie,
     getClientStats,
@@ -294,24 +293,36 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         className={`budget-overview-summary${
           overviewLoading ? " budget-overview-summary--loading" : ""
         }`}
+        role={overviewLoading ? "status" : undefined}
+        aria-live={overviewLoading ? "polite" : undefined}
+        aria-busy={overviewLoading}
       >
         <span className="budget-overview-header" style={{ paddingLeft: "6px" }}>
-
           Budget
-          {displayedRevision != null && (
-            <span className="budget-overview-revision">{`Rev.${displayedRevision}`}</span>
+          {overviewLoading ? (
+            <span
+              className="budget-overview-skeleton budget-overview-skeleton-revision"
+              aria-hidden="true"
+            />
+          ) : (
+            displayedRevision != null && (
+              <span className="budget-overview-revision">{`Rev.${displayedRevision}`}</span>
+            )
           )}
         </span>
 
         {overviewLoading ? (
-          <div className="budget-overview-loading" role="status" aria-live="polite">
-            <FontAwesomeIcon
-              icon={faSpinner}
-              spin
-              className="budget-overview-spinner"
-              aria-label="Loading budget"
+          <>
+            <span
+              className="budget-overview-skeleton budget-overview-skeleton-amount"
+              aria-hidden="true"
             />
-          </div>
+            <span
+              className="budget-overview-skeleton budget-overview-skeleton-date"
+              aria-hidden="true"
+            />
+            <span className="visually-hidden">Loading budget summary</span>
+          </>
         ) : (
           <>
             <span className="budget-overview-amount">
