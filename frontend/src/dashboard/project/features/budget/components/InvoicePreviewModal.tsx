@@ -528,6 +528,28 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     []
   );
 
+  const blobToDataUrl = useCallback(async (blob: Blob): Promise<string> => {
+    if (typeof window === "undefined") return "";
+    return new Promise<string>((resolve, reject) => {
+      try {
+        const reader = new FileReader();
+        reader.onerror = () => {
+          reject(reader.error || new Error("Failed to read PDF blob"));
+        };
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            resolve(reader.result);
+            return;
+          }
+          reject(new Error("Unexpected PDF preview payload"));
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error("Failed to build preview"));
+      }
+    });
+  }, []);
+
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
       const instance = createPdf(buildPdfInvoiceElement());
@@ -544,6 +566,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     if (!isOpen) return;
     let active = true;
     setIsGeneratingPdf(true);
+    setLivePdfUrl(null);
     renderPdfBlob()
       .then((blob) => {
         if (!active) return;
@@ -560,9 +583,18 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         if (pdfObjectUrlRef.current) {
           URL.revokeObjectURL(pdfObjectUrlRef.current);
         }
-        const url = URL.createObjectURL(blob);
-        pdfObjectUrlRef.current = url;
-        setLivePdfUrl(url);
+        const objectUrl = URL.createObjectURL(blob);
+        pdfObjectUrlRef.current = objectUrl;
+        blobToDataUrl(blob)
+          .then((dataUrl) => {
+            if (!active) return;
+            setLivePdfUrl(dataUrl || objectUrl);
+          })
+          .catch((error) => {
+            console.error("Failed to build PDF preview", error);
+            if (!active) return;
+            setLivePdfUrl(objectUrl);
+          });
       })
       .finally(() => {
         if (active) setIsGeneratingPdf(false);
@@ -570,7 +602,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     return () => {
       active = false;
     };
-  }, [isOpen, renderPdfBlob]);
+  }, [blobToDataUrl, isOpen, renderPdfBlob]);
 
   const handleSavePdf = useCallback(async () => {
     let blob = pdfBlobRef.current;
@@ -596,12 +628,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       if (pdfObjectUrlRef.current) {
         URL.revokeObjectURL(pdfObjectUrlRef.current);
       }
-      url = URL.createObjectURL(blob);
-      pdfObjectUrlRef.current = url;
-      setLivePdfUrl(url);
+      const objectUrl = URL.createObjectURL(blob);
+      pdfObjectUrlRef.current = objectUrl;
+      try {
+        const dataUrl = await blobToDataUrl(blob);
+        url = dataUrl || objectUrl;
+        setLivePdfUrl(url);
+      } catch (err) {
+        console.error("Failed to prepare preview", err);
+        url = objectUrl;
+        setLivePdfUrl(url);
+      }
     }
     window.open(url, "_blank", "noopener");
-  }, [livePdfUrl, renderPdfBlob]);
+  }, [blobToDataUrl, livePdfUrl, renderPdfBlob]);
 
   const saveInvoice = async () => {
     if (!project?.projectId) return;
