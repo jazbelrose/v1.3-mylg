@@ -162,13 +162,152 @@
   overflow: auto;
   flex: 1 0 850px;
   min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
+  background: #111111;
+  color: #f5f5f5;
+  padding: 16px;
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-direction: column;
+  gap: 16px;
+  border-radius: 10px;
+}
+
+.previewLayout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.pdfPane {
+  flex: 1 1 55%;
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.pdfInlineWrapper {
+  flex: 1;
+  min-height: 420px;
+  background: #0e0e0e;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.pdfStatus {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #bbbbbb;
+  width: 100%;
+}
+
+.pdfPageInfo {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #a0a0a0;
+}
+
+.editorPane {
+  flex: 1 1 45%;
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: 100%;
+  overflow-y: auto;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formSection h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #f5f5f5;
+}
+
+.formGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.formSection label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #d7d7d7;
+}
+
+.formSection input,
+.formSection textarea {
+  background: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #f5f5f5;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.formSection input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.formSection textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #c8c8c8;
+}
+
+.logoRow {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.logoUploadVisible {
+  width: 120px;
+  height: 120px;
+  border: 1px dashed #444;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f0f0f;
+  color: #bbbbbb;
+  cursor: pointer;
+  text-align: center;
+  padding: 8px;
+}
+
+.logoUploadVisible img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .previewViewport {
@@ -227,6 +366,17 @@
   max-width: 100%;
   border-radius: 6px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.hiddenPreview {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 
 .groupSelect,
@@ -348,36 +498,23 @@
   }
 
   .previewWrapper {
-    order: 1;
     width: 100%;
-    padding: 0;
-    background: transparent;
-    overflow: visible;
+    padding: 12px;
+    background: #111111;
   }
 
-  .previewViewport {
-    overflow: visible;
+  .previewLayout {
+    flex-direction: column;
+    gap: 14px;
   }
 
-  .previewViewport :global(.invoice-page) {
-    padding: 14px 14px 54px;
+  .pdfPane,
+  .editorPane {
+    width: 100%;
   }
 
-  .previewViewport :global(.invoice-header) {
-    gap: 12px;
-  }
-
-  .previewViewport :global(.invoice-title) {
-    font-size: 1.6rem;
-  }
-
-  .previewViewport :global(.billing-info) {
-    font-size: 0.82rem;
-  }
-
-  .previewViewport :global(.items-table th),
-  .previewViewport :global(.items-table td) {
-    padding: 6px;
+  .pdfInlineWrapper {
+    min-height: 360px;
   }
 
   .sidebar {
@@ -390,8 +527,8 @@
     overflow: visible;
   }
 
-  .invoice-page {
-    min-height: auto;
+  .editorPane {
+    max-height: none;
   }
 }
 

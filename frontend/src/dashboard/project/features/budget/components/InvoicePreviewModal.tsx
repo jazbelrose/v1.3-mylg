@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { pdf as createPdf } from "@react-pdf/renderer";
+import { pdf as createPdf, usePDF } from "@react-pdf/renderer";
 import { createPortal } from "react-dom";
 import Modal from "@/shared/ui/ModalWithStack";
 import { saveAs } from "file-saver";
@@ -408,7 +408,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         setGroupValues(filteredVals);
       }
     }
-  }, [items, groupField]);
+  }, [items, groupField, groupValues]);
 
   const groupOptions = Array.from(
     new Set(
@@ -495,6 +495,20 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     useProjectAddress,
   ]);
 
+  const [pdfRenderInstance, updatePdfRenderInstance] = usePDF({
+    document: buildPdfInvoiceElement(),
+  });
+  const {
+    blob: generatedPdfBlob,
+    url: generatedPdfUrl,
+    loading: isPdfGenerating,
+    error: pdfGenerationError,
+  } = pdfRenderInstance;
+
+  useEffect(() => {
+    updatePdfRenderInstance(buildPdfInvoiceElement());
+  }, [buildPdfInvoiceElement, updatePdfRenderInstance]);
+
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
     const pageHeight = 1122;
@@ -556,7 +570,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       pages.every((p, i) => p.length === pagesAccum[i].length);
 
     if (!same) setPages(pagesAccum);
-  }, [rowsData]);
+  }, [rowsData, pages]);
 
   useEffect(() => {
     setSelectedPages(pages.map((_, i) => i));
@@ -593,23 +607,47 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   }, [buildPdfInvoiceElement]);
 
   const handleSavePdf = useCallback(async () => {
-    const blob = await renderPdfBlob();
-    if (!blob) return;
+    if (isPdfGenerating) {
+      toast.info("Generating PDF...");
+      return;
+    }
+
+    let blob = generatedPdfBlob;
+
+    if (!blob) {
+      blob = await renderPdfBlob();
+      if (!blob) return;
+    }
+
     const file =
       revision?.revision != null
         ? `invoice-revision-${revision.revision}.pdf`
         : "invoice.pdf";
     saveAs(blob, file);
-  }, [renderPdfBlob, revision]);
+  }, [generatedPdfBlob, isPdfGenerating, renderPdfBlob, revision]);
 
   const handlePreviewPdf = useCallback(async () => {
+    if (isPdfGenerating) {
+      toast.info("Generating PDF preview...");
+      return;
+    }
+
+    if (generatedPdfUrl) {
+      if (pdfPreviewUrlRef.current) {
+        URL.revokeObjectURL(pdfPreviewUrlRef.current);
+        pdfPreviewUrlRef.current = null;
+      }
+      setPdfPreviewUrl(generatedPdfUrl);
+      return;
+    }
+
     const blob = await renderPdfBlob();
     if (!blob) return;
     closePdfPreview();
     const objectUrl = URL.createObjectURL(blob);
     pdfPreviewUrlRef.current = objectUrl;
     setPdfPreviewUrl(objectUrl);
-  }, [renderPdfBlob, closePdfPreview]);
+  }, [generatedPdfUrl, isPdfGenerating, renderPdfBlob, closePdfPreview]);
 
   const buildInvoiceHtml = (): string => {
     if (!previewRef.current) return "";
@@ -1027,6 +1065,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onTotalDueBlur={handleTotalDueBlur}
                   notes={notes}
                   onNotesBlur={handleNotesBlur}
+                  pdfUrl={generatedPdfUrl}
+                  pdfLoading={isPdfGenerating}
+                  pdfError={pdfGenerationError}
                   pdfPreviewUrl={pdfPreviewUrl}
                   onClosePdfPreview={closePdfPreview}
                 />

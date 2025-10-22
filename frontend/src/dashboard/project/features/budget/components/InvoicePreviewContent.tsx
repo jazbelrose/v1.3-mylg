@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useMemo } from "react";
 
 import { getFileUrl } from "@/shared/utils/api";
 import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
@@ -53,9 +53,41 @@ interface InvoicePreviewContentProps {
   onTotalDueBlur: (value: string) => void;
   notes: string;
   onNotesBlur: (value: string) => void;
+  pdfUrl: string | null;
+  pdfLoading: boolean;
+  pdfError: string | null;
   pdfPreviewUrl: string | null;
   onClosePdfPreview: () => void;
 }
+
+const htmlToPlainText = (html: string): string => {
+  if (!html) return "";
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<p[^>]*>/gi, "")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+const plainTextToHtml = (text: string): string => {
+  if (!text) return "";
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return "";
+  const paragraphs = normalized
+    .split(/\n{2,}/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (!paragraphs.length) return "";
+  return paragraphs
+    .map((segment) => `<p>${segment.replace(/\n/g, "<br />")}</p>`)
+    .join("");
+};
 
 const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   invoiceRef,
@@ -103,173 +135,82 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onTotalDueBlur,
   notes,
   onNotesBlur,
+  pdfUrl,
+  pdfLoading,
+  pdfError,
   pdfPreviewUrl,
   onClosePdfPreview,
 }) => {
   const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
+  const effectiveAddress = useProjectAddress ? project?.address || "" : brandAddress;
+  const notesPlain = useMemo(() => htmlToPlainText(notes), [notes]);
 
   const renderHeader = () => (
     <div className="invoice-top">
       <header className="invoice-header">
-        <div
-          className="logo-upload"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={onLogoDrop}
-          aria-label="Company logo"
-        >
-          {logoSrc ? (
-            <img src={logoSrc} alt="Company logo" />
-          ) : (
-            <span>Upload Logo</span>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            style={{ display: "none" }}
-            onChange={onLogoSelect}
-          />
+        <div className="logo-upload">
+          {logoSrc ? <img src={logoSrc} alt="Company logo" /> : <span>Upload Logo</span>}
         </div>
 
         <div className="company-block">
           <div className="company-info">
-            <div
-              className="brand-name"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Company Name"
-              onBlur={(e) => onBrandNameBlur(e.currentTarget.textContent || "")}
-            >
-              {brandName || project?.company || "Your Business Name"}
+            <div className="brand-name">{brandName || project?.company || "Your Business Name"}</div>
+            <div className="brand-tagline">{brandTagline || "Tagline"}</div>
+            <div className="brand-address">
+              {useProjectAddress ? project?.address || "Project Address" : brandAddress || "Business Address"}
             </div>
-
-            <div
-              className="brand-tagline"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Tagline"
-              onBlur={(e) => onBrandTaglineBlur(e.currentTarget.textContent || "")}
-            >
-              {brandTagline || "Tagline"}
-            </div>
-
-            <div
-              className="brand-address"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Company Address"
-              onBlur={(e) => onBrandAddressBlur(e.currentTarget.textContent || "")}
-            >
-              {useProjectAddress
-                ? project?.address || "Project Address"
-                : brandAddress || "Business Address"}
-            </div>
-
-            <div
-              className="brand-phone"
-              contentEditable
-              suppressContentEditableWarning
-              aria-label="Company Phone"
-              onBlur={(e) => onBrandPhoneBlur(e.currentTarget.textContent || "")}
-            >
-              {brandPhone || "Phone Number"}
-            </div>
-
-            {project?.address && (
-              <label style={{ fontSize: "0.8rem" }}>
-                <input
-                  type="checkbox"
-                  checked={useProjectAddress}
-                  onChange={(e) => onToggleProjectAddress(e.target.checked)}
-                />{" "}
-                Use project address
-              </label>
-            )}
+            <div className="brand-phone">{brandPhone || "Phone Number"}</div>
           </div>
 
           <div className="invoice-meta">
+            <div className="invoice-title">INVOICE</div>
             <div>
-              Invoice #: {" "}
-              <span
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onInvoiceNumberBlur(e.currentTarget.textContent || "")}
-              >
-                {invoiceNumber}
-              </span>
+              Invoice #: <span>{invoiceNumber}</span>
             </div>
             <div>
-              Issue date: {" "}
-              <span
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onIssueDateBlur(e.currentTarget.textContent || "")}
-              >
-                {issueDate}
-              </span>
+              Issue date: <span>{issueDate}</span>
             </div>
             <div>
-              Due date: {" "}
-              <input
-                type="date"
-                className={styles.metaInput}
-                value={dueDate}
-                onChange={(e) => onDueDateChange(e.target.value)}
-              />
+              Due date: <span>{dueDate}</span>
             </div>
             <div>
-              Service date: {" "}
-              <input
-                type="date"
-                className={styles.metaInput}
-                value={serviceDate}
-                onChange={(e) => onServiceDateChange(e.target.value)}
-              />
+              Service date: <span>{serviceDate}</span>
             </div>
           </div>
         </div>
       </header>
+
+      <div className="billing-info">
+        <div>
+          <strong>Bill To:</strong>
+          <div>{project?.clientName || "Client Name"}</div>
+          <div>{project?.invoiceBrandName || "Client Company"}</div>
+          <div>{project?.invoiceBrandAddress || project?.clientAddress || "Client Address"}</div>
+          {project?.invoiceBrandPhone || project?.clientPhone ? (
+            <div>{project?.invoiceBrandPhone || project?.clientPhone}</div>
+          ) : null}
+          {project?.clientEmail ? <div>{project.clientEmail}</div> : null}
+        </div>
+        <div>
+          <div>
+            Project: <span>{project?.title || ""}</span>
+          </div>
+          <div>
+            Project #:<span>{project?.projectNumber || ""}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
   const renderSummary = (rows: RowData[], rowsKeyPrefix: string) => (
     <Fragment>
-      <h1
-        className="project-title"
-        contentEditable
-        suppressContentEditableWarning
-        aria-label="Project Title"
-        onBlur={(e) => onProjectTitleBlur(e.currentTarget.textContent || "")}
-      >
-        {projectTitle}
-      </h1>
+      <h1 className="project-title">{projectTitle}</h1>
 
       <div className="summary">
-        <div
-          contentEditable
-          suppressContentEditableWarning
-          aria-label="Customer Summary"
-          onBlur={(e) => onCustomerSummaryBlur(e.currentTarget.textContent || "")}
-        >
-          {customerSummary}
-        </div>
-        <div
-          contentEditable
-          suppressContentEditableWarning
-          aria-label="Invoice Details"
-          onBlur={(e) => onInvoiceSummaryBlur(e.currentTarget.textContent || "")}
-        >
-          {invoiceSummary}
-        </div>
-        <div
-          contentEditable
-          suppressContentEditableWarning
-          aria-label="Payment"
-          onBlur={(e) => onPaymentSummaryBlur(e.currentTarget.textContent || "")}
-        >
-          {paymentSummary}
-        </div>
+        <div>{customerSummary}</div>
+        <div>{invoiceSummary}</div>
+        <div>{paymentSummary}</div>
       </div>
 
       <hr className="summary-divider" />
@@ -292,9 +233,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   <td colSpan={5}>{row.group}</td>
                 </tr>
               ) : (
-                <tr
-                  key={row.item.budgetItemId || `row-${rowsKeyPrefix}-${idx}`}
-                >
+                <tr key={row.item.budgetItemId || `row-${rowsKeyPrefix}-${idx}`}>
                   <td>{row.item.description || ""}</td>
                   <td>{row.item.quantity || ""}</td>
                   <td>{row.item.unit || ""}</td>
@@ -304,11 +243,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                         (parseFloat(String(row.item.quantity || 1)) || 1)
                     )}
                   </td>
-                  <td>
-                    {formatCurrency(
-                      parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                    )}
-                  </td>
+                  <td>{formatCurrency(parseFloat(String(row.item.itemFinalCost || 0)) || 0)}</td>
                 </tr>
               )
             )}
@@ -337,7 +272,227 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           </div>
         </div>
       ) : null}
-      <style id="invoice-preview-styles">{`
+
+      <div className={styles.previewLayout}>
+        <div className={styles.pdfPane}>
+          <div className={styles.pdfInlineWrapper}>
+            {pdfLoading ? (
+              <div className={styles.pdfStatus}>Generating PDF preview…</div>
+            ) : pdfUrl ? (
+              <PDFPreview
+                url={pdfUrl}
+                page={Math.max(1, currentPage + 1)}
+                className={styles.pdfPreviewCanvas}
+              />
+            ) : (
+              <div className={styles.pdfStatus}>
+                {pdfError ? `Unable to render PDF: ${pdfError}` : "PDF preview unavailable"}
+              </div>
+            )}
+          </div>
+          <div className={styles.pdfPageInfo}>
+            Page {Math.min(currentPage + 1, Math.max(totalPages, 1))} of {Math.max(totalPages, 1)}
+          </div>
+        </div>
+
+        <div className={styles.editorPane}>
+          <section className={styles.formSection}>
+            <h3>Branding</h3>
+            <div className={styles.logoRow}>
+              <div
+                className={styles.logoUploadVisible}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={onLogoDrop}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+                }}
+                aria-label="Upload company logo"
+              >
+                {logoSrc ? <img src={logoSrc} alt="Company logo" /> : <span>Upload Logo</span>}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: "none" }}
+                  onChange={onLogoSelect}
+                />
+              </div>
+              <div className={styles.formGrid}>
+                <label>
+                  Business name
+                  <input
+                    type="text"
+                    value={brandName}
+                    onChange={(e) => onBrandNameBlur(e.target.value)}
+                    placeholder={project?.company || "Your Business Name"}
+                  />
+                </label>
+                <label>
+                  Tagline
+                  <input
+                    type="text"
+                    value={brandTagline}
+                    onChange={(e) => onBrandTaglineBlur(e.target.value)}
+                    placeholder="Tagline"
+                  />
+                </label>
+                <label>
+                  Address
+                  <input
+                    type="text"
+                    value={effectiveAddress}
+                    onChange={(e) => onBrandAddressBlur(e.target.value)}
+                    placeholder="Business Address"
+                    disabled={useProjectAddress}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    type="text"
+                    value={brandPhone}
+                    onChange={(e) => onBrandPhoneBlur(e.target.value)}
+                    placeholder="Phone Number"
+                  />
+                </label>
+              </div>
+            </div>
+            {project?.address ? (
+              <label className={styles.checkboxField}>
+                <input
+                  type="checkbox"
+                  checked={useProjectAddress}
+                  onChange={(e) => onToggleProjectAddress(e.target.checked)}
+                />
+                Use project address
+              </label>
+            ) : null}
+          </section>
+
+          <section className={styles.formSection}>
+            <h3>Invoice details</h3>
+            <div className={styles.formGrid}>
+              <label>
+                Invoice number
+                <input
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={(e) => onInvoiceNumberBlur(e.target.value)}
+                />
+              </label>
+              <label>
+                Issue date
+                <input
+                  type="text"
+                  value={issueDate}
+                  onChange={(e) => onIssueDateBlur(e.target.value)}
+                  placeholder="MM/DD/YYYY"
+                />
+              </label>
+              <label>
+                Due date
+                <input
+                  type="text"
+                  value={dueDate}
+                  onChange={(e) => onDueDateChange(e.target.value)}
+                  placeholder="MM/DD/YYYY"
+                />
+              </label>
+              <label>
+                Service date
+                <input
+                  type="text"
+                  value={serviceDate}
+                  onChange={(e) => onServiceDateChange(e.target.value)}
+                  placeholder="MM/DD/YYYY"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className={styles.formSection}>
+            <h3>Summaries</h3>
+            <label>
+              Project title
+              <input
+                type="text"
+                value={projectTitle}
+                onChange={(e) => onProjectTitleBlur(e.target.value)}
+              />
+            </label>
+            <div className={styles.formGrid}>
+              <label>
+                Customer summary
+                <textarea
+                  value={customerSummary}
+                  onChange={(e) => onCustomerSummaryBlur(e.target.value)}
+                  rows={3}
+                />
+              </label>
+              <label>
+                Invoice details
+                <textarea
+                  value={invoiceSummary}
+                  onChange={(e) => onInvoiceSummaryBlur(e.target.value)}
+                  rows={3}
+                />
+              </label>
+              <label>
+                Payment summary
+                <textarea
+                  value={paymentSummary}
+                  onChange={(e) => onPaymentSummaryBlur(e.target.value)}
+                  rows={3}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className={styles.formSection}>
+            <h3>Totals</h3>
+            <div className={styles.formGrid}>
+              <label>
+                Subtotal
+                <input type="text" value={formatCurrency(subtotal)} readOnly />
+              </label>
+              <label>
+                Deposit received
+                <input
+                  type="text"
+                  value={Number.isFinite(depositReceived) ? String(depositReceived) : ""}
+                  onChange={(e) => onDepositBlur(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+              <label>
+                Total due
+                <input
+                  type="text"
+                  value={Number.isFinite(totalDue) ? String(totalDue) : ""}
+                  onChange={(e) => onTotalDueBlur(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className={styles.formSection}>
+            <h3>Notes</h3>
+            <textarea
+              value={notesPlain}
+              onChange={(e) => onNotesBlur(plainTextToHtml(e.target.value))}
+              rows={5}
+              placeholder="Additional notes"
+            />
+          </section>
+        </div>
+      </div>
+
+      <div className={styles.hiddenPreview}>
+        <style id="invoice-preview-styles">{`
         @page { margin: 0; }
         body { margin: 0; }
         .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
@@ -395,111 +550,66 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         }
       `}</style>
 
-      <div
-        className="invoice-page invoice-container"
-        ref={invoiceRef}
-        data-preview-role="measure"
-        style={{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}
-      >
-        {renderHeader()}
-
-        {renderSummary(rowsData, "measure")}
-
-        <div className="bottom-block">
-          <div className="totals">
-            <div>
-              Subtotal: <span>{formatCurrency(subtotal)}</span>
-            </div>
-            <div>
-              Deposit received:
-              <span
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-              >
-                {formatCurrency(depositReceived)}
-              </span>
-            </div>
-            <div>
-              <strong>
-                Total Due:
-                <span
-                  contentEditable
-                  suppressContentEditableWarning
-                  onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
-                >
-                  {formatCurrency(totalDue)}
-                </span>
-              </strong>
-            </div>
-          </div>
-
-          <div
-            className="notes"
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-            dangerouslySetInnerHTML={{ __html: notes }}
-          />
-
-          <div className="footer" contentEditable suppressContentEditableWarning>
-            {project?.company || "Company Name"}
-          </div>
-        </div>
-      </div>
-
-      <div className="invoice-container">
-        <div className="invoice-page">
+        <div
+          className="invoice-page invoice-container"
+          ref={invoiceRef}
+          data-preview-role="measure"
+          style={{ position: "absolute", visibility: "hidden", pointerEvents: "none" }}
+        >
           {renderHeader()}
 
-          {renderSummary(currentRows, `page-${currentPage}`)}
+          {renderSummary(rowsData, "measure")}
 
-          {currentPage === Math.max(0, totalPages - 1) && (
-            <div className="bottom-block">
-              <div className="totals">
-                <div>
-                  Subtotal: <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div>
-                  Deposit received:
-                  <span
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-                  >
-                    {formatCurrency(depositReceived)}
-                  </span>
-                </div>
-                <div>
-                  <strong>
-                    Total Due:
-                    <span
-                      contentEditable
-                      suppressContentEditableWarning
-                      onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
-                    >
-                      {formatCurrency(totalDue)}
-                    </span>
-                  </strong>
-                </div>
+          <div className="bottom-block">
+            <div className="totals">
+              <div>
+                Subtotal: <span>{formatCurrency(subtotal)}</span>
               </div>
-
-              <div
-                className="notes"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-                dangerouslySetInnerHTML={{ __html: notes }}
-              />
-
-              <div className="footer" contentEditable suppressContentEditableWarning>
-                {project?.company || "Company Name"}
+              <div>
+                Deposit received: <span>{formatCurrency(depositReceived)}</span>
+              </div>
+              <div>
+                <strong>
+                  Total Due: <span>{formatCurrency(totalDue)}</span>
+                </strong>
               </div>
             </div>
-          )}
 
-          <div className="pageNumber">
-            Page {currentPage + 1} of {totalPages || 1}
+            <div className="notes" dangerouslySetInnerHTML={{ __html: notes }} />
+
+            <div className="footer">{project?.company || "Company Name"}</div>
+          </div>
+        </div>
+
+        <div className="invoice-container">
+          <div className="invoice-page">
+            {renderHeader()}
+
+            {renderSummary(currentRows, `page-${currentPage}`)}
+
+            {currentPage === Math.max(0, totalPages - 1) ? (
+              <div className="bottom-block">
+                <div className="totals">
+                  <div>
+                    Subtotal: <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div>
+                    Deposit received: <span>{formatCurrency(depositReceived)}</span>
+                  </div>
+                  <div>
+                    <strong>
+                      Total Due: <span>{formatCurrency(totalDue)}</span>
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="notes" dangerouslySetInnerHTML={{ __html: notes }} />
+
+                <div className="footer">{project?.company || "Company Name"}</div>
+              </div>
+            ) : null}
+
+            <div className="pageNumber">Page {currentPage + 1} of {totalPages || 1}</div>
           </div>
         </div>
       </div>
