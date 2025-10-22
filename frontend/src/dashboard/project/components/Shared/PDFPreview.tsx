@@ -23,6 +23,42 @@ const resolvePdfUrl = (input: string): string => {
   return normalizeFileUrl(input);
 };
 
+const dataUrlToUint8Array = (input: string): Uint8Array | null => {
+  const [, base64 = ''] = input.split(',', 2);
+  if (!base64) return null;
+  try {
+    const binary = atob(base64);
+    const buffer = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      buffer[i] = binary.charCodeAt(i);
+    }
+    return buffer;
+  } catch {
+    return null;
+  }
+};
+
+const resolvePdfSource = async (
+  input: string,
+  signal: AbortSignal
+): Promise<string | Uint8Array | null> => {
+  if (!input) return null;
+  if (input.startsWith('blob:')) {
+    try {
+      const response = await fetch(input, { signal });
+      if (!response.ok) return null;
+      const buffer = await response.arrayBuffer();
+      return new Uint8Array(buffer);
+    } catch {
+      return null;
+    }
+  }
+  if (input.startsWith('data:')) {
+    return dataUrlToUint8Array(input);
+  }
+  return resolvePdfUrl(input);
+};
+
 const PDFPreview: React.FC<PDFPreviewProps> = ({
   url,
   className,
@@ -37,17 +73,19 @@ const PDFPreview: React.FC<PDFPreviewProps> = ({
 
     let cancelled = false;
     let loadingTask: ReturnType<typeof pdfjsLib.getDocument> | null = null;
-
-    const resolvedUrl = resolvePdfUrl(url);
-    if (!resolvedUrl) return;
-
-    loadingTask = pdfjsLib.getDocument(resolvedUrl);
+    const controller = new AbortController();
 
     (async () => {
       try {
-        const task = loadingTask;
-        if (!task) return;
-        const pdf = await task.promise;
+        const source = await resolvePdfSource(url, controller.signal);
+        if (!source || cancelled) return;
+
+        loadingTask =
+          typeof source === 'string'
+            ? pdfjsLib.getDocument(source)
+            : pdfjsLib.getDocument({ data: source });
+
+        const pdf = await loadingTask.promise;
         if (cancelled) return;
 
         const pg = await pdf.getPage(page);
@@ -71,6 +109,7 @@ const PDFPreview: React.FC<PDFPreviewProps> = ({
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (loadingTask) {
         try {
           loadingTask.destroy();
