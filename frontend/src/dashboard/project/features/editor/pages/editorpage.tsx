@@ -18,6 +18,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import ProjectLoadingState from "@/dashboard/project/components/Shared/ProjectLoadingState";
 
 const EditorPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -41,8 +42,15 @@ const EditorPage: React.FC = () => {
   const [filesOpen, setFilesOpen] = useState(false);
   const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
-  const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
-  const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
+  const resolvedProject = activeProject ?? initialActiveProject ?? null;
+  const isProjectReady = Boolean(projectId && resolvedProject?.projectId === projectId);
+  const displayProject = isProjectReady ? resolvedProject : null;
+
+  const coverImage = useMemo(
+    () => resolveProjectCoverUrl(displayProject ?? undefined),
+    [displayProject]
+  );
+  const projectPalette = useProjectPalette(coverImage, { color: displayProject?.color });
   const designerRef = useRef<DesignerRef>(null);
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
@@ -221,154 +229,165 @@ const EditorPage: React.FC = () => {
     };
   }, [isBriefDirty]);
 
+  const headerNode = isProjectReady ? (
+    <ProjectHeader
+      activeProject={displayProject}
+      parseStatusToNumber={parseStatusToNumber}
+      userId={userId}
+      onProjectDeleted={handleProjectDeleted}
+      showWelcomeScreen={handleBack}
+      onActiveProjectChange={handleActiveProjectChange}
+      onOpenFiles={() => setFilesOpen(true)}
+      onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
+    />
+  ) : null;
+
+  const layoutProjectId = isProjectReady
+    ? displayProject?.projectId
+    : projectId ?? displayProject?.projectId ?? undefined;
+  const layoutTheme = isProjectReady ? projectPalette : undefined;
+
   return (
     <ProjectPageLayout
-      projectId={activeProject?.projectId}
-      theme={projectPalette}
-      header={
-        <ProjectHeader
-          activeProject={activeProject}
-          parseStatusToNumber={parseStatusToNumber}
-          userId={userId}
-          onProjectDeleted={handleProjectDeleted}
-          showWelcomeScreen={handleBack}
-          onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => setFilesOpen(true)}
-          onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
-        />
-      }
+      projectId={layoutProjectId}
+      theme={layoutTheme}
+      header={headerNode}
     >
-      <div className="designer-outer-container">
-        <div className="designer-scroll-container">
-          <UnifiedToolbar
-            initialMode={activeTab}
-            onModeChange={(mode) => {
-              if (mode !== "brief" && activeTab === "brief" && isBriefDirty) {
-                const confirmLeave = window.confirm(
-                  "You have unsaved changes, continue?"
-                );
-                if (!confirmLeave) return;
-              }
-              setActiveTab(mode);
-            }}
-            onPreview={() => setPreviewOpen(true)}
-            {...(activeTab === "brief" ? briefToolbarActions : {})}
-            onSelectTool={handleSelectTool}
-            onFreeDraw={handleBrushTool}
-            onAddRectangle={handleRectTool}
-            onAddText={handleTextTool}
-            onAddImage={handleImageTool}
-            onColorChange={handleColorChange}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onCopy={handleCopy}
-            onPaste={handlePaste}
-            onDelete={handleDelete}
-            onClearCanvas={handleClearCanvas}
-            onSave={handleSave}
-          />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              className="editor-content-wrapper"
-              initial={{ x: 100, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -100, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-              <FileManagerComponent
-                isOpen={filesOpen}
-                onRequestClose={() => setFilesOpen(false)}
-                showTrigger={false}
-                folder="uploads"
-              />
-              <div className="main-view-container">
-                <AnimatePresence mode="wait">
-                  {activeTab === "brief" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="brief"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
+      {isProjectReady ? (
+        <div className="designer-outer-container">
+          <div className="designer-scroll-container">
+            <UnifiedToolbar
+              initialMode={activeTab}
+              onModeChange={(mode) => {
+                if (mode !== "brief" && activeTab === "brief" && isBriefDirty) {
+                  const confirmLeave = window.confirm(
+                    "You have unsaved changes, continue?"
+                  );
+                  if (!confirmLeave) return;
+                }
+                setActiveTab(mode);
+              }}
+              onPreview={() => setPreviewOpen(true)}
+              {...(activeTab === "brief" ? briefToolbarActions : {})}
+              onSelectTool={handleSelectTool}
+              onFreeDraw={handleBrushTool}
+              onAddRectangle={handleRectTool}
+              onAddText={handleTextTool}
+              onAddImage={handleImageTool}
+              onColorChange={handleColorChange}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onCopy={handleCopy}
+              onPaste={handlePaste}
+              onDelete={handleDelete}
+              onClearCanvas={handleClearCanvas}
+              onSave={handleSave}
+            />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                className="editor-content-wrapper"
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -100, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <QuickLinksComponent ref={quickLinksRef} hideTrigger />
+                <FileManagerComponent
+                  isOpen={filesOpen}
+                  onRequestClose={() => setFilesOpen(false)}
+                  showTrigger={false}
+                  folder="uploads"
+                />
+                <div className="main-view-container">
+                  <AnimatePresence mode="wait">
+                    {activeTab === "brief" && (
+                      <motion.div
+                        className="editor-mode-panel"
+                        key="brief"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ duration: 0.3 }}
                       >
-                        {activeProject?.description !== undefined ? (
-                          <LexicalEditor
-                            key={activeProject?.projectId ?? "default-project"}
-                            initialContent={activeProject?.description ?? null}
-                            onChange={handleBriefChange}
-                            registerToolbar={setBriefToolbarActions}
-                          />
-                        ) : (
-                          <div>Loading...</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "canvas" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="canvas"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
+                        <div
+                          className="dashboard-layout editor-mode-layout"
+                          style={{ paddingBottom: "5px" }}
+                        >
+                          {activeProject?.description !== undefined ? (
+                            <LexicalEditor
+                              key={activeProject?.projectId ?? "default-project"}
+                              initialContent={activeProject?.description ?? null}
+                              onChange={handleBriefChange}
+                              registerToolbar={setBriefToolbarActions}
+                            />
+                          ) : (
+                            <div>Loading...</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                    {activeTab === "canvas" && (
+                      <motion.div
+                        className="editor-mode-panel"
+                        key="canvas"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
                       >
-                        <div style={{ maxWidth: "1920px", width: "100%" }}>
-                          <div
-                            className="editor-container"
-                            style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "800px" }}
-                          >
-                            <DesignerComponent ref={designerRef} />
+                        <div
+                          className="dashboard-layout editor-mode-layout"
+                          style={{ paddingBottom: "5px" }}
+                        >
+                          <div style={{ maxWidth: "1920px", width: "100%" }}>
+                            <div
+                              className="editor-container"
+                              style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "800px" }}
+                            >
+                              <DesignerComponent ref={designerRef} />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "moodboard" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="moodboard"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
+                      </motion.div>
+                    )}
+                    {activeTab === "moodboard" && (
+                      <motion.div
+                        className="editor-mode-panel"
+                        key="moodboard"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
                       >
-                        <MoodboardCanvas
-                          projectId={activeProject?.projectId}
-                          userId={userId ?? undefined}
-                          palette={projectPalette}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <PreviewDrawer
-                open={previewOpen}
-                onClose={() => setPreviewOpen(false)}
-                url={activeProject?.previewUrl as string}
-                onExportGallery={() => console.log("Export to Gallery")}
-                onExportPDF={() => console.log("Export to PDF")}
-              />
-            </motion.div>
-          </AnimatePresence>
+                        <div
+                          className="dashboard-layout editor-mode-layout"
+                          style={{ paddingBottom: "5px" }}
+                        >
+                          <MoodboardCanvas
+                            projectId={activeProject?.projectId}
+                            userId={userId ?? undefined}
+                            palette={projectPalette}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <PreviewDrawer
+                  open={previewOpen}
+                  onClose={() => setPreviewOpen(false)}
+                  url={activeProject?.previewUrl as string}
+                  onExportGallery={() => console.log("Export to Gallery")}
+                  onExportPDF={() => console.log("Export to PDF")}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
+      ) : (
+        <ProjectLoadingState />
+      )}
     </ProjectPageLayout>
   );
 };

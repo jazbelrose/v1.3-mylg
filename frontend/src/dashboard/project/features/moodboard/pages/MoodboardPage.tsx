@@ -9,6 +9,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import type { Project } from "@/app/contexts/DataProvider";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import ProjectLoadingState from "@/dashboard/project/components/Shared/ProjectLoadingState";
 
 type DetailFetchStatus = "idle" | "loading" | "success" | "error";
 
@@ -68,9 +69,13 @@ const MoodboardPage: React.FC = () => {
     [fetchProjectDetails]
   );
 
-  const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
+  const resolvedProject = activeProject ?? initialProject ?? null;
+  const isProjectResolved = Boolean(projectId && resolvedProject?.projectId === projectId);
+  const displayProject = isProjectResolved ? resolvedProject : null;
+
+  const coverImage = useMemo(() => resolveProjectCoverUrl(displayProject), [displayProject]);
   const projectPalette = useProjectPalette(coverImage, {
-    color: activeProject?.color,
+    color: displayProject?.color,
   });
 
   useEffect(() => {
@@ -168,7 +173,12 @@ const MoodboardPage: React.FC = () => {
     navigate("/dashboard/projects");
   }, [navigate]);
 
-  const resolvedProjectId = activeProject?.projectId ?? "";
+  const fetchStatus = projectId ? detailFetchStatusById[projectId] : undefined;
+  const needsHydration = displayProject ? projectNeedsDetailHydration(displayProject) : true;
+  const showErrorState = fetchStatus === "error";
+  const showLoadingState = !showErrorState && (!displayProject || (needsHydration && fetchStatus !== "success"));
+
+  const resolvedProjectId = displayProject?.projectId ?? "";
   const currentUserId = userId ?? "";
 
   const board = useMemo(
@@ -193,24 +203,47 @@ const MoodboardPage: React.FC = () => {
     [currentUserId, resolvedProjectId, projectPalette]
   );
 
+  const headerNode = displayProject ? (
+    <ProjectHeader
+      parseStatusToNumber={parseStatusToNumber}
+      userId={currentUserId}
+      onProjectDeleted={handleProjectDeleted}
+      activeProject={displayProject}
+      showWelcomeScreen={showWelcomeScreen}
+      onActiveProjectChange={handleActiveProjectChange}
+      onOpenFiles={() => {}}
+      onOpenQuickLinks={() => {}}
+    />
+  ) : null;
+
+  const layoutProjectId = displayProject?.projectId ?? projectId ?? undefined;
+  const layoutTheme = displayProject ? projectPalette : undefined;
+
+  const unavailableState = (
+    <div
+      style={{
+        alignItems: "center",
+        color: "var(--text-muted, #6b7280)",
+        display: "flex",
+        fontSize: "1rem",
+        justifyContent: "center",
+        minHeight: "40vh",
+        padding: "2rem",
+        textAlign: "center",
+        width: "100%",
+      }}
+    >
+      We're having trouble loading this project right now.
+    </div>
+  );
+
   return (
     <ProjectPageLayout
-      projectId={resolvedProjectId}
-      theme={projectPalette}
-      header={
-        <ProjectHeader
-          parseStatusToNumber={parseStatusToNumber}
-          userId={currentUserId}
-          onProjectDeleted={handleProjectDeleted}
-          activeProject={activeProject}
-          showWelcomeScreen={showWelcomeScreen}
-          onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => {}}
-          onOpenQuickLinks={() => {}}
-        />
-      }
+      projectId={layoutProjectId}
+      theme={layoutTheme}
+      header={headerNode}
     >
-      {board}
+      {showErrorState ? unavailableState : showLoadingState ? <ProjectLoadingState /> : board}
     </ProjectPageLayout>
   );
 };

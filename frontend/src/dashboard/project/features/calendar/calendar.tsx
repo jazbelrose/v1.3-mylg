@@ -24,6 +24,7 @@ import {
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
+import ProjectLoadingState from "@/dashboard/project/components/Shared/ProjectLoadingState";
 
 import CalendarSurface from "./components/CalendarSurface";
 import type { CreateEventRequest } from "./CreateCalendarItemModal";
@@ -742,12 +743,15 @@ const CalendarPage: React.FC = () => {
     [setActiveProject],
   );
 
+  const isProjectReady = Boolean(projectId && activeProject?.projectId === projectId);
+  const displayProject = isProjectReady ? activeProject : null;
+
   const coverImage = useMemo(
-    () => resolveProjectCoverUrl(activeProject ?? undefined),
-    [activeProject],
+    () => resolveProjectCoverUrl(displayProject ?? undefined),
+    [displayProject],
   );
   const projectPalette = useProjectPalette(coverImage, {
-    color: activeProject?.color,
+    color: displayProject?.color,
   });
 
   const activeProjectStartDate = useMemo(() => {
@@ -789,50 +793,63 @@ const CalendarPage: React.FC = () => {
     ];
   }, [activeProject]);
 
+  const headerNode = isProjectReady ? (
+    <ProjectHeader
+      activeProject={displayProject ?? null}
+      parseStatusToNumber={parseStatusToNumber}
+      userId={userId}
+      onProjectDeleted={handleProjectDeleted}
+      showWelcomeScreen={handleBack}
+      onActiveProjectChange={handleActiveProjectChange}
+      onOpenFiles={() => setFilesOpen(true)}
+      onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
+    />
+  ) : null;
+
+  const layoutProjectId = isProjectReady
+    ? displayProject?.projectId
+    : projectId ?? displayProject?.projectId ?? undefined;
+  const layoutTheme = isProjectReady ? projectPalette : undefined;
+
   return (
     <ProjectPageLayout
-      projectId={activeProject?.projectId}
-      theme={projectPalette}
-      header={
-        <ProjectHeader
-          activeProject={activeProject ?? null}
-          parseStatusToNumber={parseStatusToNumber}
-          userId={userId}
-          onProjectDeleted={handleProjectDeleted}
-          showWelcomeScreen={handleBack}
-          onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => setFilesOpen(true)}
-          onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
-        />
-      }
+      projectId={layoutProjectId}
+      theme={layoutTheme}
+      header={headerNode}
     >
-      <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-      <FileManagerComponent
-        isOpen={filesOpen}
-        onRequestClose={() => setFilesOpen(false)}
-        showTrigger={false}
-        folder="uploads"
-      />
+      {isProjectReady ? (
+        <>
+          <QuickLinksComponent ref={quickLinksRef} hideTrigger />
+          <FileManagerComponent
+            isOpen={filesOpen}
+            onRequestClose={() => setFilesOpen(false)}
+            showTrigger={false}
+            folder="uploads"
+          />
 
-      <CalendarSurface
-        events={calendarEvents}
-        tasks={calendarTasks}
-        taskSources={projectTasks}
-        currentDate={currentDate}
-        onDateChange={setCurrentDate}
-        onCreateEvent={handleCreateEvent}
-        onUpdateEvent={handleUpdateEvent}
-        onDeleteEvent={handleDeleteEvent}
-        onToggleTask={handleToggleTask}
-        teamMembers={teamMembers}
-        onRefreshTasks={refreshProjectTasks}
-        taskProjects={quickCreateProjects}
-        activeProjectId={activeProject?.projectId ?? null}
-        activeProjectName={activeProject?.title ?? null}
-        activeProjectColor={(activeProject?.color as string | undefined) ?? null}
-        activeProjectStartDate={activeProjectStartDate}
-        activeProjectEndDate={activeProjectEndDate}
-      />
+          <CalendarSurface
+            events={calendarEvents}
+            tasks={calendarTasks}
+            taskSources={projectTasks}
+            currentDate={currentDate}
+            onDateChange={setCurrentDate}
+            onCreateEvent={handleCreateEvent}
+            onUpdateEvent={handleUpdateEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onToggleTask={handleToggleTask}
+            teamMembers={teamMembers}
+            onRefreshTasks={refreshProjectTasks}
+            taskProjects={quickCreateProjects}
+            activeProjectId={activeProject?.projectId ?? null}
+            activeProjectName={activeProject?.title ?? null}
+            activeProjectColor={(activeProject?.color as string | undefined) ?? null}
+            activeProjectStartDate={activeProjectStartDate}
+            activeProjectEndDate={activeProjectEndDate}
+          />
+        </>
+      ) : (
+        <ProjectLoadingState />
+      )}
     </ProjectPageLayout>
   );
 };

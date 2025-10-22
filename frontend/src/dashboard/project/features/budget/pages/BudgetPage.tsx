@@ -14,6 +14,7 @@ import styles from "./budget-page.module.css";
 
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
+import ProjectLoadingState from "@/dashboard/project/components/Shared/ProjectLoadingState";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import BudgetHeader from "@/dashboard/project/features/budget/components/HeaderStats";
@@ -93,8 +94,17 @@ const BudgetPageContent = () => {
     [budgetHeader]
   );
 
-  const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
-  const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
+  const resolvedProject = activeProject ?? initialActiveProject ?? null;
+  const isProjectReady = Boolean(projectId && resolvedProject?.projectId === projectId);
+  const displayProject = isProjectReady ? resolvedProject : null;
+
+  const coverImage = useMemo(
+    () => resolveProjectCoverUrl(displayProject ?? undefined),
+    [displayProject]
+  );
+  const projectPalette = useProjectPalette(coverImage, {
+    color: displayProject?.color,
+  });
 
   useLayoutEffect(() => {
     const updateTableHeight = () => {
@@ -546,6 +556,26 @@ const BudgetPageContent = () => {
     return <div>Access Denied</div>;
   }
 
+  const headerNode = isProjectReady
+    ? (
+        <ProjectHeader
+          activeProject={displayProject as Project}
+          parseStatusToNumber={parseStatusToNumber}
+          userId={userId}
+          onProjectDeleted={handleProjectDeleted}
+          showWelcomeScreen={handleBack}
+          onActiveProjectChange={handleActiveProjectChange}
+          onOpenFiles={() => setFilesOpen(true)}
+          onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
+        />
+      )
+    : null;
+
+  const layoutProjectId = isProjectReady
+    ? displayProject?.projectId
+    : projectId ?? displayProject?.projectId ?? undefined;
+  const layoutTheme = isProjectReady ? projectPalette : undefined;
+
   return (
     <>
       <style>{`
@@ -554,63 +584,54 @@ const BudgetPageContent = () => {
         }
       `}</style>
       <ProjectPageLayout
-        projectId={activeProject?.projectId}
-        theme={projectPalette}
-        header={
-          <ProjectHeader
-            activeProject={activeProject as Project}
-            parseStatusToNumber={parseStatusToNumber}
-            userId={userId}
-            onProjectDeleted={handleProjectDeleted}
-            showWelcomeScreen={handleBack}
-            onActiveProjectChange={handleActiveProjectChange}
-            onOpenFiles={() => setFilesOpen(true)}
-            onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
-          />
-        }
+        projectId={layoutProjectId}
+        theme={layoutTheme}
+        header={headerNode}
       >
-        {saving && (
-          <div style={{ color: '#FA3356', marginBottom: '10px' }}>Saving...</div>
-        )}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -100, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="budget-layout-motion"
-          >
-            <div className="budget-layout">
-              <QuickLinksComponent ref={quickLinksRef} hideTrigger={true} />
-              <FileManagerComponent
-                isOpen={filesOpen}
-                onRequestClose={() => setFilesOpen(false)}
-                showTrigger={false}
-                folder="uploads"
-              />
+        {isProjectReady ? (
+          <>
+            {saving && (
+              <div style={{ color: '#FA3356', marginBottom: '10px' }}>Saving...</div>
+            )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -100, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="budget-layout-motion"
+              >
+                <div className="budget-layout">
+                  <QuickLinksComponent ref={quickLinksRef} hideTrigger={true} />
+                  <FileManagerComponent
+                    isOpen={filesOpen}
+                    onRequestClose={() => setFilesOpen(false)}
+                    showTrigger={false}
+                    folder="uploads"
+                  />
 
-              {/* Use the new component structure */}
-              <BudgetStateManager activeProject={activeProject}>
-                {(stateManager) => (
-                  <BudgetEventManager
-                    activeProject={activeProject}
-                    eventsByLineItem={eventsByLineItem}
-                    userId={userId}
-                    user={user}
-                    stateManager={stateManager}
-                  >
+                  {/* Use the new component structure */}
+                  <BudgetStateManager activeProject={activeProject}>
+                    {(stateManager) => (
+                      <BudgetEventManager
+                        activeProject={activeProject}
+                        eventsByLineItem={eventsByLineItem}
+                        userId={userId}
+                        user={user}
+                        stateManager={stateManager}
+                      >
                     {(eventHandlers) => (
-                        <BudgetTableLogic
-                          groupBy={stateManager.groupBy}
-                          sortField={stateManager.sortField}
-                          sortOrder={stateManager.sortOrder}
-                          filterQuery={stateManager.filterQuery as string}
-                          selectedRowKeys={stateManager.selectedRowKeys}
-                          eventsByLineItem={eventsByLineItem}
-                          setSelectedRowKeys={stateManager.setSelectedRowKeys}
-                          openEventModal={eventHandlers.openEventModal}
-                          openDeleteModal={eventHandlers.openDeleteModal}
+                      <BudgetTableLogic
+                        groupBy={stateManager.groupBy}
+                        sortField={stateManager.sortField}
+                        sortOrder={stateManager.sortOrder}
+                        filterQuery={stateManager.filterQuery as string}
+                        selectedRowKeys={stateManager.selectedRowKeys}
+                        eventsByLineItem={eventsByLineItem}
+                        setSelectedRowKeys={stateManager.setSelectedRowKeys}
+                        openEventModal={eventHandlers.openEventModal}
+                        openDeleteModal={eventHandlers.openDeleteModal}
                         openDuplicateModal={eventHandlers.openDuplicateModal}
                       >
                         {(tableConfig) => (
@@ -618,15 +639,29 @@ const BudgetPageContent = () => {
                             <div className="budget-layout__scroll">
                               <BudgetHeader
                                 activeProject={activeProject as Project}
-                                budgetHeader={budgetHeader as { budgetItemId: string; revision: number; [key: string]: unknown } | null}
+                                budgetHeader={
+                                  budgetHeader as {
+                                    budgetItemId: string;
+                                    revision: number;
+                                    [key: string]: unknown;
+                                  } | null
+                                }
                                 budgetItems={budgetItems as { [key: string]: unknown }[]}
-                                groupBy={stateManager.groupBy as "none" | "areaGroup" | "invoiceGroup" | "category"}
+                                groupBy={
+                                  stateManager.groupBy as
+                                    | "none"
+                                    | "areaGroup"
+                                    | "invoiceGroup"
+                                    | "category"
+                                }
                                 setGroupBy={(g) =>
                                   stateManager.setGroupBy(
                                     g as "none" | "areaGroup" | "invoiceGroup" | "category"
                                   )
                                 }
-                                onOpenRevisionModal={() => stateManager.setRevisionModalOpen(true)}
+                                onOpenRevisionModal={() =>
+                                  stateManager.setRevisionModalOpen(true)
+                                }
                                 onBallparkChange={handleBallparkChange}
                               />
                               <div style={{ padding: "0" }}>
@@ -826,6 +861,9 @@ const BudgetPageContent = () => {
             </div>
           </motion.div>
         </AnimatePresence>
+      ) : (
+        <ProjectLoadingState />
+      )}
       </ProjectPageLayout>
     </>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, X, FileText, FolderOpen, MessageSquare, User, Loader2 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { slugify } from '@/shared/utils/slug';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import type { Project, Message, UserLite } from '@/app/contexts/DataProvider';
@@ -321,6 +321,8 @@ interface GlobalSearchProps {
   onNavigate?: () => void;
 }
 
+const KNOWN_PROJECT_SUFFIXES = ['/budget', '/calendar', '/moodboard', '/editor'];
+
 const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -333,6 +335,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const data = useData();
   const projects = useMemo(() => (Array.isArray(data?.projects) ? data.projects : []) as Project[], [data?.projects]);
@@ -405,6 +408,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
           isAdmin
         );
         setResults(collaboratorResults.slice(0, 10));
+        setLoading(false);
         return;
       }
 
@@ -520,6 +524,19 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
     return () => clearTimeout(timeoutId);
   }, [query, performSearch]);
 
+  const currentProjectSuffix = useMemo(() => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    const projectsIndex = segments.indexOf('projects');
+    if (projectsIndex === -1) return '';
+
+    const suffixSegments = segments.slice(projectsIndex + 2);
+    if (suffixSegments.length === 0) return '';
+
+    const suffix = `/${suffixSegments.join('/')}`;
+    const matched = KNOWN_PROJECT_SUFFIXES.find((candidate) => suffix.startsWith(candidate));
+    return matched ?? '';
+  }, [location.pathname]);
+
   const handleResultClick = (result: SearchResult) => {
     if (navigatingId) {
       return;
@@ -545,7 +562,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
             fetchPromise = fetchProjectDetails(result.projectId);
           }
           const project = projects?.find((p: Project) => p.projectId === result.projectId);
-          const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+          const suffix = currentProjectSuffix;
+          const path = getProjectDashboardPath(
+            result.projectId,
+            project?.title ?? result.title,
+            suffix
+          );
           navigate(path);
           if (fetchPromise) {
             try {
