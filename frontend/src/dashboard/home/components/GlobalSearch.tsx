@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, X, FileText, FolderOpen, MessageSquare, User, Loader2 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { slugify } from '@/shared/utils/slug';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import type { Project, Message, UserLite } from '@/app/contexts/DataProvider';
@@ -38,6 +38,52 @@ interface SearchResult {
 }
 
 const EXCERPT_MAX_LENGTH = 140;
+const PROJECT_SUB_ROUTE_SEGMENTS = new Set(['budget', 'calendar', 'moodboard', 'editor']);
+
+const deriveProjectSuffixFromPath = (pathname: string, activeProject?: Project | null) => {
+  if (!pathname.startsWith('/dashboard/projects/')) {
+    return '';
+  }
+
+  const segments = pathname.split('/').filter(Boolean);
+  const projectsIndex = segments.indexOf('projects');
+  if (projectsIndex === -1 || segments.length <= projectsIndex + 1) {
+    return '';
+  }
+
+  const afterProjects = segments.slice(projectsIndex + 1);
+  const [, ...rest] = afterProjects;
+  if (!rest || rest.length === 0) {
+    return '';
+  }
+
+  const activeProjectSlug = activeProject?.title
+    ? encodeURIComponent(activeProject.title.trim())
+    : '';
+
+  let suffixSegments = rest;
+
+  if (activeProjectSlug && suffixSegments[0] === activeProjectSlug) {
+    suffixSegments = suffixSegments.slice(1);
+  } else if (!activeProjectSlug && suffixSegments.length > 1) {
+    suffixSegments = suffixSegments.slice(1);
+  }
+
+  if (suffixSegments.length === 0) {
+    const [singleSegment] = rest;
+    if (singleSegment && PROJECT_SUB_ROUTE_SEGMENTS.has(singleSegment)) {
+      return `/${singleSegment}`;
+    }
+    return '';
+  }
+
+  const [firstSegment] = suffixSegments;
+  if (!firstSegment || !PROJECT_SUB_ROUTE_SEGMENTS.has(firstSegment)) {
+    return '';
+  }
+
+  return `/${firstSegment}`;
+};
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -332,7 +378,9 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const data = useData();
   const projects = useMemo(() => (Array.isArray(data?.projects) ? data.projects : []) as Project[], [data?.projects]);
@@ -345,6 +393,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const userData = useMemo(() => (data?.userData ?? null) as UserLite | null, [data?.userData]);
   const allUsers = useMemo(() => (Array.isArray(data?.allUsers) ? data.allUsers : []) as UserLite[], [data?.allUsers]);
   const isAdmin = useMemo(() => Boolean((data as { isAdmin?: boolean })?.isAdmin), [data]);
+  const activeProject = useMemo(() => (data?.activeProject ?? null) as Project | null, [data?.activeProject]);
+  const currentProjectSuffix = useMemo(
+    () => deriveProjectSuffixFromPath(location.pathname, activeProject),
+    [location.pathname, activeProject?.title, activeProject?.projectId]
+  );
 
   // Close search when clicking outside
   useEffect(() => {
@@ -356,6 +409,13 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   // Handle keyboard navigation
@@ -526,15 +586,18 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
     }
 
     setNavigatingId(result.id);
-    setIsOpen(false);
-    setQuery('');
     setSelectedIndex(-1);
     if (onNavigate) {
       onNavigate();
     }
 
     const finishNavigation = () => {
+      if (!isMountedRef.current) {
+        return;
+      }
       setNavigatingId(current => (current === result.id ? null : current));
+      setIsOpen(false);
+      setQuery('');
     };
 
     void (async () => {
@@ -545,7 +608,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
             fetchPromise = fetchProjectDetails(result.projectId);
           }
           const project = projects?.find((p: Project) => p.projectId === result.projectId);
-          const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
+          const path = getProjectDashboardPath(
+            result.projectId,
+            project?.title ?? result.title,
+            currentProjectSuffix
+          );
           navigate(path);
           if (fetchPromise) {
             try {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import GlobalSearch from './GlobalSearch';
 import '@testing-library/jest-dom';
 
@@ -105,7 +105,8 @@ const mockUseData = {
     collaborators: ['user-2'],
     role: 'designer'
   },
-  isAdmin: false
+  isAdmin: false,
+  activeProject: null as unknown,
 };
 
 const PLACEHOLDER_TEXT = 'Find anything...';
@@ -124,14 +125,16 @@ describe('GlobalSearch', () => {
     };
     mockUseData.allUsers = mockUsers.map(user => ({ ...user }));
     mockUseData.isAdmin = false;
+    mockUseData.activeProject = { ...mockProjects[0] };
+    mockUseData.fetchProjectDetails = vi.fn(() => Promise.resolve(true));
     mockNavigate.mockReset();
   });
 
-  const renderGlobalSearch = () => {
+  const renderGlobalSearch = (initialEntries: string[] = ['/']) => {
     return render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <GlobalSearch />
-      </BrowserRouter>
+      </MemoryRouter>
     );
   };
 
@@ -336,6 +339,39 @@ describe('GlobalSearch', () => {
 
     // The first result should be Demo Application (project-2) due to alphabetical sorting
     expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
+  });
+
+  it('preserves the current project sub-route when navigating to another project', async () => {
+    mockUseData.activeProject = { ...mockProjects[0] };
+    renderGlobalSearch([
+      '/dashboard/projects/project-1/Test%20Project%20One/budget'
+    ]);
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'demo' } });
+
+    await screen.findAllByText((content, element) => {
+      if (!element) return false;
+      const textContent = element.textContent || '';
+      return textContent.includes('Demo Application');
+    });
+
+    const resultButtons = screen.getAllByRole('button');
+    const targetButton = resultButtons.find(button => {
+      const textContent = button.textContent || '';
+      return textContent.includes('Demo Application') && !textContent.includes('Message in');
+    });
+
+    expect(targetButton).toBeTruthy();
+    fireEvent.click(targetButton!);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/dashboard/projects/project-2/Demo%20Application/budget'
+      );
+      expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
+    });
   });
 
   it('renders project metadata with status and due date', async () => {
