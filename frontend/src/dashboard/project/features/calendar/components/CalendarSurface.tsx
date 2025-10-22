@@ -283,6 +283,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
 
+  const eventById = useMemo(() => {
+    const map = new Map<string, CalendarEvent>();
+    visibleEvents.forEach((event) => {
+      map.set(event.id, event);
+    });
+    return map;
+  }, [visibleEvents]);
+
+  const taskById = useMemo(() => {
+    const map = new Map<string, CalendarTask>();
+    visibleTasks.forEach((task) => {
+      map.set(task.id, task);
+    });
+    return map;
+  }, [visibleTasks]);
+
   const miniCalendarActivityMap = useMemo<Record<string, MiniCalendarActivityItem[]>>(() => {
     const map: Record<string, MiniCalendarActivityItem[]> = {};
     const defaultColor = activeProjectColor ?? undefined;
@@ -306,6 +322,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         type: "event",
         color: defaultColor,
         sortKey: event.allDay ? "00:00" : event.start ?? "99:99",
+        eventId: event.id,
       };
       map[key] = [...(map[key] ?? []), entry];
     });
@@ -326,6 +343,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         color: defaultColor,
         isCompleted: Boolean(task.done),
         sortKey: task.time ?? "99:99",
+        taskId: task.id,
       };
       map[key] = [...(map[key] ?? []), entry];
     });
@@ -807,6 +825,24 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [openQuickCreateForTask],
   );
 
+  const handleOpenMiniCalendarEvent = useCallback(
+    (eventId: string) => {
+      const target = eventById.get(eventId);
+      if (!target) return;
+      handleOpenEditEvent(target);
+    },
+    [eventById, handleOpenEditEvent],
+  );
+
+  const handleOpenMiniCalendarTask = useCallback(
+    (taskId: string) => {
+      const target = taskById.get(taskId);
+      if (!target) return;
+      handleOpenEditTask(target);
+    },
+    [taskById, handleOpenEditTask],
+  );
+
   const handleCloseCreate = useCallback(() => {
     setModalState((previous) => ({
       open: false,
@@ -833,6 +869,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 activityMap={miniCalendarActivityMap}
                 indicatorColor={activeProjectColor ?? null}
                 isMobile={isMobile}
+                onOpenEvent={handleOpenMiniCalendarEvent}
+                onOpenTask={handleOpenMiniCalendarTask}
               />
               {isMobile ? (
                 <button

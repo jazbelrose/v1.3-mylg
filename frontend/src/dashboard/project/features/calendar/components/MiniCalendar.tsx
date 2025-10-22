@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckSquare, ChevronLeft, ChevronRight, Clock, Target, X } from "lucide-react";
+import {
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  SquarePen,
+  Target,
+  X,
+} from "lucide-react";
 
 import { getMonthMatrix, fmt, isSameDay } from "../utils";
 
@@ -15,6 +23,8 @@ export type MiniCalendarActivityItem = {
   color?: string | null;
   isCompleted?: boolean;
   sortKey?: string;
+  eventId?: string;
+  taskId?: string;
 };
 
 export type MiniCalendarProps = {
@@ -28,6 +38,8 @@ export type MiniCalendarProps = {
   activityMap?: Record<string, MiniCalendarActivityItem[]>;
   indicatorColor?: string | null;
   isMobile?: boolean;
+  onOpenEvent?: (eventId: string) => void;
+  onOpenTask?: (taskId: string) => void;
 };
 
 type MiniCalendarStyle = React.CSSProperties & {
@@ -50,6 +62,8 @@ function MiniCalendar({
   activityMap,
   indicatorColor,
   isMobile,
+  onOpenEvent,
+  onOpenTask,
 }: MiniCalendarProps) {
   const days = useMemo(() => getMonthMatrix(value), [value]);
   const monthName = value.toLocaleString(undefined, {
@@ -222,6 +236,8 @@ function MiniCalendar({
               {tooltipItems.map((item) => {
                 const iconColor =
                   item.color ?? indicatorColor ?? rangeColor ?? undefined;
+                const actionLabel =
+                  item.type === "event" ? "Edit event" : "Edit task";
                 const meta: string[] = [];
                 if (item.time) {
                   meta.push(item.time);
@@ -261,6 +277,27 @@ function MiniCalendar({
                         </div>
                       ) : null}
                     </div>
+                    {(item.type === "event" && item.eventId && onOpenEvent) ||
+                    (item.type === "task" && item.taskId && onOpenTask) ? (
+                      <button
+                        type="button"
+                        className="mini-calendar-tooltip__item-action"
+                        onClick={() => {
+                          if (item.type === "event" && item.eventId && onOpenEvent) {
+                            onOpenEvent(item.eventId);
+                            setTooltip(null);
+                          }
+                          if (item.type === "task" && item.taskId && onOpenTask) {
+                            onOpenTask(item.taskId);
+                            setTooltip(null);
+                          }
+                        }}
+                        aria-label={actionLabel}
+                        title={actionLabel}
+                      >
+                        <SquarePen className="mini-calendar-tooltip__item-action-icon" aria-hidden />
+                      </button>
+                    ) : null}
                   </li>
                 );
               })}
@@ -354,8 +391,10 @@ function MiniCalendar({
           if (isRangeEdge && rangeColor) {
             style["--mini-calendar-accent"] = rangeColor;
           }
-          if (indicator) {
-            style["--mini-calendar-indicator"] = indicator;
+          const indicatorOverride =
+            isRangeEdge && hasActivity ? "#ffffff" : indicator ?? undefined;
+          if (indicatorOverride) {
+            style["--mini-calendar-indicator"] = indicatorOverride;
           }
           const hasCustomStyle = Object.keys(style).length > 0;
 

@@ -306,16 +306,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--mini-calendar-indicator, currentColor);
 }
 
 .mini-calendar__day-indicator-icon {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 
 .mini-calendar__day-button.is-current {
@@ -469,9 +469,10 @@
   gap: 10px;
 }
 
+
 .mini-calendar-tooltip__item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 10px;
   align-items: start;
 }
@@ -495,6 +496,36 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.mini-calendar-tooltip__item-action {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mini-calendar-tooltip__item-action:hover,
+.mini-calendar-tooltip__item-action:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.mini-calendar-tooltip__item-action:focus-visible {
+  outline: 2px solid rgba(250, 250, 250, 0.6);
+  outline-offset: 2px;
+}
+
+.mini-calendar-tooltip__item-action-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .mini-calendar-tooltip__item-title {
