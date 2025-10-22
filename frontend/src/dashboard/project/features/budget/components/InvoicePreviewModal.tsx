@@ -74,7 +74,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
-  const pdfPreviewUrlRef = useRef<string | null>(null);
+  const pdfObjectUrlRef = useRef<string | null>(null);
+  const pdfBlobRef = useRef<Blob | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
@@ -111,6 +112,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -162,7 +164,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     try {
       const res = await list({ prefix, options: { accessLevel: "guest" } });
       return (res.items || [])
-        .filter((item) => item.key && !String(item.key).endsWith("/"))
+        .filter((item) => {
+          const key = String(item.key || "");
+          return key && !key.endsWith("/") && key.toLowerCase().endsWith(".pdf");
+        })
         .map((item) => {
           const rawKey = String(item.key);
           const storageKey = rawKey.startsWith("public/") ? rawKey : `public/${rawKey}`;
@@ -240,72 +245,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   };
 
   const loadInvoice = async (url: string) => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const text = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "text/html");
-      const page = doc.querySelector(".invoice-page");
-      if (!page) return;
-
-      const q = (sel: string) => page.querySelector(sel);
-
-      setBrandLogoKey(q(".invoice-header img")?.getAttribute("src") || "");
-      setLogoDataUrl(null);
-      setBrandName(q(".brand-name")?.textContent || "");
-      setBrandAddress(q(".brand-address")?.textContent || "");
-      setBrandPhone(q(".brand-phone")?.textContent || "");
-      setBrandTagline(q(".brand-tagline")?.textContent || "");
-
-      const infoSpans = page.querySelectorAll(".billing-info > div:last-child span");
-      setInvoiceNumber(infoSpans[0]?.textContent || "");
-      setIssueDate(infoSpans[1]?.textContent || "");
-      setDueDate(infoSpans[2]?.textContent || "");
-      setServiceDate(infoSpans[3]?.textContent || "");
-
-      setProjectTitle(q(".project-title")?.textContent || "");
-
-      const summaryDivs = page.querySelectorAll(".summary > div");
-      setCustomerSummary(summaryDivs[0]?.textContent || "");
-      setInvoiceSummary(summaryDivs[1]?.textContent || "");
-      setPaymentSummary(summaryDivs[2]?.textContent || "");
-
-      const totals = page.querySelectorAll(".totals span");
-      const parseMoney = (v: string | null) =>
-        parseFloat(String(v || "").replace(/[$,]/g, "")) || 0;
-
-      if (totals.length >= 3) {
-        setDepositReceived(parseMoney(totals[1]?.textContent));
-        setTotalDue(parseMoney(totals[2]?.textContent));
-      }
-
-      const notesEl = q(".notes");
-      if (notesEl) setNotes(notesEl.innerHTML || "");
-
-      const parsedGroups = Array.from(
-        doc.querySelectorAll(".group-header td")
-      ).map((td) => (td.textContent || "").trim());
-      if (parsedGroups.length) {
-        const candidate = (groupFields.map((g) => g.value) as GroupField[]).find((field) => {
-          const opts = Array.from(
-            new Set(
-              items
-                .map((it) => (String((it as BudgetItem)[field] || "")).trim())
-                .filter(Boolean)
-            )
-          );
-          return parsedGroups.every((g) => opts.includes(g));
-        });
-        if (candidate) setGroupField(candidate);
-        setGroupValues(parsedGroups);
-      }
-
-      setInvoiceDirty(false);
-      setCurrentFileName(url.split("/").pop() || "");
-    } catch (err) {
-      console.error("Failed to load invoice", err);
-    }
+    window.open(url, "_blank", "noopener,noreferrer");
+    toast.info("Saved invoice opened in a new tab.");
   };
 
   useEffect(() => {
@@ -349,9 +290,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setInvoiceDirty(true);
 
     if (revision?.revision != null) {
-      setCurrentFileName(`invoice-revision-${revision.revision}.html`);
+      setCurrentFileName(`invoice-revision-${revision.revision}.pdf`);
     } else {
-      setCurrentFileName("invoice.html");
+      setCurrentFileName("invoice.pdf");
     }
   }, [isOpen, project, revision]);
 
@@ -563,22 +504,25 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setCurrentPage(0);
   }, [pages]);
 
-  const closePdfPreview = useCallback(() => {
-    if (pdfPreviewUrlRef.current) {
-      URL.revokeObjectURL(pdfPreviewUrlRef.current);
-      pdfPreviewUrlRef.current = null;
-    }
-    setPdfPreviewUrl(null);
-  }, []);
-
   useEffect(() => {
     if (!isOpen) {
       setShowUnsavedPrompt(false);
-      closePdfPreview();
+      setPdfPreviewUrl(null);
+      setIsGeneratingPdf(false);
+      pdfBlobRef.current = null;
+      if (pdfObjectUrlRef.current) {
+        URL.revokeObjectURL(pdfObjectUrlRef.current);
+        pdfObjectUrlRef.current = null;
+      }
     }
-  }, [isOpen, closePdfPreview]);
+  }, [isOpen]);
 
-  useEffect(() => () => closePdfPreview(), [closePdfPreview]);
+  useEffect(() => () => {
+    if (pdfObjectUrlRef.current) {
+      URL.revokeObjectURL(pdfObjectUrlRef.current);
+      pdfObjectUrlRef.current = null;
+    }
+  }, []);
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
@@ -592,8 +536,44 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   }, [buildPdfInvoiceElement]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    setIsGeneratingPdf(true);
+
+    (async () => {
+      const blob = await renderPdfBlob();
+      if (cancelled) return;
+
+      if (blob) {
+        pdfBlobRef.current = blob;
+        const nextUrl = URL.createObjectURL(blob);
+        if (pdfObjectUrlRef.current) {
+          URL.revokeObjectURL(pdfObjectUrlRef.current);
+        }
+        pdfObjectUrlRef.current = nextUrl;
+        setPdfPreviewUrl(nextUrl);
+      } else {
+        pdfBlobRef.current = null;
+        if (pdfObjectUrlRef.current) {
+          URL.revokeObjectURL(pdfObjectUrlRef.current);
+          pdfObjectUrlRef.current = null;
+        }
+        setPdfPreviewUrl(null);
+      }
+
+      if (!cancelled) setIsGeneratingPdf(false);
+    })();
+
+    return () => {
+      cancelled = true;
+      setIsGeneratingPdf(false);
+    };
+  }, [renderPdfBlob, isOpen]);
+
   const handleSavePdf = useCallback(async () => {
-    const blob = await renderPdfBlob();
+    const blob = pdfBlobRef.current ?? (await renderPdfBlob());
     if (!blob) return;
     const file =
       revision?.revision != null
@@ -603,152 +583,29 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   }, [renderPdfBlob, revision]);
 
   const handlePreviewPdf = useCallback(async () => {
+    if (pdfPreviewUrl) {
+      window.open(pdfPreviewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     const blob = await renderPdfBlob();
     if (!blob) return;
-    closePdfPreview();
     const objectUrl = URL.createObjectURL(blob);
-    pdfPreviewUrlRef.current = objectUrl;
-    setPdfPreviewUrl(objectUrl);
-  }, [renderPdfBlob, closePdfPreview]);
-
-  const buildInvoiceHtml = (): string => {
-    if (!previewRef.current) return "";
-    const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
-    const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, i) => i);
-
-    const htmlPages = pageIndexes
-      .map((idx) => {
-        const pageRows = pages[idx] || [];
-        const rowsHtml = pageRows
-          .map((row) =>
-            row.type === "group"
-              ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
-              : `<tr>
-                   <td>${row.item.description || ""}</td>
-                   <td>${row.item.quantity || ""}</td>
-                   <td>${row.item.unit || ""}</td>
-                   <td>${formatCurrency(
-                     (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                       (parseFloat(String(row.item.quantity || 1)) || 1)
-                   )}</td>
-                   <td>${formatCurrency(
-                     parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                   )}</td>
-                 </tr>`
-          )
-          .join("");
-
-        const headerName = brandName || project?.company || "Company Name";
-        const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
-        const headerPhone = brandPhone || "Phone";
-        const headerTag = brandTagline || "";
-        const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
-
-        const invNum = invoiceNumber || "";
-        const issue = issueDate || "";
-        const due = dueDate || "";
-        const service = serviceDate || "";
-
-        const billContact = project?.clientName || "Client Name";
-        const billCompany = project?.invoiceBrandName || "Client Company";
-        const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
-        const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
-        const billEmail = project?.clientEmail || "";
-
-        const projTitle = projectTitle || "";
-        const custSum = customerSummary || "";
-        const invSum = invoiceSummary || "";
-        const paySum = paymentSummary || "";
-        const notesText = notes || "";
-
-        const deposit = formatCurrency(depositReceived);
-        const total = formatCurrency(totalDue);
-
-        const logoHtml = logoSrc
-          ? `<img src="${logoSrc}" alt="logo" style="max-width:100px;max-height:100px" />`
-          : "";
-
-        const totalsHtml =
-          idx === pages.length - 1
-            ? `<div class="bottom-block">
-                 <div class="totals">
-                   <div>Subtotal: <span>${formatCurrency(subtotal)}</span></div>
-                   <div>Deposit received: <span>${deposit}</span></div>
-                   <div><strong>Total Due: <span>${total}</span></strong></div>
-                 </div>
-                 <div class="notes">${notesText}</div>
-                 <div class="footer">${projTitle}</div>
-               </div>`
-            : "";
-
-        return `
-          <div class="invoice-page invoice-container">
-            <div class="invoice-top">
-              <div class="invoice-header">
-                <div>${logoHtml}</div>
-                <div class="company-info">
-                  <div class="brand-name">${headerName}</div>
-                  ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                  <div class="brand-address">${headerAddress}</div>
-                  <div class="brand-phone">${headerPhone}</div>
-                </div>
-                <div class="invoice-title">INVOICE</div>
-              </div>
-              <div class="billing-info">
-                <div>
-                  <strong>Bill To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
-                </div>
-                <div>
-                  <div>Invoice #: <span>${invNum}</span></div>
-                  <div>Issue date: <span>${issue}</span></div>
-                  <div>Due date: <span>${due}</span></div>
-                  <div>Service date: <span>${service}</span></div>
-                </div>
-              </div>
-            </div>
-            <h1 class="project-title">${projTitle}</h1>
-            <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
-            <hr class="summary-divider" />
-            <div class="items-table-wrapper">
-              <table class="items-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>QTY</th>
-                    <th>Unit</th>
-                    <th>Unit Price</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
-          </div>
-        `;
-      })
-      .join("");
-
-    const title = invoiceNumber ? `Invoice ${invoiceNumber}` : "Invoice";
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>${htmlPages}</body></html>`;
-  };
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  }, [pdfPreviewUrl, renderPdfBlob]);
 
   const saveInvoice = async () => {
-    const html = buildInvoiceHtml();
-    if (!html || !project?.projectId) return;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+    if (!project?.projectId) return;
+
+    const blob = pdfBlobRef.current ?? (await renderPdfBlob());
+    if (!blob) return;
+    pdfBlobRef.current = blob;
 
     const unique = uuid().slice(0, 8);
     const date = new Date().toISOString().split("T")[0];
     const projectSlug = slugify(project.title || "project");
     const rev = revision?.revision ?? "0";
-    const fileName = `${projectSlug}-${rev}-${date}-${unique}.html`;
+    const fileName = `${projectSlug}-${rev}-${date}-${unique}.pdf`;
     const key = `projects/${project.projectId}/invoices/${fileName}`;
 
     try {
@@ -757,6 +614,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         data: blob,
         options: {
           accessLevel: "guest",
+          contentType: "application/pdf",
           metadata: { friendlyName: fileName },
         },
       });
@@ -1027,8 +885,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onTotalDueBlur={handleTotalDueBlur}
                   notes={notes}
                   onNotesBlur={handleNotesBlur}
-                  pdfPreviewUrl={pdfPreviewUrl}
-                  onClosePdfPreview={closePdfPreview}
+                  pdfUrl={pdfPreviewUrl}
+                  isGeneratingPdf={isGeneratingPdf}
                 />
               </div>
             </Fragment>

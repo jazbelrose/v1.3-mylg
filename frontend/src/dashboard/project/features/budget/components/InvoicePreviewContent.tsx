@@ -53,8 +53,8 @@ interface InvoicePreviewContentProps {
   onTotalDueBlur: (value: string) => void;
   notes: string;
   onNotesBlur: (value: string) => void;
-  pdfPreviewUrl: string | null;
-  onClosePdfPreview: () => void;
+  pdfUrl: string | null;
+  isGeneratingPdf: boolean;
 }
 
 const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
@@ -103,8 +103,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onTotalDueBlur,
   notes,
   onNotesBlur,
-  pdfPreviewUrl,
-  onClosePdfPreview,
+  pdfUrl,
+  isGeneratingPdf,
 }) => {
   const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
@@ -320,23 +320,19 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
   return (
     <div className={styles.previewWrapper} ref={previewRef}>
-      {pdfPreviewUrl ? (
-        <div className={styles.pdfPreviewOverlay}>
-          <div className={styles.pdfPreviewHeader}>
-            <span>PDF Preview</span>
-            <button type="button" onClick={onClosePdfPreview}>
-              Close
-            </button>
+      <div className={styles.pdfPreviewContainer}>
+        {pdfUrl ? (
+          <PDFPreview
+            url={pdfUrl}
+            page={Math.max(1, currentPage + 1)}
+            className={styles.pdfPreviewCanvas}
+          />
+        ) : (
+          <div className={styles.pdfPreviewPlaceholder}>
+            {isGeneratingPdf ? "Generating PDF preview…" : "PDF preview unavailable"}
           </div>
-          <div className={styles.pdfPreviewCanvasWrapper}>
-            <PDFPreview
-              url={pdfPreviewUrl}
-              page={Math.max(1, currentPage + 1)}
-              className={styles.pdfPreviewCanvas}
-            />
-          </div>
-        </div>
-      ) : null}
+        )}
+      </div>
       <style id="invoice-preview-styles">{`
         @page { margin: 0; }
         body { margin: 0; }
@@ -448,58 +444,60 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </div>
 
-      <div className="invoice-container">
-        <div className="invoice-page">
-          {renderHeader()}
+      <div className={styles.previewViewport}>
+        <div className="invoice-container">
+          <div className="invoice-page">
+            {renderHeader()}
 
-          {renderSummary(currentRows, `page-${currentPage}`)}
+            {renderSummary(currentRows, `page-${currentPage}`)}
 
-          {currentPage === Math.max(0, totalPages - 1) && (
-            <div className="bottom-block">
-              <div className="totals">
-                <div>
-                  Subtotal: <span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div>
-                  Deposit received:
-                  <span
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
-                  >
-                    {formatCurrency(depositReceived)}
-                  </span>
-                </div>
-                <div>
-                  <strong>
-                    Total Due:
+            {currentPage === Math.max(0, totalPages - 1) && (
+              <div className="bottom-block">
+                <div className="totals">
+                  <div>
+                    Subtotal: <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div>
+                    Deposit received:
                     <span
                       contentEditable
                       suppressContentEditableWarning
-                      onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                      onBlur={(e) => onDepositBlur(e.currentTarget.textContent || "")}
                     >
-                      {formatCurrency(totalDue)}
+                      {formatCurrency(depositReceived)}
                     </span>
-                  </strong>
+                  </div>
+                  <div>
+                    <strong>
+                      Total Due:
+                      <span
+                        contentEditable
+                        suppressContentEditableWarning
+                        onBlur={(e) => onTotalDueBlur(e.currentTarget.textContent || "")}
+                      >
+                        {formatCurrency(totalDue)}
+                      </span>
+                    </strong>
+                  </div>
+                </div>
+
+                <div
+                  className="notes"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
+                  dangerouslySetInnerHTML={{ __html: notes }}
+                />
+
+                <div className="footer" contentEditable suppressContentEditableWarning>
+                  {project?.company || "Company Name"}
                 </div>
               </div>
+            )}
 
-              <div
-                className="notes"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => onNotesBlur(e.currentTarget.innerHTML || "")}
-                dangerouslySetInnerHTML={{ __html: notes }}
-              />
-
-              <div className="footer" contentEditable suppressContentEditableWarning>
-                {project?.company || "Company Name"}
-              </div>
+            <div className="pageNumber">
+              Page {currentPage + 1} of {totalPages || 1}
             </div>
-          )}
-
-          <div className="pageNumber">
-            Page {currentPage + 1} of {totalPages || 1}
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import {
   Document,
   Image,
+  Link,
   Page,
   StyleSheet,
   Text,
@@ -190,6 +191,45 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 10,
     lineHeight: 1.5,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  notesParagraph: {
+    marginBottom: 2,
+  },
+  notesBreak: {
+    height: 6,
+  },
+  inlineBold: {
+    fontWeight: 700,
+  },
+  inlineItalic: {
+    fontStyle: "italic",
+  },
+  inlineUnderline: {
+    textDecoration: "underline",
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    marginBottom: 6,
+  },
+  listItem: {
+    display: "flex",
+    flexDirection: "row",
+    gap: 6,
+  },
+  listBullet: {
+    width: 14,
+  },
+  listContent: {
+    flex: 1,
+  },
+  link: {
+    color: "#1a73e8",
+    textDecoration: "underline",
   },
   footer: {
     marginTop: 24,
@@ -231,19 +271,241 @@ const groupRowsForPdf = (rows: RowData[]): PdfRowSegment[] => {
   return segments;
 };
 
-const toPlainText = (html: string): string => {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/>/gi, "\n")
-    .replace(/<p[^>]*>/gi, "")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
+type TextNode = { type: "text"; value: string };
+type ElementNode = {
+  type: "element";
+  tag: string;
+  attributes: Record<string, string>;
+  children: HtmlNode[];
+};
+type HtmlNode = TextNode | ElementNode;
+
+const INLINE_TAGS = new Set([
+  "strong",
+  "b",
+  "em",
+  "i",
+  "u",
+  "span",
+  "a",
+  "small",
+  "sup",
+  "sub",
+  "br",
+]);
+
+const decodeHtmlEntities = (input: string): string =>
+  input
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+const parseAttributes = (input: string): Record<string, string> => {
+  const attrs: Record<string, string> = {};
+  const attrRegex = /([a-zA-Z0-9:-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = attrRegex.exec(input))) {
+    const name = match[1].toLowerCase();
+    const value = decodeHtmlEntities(match[3] || match[4] || match[5] || "");
+    attrs[name] = value;
+  }
+  return attrs;
+};
+
+const appendText = (parent: ElementNode, value: string) => {
+  const decoded = decodeHtmlEntities(value);
+  if (!decoded) return;
+  const last = parent.children[parent.children.length - 1];
+  if (last && last.type === "text") {
+    last.value += decoded;
+  } else {
+    parent.children.push({ type: "text", value: decoded });
+  }
+};
+
+const parseHtmlToNodes = (html: string): HtmlNode[] => {
+  if (!html) return [];
+  const root: ElementNode = { type: "element", tag: "root", attributes: {}, children: [] };
+  const stack: ElementNode[] = [root];
+  const tagRegex = /<\/?([a-zA-Z0-9]+)([^>]*)>/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tagRegex.exec(html))) {
+    if (match.index > lastIndex) {
+      appendText(stack[stack.length - 1], html.slice(lastIndex, match.index));
+    }
+
+    const [fullMatch, rawTag, rawAttrs] = match;
+    const tag = rawTag.toLowerCase();
+    const isClosing = fullMatch.startsWith("</");
+    const selfClosing = fullMatch.endsWith("/>") || tag === "br";
+
+    if (isClosing) {
+      for (let i = stack.length - 1; i > 0; i -= 1) {
+        if (stack[i].tag === tag) {
+          stack.length = i;
+          break;
+        }
+      }
+    } else {
+      const node: ElementNode = {
+        type: "element",
+        tag,
+        attributes: parseAttributes(rawAttrs || ""),
+        children: [],
+      };
+      stack[stack.length - 1].children.push(node);
+      if (!selfClosing) {
+        stack.push(node);
+      }
+    }
+
+    lastIndex = tagRegex.lastIndex;
+  }
+
+  if (lastIndex < html.length) {
+    appendText(stack[stack.length - 1], html.slice(lastIndex));
+  }
+
+  return root.children;
+};
+
+const renderInlineNodes = (nodes: HtmlNode[], keyPrefix: string): React.ReactNode[] =>
+  nodes.flatMap((node, index) => {
+    const key = `${keyPrefix}-inline-${index}`;
+    if (node.type === "text") {
+      if (!node.value) return [];
+      return <Text key={key}>{node.value}</Text>;
+    }
+
+    if (node.tag === "br") {
+      return <Text key={key}>{"\n"}</Text>;
+    }
+
+    if (node.tag === "strong" || node.tag === "b") {
+      return (
+        <Text key={key} style={styles.inlineBold}>
+          {renderInlineNodes(node.children, key)}
+        </Text>
+      );
+    }
+
+    if (node.tag === "em" || node.tag === "i") {
+      return (
+        <Text key={key} style={styles.inlineItalic}>
+          {renderInlineNodes(node.children, key)}
+        </Text>
+      );
+    }
+
+    if (node.tag === "u") {
+      return (
+        <Text key={key} style={styles.inlineUnderline}>
+          {renderInlineNodes(node.children, key)}
+        </Text>
+      );
+    }
+
+    if (node.tag === "a") {
+      const href = node.attributes.href || node.attributes["data-href"] || "";
+      const children = renderInlineNodes(node.children, key);
+      if (!href) {
+        return children;
+      }
+      return (
+        <Link key={key} src={href} style={styles.link}>
+          {children.length ? children : href}
+        </Link>
+      );
+    }
+
+    return renderInlineNodes(node.children, key);
+  });
+
+const renderBlockNodes = (nodes: HtmlNode[], keyPrefix: string): React.ReactNode[] => {
+  const elements: React.ReactNode[] = [];
+  let inlineBuffer: HtmlNode[] = [];
+
+  const flushInline = (bufferKey: string) => {
+    if (!inlineBuffer.length) return;
+    const hasContent = inlineBuffer.some((node) => {
+      if (node.type === "text") return node.value.trim().length > 0;
+      return node.type === "element" && node.tag !== "br";
+    });
+    const content = renderInlineNodes(inlineBuffer, bufferKey);
+    inlineBuffer = [];
+    if (!hasContent || !content.length) return;
+    elements.push(
+      <View key={`${bufferKey}-paragraph`} style={styles.notesParagraph}>
+        <Text>{content}</Text>
+      </View>
+    );
+  };
+
+  nodes.forEach((node, index) => {
+    const key = `${keyPrefix}-${index}`;
+    if (node.type === "text" || (node.type === "element" && INLINE_TAGS.has(node.tag))) {
+      inlineBuffer.push(node);
+      return;
+    }
+
+    flushInline(`${key}-inline`);
+
+    if (node.type === "element") {
+      if (node.tag === "p" || node.tag === "div") {
+        const content = renderInlineNodes(node.children, `${key}-inline`);
+        if (content.length) {
+          elements.push(
+            <View key={`${key}-paragraph`} style={styles.notesParagraph}>
+              <Text>{content}</Text>
+            </View>
+          );
+        }
+        return;
+      }
+
+      if (node.tag === "ul" || node.tag === "ol") {
+        const isOrdered = node.tag === "ol";
+        let counter = 1;
+        const items = node.children.filter(
+          (child): child is ElementNode => child.type === "element" && child.tag === "li"
+        );
+        if (items.length) {
+          elements.push(
+            <View key={`${key}-list`} style={styles.list}>
+              {items.map((item, itemIdx) => {
+                const bullet = isOrdered ? `${counter++}.` : "•";
+                return (
+                  <View key={`${key}-item-${itemIdx}`} style={styles.listItem}>
+                    <Text style={styles.listBullet}>{bullet}</Text>
+                    <Text style={styles.listContent}>
+                      {renderInlineNodes(item.children, `${key}-item-${itemIdx}`)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
+        return;
+      }
+
+      if (node.tag === "br") {
+        elements.push(<View key={`${key}-break`} style={styles.notesBreak} />);
+        return;
+      }
+
+      elements.push(...renderBlockNodes(node.children, key));
+    }
+  });
+
+  flushInline(`${keyPrefix}-inline-tail`);
+
+  return elements;
 };
 
 const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string => {
@@ -275,7 +537,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
   notes,
 }) => {
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
-  const notesText = useMemo(() => toPlainText(notes), [notes]);
+  const notesContent = useMemo(() => renderBlockNodes(parseHtmlToNodes(notes || ""), "notes"), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
 
   const renderItemRow = (item: BudgetItem, key: string | number) => {
@@ -395,7 +657,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
           </View>
         </View>
 
-        {notesText ? <Text style={styles.notes}>{notesText}</Text> : null}
+        {notesContent.length ? <View style={styles.notes}>{notesContent}</View> : null}
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
