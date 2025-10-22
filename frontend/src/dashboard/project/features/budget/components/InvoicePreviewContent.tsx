@@ -316,7 +316,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   return (
     <div className={styles.previewWrapper} ref={previewRef}>
       <style id="invoice-preview-styles">{`
-        @page { margin: 0; }
+        @page { size: 210mm 297mm; margin: 0; }
         body { margin: 0; }
         .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
         .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px 20px 60px;box-sizing:border-box;position:relative;overflow-x:hidden;display:flex;flex-direction:column;}

@@ -443,14 +443,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
-    const pageHeight = 1122;
-    const pageNumberHeight = 40;
-    const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
-    const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
-    const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
-    const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
-    const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
-    const bottomBlock = invoiceRef.current.querySelector(".bottom-block") as HTMLElement | null;
+
+    const pageStyle = window.getComputedStyle(invoiceRef.current);
+    const computedMinHeight = parseFloat(pageStyle.minHeight || "0");
+    const computedHeight = parseFloat(pageStyle.height || "0");
+    const pageHeight = computedMinHeight || computedHeight || 1122;
 
     const getTotalHeight = (el: HTMLElement | null) => {
       if (!el) return 0;
@@ -459,6 +456,17 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       const marginBottom = parseFloat(style.marginBottom || "0");
       return el.offsetHeight + marginTop + marginBottom;
     };
+
+    const pageNumberEl = invoiceRef.current.querySelector(
+      ".pageNumber"
+    ) as HTMLElement | null;
+    const pageNumberHeight = getTotalHeight(pageNumberEl) || 40;
+    const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
+    const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
+    const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
+    const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
+    const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
+    const bottomBlock = invoiceRef.current.querySelector(".bottom-block") as HTMLElement | null;
 
     const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
     const bottomHeight =
