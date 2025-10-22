@@ -175,10 +175,18 @@ const ProjectWeekWidget: React.FC<ProjectWeekWidgetProps> = ({
 
   const weekWidgetClass = ["project-week-widget", className].filter(Boolean).join(" ");
 
+  const handleWrapperClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+      wrapperHandlers.onClick(event);
+    },
+    [wrapperHandlers]
+  );
+
   return (
     <div
       className={weekWidgetClass}
-      onClick={wrapperHandlers.onClick}
+      onClick={handleWrapperClick}
       onMouseEnter={wrapperHandlers.onMouseEnter}
       onMouseMove={wrapperHandlers.onMouseMove}
       onMouseLeave={wrapperHandlers.onMouseLeave}
