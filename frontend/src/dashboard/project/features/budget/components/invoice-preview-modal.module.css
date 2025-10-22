@@ -229,6 +229,177 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
 }
 
+.pdfEditorLayout {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+}
+
+.pdfCanvasColumn {
+  flex: 1 1 60%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdfCanvasFrame {
+  width: 100%;
+  max-width: 210mm;
+  background: #121212;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+}
+
+.pdfCanvasPlaceholder {
+  width: 100%;
+  padding: 48px 24px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.pdfPageMeta {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pdfFormColumn {
+  flex: 0 0 320px;
+  max-width: 340px;
+  background: #111111;
+  border: 1px solid #1f1f1f;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 100%;
+  overflow-y: auto;
+  box-shadow: 0 20px 36px rgba(0, 0, 0, 0.4);
+}
+
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formSection h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f5f5f5;
+}
+
+.logoPicker {
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #181818;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  outline: none;
+}
+
+.logoPicker:hover,
+.logoPicker:focus-visible {
+  border-color: #4ea1ff;
+  background: #202020;
+}
+
+.logoPicker img {
+  max-width: 100%;
+  max-height: 96px;
+  object-fit: contain;
+}
+
+.logoPicker span {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.9rem;
+}
+
+.logoHint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formRow label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.textInput,
+.textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #2a2a2a;
+  background: #1a1a1a;
+  color: #f5f5f5;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.textInput:focus,
+.textarea:focus {
+  border-color: #4ea1ff;
+  box-shadow: 0 0 0 1px rgba(78, 161, 255, 0.5);
+  outline: none;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+
+.toggleRow input {
+  accent-color: #4ea1ff;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.readonlyValue {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #181818;
+  border: 1px solid #2a2a2a;
+  color: #f5f5f5;
+  font-size: 0.9rem;
+}
+
 .groupSelect,
 .pageSelect {
   display: flex;
@@ -333,6 +504,20 @@
   .previewViewport {
     max-width: 100%;
   }
+
+  .pdfEditorLayout {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pdfCanvasColumn {
+    width: 100%;
+  }
+
+  .pdfFormColumn {
+    width: 100%;
+    max-width: 520px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -361,6 +546,14 @@
 
   .previewViewport :global(.invoice-page) {
     padding: 14px 14px 54px;
+  }
+
+  .pdfEditorLayout {
+    gap: 16px;
+  }
+
+  .pdfFormColumn {
+    padding: 16px;
   }
 
   .previewViewport :global(.invoice-header) {
