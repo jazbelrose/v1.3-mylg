@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { pdf as createPdf } from "@react-pdf/renderer";
 import { createPortal } from "react-dom";
 import Modal from "@/shared/ui/ModalWithStack";
 import { saveAs } from "file-saver";
@@ -32,6 +33,7 @@ import InvoiceFileActions from "./InvoiceFileActions";
 import InvoiceNavControls from "./InvoiceNavControls";
 import InvoiceSidebar from "./InvoiceSidebar";
 import InvoicePreviewContent from "./InvoicePreviewContent";
+import PdfInvoice from "./PdfInvoice";
 import styles from "./invoice-preview-modal.module.css";
 import type {
   BudgetItem,
@@ -72,6 +74,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const pdfPreviewUrlRef = useRef<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
@@ -107,6 +110,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -441,6 +445,56 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     return arr;
   }, [items, groupValues, groupField, groupOptions]);
 
+  const buildPdfInvoiceElement = useCallback(() => {
+    const addressForPdf = useProjectAddress ? project?.address || "" : brandAddress;
+    return (
+      <PdfInvoice
+        brandName={brandName || project?.company || ""}
+        brandTagline={brandTagline}
+        brandAddress={addressForPdf}
+        brandPhone={brandPhone}
+        brandLogoKey={brandLogoKey}
+        logoDataUrl={logoDataUrl}
+        project={project}
+        invoiceNumber={invoiceNumber}
+        issueDate={issueDate}
+        dueDate={dueDate}
+        serviceDate={serviceDate}
+        projectTitle={projectTitle}
+        customerSummary={customerSummary}
+        invoiceSummary={invoiceSummary}
+        paymentSummary={paymentSummary}
+        rows={rowsData}
+        subtotal={subtotal}
+        depositReceived={depositReceived}
+        totalDue={totalDue}
+        notes={notes}
+      />
+    );
+  }, [
+    brandAddress,
+    brandLogoKey,
+    brandName,
+    brandPhone,
+    brandTagline,
+    customerSummary,
+    depositReceived,
+    dueDate,
+    invoiceNumber,
+    invoiceSummary,
+    issueDate,
+    logoDataUrl,
+    notes,
+    paymentSummary,
+    project,
+    projectTitle,
+    rowsData,
+    serviceDate,
+    subtotal,
+    totalDue,
+    useProjectAddress,
+  ]);
+
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
     const pageHeight = 1122;
@@ -476,14 +530,22 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
     rowEls.forEach((row, idx) => {
       const rowHeight = row.offsetHeight;
+      const data = rowsData[idx];
       const isLast = idx === rowEls.length - 1;
-      const needed = rowHeight + (isLast ? bottomHeight : 0);
+      const nextRow = rowEls[idx + 1];
+      const nextData = rowsData[idx + 1];
+      const isGroupHeader = row.classList.contains("group-header");
+      const bundleHeight =
+        isGroupHeader && nextRow && nextData?.type === "item"
+          ? rowHeight + nextRow.offsetHeight
+          : rowHeight;
+      const needed = bundleHeight + (isLast ? bottomHeight : 0);
       if (needed > available && current.length) {
         pagesAccum.push(current);
         current = [];
         available = Math.max(pageHeight - staticHeights, 0);
       }
-      current.push(rowsData[idx]);
+      current.push(data);
       available -= rowHeight;
     });
 
@@ -501,11 +563,53 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setCurrentPage(0);
   }, [pages]);
 
+  const closePdfPreview = useCallback(() => {
+    if (pdfPreviewUrlRef.current) {
+      URL.revokeObjectURL(pdfPreviewUrlRef.current);
+      pdfPreviewUrlRef.current = null;
+    }
+    setPdfPreviewUrl(null);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
       setShowUnsavedPrompt(false);
+      closePdfPreview();
     }
-  }, [isOpen]);
+  }, [isOpen, closePdfPreview]);
+
+  useEffect(() => () => closePdfPreview(), [closePdfPreview]);
+
+  const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
+    try {
+      const instance = createPdf(buildPdfInvoiceElement());
+      const blob = await instance.toBlob();
+      return blob;
+    } catch (err) {
+      console.error("Failed to generate invoice PDF", err);
+      toast.error("Unable to build invoice PDF");
+      return null;
+    }
+  }, [buildPdfInvoiceElement]);
+
+  const handleSavePdf = useCallback(async () => {
+    const blob = await renderPdfBlob();
+    if (!blob) return;
+    const file =
+      revision?.revision != null
+        ? `invoice-revision-${revision.revision}.pdf`
+        : "invoice.pdf";
+    saveAs(blob, file);
+  }, [renderPdfBlob, revision]);
+
+  const handlePreviewPdf = useCallback(async () => {
+    const blob = await renderPdfBlob();
+    if (!blob) return;
+    closePdfPreview();
+    const objectUrl = URL.createObjectURL(blob);
+    pdfPreviewUrlRef.current = objectUrl;
+    setPdfPreviewUrl(objectUrl);
+  }, [renderPdfBlob, closePdfPreview]);
 
   const buildInvoiceHtml = (): string => {
     if (!previewRef.current) return "";
@@ -633,49 +737,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
     const title = invoiceNumber ? `Invoice ${invoiceNumber}` : "Invoice";
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>${htmlPages}</body></html>`;
-  };
-
-  const exportHtml = () => {
-    const html = buildInvoiceHtml();
-    if (!html) return;
-    const file =
-      revision?.revision != null
-        ? `invoice-revision-${revision.revision}.html`
-        : "invoice.html";
-    const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
-    saveAs(blob, file);
-  };
-
-  const exportPdf = () => {
-    const html = buildInvoiceHtml();
-    if (!html) return;
-
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    document.body.appendChild(iframe);
-
-    const frameDoc = iframe.contentWindow?.document;
-    if (!frameDoc) {
-      document.body.removeChild(iframe);
-      return;
-    }
-
-    frameDoc.open();
-    frameDoc.write(html);
-    frameDoc.close();
-
-    iframe.onload = () => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 0);
-    };
   };
 
   const saveInvoice = async () => {
@@ -872,8 +933,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           fileName={currentFileName}
           allowSave={allowSave}
           onSave={handleSaveClick}
-          onExportPdf={exportPdf}
-          onExportHtml={exportHtml}
+          onSavePdf={handleSavePdf}
+          onPreviewPdf={handlePreviewPdf}
         />
 
         <div className={styles.modalBody}>
@@ -966,6 +1027,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onTotalDueBlur={handleTotalDueBlur}
                   notes={notes}
                   onNotesBlur={handleNotesBlur}
+                  pdfPreviewUrl={pdfPreviewUrl}
+                  onClosePdfPreview={closePdfPreview}
                 />
               </div>
             </Fragment>

@@ -1,10 +1,6 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faDownload,
-  faFilePdf,
-  faSave,
-} from "@fortawesome/free-solid-svg-icons";
+import { faEye, faFilePdf, faSave } from "@fortawesome/free-solid-svg-icons";
 
 import styles from "./invoice-preview-modal.module.css";
 
@@ -12,16 +8,16 @@ interface InvoiceFileActionsProps {
   fileName: string;
   allowSave: boolean;
   onSave: () => void;
-  onExportPdf: () => void;
-  onExportHtml: () => void;
+  onSavePdf: () => void;
+  onPreviewPdf: () => void;
 }
 
 const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
   fileName,
   allowSave,
   onSave,
-  onExportPdf,
-  onExportHtml,
+  onSavePdf,
+  onPreviewPdf,
 }) => (
   <div className={styles.currentFileRow}>
     <div className={styles.fileName}>{fileName || "Unsaved Invoice"}</div>
@@ -37,17 +33,17 @@ const InvoiceFileActions: React.FC<InvoiceFileActionsProps> = ({
       )}
       <button
         className={styles.iconButton}
-        onClick={onExportPdf}
-        aria-label="Download PDF"
+        onClick={onSavePdf}
+        aria-label="Save PDF"
       >
         <FontAwesomeIcon icon={faFilePdf} />
       </button>
       <button
         className={styles.iconButton}
-        onClick={onExportHtml}
-        aria-label="Download HTML"
+        onClick={onPreviewPdf}
+        aria-label="Preview PDF"
       >
-        <FontAwesomeIcon icon={faDownload} />
+        <FontAwesomeIcon icon={faEye} />
       </button>
     </div>
   </div>
