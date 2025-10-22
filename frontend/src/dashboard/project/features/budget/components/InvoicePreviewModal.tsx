@@ -8,6 +8,8 @@ import React, {
   useState,
 } from "react";
 import { pdf as createPdf } from "@react-pdf/renderer";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+import pdfWorkerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { createPortal } from "react-dom";
 import Modal from "@/shared/ui/ModalWithStack";
 import { saveAs } from "file-saver";
@@ -42,7 +44,8 @@ import type {
   RowData,
   SavedInvoice,
 } from "./invoicePreviewTypes";
-import { formatCurrency } from "./invoicePreviewUtils";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -73,13 +76,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const budgetItems = (itemsOverride ?? (contextBudgetItems as unknown as BudgetItem[])) as BudgetItem[];
 
   const invoiceRef = useRef<HTMLDivElement | null>(null);
-  const previewRef = useRef<HTMLDivElement | null>(null);
-  const pdfPreviewUrlRef = useRef<string | null>(null);
+  const pdfObjectUrlRef = useRef<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pages, setPages] = useState<RowData[][]>([]);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
-  const currentRows = pages[currentPage] || [];
 
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
@@ -111,6 +112,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfPageCount, setPdfPageCount] = useState(1);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -162,7 +166,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     try {
       const res = await list({ prefix, options: { accessLevel: "guest" } });
       return (res.items || [])
-        .filter((item) => item.key && !String(item.key).endsWith("/"))
+        .filter((item) => {
+          const key = String(item.key || "");
+          return key && !key.endsWith("/") && key.toLowerCase().endsWith(".pdf");
+        })
         .map((item) => {
           const rawKey = String(item.key);
           const storageKey = rawKey.startsWith("public/") ? rawKey : `public/${rawKey}`;
@@ -239,72 +246,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     }
   };
 
-  const loadInvoice = async (url: string) => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const text = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, "text/html");
-      const page = doc.querySelector(".invoice-page");
-      if (!page) return;
-
-      const q = (sel: string) => page.querySelector(sel);
-
-      setBrandLogoKey(q(".invoice-header img")?.getAttribute("src") || "");
-      setLogoDataUrl(null);
-      setBrandName(q(".brand-name")?.textContent || "");
-      setBrandAddress(q(".brand-address")?.textContent || "");
-      setBrandPhone(q(".brand-phone")?.textContent || "");
-      setBrandTagline(q(".brand-tagline")?.textContent || "");
-
-      const infoSpans = page.querySelectorAll(".billing-info > div:last-child span");
-      setInvoiceNumber(infoSpans[0]?.textContent || "");
-      setIssueDate(infoSpans[1]?.textContent || "");
-      setDueDate(infoSpans[2]?.textContent || "");
-      setServiceDate(infoSpans[3]?.textContent || "");
-
-      setProjectTitle(q(".project-title")?.textContent || "");
-
-      const summaryDivs = page.querySelectorAll(".summary > div");
-      setCustomerSummary(summaryDivs[0]?.textContent || "");
-      setInvoiceSummary(summaryDivs[1]?.textContent || "");
-      setPaymentSummary(summaryDivs[2]?.textContent || "");
-
-      const totals = page.querySelectorAll(".totals span");
-      const parseMoney = (v: string | null) =>
-        parseFloat(String(v || "").replace(/[$,]/g, "")) || 0;
-
-      if (totals.length >= 3) {
-        setDepositReceived(parseMoney(totals[1]?.textContent));
-        setTotalDue(parseMoney(totals[2]?.textContent));
-      }
-
-      const notesEl = q(".notes");
-      if (notesEl) setNotes(notesEl.innerHTML || "");
-
-      const parsedGroups = Array.from(
-        doc.querySelectorAll(".group-header td")
-      ).map((td) => (td.textContent || "").trim());
-      if (parsedGroups.length) {
-        const candidate = (groupFields.map((g) => g.value) as GroupField[]).find((field) => {
-          const opts = Array.from(
-            new Set(
-              items
-                .map((it) => (String((it as BudgetItem)[field] || "")).trim())
-                .filter(Boolean)
-            )
-          );
-          return parsedGroups.every((g) => opts.includes(g));
-        });
-        if (candidate) setGroupField(candidate);
-        setGroupValues(parsedGroups);
-      }
-
-      setInvoiceDirty(false);
-      setCurrentFileName(url.split("/").pop() || "");
-    } catch (err) {
-      console.error("Failed to load invoice", err);
+  const loadInvoice = (url: string) => {
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -349,9 +293,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setInvoiceDirty(true);
 
     if (revision?.revision != null) {
-      setCurrentFileName(`invoice-revision-${revision.revision}.html`);
+      setCurrentFileName(`invoice-revision-${revision.revision}.pdf`);
     } else {
-      setCurrentFileName("invoice.html");
+      setCurrentFileName("invoice.pdf");
     }
   }, [isOpen, project, revision]);
 
@@ -445,55 +389,58 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     return arr;
   }, [items, groupValues, groupField, groupOptions]);
 
-  const buildPdfInvoiceElement = useCallback(() => {
-    const addressForPdf = useProjectAddress ? project?.address || "" : brandAddress;
-    return (
-      <PdfInvoice
-        brandName={brandName || project?.company || ""}
-        brandTagline={brandTagline}
-        brandAddress={addressForPdf}
-        brandPhone={brandPhone}
-        brandLogoKey={brandLogoKey}
-        logoDataUrl={logoDataUrl}
-        project={project}
-        invoiceNumber={invoiceNumber}
-        issueDate={issueDate}
-        dueDate={dueDate}
-        serviceDate={serviceDate}
-        projectTitle={projectTitle}
-        customerSummary={customerSummary}
-        invoiceSummary={invoiceSummary}
-        paymentSummary={paymentSummary}
-        rows={rowsData}
-        subtotal={subtotal}
-        depositReceived={depositReceived}
-        totalDue={totalDue}
-        notes={notes}
-      />
-    );
-  }, [
-    brandAddress,
-    brandLogoKey,
-    brandName,
-    brandPhone,
-    brandTagline,
-    customerSummary,
-    depositReceived,
-    dueDate,
-    invoiceNumber,
-    invoiceSummary,
-    issueDate,
-    logoDataUrl,
-    notes,
-    paymentSummary,
-    project,
-    projectTitle,
-    rowsData,
-    serviceDate,
-    subtotal,
-    totalDue,
-    useProjectAddress,
-  ]);
+  const buildPdfInvoiceElement = useCallback(
+    (rows: RowData[] = rowsData) => {
+      const addressForPdf = useProjectAddress ? project?.address || "" : brandAddress;
+      return (
+        <PdfInvoice
+          brandName={brandName || project?.company || ""}
+          brandTagline={brandTagline}
+          brandAddress={addressForPdf}
+          brandPhone={brandPhone}
+          brandLogoKey={brandLogoKey}
+          logoDataUrl={logoDataUrl}
+          project={project}
+          invoiceNumber={invoiceNumber}
+          issueDate={issueDate}
+          dueDate={dueDate}
+          serviceDate={serviceDate}
+          projectTitle={projectTitle}
+          customerSummary={customerSummary}
+          invoiceSummary={invoiceSummary}
+          paymentSummary={paymentSummary}
+          rows={rows}
+          subtotal={subtotal}
+          depositReceived={depositReceived}
+          totalDue={totalDue}
+          notes={notes}
+        />
+      );
+    },
+    [
+      brandAddress,
+      brandLogoKey,
+      brandName,
+      brandPhone,
+      brandTagline,
+      customerSummary,
+      depositReceived,
+      dueDate,
+      invoiceNumber,
+      invoiceSummary,
+      issueDate,
+      logoDataUrl,
+      notes,
+      paymentSummary,
+      project,
+      projectTitle,
+      rowsData,
+      serviceDate,
+      subtotal,
+      totalDue,
+      useProjectAddress,
+    ]
+  );
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
@@ -563,26 +510,38 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setCurrentPage(0);
   }, [pages]);
 
-  const closePdfPreview = useCallback(() => {
-    if (pdfPreviewUrlRef.current) {
-      URL.revokeObjectURL(pdfPreviewUrlRef.current);
-      pdfPreviewUrlRef.current = null;
+  const cleanupPdfPreview = useCallback(() => {
+    if (pdfObjectUrlRef.current) {
+      URL.revokeObjectURL(pdfObjectUrlRef.current);
+      pdfObjectUrlRef.current = null;
     }
     setPdfPreviewUrl(null);
+    setPdfBlob(null);
+    setPdfPageCount(1);
   }, []);
 
   useEffect(() => {
     if (!isOpen) {
       setShowUnsavedPrompt(false);
-      closePdfPreview();
+      cleanupPdfPreview();
     }
-  }, [isOpen, closePdfPreview]);
+  }, [isOpen, cleanupPdfPreview]);
 
-  useEffect(() => () => closePdfPreview(), [closePdfPreview]);
+  useEffect(() => () => cleanupPdfPreview(), [cleanupPdfPreview]);
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
-      const instance = createPdf(buildPdfInvoiceElement());
+      const pageIndexes =
+        selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
+      const rowsForPdf =
+        pageIndexes.length > 0
+          ? pageIndexes.flatMap((idx) => pages[idx] || [])
+          : rowsData;
+
+      const invoiceElement = buildPdfInvoiceElement(
+        rowsForPdf.length ? rowsForPdf : rowsData
+      );
+      const instance = createPdf(invoiceElement);
       const blob = await instance.toBlob();
       return blob;
     } catch (err) {
@@ -590,165 +549,103 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       toast.error("Unable to build invoice PDF");
       return null;
     }
-  }, [buildPdfInvoiceElement]);
+  }, [buildPdfInvoiceElement, pages, rowsData, selectedPages]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const updatePreview = async () => {
+      setIsGeneratingPdf(true);
+      const blob = await renderPdfBlob();
+      if (!blob) {
+        if (!cancelled) {
+          setIsGeneratingPdf(false);
+        }
+        return;
+      }
+
+      if (cancelled) {
+        setIsGeneratingPdf(false);
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      if (pdfObjectUrlRef.current) {
+        URL.revokeObjectURL(pdfObjectUrlRef.current);
+      }
+      pdfObjectUrlRef.current = objectUrl;
+      setPdfBlob(blob);
+      setPdfPreviewUrl(objectUrl);
+
+      try {
+        const loadingTask = pdfjsLib.getDocument(objectUrl);
+        const pdfDoc = await loadingTask.promise;
+        if (!cancelled) {
+          setPdfPageCount(pdfDoc.numPages || 1);
+        }
+        await pdfDoc.destroy();
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to inspect invoice PDF", err);
+          setPdfPageCount(1);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsGeneratingPdf(false);
+        }
+      }
+    };
+
+    updatePreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [renderPdfBlob]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, Math.max(0, pdfPageCount - 1)));
+  }, [pdfPageCount]);
 
   const handleSavePdf = useCallback(async () => {
-    const blob = await renderPdfBlob();
-    if (!blob) return;
+    let blob = pdfBlob;
+    if (!blob) {
+      blob = await renderPdfBlob();
+      if (!blob) return;
+    }
     const file =
       revision?.revision != null
         ? `invoice-revision-${revision.revision}.pdf`
         : "invoice.pdf";
     saveAs(blob, file);
-  }, [renderPdfBlob, revision]);
+  }, [pdfBlob, renderPdfBlob, revision]);
 
   const handlePreviewPdf = useCallback(async () => {
-    const blob = await renderPdfBlob();
-    if (!blob) return;
-    closePdfPreview();
-    const objectUrl = URL.createObjectURL(blob);
-    pdfPreviewUrlRef.current = objectUrl;
-    setPdfPreviewUrl(objectUrl);
-  }, [renderPdfBlob, closePdfPreview]);
-
-  const buildInvoiceHtml = (): string => {
-    if (!previewRef.current) return "";
-    const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
-    const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, i) => i);
-
-    const htmlPages = pageIndexes
-      .map((idx) => {
-        const pageRows = pages[idx] || [];
-        const rowsHtml = pageRows
-          .map((row) =>
-            row.type === "group"
-              ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
-              : `<tr>
-                   <td>${row.item.description || ""}</td>
-                   <td>${row.item.quantity || ""}</td>
-                   <td>${row.item.unit || ""}</td>
-                   <td>${formatCurrency(
-                     (parseFloat(String(row.item.itemFinalCost || 0)) || 0) /
-                       (parseFloat(String(row.item.quantity || 1)) || 1)
-                   )}</td>
-                   <td>${formatCurrency(
-                     parseFloat(String(row.item.itemFinalCost || 0)) || 0
-                   )}</td>
-                 </tr>`
-          )
-          .join("");
-
-        const headerName = brandName || project?.company || "Company Name";
-        const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
-        const headerPhone = brandPhone || "Phone";
-        const headerTag = brandTagline || "";
-        const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
-
-        const invNum = invoiceNumber || "";
-        const issue = issueDate || "";
-        const due = dueDate || "";
-        const service = serviceDate || "";
-
-        const billContact = project?.clientName || "Client Name";
-        const billCompany = project?.invoiceBrandName || "Client Company";
-        const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
-        const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
-        const billEmail = project?.clientEmail || "";
-
-        const projTitle = projectTitle || "";
-        const custSum = customerSummary || "";
-        const invSum = invoiceSummary || "";
-        const paySum = paymentSummary || "";
-        const notesText = notes || "";
-
-        const deposit = formatCurrency(depositReceived);
-        const total = formatCurrency(totalDue);
-
-        const logoHtml = logoSrc
-          ? `<img src="${logoSrc}" alt="logo" style="max-width:100px;max-height:100px" />`
-          : "";
-
-        const totalsHtml =
-          idx === pages.length - 1
-            ? `<div class="bottom-block">
-                 <div class="totals">
-                   <div>Subtotal: <span>${formatCurrency(subtotal)}</span></div>
-                   <div>Deposit received: <span>${deposit}</span></div>
-                   <div><strong>Total Due: <span>${total}</span></strong></div>
-                 </div>
-                 <div class="notes">${notesText}</div>
-                 <div class="footer">${projTitle}</div>
-               </div>`
-            : "";
-
-        return `
-          <div class="invoice-page invoice-container">
-            <div class="invoice-top">
-              <div class="invoice-header">
-                <div>${logoHtml}</div>
-                <div class="company-info">
-                  <div class="brand-name">${headerName}</div>
-                  ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                  <div class="brand-address">${headerAddress}</div>
-                  <div class="brand-phone">${headerPhone}</div>
-                </div>
-                <div class="invoice-title">INVOICE</div>
-              </div>
-              <div class="billing-info">
-                <div>
-                  <strong>Bill To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
-                </div>
-                <div>
-                  <div>Invoice #: <span>${invNum}</span></div>
-                  <div>Issue date: <span>${issue}</span></div>
-                  <div>Due date: <span>${due}</span></div>
-                  <div>Service date: <span>${service}</span></div>
-                </div>
-              </div>
-            </div>
-            <h1 class="project-title">${projTitle}</h1>
-            <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
-            <hr class="summary-divider" />
-            <div class="items-table-wrapper">
-              <table class="items-table">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>QTY</th>
-                    <th>Unit</th>
-                    <th>Unit Price</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-            ${totalsHtml}
-            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
-          </div>
-        `;
-      })
-      .join("");
-
-    const title = invoiceNumber ? `Invoice ${invoiceNumber}` : "Invoice";
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${style}</style></head><body>${htmlPages}</body></html>`;
-  };
+    if (!pdfPreviewUrl) {
+      const blob = await renderPdfBlob();
+      if (!blob) return;
+      const objectUrl = URL.createObjectURL(blob);
+      if (pdfObjectUrlRef.current) {
+        URL.revokeObjectURL(pdfObjectUrlRef.current);
+      }
+      pdfObjectUrlRef.current = objectUrl;
+      setPdfBlob(blob);
+      setPdfPreviewUrl(objectUrl);
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.open(pdfPreviewUrl, "_blank", "noopener,noreferrer");
+  }, [pdfPreviewUrl, renderPdfBlob]);
 
   const saveInvoice = async () => {
-    const html = buildInvoiceHtml();
-    if (!html || !project?.projectId) return;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+    const blob = pdfBlob ?? (await renderPdfBlob());
+    if (!blob || !project?.projectId) return;
 
     const unique = uuid().slice(0, 8);
     const date = new Date().toISOString().split("T")[0];
     const projectSlug = slugify(project.title || "project");
     const rev = revision?.revision ?? "0";
-    const fileName = `${projectSlug}-${rev}-${date}-${unique}.html`;
+    const fileName = `${projectSlug}-${rev}-${date}-${unique}.pdf`;
     const key = `projects/${project.projectId}/invoices/${fileName}`;
 
     try {
@@ -757,6 +654,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         data: blob,
         options: {
           accessLevel: "guest",
+          contentType: "application/pdf",
           metadata: { friendlyName: fileName },
         },
       });
@@ -843,30 +741,31 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setSelectedPages(checked ? pages.map((_, i) => i) : []);
   };
 
-  const handleBrandNameBlur = (value: string) => {
+  const handleBrandNameChange = (value: string) => {
     setBrandName(value);
     setInvoiceDirty(true);
   };
-  const handleBrandTaglineBlur = (value: string) => {
+  const handleBrandTaglineChange = (value: string) => {
     setBrandTagline(value);
     setInvoiceDirty(true);
   };
-  const handleBrandAddressBlur = (value: string) => {
+  const handleBrandAddressChange = (value: string) => {
     setBrandAddress(value);
     setInvoiceDirty(true);
   };
-  const handleBrandPhoneBlur = (value: string) => {
+  const handleBrandPhoneChange = (value: string) => {
     setBrandPhone(value);
     setInvoiceDirty(true);
   };
   const handleToggleProjectAddress = (checked: boolean) => {
     setUseProjectAddress(checked);
+    setInvoiceDirty(true);
   };
-  const handleInvoiceNumberBlur = (value: string) => {
+  const handleInvoiceNumberChange = (value: string) => {
     setInvoiceNumber(value);
     setInvoiceDirty(true);
   };
-  const handleIssueDateBlur = (value: string) => {
+  const handleIssueDateChange = (value: string) => {
     setIssueDate(value);
     setInvoiceDirty(true);
   };
@@ -878,33 +777,33 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     setServiceDate(value);
     setInvoiceDirty(true);
   };
-  const handleProjectTitleBlur = (value: string) => {
+  const handleProjectTitleChange = (value: string) => {
     setProjectTitle(value);
     setInvoiceDirty(true);
   };
-  const handleCustomerSummaryBlur = (value: string) => {
+  const handleCustomerSummaryChange = (value: string) => {
     setCustomerSummary(value);
     setInvoiceDirty(true);
   };
-  const handleInvoiceSummaryBlur = (value: string) => {
+  const handleInvoiceSummaryChange = (value: string) => {
     setInvoiceSummary(value);
     setInvoiceDirty(true);
   };
-  const handlePaymentSummaryBlur = (value: string) => {
+  const handlePaymentSummaryChange = (value: string) => {
     setPaymentSummary(value);
     setInvoiceDirty(true);
   };
-  const handleDepositBlur = (value: string) => {
+  const handleDepositChange = (value: string) => {
     const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
     setDepositReceived(parsed);
     setInvoiceDirty(true);
   };
-  const handleTotalDueBlur = (value: string) => {
+  const handleTotalDueChange = (value: string) => {
     const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
     setTotalDue(parsed);
     setInvoiceDirty(true);
   };
-  const handleNotesBlur = (value: string) => {
+  const handleNotesChange = (value: string) => {
     setNotes(value);
     setInvoiceDirty(true);
   };
@@ -944,10 +843,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <Fragment>
               <InvoiceNavControls
                 currentPage={currentPage}
-                totalPages={pages.length}
+                totalPages={pdfPageCount}
                 onPrev={() => setCurrentPage((p) => Math.max(0, p - 1))}
                 onNext={() =>
-                  setCurrentPage((p) => Math.min(p + 1, Math.max(0, pages.length - 1)))
+                  setCurrentPage((p) => Math.min(p + 1, Math.max(0, pdfPageCount - 1)))
                 }
               />
 
@@ -983,52 +882,50 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
                 <InvoicePreviewContent
                   invoiceRef={invoiceRef}
-                  previewRef={previewRef}
                   fileInputRef={fileInputRef}
                   logoDataUrl={logoDataUrl}
                   brandLogoKey={brandLogoKey}
                   onLogoSelect={handleLogoSelect}
                   onLogoDrop={handleLogoDrop}
                   brandName={brandName}
-                  onBrandNameBlur={handleBrandNameBlur}
+                  onBrandNameChange={handleBrandNameChange}
                   brandTagline={brandTagline}
-                  onBrandTaglineBlur={handleBrandTaglineBlur}
+                  onBrandTaglineChange={handleBrandTaglineChange}
                   brandAddress={brandAddress}
-                  onBrandAddressBlur={handleBrandAddressBlur}
+                  onBrandAddressChange={handleBrandAddressChange}
                   brandPhone={brandPhone}
-                  onBrandPhoneBlur={handleBrandPhoneBlur}
+                  onBrandPhoneChange={handleBrandPhoneChange}
                   useProjectAddress={useProjectAddress}
                   onToggleProjectAddress={handleToggleProjectAddress}
                   project={project}
                   invoiceNumber={invoiceNumber}
-                  onInvoiceNumberBlur={handleInvoiceNumberBlur}
+                  onInvoiceNumberChange={handleInvoiceNumberChange}
                   issueDate={issueDate}
-                  onIssueDateBlur={handleIssueDateBlur}
+                  onIssueDateChange={handleIssueDateChange}
                   dueDate={dueDate}
                   onDueDateChange={handleDueDateChange}
                   serviceDate={serviceDate}
                   onServiceDateChange={handleServiceDateChange}
                   projectTitle={projectTitle}
-                  onProjectTitleBlur={handleProjectTitleBlur}
+                  onProjectTitleChange={handleProjectTitleChange}
                   customerSummary={customerSummary}
-                  onCustomerSummaryBlur={handleCustomerSummaryBlur}
+                  onCustomerSummaryChange={handleCustomerSummaryChange}
                   invoiceSummary={invoiceSummary}
-                  onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
+                  onInvoiceSummaryChange={handleInvoiceSummaryChange}
                   paymentSummary={paymentSummary}
-                  onPaymentSummaryBlur={handlePaymentSummaryBlur}
+                  onPaymentSummaryChange={handlePaymentSummaryChange}
                   rowsData={rowsData}
-                  currentRows={currentRows}
-                  currentPage={currentPage}
-                  totalPages={pages.length}
                   subtotal={subtotal}
                   depositReceived={depositReceived}
-                  onDepositBlur={handleDepositBlur}
+                  onDepositChange={handleDepositChange}
                   totalDue={totalDue}
-                  onTotalDueBlur={handleTotalDueBlur}
+                  onTotalDueChange={handleTotalDueChange}
                   notes={notes}
-                  onNotesBlur={handleNotesBlur}
+                  onNotesChange={handleNotesChange}
                   pdfPreviewUrl={pdfPreviewUrl}
-                  onClosePdfPreview={closePdfPreview}
+                  currentPage={currentPage}
+                  totalPages={pdfPageCount}
+                  isGeneratingPdf={isGeneratingPdf}
                 />
               </div>
             </Fragment>

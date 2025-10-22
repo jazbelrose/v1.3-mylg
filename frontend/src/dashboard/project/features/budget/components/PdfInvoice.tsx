@@ -188,8 +188,42 @@ const styles = StyleSheet.create({
   },
   notes: {
     marginTop: 16,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  notesParagraph: {
     fontSize: 10,
     lineHeight: 1.5,
+  },
+  inlineBold: {
+    fontWeight: 700,
+  },
+  inlineItalic: {
+    fontStyle: "italic",
+  },
+  inlineUnderline: {
+    textDecoration: "underline",
+  },
+  notesList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  },
+  notesListItem: {
+    display: "flex",
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "flex-start",
+  },
+  notesBullet: {
+    fontSize: 10,
+    lineHeight: 1.5,
+  },
+  notesListContent: {
+    fontSize: 10,
+    lineHeight: 1.5,
+    flex: 1,
   },
   footer: {
     marginTop: 24,
@@ -231,19 +265,153 @@ const groupRowsForPdf = (rows: RowData[]): PdfRowSegment[] => {
   return segments;
 };
 
-const toPlainText = (html: string): string => {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/>/gi, "\n")
-    .replace(/<p[^>]*>/gi, "")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+const isBrowserEnvironment = typeof window !== "undefined" && typeof DOMParser !== "undefined";
+
+const renderInlineNodes = (
+  nodes: ChildNode[],
+  keyPrefix: string,
+  inheritedStyles: Record<string, unknown>[] = []
+): React.ReactNode[] => {
+  const children: React.ReactNode[] = [];
+
+  nodes.forEach((node, index) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const raw = node.textContent ?? "";
+      if (!raw) return;
+      if (!raw.trim()) {
+        children.push(
+          <Text
+            key={`${keyPrefix}-space-${index}`}
+            style={inheritedStyles.length ? inheritedStyles : undefined}
+          >
+            {" "}
+          </Text>
+        );
+        return;
+      }
+
+      const normalized = raw.replace(/\s+/g, " ");
+      children.push(
+        <Text
+          key={`${keyPrefix}-text-${index}`}
+          style={inheritedStyles.length ? inheritedStyles : undefined}
+        >
+          {normalized}
+        </Text>
+      );
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as HTMLElement;
+    const tag = element.tagName.toLowerCase();
+
+    if (tag === "br") {
+      children.push(
+        <Text
+          key={`${keyPrefix}-br-${index}`}
+          style={inheritedStyles.length ? inheritedStyles : undefined}
+        >
+          {"\n"}
+        </Text>
+      );
+      return;
+    }
+
+    const nextStyles = [...inheritedStyles];
+    if (tag === "strong" || tag === "b") nextStyles.push(styles.inlineBold);
+    if (tag === "em" || tag === "i") nextStyles.push(styles.inlineItalic);
+    if (tag === "u") nextStyles.push(styles.inlineUnderline);
+
+    if (tag === "span") {
+      const fontWeight = element.style.fontWeight;
+      if (fontWeight && fontWeight !== "normal" && fontWeight !== "400") {
+        nextStyles.push(styles.inlineBold);
+      }
+      if (element.style.fontStyle === "italic") {
+        nextStyles.push(styles.inlineItalic);
+      }
+      if (element.style.textDecoration?.includes("underline")) {
+        nextStyles.push(styles.inlineUnderline);
+      }
+    }
+
+    children.push(
+      ...renderInlineNodes(Array.from(element.childNodes), `${keyPrefix}-${index}`, nextStyles)
+    );
+  });
+
+  return children;
+};
+
+const renderBlockNode = (node: ChildNode, key: string): React.ReactNode | null => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const raw = node.textContent ?? "";
+    const normalized = raw.replace(/\s+/g, " ").trim();
+    if (!normalized) return null;
+    return (
+      <Text key={key} style={styles.notesParagraph}>
+        {normalized}
+      </Text>
+    );
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) return null;
+  const element = node as HTMLElement;
+  const tag = element.tagName.toLowerCase();
+
+  if (tag === "br") {
+    return (
+      <Text key={key} style={styles.notesParagraph}>
+        {"\n"}
+      </Text>
+    );
+  }
+
+  if (tag === "ul" || tag === "ol") {
+    const ordered = tag === "ol";
+    return (
+      <View key={key} style={styles.notesList}>
+        {Array.from(element.children).map((child, index) => (
+          <View key={`${key}-item-${index}`} style={styles.notesListItem}>
+            <Text style={styles.notesBullet}>{ordered ? `${index + 1}.` : "\u2022"}</Text>
+            <Text style={styles.notesListContent}>
+              {renderInlineNodes(Array.from(child.childNodes), `${key}-item-${index}`)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  }
+
+  const inlineNodes = renderInlineNodes(Array.from(element.childNodes), `${key}-inline`);
+  if (inlineNodes.length === 0) return null;
+
+  return (
+    <Text key={key} style={styles.notesParagraph}>
+      {inlineNodes}
+    </Text>
+  );
+};
+
+const buildRichTextNodes = (html: string): React.ReactNode[] => {
+  if (!html) return [];
+  if (!isBrowserEnvironment) {
+    const plain = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return plain ? [<Text key="plain" style={styles.notesParagraph}>{plain}</Text>] : [];
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) return [];
+
+  const nodes: React.ReactNode[] = [];
+  Array.from(root.childNodes).forEach((node, index) => {
+    const rendered = renderBlockNode(node, `block-${index}`);
+    if (rendered) nodes.push(rendered);
+  });
+  return nodes;
 };
 
 const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string => {
@@ -275,7 +443,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
   notes,
 }) => {
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
-  const notesText = useMemo(() => toPlainText(notes), [notes]);
+  const notesContent = useMemo(() => buildRichTextNodes(notes), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
 
   const renderItemRow = (item: BudgetItem, key: string | number) => {
@@ -395,7 +563,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
           </View>
         </View>
 
-        {notesText ? <Text style={styles.notes}>{notesText}</Text> : null}
+        {notesContent.length > 0 ? <View style={styles.notes}>{notesContent}</View> : null}
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
