@@ -34,10 +34,10 @@ import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hook
 import DayGrid from "./DayGrid";
 import EventsAndTasks from "./EventsAndTasks";
 import MobileEventsDrawer from "./MobileEventsDrawer";
-import MiniCalendar from "./MiniCalendar";
+import MiniCalendar, { type MiniCalendarActivityItem } from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
-import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay } from "../utils";
+import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay, formatTimeLabel } from "../utils";
 
 import "../calendar-preview.css";
 
@@ -283,26 +283,74 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
 
-  const miniCalendarActivityDates = useMemo(() => {
-    const set = new Set<string>();
+  const miniCalendarActivityMap = useMemo<Record<string, MiniCalendarActivityItem[]>>(() => {
+    const map: Record<string, MiniCalendarActivityItem[]> = {};
+    const defaultColor = activeProjectColor ?? undefined;
 
     visibleEvents.forEach((event) => {
       const eventDate = safeDate(event.date) ?? new Date(event.date);
-      if (!Number.isNaN(eventDate.getTime())) {
-        set.add(fmt(eventDate));
+      if (Number.isNaN(eventDate.getTime())) {
+        return;
       }
+      const key = fmt(eventDate);
+      const startLabel = event.allDay ? undefined : formatTimeLabel(event.start) ?? undefined;
+      const endLabel = event.allDay ? undefined : formatTimeLabel(event.end) ?? undefined;
+      const timeLabel = event.allDay
+        ? "All day"
+        : [startLabel, endLabel].filter(Boolean).join(" – ") || undefined;
+      const entry: MiniCalendarActivityItem = {
+        id: `event-${event.id}`,
+        title: event.title,
+        time: timeLabel,
+        note: event.location || event.eventType || undefined,
+        type: "event",
+        color: defaultColor,
+        sortKey: event.allDay ? "00:00" : event.start ?? "99:99",
+      };
+      map[key] = [...(map[key] ?? []), entry];
     });
 
     visibleTasks.forEach((task) => {
       if (!task.due) return;
       const taskDate = safeDate(task.due) ?? new Date(task.due);
-      if (!Number.isNaN(taskDate.getTime())) {
-        set.add(fmt(taskDate));
+      if (Number.isNaN(taskDate.getTime())) {
+        return;
       }
+      const key = fmt(taskDate);
+      const entry: MiniCalendarActivityItem = {
+        id: `task-${task.id}`,
+        title: task.title,
+        time: formatTimeLabel(task.time) ?? undefined,
+        note: undefined,
+        type: "task",
+        color: defaultColor,
+        isCompleted: Boolean(task.done),
+        sortKey: task.time ?? "99:99",
+      };
+      map[key] = [...(map[key] ?? []), entry];
     });
 
-    return Array.from(set);
-  }, [visibleEvents, visibleTasks]);
+    Object.values(map).forEach((items) => {
+      items.sort((a, b) => {
+        const aKey = a.sortKey ?? "";
+        const bKey = b.sortKey ?? "";
+        if (aKey === bKey) {
+          if (a.type === b.type) {
+            return a.title.localeCompare(b.title);
+          }
+          return a.type === "event" ? -1 : 1;
+        }
+        return aKey.localeCompare(bKey);
+      });
+    });
+
+    return map;
+  }, [visibleEvents, visibleTasks, activeProjectColor]);
+
+  const miniCalendarActivityDates = useMemo(
+    () => Object.keys(miniCalendarActivityMap),
+    [miniCalendarActivityMap],
+  );
 
   const mapTasks = useMemo(
     () =>
@@ -782,6 +830,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 rangeColor={activeProjectColor ?? null}
                 finishLineDate={activeProjectEndDate ?? null}
                 activityDates={miniCalendarActivityDates}
+                activityMap={miniCalendarActivityMap}
+                indicatorColor={activeProjectColor ?? null}
+                isMobile={isMobile}
               />
               {isMobile ? (
                 <button
