@@ -2,6 +2,9 @@ import { formatCurrency } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
 import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
 
+const PAGE_NUMBER_STYLE =
+  ".pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}";
+
 interface InvoiceHtmlBuilderOptions {
   pages: RowData[][];
   selectedPages: number[];
@@ -51,7 +54,13 @@ export function buildInvoiceHtml({
   subtotal,
   totalDue,
 }: InvoiceHtmlBuilderOptions): string {
-  const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
+  const styleSource =
+    typeof document !== "undefined"
+      ? document.getElementById("invoice-preview-styles")?.innerHTML || ""
+      : "";
+  const style = styleSource.includes(".pageNumber")
+    ? styleSource
+    : `${styleSource}${styleSource ? "\n" : ""}${PAGE_NUMBER_STYLE}`;
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
 
   const htmlPages = pageIndexes
