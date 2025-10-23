@@ -12,7 +12,7 @@ export const generateCSP = (nonce: string): string => {
     "font-src 'self' fonts.gstatic.com",
     "img-src 'self' data: *.amazonaws.com",
     "connect-src 'self' *.amazonaws.com wss://*.amazonaws.com",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",
     "upgrade-insecure-requests"

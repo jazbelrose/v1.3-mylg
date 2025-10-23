@@ -14,7 +14,7 @@ const devCsp = [
   // ⬇️ allow LAN fetch + HMR over WS on 3000 (and any port if you change later) + ws/wss for Yjs
   "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.200:* ws://192.168.1.200:* https://*.amazonaws.com https://*.amplify.aws wss://*.amazonaws.com https://*.cloudfront.net https://nominatim.openstreetmap.org data: blob: ws: wss:",
   "frame-src 'self' blob:",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self' http://localhost:* https://localhost:* http://192.168.1.200:* https://192.168.1.200:*",
 ].join('; ')
 
 // prod (unchanged for LAN; keep locked down)
@@ -26,7 +26,7 @@ const prodCsp = [
   "img-src 'self' data: https://d1cazymewvlm0k.cloudfront.net https://d2qb21tb4meex0.cloudfront.net *.amazonaws.com https://tiles.stadiamaps.com https://www.google.com https://icons.duckduckgo.com",
   "media-src 'self' https://d1cazymewvlm0k.cloudfront.net https://d2qb21tb4meex0.cloudfront.net *.amazonaws.com",
   "connect-src 'self' https://*.amazonaws.com https://*.amplify.aws wss://*.amazonaws.com https://*.cloudfront.net https://nominatim.openstreetmap.org ws: wss:",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
 ].join('; ')
 
 export default defineConfig(({ mode }) => {
@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
 
   const securityHeaders = {
     'Content-Security-Policy': isDev ? devCsp : prodCsp,
-    'X-Frame-Options': 'DENY',
+    'X-Frame-Options': 'SAMEORIGIN',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
