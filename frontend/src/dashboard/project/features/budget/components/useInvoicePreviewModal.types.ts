@@ -24,7 +24,6 @@ export interface UseInvoicePreviewModalResult {
   currentPage: number;
   setCurrentPage: Dispatch<SetStateAction<number>>;
   pages: RowData[][];
-  currentRows: RowData[];
   groupField: GroupField;
   handleGroupFieldChange: (field: GroupField) => void;
   groupOptions: string[];

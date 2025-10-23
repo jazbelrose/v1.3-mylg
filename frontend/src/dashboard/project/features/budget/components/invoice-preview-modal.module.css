@@ -159,30 +159,224 @@
 }
 .previewWrapper {
   position: relative;
-  overflow: auto;
-  flex: 1 0 850px;
-  min-width: 850px;
-  background: #fff;
-  color: #000;
-  padding: 10px;
+  flex: 1 1 auto;
+  min-width: 820px;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
 }
 
-.previewViewport {
-  width: 100%;
-  max-width: 210mm;
+.pdfEditor {
+  flex: 1 1 auto;
   display: flex;
+  gap: 20px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.pdfViewerPane {
+  flex: 0 0 58%;
+  background: #f2f2f2;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.pdfIframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.pdfFallback {
+  flex: 1;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  text-align: center;
+  padding: 24px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #444444;
+}
+
+.viewerMeta {
+  font-size: 0.85rem;
+  color: #444444;
+  text-align: center;
+}
+
+.pdfFormPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 6px;
+  color: #f3f3f3;
+  min-height: 0;
+}
+
+.pdfFormPane::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pdfFormPane::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+.pdfFormPane::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.formSection {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formSectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formSectionTitle {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bcbcbc;
+}
+
+.helperText {
+  font-size: 0.75rem;
+  color: #888888;
+}
+
+.logoDropzone {
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  position: relative;
   overflow: hidden;
 }
 
-.previewViewport :global(.invoice-page) {
+.logoDropzone:hover {
+  border-color: #fa3356;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.logoDropzone:focus-visible {
+  outline: 2px solid #fa3356;
+  outline-offset: 2px;
+}
+
+.logoImage {
   width: 100%;
-  max-width: 210mm;
-  transition: transform 0.2s ease;
+  height: 100%;
+  object-fit: contain;
+  padding: 12px;
+}
+
+.logoEmpty {
+  color: #aaaaaa;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 0 12px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #d4d4d4;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.textInput,
+.textArea,
+.textAreaLarge {
+  background: #151515;
+  border: 1px solid #2b2b2b;
+  border-radius: 8px;
+  color: #fefefe;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.textInput:focus,
+.textArea:focus,
+.textAreaLarge:focus {
+  outline: none;
+  border-color: #fa3356;
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.25);
+}
+
+.textInput[readonly],
+.textInput:disabled,
+.textArea[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.textArea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.textAreaLarge {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .previewWrapper {
+    flex-direction: column;
+    min-width: unset;
+  }
+
+  .pdfEditor {
+    flex-direction: column;
+  }
+
+  .pdfViewerPane {
+    flex: 0 0 auto;
+  }
 }
 
 .pdfPreviewOverlay {

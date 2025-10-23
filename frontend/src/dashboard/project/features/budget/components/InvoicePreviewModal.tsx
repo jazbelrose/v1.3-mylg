@@ -38,7 +38,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     currentPage,
     setCurrentPage,
     pages,
-    currentRows,
     groupField,
     handleGroupFieldChange,
     groupOptions,
@@ -221,7 +220,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   paymentSummary={paymentSummary}
                   onPaymentSummaryBlur={handlePaymentSummaryBlur}
                   rowsData={rowsData}
-                  currentRows={currentRows}
                   currentPage={currentPage}
                   totalPages={pages.length}
                   subtotal={subtotal}

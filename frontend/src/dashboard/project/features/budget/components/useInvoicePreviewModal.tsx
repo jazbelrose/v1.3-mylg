@@ -167,7 +167,6 @@ export function useInvoicePreviewModal({
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,
-    currentRows,
   } = useInvoiceLayout(rowsData);
 
   const {
@@ -417,7 +416,6 @@ export function useInvoicePreviewModal({
     currentPage,
     setCurrentPage,
     pages,
-    currentRows,
     groupField,
     handleGroupFieldChange,
     groupOptions,

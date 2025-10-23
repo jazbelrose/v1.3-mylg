@@ -37,5 +37,8 @@ Use any of the following options:
 * Previewing invoices is supported: open a project budget and launch the
   **Invoice Preview** modal to review the full sample invoice, including brand
   and client information, without signing in.
+* The invoice modal now renders the real PDF live. Use the form controls on the
+  right-hand side to edit headings, summaries, totals, and notes and watch the
+  PDF refresh instantly.
 * Actions that would normally persist data (e.g. saving settings) are turned
   into no-ops – use this mode only to check styling and layout.
