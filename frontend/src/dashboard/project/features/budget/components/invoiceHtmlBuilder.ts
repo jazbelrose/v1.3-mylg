@@ -54,9 +54,11 @@ export function buildInvoiceHtml({
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
 
+  const totalPageCount = pageIndexes.length;
+
   const htmlPages = pageIndexes
-    .map((idx) => {
-      const pageRows = pages[idx] || [];
+    .map((pageIndex, orderIndex) => {
+      const pageRows = pages[pageIndex] || [];
       const rowsHtml = pageRows
         .map((row) =>
           row.type === "group"
@@ -105,7 +107,7 @@ export function buildInvoiceHtml({
         : "";
 
       const totalsHtml =
-        idx === pages.length - 1
+        pageIndex === pages.length - 1
           ? `<div class="bottom-block">
                <div class="totals">
                  <div>Subtotal: <span>${formatCurrency(subtotal)}</span></div>
@@ -165,7 +167,7 @@ export function buildInvoiceHtml({
             </table>
           </div>
           ${totalsHtml}
-          <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+          <div class="pageNumber">Page ${orderIndex + 1} of ${totalPageCount}</div>
         </div>
       `;
     })
