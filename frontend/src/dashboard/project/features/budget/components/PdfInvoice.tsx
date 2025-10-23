@@ -37,11 +37,21 @@ interface PdfInvoiceProps {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 32,
+    paddingTop: 32,
+    paddingHorizontal: 32,
+    paddingBottom: 96,
     fontFamily: "Helvetica",
     fontSize: 10,
     lineHeight: 1.4,
     color: "#1a1a1a",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+  },
+  pageContent: {
+    flexGrow: 1,
+    display: "flex",
+    flexDirection: "column",
   },
   header: {
     display: "flex",
@@ -192,16 +202,20 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
   },
   footer: {
-    marginTop: 24,
     fontSize: 10,
     color: "#666666",
   },
-  pageNumber: {
+  pageFooter: {
     position: "absolute",
-    bottom: 24,
-    left: 0,
-    right: 0,
-    textAlign: "center",
+    left: 32,
+    right: 32,
+    bottom: 32,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    alignItems: "center",
+  },
+  pageNumber: {
     fontSize: 9,
     color: "#666666",
   },
@@ -322,88 +336,90 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
           </View>
         </View>
 
-        <Text style={styles.projectTitle}>{projectTitle}</Text>
+        <View style={styles.pageContent}>
+          <Text style={styles.projectTitle}>{projectTitle}</Text>
 
-        <View style={styles.summary}>
-          <View style={styles.summaryColumn}>
-            <Text>{customerSummary}</Text>
-          </View>
-          <View style={styles.summaryColumn}>
-            <Text>{invoiceSummary}</Text>
-          </View>
-          <View style={styles.summaryColumn}>
-            <Text>{paymentSummary}</Text>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.table}>
-          <View style={styles.tableHeader} fixed>
-            <Text style={[styles.tableHeaderCell, styles.descriptionColumn]}>Description</Text>
-            <Text style={[styles.tableHeaderCell, styles.numericColumn]}>QTY</Text>
-            <Text style={[styles.tableHeaderCell, styles.numericColumn]}>Unit</Text>
-            <Text style={[styles.tableHeaderCell, styles.numericColumn]}>Unit Price</Text>
-            <Text style={[styles.tableHeaderCell, styles.numericColumn]}>Amount</Text>
+          <View style={styles.summary}>
+            <View style={styles.summaryColumn}>
+              <Text>{customerSummary}</Text>
+            </View>
+            <View style={styles.summaryColumn}>
+              <Text>{invoiceSummary}</Text>
+            </View>
+            <View style={styles.summaryColumn}>
+              <Text>{paymentSummary}</Text>
+            </View>
           </View>
 
-          {rowSegments.map((segment, index) => {
-            if (segment.type === "group") {
-              return (
-                <View key={`g-${segment.group}-${index}`} style={[styles.tableRow, styles.groupRow]} wrap={false}>
-                  <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group}</Text>
-                  <Text style={[styles.tableCell, styles.numericColumn]} />
-                  <Text style={[styles.tableCell, styles.numericColumn]} />
-                  <Text style={[styles.tableCell, styles.numericColumn]} />
-                  <Text style={[styles.tableCell, styles.numericColumn]} />
-                </View>
-              );
-            }
+          <View style={styles.divider} />
 
-            if (segment.type === "groupWithItem") {
-              const groupKey = `gi-${segment.group}-${index}`;
-              return (
-                <View key={groupKey} wrap={false}>
-                  <View style={[styles.tableRow, styles.groupRow]}>
+          <View style={styles.table}>
+            <View style={styles.tableHeader} fixed>
+              <Text style={[styles.tableHeaderCell, styles.descriptionColumn]}>Description</Text>
+              <Text style={[styles.tableHeaderCell, styles.numericColumn]}>QTY</Text>
+              <Text style={[styles.tableHeaderCell, styles.numericColumn]}>Unit</Text>
+              <Text style={[styles.tableHeaderCell, styles.numericColumn]}>Unit Price</Text>
+              <Text style={[styles.tableHeaderCell, styles.numericColumn]}>Amount</Text>
+            </View>
+
+            {rowSegments.map((segment, index) => {
+              if (segment.type === "group") {
+                return (
+                  <View key={`g-${segment.group}-${index}`} style={[styles.tableRow, styles.groupRow]} wrap={false}>
                     <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group}</Text>
                     <Text style={[styles.tableCell, styles.numericColumn]} />
                     <Text style={[styles.tableCell, styles.numericColumn]} />
                     <Text style={[styles.tableCell, styles.numericColumn]} />
                     <Text style={[styles.tableCell, styles.numericColumn]} />
                   </View>
-                  {segment.item ? renderItemRow(segment.item, `${groupKey}-item`) : null}
-                </View>
-              );
-            }
+                );
+              }
 
-            return renderItemRow(segment.item, `i-${index}`);
-          })}
+              if (segment.type === "groupWithItem") {
+                const groupKey = `gi-${segment.group}-${index}`;
+                return (
+                  <View key={groupKey} wrap={false}>
+                    <View style={[styles.tableRow, styles.groupRow]}>
+                      <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group}</Text>
+                      <Text style={[styles.tableCell, styles.numericColumn]} />
+                      <Text style={[styles.tableCell, styles.numericColumn]} />
+                      <Text style={[styles.tableCell, styles.numericColumn]} />
+                      <Text style={[styles.tableCell, styles.numericColumn]} />
+                    </View>
+                    {segment.item ? renderItemRow(segment.item, `${groupKey}-item`) : null}
+                  </View>
+                );
+              }
+
+              return renderItemRow(segment.item, `i-${index}`);
+            })}
+          </View>
+
+          <View style={styles.totals} wrap={false}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Deposit received</Text>
+              <Text style={styles.totalValue}>{formatCurrency(depositReceived)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Due</Text>
+              <Text style={styles.totalValue}>{formatCurrency(totalDue)}</Text>
+            </View>
+          </View>
+
+          {notesText ? <Text style={styles.notes}>{notesText}</Text> : null}
         </View>
 
-        <View style={styles.totals} wrap={false}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Deposit received</Text>
-            <Text style={styles.totalValue}>{formatCurrency(depositReceived)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Due</Text>
-            <Text style={styles.totalValue}>{formatCurrency(totalDue)}</Text>
-          </View>
+        <View style={styles.pageFooter} fixed>
+          {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
+          <Text
+            style={styles.pageNumber}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
         </View>
-
-        {notesText ? <Text style={styles.notes}>{notesText}</Text> : null}
-
-        {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
-
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          fixed
-        />
       </Page>
     </Document>
   );

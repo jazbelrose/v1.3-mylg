@@ -113,9 +113,11 @@ export function buildInvoiceHtml({
                  <div><strong>Total Due: <span>${total}</span></strong></div>
                </div>
                <div class="notes">${notesText}</div>
-               <div class="footer">${projTitle}</div>
              </div>`
           : "";
+
+      const footerText = project?.company || "";
+      const footerHtml = footerText ? `<div class="footer">${footerText}</div>` : "";
 
       return `
         <div class="invoice-page invoice-container">
@@ -165,7 +167,10 @@ export function buildInvoiceHtml({
             </table>
           </div>
           ${totalsHtml}
-          <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+          <div class="page-footer">
+            ${footerHtml}
+            <div class="pageNumber">Page ${idx + 1} of ${pages.length}</div>
+          </div>
         </div>
       `;
     })

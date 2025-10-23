@@ -761,7 +761,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 
@@ -809,17 +809,22 @@
 }
 
 .footer {
-  margin-top: 40px;
   font-size: 0.9rem;
   color: #666;
 }
 
-.pageNumber {
+.page-footer {
   position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
-  text-align: center;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.pageNumber {
   font-family: 'Roboto', Arial, sans-serif;
   font-size: 0.85rem;
   color: #666;
