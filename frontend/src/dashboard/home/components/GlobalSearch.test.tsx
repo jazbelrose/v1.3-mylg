@@ -312,7 +312,7 @@ describe('GlobalSearch', () => {
     });
   });
 
-  it('preserves the current project view suffix when navigating to another project', async () => {
+  it('navigates to the project overview when coming from the budget view', async () => {
     renderGlobalSearch(['/dashboard/projects/project-1/Test%20Project/budget']);
     const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
 
@@ -338,7 +338,7 @@ describe('GlobalSearch', () => {
 
     fireEvent.click(demoProjectButton!);
 
-    const expectedPath = getProjectDashboardPath('project-2', 'Demo Application', '/budget');
+    const expectedPath = getProjectDashboardPath('project-2', 'Demo Application');
 
     await waitFor(() => {
       expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');

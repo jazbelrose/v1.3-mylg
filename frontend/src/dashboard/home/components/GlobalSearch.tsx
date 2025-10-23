@@ -321,7 +321,7 @@ interface GlobalSearchProps {
   onNavigate?: () => void;
 }
 
-const PROJECT_VIEW_SUFFIXES = new Set(['budget', 'calendar', 'editor', 'moodboard']);
+const PROJECT_VIEW_SUFFIXES = new Set(['calendar', 'editor', 'moodboard']);
 
 const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -354,6 +354,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
     }
 
     const suffixCandidate = segments[maybeSuffixIndex];
+    if (suffixCandidate === 'budget') {
+      // Navigating directly into the budget tab from search causes the view to flicker
+      // and snap back to the previously active project. Reset to the overview instead
+      // to provide a stable navigation target.
+      return '';
+    }
     return PROJECT_VIEW_SUFFIXES.has(suffixCandidate) ? `/${suffixCandidate}` : '';
   }, [location.pathname]);
 
