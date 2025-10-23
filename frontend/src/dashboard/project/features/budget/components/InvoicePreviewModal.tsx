@@ -4,8 +4,6 @@ import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 
 import InvoiceModalHeader from "./InvoiceModalHeader";
-import InvoiceFileActions from "./InvoiceFileActions";
-import InvoiceNavControls from "./InvoiceNavControls";
 import InvoiceSidebar from "./InvoiceSidebar";
 import InvoicePreviewContent from "./InvoicePreviewContent";
 import styles from "./invoice-preview-modal.module.css";
@@ -31,12 +29,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     invoiceRef,
     previewRef,
     fileInputRef,
-    currentFileName,
     handleSaveClick,
-    handleSavePdf,
-    handlePreviewPdf,
     currentPage,
-    setCurrentPage,
     pages,
     groupField,
     handleGroupFieldChange,
@@ -132,28 +126,11 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
       >
         <InvoiceModalHeader onClose={handleAttemptClose} />
 
-        <InvoiceFileActions
-          fileName={currentFileName}
-          allowSave={allowSave}
-          onSave={handleSaveClick}
-          onSavePdf={handleSavePdf}
-          onPreviewPdf={handlePreviewPdf}
-        />
-
         <div className={styles.modalBody}>
           {items.length === 0 ? (
             <div className={styles.emptyPlaceholder}>No budget line items available</div>
           ) : (
             <Fragment>
-              <InvoiceNavControls
-                currentPage={currentPage}
-                totalPages={pages.length}
-                onPrev={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                onNext={() =>
-                  setCurrentPage((p) => Math.min(p + 1, Math.max(0, pages.length - 1)))
-                }
-              />
-
               <div
                 className={styles.contentRow}
                 style={showSidebar ? undefined : { minWidth: "850px" }}
