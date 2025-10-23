@@ -24,8 +24,11 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
-    const pageHeight = 1122;
-    const pageNumberHeight = 40;
+    const pageElement = invoiceRef.current;
+    const computedStyle = window.getComputedStyle(pageElement);
+    const measuredPageHeight = pageElement.offsetHeight;
+    const paddingTop = parseFloat(computedStyle.paddingTop || "0") || 0;
+    const paddingBottom = parseFloat(computedStyle.paddingBottom || "0") || 0;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
@@ -41,11 +44,17 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
       return el.offsetHeight + marginTop + marginBottom;
     };
 
+    const pageNumberEl = pageElement.querySelector(
+      '[data-preview-role="measure-page-number"]'
+    ) as HTMLElement | null;
+    const pageNumberHeight = getTotalHeight(pageNumberEl) || 40;
+    const pageHeight = measuredPageHeight || 1122;
+
     const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
     const bottomHeight =
       getTotalHeight(bottomBlock) ||
       getTotalHeight(totals) + getTotalHeight(notesEl) + getTotalHeight(footer);
-    const staticHeights = topHeight + pageNumberHeight;
+    const staticHeights = topHeight + pageNumberHeight + paddingTop + paddingBottom;
 
     const rowEls = Array.from(
       invoiceRef.current.querySelectorAll(".items-table tbody tr")

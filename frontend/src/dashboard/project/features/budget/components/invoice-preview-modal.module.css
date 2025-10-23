@@ -755,15 +755,27 @@
   flex: 1 0 auto;
 }
 
-.bottom-block {
+:global(.page-footer) {
   margin-top: auto;
+  position: relative;
+  padding-bottom: 48px;
+}
+
+:global(.bottom-block) {
   margin-left: auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  margin-bottom: 40px;
+  gap: 16px;
 }
 
+:global(.totals) {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 0.95rem;
+}
 
 .items-table {
   width: 100%;
@@ -786,11 +798,6 @@
 .group-header {
   background: #fafafa;
   font-weight: bold;
-}
-
-.totals {
-  margin-top: 20px;
-  float: right;
 }
 
 .notes {

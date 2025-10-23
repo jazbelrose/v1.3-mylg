@@ -655,7 +655,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;font-size:0.85rem;text-align:left;}
         .items-table th{background:#f5f5f5;font-weight:bold;}
         .group-header td{font-weight:bold;background:#fafafa;}
-        .totals{margin-top:20px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
+        .page-footer{margin-top:auto;position:relative;padding-bottom:48px;}
+        .bottom-block{margin-left:auto;display:flex;flex-direction:column;gap:16px;}
+        .totals{margin-top:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
         .totals div{display:flex;gap:6px;align-items:baseline;}
         .notes{margin-top:20px;font-size:0.9rem;line-height:1.5;}
         .notes p{margin:0 0 0.5rem;}
@@ -678,27 +680,33 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
         {renderSummary(rowsData, "measure")}
 
-        <div className="bottom-block">
-          <div className="totals">
-            <div>
-              Subtotal: <span>{formatCurrency(subtotal)}</span>
+          <div className="page-footer">
+            <div className="bottom-block">
+              <div className="totals">
+                <div>
+                  Subtotal: <span>{formatCurrency(subtotal)}</span>
+                </div>
+                <div>
+                  Deposit received:
+                  <span>{formatCurrency(depositReceived)}</span>
+                </div>
+                <div>
+                  <strong>
+                    Total Due: <span>{formatCurrency(totalDue)}</span>
+                  </strong>
+                </div>
+              </div>
+
+              <div className="notes" dangerouslySetInnerHTML={{ __html: notes }} />
+
+              <div className="footer">{project?.company || "Company Name"}</div>
             </div>
-            <div>
-              Deposit received:
-              <span>{formatCurrency(depositReceived)}</span>
-            </div>
-            <div>
-              <strong>
-                Total Due: <span>{formatCurrency(totalDue)}</span>
-              </strong>
+
+            <div className="pageNumber" data-preview-role="measure-page-number">
+              Page 1 of 1
             </div>
           </div>
-
-          <div className="notes" dangerouslySetInnerHTML={{ __html: notes }} />
-
-          <div className="footer">{project?.company || "Company Name"}</div>
         </div>
-      </div>
 
       <div className={styles.pdfEditor}>
         <div className={styles.pdfViewerPane}>
