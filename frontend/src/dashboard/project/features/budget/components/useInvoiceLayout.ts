@@ -25,7 +25,7 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
     const pageHeight = 1122;
-    const pageNumberHeight = 40;
+    const pageNumberHeight = 64;
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;

@@ -37,11 +37,15 @@ interface PdfInvoiceProps {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 32,
+    paddingTop: 32,
+    paddingRight: 32,
+    paddingLeft: 32,
+    paddingBottom: 72,
     fontFamily: "Helvetica",
     fontSize: 10,
     lineHeight: 1.4,
     color: "#1a1a1a",
+    position: "relative",
   },
   header: {
     display: "flex",
