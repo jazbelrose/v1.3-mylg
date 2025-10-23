@@ -553,7 +553,7 @@
   max-width: 210mm;
   min-height: 297mm;
   margin: 0 auto 20px;
-  padding: 20px 20px 60px;
+  padding: 20px 20px 80px;
   box-sizing: border-box;
   position: relative;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
@@ -617,7 +617,7 @@
   }
 
   .previewViewport :global(.invoice-page) {
-    padding: 14px 14px 54px;
+    padding: 14px 14px 74px;
   }
 
   .previewViewport :global(.invoice-header) {
@@ -685,7 +685,7 @@
   }
 
   .previewViewport :global(.invoice-page) {
-    padding: 12px 12px 48px;
+    padding: 12px 12px 68px;
   }
 
   .previewViewport :global(.invoice-header) {
@@ -816,9 +816,9 @@
 
 .pageNumber {
   position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
+  bottom: 24px;
+  left: 20px;
+  right: 20px;
   text-align: center;
   font-family: 'Roboto', Arial, sans-serif;
   font-size: 0.85rem;
