@@ -712,7 +712,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
           )}
           <div className={styles.viewerMeta}>
-            Page {currentPage + 1} of {totalPages || 1}
           </div>
         </div>
 
