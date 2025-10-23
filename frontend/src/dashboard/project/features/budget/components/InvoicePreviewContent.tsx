@@ -610,6 +610,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     []
   );
 
+  const totalPageCount = Math.max(totalPages, 1);
+  const currentPageDisplay = Math.min(currentPage + 1, totalPageCount);
+
   return (
     <div className={styles.previewWrapper} ref={previewRef}>
       {pdfPreviewUrl ? (
@@ -659,8 +662,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .totals div{display:flex;gap:6px;align-items:baseline;}
         .notes{margin-top:20px;font-size:0.9rem;line-height:1.5;}
         .notes p{margin:0 0 0.5rem;}
-        .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-        .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
+        .page-footer{position:absolute;left:32px;right:32px;bottom:32px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;}
+        .footer{margin:0;font-size:0.9rem;color:#666;}
+        .pageNumber{text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media print{
           .invoice-container{width:210mm;max-width:210mm;padding:20px;}
           .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;padding:20px 20px 60px;}
@@ -695,8 +699,15 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           </div>
 
           <div className="notes" dangerouslySetInnerHTML={{ __html: notes }} />
+        </div>
 
-          <div className="footer">{project?.company || "Company Name"}</div>
+        <div className="page-footer">
+          {project?.company ? (
+            <div className="footer">{project.company}</div>
+          ) : null}
+          <div className="pageNumber">
+            Page {currentPageDisplay} of {totalPageCount}
+          </div>
         </div>
       </div>
 
