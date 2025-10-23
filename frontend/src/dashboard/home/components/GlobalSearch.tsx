@@ -357,6 +357,25 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
     return PROJECT_VIEW_SUFFIXES.has(suffixCandidate) ? `/${suffixCandidate}` : '';
   }, [location.pathname]);
 
+  const currentProjectId = useMemo(() => {
+    const path = location.pathname.split(/[?#]/)[0];
+    if (!path.startsWith('/dashboard/projects/')) {
+      return '';
+    }
+
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length < 3) {
+      return '';
+    }
+
+    const candidate = segments[2];
+    if (!candidate || candidate === 'allprojects') {
+      return '';
+    }
+
+    return candidate;
+  }, [location.pathname]);
+
   const data = useData();
   const projects = useMemo(() => (Array.isArray(data?.projects) ? data.projects : []) as Project[], [data?.projects]);
   const projectMessages = useMemo(() => (data?.projectMessages && typeof data.projectMessages === 'object'
@@ -568,10 +587,13 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
             fetchPromise = fetchProjectDetails(result.projectId);
           }
           const project = projects?.find((p: Project) => p.projectId === result.projectId);
+          const shouldDropBudgetSuffix =
+            currentProjectViewSuffix === '/budget' &&
+            (!currentProjectId || currentProjectId !== result.projectId);
           const path = getProjectDashboardPath(
             result.projectId,
             project?.title ?? result.title,
-            currentProjectViewSuffix
+            shouldDropBudgetSuffix ? '' : currentProjectViewSuffix
           );
           navigate(path);
           if (fetchPromise) {
@@ -726,6 +748,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
                 onClick={() => handleResultClick(result)}
                 className={resultClasses}
                 aria-busy={isNavigating}
+                disabled={isNavigating}
               >
                 {isProject ? (
                   <Squircle
@@ -808,6 +831,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
                 {isNavigating && (
                   <div className="global-search-result-spinner" aria-hidden>
                     <Loader2 size={18} className="global-search-spinner-icon" />
+                  </div>
+                )}
+                {isNavigating && (
+                  <div className="global-search-result-skeleton" aria-hidden>
+                    <Loader2 size={20} className="global-search-spinner-icon" />
                   </div>
                 )}
               </button>

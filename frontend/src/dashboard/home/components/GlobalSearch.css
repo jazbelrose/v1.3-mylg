@@ -96,6 +96,7 @@
 }
 
 .global-search-result {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -108,11 +109,31 @@
   cursor: pointer;
   transition: all 0.2s ease;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
 }
 
 .global-search-result.project-result {
   gap: 16px;
   align-items: center;
+}
+
+.global-search-result:disabled {
+  opacity: 0.75;
+}
+
+.global-search-result:disabled:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.global-search-result-skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 17, 17, 0.72);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
 }
 
 .global-search-result.collaborator-result {
