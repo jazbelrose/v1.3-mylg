@@ -19,6 +19,8 @@ interface InvoicePreviewContentProps {
   invoiceRef: React.RefObject<HTMLDivElement>;
   previewRef: React.RefObject<HTMLDivElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  allowSave: boolean;
+  onSaveInvoice: () => void;
   logoDataUrl: string | null;
   brandLogoKey: string;
   onLogoSelect: React.ChangeEventHandler<HTMLInputElement>;
@@ -64,6 +66,22 @@ interface InvoicePreviewContentProps {
   onClosePdfPreview: () => void;
 }
 
+type FormDraftField =
+  | "brandName"
+  | "brandTagline"
+  | "brandAddress"
+  | "brandPhone"
+  | "invoiceNumber"
+  | "issueDate"
+  | "dueDate"
+  | "serviceDate"
+  | "projectTitle"
+  | "customerSummary"
+  | "invoiceSummary"
+  | "paymentSummary";
+
+type FormDraftState = Record<FormDraftField, string>;
+
 const htmlToPlainText = (input: string): string => {
   if (!input) return "";
   return input
@@ -90,6 +108,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   invoiceRef,
   previewRef,
   fileInputRef,
+  allowSave,
+  onSaveInvoice,
   logoDataUrl,
   brandLogoKey,
   onLogoSelect,
@@ -149,44 +169,194 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     [brandAddress, project, useProjectAddress]
   );
 
+  const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
+    brandName,
+    brandTagline,
+    brandAddress,
+    brandPhone,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    serviceDate,
+    projectTitle,
+    customerSummary,
+    invoiceSummary,
+    paymentSummary,
+  }));
+  const [useProjectAddressDraft, setUseProjectAddressDraft] = useState<boolean>(useProjectAddress);
   const [notesDraft, setNotesDraft] = useState<string>(() => htmlToPlainText(notes));
-  useEffect(() => {
-    setNotesDraft(htmlToPlainText(notes));
-  }, [notes]);
-
   const [depositInput, setDepositInput] = useState<string>(() => formatNumberInput(depositReceived));
-  useEffect(() => {
-    setDepositInput(formatNumberInput(depositReceived));
-  }, [depositReceived]);
-
   const [totalDueInput, setTotalDueInput] = useState<string>(() => formatNumberInput(totalDue));
-  useEffect(() => {
-    setTotalDueInput(formatNumberInput(totalDue));
-  }, [totalDue]);
+  const [hasDraftChanges, setHasDraftChanges] = useState(false);
 
-  const handleNotesChange = useCallback(
-    (value: string) => {
-      setNotesDraft(value);
-      onNotesBlur(plainTextToHtml(value));
-    },
-    [onNotesBlur]
+  const committedValues = useMemo(
+    () => ({
+      brandName,
+      brandTagline,
+      brandAddress,
+      brandPhone,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      serviceDate,
+      projectTitle,
+      customerSummary,
+      invoiceSummary,
+      paymentSummary,
+      useProjectAddress,
+      notes,
+      depositReceived,
+      totalDue,
+    }),
+    [
+      brandAddress,
+      brandName,
+      brandPhone,
+      brandTagline,
+      customerSummary,
+      depositReceived,
+      dueDate,
+      invoiceNumber,
+      invoiceSummary,
+      issueDate,
+      notes,
+      paymentSummary,
+      projectTitle,
+      serviceDate,
+      totalDue,
+      useProjectAddress,
+    ]
   );
 
+  const committedSnapshot = useMemo(() => JSON.stringify(committedValues), [committedValues]);
+  const committedSnapshotRef = useRef(committedSnapshot);
+  const hasDraftChangesRef = useRef(hasDraftChanges);
+
+  useEffect(() => {
+    hasDraftChangesRef.current = hasDraftChanges;
+  }, [hasDraftChanges]);
+
+  useEffect(() => {
+    if (committedSnapshot === committedSnapshotRef.current) return;
+    if (hasDraftChangesRef.current) return;
+    committedSnapshotRef.current = committedSnapshot;
+    setFormDraft({
+      brandName: committedValues.brandName,
+      brandTagline: committedValues.brandTagline,
+      brandAddress: committedValues.brandAddress,
+      brandPhone: committedValues.brandPhone,
+      invoiceNumber: committedValues.invoiceNumber,
+      issueDate: committedValues.issueDate,
+      dueDate: committedValues.dueDate,
+      serviceDate: committedValues.serviceDate,
+      projectTitle: committedValues.projectTitle,
+      customerSummary: committedValues.customerSummary,
+      invoiceSummary: committedValues.invoiceSummary,
+      paymentSummary: committedValues.paymentSummary,
+    });
+    setUseProjectAddressDraft(committedValues.useProjectAddress);
+    setNotesDraft(htmlToPlainText(committedValues.notes));
+    setDepositInput(formatNumberInput(committedValues.depositReceived));
+    setTotalDueInput(formatNumberInput(committedValues.totalDue));
+  }, [committedSnapshot, committedValues]);
+
+  const updateDraftField = useCallback((field: FormDraftField, value: string) => {
+    setHasDraftChanges(true);
+    setFormDraft((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleNotesChange = useCallback((value: string) => {
+    setHasDraftChanges(true);
+    setNotesDraft(value);
+  }, []);
+
   const handleDepositChange = useCallback((value: string) => {
+    setHasDraftChanges(true);
     setDepositInput(value);
   }, []);
 
-  const handleDepositCommit = useCallback(() => {
-    onDepositBlur(depositInput);
-  }, [depositInput, onDepositBlur]);
-
   const handleTotalDueChange = useCallback((value: string) => {
+    setHasDraftChanges(true);
     setTotalDueInput(value);
   }, []);
 
-  const handleTotalDueCommit = useCallback(() => {
+  const handleProjectAddressDraftChange = useCallback((checked: boolean) => {
+    setHasDraftChanges(true);
+    setUseProjectAddressDraft(checked);
+  }, []);
+
+  const {
+    brandName: draftBrandName,
+    brandTagline: draftBrandTagline,
+    brandAddress: draftBrandAddress,
+    brandPhone: draftBrandPhone,
+    invoiceNumber: draftInvoiceNumber,
+    issueDate: draftIssueDate,
+    dueDate: draftDueDate,
+    serviceDate: draftServiceDate,
+    projectTitle: draftProjectTitle,
+    customerSummary: draftCustomerSummary,
+    invoiceSummary: draftInvoiceSummary,
+    paymentSummary: draftPaymentSummary,
+  } = formDraft;
+
+  const handleApplyUpdates = useCallback(() => {
+    onBrandNameBlur(draftBrandName);
+    onBrandTaglineBlur(draftBrandTagline);
+    onBrandAddressBlur(draftBrandAddress);
+    onBrandPhoneBlur(draftBrandPhone);
+    onToggleProjectAddress(useProjectAddressDraft);
+    onInvoiceNumberBlur(draftInvoiceNumber);
+    onIssueDateBlur(draftIssueDate);
+    onDueDateChange(draftDueDate);
+    onServiceDateChange(draftServiceDate);
+    onProjectTitleBlur(draftProjectTitle);
+    onCustomerSummaryBlur(draftCustomerSummary);
+    onInvoiceSummaryBlur(draftInvoiceSummary);
+    onPaymentSummaryBlur(draftPaymentSummary);
+    onNotesBlur(plainTextToHtml(notesDraft));
+    onDepositBlur(depositInput);
     onTotalDueBlur(totalDueInput);
-  }, [onTotalDueBlur, totalDueInput]);
+    setHasDraftChanges(false);
+  }, [
+    draftBrandAddress,
+    draftBrandName,
+    draftBrandPhone,
+    draftBrandTagline,
+    draftCustomerSummary,
+    draftDueDate,
+    draftInvoiceNumber,
+    draftInvoiceSummary,
+    draftIssueDate,
+    draftPaymentSummary,
+    draftProjectTitle,
+    draftServiceDate,
+    depositInput,
+    notesDraft,
+    onBrandAddressBlur,
+    onBrandNameBlur,
+    onBrandPhoneBlur,
+    onBrandTaglineBlur,
+    onCustomerSummaryBlur,
+    onDepositBlur,
+    onDueDateChange,
+    onInvoiceNumberBlur,
+    onInvoiceSummaryBlur,
+    onIssueDateBlur,
+    onNotesBlur,
+    onPaymentSummaryBlur,
+    onProjectTitleBlur,
+    onServiceDateChange,
+    onTotalDueBlur,
+    totalDueInput,
+    useProjectAddressDraft,
+    onToggleProjectAddress,
+  ]);
+
+  const handleSaveButtonClick = useCallback(() => {
+    if (hasDraftChanges) return;
+    onSaveInvoice();
+  }, [hasDraftChanges, onSaveInvoice]);
 
   const handleLogoDropInternal: React.DragEventHandler<HTMLDivElement> = useCallback(
     (event) => {
@@ -583,9 +753,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <input
                 id="invoice-brand-name"
                 className={styles.textInput}
-                value={brandName}
+                value={draftBrandName}
                 placeholder={project?.company || "Your business name"}
-                onChange={(e) => onBrandNameBlur(e.target.value)}
+                onChange={(e) => updateDraftField("brandName", e.target.value)}
               />
             </div>
 
@@ -594,17 +764,17 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <input
                 id="invoice-brand-tagline"
                 className={styles.textInput}
-                value={brandTagline}
+                value={draftBrandTagline}
                 placeholder="Optional tagline"
-                onChange={(e) => onBrandTaglineBlur(e.target.value)}
+                onChange={(e) => updateDraftField("brandTagline", e.target.value)}
               />
             </div>
 
             <label className={styles.toggleRow}>
               <input
                 type="checkbox"
-                checked={useProjectAddress}
-                onChange={(e) => onToggleProjectAddress(e.target.checked)}
+                checked={useProjectAddressDraft}
+                onChange={(e) => handleProjectAddressDraftChange(e.target.checked)}
               />
               Use project address{project?.address ? ` (${project.address})` : ""}
             </label>
@@ -614,12 +784,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <textarea
                 id="invoice-brand-address"
                 className={styles.textArea}
-                value={brandAddress}
+                value={draftBrandAddress}
                 placeholder="Business address"
-                onChange={(e) => onBrandAddressBlur(e.target.value)}
-                disabled={useProjectAddress}
+                onChange={(e) => updateDraftField("brandAddress", e.target.value)}
+                disabled={useProjectAddressDraft}
               />
-              {useProjectAddress ? (
+              {useProjectAddressDraft ? (
                 <span className={styles.helperText}>
                   Using the project address. Uncheck above to edit your saved address.
                 </span>
@@ -631,9 +801,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <input
                 id="invoice-brand-phone"
                 className={styles.textInput}
-                value={brandPhone}
+                value={draftBrandPhone}
                 placeholder="(123) 456-7890"
-                onChange={(e) => onBrandPhoneBlur(e.target.value)}
+                onChange={(e) => updateDraftField("brandPhone", e.target.value)}
               />
             </div>
           </div>
@@ -649,8 +819,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <input
                   id="invoice-number"
                   className={styles.textInput}
-                  value={invoiceNumber}
-                  onChange={(e) => onInvoiceNumberBlur(e.target.value)}
+                  value={draftInvoiceNumber}
+                  onChange={(e) => updateDraftField("invoiceNumber", e.target.value)}
                 />
               </div>
               <div className={styles.formRow}>
@@ -658,8 +828,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <input
                   id="invoice-issue-date"
                   className={styles.textInput}
-                  value={issueDate}
-                  onChange={(e) => onIssueDateBlur(e.target.value)}
+                  value={draftIssueDate}
+                  onChange={(e) => updateDraftField("issueDate", e.target.value)}
                 />
               </div>
               <div className={styles.formRow}>
@@ -667,9 +837,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <input
                   id="invoice-due-date"
                   className={styles.textInput}
-                  value={dueDate}
+                  value={draftDueDate}
                   placeholder="Optional"
-                  onChange={(e) => onDueDateChange(e.target.value)}
+                  onChange={(e) => updateDraftField("dueDate", e.target.value)}
                 />
               </div>
               <div className={styles.formRow}>
@@ -677,9 +847,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <input
                   id="invoice-service-date"
                   className={styles.textInput}
-                  value={serviceDate}
+                  value={draftServiceDate}
                   placeholder="Optional"
-                  onChange={(e) => onServiceDateChange(e.target.value)}
+                  onChange={(e) => updateDraftField("serviceDate", e.target.value)}
                 />
               </div>
             </div>
@@ -697,8 +867,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <input
                 id="invoice-project-title"
                 className={styles.textInput}
-                value={projectTitle}
-                onChange={(e) => onProjectTitleBlur(e.target.value)}
+                value={draftProjectTitle}
+                onChange={(e) => updateDraftField("projectTitle", e.target.value)}
               />
             </div>
             <div className={styles.formGrid}>
@@ -707,8 +877,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <textarea
                   id="invoice-customer-summary"
                   className={styles.textArea}
-                  value={customerSummary}
-                  onChange={(e) => onCustomerSummaryBlur(e.target.value)}
+                  value={draftCustomerSummary}
+                  onChange={(e) => updateDraftField("customerSummary", e.target.value)}
                 />
               </div>
               <div className={styles.formRow}>
@@ -716,8 +886,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <textarea
                   id="invoice-summary"
                   className={styles.textArea}
-                  value={invoiceSummary}
-                  onChange={(e) => onInvoiceSummaryBlur(e.target.value)}
+                  value={draftInvoiceSummary}
+                  onChange={(e) => updateDraftField("invoiceSummary", e.target.value)}
                 />
               </div>
               <div className={styles.formRow}>
@@ -725,8 +895,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 <textarea
                   id="invoice-payment-summary"
                   className={styles.textArea}
-                  value={paymentSummary}
-                  onChange={(e) => onPaymentSummaryBlur(e.target.value)}
+                  value={draftPaymentSummary}
+                  onChange={(e) => updateDraftField("paymentSummary", e.target.value)}
                 />
               </div>
             </div>
@@ -753,7 +923,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   className={styles.textInput}
                   value={depositInput}
                   onChange={(e) => handleDepositChange(e.target.value)}
-                  onBlur={handleDepositCommit}
                   inputMode="decimal"
                 />
               </div>
@@ -764,7 +933,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   className={styles.textInput}
                   value={totalDueInput}
                   onChange={(e) => handleTotalDueChange(e.target.value)}
-                  onBlur={handleTotalDueCommit}
                   inputMode="decimal"
                 />
               </div>
@@ -787,6 +955,28 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 Supports multi-line content. Line breaks are mirrored into the PDF.
               </span>
             </div>
+          </div>
+
+          <div className={styles.formActions}>
+            <button
+              type="button"
+              className={`${styles.formActionButton} ${styles.updateButton}`}
+              onClick={handleApplyUpdates}
+              disabled={!hasDraftChanges}
+            >
+              Update
+            </button>
+            {allowSave ? (
+              <button
+                type="button"
+                className={`${styles.formActionButton} ${styles.saveButton}`}
+                onClick={handleSaveButtonClick}
+                disabled={hasDraftChanges}
+                title={hasDraftChanges ? "Apply updates before saving" : undefined}
+              >
+                Save
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
