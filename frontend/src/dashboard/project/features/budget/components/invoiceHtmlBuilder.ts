@@ -52,7 +52,10 @@ export function buildInvoiceHtml({
   totalDue,
 }: InvoiceHtmlBuilderOptions): string {
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
-  const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
+  const pageIndexes =
+    selectedPages.length > 0
+      ? [...selectedPages].sort((a, b) => a - b)
+      : pages.map((_, index) => index);
 
   const htmlPages = pageIndexes
     .map((idx) => {

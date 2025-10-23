@@ -24,10 +24,14 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
 
   useLayoutEffect(() => {
     if (!invoiceRef.current) return;
+    const pageElement = invoiceRef.current;
     const pageHeight = 1122;
-    const pageNumberHeight = 40;
-    const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
-    const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
+    const computedPageStyle = window.getComputedStyle(pageElement);
+    const paddingBottom = parseFloat(computedPageStyle.paddingBottom || "0");
+    const pageNumberHeight = Math.max(paddingBottom, 40);
+    const top = pageElement.querySelector(".invoice-top") as HTMLElement | null;
+    const thead = pageElement.querySelector(".items-table thead") as HTMLElement | null;
+    const firstRow = pageElement.querySelector(".items-table tbody tr") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
     const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
     const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
@@ -36,12 +40,17 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
     const getTotalHeight = (el: HTMLElement | null) => {
       if (!el) return 0;
       const style = window.getComputedStyle(el);
-      const marginTop = parseFloat(style.marginTop || "0");
-      const marginBottom = parseFloat(style.marginBottom || "0");
+      const marginTopValue = parseFloat(style.marginTop || "0");
+      const marginBottomValue = parseFloat(style.marginBottom || "0");
+      const marginTop = Number.isFinite(marginTopValue) ? marginTopValue : 0;
+      const marginBottom = Number.isFinite(marginBottomValue) ? marginBottomValue : 0;
       return el.offsetHeight + marginTop + marginBottom;
     };
 
-    const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
+    const pageRect = pageElement.getBoundingClientRect();
+    const topHeight = firstRow
+      ? Math.max(firstRow.getBoundingClientRect().top - pageRect.top, 0)
+      : (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
     const bottomHeight =
       getTotalHeight(bottomBlock) ||
       getTotalHeight(totals) + getTotalHeight(notesEl) + getTotalHeight(footer);
@@ -73,7 +82,7 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
         available = Math.max(pageHeight - staticHeights, 0);
       }
       current.push(data);
-      available -= rowHeight;
+      available = Math.max(available - rowHeight, 0);
     });
 
     if (current.length) pagesAccum.push(current);
