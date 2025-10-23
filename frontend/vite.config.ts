@@ -12,7 +12,8 @@ const devCsp = [
   "img-src 'self' data: blob: *.amazonaws.com *.cloudfront.net https://tiles.stadiamaps.com https://www.google.com https://icons.duckduckgo.com",
   "media-src 'self' https: blob:",
   // ⬇️ allow LAN fetch + HMR over WS on 3000 (and any port if you change later) + ws/wss for Yjs
-  "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.200:* ws://192.168.1.200:* https://*.amazonaws.com https://*.amplify.aws wss://*.amazonaws.com https://*.cloudfront.net https://nominatim.openstreetmap.org blob: ws: wss:",
+  "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.200:* ws://192.168.1.200:* https://*.amazonaws.com https://*.amplify.aws wss://*.amazonaws.com https://*.cloudfront.net https://nominatim.openstreetmap.org data: blob: ws: wss:",
+  "frame-src 'self' blob:",
   "frame-ancestors 'none'",
 ].join('; ')
 
