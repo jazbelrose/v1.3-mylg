@@ -660,7 +660,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .notes{margin-top:20px;font-size:0.9rem;line-height:1.5;}
         .notes p{margin:0 0 0.5rem;}
         .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-        .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
+        .pageNumber{position:absolute;bottom:20px;left:20px;right:20px;padding-top:8px;border-top:1px solid #ddd;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media print{
           .invoice-container{width:210mm;max-width:210mm;padding:20px;}
           .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;padding:20px 20px 60px;}
