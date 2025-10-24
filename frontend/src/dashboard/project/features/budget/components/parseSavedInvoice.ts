@@ -45,7 +45,13 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
   const dueDate = infoSpans[2]?.textContent || "";
   const serviceDate = infoSpans[3]?.textContent || "";
 
-  const projectTitle = q(".project-title")?.textContent || "";
+  const projectTitleElement =
+    q(".project-title") ||
+    Array.from(page.querySelectorAll(".invoice-meta > div")).find((div) => {
+      const text = (div.textContent || "").trim();
+      return text.length > 0 && !text.includes(":");
+    });
+  const projectTitle = projectTitleElement?.textContent?.trim() || "";
 
   const summaryDivs = page.querySelectorAll(".summary > div");
   const customerSummary = summaryDivs[0]?.textContent || "";

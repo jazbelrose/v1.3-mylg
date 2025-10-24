@@ -424,8 +424,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const renderSummary = useCallback(
     (rows: RowData[], rowsKeyPrefix: string) => (
       <>
-        <h1 className="project-title">{projectTitle || project?.title || "Project Title"}</h1>
-
         <div className="items-table-wrapper">
           <table className="items-table">
             <thead>
@@ -465,7 +463,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </>
     ),
-    [project, projectTitle]
+    []
   );
 
   const renderHeader = useCallback(() => {
@@ -652,7 +650,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .header-bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;font-size:0.85rem;}
         .bill-to{flex:1;display:flex;flex-direction:column;gap:2px;}
         .invoice-meta{min-width:180px;text-align:right;font-size:0.85rem;display:flex;flex-direction:column;gap:4px;}
-        .project-title{font-size:1.5rem;font-weight:bold;text-align:center;margin:10px 0;}
         .items-table-wrapper{flex:1 0 auto;}
         .items-table{width:100%;border-collapse:collapse;margin-top:20px;box-sizing:border-box;}
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;font-size:0.85rem;text-align:left;}

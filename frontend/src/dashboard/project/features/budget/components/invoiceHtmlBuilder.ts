@@ -99,19 +99,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
              </div>`
           : "";
 
-      return `
-        <div class="invoice-page invoice-container">
-          <div class="invoice-top">
-            <div class="invoice-header">
-              <div class="header-top">
-                <div class="brand-section">
-                  <div class="logo-upload">${logoHtml}</div>
-                  ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
-                </div>
-                <div class="invoice-title">INVOICE</div>
-              </div>
-              <hr class="invoice-divider" />
-              <div class="header-bottom">
+      const headerDetailsHtml = idx === 0
+        ? `<div class="header-bottom">
                 <div class="bill-to">
                   <strong>Billed To:</strong>
                   <div>${billContact}</div>
@@ -128,10 +117,24 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                   ${service ? `<div>Service date: <span>${service}</span></div>` : ""}
                 </div>
               </div>
+              <hr class="invoice-divider" />`
+        : "";
+
+      return `
+        <div class="invoice-page invoice-container">
+          <div class="invoice-top">
+            <div class="invoice-header">
+              <div class="header-top">
+                <div class="brand-section">
+                  <div class="logo-upload">${logoHtml}</div>
+                  ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
+                </div>
+                <div class="invoice-title">INVOICE</div>
+              </div>
               <hr class="invoice-divider" />
+              ${headerDetailsHtml}
             </div>
           </div>
-          <h1 class="project-title">${projTitle}</h1>
           <div class="items-table-wrapper">
             <table class="items-table">
               <thead>

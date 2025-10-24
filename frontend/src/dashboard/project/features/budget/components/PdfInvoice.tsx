@@ -121,12 +121,6 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     marginBottom: 2,
   },
-  projectTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    textAlign: "center",
-    marginBottom: 12,
-  },
   divider: {
     height: 1,
     backgroundColor: "#dddddd",
@@ -314,7 +308,6 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   const billedToEmail = project?.clientEmail || "";
   const billedToPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
   const projectTitleForMeta = projectTitle || project?.title || "";
-  const displayProjectTitle = projectTitle || project?.title || "Project Title";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
 
@@ -340,29 +333,35 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
 
           <View style={styles.headerDivider} />
 
-          <View style={styles.headerBottom}>
-            <View style={styles.billTo}>
-              <Text style={styles.billToLabel}>Billed To:</Text>
-              <Text>{billedToName}</Text>
-              {billedToCompany ? <Text>{billedToCompany}</Text> : null}
-              <Text>{billedToAddress}</Text>
-              {billedToEmail ? <Text>{billedToEmail}</Text> : null}
-              {billedToPhone ? <Text>{billedToPhone}</Text> : null}
-            </View>
+          <View
+            render={({ pageNumber }) =>
+              pageNumber === 1 ? (
+                <View>
+                  <View style={styles.headerBottom}>
+                    <View style={styles.billTo}>
+                      <Text style={styles.billToLabel}>Billed To:</Text>
+                      <Text>{billedToName}</Text>
+                      {billedToCompany ? <Text>{billedToCompany}</Text> : null}
+                      <Text>{billedToAddress}</Text>
+                      {billedToEmail ? <Text>{billedToEmail}</Text> : null}
+                      {billedToPhone ? <Text>{billedToPhone}</Text> : null}
+                    </View>
 
-            <View style={styles.invoiceMeta}>
-              <Text>Invoice #: {displayInvoiceNumber}</Text>
-              {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
-              <Text>Issue date: {displayIssueDate}</Text>
-              {dueDate ? <Text>Due date: {dueDate}</Text> : null}
-              {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
-            </View>
-          </View>
+                    <View style={styles.invoiceMeta}>
+                      <Text>Invoice #: {displayInvoiceNumber}</Text>
+                      {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
+                      <Text>Issue date: {displayIssueDate}</Text>
+                      {dueDate ? <Text>Due date: {dueDate}</Text> : null}
+                      {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
+                    </View>
+                  </View>
 
-          <View style={styles.headerDivider} />
+                  <View style={styles.headerDivider} />
+                </View>
+              ) : null
+            }
+          />
         </View>
-
-        <Text style={styles.projectTitle}>{displayProjectTitle}</Text>
 
         <View style={styles.divider} />
 
