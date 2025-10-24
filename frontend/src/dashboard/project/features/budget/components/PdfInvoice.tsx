@@ -123,6 +123,8 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     borderWidth: 1,
     borderColor: "#dddddd",
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
   },
   tableHeader: {
     display: "flex",
@@ -134,8 +136,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderCell: {
     padding: 6,
-    borderRightWidth: 1,
-    borderRightColor: "#dddddd",
+    // no vertical border in header
     flexGrow: 1,
     flexShrink: 1,
     flexBasis: 0,
@@ -159,8 +160,7 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     padding: 6,
-    borderRightWidth: 1,
-    borderRightColor: "#f0f0f0",
+    // no vertical borders on body cells
     flexGrow: 1,
     flexShrink: 1,
     flexBasis: 0,
