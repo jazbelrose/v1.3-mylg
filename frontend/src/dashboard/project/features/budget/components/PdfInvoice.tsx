@@ -92,11 +92,11 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   invoiceTitle: {
-    fontSize: 54,
+    fontSize: 60,
     fontWeight: 800,
     color: "#000000",
     
-    letterSpacing: 0.5,
+    letterSpacing: -2,
   },
   headerRuleContainer: {
     display: "flex",

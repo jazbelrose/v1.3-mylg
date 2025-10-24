@@ -132,7 +132,7 @@ const InvoiceInfoModal = ({ modal }: InvoiceInfoModalProps) => {
     <Modal
       isOpen={modal.isOpen}
       onRequestClose={modal.close}
-      contentLabel="Invoice Info"
+      contentLabel="Client Info"
       closeTimeoutMS={300}
       className={{
         base: styles.modalContent,
@@ -144,7 +144,7 @@ const InvoiceInfoModal = ({ modal }: InvoiceInfoModalProps) => {
     >
       <div className={styles.modalInner}>
         <header className={styles.header}>
-          <h2 className={styles.title}>Invoice Info</h2>
+          <h2 className={styles.title}>Client Info</h2>
           <p className={styles.subtitle}>Update the details that appear on generated invoices.</p>
         </header>
         <form onSubmit={modal.submit} className={styles.form}>
