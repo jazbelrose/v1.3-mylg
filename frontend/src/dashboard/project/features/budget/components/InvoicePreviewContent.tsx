@@ -209,10 +209,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     return "";
   }, [brandLogoKey, logoDataUrl]);
 
-  const pdfBrandName = useMemo(
-    () => brandName || project?.company || "",
-    [brandName, project]
-  );
+  const pdfBrandName = useMemo(() => brandName.trim(), [brandName]);
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
     brandName,
     brandTagline,
@@ -427,7 +424,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const renderSummary = useCallback(
     (rows: RowData[], rowsKeyPrefix: string) => (
       <>
-        <h1 className="project-title">{projectTitle || "Project Title"}</h1>
+        <h1 className="project-title">{projectTitle || project?.title || "Project Title"}</h1>
 
         <div className="summary">
           <div>{customerSummary || "Customer"}</div>
@@ -480,9 +477,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   );
 
   const renderHeader = useCallback(() => {
-    const displayBrandName = pdfBrandName || "Your Business Name";
+    const displayBrandName = pdfBrandName;
     const displayInvoiceNumber = invoiceNumber || "0000";
     const displayIssueDate = issueDate || new Date().toLocaleDateString();
+    const displayProjectTitle = projectTitle || project?.title || "";
 
     return (
       <div className="invoice-top">
@@ -507,18 +505,13 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <div>{project?.clientAddress || "Client address"}</div>
               <div>{project?.clientEmail || ""}</div>
               <div>{project?.clientPhone || ""}</div>
-
-              <div className="project-info">
-                <strong>Project:</strong>
-                <div>{project?.title || "Project Title"}</div>
-                <div>{project?.projectId ? `ID: ${project.projectId}` : ""}</div>
-              </div>
             </div>
 
             <div className="invoice-meta">
               <div>
                 Invoice #: <span>{displayInvoiceNumber}</span>
               </div>
+              {displayProjectTitle ? <div>{displayProjectTitle}</div> : null}
               <div>
                 Issue date: <span>{displayIssueDate}</span>
               </div>
@@ -539,7 +532,16 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </header>
       </div>
     );
-  }, [dueDate, invoiceNumber, issueDate, logoSrc, pdfBrandName, project, serviceDate]);
+  }, [
+    dueDate,
+    invoiceNumber,
+    issueDate,
+    logoSrc,
+    pdfBrandName,
+    project,
+    projectTitle,
+    serviceDate,
+  ]);
 
   const pdfDocument = useMemo(
     () => (
@@ -663,7 +665,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .invoice-divider{border:0;border-top:1px solid #ccc;margin:0;}
         .header-bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;font-size:0.85rem;}
         .bill-to{flex:1;display:flex;flex-direction:column;gap:2px;}
-        .project-info{margin-top:12px;display:flex;flex-direction:column;gap:2px;}
         .invoice-meta{min-width:180px;text-align:right;font-size:0.85rem;display:flex;flex-direction:column;gap:4px;}
         .project-title{font-size:1.5rem;font-weight:bold;text-align:center;margin:10px 0;}
         .summary{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;}

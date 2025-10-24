@@ -67,11 +67,11 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
         )
         .join("");
 
-      const headerName = brandName || project?.company || "Company Name";
+      const headerName = brandName.trim();
       const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
-      const invNum = invoiceNumber || "";
-      const issue = issueDate || "";
+      const invNum = invoiceNumber || "0000";
+      const issue = issueDate || new Date().toLocaleDateString();
       const due = dueDate || "";
       const service = serviceDate || "";
 
@@ -81,7 +81,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
       const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
       const billEmail = project?.clientEmail || "";
 
-      const projTitle = projectTitle || "";
+      const projTitle = projectTitle || project?.title || "";
+      const projTitleMeta = projectTitle || project?.title || "";
       const custSum = customerSummary || "";
       const invSum = invoiceSummary || "";
       const paySum = paymentSummary || "";
@@ -127,14 +128,10 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                   <div>${billAddress}</div>
                   ${billPhone ? `<div>${billPhone}</div>` : ""}
                   ${billEmail ? `<div>${billEmail}</div>` : ""}
-                  <div class="project-info">
-                    <strong>Project:</strong>
-                    <div>${projTitle}</div>
-                    ${project?.projectId ? `<div>ID: ${project.projectId}</div>` : ""}
-                  </div>
                 </div>
                 <div class="invoice-meta">
                   ${invNum ? `<div>Invoice #: <span>${invNum}</span></div>` : ""}
+                  ${projTitleMeta ? `<div>${projTitleMeta}</div>` : ""}
                   ${issue ? `<div>Issue date: <span>${issue}</span></div>` : ""}
                   ${due ? `<div>Due date: <span>${due}</span></div>` : ""}
                   ${service ? `<div>Service date: <span>${service}</span></div>` : ""}

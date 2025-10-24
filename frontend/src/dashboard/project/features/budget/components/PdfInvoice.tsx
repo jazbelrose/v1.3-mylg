@@ -124,15 +124,6 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     marginBottom: 2,
   },
-  projectInfo: {
-    marginTop: 8,
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  projectLabel: {
-    fontWeight: 700,
-  },
   summary: {
     display: "flex",
     flexDirection: "row",
@@ -332,14 +323,16 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     );
   };
 
-  const displayBrandName = brandName || project?.company || "Your Business Name";
+  const displayBrandName = brandName.trim();
   const billedToName = project?.clientName || "Client name";
   const billedToCompany = project?.invoiceBrandName || "";
   const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
   const billedToEmail = project?.clientEmail || "";
   const billedToPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
-  const projectIdentifier = project?.projectId ? `ID: ${project.projectId}` : "";
-  const displayProjectTitle = projectTitle || "Project Title";
+  const projectTitleForMeta = projectTitle || project?.title || "";
+  const displayProjectTitle = projectTitle || project?.title || "Project Title";
+  const displayInvoiceNumber = invoiceNumber || "0000";
+  const displayIssueDate = issueDate || new Date().toLocaleDateString();
 
   return (
     <Document>
@@ -371,16 +364,12 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               <Text>{billedToAddress}</Text>
               {billedToEmail ? <Text>{billedToEmail}</Text> : null}
               {billedToPhone ? <Text>{billedToPhone}</Text> : null}
-              <View style={styles.projectInfo}>
-                <Text style={styles.projectLabel}>Project:</Text>
-                <Text>{displayProjectTitle}</Text>
-                {projectIdentifier ? <Text>{projectIdentifier}</Text> : null}
-              </View>
             </View>
 
             <View style={styles.invoiceMeta}>
-              <Text>Invoice #: {invoiceNumber}</Text>
-              <Text>Issue date: {issueDate}</Text>
+              <Text>Invoice #: {displayInvoiceNumber}</Text>
+              {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
+              <Text>Issue date: {displayIssueDate}</Text>
               {dueDate ? <Text>Due date: {dueDate}</Text> : null}
               {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
             </View>
