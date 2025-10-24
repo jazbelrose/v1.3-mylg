@@ -655,15 +655,15 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;font-size:0.85rem;text-align:left;}
         .items-table th{background:#f5f5f5;font-weight:bold;}
         .group-header td{font-weight:bold;background:#fafafa;}
-        .totals{margin-top:20px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
+        .totals{margin-top:50px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
         .totals div{display:flex;gap:6px;align-items:baseline;}
         .notes{margin-top:20px;font-size:0.9rem;line-height:1.5;}
         .notes p{margin:0 0 0.5rem;}
-        .footer{margin-top:40px;font-size:0.9rem;color:#666;}
-        .pageNumber{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
+        .footer{margin-top:50px;font-size:0.9rem;color:#666;}
+        .pageNumber{position:absolute;bottom:16px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media print{
           .invoice-container{width:210mm;max-width:210mm;padding:20px;}
-          .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;padding:20px 20px 60px;}
+          .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;padding:20px 20px 50px;}
           .invoice-page:last-child{page-break-after:auto;}
         }
       `}</style>

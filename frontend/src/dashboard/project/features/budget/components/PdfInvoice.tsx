@@ -198,12 +198,33 @@ const styles = StyleSheet.create({
   },
   pageNumber: {
     position: "absolute",
-    bottom: 24,
+    bottom: 16,
     left: 0,
     right: 0,
-    textAlign: "center",
     fontSize: 9,
     color: "#666666",
+    textAlign: "center",
+    zIndex: -1,
+  },
+  pageNumberBottom: {
+    marginTop: 20,
+    fontSize: 9,
+    color: "#666666",
+    textAlign: "center",
+  },
+  pageNumberWrapper: {
+    position: "absolute",
+    bottom: 16,
+    left: 0,
+    right: 0,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pageNumberText: {
+    fontSize: 9,
+    color: "#666666",
+    textAlign: "center",
   },
 });
 
@@ -399,11 +420,9 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          fixed
-        />
+        <Text style={styles.pageNumber} fixed>
+          Page 1 of 1
+        </Text>
       </Page>
     </Document>
   );
