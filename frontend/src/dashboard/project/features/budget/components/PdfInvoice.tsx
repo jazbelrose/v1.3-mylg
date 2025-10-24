@@ -226,6 +226,20 @@ const styles = StyleSheet.create({
     color: "#666666",
     textAlign: "center",
   },
+  footerFixed: {
+    position: "absolute",
+    left: 32,
+    right: 32,
+    bottom: 16,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 9,
+    color: "#666666",
+    textAlign: "center",
+  },
 });
 
 type PdfRowSegment =
@@ -420,17 +434,15 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
-        <Text style={styles.pageNumber} fixed>
-          Page 1 of 1
-        </Text>
+        <View style={{ height: 28 }} />
 
-           <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          fixed
-        />
-        
-      </Page>
+        <View style={styles.footerFixed} fixed wrap={false}>
+          <Text
+            style={styles.footerText}
+            children="Page 1 of 1"
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>      </Page>
     </Document>
   );
 };
