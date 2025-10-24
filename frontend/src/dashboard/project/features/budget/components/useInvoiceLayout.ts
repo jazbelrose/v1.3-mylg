@@ -29,8 +29,9 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
     const top = invoiceRef.current.querySelector(".invoice-top") as HTMLElement | null;
     const thead = invoiceRef.current.querySelector(".items-table thead") as HTMLElement | null;
     const totals = invoiceRef.current.querySelector(".totals") as HTMLElement | null;
-    const notesEl = invoiceRef.current.querySelector(".notes") as HTMLElement | null;
-    const footer = invoiceRef.current.querySelector(".footer") as HTMLElement | null;
+    const paymentFooter = invoiceRef.current.querySelector(
+      ".payment-footer"
+    ) as HTMLElement | null;
     const bottomBlock = invoiceRef.current.querySelector(".bottom-block") as HTMLElement | null;
 
     const getTotalHeight = (el: HTMLElement | null) => {
@@ -44,7 +45,7 @@ export function useInvoiceLayout(rowsData: RowData[]): UseInvoiceLayoutResult {
     const topHeight = (top?.offsetHeight || 0) + (thead?.offsetHeight || 0);
     const bottomHeight =
       getTotalHeight(bottomBlock) ||
-      getTotalHeight(totals) + getTotalHeight(notesEl) + getTotalHeight(footer);
+      getTotalHeight(totals) + getTotalHeight(paymentFooter);
     const staticHeights = topHeight + pageNumberHeight;
 
     const rowEls = Array.from(

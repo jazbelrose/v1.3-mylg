@@ -835,25 +835,55 @@
   float: right;
 }
 
-.notes {
-  margin-top: 20px;
+.paymentFooter {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #dddddd;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.paymentInfoColumn {
+  flex: 1;
+}
+
+.paymentInfoTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.paymentInfoBody {
   font-size: 0.9rem;
   line-height: 1.5;
 }
 
-.notes p {
+.paymentInfoBody p {
   margin: 0 0 0.5rem;
-  padding: 6px 0;
 }
 
-.notes p:last-child {
-  margin-bottom: 0;
+.paymentContactColumn {
+  flex: 1;
 }
 
-.footer {
-  margin-top: 40px;
+.paymentContactName {
   font-size: 0.9rem;
-  color: #666;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.paymentContactDetails {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.paymentContactDetails div {
+  margin-bottom: 0.25rem;
+}
+
+.paymentContactDetails div:last-child {
+  margin-bottom: 0;
 }
 
 .pageNumber {

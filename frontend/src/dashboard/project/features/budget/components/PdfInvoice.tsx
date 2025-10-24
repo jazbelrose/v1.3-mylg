@@ -186,15 +186,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     display: "flex",
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 24,
-  },
-  summarySectionNoNotes: {
     justifyContent: "flex-end",
-  },
-  notesContainer: {
-    flex: 1,
   },
   totals: {
     minWidth: 200,
@@ -214,14 +206,42 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 700,
   },
-  notes: {
+  paymentFooter: {
+    marginTop: 32,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#dddddd",
+  },
+  paymentFooterContent: {
+    display: "flex",
+    flexDirection: "row",
+    gap: 24,
+    justifyContent: "space-between",
+  },
+  paymentInfoColumn: {
+    flex: 1,
+  },
+  paymentInfoTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    textTransform: "capitalize",
+    marginBottom: 6,
+  },
+  paymentInfoLine: {
     fontSize: 10,
     lineHeight: 1.5,
   },
-  footer: {
-    marginTop: 24,
+  contactColumn: {
+    flex: 1,
+  },
+  contactName: {
     fontSize: 10,
-    color: "#666666",
+    fontWeight: 700,
+    marginBottom: 6,
+  },
+  contactLine: {
+    fontSize: 10,
+    lineHeight: 1.5,
   },
   pageNumber: {
     position: 'absolute',
@@ -298,9 +318,17 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     notes,
   } = props;
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
-  const notesText = useMemo(() => toPlainText(notes), [notes]);
+  const paymentInformationText = useMemo(() => toPlainText(notes), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
-
+  const paymentInformationLines = useMemo(
+    () =>
+      paymentInformationText
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [paymentInformationText]
+  );
+  
   const renderItemRow = (item: BudgetItem, key: string | number) => {
     const quantity = parseFloat(String(item.quantity ?? "")) || 0;
     const amount = parseFloat(String(item.itemFinalCost ?? "")) || 0;
@@ -326,6 +354,14 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   const projectTitleForMeta = projectTitle || project?.title || "";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
+  const contactName = project?.company || displayBrandName;
+  const contactAddress = project?.address || "";
+  const contactPhone = project?.invoiceBrandPhone || "";
+  const contactEmail = project?.clientEmail || "";
+  const contactLines = useMemo(() => {
+    const details = [contactAddress, contactPhone, contactEmail].filter(Boolean);
+    return details;
+  }, [contactAddress, contactPhone, contactEmail]);
 
   return (
     <Document>
@@ -420,16 +456,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
           })}
         </View>
 
-        <View
-          style={[styles.summarySection, !notesText ? styles.summarySectionNoNotes : null]}
-          wrap={false}
-        >
-          {notesText ? (
-            <View style={styles.notesContainer}>
-              <Text style={styles.notes}>{notesText}</Text>
-            </View>
-          ) : null}
-
+        <View style={styles.summarySection} wrap={false}>
           <View style={styles.totals}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
@@ -445,14 +472,42 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
             </View>
           </View>
         </View>
+        <View
+          style={styles.paymentFooter}
+          render={({ pageNumber, totalPages }) =>
+            pageNumber === totalPages ? (
+              <View style={styles.paymentFooterContent}>
+                <View style={styles.paymentInfoColumn}>
+                  <Text style={styles.paymentInfoTitle}>Payment Information</Text>
+                  {paymentInformationLines.map((line, index) => (
+                    <Text key={`payment-line-${index}`} style={styles.paymentInfoLine}>
+                      {line}
+                    </Text>
+                  ))}
+                </View>
+                {contactName || contactLines.length ? (
+                  <View style={styles.contactColumn}>
+                    {contactName ? (
+                      <Text style={styles.contactName}>{contactName}</Text>
+                    ) : null}
+                    {contactLines.map((line, index) => (
+                      <Text key={`contact-line-${index}`} style={styles.contactLine}>
+                        {line}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null
+          }
+        />
 
-        {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
+        <Text
+          style={styles.pageNumber}
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          fixed
+        />
 
-        
-            <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (
-        `${pageNumber} / ${totalPages}`
-      )} fixed />
-        
       </Page>
     </Document>
   );

@@ -192,7 +192,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onPaymentSummaryBlur,
   rowsData,
   currentPage,
-  totalPages,
   subtotal,
   depositReceived,
   onDepositBlur,
@@ -210,6 +209,13 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   }, [brandLogoKey, logoDataUrl]);
 
   const pdfBrandName = useMemo(() => brandName.trim(), [brandName]);
+  const paymentContactName = project?.company || pdfBrandName;
+  const paymentContactDetails = useMemo(() => {
+    const details = [project?.address || "", project?.invoiceBrandPhone || "", project?.clientEmail || ""].filter(
+      (entry): entry is string => Boolean(entry)
+    );
+    return details;
+  }, [project?.address, project?.invoiceBrandPhone, project?.clientEmail]);
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
     brandName,
     brandTagline,
@@ -655,9 +661,16 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .group-header td{font-weight:bold;background:#fafafa;}
         .totals{margin-top:50px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
         .totals div{display:flex;gap:6px;align-items:baseline;}
-        .notes{margin-top:20px;font-size:0.9rem;line-height:1.5;}
-        .notes p{margin:0 0 0.5rem;}
-        .footer{margin-top:50px;font-size:0.9rem;color:#666;}
+        .payment-footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;display:flex;gap:32px;justify-content:space-between;}
+        .payment-info-column{flex:1;}
+        .payment-info-title{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
+        .payment-info-body{font-size:0.9rem;line-height:1.5;}
+        .payment-info-body p{margin:0 0 0.5rem;}
+        .payment-contact-column{flex:1;}
+        .payment-contact-name{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
+        .payment-contact-details{font-size:0.9rem;line-height:1.5;}
+        .payment-contact-details div{margin-bottom:0.25rem;}
+        .payment-contact-details div:last-child{margin-bottom:0;}
         .pageNumber{position:absolute;bottom:16px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media print{
           .invoice-container{width:210mm;max-width:210mm;padding:20px;}
@@ -692,9 +705,26 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
           </div>
 
-          <div className="notes" dangerouslySetInnerHTML={{ __html: notes }} />
-
-          <div className="footer">{project?.company || "Company Name"}</div>
+          <div className="payment-footer">
+            <div className="payment-info-column">
+              <div className="payment-info-title">Payment Information</div>
+              <div className="payment-info-body" dangerouslySetInnerHTML={{ __html: notes }} />
+            </div>
+            {(paymentContactName || paymentContactDetails.length) && (
+              <div className="payment-contact-column">
+                {paymentContactName ? (
+                  <div className="payment-contact-name">{paymentContactName}</div>
+                ) : null}
+                {paymentContactDetails.length ? (
+                  <div className="payment-contact-details">
+                    {paymentContactDetails.map((detail, index) => (
+                      <div key={`payment-contact-${index}`}>{detail}</div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1091,7 +1121,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Notes</span>
+              <span className={styles.formSectionTitle}>Payment Information</span>
             </div>
             <div className={styles.formRow}>
               <textarea
@@ -1099,10 +1129,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 className={styles.textAreaLarge}
                 value={notesDraft}
                 onChange={(e) => handleNotesChange(e.target.value)}
-                placeholder="Additional notes for your client"
+                placeholder="Bank name, account number, payment instructions"
               />
               <span className={styles.helperText}>
-                Supports multi-line content. Line breaks are mirrored into the PDF.
+                Supports multi-line content. Line breaks are mirrored in the PDF footer.
               </span>
             </div>
           </div>

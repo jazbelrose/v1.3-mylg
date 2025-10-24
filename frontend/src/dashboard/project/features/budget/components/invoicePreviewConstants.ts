@@ -6,4 +6,4 @@ export const groupFields: Array<{ label: string; value: GroupField }> = [
   { label: "Category", value: "category" },
 ];
 
-export const DEFAULT_NOTES_HTML = "<p>Notes...</p>";
+export const DEFAULT_NOTES_HTML = "<p>Payment information...</p>";

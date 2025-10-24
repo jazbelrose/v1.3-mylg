@@ -75,9 +75,16 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
       const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
       const billEmail = project?.clientEmail || "";
 
-      const projTitle = projectTitle || project?.title || "";
       const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
+      const paymentContactName = project?.company || headerName;
+      const paymentContactDetails = [
+        project?.address || "",
+        project?.invoiceBrandPhone || "",
+        project?.clientEmail || "",
+      ]
+        .map((detail) => detail.trim())
+        .filter(Boolean);
 
       const deposit = formatCurrency(depositReceived);
       const total = formatCurrency(totalDue);
@@ -85,6 +92,20 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
       const logoHtml = logoSrc
         ? `<img src="${logoSrc}" alt="logo" />`
         : `<span>Upload Logo</span>`;
+
+      const paymentContactHtml =
+        (paymentContactName && paymentContactName.trim()) || paymentContactDetails.length
+          ? `<div class="payment-contact-column">
+               ${paymentContactName ? `<div class="payment-contact-name">${paymentContactName}</div>` : ""}
+               ${
+                 paymentContactDetails.length
+                   ? `<div class="payment-contact-details">${paymentContactDetails
+                       .map((detail) => `<div>${detail}</div>`)
+                       .join("")}</div>`
+                   : ""
+               }
+             </div>`
+          : "";
 
       const totalsHtml =
         idx === pages.length - 1
@@ -94,8 +115,13 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                  <div>Deposit received: <span>${deposit}</span></div>
                  <div><strong>Total Due: <span>${total}</span></strong></div>
                </div>
-               <div class="notes">${notesText}</div>
-               <div class="footer">${projTitle}</div>
+               <div class="payment-footer">
+                 <div class="payment-info-column">
+                   <div class="payment-info-title">Payment Information</div>
+                   <div class="payment-info-body">${notesText}</div>
+                 </div>
+                 ${paymentContactHtml}
+               </div>
              </div>`
           : "";
 
