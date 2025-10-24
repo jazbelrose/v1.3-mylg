@@ -437,9 +437,9 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
         <View style={{ height: 28 }} />
 
         <View style={styles.footerFixed} fixed wrap={false}>
+          
           <Text
-            style={styles.footerText}
-            children="Page 1 of 1"
+            style={[styles.footerText, { position: "absolute", left: 0, right: 0 }]}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
           />
         </View>      </Page>
