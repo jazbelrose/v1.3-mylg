@@ -116,8 +116,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                   ${due ? `<div>Due date: <span>${due}</span></div>` : ""}
                   ${service ? `<div>Service date: <span>${service}</span></div>` : ""}
                 </div>
-              </div>
-              <hr class="invoice-divider" />`
+              </div>`
         : "";
 
       return `
@@ -131,7 +130,6 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                 </div>
                 <div class="invoice-title">INVOICE</div>
               </div>
-              <hr class="invoice-divider" />
               ${headerDetailsHtml}
             </div>
           </div>

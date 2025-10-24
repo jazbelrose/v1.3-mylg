@@ -486,8 +486,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             <div className="invoice-title">Invoice</div>
           </div>
 
-          <hr className="invoice-divider" />
-
           <div className="header-bottom">
             <div className="bill-to">
               <strong>Billed To:</strong>
@@ -517,8 +515,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               ) : null}
             </div>
           </div>
-
-          <hr className="invoice-divider" />
         </header>
       </div>
     );
@@ -646,7 +642,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .logo-upload img{max-width:100%;max-height:100%;object-fit:contain;}
         .brand-name{font-size:1.1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;}
         .invoice-title{font-size:2.5rem;color:#FA3356;font-weight:800;text-align:right;margin-left:auto;text-transform:uppercase;letter-spacing:0.12em;}
-        .invoice-divider{border:0;border-top:1px solid #ccc;margin:0;}
         .header-bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;font-size:0.85rem;}
         .bill-to{flex:1;display:flex;flex-direction:column;gap:2px;}
         .invoice-meta{min-width:180px;text-align:right;font-size:0.85rem;display:flex;flex-direction:column;gap:4px;}
