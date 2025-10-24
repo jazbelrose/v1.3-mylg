@@ -62,7 +62,7 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
   const depositReceived = totals.length >= 2 ? parseMoney(totals[1]?.textContent || "") : 0;
   const totalDue = totals.length >= 3 ? parseMoney(totals[2]?.textContent || "") : 0;
 
-  const notesElement = q(".notes");
+  const notesElement = q(".payment-info-body");
   const notes = notesElement ? notesElement.innerHTML || "" : "";
 
   const parsedGroups = Array.from(doc.querySelectorAll(".group-header td")).map((td) =>
