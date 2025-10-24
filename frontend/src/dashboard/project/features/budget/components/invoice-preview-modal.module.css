@@ -734,15 +734,37 @@
 
   .previewViewport :global(.invoice-header) {
     gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .previewViewport :global(.header-right) {
+    align-self: flex-end;
   }
 
   .previewViewport :global(.invoice-title) {
     font-size: 1.4rem;
+    letter-spacing: 0.2em;
   }
 
-  .previewViewport :global(.company-info),
+  .previewViewport :global(.header-brand),
   .previewViewport :global(.billing-info) {
     font-size: 0.78rem;
+  }
+
+  .previewViewport :global(.billing-info) {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .previewViewport :global(.invoice-details) {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .previewViewport :global(.invoice-detail) {
+    justify-content: flex-start;
   }
 
   .previewViewport :global(.summary) {

@@ -121,31 +121,42 @@ export function buildInvoiceHtml({
         <div class="invoice-page invoice-container">
           <div class="invoice-top">
             <div class="invoice-header">
-              <div>${logoHtml}</div>
-              <div class="company-info">
-                <div class="brand-name">${headerName}</div>
-                ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                <div class="brand-address">${headerAddress}</div>
-                <div class="brand-phone">${headerPhone}</div>
+              <div class="header-left">
+                <div class="logo-upload">${logoHtml || ""}</div>
+                <div class="header-brand">
+                  <div class="brand-name">${headerName}</div>
+                  ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
+                  <div class="brand-address">${headerAddress}</div>
+                  <div class="brand-phone">${headerPhone}</div>
+                </div>
               </div>
-              <div class="invoice-title">INVOICE</div>
+              <div class="header-right">
+                <div class="invoice-title">INVOICE</div>
+              </div>
             </div>
+            <hr class="section-divider" />
             <div class="billing-info">
-              <div>
-                <strong>Bill To:</strong>
+              <div class="billing-details">
+                <strong>Billed To:</strong>
                 <div>${billContact}</div>
                 <div>${billCompany}</div>
                 <div>${billAddress}</div>
                 ${billPhone ? `<div>${billPhone}</div>` : ""}
                 ${billEmail ? `<div>${billEmail}</div>` : ""}
+                <div class="project-details">
+                  <strong>Project:</strong>
+                  <div>${project?.title || "Project Title"}</div>
+                  ${project?.projectId ? `<div>ID: ${project.projectId}</div>` : ""}
+                </div>
               </div>
-              <div>
-                <div>Invoice #: <span>${invNum}</span></div>
-                <div>Issue date: <span>${issue}</span></div>
-                <div>Due date: <span>${due}</span></div>
-                <div>Service date: <span>${service}</span></div>
+              <div class="invoice-details">
+                <div class="invoice-detail" data-field="invoiceNumber"><span class="label">Invoice #</span><span class="value">${invNum}</span></div>
+                <div class="invoice-detail" data-field="issueDate"><span class="label">Issue date</span><span class="value">${issue}</span></div>
+                ${due ? `<div class="invoice-detail" data-field="dueDate"><span class="label">Due date</span><span class="value">${due}</span></div>` : ""}
+                ${service ? `<div class="invoice-detail" data-field="serviceDate"><span class="label">Service date</span><span class="value">${service}</span></div>` : ""}
               </div>
             </div>
+            <hr class="section-divider" />
           </div>
           <h1 class="project-title">${projTitle}</h1>
           <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>

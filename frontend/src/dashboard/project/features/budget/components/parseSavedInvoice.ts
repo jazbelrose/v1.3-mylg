@@ -39,11 +39,12 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
   const brandPhone = q(".brand-phone")?.textContent || "";
   const brandTagline = q(".brand-tagline")?.textContent || "";
 
-  const infoSpans = page.querySelectorAll(".billing-info > div:last-child span");
-  const invoiceNumber = infoSpans[0]?.textContent || "";
-  const issueDate = infoSpans[1]?.textContent || "";
-  const dueDate = infoSpans[2]?.textContent || "";
-  const serviceDate = infoSpans[3]?.textContent || "";
+  const getDetailValue = (field: string) =>
+    page.querySelector(`.invoice-detail[data-field="${field}"] .value`)?.textContent || "";
+  const invoiceNumber = getDetailValue("invoiceNumber");
+  const issueDate = getDetailValue("issueDate");
+  const dueDate = getDetailValue("dueDate");
+  const serviceDate = getDetailValue("serviceDate");
 
   const projectTitle = q(".project-title")?.textContent || "";
 
