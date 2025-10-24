@@ -78,9 +78,9 @@ const styles = StyleSheet.create({
     color: "#777777",
   },
   brandName: {
-    fontSize: 10,
-    fontWeight: 400,
-    
+    fontSize: 14,
+    fontWeight: 700,
+    textTransform: "uppercase",
     letterSpacing: 1.1,
   },
   invoiceMeta: {
@@ -120,11 +120,15 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    marginBottom: 12,
   },
   billToLabel: {
     fontWeight: 700,
     marginBottom: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#dddddd",
+    marginBottom: 12,
   },
   table: {
     display: "flex",
@@ -133,6 +137,7 @@ const styles = StyleSheet.create({
     borderColor: "#dddddd",
     borderLeftWidth: 0,
     borderRightWidth: 0,
+    borderTopWidth: 0,
   },
   tableHeader: {
     display: "flex",
@@ -370,6 +375,8 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
             }
           />
         </View>
+
+        <View style={styles.divider} />
 
         <View style={styles.table}>
           <View style={styles.tableHeader} fixed>
