@@ -712,6 +712,13 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
           )}
           <div className={styles.viewerMeta}>
+            {totalPages > 0 ? (
+              <span>
+                Page {Math.min(currentPage + 1, totalPages)} of {totalPages}
+              </span>
+            ) : (
+              <span>No pages available</span>
+            )}
           </div>
         </div>
 
