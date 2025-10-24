@@ -14,9 +14,6 @@ import { getFileUrl } from "@/shared/utils/api";
 
 interface PdfInvoiceProps {
   brandName: string;
-  brandTagline: string;
-  brandAddress: string;
-  brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
   project?: ProjectLike | null;
@@ -61,10 +58,10 @@ const styles = StyleSheet.create({
   },
   brandSection: {
     display: "flex",
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "flex-start",
-    gap: 12,
-    flex: 1,
+    gap: 10,
+    flexShrink: 0,
   },
   logo: {
     width: 72,
@@ -83,24 +80,11 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#777777",
   },
-  brandText: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-  },
   brandName: {
-    fontSize: 11,
-    fontWeight: 600,
-  },
-  brandTagline: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 700,
     textTransform: "uppercase",
-    letterSpacing: 1.2,
-  },
-  brandDetail: {
-    fontSize: 8,
-    color: "#555555",
+    letterSpacing: 1.1,
   },
   invoiceMeta: {
     display: "flex",
@@ -111,10 +95,11 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   invoiceTitle: {
-    fontSize: 20,
-    fontWeight: 700,
+    fontSize: 26,
+    fontWeight: 800,
     color: "#FA3356",
     textTransform: "uppercase",
+    letterSpacing: 1.2,
   },
   headerDivider: {
     height: 1,
@@ -307,28 +292,26 @@ const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string =>
   return getFileUrl(brandLogoKey);
 };
 
-const PdfInvoice: React.FC<PdfInvoiceProps> = ({
-  brandName,
-  brandTagline,
-  brandAddress,
-  brandPhone,
-  brandLogoKey,
-  logoDataUrl,
-  project,
-  invoiceNumber,
-  issueDate,
-  dueDate,
-  serviceDate,
-  projectTitle,
-  customerSummary,
-  invoiceSummary,
-  paymentSummary,
-  rows,
-  subtotal,
-  depositReceived,
-  totalDue,
-  notes,
-}) => {
+const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
+  const {
+    brandName,
+    brandLogoKey,
+    logoDataUrl,
+    project,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    serviceDate,
+    projectTitle,
+    customerSummary,
+    invoiceSummary,
+    paymentSummary,
+    rows,
+    subtotal,
+    depositReceived,
+    totalDue,
+    notes,
+  } = props;
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
   const notesText = useMemo(() => toPlainText(notes), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
@@ -350,9 +333,6 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
   };
 
   const displayBrandName = brandName || project?.company || "Your Business Name";
-  const displayTagline = brandTagline || "Tagline";
-  const displayAddress = brandAddress || project?.address || "Business Address";
-  const displayPhone = brandPhone || project?.invoiceBrandPhone || project?.clientPhone || "Phone Number";
   const billedToName = project?.clientName || "Client name";
   const billedToCompany = project?.invoiceBrandName || "";
   const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
@@ -375,12 +355,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
                 </View>
               )}
 
-              <View style={styles.brandText}>
-                {displayTagline ? <Text style={styles.brandTagline}>{displayTagline}</Text> : null}
-                {displayBrandName ? <Text style={styles.brandName}>{displayBrandName}</Text> : null}
-                {displayAddress ? <Text style={styles.brandDetail}>{displayAddress}</Text> : null}
-                {displayPhone ? <Text style={styles.brandDetail}>{displayPhone}</Text> : null}
-              </View>
+              {displayBrandName ? <Text style={styles.brandName}>{displayBrandName}</Text> : null}
             </View>
 
             <Text style={styles.invoiceTitle}>Invoice</Text>

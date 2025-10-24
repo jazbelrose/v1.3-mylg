@@ -9,11 +9,7 @@ import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
 
 interface UseInvoicePdfManagerOptions {
   project: InvoicePreviewModalProps["project"];
-  useProjectAddress: boolean;
   brandName: string;
-  brandTagline: string;
-  brandAddress: string;
-  brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
   invoiceNumber: string;
@@ -44,11 +40,7 @@ interface UseInvoicePdfManagerResult {
 
 export function useInvoicePdfManager({
   project,
-  useProjectAddress,
   brandName,
-  brandTagline,
-  brandAddress,
-  brandPhone,
   brandLogoKey,
   logoDataUrl,
   invoiceNumber,
@@ -80,13 +72,9 @@ export function useInvoicePdfManager({
   }, []);
 
   const buildPdfInvoiceElement = useCallback(() => {
-    const addressForPdf = useProjectAddress ? project?.address || "" : brandAddress;
     return (
       <PdfInvoice
         brandName={brandName || project?.company || ""}
-        brandTagline={brandTagline}
-        brandAddress={addressForPdf}
-        brandPhone={brandPhone}
         brandLogoKey={brandLogoKey}
         logoDataUrl={logoDataUrl}
         project={project}
@@ -106,11 +94,8 @@ export function useInvoicePdfManager({
       />
     );
   }, [
-    brandAddress,
     brandLogoKey,
     brandName,
-    brandPhone,
-    brandTagline,
     customerSummary,
     depositReceived,
     dueDate,
@@ -126,7 +111,6 @@ export function useInvoicePdfManager({
     serviceDate,
     subtotal,
     totalDue,
-    useProjectAddress,
   ]);
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
@@ -167,12 +151,8 @@ export function useInvoicePdfManager({
       pages,
       selectedPages,
       brandName,
-      brandTagline,
-      brandAddress,
-      brandPhone,
       brandLogoKey,
       logoDataUrl,
-      useProjectAddress,
       project,
       invoiceNumber,
       issueDate,
@@ -191,12 +171,8 @@ export function useInvoicePdfManager({
     pages,
     selectedPages,
     brandName,
-    brandTagline,
-    brandAddress,
-    brandPhone,
     brandLogoKey,
     logoDataUrl,
-    useProjectAddress,
     project,
     invoiceNumber,
     issueDate,

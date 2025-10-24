@@ -210,11 +210,7 @@ export function useInvoicePreviewModal({
     buildInvoiceHtmlPayload,
   } = useInvoicePdfManager({
     project,
-    useProjectAddress,
     brandName,
-    brandTagline,
-    brandAddress,
-    brandPhone,
     brandLogoKey,
     logoDataUrl,
     invoiceNumber,

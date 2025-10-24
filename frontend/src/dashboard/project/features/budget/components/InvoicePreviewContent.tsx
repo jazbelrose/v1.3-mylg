@@ -213,11 +213,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     () => brandName || project?.company || "",
     [brandName, project]
   );
-  const pdfBrandAddress = useMemo(
-    () => (useProjectAddress ? project?.address || "" : brandAddress),
-    [brandAddress, project, useProjectAddress]
-  );
-
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
     brandName,
     brandTagline,
@@ -486,11 +481,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
   const renderHeader = useCallback(() => {
     const displayBrandName = pdfBrandName || "Your Business Name";
-    const displayTagline = brandTagline || "Tagline";
-    const displayAddress = useProjectAddress
-      ? project?.address || "Project Address"
-      : brandAddress || "Business Address";
-    const displayPhone = brandPhone || "Phone Number";
     const displayInvoiceNumber = invoiceNumber || "0000";
     const displayIssueDate = issueDate || new Date().toLocaleDateString();
 
@@ -502,17 +492,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <div className="logo-upload">
                 {logoSrc ? <img src={logoSrc} alt="Company logo" /> : <span>Upload Logo</span>}
               </div>
-              <div className="brand-text">
-                {displayTagline ? <div className="brand-tagline">{displayTagline}</div> : null}
-                {displayBrandName ? <div className="brand-name">{displayBrandName}</div> : null}
-                {displayAddress ? <div className="brand-address">{displayAddress}</div> : null}
-                {displayPhone ? <div className="brand-phone">{displayPhone}</div> : null}
-                {project?.address ? (
-                  <div className="brand-toggle">
-                    {useProjectAddress ? "Using project address" : "Using saved address"}
-                  </div>
-                ) : null}
-              </div>
+              {displayBrandName ? <div className="brand-name">{displayBrandName}</div> : null}
             </div>
 
             <div className="invoice-title">Invoice</div>
@@ -559,27 +539,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </header>
       </div>
     );
-  }, [
-    brandAddress,
-    brandPhone,
-    brandTagline,
-    dueDate,
-    invoiceNumber,
-    issueDate,
-    logoSrc,
-    pdfBrandName,
-    project,
-    serviceDate,
-    useProjectAddress,
-  ]);
+  }, [dueDate, invoiceNumber, issueDate, logoSrc, pdfBrandName, project, serviceDate]);
 
   const pdfDocument = useMemo(
     () => (
       <PdfInvoice
         brandName={pdfBrandName}
-        brandTagline={brandTagline}
-        brandAddress={pdfBrandAddress}
-        brandPhone={brandPhone}
         brandLogoKey={brandLogoKey}
         logoDataUrl={logoDataUrl}
         project={project}
@@ -600,8 +565,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     ),
     [
       brandLogoKey,
-      brandPhone,
-      brandTagline,
       customerSummary,
       depositReceived,
       dueDate,
@@ -611,7 +574,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       logoDataUrl,
       notes,
       paymentSummary,
-      pdfBrandAddress,
       pdfBrandName,
       project,
       projectTitle,
@@ -693,15 +655,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px 20px 60px;box-sizing:border-box;position:relative;overflow-x:hidden;display:flex;flex-direction:column;}
         .invoice-header{display:flex;flex-direction:column;gap:12px;}
         .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;}
-        .brand-section{display:flex;align-items:flex-start;gap:16px;}
-        .brand-text{display:flex;flex-direction:column;gap:4px;}
+        .brand-section{display:flex;flex-direction:column;align-items:flex-start;gap:12px;}
         .logo-upload{width:100px;height:100px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
         .logo-upload img{max-width:100%;max-height:100%;object-fit:contain;}
-        .brand-tagline{font-size:1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;}
-        .brand-name{font-size:0.95rem;font-weight:500;}
-        .brand-address,.brand-phone{font-size:0.7rem;}
-        .brand-toggle{font-size:0.65rem;color:#666;margin-top:4px;}
-        .invoice-title{font-size:2rem;color:#FA3356;font-weight:bold;text-align:right;margin-left:auto;text-transform:uppercase;}
+        .brand-name{font-size:1.1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;}
+        .invoice-title{font-size:2.5rem;color:#FA3356;font-weight:800;text-align:right;margin-left:auto;text-transform:uppercase;letter-spacing:0.12em;}
         .invoice-divider{border:0;border-top:1px solid #ccc;margin:0;}
         .header-bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;font-size:0.85rem;}
         .bill-to{flex:1;display:flex;flex-direction:column;gap:2px;}

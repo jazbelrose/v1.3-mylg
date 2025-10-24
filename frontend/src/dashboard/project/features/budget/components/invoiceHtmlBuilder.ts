@@ -6,12 +6,8 @@ interface InvoiceHtmlBuilderOptions {
   pages: RowData[][];
   selectedPages: number[];
   brandName: string;
-  brandTagline: string;
-  brandAddress: string;
-  brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
-  useProjectAddress: boolean;
   project: InvoicePreviewModalProps["project"];
   invoiceNumber: string;
   issueDate: string;
@@ -27,30 +23,27 @@ interface InvoiceHtmlBuilderOptions {
   totalDue: number;
 }
 
-export function buildInvoiceHtml({
-  pages,
-  selectedPages,
-  brandName,
-  brandTagline,
-  brandAddress,
-  brandPhone,
-  brandLogoKey,
-  logoDataUrl,
-  useProjectAddress,
-  project,
-  invoiceNumber,
-  issueDate,
-  dueDate,
-  serviceDate,
-  projectTitle,
-  customerSummary,
-  invoiceSummary,
-  paymentSummary,
-  notes,
-  depositReceived,
-  subtotal,
-  totalDue,
-}: InvoiceHtmlBuilderOptions): string {
+export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
+  const {
+    pages,
+    selectedPages,
+    brandName,
+    brandLogoKey,
+    logoDataUrl,
+    project,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    serviceDate,
+    projectTitle,
+    customerSummary,
+    invoiceSummary,
+    paymentSummary,
+    notes,
+    depositReceived,
+    subtotal,
+    totalDue,
+  } = options;
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
 
@@ -75,9 +68,6 @@ export function buildInvoiceHtml({
         .join("");
 
       const headerName = brandName || project?.company || "Company Name";
-      const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
-      const headerPhone = brandPhone || "Phone";
-      const headerTag = brandTagline || "";
       const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
       const invNum = invoiceNumber || "";
@@ -124,12 +114,7 @@ export function buildInvoiceHtml({
               <div class="header-top">
                 <div class="brand-section">
                   <div class="logo-upload">${logoHtml}</div>
-                  <div class="brand-text">
-                    ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                    ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
-                    ${headerAddress ? `<div class="brand-address">${headerAddress}</div>` : ""}
-                    ${headerPhone ? `<div class="brand-phone">${headerPhone}</div>` : ""}
-                  </div>
+                  ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
                 </div>
                 <div class="invoice-title">INVOICE</div>
               </div>
