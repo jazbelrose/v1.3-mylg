@@ -31,7 +31,7 @@ interface PdfInvoiceProps {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 64,
+    paddingTop: 32,
     paddingBottom: 80,
     paddingLeft: 32,
     paddingRight: 32,
@@ -92,11 +92,11 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   invoiceTitle: {
-    fontSize: 32,
+    fontSize: 54,
     fontWeight: 800,
-    color: "#FA3356",
-    textTransform: "uppercase",
-    letterSpacing: 1.2,
+    color: "#000000",
+    
+    letterSpacing: 0.5,
   },
   headerRuleContainer: {
     display: "flex",
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     display: "flex",
     flexDirection: "row",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#dddddd",
     fontWeight: 700,
@@ -181,9 +181,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     fontWeight: 700,
   },
-  totals: {
-    alignSelf: "flex-end",
+  summarySection: {
     marginTop: 16,
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 24,
+  },
+  summarySectionNoNotes: {
+    justifyContent: "flex-end",
+  },
+  notesContainer: {
+    flex: 1,
+  },
+  totals: {
     minWidth: 200,
     display: "flex",
     flexDirection: "column",
@@ -202,7 +214,6 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
   notes: {
-    marginTop: 16,
     fontSize: 10,
     lineHeight: 1.5,
   },
@@ -408,22 +419,31 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
           })}
         </View>
 
-        <View style={styles.totals} wrap={false}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Deposit received</Text>
-            <Text style={styles.totalValue}>{formatCurrency(depositReceived)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Due</Text>
-            <Text style={styles.totalValue}>{formatCurrency(totalDue)}</Text>
+        <View
+          style={[styles.summarySection, !notesText ? styles.summarySectionNoNotes : null]}
+          wrap={false}
+        >
+          {notesText ? (
+            <View style={styles.notesContainer}>
+              <Text style={styles.notes}>{notesText}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.totals}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Deposit received</Text>
+              <Text style={styles.totalValue}>{formatCurrency(depositReceived)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Due</Text>
+              <Text style={styles.totalValue}>{formatCurrency(totalDue)}</Text>
+            </View>
           </View>
         </View>
-
-        {notesText ? <Text style={styles.notes}>{notesText}</Text> : null}
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
