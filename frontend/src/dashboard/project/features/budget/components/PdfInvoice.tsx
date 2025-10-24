@@ -37,13 +37,13 @@ interface PdfInvoiceProps {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 32,
-    paddingBottom: 64,
+    paddingTop: 64,
+    paddingBottom: 80,
     paddingLeft: 32,
     paddingRight: 32,
     fontFamily: "Helvetica",
     fontSize: 10,
-    lineHeight: 1.4,
+   
     color: "#1a1a1a",
   },
   header: {
@@ -200,49 +200,15 @@ const styles = StyleSheet.create({
     color: "#666666",
   },
   pageNumber: {
-    position: "absolute",
-    bottom: 16,
+    position: 'absolute',
+    fontSize: 10,
+    bottom: 30,
     left: 0,
     right: 0,
-    fontSize: 9,
-    color: "#666666",
-    textAlign: "center",
-    zIndex: -1,
+    textAlign: 'center',
+    color: 'grey',
   },
-  pageNumberBottom: {
-    marginTop: 20,
-    fontSize: 9,
-    color: "#666666",
-    textAlign: "center",
-  },
-  pageNumberWrapper: {
-    position: "absolute",
-    bottom: 16,
-    left: 0,
-    right: 0,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pageNumberText: {
-    fontSize: 9,
-    color: "#666666",
-    textAlign: "center",
-  },
-  footerFixed: {
-    position: "absolute",
-    left: 32,
-    right: 32,
-    bottom: 16,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footerText: {
-    fontSize: 9,
-    color: "#666666",
-    textAlign: "center",
-  },
+
 });
 
 type PdfRowSegment =
@@ -437,12 +403,11 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
-        <View style={styles.footerFixed} fixed>
-          <Text
-            style={[styles.footerText, { position: "absolute", left: 0, right: 0 }]}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
+        
+            <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (
+        `${pageNumber} / ${totalPages}`
+      )} fixed />
+        
       </Page>
     </Document>
   );
