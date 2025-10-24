@@ -113,6 +113,16 @@
   gap: 8px;
 }
 
+.field-grid-two-column {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.field-grid-two-column .form-group {
+  margin-bottom: 0;
+}
+
 .role-display {
   display: flex;
   align-items: center;
@@ -171,7 +181,7 @@ input[type="file"] {
 /* .thumbnail-icon consolidated in project-containers.css */
 /* Responsive */
 @media (max-width: 1920px) {
-  .settings-container { padding: 0 20px; }
+  .settings-container { padding: 32px 32px; }
 }
 
 @media (max-width: var(--breakpoint-lg)) {

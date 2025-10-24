@@ -18,6 +18,10 @@ interface UserData extends Record<string, unknown> {
   firstName?: string;
   lastName?: string;
   company?: string;
+  companyAddress?: string;
+  companyCity?: string;
+  companyState?: string;
+  companyZip?: string;
   email?: string;
   phoneNumber?: string;
   thumbnail?: string;
@@ -30,6 +34,10 @@ interface FormDataShape {
   firstName: string;
   lastName: string;
   company: string;
+  companyAddress: string;
+  companyCity: string;
+  companyState: string;
+  companyZip: string;
   email: string;
   phoneNumber: string;
   thumbnail: string;
@@ -49,13 +57,29 @@ const Settings: React.FC = () => {
     firstName: userData?.firstName || "",
     lastName: userData?.lastName || "",
     company: userData?.company || "",
+    companyAddress: userData?.companyAddress || "",
+    companyCity: userData?.companyCity || "",
+    companyState: userData?.companyState || "",
+    companyZip: userData?.companyZip || "",
     email: userData?.email || "",
     phoneNumber: userData?.phoneNumber || "",
     thumbnail: userData?.thumbnail || "",
     occupation: userData?.occupation || "",
   });
 
-  const { firstName, lastName, company, email, phoneNumber, occupation, thumbnail } = formData;
+  const {
+    firstName,
+    lastName,
+    company,
+    companyAddress,
+    companyCity,
+    companyState,
+    companyZip,
+    email,
+    phoneNumber,
+    occupation,
+    thumbnail,
+  } = formData;
 
   const [oldPassword, setOldPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
@@ -91,6 +115,10 @@ const Settings: React.FC = () => {
       firstName: userData?.firstName || "",
       lastName: userData?.lastName || "",
       company: userData?.company || "",
+      companyAddress: userData?.companyAddress || "",
+      companyCity: userData?.companyCity || "",
+      companyState: userData?.companyState || "",
+      companyZip: userData?.companyZip || "",
       email: userData?.email || "",
       phoneNumber: userData?.phoneNumber || "",
       occupation: userData?.occupation || "",
@@ -148,6 +176,10 @@ const Settings: React.FC = () => {
       firstName: userData?.firstName || "",
       lastName: userData?.lastName || "",
       company: userData?.company || "",
+      companyAddress: userData?.companyAddress || "",
+      companyCity: userData?.companyCity || "",
+      companyState: userData?.companyState || "",
+      companyZip: userData?.companyZip || "",
       email: userData?.email || "",
       phoneNumber: userData?.phoneNumber || "",
       occupation: userData?.occupation || "",
@@ -299,6 +331,32 @@ const Settings: React.FC = () => {
                 value={company}
                 onChange={(v: string) => setFormData((p) => ({ ...p, company: v }))}
               />
+              <EditableTextField
+                id="companyAddress"
+                label="Address"
+                value={companyAddress}
+                onChange={(v: string) => setFormData((p) => ({ ...p, companyAddress: v }))}
+              />
+              <EditableTextField
+                id="companyCity"
+                label="City"
+                value={companyCity}
+                onChange={(v: string) => setFormData((p) => ({ ...p, companyCity: v }))}
+              />
+              <div className="field-grid-two-column">
+                <EditableTextField
+                  id="companyState"
+                  label="State"
+                  value={companyState}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, companyState: v }))}
+                />
+                <EditableTextField
+                  id="companyZip"
+                  label="Zip Code"
+                  value={companyZip}
+                  onChange={(v: string) => setFormData((p) => ({ ...p, companyZip: v }))}
+                />
+              </div>
               <EditableTextField
                 id="occupation"
                 label="Occupation"
