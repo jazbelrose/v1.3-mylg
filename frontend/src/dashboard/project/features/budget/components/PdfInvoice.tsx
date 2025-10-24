@@ -38,10 +38,12 @@ interface PdfInvoiceProps {
 const styles = StyleSheet.create({
   page: {
     padding: 32,
+    paddingBottom: 64,
     fontFamily: "Helvetica",
     fontSize: 10,
     lineHeight: 1.4,
     color: "#1a1a1a",
+    position: "relative",
   },
   header: {
     display: "flex",
@@ -196,12 +198,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#666666",
   },
-  pageNumber: {
+  pageNumberContainer: {
     position: "absolute",
     bottom: 24,
-    left: 0,
-    right: 0,
-    textAlign: "center",
+    left: 32,
+    right: 32,
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  pageNumberText: {
     fontSize: 9,
     color: "#666666",
   },
@@ -399,11 +405,12 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          fixed
-        />
+        <View style={styles.pageNumberContainer} fixed>
+          <Text
+            style={styles.pageNumberText}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>
       </Page>
     </Document>
   );
