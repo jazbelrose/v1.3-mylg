@@ -37,7 +37,10 @@ interface PdfInvoiceProps {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 32,
+    paddingTop: 32,
+    paddingBottom: 64,
+    paddingLeft: 32,
+    paddingRight: 32,
     fontFamily: "Helvetica",
     fontSize: 10,
     lineHeight: 1.4,
@@ -434,15 +437,13 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
 
         {project?.company ? <Text style={styles.footer}>{project.company}</Text> : null}
 
-        <View style={{ height: 28 }} />
-
-        <View style={styles.footerFixed} fixed wrap={false}>
-          
+        <View style={styles.footerFixed} fixed>
           <Text
             style={[styles.footerText, { position: "absolute", left: 0, right: 0 }]}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
           />
-        </View>      </Page>
+        </View>
+      </Page>
     </Document>
   );
 };
