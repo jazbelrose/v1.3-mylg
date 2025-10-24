@@ -29,7 +29,6 @@ const ClientInvoicePreviewModal: React.FC<ClientInvoicePreviewModalProps> = ({
     onRequestClose={onRequestClose}
     revision={revision}
     project={project}
-    showSidebar={false}
     allowSave={false}
     itemsOverride={items as Array<Record<string, unknown>> | null}
   />

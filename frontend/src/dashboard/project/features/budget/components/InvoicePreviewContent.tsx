@@ -5,6 +5,8 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { pdf as createPdf } from "@react-pdf/renderer";
 
 import { getFileUrl } from "@/shared/utils/api";
@@ -12,7 +14,12 @@ import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 import PdfInvoice from "./PdfInvoice";
 import styles from "./invoice-preview-modal.module.css";
-import type { ProjectLike, RowData } from "./invoicePreviewTypes";
+import type {
+  GroupField,
+  ProjectLike,
+  RowData,
+  SavedInvoice,
+} from "./invoicePreviewTypes";
 import { formatCurrency } from "./invoicePreviewUtils";
 
 interface InvoicePreviewContentProps {
@@ -21,6 +28,27 @@ interface InvoicePreviewContentProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
   allowSave: boolean;
   onSaveInvoice: () => void;
+  groupFields: Array<{ label: string; value: GroupField }>;
+  groupField: GroupField;
+  onGroupFieldChange: (value: GroupField) => void;
+  groupOptions: string[];
+  groupValues: string[];
+  onToggleGroupValue: (value: string) => void;
+  onToggleAllGroupValues: (checked: boolean) => void;
+  pages: RowData[][];
+  selectedPages: number[];
+  onTogglePage: (index: number) => void;
+  onToggleAllPages: (checked: boolean) => void;
+  savedInvoices: SavedInvoice[];
+  selectedInvoices: Set<string>;
+  onToggleInvoice: (url: string) => void;
+  onSelectAllInvoices: (checked: boolean) => void;
+  onLoadInvoice: (url: string) => void;
+  onDeleteInvoice: (url: string) => void;
+  onDeleteSelected: () => void;
+  isDirty: boolean;
+  onSaveHeader: () => void;
+  showSaved: boolean;
   logoDataUrl: string | null;
   brandLogoKey: string;
   onLogoSelect: React.ChangeEventHandler<HTMLInputElement>;
@@ -110,6 +138,27 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   fileInputRef,
   allowSave,
   onSaveInvoice,
+  groupFields,
+  groupField,
+  onGroupFieldChange,
+  groupOptions,
+  groupValues,
+  onToggleGroupValue,
+  onToggleAllGroupValues,
+  pages,
+  selectedPages,
+  onTogglePage,
+  onToggleAllPages,
+  savedInvoices,
+  selectedInvoices,
+  onToggleInvoice,
+  onSelectAllInvoices,
+  onLoadInvoice,
+  onDeleteInvoice,
+  onDeleteSelected,
+  isDirty,
+  onSaveHeader,
+  showSaved,
   logoDataUrl,
   brandLogoKey,
   onLogoSelect,
@@ -805,6 +854,21 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 onChange={(e) => updateDraftField("brandPhone", e.target.value)}
               />
             </div>
+
+            {isDirty ? (
+              <button
+                type="button"
+                className={styles.headerSaveButton}
+                onClick={onSaveHeader}
+              >
+                Save as my default invoice header
+              </button>
+            ) : null}
+            {showSaved ? (
+              <div className={styles.savedMsg} role="status">
+                Header info saved! Future invoices will use this by default.
+              </div>
+            ) : null}
           </div>
 
           <div className={styles.formSection}>
@@ -903,6 +967,58 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>
+              <span className={styles.formSectionTitle}>Grouping</span>
+              <span className={styles.helperText}>
+                Group By options are applied directly to the PDF preview and export.
+              </span>
+            </div>
+
+            <div className={styles.formRow}>
+              <label htmlFor="invoice-group-field">Group By:</label>
+              <select
+                id="invoice-group-field"
+                className={styles.selectInput}
+                value={groupField}
+                onChange={(event) => onGroupFieldChange(event.target.value as GroupField)}
+              >
+                {groupFields.map((field) => (
+                  <option key={field.value} value={field.value}>
+                    {field.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {groupOptions.length > 0 ? (
+              <div className={styles.groupSelect} role="group" aria-label="Groups">
+                <label className={styles.groupItem}>
+                  <input
+                    type="checkbox"
+                    checked={groupValues.length === groupOptions.length}
+                    onChange={(event) => onToggleAllGroupValues(event.target.checked)}
+                  />
+                  Select All
+                </label>
+                {groupOptions.map((value) => (
+                  <label key={value} className={styles.groupItem}>
+                    <input
+                      type="checkbox"
+                      checked={groupValues.includes(value)}
+                      onChange={() => onToggleGroupValue(value)}
+                    />
+                    {value}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.helperText}>
+                No groups available for the selected field.
+              </div>
+            )}
+          </div>
+
+          <div className={styles.formSection}>
+            <div className={styles.formSectionHeader}>
               <span className={styles.formSectionTitle}>Totals</span>
             </div>
             <div className={styles.formGrid}>
@@ -937,6 +1053,92 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               </div>
             </div>
           </div>
+
+          {pages.length > 0 ? (
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Pages</span>
+                <span className={styles.helperText}>
+                  Choose which pages to include when generating PDFs or saving HTML copies.
+                </span>
+              </div>
+              <div className={styles.groupSelect} role="group" aria-label="Pages">
+                <label className={styles.groupItem}>
+                  <input
+                    type="checkbox"
+                    checked={selectedPages.length === pages.length}
+                    onChange={(event) => onToggleAllPages(event.target.checked)}
+                  />
+                  Select All Pages
+                </label>
+                {pages.map((_, index) => (
+                  <label key={index} className={styles.groupItem}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPages.includes(index)}
+                      onChange={() => onTogglePage(index)}
+                    />
+                    Page {index + 1}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {savedInvoices.length > 0 ? (
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Saved Invoices</span>
+                <span className={styles.helperText}>
+                  Load previous exports or remove the ones you no longer need.
+                </span>
+              </div>
+              <label className={styles.groupItem}>
+                <input
+                  type="checkbox"
+                  checked={selectedInvoices.size === savedInvoices.length}
+                  onChange={(event) => onSelectAllInvoices(event.target.checked)}
+                />
+                Select All
+              </label>
+              <div className={styles.invoiceList}>
+                {savedInvoices.map((inv, index) => (
+                  <div key={inv.url} className={styles.invoiceRow}>
+                    <input
+                      type="checkbox"
+                      checked={selectedInvoices.has(inv.url)}
+                      onChange={() => onToggleInvoice(inv.url)}
+                    />
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={() => onLoadInvoice(inv.url)}
+                      title="Load invoice"
+                    >
+                      {inv.name || `Invoice ${index + 1}`}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.iconButton}
+                      onClick={() => onDeleteInvoice(inv.url)}
+                      aria-label={`Delete ${inv.name || "invoice"}`}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {selectedInvoices.size > 0 ? (
+                <button
+                  type="button"
+                  className={styles.deleteSelectedButton}
+                  onClick={onDeleteSelected}
+                >
+                  <FontAwesomeIcon icon={faTrash} /> Delete Selected
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>

@@ -46,7 +46,6 @@ export interface InvoicePreviewModalProps {
   onRequestClose: () => void;
   revision: RevisionLike;
   project?: ProjectLike | null;
-  showSidebar?: boolean;
   allowSave?: boolean;
   itemsOverride?: BudgetItem[] | null;
 }

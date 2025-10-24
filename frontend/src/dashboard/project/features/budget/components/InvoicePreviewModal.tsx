@@ -4,7 +4,6 @@ import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 
 import InvoiceModalHeader from "./InvoiceModalHeader";
-import InvoiceSidebar from "./InvoiceSidebar";
 import InvoicePreviewContent from "./InvoicePreviewContent";
 import styles from "./invoice-preview-modal.module.css";
 import type { InvoicePreviewModalProps } from "./invoicePreviewTypes";
@@ -20,7 +19,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   onRequestClose,
   revision,
   project,
-  showSidebar = true,
   allowSave = true,
   itemsOverride = null,
 }) => {
@@ -131,36 +129,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <div className={styles.emptyPlaceholder}>No budget line items available</div>
           ) : (
             <Fragment>
-              <div
-                className={styles.contentRow}
-                style={showSidebar ? undefined : { minWidth: "850px" }}
-              >
-                {showSidebar && (
-                  <InvoiceSidebar
-                    groupFields={groupFields}
-                    groupField={groupField}
-                    onGroupFieldChange={handleGroupFieldChange}
-                    groupOptions={groupOptions}
-                    groupValues={groupValues}
-                    onToggleGroupValue={handleToggleGroupValue}
-                    onToggleAllGroupValues={handleToggleAllGroupValues}
-                    pages={pages}
-                    selectedPages={selectedPages}
-                    onTogglePage={handleTogglePage}
-                    onToggleAllPages={handleToggleAllPages}
-                    savedInvoices={savedInvoices}
-                    selectedInvoices={selectedInvoices}
-                    onToggleInvoice={toggleInvoiceSelect}
-                    onSelectAllInvoices={selectAllInvoices}
-                    onLoadInvoice={loadInvoice}
-                    onDeleteInvoice={handleDeleteInvoice}
-                    onDeleteSelected={handleDeleteSelectedInvoices}
-                    isDirty={isDirty}
-                    onSaveHeader={handleSaveHeader}
-                    showSaved={showSaved}
-                  />
-                )}
-
+              <div className={styles.contentRow}>
                 <InvoicePreviewContent
                   invoiceRef={invoiceRef}
                   previewRef={previewRef}
@@ -171,6 +140,27 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   brandLogoKey={brandLogoKey}
                   onLogoSelect={handleLogoSelect}
                   onLogoDrop={handleLogoDrop}
+                  groupFields={groupFields}
+                  groupField={groupField}
+                  onGroupFieldChange={handleGroupFieldChange}
+                  groupOptions={groupOptions}
+                  groupValues={groupValues}
+                  onToggleGroupValue={handleToggleGroupValue}
+                  onToggleAllGroupValues={handleToggleAllGroupValues}
+                  pages={pages}
+                  selectedPages={selectedPages}
+                  onTogglePage={handleTogglePage}
+                  onToggleAllPages={handleToggleAllPages}
+                  savedInvoices={savedInvoices}
+                  selectedInvoices={selectedInvoices}
+                  onToggleInvoice={toggleInvoiceSelect}
+                  onSelectAllInvoices={selectAllInvoices}
+                  onLoadInvoice={loadInvoice}
+                  onDeleteInvoice={handleDeleteInvoice}
+                  onDeleteSelected={handleDeleteSelectedInvoices}
+                  isDirty={isDirty}
+                  onSaveHeader={handleSaveHeader}
+                  showSaved={showSaved}
                   brandName={brandName}
                   onBrandNameBlur={handleBrandNameBlur}
                   brandTagline={brandTagline}
