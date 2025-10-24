@@ -322,7 +322,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
     const unitPrice = quantity ? amount / quantity : amount;
 
     return (
-      <View key={key} style={styles.tableRow} wrap>
+      <View key={key} style={styles.tableRow} wrap={false}>
         <Text style={[styles.tableCell, styles.descriptionColumn]}>{item.description || ""}</Text>
         <Text style={[styles.tableCell, styles.numericColumn]}>{quantity ? quantity.toString() : ""}</Text>
         <Text style={[styles.tableCell, styles.numericColumn]}>{item.unit || ""}</Text>
