@@ -14,9 +14,6 @@ import { getFileUrl } from "@/shared/utils/api";
 
 interface PdfInvoiceProps {
   brandName: string;
-  brandTagline: string;
-  brandAddress: string;
-  brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
   project?: ProjectLike | null;
@@ -25,9 +22,6 @@ interface PdfInvoiceProps {
   dueDate: string;
   serviceDate: string;
   projectTitle: string;
-  customerSummary: string;
-  invoiceSummary: string;
-  paymentSummary: string;
   rows: RowData[];
   subtotal: number;
   depositReceived: number;
@@ -48,10 +42,23 @@ const styles = StyleSheet.create({
   },
   header: {
     display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    marginBottom: 16,
+  },
+  headerTop: {
+    display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: 16,
-    marginBottom: 16,
+  },
+  brandSection: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 10,
+    flexShrink: 0,
   },
   logo: {
     width: 72,
@@ -70,19 +77,11 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#777777",
   },
-  companyInfo: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  },
   brandName: {
     fontSize: 14,
     fontWeight: 700,
-  },
-  brandTagline: {
-    fontSize: 9,
-    color: "#555555",
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
   },
   invoiceMeta: {
     display: "flex",
@@ -90,22 +89,37 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 4,
     fontSize: 9,
+    textAlign: "right",
   },
   invoiceTitle: {
-    fontSize: 20,
-    fontWeight: 700,
+    fontSize: 26,
+    fontWeight: 800,
     color: "#FA3356",
-    marginBottom: 3,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
   },
-  summary: {
+  headerDivider: {
+    height: 1,
+    backgroundColor: "#dddddd",
+    width: "100%",
+  },
+  headerBottom: {
     display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 12,
+    alignItems: "flex-start",
+    gap: 28,
+    fontSize: 9,
   },
-  summaryColumn: {
+  billTo: {
     flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  billToLabel: {
+    fontWeight: 700,
+    marginBottom: 2,
   },
   projectTitle: {
     fontSize: 16,
@@ -256,28 +270,23 @@ const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string =>
   return getFileUrl(brandLogoKey);
 };
 
-const PdfInvoice: React.FC<PdfInvoiceProps> = ({
-  brandName,
-  brandTagline,
-  brandAddress,
-  brandPhone,
-  brandLogoKey,
-  logoDataUrl,
-  project,
-  invoiceNumber,
-  issueDate,
-  dueDate,
-  serviceDate,
-  projectTitle,
-  customerSummary,
-  invoiceSummary,
-  paymentSummary,
-  rows,
-  subtotal,
-  depositReceived,
-  totalDue,
-  notes,
-}) => {
+const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
+  const {
+    brandName,
+    brandLogoKey,
+    logoDataUrl,
+    project,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    serviceDate,
+    projectTitle,
+    rows,
+    subtotal,
+    depositReceived,
+    totalDue,
+    notes,
+  } = props;
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
   const notesText = useMemo(() => toPlainText(notes), [notes]);
   const logoSrc = useMemo(() => getLogoSrc(logoDataUrl, brandLogoKey), [logoDataUrl, brandLogoKey]);
@@ -298,47 +307,62 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
     );
   };
 
+  const displayBrandName = brandName.trim();
+  const billedToName = project?.clientName || "Client name";
+  const billedToCompany = project?.invoiceBrandName || "";
+  const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
+  const billedToEmail = project?.clientEmail || "";
+  const billedToPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
+  const projectTitleForMeta = projectTitle || project?.title || "";
+  const displayProjectTitle = projectTitle || project?.title || "Project Title";
+  const displayInvoiceNumber = invoiceNumber || "0000";
+  const displayIssueDate = issueDate || new Date().toLocaleDateString();
+
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
         <View style={styles.header} fixed>
-          {logoSrc ? (
-            <Image src={logoSrc} style={styles.logo} />
-          ) : (
-            <View style={styles.logoPlaceholder}>
-              <Text style={styles.logoPlaceholderText}>Upload Logo</Text>
+          <View style={styles.headerTop}>
+            <View style={styles.brandSection}>
+              {logoSrc ? (
+                <Image src={logoSrc} style={styles.logo} />
+              ) : (
+                <View style={styles.logoPlaceholder}>
+                  <Text style={styles.logoPlaceholderText}>Upload Logo</Text>
+                </View>
+              )}
+
+              {displayBrandName ? <Text style={styles.brandName}>{displayBrandName}</Text> : null}
             </View>
-          )}
 
-          <View style={styles.companyInfo}>
-            <Text style={styles.brandName}>{brandName || project?.company || ""}</Text>
-            {brandTagline ? <Text style={styles.brandTagline}>{brandTagline}</Text> : null}
-            {brandAddress ? <Text>{brandAddress}</Text> : null}
-            {brandPhone ? <Text>{brandPhone}</Text> : null}
-          </View>
-
-          <View style={styles.invoiceMeta}>
             <Text style={styles.invoiceTitle}>Invoice</Text>
-            <Text>Invoice #: {invoiceNumber}</Text>
-            <Text>Issue date: {issueDate}</Text>
-            {dueDate ? <Text>Due date: {dueDate}</Text> : null}
-            {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
           </View>
+
+          <View style={styles.headerDivider} />
+
+          <View style={styles.headerBottom}>
+            <View style={styles.billTo}>
+              <Text style={styles.billToLabel}>Billed To:</Text>
+              <Text>{billedToName}</Text>
+              {billedToCompany ? <Text>{billedToCompany}</Text> : null}
+              <Text>{billedToAddress}</Text>
+              {billedToEmail ? <Text>{billedToEmail}</Text> : null}
+              {billedToPhone ? <Text>{billedToPhone}</Text> : null}
+            </View>
+
+            <View style={styles.invoiceMeta}>
+              <Text>Invoice #: {displayInvoiceNumber}</Text>
+              {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
+              <Text>Issue date: {displayIssueDate}</Text>
+              {dueDate ? <Text>Due date: {dueDate}</Text> : null}
+              {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
+            </View>
+          </View>
+
+          <View style={styles.headerDivider} />
         </View>
 
-        <Text style={styles.projectTitle}>{projectTitle}</Text>
-
-        <View style={styles.summary}>
-          <View style={styles.summaryColumn}>
-            <Text>{customerSummary}</Text>
-          </View>
-          <View style={styles.summaryColumn}>
-            <Text>{invoiceSummary}</Text>
-          </View>
-          <View style={styles.summaryColumn}>
-            <Text>{paymentSummary}</Text>
-          </View>
-        </View>
+        <Text style={styles.projectTitle}>{displayProjectTitle}</Text>
 
         <View style={styles.divider} />
 

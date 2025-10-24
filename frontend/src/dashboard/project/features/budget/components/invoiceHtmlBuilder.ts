@@ -6,51 +6,38 @@ interface InvoiceHtmlBuilderOptions {
   pages: RowData[][];
   selectedPages: number[];
   brandName: string;
-  brandTagline: string;
-  brandAddress: string;
-  brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
-  useProjectAddress: boolean;
   project: InvoicePreviewModalProps["project"];
   invoiceNumber: string;
   issueDate: string;
   dueDate: string;
   serviceDate: string;
   projectTitle: string;
-  customerSummary: string;
-  invoiceSummary: string;
-  paymentSummary: string;
   notes: string;
   depositReceived: number;
   subtotal: number;
   totalDue: number;
 }
 
-export function buildInvoiceHtml({
-  pages,
-  selectedPages,
-  brandName,
-  brandTagline,
-  brandAddress,
-  brandPhone,
-  brandLogoKey,
-  logoDataUrl,
-  useProjectAddress,
-  project,
-  invoiceNumber,
-  issueDate,
-  dueDate,
-  serviceDate,
-  projectTitle,
-  customerSummary,
-  invoiceSummary,
-  paymentSummary,
-  notes,
-  depositReceived,
-  subtotal,
-  totalDue,
-}: InvoiceHtmlBuilderOptions): string {
+export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
+  const {
+    pages,
+    selectedPages,
+    brandName,
+    brandLogoKey,
+    logoDataUrl,
+    project,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    serviceDate,
+    projectTitle,
+    notes,
+    depositReceived,
+    subtotal,
+    totalDue,
+  } = options;
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
 
@@ -74,14 +61,11 @@ export function buildInvoiceHtml({
         )
         .join("");
 
-      const headerName = brandName || project?.company || "Company Name";
-      const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
-      const headerPhone = brandPhone || "Phone";
-      const headerTag = brandTagline || "";
+      const headerName = brandName.trim();
       const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
-      const invNum = invoiceNumber || "";
-      const issue = issueDate || "";
+      const invNum = invoiceNumber || "0000";
+      const issue = issueDate || new Date().toLocaleDateString();
       const due = dueDate || "";
       const service = serviceDate || "";
 
@@ -91,18 +75,16 @@ export function buildInvoiceHtml({
       const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
       const billEmail = project?.clientEmail || "";
 
-      const projTitle = projectTitle || "";
-      const custSum = customerSummary || "";
-      const invSum = invoiceSummary || "";
-      const paySum = paymentSummary || "";
+      const projTitle = projectTitle || project?.title || "";
+      const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
 
       const deposit = formatCurrency(depositReceived);
       const total = formatCurrency(totalDue);
 
       const logoHtml = logoSrc
-        ? `<img src="${logoSrc}" alt="logo" style="max-width:100px;max-height:100px" />`
-        : "";
+        ? `<img src="${logoSrc}" alt="logo" />`
+        : `<span>Upload Logo</span>`;
 
       const totalsHtml =
         idx === pages.length - 1
@@ -121,35 +103,35 @@ export function buildInvoiceHtml({
         <div class="invoice-page invoice-container">
           <div class="invoice-top">
             <div class="invoice-header">
-              <div>${logoHtml}</div>
-              <div class="company-info">
-                <div class="brand-name">${headerName}</div>
-                ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                <div class="brand-address">${headerAddress}</div>
-                <div class="brand-phone">${headerPhone}</div>
+              <div class="header-top">
+                <div class="brand-section">
+                  <div class="logo-upload">${logoHtml}</div>
+                  ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
+                </div>
+                <div class="invoice-title">INVOICE</div>
               </div>
-              <div class="invoice-title">INVOICE</div>
-            </div>
-            <div class="billing-info">
-              <div>
-                <strong>Bill To:</strong>
-                <div>${billContact}</div>
-                <div>${billCompany}</div>
-                <div>${billAddress}</div>
-                ${billPhone ? `<div>${billPhone}</div>` : ""}
-                ${billEmail ? `<div>${billEmail}</div>` : ""}
+              <hr class="invoice-divider" />
+              <div class="header-bottom">
+                <div class="bill-to">
+                  <strong>Billed To:</strong>
+                  <div>${billContact}</div>
+                  <div>${billCompany}</div>
+                  <div>${billAddress}</div>
+                  ${billPhone ? `<div>${billPhone}</div>` : ""}
+                  ${billEmail ? `<div>${billEmail}</div>` : ""}
+                </div>
+                <div class="invoice-meta">
+                  ${invNum ? `<div>Invoice #: <span>${invNum}</span></div>` : ""}
+                  ${projTitleMeta ? `<div>${projTitleMeta}</div>` : ""}
+                  ${issue ? `<div>Issue date: <span>${issue}</span></div>` : ""}
+                  ${due ? `<div>Due date: <span>${due}</span></div>` : ""}
+                  ${service ? `<div>Service date: <span>${service}</span></div>` : ""}
+                </div>
               </div>
-              <div>
-                <div>Invoice #: <span>${invNum}</span></div>
-                <div>Issue date: <span>${issue}</span></div>
-                <div>Due date: <span>${due}</span></div>
-                <div>Service date: <span>${service}</span></div>
-              </div>
+              <hr class="invoice-divider" />
             </div>
           </div>
           <h1 class="project-title">${projTitle}</h1>
-          <div class="summary"><div>${custSum}</div><div>${invSum}</div><div>${paySum}</div></div>
-          <hr class="summary-divider" />
           <div class="items-table-wrapper">
             <table class="items-table">
               <thead>

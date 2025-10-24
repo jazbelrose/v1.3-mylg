@@ -209,15 +209,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     return "";
   }, [brandLogoKey, logoDataUrl]);
 
-  const pdfBrandName = useMemo(
-    () => brandName || project?.company || "",
-    [brandName, project]
-  );
-  const pdfBrandAddress = useMemo(
-    () => (useProjectAddress ? project?.address || "" : brandAddress),
-    [brandAddress, project, useProjectAddress]
-  );
-
+  const pdfBrandName = useMemo(() => brandName.trim(), [brandName]);
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
     brandName,
     brandTagline,
@@ -432,15 +424,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const renderSummary = useCallback(
     (rows: RowData[], rowsKeyPrefix: string) => (
       <>
-        <h1 className="project-title">{projectTitle || "Project Title"}</h1>
-
-        <div className="summary">
-          <div>{customerSummary || "Customer"}</div>
-          <div>{invoiceSummary || "Invoice Details"}</div>
-          <div>{paymentSummary || "Payment"}</div>
-        </div>
-
-        <hr className="summary-divider" />
+        <h1 className="project-title">{projectTitle || project?.title || "Project Title"}</h1>
 
         <div className="items-table-wrapper">
           <table className="items-table">
@@ -481,44 +465,45 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </>
     ),
-    [customerSummary, invoiceSummary, paymentSummary, projectTitle]
+    [project, projectTitle]
   );
 
   const renderHeader = useCallback(() => {
-    const displayBrandName = pdfBrandName || "Your Business Name";
-    const displayTagline = brandTagline || "Tagline";
-    const displayAddress = useProjectAddress
-      ? project?.address || "Project Address"
-      : brandAddress || "Business Address";
-    const displayPhone = brandPhone || "Phone Number";
+    const displayBrandName = pdfBrandName;
     const displayInvoiceNumber = invoiceNumber || "0000";
     const displayIssueDate = issueDate || new Date().toLocaleDateString();
+    const displayProjectTitle = projectTitle || project?.title || "";
 
     return (
       <div className="invoice-top">
         <header className="invoice-header">
-          <div className="logo-upload">
-            {logoSrc ? <img src={logoSrc} alt="Company logo" /> : <span>Upload Logo</span>}
+          <div className="header-top">
+            <div className="brand-section">
+              <div className="logo-upload">
+                {logoSrc ? <img src={logoSrc} alt="Company logo" /> : <span>Upload Logo</span>}
+              </div>
+              {displayBrandName ? <div className="brand-name">{displayBrandName}</div> : null}
+            </div>
+
+            <div className="invoice-title">Invoice</div>
           </div>
 
-          <div className="company-block">
-            <div className="company-info">
-              <div className="brand-name">{displayBrandName}</div>
-              {displayTagline ? <div className="brand-tagline">{displayTagline}</div> : null}
-              {displayAddress ? <div className="brand-address">{displayAddress}</div> : null}
-              {displayPhone ? <div className="brand-phone">{displayPhone}</div> : null}
-              {project?.address ? (
-                <div className="brand-toggle">
-                  {useProjectAddress ? "Using project address" : "Using saved address"}
-                </div>
-              ) : null}
+          <hr className="invoice-divider" />
+
+          <div className="header-bottom">
+            <div className="bill-to">
+              <strong>Billed To:</strong>
+              <div>{project?.clientName || "Client name"}</div>
+              <div>{project?.clientAddress || "Client address"}</div>
+              <div>{project?.clientEmail || ""}</div>
+              <div>{project?.clientPhone || ""}</div>
             </div>
 
             <div className="invoice-meta">
-              <div className="invoice-title">Invoice</div>
               <div>
                 Invoice #: <span>{displayInvoiceNumber}</span>
               </div>
+              {displayProjectTitle ? <div>{displayProjectTitle}</div> : null}
               <div>
                 Issue date: <span>{displayIssueDate}</span>
               </div>
@@ -534,45 +519,26 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               ) : null}
             </div>
           </div>
-        </header>
 
-        <div className="billing-info">
-          <div>
-            <strong>Bill To:</strong>
-            <div>{project?.clientName || "Client name"}</div>
-            <div>{project?.clientAddress || "Client address"}</div>
-            <div>{project?.clientEmail || ""}</div>
-            <div>{project?.clientPhone || ""}</div>
-          </div>
-          <div>
-            <strong>Project:</strong>
-            <div>{project?.title || "Project Title"}</div>
-            <div>{project?.projectId ? `ID: ${project.projectId}` : ""}</div>
-          </div>
-        </div>
+          <hr className="invoice-divider" />
+        </header>
       </div>
     );
   }, [
-    brandAddress,
-    brandPhone,
-    brandTagline,
     dueDate,
     invoiceNumber,
     issueDate,
     logoSrc,
     pdfBrandName,
     project,
+    projectTitle,
     serviceDate,
-    useProjectAddress,
   ]);
 
   const pdfDocument = useMemo(
     () => (
       <PdfInvoice
         brandName={pdfBrandName}
-        brandTagline={brandTagline}
-        brandAddress={pdfBrandAddress}
-        brandPhone={brandPhone}
         brandLogoKey={brandLogoKey}
         logoDataUrl={logoDataUrl}
         project={project}
@@ -581,9 +547,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         dueDate={dueDate}
         serviceDate={serviceDate}
         projectTitle={projectTitle}
-        customerSummary={customerSummary}
-        invoiceSummary={invoiceSummary}
-        paymentSummary={paymentSummary}
         rows={rowsData}
         subtotal={subtotal}
         depositReceived={depositReceived}
@@ -593,18 +556,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     ),
     [
       brandLogoKey,
-      brandPhone,
-      brandTagline,
-      customerSummary,
       depositReceived,
       dueDate,
       invoiceNumber,
-      invoiceSummary,
       issueDate,
       logoDataUrl,
       notes,
-      paymentSummary,
-      pdfBrandAddress,
       pdfBrandName,
       project,
       projectTitle,
@@ -684,21 +641,18 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         body { margin: 0; }
         .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
         .invoice-page{width:min(100%,210mm);max-width:210mm;min-height:297mm;box-shadow:0 2px 6px rgba(0,0,0,0.15);margin:0 auto 20px;padding:20px 20px 60px;box-sizing:border-box;position:relative;overflow-x:hidden;display:flex;flex-direction:column;}
-        .invoice-header{display:flex;align-items:flex-start;gap:20px;}
+        .invoice-header{display:flex;flex-direction:column;gap:12px;}
+        .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;}
+        .brand-section{display:flex;flex-direction:column;align-items:flex-start;gap:12px;}
         .logo-upload{width:100px;height:100px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
         .logo-upload img{max-width:100%;max-height:100%;object-fit:contain;}
-        .company-block{flex:1;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
-        .company-info{display:flex;flex-direction:column;margin-top:10px;}
-        .brand-name{font-size:1.2rem;font-weight:bold;}
-        .brand-tagline,.brand-address,.brand-phone{font-size:0.7rem;}
-        .brand-toggle{font-size:0.65rem;color:#666;margin-top:4px;}
-        .invoice-meta{text-align:right;font-size:0.85rem;}
-        .billing-info{margin-top:20px;display:flex;justify-content:space-between;gap:20px;font-size:0.85rem;}
-        .invoice-title{font-size:2rem;color:#FA3356;font-weight:bold;text-align:right;margin-left:auto;}
+        .brand-name{font-size:1.1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;}
+        .invoice-title{font-size:2.5rem;color:#FA3356;font-weight:800;text-align:right;margin-left:auto;text-transform:uppercase;letter-spacing:0.12em;}
+        .invoice-divider{border:0;border-top:1px solid #ccc;margin:0;}
+        .header-bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;font-size:0.85rem;}
+        .bill-to{flex:1;display:flex;flex-direction:column;gap:2px;}
+        .invoice-meta{min-width:180px;text-align:right;font-size:0.85rem;display:flex;flex-direction:column;gap:4px;}
         .project-title{font-size:1.5rem;font-weight:bold;text-align:center;margin:10px 0;}
-        .summary{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;}
-        .summary>div{flex:1;}
-        .summary-divider{border:0;border-top:1px solid #ccc;margin-bottom:10px;}
         .items-table-wrapper{flex:1 0 auto;}
         .items-table{width:100%;border-collapse:collapse;margin-top:20px;box-sizing:border-box;}
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;font-size:0.85rem;text-align:left;}
