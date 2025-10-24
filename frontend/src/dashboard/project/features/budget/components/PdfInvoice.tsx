@@ -423,6 +423,13 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
         <Text style={styles.pageNumber} fixed>
           Page 1 of 1
         </Text>
+
+           <Text
+          style={styles.pageNumber}
+          render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          fixed
+        />
+        
       </Page>
     </Document>
   );
