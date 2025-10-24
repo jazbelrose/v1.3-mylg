@@ -63,7 +63,7 @@ export function useInvoiceBranding({
     return {
       brandLogoKey: data.brandLogoKey || "",
       brandLogoUrl: brandLogoFromUrl || "",
-      brandName: data.brandName || data.company || "",
+      brandName: data.brandName || "",
       brandAddress: data.brandAddress || "",
       brandPhone: data.brandPhone || "",
       brandTagline: data.brandTagline || "",

@@ -100,7 +100,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
           : "";
 
       const headerDetailsHtml = idx === 0
-        ? `<div class="header-bottom">
+        ? `<hr class="header-divider" />
+            <div class="header-bottom">
                 <div class="bill-to">
                   <strong>Billed To:</strong>
                   <div>${billContact}</div>
