@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
     gap: 2,
+    marginBottom: 12,
   },
   billToLabel: {
     fontWeight: 700,
