@@ -673,7 +673,8 @@
     font-size: 1.6rem;
   }
 
-  .previewViewport :global(.billing-info) {
+  .previewViewport :global(.header-bottom),
+  .previewViewport :global(.brand-text) {
     font-size: 0.82rem;
   }
 
@@ -741,8 +742,8 @@
     font-size: 1.4rem;
   }
 
-  .previewViewport :global(.company-info),
-  .previewViewport :global(.billing-info) {
+  .previewViewport :global(.brand-text),
+  .previewViewport :global(.header-bottom) {
     font-size: 0.78rem;
   }
 

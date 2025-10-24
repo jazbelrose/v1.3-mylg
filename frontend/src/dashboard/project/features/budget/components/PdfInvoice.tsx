@@ -48,10 +48,23 @@ const styles = StyleSheet.create({
   },
   header: {
     display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    marginBottom: 16,
+  },
+  headerTop: {
+    display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: 16,
-    marginBottom: 16,
+  },
+  brandSection: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    flex: 1,
   },
   logo: {
     width: 72,
@@ -70,18 +83,23 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#777777",
   },
-  companyInfo: {
-    flex: 1,
+  brandText: {
     display: "flex",
     flexDirection: "column",
-    gap: 4,
+    gap: 3,
   },
   brandName: {
-    fontSize: 14,
-    fontWeight: 700,
+    fontSize: 11,
+    fontWeight: 600,
   },
   brandTagline: {
-    fontSize: 9,
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  brandDetail: {
+    fontSize: 8,
     color: "#555555",
   },
   invoiceMeta: {
@@ -90,12 +108,45 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 4,
     fontSize: 9,
+    textAlign: "right",
   },
   invoiceTitle: {
     fontSize: 20,
     fontWeight: 700,
     color: "#FA3356",
-    marginBottom: 3,
+    textTransform: "uppercase",
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: "#dddddd",
+    width: "100%",
+  },
+  headerBottom: {
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 28,
+    fontSize: 9,
+  },
+  billTo: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  billToLabel: {
+    fontWeight: 700,
+    marginBottom: 2,
+  },
+  projectInfo: {
+    marginTop: 8,
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  projectLabel: {
+    fontWeight: 700,
   },
   summary: {
     display: "flex",
@@ -298,35 +349,72 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = ({
     );
   };
 
+  const displayBrandName = brandName || project?.company || "Your Business Name";
+  const displayTagline = brandTagline || "Tagline";
+  const displayAddress = brandAddress || project?.address || "Business Address";
+  const displayPhone = brandPhone || project?.invoiceBrandPhone || project?.clientPhone || "Phone Number";
+  const billedToName = project?.clientName || "Client name";
+  const billedToCompany = project?.invoiceBrandName || "";
+  const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
+  const billedToEmail = project?.clientEmail || "";
+  const billedToPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
+  const projectIdentifier = project?.projectId ? `ID: ${project.projectId}` : "";
+  const displayProjectTitle = projectTitle || "Project Title";
+
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
         <View style={styles.header} fixed>
-          {logoSrc ? (
-            <Image src={logoSrc} style={styles.logo} />
-          ) : (
-            <View style={styles.logoPlaceholder}>
-              <Text style={styles.logoPlaceholderText}>Upload Logo</Text>
+          <View style={styles.headerTop}>
+            <View style={styles.brandSection}>
+              {logoSrc ? (
+                <Image src={logoSrc} style={styles.logo} />
+              ) : (
+                <View style={styles.logoPlaceholder}>
+                  <Text style={styles.logoPlaceholderText}>Upload Logo</Text>
+                </View>
+              )}
+
+              <View style={styles.brandText}>
+                {displayTagline ? <Text style={styles.brandTagline}>{displayTagline}</Text> : null}
+                {displayBrandName ? <Text style={styles.brandName}>{displayBrandName}</Text> : null}
+                {displayAddress ? <Text style={styles.brandDetail}>{displayAddress}</Text> : null}
+                {displayPhone ? <Text style={styles.brandDetail}>{displayPhone}</Text> : null}
+              </View>
             </View>
-          )}
 
-          <View style={styles.companyInfo}>
-            <Text style={styles.brandName}>{brandName || project?.company || ""}</Text>
-            {brandTagline ? <Text style={styles.brandTagline}>{brandTagline}</Text> : null}
-            {brandAddress ? <Text>{brandAddress}</Text> : null}
-            {brandPhone ? <Text>{brandPhone}</Text> : null}
-          </View>
-
-          <View style={styles.invoiceMeta}>
             <Text style={styles.invoiceTitle}>Invoice</Text>
-            <Text>Invoice #: {invoiceNumber}</Text>
-            <Text>Issue date: {issueDate}</Text>
-            {dueDate ? <Text>Due date: {dueDate}</Text> : null}
-            {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
           </View>
+
+          <View style={styles.headerDivider} />
+
+          <View style={styles.headerBottom}>
+            <View style={styles.billTo}>
+              <Text style={styles.billToLabel}>Billed To:</Text>
+              <Text>{billedToName}</Text>
+              {billedToCompany ? <Text>{billedToCompany}</Text> : null}
+              <Text>{billedToAddress}</Text>
+              {billedToEmail ? <Text>{billedToEmail}</Text> : null}
+              {billedToPhone ? <Text>{billedToPhone}</Text> : null}
+              <View style={styles.projectInfo}>
+                <Text style={styles.projectLabel}>Project:</Text>
+                <Text>{displayProjectTitle}</Text>
+                {projectIdentifier ? <Text>{projectIdentifier}</Text> : null}
+              </View>
+            </View>
+
+            <View style={styles.invoiceMeta}>
+              <Text>Invoice #: {invoiceNumber}</Text>
+              <Text>Issue date: {issueDate}</Text>
+              {dueDate ? <Text>Due date: {dueDate}</Text> : null}
+              {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
+            </View>
+          </View>
+
+          <View style={styles.headerDivider} />
         </View>
 
-        <Text style={styles.projectTitle}>{projectTitle}</Text>
+        <Text style={styles.projectTitle}>{displayProjectTitle}</Text>
 
         <View style={styles.summary}>
           <View style={styles.summaryColumn}>

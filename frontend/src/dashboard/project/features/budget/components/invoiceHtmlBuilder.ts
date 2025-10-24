@@ -101,8 +101,8 @@ export function buildInvoiceHtml({
       const total = formatCurrency(totalDue);
 
       const logoHtml = logoSrc
-        ? `<img src="${logoSrc}" alt="logo" style="max-width:100px;max-height:100px" />`
-        : "";
+        ? `<img src="${logoSrc}" alt="logo" />`
+        : `<span>Upload Logo</span>`;
 
       const totalsHtml =
         idx === pages.length - 1
@@ -121,30 +121,41 @@ export function buildInvoiceHtml({
         <div class="invoice-page invoice-container">
           <div class="invoice-top">
             <div class="invoice-header">
-              <div>${logoHtml}</div>
-              <div class="company-info">
-                <div class="brand-name">${headerName}</div>
-                ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
-                <div class="brand-address">${headerAddress}</div>
-                <div class="brand-phone">${headerPhone}</div>
+              <div class="header-top">
+                <div class="brand-section">
+                  <div class="logo-upload">${logoHtml}</div>
+                  <div class="brand-text">
+                    ${headerTag ? `<div class="brand-tagline">${headerTag}</div>` : ""}
+                    ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
+                    ${headerAddress ? `<div class="brand-address">${headerAddress}</div>` : ""}
+                    ${headerPhone ? `<div class="brand-phone">${headerPhone}</div>` : ""}
+                  </div>
+                </div>
+                <div class="invoice-title">INVOICE</div>
               </div>
-              <div class="invoice-title">INVOICE</div>
-            </div>
-            <div class="billing-info">
-              <div>
-                <strong>Bill To:</strong>
-                <div>${billContact}</div>
-                <div>${billCompany}</div>
-                <div>${billAddress}</div>
-                ${billPhone ? `<div>${billPhone}</div>` : ""}
-                ${billEmail ? `<div>${billEmail}</div>` : ""}
+              <hr class="invoice-divider" />
+              <div class="header-bottom">
+                <div class="bill-to">
+                  <strong>Billed To:</strong>
+                  <div>${billContact}</div>
+                  <div>${billCompany}</div>
+                  <div>${billAddress}</div>
+                  ${billPhone ? `<div>${billPhone}</div>` : ""}
+                  ${billEmail ? `<div>${billEmail}</div>` : ""}
+                  <div class="project-info">
+                    <strong>Project:</strong>
+                    <div>${projTitle}</div>
+                    ${project?.projectId ? `<div>ID: ${project.projectId}</div>` : ""}
+                  </div>
+                </div>
+                <div class="invoice-meta">
+                  ${invNum ? `<div>Invoice #: <span>${invNum}</span></div>` : ""}
+                  ${issue ? `<div>Issue date: <span>${issue}</span></div>` : ""}
+                  ${due ? `<div>Due date: <span>${due}</span></div>` : ""}
+                  ${service ? `<div>Service date: <span>${service}</span></div>` : ""}
+                </div>
               </div>
-              <div>
-                <div>Invoice #: <span>${invNum}</span></div>
-                <div>Issue date: <span>${issue}</span></div>
-                <div>Due date: <span>${due}</span></div>
-                <div>Service date: <span>${service}</span></div>
-              </div>
+              <hr class="invoice-divider" />
             </div>
           </div>
           <h1 class="project-title">${projTitle}</h1>
