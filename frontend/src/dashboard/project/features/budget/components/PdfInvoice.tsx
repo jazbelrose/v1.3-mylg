@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   headerTop: {
     display: "flex",
@@ -123,12 +123,12 @@ const styles = StyleSheet.create({
   },
   billToLabel: {
     fontWeight: 700,
-    marginBottom: 2,
+    
   },
   divider: {
     height: 1,
     backgroundColor: "#dddddd",
-    marginBottom: 12,
+    marginBottom: 18,
   },
   table: {
     display: "flex",
