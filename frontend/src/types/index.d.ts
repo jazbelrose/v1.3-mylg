@@ -114,25 +114,6 @@ declare module 'pdfjs-dist/build/pdf.worker.entry' {
   export default url;
 }
 
-declare module '@react-pdf/renderer' {
-  import * as React from 'react';
-
-  export interface PDFInstance {
-    toBlob(): Promise<Blob>;
-  }
-
-  export function pdf(element: React.ReactElement): PDFInstance;
-
-  export const Document: React.FC<any>;
-  export const Page: React.FC<any>;
-  export const View: React.FC<any>;
-  export const Text: React.FC<any>;
-  export const Image: React.FC<any>;
-  export const StyleSheet: {
-    create<T extends Record<string, any>>(styles: T): T;
-  };
-}
-
 declare module './app/contexts/AuthContext' {
   interface AuthContextType {
     isAuthenticated: boolean;

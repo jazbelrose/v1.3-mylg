@@ -1,11 +1,18 @@
 import { useCallback, useRef, useState } from "react";
-import { pdf as createPdf } from "@react-pdf/renderer";
 import { saveAs } from "file-saver";
 import { toast } from "react-toastify";
 
-import PdfInvoice from "./PdfInvoice";
-import { buildInvoiceHtml } from "./invoiceHtmlBuilder";
+import { buildInvoiceDocumentMarkup, buildInvoiceHtml } from "./invoiceHtmlBuilder";
+import { invoiceStyles } from "./invoiceStyles";
 import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
+
+declare global {
+  interface Window {
+    html2pdf?: any;
+  }
+}
+
+const HTML2PDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
 
 interface UseInvoicePdfManagerOptions {
   project: InvoicePreviewModalProps["project"];
@@ -79,67 +86,165 @@ export function useInvoicePdfManager({
     setPdfPreviewUrl(null);
   }, []);
 
-  const buildPdfInvoiceElement = useCallback(() => {
-    const addressForPdf = useProjectAddress ? project?.address || "" : brandAddress;
-    return (
-      <PdfInvoice
-        brandName={brandName || project?.company || ""}
-        brandTagline={brandTagline}
-        brandAddress={addressForPdf}
-        brandPhone={brandPhone}
-        brandLogoKey={brandLogoKey}
-        logoDataUrl={logoDataUrl}
-        project={project}
-        invoiceNumber={invoiceNumber}
-        issueDate={issueDate}
-        dueDate={dueDate}
-        serviceDate={serviceDate}
-        projectTitle={projectTitle}
-        customerSummary={customerSummary}
-        invoiceSummary={invoiceSummary}
-        paymentSummary={paymentSummary}
-        rows={rowsData}
-        subtotal={subtotal}
-        depositReceived={depositReceived}
-        totalDue={totalDue}
-        notes={notes}
-      />
-    );
-  }, [
-    brandAddress,
-    brandLogoKey,
-    brandName,
-    brandPhone,
-    brandTagline,
-    customerSummary,
-    depositReceived,
-    dueDate,
-    invoiceNumber,
-    invoiceSummary,
-    issueDate,
-    logoDataUrl,
-    notes,
-    paymentSummary,
-    project,
-    projectTitle,
-    rowsData,
-    serviceDate,
-    subtotal,
-    totalDue,
-    useProjectAddress,
-  ]);
+  const html2pdfPromiseRef = useRef<Promise<any> | null>(null);
+
+  const ensureHtml2Pdf = useCallback(async () => {
+    if (typeof window === "undefined") {
+      toast.error("PDF generation is only available in a browser");
+      return null;
+    }
+
+    if (window.html2pdf) return window.html2pdf;
+
+    if (!html2pdfPromiseRef.current) {
+      html2pdfPromiseRef.current = new Promise((resolve, reject) => {
+        let scriptElement: HTMLScriptElement | null = null;
+
+        const cleanup = () => {
+          if (scriptElement) {
+            scriptElement.removeEventListener("load", onLoad);
+            scriptElement.removeEventListener("error", onError);
+          }
+        };
+
+        const onLoad = () => {
+          cleanup();
+          if (window.html2pdf) {
+            resolve(window.html2pdf);
+          } else {
+            reject(new Error("html2pdf failed to initialize"));
+          }
+        };
+
+        const onError = () => {
+          cleanup();
+          scriptElement?.remove();
+          reject(new Error("Failed to load html2pdf.js"));
+        };
+
+        const existing = document.querySelector<HTMLScriptElement>("script[data-html2pdf]");
+        if (existing) {
+          scriptElement = existing;
+          if (existing.dataset.loaded === "true") {
+            onLoad();
+            return;
+          }
+          existing.addEventListener("load", onLoad, { once: true });
+          existing.addEventListener("error", onError, { once: true });
+          return;
+        }
+
+        scriptElement = document.createElement("script");
+        scriptElement.src = HTML2PDF_CDN;
+        scriptElement.async = true;
+        scriptElement.dataset.html2pdf = "true";
+        scriptElement.addEventListener(
+          "load",
+          () => {
+            scriptElement!.dataset.loaded = "true";
+            onLoad();
+          },
+          { once: true }
+        );
+        scriptElement.addEventListener("error", onError, { once: true });
+        (document.body || document.head || document.documentElement).appendChild(scriptElement);
+      })
+        .catch((error) => {
+          console.error("Failed to load html2pdf.js", error);
+          toast.error("Unable to load PDF rendering support");
+          html2pdfPromiseRef.current = null;
+          return null;
+        });
+    }
+
+    return html2pdfPromiseRef.current;
+  }, []);
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
+    const html2pdf = await ensureHtml2Pdf();
+    if (!html2pdf) return null;
+
+    const markup = buildInvoiceDocumentMarkup({
+      pages,
+      selectedPages,
+      rowsData,
+      brandName,
+      brandTagline,
+      brandAddress,
+      brandPhone,
+      brandLogoKey,
+      logoDataUrl,
+      useProjectAddress,
+      project,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      serviceDate,
+      projectTitle,
+      customerSummary,
+      invoiceSummary,
+      paymentSummary,
+      notes,
+      depositReceived,
+      subtotal,
+      totalDue,
+    });
+
+    const container = document.createElement("div");
+    container.setAttribute("data-invoice-pdf", "true");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.width = "210mm";
+    container.style.backgroundColor = "#ffffff";
+    container.innerHTML = `<style>${invoiceStyles}</style>${markup}`;
+    document.body.appendChild(container);
+
     try {
-      const instance = createPdf(buildPdfInvoiceElement());
-      const blob = await instance.toBlob();
-      return blob;
+      const pdfWorker = (html2pdf as any)()
+        .set({
+          margin: 0,
+          pagebreak: { mode: ["css", "legacy"] },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+          jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
+        })
+        .from(container);
+
+      const blob = await pdfWorker.outputPdf("blob");
+      return blob as Blob;
     } catch (error) {
       console.error("Failed to generate invoice PDF", error);
       toast.error("Unable to build invoice PDF");
       return null;
+    } finally {
+      document.body.removeChild(container);
     }
-  }, [buildPdfInvoiceElement]);
+  }, [
+    ensureHtml2Pdf,
+    pages,
+    selectedPages,
+    rowsData,
+    brandName,
+    brandTagline,
+    brandAddress,
+    brandPhone,
+    brandLogoKey,
+    logoDataUrl,
+    useProjectAddress,
+    project,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    serviceDate,
+    projectTitle,
+    customerSummary,
+    invoiceSummary,
+    paymentSummary,
+    notes,
+    depositReceived,
+    subtotal,
+    totalDue,
+  ]);
 
   const handleSavePdf = useCallback(() => {
     void (async () => {
@@ -166,6 +271,7 @@ export function useInvoicePdfManager({
     return buildInvoiceHtml({
       pages,
       selectedPages,
+      rowsData,
       brandName,
       brandTagline,
       brandAddress,
@@ -190,6 +296,7 @@ export function useInvoicePdfManager({
   }, [
     pages,
     selectedPages,
+    rowsData,
     brandName,
     brandTagline,
     brandAddress,
