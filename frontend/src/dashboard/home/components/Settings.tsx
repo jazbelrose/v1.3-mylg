@@ -18,6 +18,7 @@ interface UserData extends Record<string, unknown> {
   firstName?: string;
   lastName?: string;
   company?: string;
+  organizationAddress?: string;
   email?: string;
   phoneNumber?: string;
   thumbnail?: string;
@@ -30,6 +31,7 @@ interface FormDataShape {
   firstName: string;
   lastName: string;
   company: string;
+  organizationAddress: string;
   email: string;
   phoneNumber: string;
   thumbnail: string;
@@ -49,13 +51,15 @@ const Settings: React.FC = () => {
     firstName: userData?.firstName || "",
     lastName: userData?.lastName || "",
     company: userData?.company || "",
+    organizationAddress: userData?.organizationAddress || "",
     email: userData?.email || "",
     phoneNumber: userData?.phoneNumber || "",
     thumbnail: userData?.thumbnail || "",
     occupation: userData?.occupation || "",
   });
 
-  const { firstName, lastName, company, email, phoneNumber, occupation, thumbnail } = formData;
+  const { firstName, lastName, company, organizationAddress, email, phoneNumber, occupation, thumbnail } =
+    formData;
 
   const [oldPassword, setOldPassword] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
@@ -91,6 +95,7 @@ const Settings: React.FC = () => {
       firstName: userData?.firstName || "",
       lastName: userData?.lastName || "",
       company: userData?.company || "",
+      organizationAddress: userData?.organizationAddress || "",
       email: userData?.email || "",
       phoneNumber: userData?.phoneNumber || "",
       occupation: userData?.occupation || "",
@@ -148,6 +153,7 @@ const Settings: React.FC = () => {
       firstName: userData?.firstName || "",
       lastName: userData?.lastName || "",
       company: userData?.company || "",
+      organizationAddress: userData?.organizationAddress || "",
       email: userData?.email || "",
       phoneNumber: userData?.phoneNumber || "",
       occupation: userData?.occupation || "",
@@ -206,6 +212,7 @@ const Settings: React.FC = () => {
         ...userData,
         ...formData,
         thumbnail: uploadedKey || formData.thumbnail.split("?")[0],
+        organizationAddress: formData.organizationAddress,
       };
 
       await updateUserProfile(updatedUserData);
@@ -299,6 +306,16 @@ const Settings: React.FC = () => {
                 value={company}
                 onChange={(v: string) => setFormData((p) => ({ ...p, company: v }))}
               />
+              <div className="form-group">
+                <label htmlFor="organizationAddress">Organization Address</label>
+                <textarea
+                  id="organizationAddress"
+                  className="modal-input settings"
+                  value={organizationAddress}
+                  onChange={(e) => setFormData((p) => ({ ...p, organizationAddress: e.target.value }))}
+                  rows={3}
+                />
+              </div>
               <EditableTextField
                 id="occupation"
                 label="Occupation"

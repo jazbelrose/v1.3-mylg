@@ -9,13 +9,14 @@ import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
 
 interface UseInvoicePdfManagerOptions {
   project: InvoicePreviewModalProps["project"];
-  useProjectAddress: boolean;
+  useOrganizationAddress: boolean;
   brandName: string;
   brandTagline: string;
   brandAddress: string;
   brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
+  organizationAddress: string;
   invoiceNumber: string;
   issueDate: string;
   dueDate: string;
@@ -44,13 +45,14 @@ interface UseInvoicePdfManagerResult {
 
 export function useInvoicePdfManager({
   project,
-  useProjectAddress,
+  useOrganizationAddress,
   brandName,
   brandTagline,
   brandAddress,
   brandPhone,
   brandLogoKey,
   logoDataUrl,
+  organizationAddress,
   invoiceNumber,
   issueDate,
   dueDate,
@@ -80,7 +82,9 @@ export function useInvoicePdfManager({
   }, []);
 
   const buildPdfInvoiceElement = useCallback(() => {
-    const addressForPdf = useProjectAddress ? project?.address || "" : brandAddress;
+    const addressForPdf = useOrganizationAddress
+      ? organizationAddress || brandAddress
+      : brandAddress;
     return (
       <PdfInvoice
         brandName={brandName || project?.company || ""}
@@ -126,7 +130,8 @@ export function useInvoicePdfManager({
     serviceDate,
     subtotal,
     totalDue,
-    useProjectAddress,
+    organizationAddress,
+    useOrganizationAddress,
   ]);
 
   const renderPdfBlob = useCallback(async (): Promise<Blob | null> => {
@@ -172,7 +177,8 @@ export function useInvoicePdfManager({
       brandPhone,
       brandLogoKey,
       logoDataUrl,
-      useProjectAddress,
+      useOrganizationAddress,
+      organizationAddress,
       project,
       invoiceNumber,
       issueDate,
@@ -196,7 +202,8 @@ export function useInvoicePdfManager({
     brandPhone,
     brandLogoKey,
     logoDataUrl,
-    useProjectAddress,
+    useOrganizationAddress,
+    organizationAddress,
     project,
     invoiceNumber,
     issueDate,

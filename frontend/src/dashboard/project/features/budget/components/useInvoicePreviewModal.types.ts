@@ -55,8 +55,10 @@ export interface UseInvoicePreviewModalResult {
   handleBrandAddressBlur: (value: string) => void;
   brandPhone: string;
   handleBrandPhoneBlur: (value: string) => void;
-  useProjectAddress: boolean;
-  handleToggleProjectAddress: (checked: boolean) => void;
+  organizationAddress: string;
+  useOrganizationAddress: boolean;
+  handleToggleOrganizationAddress: (checked: boolean) => void;
+  organizationName: string;
   invoiceNumber: string;
   handleInvoiceNumberBlur: (value: string) => void;
   issueDate: string;

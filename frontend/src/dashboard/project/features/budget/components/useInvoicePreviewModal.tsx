@@ -62,12 +62,13 @@ export function useInvoicePreviewModal({
     brandTagline,
     brandAddress,
     brandPhone,
-    useProjectAddress,
+    organizationAddress,
+    useOrganizationAddress,
     showSaved,
     isDirty,
     handleLogoSelect,
     handleLogoDrop,
-    handleToggleProjectAddress,
+    handleToggleOrganizationAddress,
     handleSaveHeader,
     setBrandLogoKey,
     setLogoDataUrl,
@@ -80,6 +81,7 @@ export function useInvoicePreviewModal({
     userData: userData as UserLite | null | undefined,
     setUserData: updateUserData,
   });
+  const organizationName = (userData as UserLite | null | undefined)?.company || "";
 
   const details = useInvoiceDetails({ isOpen, project, revision });
   const {
@@ -210,13 +212,14 @@ export function useInvoicePreviewModal({
     buildInvoiceHtmlPayload,
   } = useInvoicePdfManager({
     project,
-    useProjectAddress,
+    useOrganizationAddress,
     brandName,
     brandTagline,
     brandAddress,
     brandPhone,
     brandLogoKey,
     logoDataUrl,
+    organizationAddress,
     invoiceNumber,
     issueDate,
     dueDate,
@@ -447,8 +450,10 @@ export function useInvoicePreviewModal({
     handleBrandAddressBlur,
     brandPhone,
     handleBrandPhoneBlur,
-    useProjectAddress,
-    handleToggleProjectAddress,
+    organizationAddress,
+    useOrganizationAddress,
+    handleToggleOrganizationAddress,
+    organizationName,
     invoiceNumber,
     handleInvoiceNumberBlur,
     issueDate,

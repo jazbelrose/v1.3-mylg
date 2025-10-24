@@ -18,12 +18,13 @@ interface UseInvoiceBrandingResult {
   brandTagline: string;
   brandAddress: string;
   brandPhone: string;
-  useProjectAddress: boolean;
+  organizationAddress: string;
+  useOrganizationAddress: boolean;
   showSaved: boolean;
   isDirty: boolean;
   handleLogoSelect: React.ChangeEventHandler<HTMLInputElement>;
   handleLogoDrop: React.DragEventHandler<HTMLDivElement>;
-  handleToggleProjectAddress: (checked: boolean) => void;
+  handleToggleOrganizationAddress: (checked: boolean) => void;
   handleSaveHeader: () => Promise<void>;
   setBrandLogoKey: React.Dispatch<React.SetStateAction<string>>;
   setLogoDataUrl: React.Dispatch<React.SetStateAction<string | null>>;
@@ -31,7 +32,7 @@ interface UseInvoiceBrandingResult {
   setBrandTagline: React.Dispatch<React.SetStateAction<string>>;
   setBrandAddress: React.Dispatch<React.SetStateAction<string>>;
   setBrandPhone: React.Dispatch<React.SetStateAction<string>>;
-  setUseProjectAddress: React.Dispatch<React.SetStateAction<boolean>>;
+  setUseOrganizationAddress: React.Dispatch<React.SetStateAction<boolean>>;
   setShowSaved: React.Dispatch<React.SetStateAction<boolean>>;
   setIsDirty: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -47,7 +48,8 @@ export function useInvoiceBranding({
   const [brandTagline, setBrandTagline] = useState("");
   const [brandAddress, setBrandAddress] = useState("");
   const [brandPhone, setBrandPhone] = useState("");
-  const [useProjectAddress, setUseProjectAddress] = useState(false);
+  const [organizationAddress, setOrganizationAddress] = useState("");
+  const [useOrganizationAddress, setUseOrganizationAddress] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -65,6 +67,7 @@ export function useInvoiceBranding({
       brandLogoUrl: brandLogoFromUrl || "",
       brandName: data.brandName || data.company || "",
       brandAddress: data.brandAddress || "",
+      organizationAddress: data.organizationAddress || "",
       brandPhone: data.brandPhone || "",
       brandTagline: data.brandTagline || "",
     };
@@ -77,6 +80,7 @@ export function useInvoiceBranding({
       brandLogoUrl,
       brandName: name,
       brandAddress: address,
+      organizationAddress: savedOrganizationAddress,
       brandPhone: phone,
       brandTagline: tagline,
     } = currentUserBranding;
@@ -88,20 +92,24 @@ export function useInvoiceBranding({
     }
     setBrandLogoKey(resolvedKey);
     setBrandName(name);
-    setBrandAddress(address);
+    const nextBrandAddress = address || savedOrganizationAddress || "";
+    setBrandAddress(nextBrandAddress);
     setBrandPhone(phone);
     setBrandTagline(tagline);
+    setOrganizationAddress(savedOrganizationAddress || "");
     setLogoDataUrl(null);
-    setUseProjectAddress(false);
+    setUseOrganizationAddress(!address && Boolean(savedOrganizationAddress));
     setShowSaved(false);
     setIsDirty(false);
   }, [isOpen, currentUserBranding]);
 
   useEffect(() => {
+    const baselineAddress =
+      currentUserBranding.brandAddress || currentUserBranding.organizationAddress || "";
     const dirty =
       (brandLogoKey || "") !== (currentUserBranding.brandLogoKey || "") ||
       (brandName || "") !== (currentUserBranding.brandName || "") ||
-      (brandAddress || "") !== (currentUserBranding.brandAddress || "") ||
+      (brandAddress || "") !== baselineAddress ||
       (brandPhone || "") !== (currentUserBranding.brandPhone || "") ||
       (brandTagline || "") !== (currentUserBranding.brandTagline || "");
     setIsDirty(dirty);
@@ -140,9 +148,16 @@ export function useInvoiceBranding({
     reader.readAsDataURL(file);
   }, []);
 
-  const handleToggleProjectAddress = useCallback((checked: boolean) => {
-    setUseProjectAddress(checked);
-  }, []);
+  const handleToggleOrganizationAddress = useCallback(
+    (checked: boolean) => {
+      setUseOrganizationAddress(checked);
+      if (checked) {
+        setBrandAddress(organizationAddress || "");
+      }
+      setIsDirty(true);
+    },
+    [organizationAddress]
+  );
 
   const handleSaveHeader = useCallback(async () => {
     try {
@@ -199,12 +214,13 @@ export function useInvoiceBranding({
     brandTagline,
     brandAddress,
     brandPhone,
-    useProjectAddress,
+    organizationAddress,
+    useOrganizationAddress,
     showSaved,
     isDirty,
     handleLogoSelect,
     handleLogoDrop,
-    handleToggleProjectAddress,
+    handleToggleOrganizationAddress,
     handleSaveHeader,
     setBrandLogoKey,
     setLogoDataUrl,
@@ -212,7 +228,7 @@ export function useInvoiceBranding({
     setBrandTagline,
     setBrandAddress,
     setBrandPhone,
-    setUseProjectAddress,
+    setUseOrganizationAddress,
     setShowSaved,
     setIsDirty,
   };

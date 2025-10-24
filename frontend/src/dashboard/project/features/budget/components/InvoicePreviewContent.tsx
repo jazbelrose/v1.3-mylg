@@ -61,8 +61,10 @@ interface InvoicePreviewContentProps {
   onBrandAddressBlur: (value: string) => void;
   brandPhone: string;
   onBrandPhoneBlur: (value: string) => void;
-  useProjectAddress: boolean;
-  onToggleProjectAddress: (checked: boolean) => void;
+  organizationAddress: string;
+  useOrganizationAddress: boolean;
+  onToggleOrganizationAddress: (checked: boolean) => void;
+  organizationName?: string;
   project?: ProjectLike | null;
   invoiceNumber: string;
   onInvoiceNumberBlur: (value: string) => void;
@@ -82,7 +84,6 @@ interface InvoicePreviewContentProps {
   onPaymentSummaryBlur: (value: string) => void;
   rowsData: RowData[];
   currentPage: number;
-  totalPages: number;
   subtotal: number;
   depositReceived: number;
   onDepositBlur: (value: string) => void;
@@ -171,8 +172,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onBrandAddressBlur,
   brandPhone,
   onBrandPhoneBlur,
-  useProjectAddress,
-  onToggleProjectAddress,
+  organizationAddress,
+  useOrganizationAddress,
+  onToggleOrganizationAddress,
+  organizationName,
   project,
   invoiceNumber,
   onInvoiceNumberBlur,
@@ -192,7 +195,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onPaymentSummaryBlur,
   rowsData,
   currentPage,
-  totalPages,
   subtotal,
   depositReceived,
   onDepositBlur,
@@ -210,12 +212,15 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   }, [brandLogoKey, logoDataUrl]);
 
   const pdfBrandName = useMemo(
-    () => brandName || project?.company || "",
-    [brandName, project]
+    () => brandName || organizationName || project?.company || "",
+    [brandName, organizationName, project]
   );
   const pdfBrandAddress = useMemo(
-    () => (useProjectAddress ? project?.address || "" : brandAddress),
-    [brandAddress, project, useProjectAddress]
+    () =>
+      useOrganizationAddress
+        ? organizationAddress || brandAddress
+        : brandAddress,
+    [brandAddress, organizationAddress, useOrganizationAddress]
   );
 
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
@@ -232,7 +237,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     invoiceSummary,
     paymentSummary,
   }));
-  const [useProjectAddressDraft, setUseProjectAddressDraft] = useState<boolean>(useProjectAddress);
+  const [useOrganizationAddressDraft, setUseOrganizationAddressDraft] =
+    useState<boolean>(useOrganizationAddress);
   const [notesDraft, setNotesDraft] = useState<string>(() => htmlToPlainText(notes));
   const [depositInput, setDepositInput] = useState<string>(() => formatNumberInput(depositReceived));
   const [totalDueInput, setTotalDueInput] = useState<string>(() => formatNumberInput(totalDue));
@@ -252,7 +258,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       customerSummary,
       invoiceSummary,
       paymentSummary,
-      useProjectAddress,
+      useOrganizationAddress,
       notes,
       depositReceived,
       totalDue,
@@ -273,7 +279,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       projectTitle,
       serviceDate,
       totalDue,
-      useProjectAddress,
+      useOrganizationAddress,
     ]
   );
 
@@ -303,7 +309,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       invoiceSummary: committedValues.invoiceSummary,
       paymentSummary: committedValues.paymentSummary,
     });
-    setUseProjectAddressDraft(committedValues.useProjectAddress);
+    setUseOrganizationAddressDraft(committedValues.useOrganizationAddress);
     setNotesDraft(htmlToPlainText(committedValues.notes));
     setDepositInput(formatNumberInput(committedValues.depositReceived));
     setTotalDueInput(formatNumberInput(committedValues.totalDue));
@@ -329,9 +335,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     setTotalDueInput(value);
   }, []);
 
-  const handleProjectAddressDraftChange = useCallback((checked: boolean) => {
+  const handleOrganizationAddressDraftChange = useCallback((checked: boolean) => {
     setHasDraftChanges(true);
-    setUseProjectAddressDraft(checked);
+    setUseOrganizationAddressDraft(checked);
   }, []);
 
   const {
@@ -354,7 +360,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onBrandTaglineBlur(draftBrandTagline);
     onBrandAddressBlur(draftBrandAddress);
     onBrandPhoneBlur(draftBrandPhone);
-    onToggleProjectAddress(useProjectAddressDraft);
+    onToggleOrganizationAddress(useOrganizationAddressDraft);
     onInvoiceNumberBlur(draftInvoiceNumber);
     onIssueDateBlur(draftIssueDate);
     onDueDateChange(draftDueDate);
@@ -398,8 +404,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onServiceDateChange,
     onTotalDueBlur,
     totalDueInput,
-    useProjectAddressDraft,
-    onToggleProjectAddress,
+    useOrganizationAddressDraft,
+    onToggleOrganizationAddress,
   ]);
 
   const handleSaveButtonClick = useCallback(() => {
@@ -485,11 +491,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   );
 
   const renderHeader = useCallback(() => {
-    const displayBrandName = pdfBrandName || "Your Business Name";
+    const displayBrandName = pdfBrandName || "Your organization name";
     const displayTagline = brandTagline || "Tagline";
-    const displayAddress = useProjectAddress
-      ? project?.address || "Project Address"
-      : brandAddress || "Business Address";
+    const displayAddress = useOrganizationAddress
+      ? organizationAddress || brandAddress || "Organization Address"
+      : brandAddress || "Organization Address";
     const displayPhone = brandPhone || "Phone Number";
     const displayInvoiceNumber = invoiceNumber || "0000";
     const displayIssueDate = issueDate || new Date().toLocaleDateString();
@@ -507,10 +513,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               {displayTagline ? <div className="brand-tagline">{displayTagline}</div> : null}
               {displayAddress ? <div className="brand-address">{displayAddress}</div> : null}
               {displayPhone ? <div className="brand-phone">{displayPhone}</div> : null}
-              {project?.address ? (
-                <div className="brand-toggle">
-                  {useProjectAddress ? "Using project address" : "Using saved address"}
-                </div>
+              {useOrganizationAddress ? (
+                <div className="brand-toggle">Using organization address</div>
               ) : null}
             </div>
 
@@ -563,7 +567,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     pdfBrandName,
     project,
     serviceDate,
-    useProjectAddress,
+    organizationAddress,
+    useOrganizationAddress,
   ]);
 
   const pdfDocument = useMemo(
@@ -767,9 +772,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         <div className={styles.pdfFormPane}>
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Brand</span>
+              <span className={styles.formSectionTitle}>Organization</span>
               <span className={styles.helperText}>
-                Update your branding to see it reflected immediately in the PDF.
+                Update your organization details to see them reflected immediately in the PDF.
               </span>
             </div>
 
@@ -797,12 +802,14 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
 
             <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-name">Brand name</label>
+              <label htmlFor="invoice-brand-name">Organization Name</label>
               <input
                 id="invoice-brand-name"
                 className={styles.textInput}
                 value={draftBrandName}
-                placeholder={project?.company || "Your business name"}
+                placeholder={
+                  organizationName || project?.company || "Your organization name"
+                }
                 onChange={(e) => updateDraftField("brandName", e.target.value)}
               />
             </div>
@@ -821,31 +828,34 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             <label className={styles.toggleRow}>
               <input
                 type="checkbox"
-                checked={useProjectAddressDraft}
-                onChange={(e) => handleProjectAddressDraftChange(e.target.checked)}
+                checked={useOrganizationAddressDraft}
+                onChange={(e) => handleOrganizationAddressDraftChange(e.target.checked)}
               />
-              Use project address{project?.address ? ` (${project.address})` : ""}
+              Use organization address
+              {organizationAddress
+                ? ` (${organizationAddress.split('\n').join(', ')})`
+                : ""}
             </label>
 
             <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-address">Brand address</label>
+              <label htmlFor="invoice-brand-address">Organization address</label>
               <textarea
                 id="invoice-brand-address"
                 className={styles.textArea}
                 value={draftBrandAddress}
-                placeholder="Business address"
+                placeholder="Organization address"
                 onChange={(e) => updateDraftField("brandAddress", e.target.value)}
-                disabled={useProjectAddressDraft}
+                disabled={useOrganizationAddressDraft}
               />
-              {useProjectAddressDraft ? (
+              {useOrganizationAddressDraft ? (
                 <span className={styles.helperText}>
-                  Using the project address. Uncheck above to edit your saved address.
+                  Using the saved organization address. Uncheck above to edit this invoice.
                 </span>
               ) : null}
             </div>
 
             <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-phone">Phone</label>
+              <label htmlFor="invoice-brand-phone">Organization phone</label>
               <input
                 id="invoice-brand-phone"
                 className={styles.textInput}

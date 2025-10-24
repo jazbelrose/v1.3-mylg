@@ -11,7 +11,8 @@ interface InvoiceHtmlBuilderOptions {
   brandPhone: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
-  useProjectAddress: boolean;
+  useOrganizationAddress: boolean;
+  organizationAddress: string;
   project: InvoicePreviewModalProps["project"];
   invoiceNumber: string;
   issueDate: string;
@@ -36,7 +37,8 @@ export function buildInvoiceHtml({
   brandPhone,
   brandLogoKey,
   logoDataUrl,
-  useProjectAddress,
+  useOrganizationAddress,
+  organizationAddress,
   project,
   invoiceNumber,
   issueDate,
@@ -75,7 +77,9 @@ export function buildInvoiceHtml({
         .join("");
 
       const headerName = brandName || project?.company || "Company Name";
-      const headerAddress = useProjectAddress ? project?.address || "Address" : brandAddress || "Address";
+      const headerAddress = useOrganizationAddress
+        ? organizationAddress || brandAddress || "Address"
+        : brandAddress || "Address";
       const headerPhone = brandPhone || "Phone";
       const headerTag = brandTagline || "";
       const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");

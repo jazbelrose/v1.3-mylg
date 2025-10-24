@@ -21,6 +21,7 @@ export interface UserLite {
   thumbnailUrl?: string;
   phoneNumber?: string;
   company?: string;
+  organizationAddress?: string;
   collaborators?: string[];
   projects?: string[];
   [key: string]: unknown; // Add index signature for flexibility

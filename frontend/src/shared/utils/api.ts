@@ -31,6 +31,9 @@ export interface UserProfile extends JsonRecord {
   username?: string;
   email?: string;
   role?: string;
+  company?: string;
+  organizationAddress?: string;
+  brandAddress?: string;
 }
 
 export interface TeamMember {

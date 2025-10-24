@@ -81,6 +81,7 @@ const DEV_PREVIEW_DATA: DevPreviewData = {
     occupation: "Design Lead",
     phoneNumber: "+1 (555) 010-0101",
     company: "MYLG Labs",
+    organizationAddress: "145 Dock Street, Suite 400\nWestbridge, NY 11201",
     collaborators: ["avery-harper", "max-ramirez"],
     projects: ["preview-riverside", "preview-harbor"],
     thumbnailUrl: "https://avatars.githubusercontent.com/u/000?v=4",
