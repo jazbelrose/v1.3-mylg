@@ -86,15 +86,15 @@ const styles = StyleSheet.create({
     color: "#777777",
   },
   brandName: {
-    fontSize: 14,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: 1.1,
+    fontSize: 12,
+    fontWeight: 400,
+    
+    letterSpacing: -1,
   },
   brandTagline: {
     fontSize: 10,
     color: "#4d4d4d",
-    letterSpacing: 0.6,
+    letterSpacing: -1,
   },
   invoiceMeta: {
     display: "flex",
