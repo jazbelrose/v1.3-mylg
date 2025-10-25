@@ -1,13 +1,15 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
+import Modal from "@/shared/ui/ModalWithStack";
 import NavBadge from "./NavBadge";
 import useDashboardNavigation, {
   type DashboardNavItem,
   type UseDashboardNavigationArgs,
 } from "./useDashboardNavigation";
 import "./navigation-drawer.css";
+import searchModalStyles from "./dashboard-nav-search-modal.module.css";
 
 type Variant = "persistent" | "overlay";
 
@@ -100,6 +102,41 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   const { navItems, bottomItems } = useDashboardNavigation({ setActiveView, onClose });
   const isOverlay = variant === "overlay";
   const isPersistent = variant === "persistent";
+  const [isSearchModalOpen, setIsSearchModalOpen] = React.useState(false);
+
+  const handleOpenSearch = React.useCallback(() => {
+    setIsSearchModalOpen(true);
+  }, []);
+
+  const handleCloseSearch = React.useCallback(() => {
+    setIsSearchModalOpen(false);
+  }, []);
+
+  const handleSearchNavigate = React.useCallback(() => {
+    setIsSearchModalOpen(false);
+  }, []);
+
+  const primaryNavItems = React.useMemo(() => {
+    if (!isPersistent) {
+      return navItems;
+    }
+
+    const searchNavItem: DashboardNavItem = {
+      key: "search",
+      icon: <Search size={24} color="white" />,
+      label: "Search",
+      onClick: handleOpenSearch,
+      isActive: isSearchModalOpen,
+      shortLabel: "Search",
+    };
+
+    if (navItems.length === 0) {
+      return [searchNavItem];
+    }
+
+    const [firstItem, ...rest] = navItems;
+    return [firstItem, searchNavItem, ...rest];
+  }, [handleOpenSearch, isPersistent, isSearchModalOpen, navItems]);
 
   const containerClass = [
     "dashboard-nav-panel",
@@ -157,12 +194,50 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
         ) : null}
 
         <ul className="nav-list nav-list--primary">
-          {navItems.map((item) => renderNavItem(item, isCollapsed))}
+          {(isPersistent ? primaryNavItems : navItems).map((item) =>
+            renderNavItem(item, isCollapsed)
+          )}
         </ul>
         <ul className="nav-list nav-list--secondary">
           {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
       </div>
+
+      {isPersistent ? (
+        <Modal
+          isOpen={isSearchModalOpen}
+          onRequestClose={handleCloseSearch}
+          shouldCloseOnOverlayClick
+          overlayClassName={searchModalStyles.overlay}
+          className={searchModalStyles.modal}
+          contentLabel="Dashboard search"
+        >
+          <div className={searchModalStyles.modalContent}>
+            <div className={searchModalStyles.modalHeader}>
+              <div className={searchModalStyles.modalTitleGroup}>
+                <div className={searchModalStyles.modalIcon} aria-hidden>
+                  <Search size={20} />
+                </div>
+                <div>
+                  <h2 className={searchModalStyles.modalTitle}>Search</h2>
+                  <p className={searchModalStyles.modalSubtitle}>
+                    Find projects, messages, collaborators, and more.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={searchModalStyles.closeButton}
+                onClick={handleCloseSearch}
+                aria-label="Close search"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <GlobalSearch className={searchModalStyles.search} onNavigate={handleSearchNavigate} />
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 };
