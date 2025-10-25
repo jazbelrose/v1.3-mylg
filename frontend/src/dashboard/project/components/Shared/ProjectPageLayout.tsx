@@ -326,7 +326,12 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
           
         }}
       >
-        <WelcomeHeader isDesktopLayout={isDesktop} showDesktopGreeting={false} />
+        <WelcomeHeader
+          isDesktopLayout={isDesktop}
+          showDesktopGreeting={false}
+          showGlobalSearch={false}
+          showAvatar={false}
+        />
         {headerNode ? (
           <div style={{ padding: "0" }}>{headerNode}</div>
         ) : null}
