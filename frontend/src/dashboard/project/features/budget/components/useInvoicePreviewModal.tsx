@@ -13,6 +13,7 @@ import useModalStack from "@/shared/utils/useModalStack";
 import { useData } from "@/app/contexts/useData";
 import type { UserLite } from "@/app/contexts/DataProvider";
 import { slugify } from "@/shared/utils/slug";
+import { getFileUrl } from "@/shared/utils/api";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import type {
   BudgetItem,
@@ -34,6 +35,7 @@ export function useInvoicePreviewModal({
   revision,
   project,
   itemsOverride = null,
+  onInvoiceSaved,
 }: InvoicePreviewModalProps): UseInvoicePreviewModalResult {
   useModalStack(isOpen);
 
@@ -385,10 +387,23 @@ export function useInvoicePreviewModal({
           metadata: { friendlyName: fileName },
         },
       });
-      await uploadTask.result;
+      const result = await uploadTask.result;
       setInvoiceDirty(false);
       setCurrentFileName(fileName);
       toast.success("Invoice saved");
+      const possibleKey = (result as { key?: string } | undefined)?.key;
+      const storedKey =
+        typeof possibleKey === "string" && possibleKey.length > 0 ? possibleKey : key;
+      const storageKey = storedKey.startsWith("public/")
+        ? storedKey
+        : `public/${storedKey}`;
+      const fileUrl = getFileUrl(storageKey);
+      onInvoiceSaved?.({
+        revision,
+        fileKey: storedKey,
+        fileUrl,
+        fileName,
+      });
     } catch (error) {
       console.error("Failed to save invoice", error);
     }
@@ -397,6 +412,7 @@ export function useInvoicePreviewModal({
     project,
     revision,
     setInvoiceDirty,
+    onInvoiceSaved,
   ]);
 
   const handleSaveClick = useCallback(() => {

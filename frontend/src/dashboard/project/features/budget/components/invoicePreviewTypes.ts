@@ -62,4 +62,12 @@ export interface InvoicePreviewModalProps {
   project?: ProjectLike | null;
   allowSave?: boolean;
   itemsOverride?: BudgetItem[] | null;
+  onInvoiceSaved?: (result: RevisionInvoiceSaveResult) => void;
+}
+
+export interface RevisionInvoiceSaveResult {
+  revision: RevisionLike;
+  fileKey: string;
+  fileUrl: string;
+  fileName: string;
 }

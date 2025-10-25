@@ -20,6 +20,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   project,
   allowSave = true,
   itemsOverride = null,
+  onInvoiceSaved,
 }) => {
   const {
     items,
@@ -89,6 +90,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     revision,
     project,
     itemsOverride,
+    onInvoiceSaved,
   });
 
   return (
