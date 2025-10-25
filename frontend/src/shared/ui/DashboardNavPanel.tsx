@@ -2,6 +2,7 @@ import React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
+import "@/dashboard/home/components/GlobalSearch.css";
 import NavBadge from "./NavBadge";
 import useDashboardNavigation, {
   type DashboardNavItem,
@@ -111,9 +112,26 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
     .join(" ");
 
   const topSection = isOverlay ? (
-    <div className="navigation-drawer-search">
-      <GlobalSearch onNavigate={onClose} />
-    </div>
+    <>
+      {onClose ? (
+        <div className="navigation-drawer-header navigation-drawer-header--overlay">
+          <button
+            type="button"
+            className="close-button"
+            onClick={onClose}
+            aria-label="Close navigation"
+          >
+            <X size={24} color="white" />
+          </button>
+        </div>
+      ) : null}
+      <div className="dashboard-nav-panel__search dashboard-nav-panel__search--overlay">
+        <GlobalSearch
+          className="dashboard-nav-panel__search-input"
+          onNavigate={onClose}
+        />
+      </div>
+    </>
   ) : onClose ? (
     <div className="navigation-drawer-header">
       <button
@@ -133,25 +151,35 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
 
       <div className="navigation-drawer-content">
         {isPersistent ? (
-          <div className="dashboard-nav-panel__brand-row">
-            <Link
-              to="/"
-              className="dashboard-nav-panel__brand-button"
-              aria-label="Go to marketing home"
-            >
-              <span className="dashboard-nav-panel__brand-mark">M!</span>
-              <span className="dashboard-nav-panel__brand-text">MYLG!</span>
-            </Link>
-            {onToggleCollapse ? (
-              <button
-                type="button"
-                className="dashboard-nav-panel__collapse-toggle"
-                onClick={onToggleCollapse}
-                aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-                title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+          <div className="dashboard-nav-panel__brand-section">
+            <div className="dashboard-nav-panel__brand-row">
+              <Link
+                to="/"
+                className="dashboard-nav-panel__brand-button"
+                aria-label="Go to marketing home"
               >
-                {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-              </button>
+                <span className="dashboard-nav-panel__brand-mark">M!</span>
+                <span className="dashboard-nav-panel__brand-text">MYLG!</span>
+              </Link>
+              {onToggleCollapse ? (
+                <button
+                  type="button"
+                  className="dashboard-nav-panel__collapse-toggle"
+                  onClick={onToggleCollapse}
+                  aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+                  title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+                >
+                  {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                </button>
+              ) : null}
+            </div>
+            {!isCollapsed ? (
+              <div className="dashboard-nav-panel__search">
+                <GlobalSearch
+                  className="dashboard-nav-panel__search-input"
+                  onNavigate={onClose}
+                />
+              </div>
             ) : null}
           </div>
         ) : null}
