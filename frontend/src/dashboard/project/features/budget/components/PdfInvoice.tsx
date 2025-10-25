@@ -376,15 +376,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   const projectTitleForMeta = projectTitle || project?.title || "";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
-  const organizationLinesToDisplay = organizationLines.length
-    ? organizationLines
-    : [
-        {
-          id: "organization-placeholder",
-          text: "Add your organization info in Settings",
-          isPlaceholder: true,
-        },
-      ];
+  const organizationLinesToDisplay = organizationLines.filter((line) => !line.isPlaceholder);
 
   return (
     <Document>

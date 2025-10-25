@@ -88,29 +88,78 @@ export function useInvoicePreviewModal({
     const phone = organizationFields.phone.trim();
     const email = organizationFields.email.trim();
 
-    return [
-      {
-        id: "organization-name",
-        text: name || "Your organization name",
-        isPlaceholder: !name,
-        isBold: Boolean(name),
-      },
-      {
-        id: "organization-address",
-        text: address || "Add your mailing address",
-        isPlaceholder: !address,
-      },
-      {
-        id: "organization-phone",
-        text: phone || "Add your phone number",
-        isPlaceholder: !phone,
-      },
-      {
-        id: "organization-email",
-        text: email || "Add your email address",
-        isPlaceholder: !email,
-      },
-    ];
+    const hasAnyValue = Boolean(name || address || phone || email);
+
+    if (!hasAnyValue) {
+      return [
+        {
+          id: "organization-placeholder-name",
+          text: "Your organization name",
+          isPlaceholder: true,
+        },
+        {
+          id: "organization-placeholder-address",
+          text: "Add your mailing address",
+          isPlaceholder: true,
+        },
+        {
+          id: "organization-placeholder-phone",
+          text: "Add your phone number",
+          isPlaceholder: true,
+        },
+        {
+          id: "organization-placeholder-email",
+          text: "Add your email address",
+          isPlaceholder: true,
+        },
+      ];
+    }
+
+    const addressLines = (() => {
+      if (!address) return [];
+
+      const normalized = address.replace(/\r\n/g, "\n");
+      const newlineParts = normalized
+        .split("\n")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (newlineParts.length > 0) {
+        return newlineParts;
+      }
+
+      const firstCommaIndex = normalized.indexOf(",");
+      if (firstCommaIndex === -1) {
+        return [normalized.trim()].filter(Boolean);
+      }
+
+      const lineOne = normalized.slice(0, firstCommaIndex).trim();
+      const lineTwo = normalized.slice(firstCommaIndex + 1).trim();
+      return [lineOne, lineTwo].filter(Boolean);
+    })();
+
+    const lines: OrganizationInfoLine[] = [];
+
+    if (name) {
+      lines.push({ id: "organization-name", text: name, isPlaceholder: false, isBold: true });
+    }
+
+    addressLines.forEach((line, index) => {
+      lines.push({
+        id: `organization-address-${index}`,
+        text: line,
+        isPlaceholder: false,
+      });
+    });
+
+    if (phone) {
+      lines.push({ id: "organization-phone", text: phone, isPlaceholder: false });
+    }
+
+    if (email) {
+      lines.push({ id: "organization-email", text: email, isPlaceholder: false });
+    }
+
+    return lines;
   }, [organizationFields]);
 
   const updateOrganizationField = useCallback(

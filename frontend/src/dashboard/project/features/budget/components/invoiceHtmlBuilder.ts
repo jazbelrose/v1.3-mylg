@@ -80,20 +80,11 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
 
       const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
-      const organizationLinesToRender = organizationLines.length
-        ? organizationLines
-        : [
-            {
-              id: "organization-placeholder",
-              text: "Add your organization info in Settings",
-              isPlaceholder: true,
-            },
-          ];
-      const organizationHtmlLines = organizationLinesToRender
+      const organizationHtmlLines = organizationLines
+        .filter((line) => !line.isPlaceholder)
         .map((line) => {
           const classList = ["organization-line"];
           if (line.isBold) classList.push("organization-name");
-          if (line.isPlaceholder) classList.push("organization-placeholder");
           const classAttr = classList.join(" ");
           return `<div class="${classAttr}">${line.text}</div>`;
         })
