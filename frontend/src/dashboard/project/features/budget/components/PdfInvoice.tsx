@@ -426,22 +426,23 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
           </View>
 
           <View
-            render={({ pageNumber }) =>
+            render={({ pageNumber, totalPages }) =>
               pageNumber === 1 ? (
                 <View style={styles.headerRuleContainer}>
                   <View style={styles.headerRule} />
-                    <View style={styles.headerBottom}>
-                      <View style={styles.billTo}>
-                        <Text style={styles.billToLabel}>Billed To:</Text>
-                        {linesToRender.map((line, index) => (
-                          <Text key={`bill-to-${index}`}>{line}</Text>
-                        ))}
-                      </View>
+                  <View style={styles.headerBottom}>
+                    <View style={styles.billTo}>
+                      <Text style={styles.billToLabel}>Billed To:</Text>
+                      {linesToRender.map((line, index) => (
+                        <Text key={`bill-to-${index}`}>{line}</Text>
+                      ))}
+                    </View>
 
-                      <View style={styles.invoiceMeta}>
+                    <View style={styles.invoiceMeta}>
                       <Text>Invoice #: {displayInvoiceNumber}</Text>
                       {projectNameForMeta ? <Text>{projectNameForMeta}</Text> : null}
                       <Text>Issue date: {displayIssueDate}</Text>
+                      <Text>{`Pages: ${pageNumber} / ${totalPages}`}</Text>
                     </View>
                   </View>
                 </View>

@@ -551,6 +551,14 @@
   gap: 4px;
 }
 
+.groupItem input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #FA3356;
+}
+
 .invoiceList {
   margin-top: 10px;
   display: flex;
