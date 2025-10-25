@@ -412,6 +412,7 @@
   overflow: hidden;
   background: linear-gradient(135deg, rgba(250, 51, 86, 0.18), rgba(250, 51, 86, 0.05));
   border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
 }
 
 .dashboard-nav-panel__account-avatar img {
@@ -481,7 +482,7 @@
 
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__account-button {
   width: 56px;
-  padding: 8px;
+  padding: 6px;
   justify-content: center;
   margin: 0;
 }
