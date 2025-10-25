@@ -1,8 +1,11 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
 import NavBadge from "./NavBadge";
+import { useData } from "@/app/contexts/useData";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
+import { getFileUrl } from "@/shared/utils/api";
 import useDashboardNavigation, {
   type DashboardNavItem,
   type UseDashboardNavigationArgs,
@@ -98,8 +101,23 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   onToggleCollapse,
 }) => {
   const { navItems, bottomItems } = useDashboardNavigation({ setActiveView, onClose });
+  const { userData } = useData();
+  const { isOnline } = useOnlineStatus();
   const isOverlay = variant === "overlay";
   const isPersistent = variant === "persistent";
+
+  const trimmedFirstName = userData?.firstName?.trim();
+  const trimmedLastName = userData?.lastName?.trim();
+  const displayName = [trimmedFirstName, trimmedLastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const fallbackName = userData?.userName || userData?.email || "User";
+  const userDisplayName = displayName || fallbackName;
+  const userOccupation = userData?.occupation || userData?.role || "";
+  const avatarKey = userData?.thumbnail ?? userData?.thumbnailUrl ?? "";
+  const avatarSrc = avatarKey ? getFileUrl(avatarKey) : "";
+  const isUserOnline = userData?.userId ? isOnline(String(userData.userId)) : false;
 
   const containerClass = [
     "dashboard-nav-panel",
@@ -135,12 +153,28 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
         {isPersistent ? (
           <div className="dashboard-nav-panel__brand-row">
             <Link
-              to="/"
+              to="/dashboard/settings"
               className="dashboard-nav-panel__brand-button"
-              aria-label="Go to marketing home"
+              aria-label="Open user settings"
             >
-              <span className="dashboard-nav-panel__brand-mark">M!</span>
-              <span className="dashboard-nav-panel__brand-text">MYLG!</span>
+              <span className="dashboard-nav-panel__brand-mark">
+                {avatarSrc ? (
+                  <img src={avatarSrc} alt={`${userDisplayName}'s avatar`} />
+                ) : (
+                  <User aria-hidden size={22} />
+                )}
+                {isUserOnline ? (
+                  <span className="dashboard-nav-panel__brand-status" aria-label="Online" />
+                ) : null}
+              </span>
+              <span className="dashboard-nav-panel__brand-text">
+                <span className="dashboard-nav-panel__user-name">
+                  {userDisplayName}
+                </span>
+                {userOccupation ? (
+                  <span className="dashboard-nav-panel__user-occupation">{userOccupation}</span>
+                ) : null}
+              </span>
             </Link>
             {onToggleCollapse ? (
               <button
