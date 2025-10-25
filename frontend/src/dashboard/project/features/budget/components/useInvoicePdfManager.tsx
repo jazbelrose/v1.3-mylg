@@ -23,6 +23,8 @@ interface UseInvoicePdfManagerOptions {
   rowsData: RowData[];
   subtotal: number;
   depositReceived: number;
+  taxRate: number;
+  taxAmount: number;
   totalDue: number;
   notes: string;
   revision: InvoicePreviewModalProps["revision"];
@@ -51,6 +53,8 @@ export function useInvoicePdfManager({
   rowsData,
   subtotal,
   depositReceived,
+  taxRate,
+  taxAmount,
   totalDue,
   notes,
   revision,
@@ -83,6 +87,8 @@ export function useInvoicePdfManager({
         rows={rowsData}
         subtotal={subtotal}
         depositReceived={depositReceived}
+        taxRate={taxRate}
+        taxAmount={taxAmount}
         totalDue={totalDue}
         notes={notes}
         organizationLines={organizationLines}
@@ -98,6 +104,8 @@ export function useInvoicePdfManager({
     logoDataUrl,
     notes,
     organizationLines,
+    taxAmount,
+    taxRate,
     project,
     projectTitle,
     rowsData,
@@ -152,6 +160,8 @@ export function useInvoicePdfManager({
       projectTitle,
       notes,
       depositReceived,
+      taxRate,
+      taxAmount,
       subtotal,
       totalDue,
       organizationLines,
@@ -169,6 +179,8 @@ export function useInvoicePdfManager({
     projectTitle,
     notes,
     depositReceived,
+    taxRate,
+    taxAmount,
     subtotal,
     totalDue,
     organizationLines,

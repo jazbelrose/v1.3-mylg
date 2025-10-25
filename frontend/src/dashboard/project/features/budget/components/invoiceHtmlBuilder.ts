@@ -1,4 +1,4 @@
-import { formatCurrency } from "./invoicePreviewUtils";
+import { formatCurrency, formatPercent } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
 import type {
   InvoicePreviewModalProps,
@@ -19,6 +19,8 @@ interface InvoiceHtmlBuilderOptions {
   projectTitle: string;
   notes: string;
   depositReceived: number;
+  taxRate: number;
+  taxAmount: number;
   subtotal: number;
   totalDue: number;
   organizationLines: OrganizationInfoLine[];
@@ -38,6 +40,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     projectTitle,
     notes,
     depositReceived,
+    taxRate,
+    taxAmount,
     subtotal,
     totalDue,
     organizationLines,
@@ -91,6 +95,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
         .join("");
 
       const deposit = formatCurrency(depositReceived);
+      const taxDisplayRate = formatPercent(taxRate);
+      const tax = formatCurrency(taxAmount);
       const total = formatCurrency(totalDue);
 
       const logoHtml = logoSrc
@@ -103,9 +109,11 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
         idx === pages.length - 1
           ? `<div class="bottom-block">
                <div class="totals">
-                 <div>Subtotal: <span>${formatCurrency(subtotal)}</span></div>
-                 <div>Deposit received: <span>${deposit}</span></div>
-                 <div><strong>Total Due: <span>${total}</span></strong></div>
+                 <div class="totals-row totals-subtotal" data-row="subtotal">Subtotal: <span>${formatCurrency(subtotal)}</span></div>
+                 <div class="totals-row totals-deposit" data-row="deposit">Deposit received: <span>${deposit}</span></div>
+                 <div class="totals-row totals-tax" data-row="tax" data-rate="${taxRate}">Tax (${taxDisplayRate}%): <span>${tax}</span></div>
+                 <div class="totals-divider" aria-hidden="true"></div>
+                 <div class="totals-row totals-total" data-row="total"><strong>Total Due: <span>${total}</span></strong></div>
                </div>
                <div class="payment-footer">
                <div class="payment-info-column">

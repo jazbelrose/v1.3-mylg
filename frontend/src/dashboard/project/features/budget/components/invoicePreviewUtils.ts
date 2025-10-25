@@ -13,3 +13,9 @@ export const formatCurrency = (
     maximumFractionDigits: 2,
   });
 };
+
+export const formatPercent = (val: number | null | undefined): string => {
+  if (!Number.isFinite(val ?? NaN)) return "0";
+  const numeric = Number(val);
+  return parseFloat(numeric.toFixed(2)).toString();
+};

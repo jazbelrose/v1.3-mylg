@@ -18,7 +18,7 @@ import type {
   ProjectLike,
   RowData,
 } from "./invoicePreviewTypes";
-import { formatCurrency } from "./invoicePreviewUtils";
+import { formatCurrency, formatPercent } from "./invoicePreviewUtils";
 
 interface InvoicePreviewContentProps {
   invoiceRef: React.RefObject<HTMLDivElement>;
@@ -74,6 +74,9 @@ interface InvoicePreviewContentProps {
   subtotal: number;
   depositReceived: number;
   onDepositBlur: (value: string) => void;
+  taxRate: number;
+  taxAmount: number;
+  onTaxRateBlur: (value: string) => void;
   totalDue: number;
   onTotalDueBlur: (value: string) => void;
   notes: string;
@@ -172,6 +175,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   subtotal,
   depositReceived,
   onDepositBlur,
+  taxRate,
+  taxAmount,
+  onTaxRateBlur,
   totalDue,
   onTotalDueBlur,
   notes,
@@ -202,8 +208,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   }));
   const [notesDraft, setNotesDraft] = useState<string>(() => htmlToPlainText(notes));
   const [depositInput, setDepositInput] = useState<string>(() => formatNumberInput(depositReceived));
+  const [taxRateInput, setTaxRateInput] = useState<string>(() => formatNumberInput(taxRate));
   const [totalDueInput, setTotalDueInput] = useState<string>(() => formatNumberInput(totalDue));
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
+
+  const formattedTaxRate = useMemo(() => formatPercent(taxRate), [taxRate]);
 
   const committedValues = useMemo(
     () => ({
@@ -220,6 +229,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       organizationEmail,
       notes,
       depositReceived,
+      taxRate,
       totalDue,
     }),
     [
@@ -231,6 +241,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       organizationName,
       organizationPhone,
       depositReceived,
+      taxRate,
       invoiceNumber,
       invoiceSummary,
       issueDate,
@@ -267,6 +278,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     });
     setNotesDraft(htmlToPlainText(committedValues.notes));
     setDepositInput(formatNumberInput(committedValues.depositReceived));
+    setTaxRateInput(formatNumberInput(committedValues.taxRate));
     setTotalDueInput(formatNumberInput(committedValues.totalDue));
   }, [committedSnapshot, committedValues]);
 
@@ -283,6 +295,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const handleDepositChange = useCallback((value: string) => {
     setHasDraftChanges(true);
     setDepositInput(value);
+  }, []);
+
+  const handleTaxRateChange = useCallback((value: string) => {
+    setHasDraftChanges(true);
+    setTaxRateInput(value);
   }, []);
 
   const handleTotalDueChange = useCallback((value: string) => {
@@ -318,6 +335,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onOrganizationEmailBlur(draftOrganizationEmail);
     onNotesBlur(plainTextToHtml(notesDraft));
     onDepositBlur(depositInput);
+    onTaxRateBlur(taxRateInput);
     onTotalDueBlur(totalDueInput);
     setHasDraftChanges(false);
   }, [
@@ -333,11 +351,13 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     draftOrganizationPhone,
     draftProjectTitle,
     depositInput,
+    taxRateInput,
     notesDraft,
     onBrandNameBlur,
     onBrandTaglineBlur,
     onCustomerSummaryBlur,
     onDepositBlur,
+    onTaxRateBlur,
     onInvoiceNumberBlur,
     onInvoiceSummaryBlur,
     onIssueDateBlur,
@@ -493,6 +513,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         rows={rowsData}
         subtotal={subtotal}
         depositReceived={depositReceived}
+        taxRate={taxRate}
+        taxAmount={taxAmount}
         totalDue={totalDue}
         notes={notes}
         organizationLines={organizationLines}
@@ -512,6 +534,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       projectTitle,
       rowsData,
       subtotal,
+      taxAmount,
+      taxRate,
       totalDue,
     ]
   );
@@ -602,7 +626,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .items-table th{background:#f5f5f5;font-weight:bold;}
         .group-header td{font-weight:bold;background:#fafafa;}
         .totals{margin-top:50px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
-        .totals div{display:flex;gap:6px;align-items:baseline;}
+        .totals-row{display:flex;gap:6px;align-items:baseline;}
+        .totals-divider{height:1px;background:#ddd;width:60%;align-self:flex-end;margin:4px 0;}
         .payment-footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;align-items:flex-start;}
         .payment-info-column{display:flex;flex-direction:column;gap:0.5rem;}
         .payment-info-title{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
@@ -633,14 +658,17 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
         <div className="bottom-block">
           <div className="totals">
-            <div>
+            <div className="totals-row totals-subtotal">
               Subtotal: <span>{formatCurrency(subtotal)}</span>
             </div>
-            <div>
-              Deposit received:
-              <span>{formatCurrency(depositReceived)}</span>
+            <div className="totals-row totals-deposit">
+              Deposit received: <span>{formatCurrency(depositReceived)}</span>
             </div>
-            <div>
+            <div className="totals-row totals-tax">
+              Tax ({formattedTaxRate}%): <span>{formatCurrency(taxAmount)}</span>
+            </div>
+            <div className="totals-divider" aria-hidden="true" />
+            <div className="totals-row totals-total">
               <strong>
                 Total Due: <span>{formatCurrency(totalDue)}</span>
               </strong>
@@ -896,6 +924,16 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   className={styles.textInput}
                   value={depositInput}
                   onChange={(e) => handleDepositChange(e.target.value)}
+                  inputMode="decimal"
+                />
+              </div>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-tax-rate">Tax rate (%)</label>
+                <input
+                  id="invoice-tax-rate"
+                  className={styles.textInput}
+                  value={taxRateInput}
+                  onChange={(e) => handleTaxRateChange(e.target.value)}
                   inputMode="decimal"
                 />
               </div>
