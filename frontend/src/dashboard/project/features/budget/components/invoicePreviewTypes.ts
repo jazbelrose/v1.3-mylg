@@ -41,6 +41,20 @@ export interface SavedInvoice {
   url: string;
 }
 
+export interface OrganizationInfoLine {
+  id: string;
+  text: string;
+  isPlaceholder: boolean;
+  isBold?: boolean;
+}
+
+export interface OrganizationInfoFields {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
 export interface InvoicePreviewModalProps {
   isOpen: boolean;
   onRequestClose: () => void;

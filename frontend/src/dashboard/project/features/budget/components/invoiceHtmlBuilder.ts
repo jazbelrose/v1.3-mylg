@@ -1,6 +1,10 @@
 import { formatCurrency } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
-import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
+import type {
+  InvoicePreviewModalProps,
+  OrganizationInfoLine,
+  RowData,
+} from "./invoicePreviewTypes";
 
 interface InvoiceHtmlBuilderOptions {
   pages: RowData[][];
@@ -17,6 +21,7 @@ interface InvoiceHtmlBuilderOptions {
   depositReceived: number;
   subtotal: number;
   totalDue: number;
+  organizationLines: OrganizationInfoLine[];
 }
 
 export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
@@ -35,6 +40,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     depositReceived,
     subtotal,
     totalDue,
+    organizationLines,
   } = options;
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
@@ -74,10 +80,15 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
 
       const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
-      const paymentContactName = project?.company || headerName;
-      const paymentContactDetails = [project?.clientEmail || ""]
-        .map((detail) => detail.trim())
-        .filter(Boolean);
+      const organizationHtmlLines = organizationLines
+        .filter((line) => !line.isPlaceholder)
+        .map((line) => {
+          const classList = ["organization-line"];
+          if (line.isBold) classList.push("organization-name");
+          const classAttr = classList.join(" ");
+          return `<div class="${classAttr}">${line.text}</div>`;
+        })
+        .join("");
 
       const deposit = formatCurrency(depositReceived);
       const total = formatCurrency(totalDue);
@@ -86,19 +97,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
         ? `<img src="${logoSrc}" alt="logo" />`
         : `<span>Upload Logo</span>`;
 
-      const paymentContactHtml =
-        (paymentContactName && paymentContactName.trim()) || paymentContactDetails.length
-          ? `<div class="payment-contact-column">
-               ${paymentContactName ? `<div class="payment-contact-name">${paymentContactName}</div>` : ""}
-               ${
-                 paymentContactDetails.length
-                   ? `<div class="payment-contact-details">${paymentContactDetails
-                       .map((detail) => `<div>${detail}</div>`)
-                       .join("")}</div>`
-                   : ""
-               }
-             </div>`
-          : "";
+      const organizationHtml = `<div class="organization-info-column">${organizationHtmlLines}</div>`;
 
       const totalsHtml =
         idx === pages.length - 1
@@ -109,13 +108,14 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                  <div><strong>Total Due: <span>${total}</span></strong></div>
                </div>
                <div class="payment-footer">
-                 <div class="payment-info-column">
-                   <div class="payment-info-title">Payment Information</div>
-                   <div class="payment-info-body">${notesText}</div>
-                 </div>
-                 ${paymentContactHtml}
-               </div>
-             </div>`
+               <div class="payment-info-column">
+                  <div class="payment-info-title">Payment Information</div>
+                  <div class="payment-info-body">${notesText}</div>
+                </div>
+                <div class="payment-spacer-column"></div>
+                 ${organizationHtml}
+              </div>
+            </div>`
           : "";
 
       const headerDetailsHtml = idx === 0
