@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
 import NavBadge from "./NavBadge";
@@ -8,6 +8,9 @@ import useDashboardNavigation, {
   type UseDashboardNavigationArgs,
 } from "./useDashboardNavigation";
 import "./navigation-drawer.css";
+import { useData } from "@/app/contexts/useData";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
+import { getFileUrl } from "@/shared/utils/api";
 
 type Variant = "persistent" | "overlay";
 
@@ -97,9 +100,26 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
-  const { navItems, bottomItems } = useDashboardNavigation({ setActiveView, onClose });
+  const { navItems, bottomItems, goToSettings, isSettingsActive } = useDashboardNavigation({
+    setActiveView,
+    onClose,
+  });
+  const { userData } = useData();
+  const { isOnline } = useOnlineStatus();
   const isOverlay = variant === "overlay";
   const isPersistent = variant === "persistent";
+
+  const userId = userData?.userId;
+  const isUserOnline = userId ? isOnline(String(userId)) : false;
+  const userThumbnailKey = userData?.thumbnail || userData?.thumbnailUrl;
+  const userThumbnail = userThumbnailKey ? getFileUrl(userThumbnailKey) : undefined;
+  const firstName = userData?.firstName?.trim();
+  const lastName = userData?.lastName?.trim();
+  const fullName = [firstName, lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || userData?.email || "Account";
+  const occupation = userData?.occupation || userData?.role || "";
 
   const containerClass = [
     "dashboard-nav-panel",
@@ -160,6 +180,42 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
           {navItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
         <ul className="nav-list nav-list--secondary">
+          <li className="dashboard-nav-panel__user-item">
+            <button
+              type="button"
+              onClick={goToSettings}
+              className={`dashboard-nav-panel__user ${
+                isCollapsed ? "dashboard-nav-panel__user--collapsed" : ""
+              } ${isSettingsActive ? "dashboard-nav-panel__user--active" : ""}`}
+              aria-label={isCollapsed ? `Open settings for ${fullName}` : "Open account settings"}
+              title={isCollapsed ? fullName : undefined}
+              aria-current={isSettingsActive ? "page" : undefined}
+            >
+              <span className="dashboard-nav-panel__user-avatar" aria-hidden>
+                {userThumbnail ? (
+                  <img src={userThumbnail} alt="" />
+                ) : (
+                  <span className="dashboard-nav-panel__user-avatar-fallback">
+                    <User size={20} />
+                  </span>
+                )}
+                {isUserOnline ? (
+                  <span className="dashboard-nav-panel__user-status" aria-label="Online" />
+                ) : null}
+              </span>
+              <span className="dashboard-nav-panel__sr-only">
+                {isUserOnline ? "Online" : "Offline"}
+              </span>
+              {!isCollapsed ? (
+                <span className="dashboard-nav-panel__user-info">
+                  <span className="dashboard-nav-panel__user-name">{fullName}</span>
+                  {occupation ? (
+                    <span className="dashboard-nav-panel__user-occupation">{occupation}</span>
+                  ) : null}
+                </span>
+              ) : null}
+            </button>
+          </li>
           {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
       </div>
