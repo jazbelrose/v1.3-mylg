@@ -1,5 +1,5 @@
-import React from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import React, { useMemo } from "react";
+import { ChevronLeft, ChevronRight, X, User as UserIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
 import NavBadge from "./NavBadge";
@@ -8,6 +8,9 @@ import useDashboardNavigation, {
   type UseDashboardNavigationArgs,
 } from "./useDashboardNavigation";
 import "./navigation-drawer.css";
+import { useData } from "@/app/contexts/useData";
+import { getFileUrl } from "@/shared/utils/api";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
 
 type Variant = "persistent" | "overlay";
 
@@ -97,7 +100,12 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
-  const { navItems, bottomItems } = useDashboardNavigation({ setActiveView, onClose });
+  const { userData } = useData();
+  const { isOnline } = useOnlineStatus();
+  const { navItems, bottomItems, userNavItem } = useDashboardNavigation({
+    setActiveView,
+    onClose,
+  });
   const isOverlay = variant === "overlay";
   const isPersistent = variant === "persistent";
 
@@ -126,6 +134,50 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
       </button>
     </div>
   ) : null;
+
+  const userDisplayName = useMemo(() => {
+    const first = userData?.firstName?.trim();
+    const last = userData?.lastName?.trim();
+    if (first || last) {
+      return [first, last].filter(Boolean).join(" ");
+    }
+
+    return userData?.email ?? "My Account";
+  }, [userData?.email, userData?.firstName, userData?.lastName]);
+
+  const userOccupation = useMemo(() => {
+    return userData?.occupation?.trim() || userData?.role?.trim() || "";
+  }, [userData?.occupation, userData?.role]);
+
+  const userInitials = useMemo(() => {
+    const first = userData?.firstName?.trim();
+    const last = userData?.lastName?.trim();
+    const initials = [first?.[0], last?.[0]].filter(Boolean).join("");
+    if (initials) return initials.toUpperCase();
+
+    const fallback = userDisplayName?.trim()?.[0];
+    return fallback ? fallback.toUpperCase() : "";
+  }, [userData?.firstName, userData?.lastName, userDisplayName]);
+
+  const userAvatarUrl = userData?.thumbnail ? getFileUrl(userData.thumbnail) : "";
+
+  const isUserOnline = isOnline?.(userData?.userId);
+
+  const handleUserClick = () => {
+    userNavItem.onClick?.();
+  };
+
+  const userAriaLabel = userOccupation
+    ? `${userDisplayName}, ${userOccupation}`
+    : userDisplayName;
+
+  const userButtonClassName = [
+    "nav-item",
+    "dashboard-nav-panel__user",
+    userNavItem.isActive ? "nav-item--active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={containerClass}>
@@ -160,6 +212,40 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
           {navItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
         <ul className="nav-list nav-list--secondary">
+          <li>
+            <button
+              type="button"
+              className={userButtonClassName}
+              onClick={handleUserClick}
+              title={userDisplayName}
+              aria-label={userAriaLabel}
+            >
+              <span className="nav-item__icon dashboard-nav-panel__user-avatar">
+                {userAvatarUrl ? (
+                  <img src={userAvatarUrl} alt="" />
+                ) : userInitials ? (
+                  <span className="dashboard-nav-panel__user-initials" aria-hidden>
+                    {userInitials}
+                  </span>
+                ) : (
+                  <UserIcon size={20} aria-hidden />
+                )}
+                {userData?.userId ? (
+                  <span
+                    className="dashboard-nav-panel__user-status"
+                    data-online={isUserOnline ? "true" : undefined}
+                    aria-hidden
+                  />
+                ) : null}
+              </span>
+              <span className="dashboard-nav-panel__user-details">
+                <span className="dashboard-nav-panel__user-name">{userDisplayName}</span>
+                {userOccupation ? (
+                  <span className="dashboard-nav-panel__user-occupation">{userOccupation}</span>
+                ) : null}
+              </span>
+            </button>
+          </li>
           {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
       </div>

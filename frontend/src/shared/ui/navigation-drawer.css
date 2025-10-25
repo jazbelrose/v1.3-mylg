@@ -184,6 +184,21 @@
   height: 44px;
 }
 
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user-details {
+  display: none;
+}
+
 /* subtle sweep + top highlight; tweak opacities as you like */
 .navigation-drawer::before,
 .app-drawer::before {
@@ -357,6 +372,72 @@
   border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
 }
 
+.dashboard-nav-panel__user {
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-nav-panel__user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  overflow: hidden;
+  color: inherit;
+  background: none;
+  box-shadow: none;
+  position: relative;
+}
+
+.dashboard-nav-panel__user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dashboard-nav-panel__user-initials {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.dashboard-nav-panel__user-status {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid var(--bg3, #181a1b);
+  background: rgba(154, 160, 166, 0.6);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out;
+}
+
+.dashboard-nav-panel__user-status[data-online="true"] {
+  background: #00d46a;
+  box-shadow: 0 0 0 2px rgba(0, 212, 106, 0.2);
+}
+
+.dashboard-nav-panel__user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.15;
+}
+
+.dashboard-nav-panel__user-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #eaecee);
+}
+
+.dashboard-nav-panel__user-occupation {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted, #9aa0a6);
+}
+
 .nav-item {
   --nav-item-inline-padding: 14px;
   --nav-item-background: var(--bg3, #181a1b);
@@ -456,6 +537,10 @@
     background-color 0.15s ease-in-out;
 }
 
+.nav-item__icon.dashboard-nav-panel__user-avatar {
+  background: none;
+}
+
 .nav-item__label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -501,6 +586,12 @@
   transform: scale(1.02);
   background-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+}
+
+.nav-item:hover .dashboard-nav-panel__user-avatar,
+.nav-item:focus-visible .dashboard-nav-panel__user-avatar {
+  background: none;
+  box-shadow: none;
 }
 
 .nav-item:hover .nav-item__label,
