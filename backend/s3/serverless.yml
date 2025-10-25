@@ -12,6 +12,19 @@ provider:
 resources:
   Resources:
  
+    # ---- S3 Bucket ----
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins: ["https://beta.mylg.studio", "https://mylg.studio", "http://localhost:3000", "http://localhost:5173", "http://192.168.1.172:5173", "http://192.168.1.200:5173", "http://192.168.1.172:3000", "http://192.168.1.200:3000"]
+              AllowedMethods: ["GET", "PUT", "POST", "HEAD"]
+              AllowedHeaders: ["*"]
+              ExposeHeaders: ["ETag"]
+              MaxAgeSeconds: 3000
+ 
     # ---- CloudFront Origin Access Identity ----
     S3OriginAccessIdentity:
       Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
