@@ -255,8 +255,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
         navigationDrawerId={drawerId}
         isDesktopLayout={flags.isDesktop}
         showDesktopGreeting={false}
-        showGlobalSearch={false}
-        showAvatar={false}
+        showGlobalSearch
+        showAvatar
       />
     </div>
   ) : null;
