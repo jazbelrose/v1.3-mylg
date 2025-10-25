@@ -16,6 +16,7 @@ interface InvoiceHtmlBuilderOptions {
   project: InvoicePreviewModalProps["project"];
   invoiceNumber: string;
   issueDate: string;
+  projectName: string;
   projectTitle: string;
   customerSummary: string;
   notes: string;
@@ -38,6 +39,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     project,
     invoiceNumber,
     issueDate,
+    projectName,
     projectTitle,
     customerSummary,
     notes,
@@ -96,7 +98,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
         .map((line) => `<div>${line}</div>`)
         .join("");
 
-      const projTitleMeta = projectTitle || project?.title || "";
+      const projTitleMeta = projectName || project?.title || "";
       const notesText = notes || "";
       const organizationHtmlLines = organizationLines
         .filter((line) => !line.isPlaceholder)

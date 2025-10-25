@@ -53,6 +53,8 @@ interface InvoicePreviewContentProps {
   onInvoiceNumberBlur: (value: string) => void;
   issueDate: string;
   onIssueDateBlur: (value: string) => void;
+  projectName: string;
+  onProjectNameBlur: (value: string) => void;
   projectTitle: string;
   onProjectTitleBlur: (value: string) => void;
   customerSummary: string;
@@ -88,6 +90,7 @@ type FormDraftField =
   | "brandTagline"
   | "invoiceNumber"
   | "issueDate"
+  | "projectName"
   | "projectTitle"
   | "customerSummary"
   | "organizationName"
@@ -152,6 +155,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onInvoiceNumberBlur,
   issueDate,
   onIssueDateBlur,
+  projectName,
+  onProjectNameBlur,
   projectTitle,
   onProjectTitleBlur,
   customerSummary,
@@ -193,6 +198,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     brandTagline,
     invoiceNumber,
     issueDate,
+    projectName,
     projectTitle,
     customerSummary,
     organizationName,
@@ -214,6 +220,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       brandTagline,
       invoiceNumber,
       issueDate,
+      projectName,
       projectTitle,
       customerSummary,
       organizationName,
@@ -237,6 +244,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       taxRate,
       invoiceNumber,
       issueDate,
+      projectName,
       notes,
       projectTitle,
       totalDue,
@@ -260,6 +268,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       brandTagline: committedValues.brandTagline,
       invoiceNumber: committedValues.invoiceNumber,
       issueDate: committedValues.issueDate,
+      projectName: committedValues.projectName,
       projectTitle: committedValues.projectTitle,
       customerSummary: committedValues.customerSummary,
       organizationName: committedValues.organizationName,
@@ -303,6 +312,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     brandTagline: draftBrandTagline,
     invoiceNumber: draftInvoiceNumber,
     issueDate: draftIssueDate,
+    projectName: draftProjectName,
     projectTitle: draftProjectTitle,
     customerSummary: draftCustomerSummary,
     organizationName: draftOrganizationName,
@@ -316,6 +326,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onBrandTaglineBlur(draftBrandTagline);
     onInvoiceNumberBlur(draftInvoiceNumber);
     onIssueDateBlur(draftIssueDate);
+    onProjectNameBlur(draftProjectName);
     onProjectTitleBlur(draftProjectTitle);
     onCustomerSummaryBlur(draftCustomerSummary);
     onOrganizationNameBlur(draftOrganizationName);
@@ -333,6 +344,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     draftCustomerSummary,
     draftInvoiceNumber,
     draftIssueDate,
+    draftProjectName,
     draftOrganizationAddress,
     draftOrganizationEmail,
     draftOrganizationName,
@@ -348,6 +360,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onTaxRateBlur,
     onInvoiceNumberBlur,
     onIssueDateBlur,
+    onProjectNameBlur,
     onNotesBlur,
     onOrganizationAddressBlur,
     onOrganizationEmailBlur,
@@ -435,7 +448,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     const displayBrandTagline = pdfBrandTagline;
     const displayInvoiceNumber = invoiceNumber || "0000";
     const displayIssueDate = issueDate || new Date().toLocaleDateString();
-    const displayProjectTitle = projectTitle || project?.title || "";
+    const displayProjectName = projectName || project?.title || "";
     const draftBilledToLines = draftCustomerSummary
       .split(/\n+/)
       .map((line) => line.trim())
@@ -478,7 +491,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <div>
                 Invoice #: <span>{displayInvoiceNumber}</span>
               </div>
-              {displayProjectTitle ? <div>{displayProjectTitle}</div> : null}
+              {displayProjectName ? <div>{displayProjectName}</div> : null}
               <div>
                 Issue date: <span>{displayIssueDate}</span>
               </div>
@@ -492,11 +505,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     issueDate,
     logoSrc,
     pdfBrandName,
-      pdfBrandTagline,
-      project,
-      projectTitle,
-      draftCustomerSummary,
-    ]);
+    pdfBrandTagline,
+    project,
+    projectName,
+    draftCustomerSummary,
+  ]);
 
   const pdfDocument = useMemo(
     () => (
@@ -508,6 +521,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         project={project}
         invoiceNumber={invoiceNumber}
         issueDate={issueDate}
+        projectName={projectName}
         projectTitle={projectTitle}
         customerSummary={customerSummary}
         rows={rowsData}
@@ -532,6 +546,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       pdfBrandName,
       pdfBrandTagline,
       project,
+      projectName,
       projectTitle,
       rowsData,
       subtotal,
@@ -809,6 +824,16 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   className={styles.textInput}
                   value={draftIssueDate}
                   onChange={(e) => updateDraftField("issueDate", e.target.value)}
+                />
+              </div>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-project-name">Project</label>
+                <input
+                  id="invoice-project-name"
+                  className={styles.textInput}
+                  value={draftProjectName}
+                  placeholder={project?.title || "Project name"}
+                  onChange={(e) => updateDraftField("projectName", e.target.value)}
                 />
               </div>
             </div>

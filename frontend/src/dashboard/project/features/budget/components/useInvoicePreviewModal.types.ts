@@ -48,6 +48,8 @@ export interface UseInvoicePreviewModalResult {
   handleInvoiceNumberBlur: (value: string) => void;
   issueDate: string;
   handleIssueDateBlur: (value: string) => void;
+  projectName: string;
+  handleProjectNameBlur: (value: string) => void;
   projectTitle: string;
   handleProjectTitleBlur: (value: string) => void;
   customerSummary: string;

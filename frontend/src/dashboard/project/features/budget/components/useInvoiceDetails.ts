@@ -14,6 +14,7 @@ interface UseInvoiceDetailsResult {
   setInvoiceDirty: React.Dispatch<React.SetStateAction<boolean>>;
   invoiceNumber: string;
   issueDate: string;
+  projectName: string;
   projectTitle: string;
   customerSummary: string;
   notes: string;
@@ -23,6 +24,7 @@ interface UseInvoiceDetailsResult {
   setTotalDue: React.Dispatch<React.SetStateAction<number>>;
   handleInvoiceNumberBlur: (value: string) => void;
   handleIssueDateBlur: (value: string) => void;
+  handleProjectNameBlur: (value: string) => void;
   handleProjectTitleBlur: (value: string) => void;
   handleCustomerSummaryBlur: (value: string) => void;
   handleDepositBlur: (value: string) => void;
@@ -31,6 +33,7 @@ interface UseInvoiceDetailsResult {
   handleNotesBlur: (value: string) => void;
   setInvoiceNumber: React.Dispatch<React.SetStateAction<string>>;
   setIssueDate: React.Dispatch<React.SetStateAction<string>>;
+  setProjectName: React.Dispatch<React.SetStateAction<string>>;
   setProjectTitle: React.Dispatch<React.SetStateAction<string>>;
   setCustomerSummary: React.Dispatch<React.SetStateAction<string>>;
   setDepositReceived: React.Dispatch<React.SetStateAction<number>>;
@@ -63,6 +66,7 @@ export function useInvoiceDetails({
   const [invoiceDirty, setInvoiceDirty] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState("0000");
   const [issueDate, setIssueDate] = useState<string>(() => new Date().toLocaleDateString());
+  const [projectName, setProjectName] = useState<string>(() => project?.title || "");
   const [projectTitle, setProjectTitle] = useState(project?.title || "Project Title");
   const [customerSummary, setCustomerSummary] = useState(() => buildClientSummary(project));
   const [notes, setNotes] = useState(DEFAULT_NOTES_HTML);
@@ -74,6 +78,7 @@ export function useInvoiceDetails({
     if (!isOpen) return;
     setInvoiceNumber("0000");
     setIssueDate(new Date().toLocaleDateString());
+    setProjectName(project?.title || "");
     setProjectTitle(project?.title || "Project Title");
     setCustomerSummary(buildClientSummary(project));
     setNotes(DEFAULT_NOTES_HTML);
@@ -102,6 +107,14 @@ export function useInvoiceDetails({
   const handleIssueDateBlur = useCallback(
     (value: string) => {
       setIssueDate(value);
+      markDirty();
+    },
+    [markDirty]
+  );
+
+  const handleProjectNameBlur = useCallback(
+    (value: string) => {
+      setProjectName(value);
       markDirty();
     },
     [markDirty]
@@ -163,6 +176,7 @@ export function useInvoiceDetails({
     setInvoiceDirty,
     invoiceNumber,
     issueDate,
+    projectName,
     projectTitle,
     customerSummary,
     notes,
@@ -172,6 +186,7 @@ export function useInvoiceDetails({
     setTotalDue,
     handleInvoiceNumberBlur,
     handleIssueDateBlur,
+    handleProjectNameBlur,
     handleProjectTitleBlur,
     handleCustomerSummaryBlur,
     handleDepositBlur,
@@ -180,6 +195,7 @@ export function useInvoiceDetails({
     handleNotesBlur,
     setInvoiceNumber,
     setIssueDate,
+    setProjectName,
     setProjectTitle,
     setCustomerSummary,
     setDepositReceived,

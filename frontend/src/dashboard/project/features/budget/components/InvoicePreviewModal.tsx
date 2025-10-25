@@ -53,6 +53,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     handleInvoiceNumberBlur,
     issueDate,
     handleIssueDateBlur,
+    projectName,
+    handleProjectNameBlur,
     projectTitle,
     handleProjectTitleBlur,
     customerSummary,
@@ -150,6 +152,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onInvoiceNumberBlur={handleInvoiceNumberBlur}
                   issueDate={issueDate}
                   onIssueDateBlur={handleIssueDateBlur}
+                  projectName={projectName}
+                  onProjectNameBlur={handleProjectNameBlur}
                   projectTitle={projectTitle}
                   onProjectTitleBlur={handleProjectTitleBlur}
                   customerSummary={customerSummary}

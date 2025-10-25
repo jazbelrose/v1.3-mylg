@@ -202,11 +202,12 @@ export function useInvoicePreviewModal({
   });
 
   const details = useInvoiceDetails({ isOpen, project, revision });
-  const { 
+  const {
     invoiceDirty,
     setInvoiceDirty,
     invoiceNumber,
     issueDate,
+    projectName,
     projectTitle,
     customerSummary,
     notes,
@@ -216,6 +217,7 @@ export function useInvoicePreviewModal({
     setTotalDue,
     handleInvoiceNumberBlur,
     handleIssueDateBlur,
+    handleProjectNameBlur,
     handleProjectTitleBlur,
     handleCustomerSummaryBlur,
     handleDepositBlur,
@@ -307,6 +309,7 @@ export function useInvoicePreviewModal({
     logoDataUrl,
     invoiceNumber,
     issueDate,
+    projectName,
     projectTitle,
     customerSummary,
     rowsData,
@@ -475,6 +478,8 @@ export function useInvoicePreviewModal({
     handleInvoiceNumberBlur,
     issueDate,
     handleIssueDateBlur,
+    projectName,
+    handleProjectNameBlur,
     projectTitle,
     handleProjectTitleBlur,
     customerSummary,
