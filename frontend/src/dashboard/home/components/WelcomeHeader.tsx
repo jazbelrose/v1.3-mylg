@@ -40,7 +40,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   const normalizedFirstName = firstName
     ? firstName.charAt(0).toUpperCase() + firstName.slice(1)
     : 'there';
-  const userThumbnail = userData?.thumbnail;
+  const userThumbnail = userData?.thumbnail || userData?.thumbnailUrl;
+  const userThumbnailUrl = userThumbnail ? getFileUrl(userThumbnail) : undefined;
   const userId = userData?.userId;
 
   // online status (derived from presenceChanged events via OnlineStatusContext)
@@ -162,9 +163,9 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
 
           <div className="welcome-header-actions">
             <div style={{ position: 'relative' }}>
-              {userThumbnail ? (
+              {userThumbnailUrl ? (
                 <img
-                  src={getFileUrl(userThumbnail)}
+                  src={userThumbnailUrl}
                   alt={`${userName}'s Thumbnail`}
                   style={{
                     width: isMobile ? '32px' : '40px',
