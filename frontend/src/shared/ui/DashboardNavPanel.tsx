@@ -10,6 +10,7 @@ import useDashboardNavigation, {
 import "./navigation-drawer.css";
 import { useData } from "@/app/contexts/useData";
 import { getFileUrl } from "@/shared/utils/api";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
 
 type Variant = "persistent" | "overlay";
 
@@ -100,6 +101,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   onToggleCollapse,
 }) => {
   const { userData } = useData();
+  const { isOnline } = useOnlineStatus();
   const { navItems, bottomItems, userNavItem } = useDashboardNavigation({
     setActiveView,
     onClose,
@@ -158,6 +160,8 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   }, [userData?.firstName, userData?.lastName, userDisplayName]);
 
   const userAvatarUrl = userData?.thumbnail ? getFileUrl(userData.thumbnail) : "";
+
+  const isUserOnline = isOnline?.(userData?.userId);
 
   const handleUserClick = () => {
     userNavItem.onClick?.();
@@ -226,6 +230,13 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
                 ) : (
                   <UserIcon size={20} aria-hidden />
                 )}
+                {userData?.userId ? (
+                  <span
+                    className="dashboard-nav-panel__user-status"
+                    data-online={isUserOnline ? "true" : undefined}
+                    aria-hidden
+                  />
+                ) : null}
               </span>
               <span className="dashboard-nav-panel__user-details">
                 <span className="dashboard-nav-panel__user-name">{userDisplayName}</span>
