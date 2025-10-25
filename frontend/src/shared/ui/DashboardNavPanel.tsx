@@ -8,6 +8,9 @@ import useDashboardNavigation, {
   type UseDashboardNavigationArgs,
 } from "./useDashboardNavigation";
 import "./navigation-drawer.css";
+import { useData } from "@/app/contexts/useData";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
+import { resolveStoredFileUrl } from "@/shared/utils/media";
 
 type Variant = "persistent" | "overlay";
 
@@ -100,6 +103,25 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   const { navItems, bottomItems } = useDashboardNavigation({ setActiveView, onClose });
   const isOverlay = variant === "overlay";
   const isPersistent = variant === "persistent";
+  const { userData } = useData();
+  const { isOnline } = useOnlineStatus();
+  const settingsItem = bottomItems.find((item) => item.key === "settings");
+  const secondaryNavItems = bottomItems.filter((item) => item.key !== "settings");
+
+  const firstName = userData?.firstName?.trim();
+  const lastName = userData?.lastName?.trim();
+  const userFullName =
+    [firstName, lastName].filter(Boolean).join(" ") ||
+    userData?.username ||
+    userData?.email ||
+    "Account";
+
+  const userOccupation = userData?.occupation || userData?.role;
+  const userAvatarUrl = resolveStoredFileUrl(userData?.thumbnail, userData?.thumbnailUrl);
+  const userInitial = userFullName ? userFullName.charAt(0).toUpperCase() : "U";
+  const userId = userData?.userId;
+  const isUserOnline = userId ? isOnline(userId) : false;
+
 
   const containerClass = [
     "dashboard-nav-panel",
@@ -159,8 +181,37 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
         <ul className="nav-list nav-list--primary">
           {navItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
+
+        {settingsItem ? (
+          <div className="dashboard-nav-panel__user-wrapper">
+            <button
+              type="button"
+              className="dashboard-nav-panel__user"
+              onClick={settingsItem.onClick}
+              aria-label={`Open settings for ${userFullName}`}
+            >
+              <span className="dashboard-nav-panel__user-avatar" aria-hidden>
+                {userAvatarUrl ? (
+                  <img src={userAvatarUrl} alt="" />
+                ) : (
+                  <span className="dashboard-nav-panel__user-initial">{userInitial}</span>
+                )}
+                {isUserOnline ? (
+                  <span className="dashboard-nav-panel__user-status" aria-label="Online" />
+                ) : null}
+              </span>
+              <span className="dashboard-nav-panel__user-details">
+                <span className="dashboard-nav-panel__user-name">{userFullName}</span>
+                {userOccupation ? (
+                  <span className="dashboard-nav-panel__user-occupation">{userOccupation}</span>
+                ) : null}
+              </span>
+            </button>
+          </div>
+        ) : null}
+
         <ul className="nav-list nav-list--secondary">
-          {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
+          {secondaryNavItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
       </div>
     </div>

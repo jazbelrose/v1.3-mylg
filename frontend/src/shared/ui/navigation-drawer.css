@@ -122,6 +122,93 @@
   color: var(--muted, #9aa0a6);
 }
 
+.dashboard-nav-panel__user-wrapper {
+  padding: 8px 12px;
+}
+
+.dashboard-nav-panel__user {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out,
+    transform 0.15s ease-in-out;
+}
+
+.dashboard-nav-panel__user:hover,
+.dashboard-nav-panel__user:focus-visible {
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+  transform: translateY(-1px);
+}
+
+.dashboard-nav-panel__user:focus-visible {
+  outline: 2px solid var(--accent, #FA3356);
+  outline-offset: 2px;
+}
+
+.dashboard-nav-panel__user-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.dashboard-nav-panel__user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dashboard-nav-panel__user-initial {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.dashboard-nav-panel__user-status {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #00ff88;
+  border: 2px solid var(--bg2, #111213);
+}
+
+.dashboard-nav-panel__user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.dashboard-nav-panel__user-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.dashboard-nav-panel__user-occupation {
+  font-size: 0.8rem;
+  color: var(--muted, #9aa0a6);
+}
+
 .navigation-drawer {
   position: fixed;
   top: 0;
@@ -162,6 +249,29 @@
 
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__brand-text {
   display: none;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user-wrapper {
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  width: 56px;
+  min-height: 56px;
+  padding: 6px;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user-details {
+  display: none;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__user-avatar {
+  width: 44px;
+  height: 44px;
 }
 
 .dashboard-nav-panel--collapsed .nav-list {
