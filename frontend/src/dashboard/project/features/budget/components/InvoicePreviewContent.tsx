@@ -818,7 +818,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             <div className={styles.formSectionHeader}>
               <span className={styles.formSectionTitle}>Billed to</span>
               <span className={styles.helperText}>
-                Prefilled from the client profile. Update any line to override what appears on the PDF.
+                Prefilled from the client profile. Update any line to override final PDF.
               </span>
             </div>
             <div className={styles.formRow}>
