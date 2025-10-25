@@ -105,8 +105,6 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   const isPersistent = variant === "persistent";
   const { userData } = useData();
   const { isOnline } = useOnlineStatus();
-  const settingsItem = bottomItems.find((item) => item.key === "settings");
-  const secondaryNavItems = bottomItems.filter((item) => item.key !== "settings");
 
   const firstName = userData?.firstName?.trim();
   const lastName = userData?.lastName?.trim();
@@ -182,36 +180,40 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
           {navItems.map((item) => renderNavItem(item, isCollapsed))}
         </ul>
 
-        {settingsItem ? (
-          <div className="dashboard-nav-panel__user-wrapper">
-            <button
-              type="button"
-              className="dashboard-nav-panel__user"
-              onClick={settingsItem.onClick}
-              aria-label={`Open settings for ${userFullName}`}
-            >
-              <span className="dashboard-nav-panel__user-avatar" aria-hidden>
-                {userAvatarUrl ? (
-                  <img src={userAvatarUrl} alt="" />
-                ) : (
-                  <span className="dashboard-nav-panel__user-initial">{userInitial}</span>
-                )}
-                {isUserOnline ? (
-                  <span className="dashboard-nav-panel__user-status" aria-label="Online" />
-                ) : null}
-              </span>
-              <span className="dashboard-nav-panel__user-details">
-                <span className="dashboard-nav-panel__user-name">{userFullName}</span>
-                {userOccupation ? (
-                  <span className="dashboard-nav-panel__user-occupation">{userOccupation}</span>
-                ) : null}
-              </span>
-            </button>
-          </div>
-        ) : null}
-
         <ul className="nav-list nav-list--secondary">
-          {secondaryNavItems.map((item) => renderNavItem(item, isCollapsed))}
+          {bottomItems.map((item) => {
+            if (item.key === "settings") {
+              return (
+                <li key={item.key} className="dashboard-nav-panel__user-wrapper">
+                  <button
+                    type="button"
+                    className="dashboard-nav-panel__user"
+                    onClick={item.onClick}
+                    aria-label={`Open settings for ${userFullName}`}
+                  >
+                    <span className="dashboard-nav-panel__user-avatar" aria-hidden>
+                      {userAvatarUrl ? (
+                        <img src={userAvatarUrl} alt="" />
+                      ) : (
+                        <span className="dashboard-nav-panel__user-initial">{userInitial}</span>
+                      )}
+                      {isUserOnline ? (
+                        <span className="dashboard-nav-panel__user-status" aria-label="Online" />
+                      ) : null}
+                    </span>
+                    <span className="dashboard-nav-panel__user-details">
+                      <span className="dashboard-nav-panel__user-name">{userFullName}</span>
+                      {userOccupation ? (
+                        <span className="dashboard-nav-panel__user-occupation">{userOccupation}</span>
+                      ) : null}
+                    </span>
+                  </button>
+                </li>
+              );
+            }
+
+            return renderNavItem(item, isCollapsed);
+          })}
         </ul>
       </div>
     </div>
