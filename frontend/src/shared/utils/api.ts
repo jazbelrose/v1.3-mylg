@@ -136,6 +136,9 @@ export interface BudgetHeader extends JsonRecord {
   budgetId?: string;
   revision?: number;
   clientRevisionId?: number | null;
+  revisionName?: string | null;
+  invoiceFileKey?: string | null;
+  invoiceFileUrl?: string | null;
 }
 
 export interface BudgetLine extends JsonRecord {

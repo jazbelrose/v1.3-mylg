@@ -70,6 +70,9 @@ export interface BudgetHeaderData {
   headerFinalTotalCost?: number | string;
   clientRevisionId?: number | string | null;
   createdAt?: string | number | Date | null;
+  revisionName?: string | null;
+  invoiceFileKey?: string | null;
+  invoiceFileUrl?: string | null;
 }
 
 export interface ProjectLike {

@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faXmark,
-  faTrash,
+  faArrowUpRightFromSquare,
   faClone,
-  faPlus,
   faFileCsv,
   faFileInvoice,
-  faUser,
   faPen,
+  faPlus,
+  faTrash,
+  faUser,
+  faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { saveAs } from "file-saver";
-import { fetchBudgetItems } from "@/shared/utils/api";
+import { fetchBudgetItems, getFileUrl } from "@/shared/utils/api";
 import InvoicePreviewModal from "@/dashboard/project/features/budget/components/InvoicePreviewModal";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import styles from "./revision-modal.module.css";
+import type { RevisionInvoiceSaveResult } from "./invoicePreviewTypes";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -23,8 +25,18 @@ if (typeof document !== "undefined") {
 
 type Revision = {
   budgetId: string;
+  budgetItemId?: string;
   revision: number;
   clientRevisionId?: number | null;
+  revisionName?: string | null;
+  invoiceFileKey?: string | null;
+  invoiceFileUrl?: string | null;
+};
+
+type RevisionInvoiceAttachment = {
+  fileKey: string;
+  fileUrl: string;
+  fileName: string;
 };
 
 type Project = {
@@ -41,6 +53,8 @@ type RevisionModalProps = {
   onCreateNew?: () => void;
   onDelete?: (revision: Revision) => void;
   onSetClient?: (revision: number) => void;
+  onRename?: (revision: Revision, name: string) => void | Promise<void>;
+  onInvoiceSaved?: (revision: Revision, invoice: RevisionInvoiceAttachment) => void | Promise<void>;
   isAdmin?: boolean;
   activeProject?: Project | null;
 };
@@ -54,7 +68,6 @@ type BudgetItem = {
   itemFinalCost?: number | string;
   vendor?: string;
   notes?: string;
-  // allow unknowns
   [k: string]: unknown;
 };
 
@@ -68,21 +81,47 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   onCreateNew,
   onDelete,
   onSetClient,
+  onRename,
+  onInvoiceSaved,
   isAdmin = false,
   activeProject = null,
 }) => {
   const [selected, setSelected] = useState<number | null>(activeRevision);
   const [deleteTarget, setDeleteTarget] = useState<Revision | null>(null);
   const [previewRevision, setPreviewRevision] = useState<Revision | null>(null);
+  const [renaming, setRenaming] = useState<Revision | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+
+  const resetRenameState = () => {
+    setRenaming(null);
+    setNameDraft("");
+    setIsSavingName(false);
+  };
 
   const handleClose = () => {
     if (previewRevision) setPreviewRevision(null);
+    resetRenameState();
     onRequestClose?.();
   };
 
   useEffect(() => {
     setSelected(activeRevision);
   }, [activeRevision]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetRenameState();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (renaming) {
+      setNameDraft(renaming.revisionName ?? "");
+      nameInputRef.current?.focus();
+    }
+  }, [renaming]);
 
   const handleSwitch = async () => {
     if (onSwitch && selected != null) await onSwitch(selected);
@@ -100,10 +139,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   const exportCsv = async (rev: Revision) => {
     if (!rev?.budgetId) return;
     try {
-      const items = (await fetchBudgetItems(
-        rev.budgetId,
-        rev.revision
-      )) as BudgetItem[];
+      const items = (await fetchBudgetItems(rev.budgetId, rev.revision)) as BudgetItem[];
       if (!Array.isArray(items)) return;
 
       const fields = [
@@ -135,8 +171,81 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
     }
   };
 
-  const exportInvoice = (rev: Revision) => {
+  const openInvoiceEditor = (rev: Revision) => {
     setPreviewRevision(rev);
+  };
+
+  const computeInvoiceUrl = (rev: Revision): string | null => {
+    const source = rev.invoiceFileUrl ?? rev.invoiceFileKey;
+    if (!source) return null;
+    if (source.startsWith("http")) return source;
+    const key = source.startsWith("public/") ? source : `public/${source}`;
+    return getFileUrl(key);
+  };
+
+  const handleInvoiceLinkClick = (rev: Revision) => {
+    const url = computeInvoiceUrl(rev);
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleRenameToggle = (rev: Revision) => {
+    const isSame =
+      renaming &&
+      ((renaming.budgetItemId && rev.budgetItemId && renaming.budgetItemId === rev.budgetItemId) ||
+        renaming.revision === rev.revision);
+
+    if (isSame) {
+      resetRenameState();
+    } else {
+      setRenaming(rev);
+    }
+  };
+
+  const handleRenameSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!renaming) return;
+    if (!onRename) {
+      resetRenameState();
+      return;
+    }
+
+    const trimmed = nameDraft.trim();
+    if (trimmed === (renaming.revisionName ?? "")) {
+      resetRenameState();
+      return;
+    }
+
+    try {
+      setIsSavingName(true);
+      await onRename(renaming, trimmed);
+      resetRenameState();
+    } catch (error) {
+      console.error("Failed to rename revision", error);
+      setIsSavingName(false);
+    }
+  };
+
+  const handleRenameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      resetRenameState();
+    }
+  };
+
+  const handleInvoiceSavedInternal = (result: RevisionInvoiceSaveResult) => {
+    if (!previewRevision) return;
+    const invoice: RevisionInvoiceAttachment = {
+      fileKey: result.fileKey,
+      fileUrl: result.fileUrl,
+      fileName: result.fileName,
+    };
+    onInvoiceSaved?.(previewRevision, invoice);
+    setPreviewRevision((prev) =>
+      prev ? { ...prev, invoiceFileKey: invoice.fileKey, invoiceFileUrl: invoice.fileUrl } : prev
+    );
   };
 
   const selectedLabel = selected != null ? `Rev.${selected}` : "Revision";
@@ -175,68 +284,163 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
           {revisions.map((rev) => {
             const isActive = rev.revision === activeRevision;
             const isClient = rev.clientRevisionId === rev.revision;
+            const invoiceUrl = computeInvoiceUrl(rev);
+            const isRenaming =
+              renaming &&
+              ((renaming.budgetItemId && rev.budgetItemId && renaming.budgetItemId === rev.budgetItemId) ||
+                renaming.revision === rev.revision);
 
             return (
               <div
                 key={rev.revision}
                 className={`${styles.revRow} ${isActive ? styles.activeRow : ""}`}
               >
-                <label className={styles.revLabel}>
-                  <input
-                    type="radio"
-                    name="revision"
-                    value={rev.revision}
-                    checked={selected === rev.revision}
-                    onChange={() => setSelected(rev.revision)}
-                  />
-                  <span className={styles.revName}>{`Rev.${rev.revision}`}</span>
+                <div className={styles.revHeader}>
+                  <label className={styles.revLabel}>
+                    <input
+                      type="radio"
+                      name="revision"
+                      value={rev.revision}
+                      checked={selected === rev.revision}
+                      onChange={() => setSelected(rev.revision)}
+                    />
+                    <span className={styles.revNumber}>{`Rev.${rev.revision}`}</span>
+                  </label>
 
-                  {isClient && (
-                    <span className={styles.clientBadge}>
-                      <FontAwesomeIcon icon={faUser} /> Client Version
-                    </span>
-                  )}
+                  <div className={styles.revBadges}>
+                    {isClient && (
+                      <span className={styles.clientBadge}>
+                        <FontAwesomeIcon icon={faUser} /> Client Version
+                      </span>
+                    )}
 
-                  {isAdmin && isActive && (
-                    <span className={styles.editingBadge}>
-                      <FontAwesomeIcon icon={faPen} /> Editing
-                    </span>
-                  )}
-                </label>
-
-                {isAdmin && (
-                  <div className={styles.revActions}>
-                    <button
-                      type="button"
-                      className={styles.iconButton}
-                      onClick={() => exportCsv(rev)}
-                      aria-label="Export CSV"
-                      title="Export CSV"
-                    >
-                      <FontAwesomeIcon icon={faFileCsv} />
-                    </button>
-
-                    <button
-                      type="button"
-                      className={styles.iconButton}
-                      onClick={() => exportInvoice(rev)}
-                      aria-label="Export Invoice"
-                      title="Export Invoice"
-                    >
-                      <FontAwesomeIcon icon={faFileInvoice} />
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`${styles.iconButton} ${styles.deleteButton}`}
-                      onClick={() => setDeleteTarget(rev)}
-                      aria-label="Delete revision"
-                      title="Delete revision"
-                    >
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
+                    {isAdmin && isActive && (
+                      <span className={styles.editingBadge}>
+                        <FontAwesomeIcon icon={faPen} /> Editing
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className={styles.iconButton}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRenameToggle(rev);
+                      }}
+                      aria-label={isRenaming ? "Cancel rename" : "Rename revision"}
+                      title={isRenaming ? "Cancel rename" : "Rename revision"}
+                    >
+                      <FontAwesomeIcon icon={faPen} />
+                    </button>
+                  )}
+                </div>
+
+                <div className={styles.revNameRow}>
+                  {isRenaming ? (
+                    <form
+                      className={styles.renameForm}
+                      onSubmit={handleRenameSubmit}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        ref={nameInputRef}
+                        className={styles.renameInput}
+                        value={nameDraft}
+                        onChange={(event) => setNameDraft(event.target.value)}
+                        placeholder="Add a descriptive name"
+                        onKeyDown={handleRenameKeyDown}
+                        disabled={isSavingName}
+                      />
+                      <div className={styles.renameActions}>
+                        <button
+                          type="submit"
+                          className={styles.renameActionButton}
+                          disabled={isSavingName}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.renameActionButton}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            resetRenameState();
+                          }}
+                          disabled={isSavingName}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div
+                      className={
+                        rev.revisionName ? styles.revNameText : styles.revNamePlaceholder
+                      }
+                    >
+                      {rev.revisionName || "Add a descriptive name"}
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.revFooter}>
+                  <div className={styles.invoiceStatusWrapper}>
+                    <span
+                      className={
+                        invoiceUrl ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
+                      }
+                    >
+                      {invoiceUrl ? "Invoice attached" : "No invoice attached"}
+                    </span>
+                    {invoiceUrl && (
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        onClick={() => handleInvoiceLinkClick(rev)}
+                        aria-label="Open saved invoice"
+                        title="Open saved invoice"
+                      >
+                        <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
+                      </button>
+                    )}
+                  </div>
+
+                  {isAdmin && (
+                    <div className={styles.revActions}>
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        onClick={() => openInvoiceEditor(rev)}
+                        aria-label={invoiceUrl ? "Update invoice" : "Create invoice"}
+                        title={invoiceUrl ? "Update invoice" : "Create invoice"}
+                      >
+                        <FontAwesomeIcon icon={faFileInvoice} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        onClick={() => exportCsv(rev)}
+                        aria-label="Export CSV"
+                        title="Export CSV"
+                      >
+                        <FontAwesomeIcon icon={faFileCsv} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`${styles.iconButton} ${styles.deleteButton}`}
+                        onClick={() => setDeleteTarget(rev)}
+                        aria-label="Delete revision"
+                        title="Delete revision"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -312,6 +516,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
           onRequestClose={() => setPreviewRevision(null)}
           revision={previewRevision}
           project={activeProject}
+          onInvoiceSaved={handleInvoiceSavedInternal}
         />
       )}
     </>
@@ -319,14 +524,3 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
 };
 
 export default RevisionModal;
-
-
-
-
-
-
-
-
-
-
-

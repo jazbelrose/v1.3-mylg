@@ -492,6 +492,71 @@ const BudgetPageContent = () => {
     }
   };
 
+  const handleRenameRevision = async (
+    revision: { budgetItemId?: string; revision: number },
+    nextName: string,
+  ) => {
+    if (!activeProject?.projectId || !revision?.budgetItemId) return;
+
+    const normalized = nextName.trim();
+    try {
+      await updateBudgetItem(activeProject.projectId, revision.budgetItemId, {
+        revisionName: normalized || null,
+        revision: revision.revision,
+      });
+
+      setRevisions((prev) =>
+        prev.map((item) =>
+          item.budgetItemId === revision.budgetItemId
+            ? { ...item, revisionName: normalized || null }
+            : item,
+        ),
+      );
+
+      setBudgetHeader((prev) =>
+        prev && prev.budgetItemId === revision.budgetItemId
+          ? { ...prev, revisionName: normalized || null }
+          : prev,
+      );
+
+      emitBudgetUpdate();
+    } catch (error) {
+      console.error("Failed to rename revision", error);
+    }
+  };
+
+  const handleRevisionInvoiceSaved = async (
+    revision: { budgetItemId?: string; revision: number },
+    invoice: { fileKey: string; fileUrl: string },
+  ) => {
+    if (!activeProject?.projectId || !revision?.budgetItemId) return;
+
+    try {
+      await updateBudgetItem(activeProject.projectId, revision.budgetItemId, {
+        invoiceFileKey: invoice.fileKey,
+        revision: revision.revision,
+      });
+
+      setRevisions((prev) =>
+        prev.map((item) =>
+          item.budgetItemId === revision.budgetItemId
+            ? { ...item, invoiceFileKey: invoice.fileKey, invoiceFileUrl: invoice.fileUrl }
+            : item,
+        ),
+      );
+
+      setBudgetHeader((prev) =>
+        prev && prev.budgetItemId === revision.budgetItemId
+          ? { ...prev, invoiceFileKey: invoice.fileKey, invoiceFileUrl: invoice.fileUrl }
+          : prev,
+      );
+
+      emitBudgetUpdate();
+    } catch (error) {
+      console.error("Failed to attach invoice to revision", error);
+    }
+  };
+
   const parseFile = async (file) => {
     if (!file) return;
     try {
@@ -768,6 +833,8 @@ const BudgetPageContent = () => {
                               onCreateNew={() => handleNewRevision(false)}
                               onDelete={(rev) => handleDeleteRevision(rev.revision)}
                               onSetClient={(rev) => handleSetClientRevision(rev)}
+                              onRename={handleRenameRevision}
+                              onInvoiceSaved={handleRevisionInvoiceSaved}
                               isAdmin={canEdit}
                               activeProject={activeProject}
                             />
