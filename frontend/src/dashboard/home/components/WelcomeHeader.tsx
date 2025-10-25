@@ -15,6 +15,8 @@ interface WelcomeHeaderProps {
   navigationDrawerId?: string;
   isDesktopLayout?: boolean;
   showDesktopGreeting?: boolean;
+  showGlobalSearch?: boolean;
+  showAvatar?: boolean;
 }
 
 const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
@@ -25,6 +27,8 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   navigationDrawerId,
   isDesktopLayout,
   showDesktopGreeting = true,
+  showGlobalSearch = true,
+  showAvatar = true,
 }) => {
   const { userData } = useData();
   const { isOnline } = useOnlineStatus(); // <-- only need this now
@@ -94,8 +98,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Always show global search in the welcome header, regardless of viewport size
-  const showGlobalSearchInHeader = true;
+  const showGlobalSearchInHeader = showGlobalSearch;
 
   const handleHomeClick = () => navigate('/');
   const handleNavigationToggle = () => {
@@ -181,44 +184,48 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
         ) : null}
 
         {/* Right: Global Search + Avatar (+ online dot) */}
-        <div className="welcome-header-right">
-          {showGlobalSearchInHeader ? (
-            <div className="welcome-header-search">
-              <GlobalSearch className="welcome-header-global-search" />
-            </div>
-          ) : null}
+        {showGlobalSearchInHeader || showAvatar ? (
+          <div className="welcome-header-right">
+            {showGlobalSearchInHeader ? (
+              <div className="welcome-header-search">
+                <GlobalSearch className="welcome-header-global-search" />
+              </div>
+            ) : null}
 
-          <div className="welcome-header-actions">
-            <button
-              type="button"
-              className="welcome-header-avatar-button"
-              onClick={handleHomeClick}
-              aria-label="Go to Home"
-              title={userName}
-            >
-              <span className={avatarClassName}>
-                {avatarSrc ? (
-                  <img
-                    src={avatarSrc}
-                    alt=""
-                    className="welcome-header-avatar__img"
-                  />
-                ) : avatarInitial ? (
-                  <span className="welcome-header-avatar__placeholder" aria-hidden>
-                    {avatarInitial}
+            {showAvatar ? (
+              <div className="welcome-header-actions">
+                <button
+                  type="button"
+                  className="welcome-header-avatar-button"
+                  onClick={handleHomeClick}
+                  aria-label="Go to Home"
+                  title={userName}
+                >
+                  <span className={avatarClassName}>
+                    {avatarSrc ? (
+                      <img
+                        src={avatarSrc}
+                        alt=""
+                        className="welcome-header-avatar__img"
+                      />
+                    ) : avatarInitial ? (
+                      <span className="welcome-header-avatar__placeholder" aria-hidden>
+                        {avatarInitial}
+                      </span>
+                    ) : (
+                      <span className="welcome-header-avatar__placeholder" aria-hidden>
+                        <UserIcon size={isMobile ? 18 : 22} />
+                      </span>
+                    )}
+                    {isUserOnline ? (
+                      <span className={avatarStatusClassName} aria-label="Online" />
+                    ) : null}
                   </span>
-                ) : (
-                  <span className="welcome-header-avatar__placeholder" aria-hidden>
-                    <UserIcon size={isMobile ? 18 : 22} />
-                  </span>
-                )}
-                {isUserOnline ? (
-                  <span className={avatarStatusClassName} aria-label="Online" />
-                ) : null}
-              </span>
-            </button>
+                </button>
+              </div>
+            ) : null}
           </div>
-        </div>
+        ) : null}
       </div>
 
     </>

@@ -457,15 +457,17 @@ const WelcomeScreen: React.FC = () => {
   const mainContent = (
     <main className="dashboard-main">
       <div className="dashboard-wrapper welcome-screen no-vertical-center">
-        <WelcomeHeader
-          userName={userName}
-          setActiveView={setActiveView}
-          onToggleNavigation={!isDesktop ? handleOpenNavigation : undefined}
-          isNavigationOpen={!isDesktop ? isNavigationOpen : undefined}
-          navigationDrawerId={!isDesktop ? drawerId : undefined}
-          isDesktopLayout={isDesktop}
-          showDesktopGreeting={false}
-        />
+        {!isDesktop ? (
+          <WelcomeHeader
+            userName={userName}
+            setActiveView={setActiveView}
+            onToggleNavigation={handleOpenNavigation}
+            isNavigationOpen={isNavigationOpen}
+            navigationDrawerId={drawerId}
+            isDesktopLayout={isDesktop}
+            showDesktopGreeting={false}
+          />
+        ) : null}
 
         <div className="row-layout">
           <div className="welcome-screen-details">
