@@ -118,7 +118,7 @@ export function useInvoicePreviewModal({
     const addressLines = (() => {
       if (!address) return [];
 
-      const normalized = address.replace(/\r\n/g, "\n");
+      const normalized = address.replace(/\r\n?/g, "\n");
       const newlineParts = normalized
         .split("\n")
         .map((part) => part.trim())

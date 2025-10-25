@@ -959,12 +959,13 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
             <div className={styles.formRow}>
               <label htmlFor="invoice-organization-address">Organization address</label>
-              <input
+              <textarea
                 id="invoice-organization-address"
-                className={styles.textInput}
+                className={styles.textArea}
                 value={draftOrganizationAddress}
                 placeholder="Add your mailing address"
                 onChange={(e) => updateDraftField("organizationAddress", e.target.value)}
+                rows={3}
               />
             </div>
             <div className={styles.formGrid}>
