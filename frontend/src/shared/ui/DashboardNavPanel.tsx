@@ -123,7 +123,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
 
     const searchNavItem: DashboardNavItem = {
       key: "search",
-      icon: <Search size={24} color="white" />,
+      icon: <Search size={24} />,
       label: "Search",
       onClick: handleOpenSearch,
       isActive: isSearchModalOpen,
@@ -159,7 +159,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
         onClick={onClose}
         aria-label="Close navigation"
       >
-        <X size={24} color="white" />
+        <X size={24} />
       </button>
     </div>
   ) : null;
