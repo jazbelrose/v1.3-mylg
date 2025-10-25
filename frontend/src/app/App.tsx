@@ -12,6 +12,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataProvider";
 import { InvitesProvider } from "./contexts/InvitesProvider";
 import { NotificationProvider } from "./contexts/NotificationProvider";
+import { NotificationsDrawerProvider } from "./contexts/NotificationsDrawerContext";
 import { DMConversationProvider } from "./contexts/DMConversationContext";
 import { ScrollProvider } from "./contexts/ScrollProvider";
 import ScrollToTopButton from "../shared/ui/ScrollToTopButton";
@@ -82,9 +83,11 @@ export default function App(): React.ReactElement {
                       <ScrollProvider>
                         <NavigationDirectionProvider>
                           <Router basename={import.meta.env.BASE_URL}>
-                            <AuthEventHandler />
-                            <MainContent isLoading={isLoading} />
-                            <NotificationContainer />
+                            <NotificationsDrawerProvider>
+                              <AuthEventHandler />
+                              <MainContent isLoading={isLoading} />
+                              <NotificationContainer />
+                            </NotificationsDrawerProvider>
                           </Router>
                         </NavigationDirectionProvider>
                       </ScrollProvider>

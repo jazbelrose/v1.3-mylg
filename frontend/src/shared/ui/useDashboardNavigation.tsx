@@ -14,6 +14,7 @@ import Cookies from "js-cookie";
 import { useAuth } from "@/app/contexts/useAuth";
 import { useData } from "@/app/contexts/useData";
 import { useNotifications } from "@/app/contexts/useNotifications";
+import { useNotificationsDrawer } from "@/app/contexts/useNotificationsDrawer";
 import {
   PROJECTS_LIST_VIEW,
   PROJECTS_OVERVIEW_VIEW,
@@ -48,6 +49,8 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
   const { setIsAuthenticated, setCognitoUser } = useAuth();
   const { inbox } = useData();
   const { notifications } = useNotifications() as { notifications: Array<{ read?: boolean }> };
+  const { open: openNotificationsDrawer, isOpen: isNotificationsDrawerOpen } =
+    useNotificationsDrawer();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -161,10 +164,13 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
         key: "notifications",
         icon: <Bell size={24} color="white" />,
         label: "Notifications",
-        onClick: () => handleNavigation("notifications"),
+        onClick: () => {
+          openNotificationsDrawer();
+          close();
+        },
         badgeCount: unreadNotifications,
         badgeLabel: "notification",
-        isActive: isDashboardPath && activeDashboardView === "notifications",
+        isActive: isNotificationsDrawerOpen,
       },
       {
         key: "messages",
@@ -193,6 +199,9 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       location.pathname,
       handleHQNavigation,
       isHQActive,
+      openNotificationsDrawer,
+      isNotificationsDrawerOpen,
+      close,
     ]
   );
 

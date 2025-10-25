@@ -1,11 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, Bell, Menu, Plus } from "lucide-react";
+import { User, Menu } from "lucide-react";
 import { useData } from '@/app/contexts/useData';
 import { useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
-import NotificationsDrawer from '../../../shared/ui/NotificationsDrawer';
-import { useNotifications } from "../../../app/contexts/useNotifications";
-import NavBadge from "../../../shared/ui/NavBadge";
 import GlobalSearch from './GlobalSearch';
 import './GlobalSearch.css';
 import { getFileUrl } from '../../../shared/utils/api';
@@ -46,14 +43,6 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   const userThumbnail = userData?.thumbnail;
   const userId = userData?.userId;
 
-  // notifications drawer
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsPinned, setNotificationsPinned] = useState(false);
-
-  // notifications count
-  const { notifications } = useNotifications();
-  const unreadNotifications = notifications.filter((n) => !n.read).length;
-
   // online status (derived from presenceChanged events via OnlineStatusContext)
   const isUserOnline = !!userId && isOnline(String(userId));
 
@@ -88,8 +77,6 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   const showGlobalSearchInHeader = true;
 
   const handleHomeClick = () => navigate('/');
-  const handleNotificationsToggle = () => setNotificationsOpen(!notificationsOpen);
-  const handleNotificationsPinToggle = () => setNotificationsPinned(!notificationsPinned);
   const handleNavigationToggle = () => {
     if (onToggleNavigation) {
       onToggleNavigation();
@@ -107,13 +94,6 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleHomeClick();
-    }
-  };
-
-  const handleNotificationKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleNotificationsToggle();
     }
   };
 
@@ -172,7 +152,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
           </div>
         ) : null}
 
-        {/* Right: Global Search + Create, Notifications, Avatar (+ online dot) */}
+        {/* Right: Global Search + Avatar (+ online dot) */}
         <div className="welcome-header-right">
           {showGlobalSearchInHeader ? (
             <div className="welcome-header-search">
@@ -181,26 +161,6 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
           ) : null}
 
           <div className="welcome-header-actions">
-            <div
-              className="nav-item-style"
-              onClick={() => navigate("/dashboard/new")}
-              title="Start something"
-            >
-              <Plus size={isMobile ? 20 : 26} color="white" />
-            </div>
-
-            <div
-              className="nav-icon-wrapper nav-icon-style"
-              onClick={handleNotificationsToggle}
-              role="button"
-              tabIndex={0}
-              aria-label="Open notifications"
-              onKeyDown={handleNotificationKeyDown}
-            >
-              <Bell size={isMobile ? 24 : 26} color="white" />
-              <NavBadge count={unreadNotifications} label="notification" className="nav-bar-badge" />
-            </div>
-
             <div style={{ position: 'relative' }}>
               {userThumbnail ? (
                 <img
@@ -257,13 +217,6 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
         </div>
       </div>
 
-
-      <NotificationsDrawer
-        open={notificationsOpen}
-        onClose={() => setNotificationsOpen(false)}
-        pinned={notificationsPinned}
-        onTogglePin={handleNotificationsPinToggle}
-      />
     </>
   );
 };

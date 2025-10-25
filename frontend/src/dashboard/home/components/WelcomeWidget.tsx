@@ -33,8 +33,8 @@ const LeftSideBar: React.FC<LeftSideBarProps> = () => {
             </div>
           </div>
           <div className="progress-text">
-            Open the bell icon in the header to view notifications and direct messages in the
-            notifications drawer. Pin it to keep updates visible while you work.
+            Use the Notifications item in the navigation panel to open updates and direct messages
+            in the notifications drawer. Pin it to keep updates visible while you work.
           </div>
         </div>
 
