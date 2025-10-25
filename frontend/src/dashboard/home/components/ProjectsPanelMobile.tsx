@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, User as UserIcon } from "lucide-react";
 import { Kebab } from "@/shared/icons/Kebab";
 import { useData } from "@/app/contexts/useData";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
 import SVGThumbnail from "./SvgThumbnail";
 import styles from "./projects-panel.module.css";
 import { useProjectKpis, type ProjectLike } from "../hooks/useProjectKpis";
 import { getFileUrl } from "../../../shared/utils/api";
 import { MICRO_WOBBLE_SCALE, SPRING_FAST } from "@/shared/ui/motionTokens";
 import Squircle from "@/shared/ui/Squircle";
+import MobileQuickActions from "@/shared/ui/MobileQuickActions";
 
 type Props = {
   onOpenProject: (projectId: string) => void;
@@ -57,7 +59,8 @@ const getProjectActivityTs = (p: ProjectLike): number => {
 
 const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
   const reduceMotion = useReducedMotion();
-  const { projects, isLoading, projectsError, fetchProjects } = useData();
+  const { projects, isLoading, projectsError, fetchProjects, userData } = useData();
+  const { isOnline } = useOnlineStatus();
   const navigate = useNavigate();
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [imgError, setImgError] = useState<Record<string, boolean>>({});
@@ -74,6 +77,34 @@ const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
     () => Array.from({ length: Math.min(Math.max(maxQuickIcons, 3), 6) }),
     [maxQuickIcons]
   );
+
+  const thumbnailKey = userData?.thumbnail?.trim();
+  const thumbnailUrl = userData?.thumbnailUrl?.trim();
+  const avatarSrc = useMemo(() => {
+    if (!thumbnailKey && !thumbnailUrl) return undefined;
+
+    if (thumbnailKey) {
+      try {
+        return getFileUrl(thumbnailKey);
+      } catch {
+        return thumbnailUrl;
+      }
+    }
+
+    return thumbnailUrl;
+  }, [thumbnailKey, thumbnailUrl]);
+
+  const avatarInitial = useMemo(() => {
+    const initial =
+      userData?.firstName?.trim()?.[0] ||
+      userData?.lastName?.trim()?.[0] ||
+      userData?.email?.trim()?.[0] ||
+      "";
+    return initial.toUpperCase();
+  }, [userData?.email, userData?.firstName, userData?.lastName]);
+
+  const userId = userData?.userId;
+  const isUserOnline = userId ? isOnline(String(userId)) : false;
 
   // Compact filter/sort options (mirrors AllProjects)
   type SortOption = "titleAsc" | "titleDesc" | "dateNewest" | "dateOldest";
@@ -298,19 +329,51 @@ const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
             );
           })()}
         </div>
-        <div className={styles.recentsWrap} ref={filtersRef}>
+        <div className={styles.headerControls}>
+          <MobileQuickActions className={styles.quickActions} iconSize={18} />
           <button
             type="button"
-            className={styles.recents}
-            aria-expanded={filtersOpen}
-            aria-haspopup="menu"
-            onClick={() => setFiltersOpen((v) => !v)}
+            className={`header-icon-btn ${styles.avatarButton}`}
+            aria-label="Open profile"
+            title={userData?.firstName || userData?.email || undefined}
+            onClick={() => navigate("/settings")}
           >
-            {scopeLabel} <ChevronDown size={14} aria-hidden />
+            <span
+              className={`welcome-header-avatar welcome-header-avatar--compact ${styles.avatar}`}
+            >
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="" className="welcome-header-avatar__img" />
+              ) : avatarInitial ? (
+                <span className="welcome-header-avatar__placeholder" aria-hidden>
+                  {avatarInitial}
+                </span>
+              ) : (
+                <span className="welcome-header-avatar__placeholder" aria-hidden>
+                  <UserIcon size={18} />
+                </span>
+              )}
+              {isUserOnline ? (
+                <span
+                  className="welcome-header-avatar__status welcome-header-avatar__status--compact"
+                  aria-label="Online"
+                />
+              ) : null}
+            </span>
           </button>
-          {filtersOpen && (
-            <div className={styles.filterPop} role="menu">
-              <div className={styles.filterSection}>
+
+          <div className={styles.recentsWrap} ref={filtersRef}>
+            <button
+              type="button"
+              className={styles.recents}
+              aria-expanded={filtersOpen}
+              aria-haspopup="menu"
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              {scopeLabel} <ChevronDown size={14} aria-hidden />
+            </button>
+            {filtersOpen && (
+              <div className={styles.filterPop} role="menu">
+                <div className={styles.filterSection}>
                 <div
                   className={styles.scopeBtns}
                   role="group"
@@ -374,6 +437,7 @@ const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
               </div>
             </div>
           )}
+        </div>
         </div>
 
         <div className={styles.kpis}>
@@ -553,12 +617,3 @@ const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
 };
 
 export default ProjectsPanelMobile;
-
-
-
-
-
-
-
-
-

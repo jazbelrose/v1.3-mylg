@@ -1,0 +1,97 @@
+.container {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.iconButton {
+  padding: 6px;
+}
+
+.iconWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent, #FA3356);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  border: 1px solid rgba(12, 12, 12, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dotBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #FA3356);
+  border: 2px solid rgba(12, 12, 12, 0.6);
+}
+
+.searchModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.searchModalTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.searchTitle {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.closeButton:hover,
+.closeButton:focus-visible {
+  background: var(--brand-12, rgba(250, 51, 86, 0.16));
+  border-color: var(--accent, #FA3356);
+  transform: translateY(-1px);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--accent, #FA3356);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .closeButton {
+    transition: none;
+  }
+}

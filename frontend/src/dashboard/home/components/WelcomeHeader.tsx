@@ -6,6 +6,7 @@ import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
 import GlobalSearch from './GlobalSearch';
 import './GlobalSearch.css';
 import { getFileUrl } from '../../../shared/utils/api';
+import MobileQuickActions from '@/shared/ui/MobileQuickActions';
 
 interface WelcomeHeaderProps {
   userName?: string;
@@ -94,8 +95,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Always show global search in the welcome header, regardless of viewport size
-  const showGlobalSearchInHeader = true;
+  const showGlobalSearchInHeader = !isMobile;
 
   const handleHomeClick = () => navigate('/');
   const handleNavigationToggle = () => {
@@ -180,7 +180,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
           </div>
         ) : null}
 
-        {/* Right: Global Search + Avatar (+ online dot) */}
+        {/* Right: Global Search + Quick actions + Avatar */}
         <div className="welcome-header-right">
           {showGlobalSearchInHeader ? (
             <div className="welcome-header-search">
@@ -188,7 +188,14 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
             </div>
           ) : null}
 
-          <div className="welcome-header-actions">
+          <div
+            className={`welcome-header-actions${
+              isMobile ? " welcome-header-actions--mobile" : ""
+            }`}
+          >
+            {isMobile ? (
+              <MobileQuickActions className="welcome-header-quick-actions" iconSize={18} />
+            ) : null}
             <button
               type="button"
               className="welcome-header-avatar-button"

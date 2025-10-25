@@ -63,6 +63,16 @@
   flex-shrink: 0;
 }
 
+.welcome-header-actions--mobile {
+  gap: 6px;
+}
+
+.welcome-header-quick-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .welcome-header-avatar-button {
   display: inline-flex;
   align-items: center;
