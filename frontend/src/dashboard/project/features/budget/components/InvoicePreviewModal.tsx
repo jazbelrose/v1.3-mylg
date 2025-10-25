@@ -1,7 +1,6 @@
 import React, { Fragment } from "react";
 import { createPortal } from "react-dom";
 import Modal from "@/shared/ui/ModalWithStack";
-import ConfirmModal from "@/shared/ui/ConfirmModal";
 
 import InvoiceModalHeader from "./InvoiceModalHeader";
 import InvoicePreviewContent from "./InvoicePreviewContent";
@@ -39,13 +38,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,
-    savedInvoices,
-    selectedInvoices,
-    toggleInvoiceSelect,
-    selectAllInvoices,
-    loadInvoice,
-    handleDeleteInvoice,
-    handleDeleteSelectedInvoices,
     isDirty,
     handleSaveHeader,
     showSaved,
@@ -61,18 +53,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     handleInvoiceNumberBlur,
     issueDate,
     handleIssueDateBlur,
-    dueDate,
-    handleDueDateChange,
-    serviceDate,
-    handleServiceDateChange,
     projectTitle,
     handleProjectTitleBlur,
     customerSummary,
     handleCustomerSummaryBlur,
     invoiceSummary,
     handleInvoiceSummaryBlur,
-    paymentSummary,
-    handlePaymentSummaryBlur,
     rowsData,
     subtotal,
     depositReceived,
@@ -87,9 +73,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     handleStayOpen,
     handleConfirmLeave,
     handleAttemptClose,
-    isConfirmingDelete,
-    closeDeleteConfirm,
-    performDeleteInvoices,
   } = useInvoicePreviewModal({
     isOpen,
     onRequestClose,
@@ -145,13 +128,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   selectedPages={selectedPages}
                   onTogglePage={handleTogglePage}
                   onToggleAllPages={handleToggleAllPages}
-                  savedInvoices={savedInvoices}
-                  selectedInvoices={selectedInvoices}
-                  onToggleInvoice={toggleInvoiceSelect}
-                  onSelectAllInvoices={selectAllInvoices}
-                  onLoadInvoice={loadInvoice}
-                  onDeleteInvoice={handleDeleteInvoice}
-                  onDeleteSelected={handleDeleteSelectedInvoices}
                   isDirty={isDirty}
                   onSaveHeader={handleSaveHeader}
                   showSaved={showSaved}
@@ -164,18 +140,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onInvoiceNumberBlur={handleInvoiceNumberBlur}
                   issueDate={issueDate}
                   onIssueDateBlur={handleIssueDateBlur}
-                  dueDate={dueDate}
-                  onDueDateChange={handleDueDateChange}
-                  serviceDate={serviceDate}
-                  onServiceDateChange={handleServiceDateChange}
                   projectTitle={projectTitle}
                   onProjectTitleBlur={handleProjectTitleBlur}
                   customerSummary={customerSummary}
                   onCustomerSummaryBlur={handleCustomerSummaryBlur}
                   invoiceSummary={invoiceSummary}
                   onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
-                  paymentSummary={paymentSummary}
-                  onPaymentSummaryBlur={handlePaymentSummaryBlur}
                   rowsData={rowsData}
                   currentPage={currentPage}
                   totalPages={pages.length}
@@ -226,23 +196,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           </div>,
           document.body
         )}
-
-      <ConfirmModal
-        isOpen={isConfirmingDelete}
-        onRequestClose={closeDeleteConfirm}
-        onConfirm={performDeleteInvoices}
-        message="Delete selected invoices?"
-        className={{
-          base: styles.confirmModalContent,
-          afterOpen: styles.confirmModalContentAfterOpen,
-          beforeClose: styles.confirmModalContentBeforeClose,
-        }}
-        overlayClassName={{
-          base: styles.modalOverlay,
-          afterOpen: styles.modalOverlayAfterOpen,
-          beforeClose: styles.modalOverlayBeforeClose,
-        }}
-      />
     </Fragment>
   );
 };

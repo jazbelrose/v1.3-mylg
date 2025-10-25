@@ -5,8 +5,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import { pdf as createPdf } from "@react-pdf/renderer";
 
 import { getFileUrl } from "@/shared/utils/api";
@@ -14,12 +12,7 @@ import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 import PdfInvoice from "./PdfInvoice";
 import styles from "./invoice-preview-modal.module.css";
-import type {
-  GroupField,
-  ProjectLike,
-  RowData,
-  SavedInvoice,
-} from "./invoicePreviewTypes";
+import type { GroupField, ProjectLike, RowData } from "./invoicePreviewTypes";
 import { formatCurrency } from "./invoicePreviewUtils";
 
 interface InvoicePreviewContentProps {
@@ -39,13 +32,6 @@ interface InvoicePreviewContentProps {
   selectedPages: number[];
   onTogglePage: (index: number) => void;
   onToggleAllPages: (checked: boolean) => void;
-  savedInvoices: SavedInvoice[];
-  selectedInvoices: Set<string>;
-  onToggleInvoice: (url: string) => void;
-  onSelectAllInvoices: (checked: boolean) => void;
-  onLoadInvoice: (url: string) => void;
-  onDeleteInvoice: (url: string) => void;
-  onDeleteSelected: () => void;
   isDirty: boolean;
   onSaveHeader: () => void;
   showSaved: boolean;
@@ -62,18 +48,12 @@ interface InvoicePreviewContentProps {
   onInvoiceNumberBlur: (value: string) => void;
   issueDate: string;
   onIssueDateBlur: (value: string) => void;
-  dueDate: string;
-  onDueDateChange: (value: string) => void;
-  serviceDate: string;
-  onServiceDateChange: (value: string) => void;
   projectTitle: string;
   onProjectTitleBlur: (value: string) => void;
   customerSummary: string;
   onCustomerSummaryBlur: (value: string) => void;
   invoiceSummary: string;
   onInvoiceSummaryBlur: (value: string) => void;
-  paymentSummary: string;
-  onPaymentSummaryBlur: (value: string) => void;
   rowsData: RowData[];
   currentPage: number;
   totalPages: number;
@@ -93,12 +73,9 @@ type FormDraftField =
   | "brandTagline"
   | "invoiceNumber"
   | "issueDate"
-  | "dueDate"
-  | "serviceDate"
   | "projectTitle"
   | "customerSummary"
-  | "invoiceSummary"
-  | "paymentSummary";
+  | "invoiceSummary";
 
 type FormDraftState = Record<FormDraftField, string>;
 
@@ -141,13 +118,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   selectedPages,
   onTogglePage,
   onToggleAllPages,
-  savedInvoices,
-  selectedInvoices,
-  onToggleInvoice,
-  onSelectAllInvoices,
-  onLoadInvoice,
-  onDeleteInvoice,
-  onDeleteSelected,
   isDirty,
   onSaveHeader,
   showSaved,
@@ -164,18 +134,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onInvoiceNumberBlur,
   issueDate,
   onIssueDateBlur,
-  dueDate,
-  onDueDateChange,
-  serviceDate,
-  onServiceDateChange,
   projectTitle,
   onProjectTitleBlur,
   customerSummary,
   onCustomerSummaryBlur,
   invoiceSummary,
   onInvoiceSummaryBlur,
-  paymentSummary,
-  onPaymentSummaryBlur,
   rowsData,
   currentPage,
   subtotal,
@@ -206,12 +170,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     brandTagline,
     invoiceNumber,
     issueDate,
-    dueDate,
-    serviceDate,
     projectTitle,
     customerSummary,
     invoiceSummary,
-    paymentSummary,
   }));
   const [notesDraft, setNotesDraft] = useState<string>(() => htmlToPlainText(notes));
   const [depositInput, setDepositInput] = useState<string>(() => formatNumberInput(depositReceived));
@@ -224,12 +185,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       brandTagline,
       invoiceNumber,
       issueDate,
-      dueDate,
-      serviceDate,
       projectTitle,
       customerSummary,
       invoiceSummary,
-      paymentSummary,
       notes,
       depositReceived,
       totalDue,
@@ -239,14 +197,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       brandTagline,
       customerSummary,
       depositReceived,
-      dueDate,
       invoiceNumber,
       invoiceSummary,
       issueDate,
       notes,
-      paymentSummary,
       projectTitle,
-      serviceDate,
       totalDue,
     ]
   );
@@ -268,12 +223,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       brandTagline: committedValues.brandTagline,
       invoiceNumber: committedValues.invoiceNumber,
       issueDate: committedValues.issueDate,
-      dueDate: committedValues.dueDate,
-      serviceDate: committedValues.serviceDate,
       projectTitle: committedValues.projectTitle,
       customerSummary: committedValues.customerSummary,
       invoiceSummary: committedValues.invoiceSummary,
-      paymentSummary: committedValues.paymentSummary,
     });
     setNotesDraft(htmlToPlainText(committedValues.notes));
     setDepositInput(formatNumberInput(committedValues.depositReceived));
@@ -305,12 +257,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     brandTagline: draftBrandTagline,
     invoiceNumber: draftInvoiceNumber,
     issueDate: draftIssueDate,
-    dueDate: draftDueDate,
-    serviceDate: draftServiceDate,
     projectTitle: draftProjectTitle,
     customerSummary: draftCustomerSummary,
     invoiceSummary: draftInvoiceSummary,
-    paymentSummary: draftPaymentSummary,
   } = formDraft;
 
   const handleApplyUpdates = useCallback(() => {
@@ -318,12 +267,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onBrandTaglineBlur(draftBrandTagline);
     onInvoiceNumberBlur(draftInvoiceNumber);
     onIssueDateBlur(draftIssueDate);
-    onDueDateChange(draftDueDate);
-    onServiceDateChange(draftServiceDate);
     onProjectTitleBlur(draftProjectTitle);
     onCustomerSummaryBlur(draftCustomerSummary);
     onInvoiceSummaryBlur(draftInvoiceSummary);
-    onPaymentSummaryBlur(draftPaymentSummary);
     onNotesBlur(plainTextToHtml(notesDraft));
     onDepositBlur(depositInput);
     onTotalDueBlur(totalDueInput);
@@ -332,27 +278,21 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     draftBrandName,
     draftBrandTagline,
     draftCustomerSummary,
-    draftDueDate,
     draftInvoiceNumber,
     draftInvoiceSummary,
     draftIssueDate,
-    draftPaymentSummary,
     draftProjectTitle,
-    draftServiceDate,
     depositInput,
     notesDraft,
     onBrandNameBlur,
     onBrandTaglineBlur,
     onCustomerSummaryBlur,
     onDepositBlur,
-    onDueDateChange,
     onInvoiceNumberBlur,
     onInvoiceSummaryBlur,
     onIssueDateBlur,
     onNotesBlur,
-    onPaymentSummaryBlur,
     onProjectTitleBlur,
-    onServiceDateChange,
     onTotalDueBlur,
     totalDueInput,
   ]);
@@ -470,23 +410,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <div>
                 Issue date: <span>{displayIssueDate}</span>
               </div>
-              {dueDate ? (
-                <div>
-                  Due date: <span>{dueDate}</span>
-                </div>
-              ) : null}
-              {serviceDate ? (
-                <div>
-                  Service date: <span>{serviceDate}</span>
-                </div>
-              ) : null}
             </div>
           </div>
         </header>
       </div>
     );
   }, [
-    dueDate,
     invoiceNumber,
     issueDate,
     logoSrc,
@@ -494,7 +423,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     pdfBrandTagline,
     project,
     projectTitle,
-    serviceDate,
   ]);
 
   const pdfDocument = useMemo(
@@ -507,8 +435,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         project={project}
         invoiceNumber={invoiceNumber}
         issueDate={issueDate}
-        dueDate={dueDate}
-        serviceDate={serviceDate}
         projectTitle={projectTitle}
         rows={rowsData}
         subtotal={subtotal}
@@ -520,7 +446,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     [
       brandLogoKey,
       depositReceived,
-      dueDate,
       invoiceNumber,
       issueDate,
       logoDataUrl,
@@ -530,7 +455,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       project,
       projectTitle,
       rowsData,
-      serviceDate,
       subtotal,
       totalDue,
     ]
@@ -799,26 +723,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   onChange={(e) => updateDraftField("issueDate", e.target.value)}
                 />
               </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-due-date">Due date</label>
-                <input
-                  id="invoice-due-date"
-                  className={styles.textInput}
-                  value={draftDueDate}
-                  placeholder="Optional"
-                  onChange={(e) => updateDraftField("dueDate", e.target.value)}
-                />
-              </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-service-date">Service date</label>
-                <input
-                  id="invoice-service-date"
-                  className={styles.textInput}
-                  value={draftServiceDate}
-                  placeholder="Optional"
-                  onChange={(e) => updateDraftField("serviceDate", e.target.value)}
-                />
-              </div>
             </div>
           </div>
 
@@ -855,15 +759,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   className={styles.textArea}
                   value={draftInvoiceSummary}
                   onChange={(e) => updateDraftField("invoiceSummary", e.target.value)}
-                />
-              </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-payment-summary">Payment</label>
-                <textarea
-                  id="invoice-payment-summary"
-                  className={styles.textArea}
-                  value={draftPaymentSummary}
-                  onChange={(e) => updateDraftField("paymentSummary", e.target.value)}
                 />
               </div>
             </div>
@@ -986,61 +881,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   </label>
                 ))}
               </div>
-            </div>
-          ) : null}
-
-          {savedInvoices.length > 0 ? (
-            <div className={styles.formSection}>
-              <div className={styles.formSectionHeader}>
-                <span className={styles.formSectionTitle}>Saved Invoices</span>
-                <span className={styles.helperText}>
-                  Load previous exports or remove the ones you no longer need.
-                </span>
-              </div>
-              <label className={styles.groupItem}>
-                <input
-                  type="checkbox"
-                  checked={selectedInvoices.size === savedInvoices.length}
-                  onChange={(event) => onSelectAllInvoices(event.target.checked)}
-                />
-                Select All
-              </label>
-              <div className={styles.invoiceList}>
-                {savedInvoices.map((inv, index) => (
-                  <div key={inv.url} className={styles.invoiceRow}>
-                    <input
-                      type="checkbox"
-                      checked={selectedInvoices.has(inv.url)}
-                      onChange={() => onToggleInvoice(inv.url)}
-                    />
-                    <button
-                      type="button"
-                      className={styles.linkButton}
-                      onClick={() => onLoadInvoice(inv.url)}
-                      title="Load invoice"
-                    >
-                      {inv.name || `Invoice ${index + 1}`}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.iconButton}
-                      onClick={() => onDeleteInvoice(inv.url)}
-                      aria-label={`Delete ${inv.name || "invoice"}`}
-                    >
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {selectedInvoices.size > 0 ? (
-                <button
-                  type="button"
-                  className={styles.deleteSelectedButton}
-                  onClick={onDeleteSelected}
-                >
-                  <FontAwesomeIcon icon={faTrash} /> Delete Selected
-                </button>
-              ) : null}
             </div>
           ) : null}
 

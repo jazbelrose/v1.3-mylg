@@ -14,8 +14,6 @@ import { useData } from "@/app/contexts/useData";
 import type { UserLite } from "@/app/contexts/DataProvider";
 import { slugify } from "@/shared/utils/slug";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
-import { getFileUrl } from "@/shared/utils/api";
-
 import type {
   BudgetItem,
   InvoicePreviewModalProps,
@@ -25,8 +23,6 @@ import { useInvoiceBranding } from "./useInvoiceBranding";
 import { useInvoiceDetails } from "./useInvoiceDetails";
 import { useInvoiceGrouping } from "./useInvoiceGrouping";
 import { useInvoiceLayout } from "./useInvoiceLayout";
-import { useSavedInvoices } from "./useSavedInvoices";
-import { parseSavedInvoice } from "./parseSavedInvoice";
 import { useInvoicePdfManager } from "./useInvoicePdfManager";
 import type { UseInvoicePreviewModalResult } from "./useInvoicePreviewModal.types";
 
@@ -65,8 +61,6 @@ export function useInvoicePreviewModal({
     handleLogoSelect,
     handleLogoDrop,
     handleSaveHeader,
-    setBrandLogoKey,
-    setLogoDataUrl,
     setBrandName,
     setBrandTagline,
   } = useInvoiceBranding({
@@ -81,45 +75,27 @@ export function useInvoicePreviewModal({
     setInvoiceDirty,
     invoiceNumber,
     issueDate,
-    dueDate,
-    serviceDate,
     projectTitle,
     customerSummary,
     invoiceSummary,
-    paymentSummary,
     notes,
     depositReceived,
     totalDue,
     setTotalDue,
     handleInvoiceNumberBlur,
     handleIssueDateBlur,
-    handleDueDateChange,
-    handleServiceDateChange,
     handleProjectTitleBlur,
     handleCustomerSummaryBlur,
     handleInvoiceSummaryBlur,
-    handlePaymentSummaryBlur,
     handleDepositBlur,
     handleTotalDueBlur,
     handleNotesBlur,
-    setInvoiceNumber,
-    setIssueDate,
-    setDueDate,
-    setServiceDate,
-    setProjectTitle,
-    setCustomerSummary,
-    setInvoiceSummary,
-    setPaymentSummary,
-    setDepositReceived,
-    setNotes,
   } = details;
 
   const grouping = useInvoiceGrouping({ items });
   const {
     groupField,
-    setGroupField,
     groupValues,
-    setGroupValues,
     groupOptions,
     filteredItems,
     handleGroupFieldChange,
@@ -163,22 +139,6 @@ export function useInvoicePreviewModal({
     handleToggleAllPages,
   } = useInvoiceLayout(rowsData);
 
-  const {
-    savedInvoices,
-    setSavedInvoices,
-    selectedInvoices,
-    toggleInvoiceSelect,
-    selectAllInvoices,
-    handleDeleteInvoice,
-    handleDeleteSelectedInvoices,
-    performDeleteInvoices,
-    isConfirmingDelete,
-    setIsConfirmingDelete,
-    refreshInvoices,
-  } = useSavedInvoices({ project, isOpen });
-
-  const closeDeleteConfirm = useCallback(() => setIsConfirmingDelete(false), [setIsConfirmingDelete]);
-
   const handleAttemptClose = useCallback(() => {
     if (isDirty || invoiceDirty) {
       setShowUnsavedPrompt(true);
@@ -210,8 +170,6 @@ export function useInvoicePreviewModal({
     logoDataUrl,
     invoiceNumber,
     issueDate,
-    dueDate,
-    serviceDate,
     projectTitle,
     rowsData,
     subtotal,
@@ -287,15 +245,9 @@ export function useInvoicePreviewModal({
         },
       });
       await uploadTask.result;
-      const storageKey = key.startsWith("public/") ? key : `public/${key}`;
-      const url = getFileUrl(storageKey);
-      setSavedInvoices((prev) => {
-        const next = prev.filter((invoice) => invoice.url !== url);
-        return [...next, { name: fileName, url }];
-      });
       setInvoiceDirty(false);
       setCurrentFileName(fileName);
-      await refreshInvoices();
+      toast.success("Invoice saved");
     } catch (error) {
       console.error("Failed to save invoice", error);
     }
@@ -303,9 +255,7 @@ export function useInvoicePreviewModal({
     buildInvoiceHtmlPayload,
     project,
     revision,
-    setSavedInvoices,
     setInvoiceDirty,
-    refreshInvoices,
   ]);
 
   const handleSaveClick = useCallback(() => {
@@ -315,62 +265,6 @@ export function useInvoicePreviewModal({
       toast.info("Invoice already saved");
     }
   }, [invoiceDirty, saveInvoice]);
-
-  const loadInvoice = useCallback(
-    async (url: string) => {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Failed to fetch");
-        const text = await response.text();
-        const parsed = parseSavedInvoice(text, items);
-        if (!parsed) return;
-
-        setBrandLogoKey(parsed.brandLogoKey);
-        setLogoDataUrl(null);
-        setBrandName(parsed.brandName);
-        setBrandTagline(parsed.brandTagline);
-
-        setInvoiceNumber(parsed.invoiceNumber);
-        setIssueDate(parsed.issueDate);
-        setDueDate(parsed.dueDate);
-        setServiceDate(parsed.serviceDate);
-        setProjectTitle(parsed.projectTitle);
-        setCustomerSummary(parsed.customerSummary);
-        setInvoiceSummary(parsed.invoiceSummary);
-        setPaymentSummary(parsed.paymentSummary);
-        setNotes(parsed.notes);
-        setDepositReceived(parsed.depositReceived);
-        setTotalDue(parsed.totalDue);
-
-        if (parsed.groupField) setGroupField(parsed.groupField);
-        setGroupValues(parsed.groupValues);
-
-        setInvoiceDirty(false);
-        setCurrentFileName(url.split("/").pop() || "");
-      } catch (error) {
-        console.error("Failed to load invoice", error);
-      }
-    }, [
-      items,
-      setBrandLogoKey,
-      setLogoDataUrl,
-      setBrandName,
-      setBrandTagline,
-      setInvoiceNumber,
-      setIssueDate,
-      setDueDate,
-      setServiceDate,
-      setProjectTitle,
-      setCustomerSummary,
-      setInvoiceSummary,
-      setPaymentSummary,
-      setNotes,
-      setDepositReceived,
-      setTotalDue,
-      setGroupField,
-      setGroupValues,
-      setInvoiceDirty,
-    ]);
 
   return {
     items,
@@ -393,13 +287,6 @@ export function useInvoicePreviewModal({
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,
-    savedInvoices,
-    selectedInvoices,
-    toggleInvoiceSelect,
-    selectAllInvoices,
-    loadInvoice,
-    handleDeleteInvoice,
-    handleDeleteSelectedInvoices,
     isDirty,
     handleSaveHeader,
     showSaved,
@@ -415,18 +302,12 @@ export function useInvoicePreviewModal({
     handleInvoiceNumberBlur,
     issueDate,
     handleIssueDateBlur,
-    dueDate,
-    handleDueDateChange,
-    serviceDate,
-    handleServiceDateChange,
     projectTitle,
     handleProjectTitleBlur,
     customerSummary,
     handleCustomerSummaryBlur,
     invoiceSummary,
     handleInvoiceSummaryBlur,
-    paymentSummary,
-    handlePaymentSummaryBlur,
     rowsData,
     subtotal,
     depositReceived,
@@ -441,9 +322,6 @@ export function useInvoicePreviewModal({
     handleStayOpen,
     handleConfirmLeave,
     handleAttemptClose,
-    isConfirmingDelete,
-    closeDeleteConfirm,
-    performDeleteInvoices,
   };
 }
 

@@ -20,8 +20,6 @@ interface PdfInvoiceProps {
   project?: ProjectLike | null;
   invoiceNumber: string;
   issueDate: string;
-  dueDate: string;
-  serviceDate: string;
   projectTitle: string;
   rows: RowData[];
   subtotal: number;
@@ -315,8 +313,6 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     project,
     invoiceNumber,
     issueDate,
-    dueDate,
-    serviceDate,
     projectTitle,
     rows,
     subtotal,
@@ -407,8 +403,6 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
                       <Text>Invoice #: {displayInvoiceNumber}</Text>
                       {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
                       <Text>Issue date: {displayIssueDate}</Text>
-                      {dueDate ? <Text>Due date: {dueDate}</Text> : null}
-                      {serviceDate ? <Text>Service date: {serviceDate}</Text> : null}
                     </View>
                   </View>
                 </View>
