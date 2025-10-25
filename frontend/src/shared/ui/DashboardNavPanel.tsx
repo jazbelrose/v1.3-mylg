@@ -317,7 +317,11 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
                 <X size={18} />
               </button>
             </div>
-            <GlobalSearch className={searchModalStyles.search} onNavigate={handleSearchNavigate} />
+            <GlobalSearch
+              className={searchModalStyles.search}
+              onNavigate={handleSearchNavigate}
+              autoFocus={isSearchModalOpen}
+            />
           </div>
         </Modal>
       ) : null}

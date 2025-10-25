@@ -319,11 +319,12 @@ const buildCollaboratorResults = (
 interface GlobalSearchProps {
   className?: string;
   onNavigate?: () => void;
+  autoFocus?: boolean;
 }
 
 const PROJECT_VIEW_SUFFIXES = new Set(['budget', 'calendar', 'editor', 'moodboard']);
 
-const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate }) => {
+const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate, autoFocus = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -336,6 +337,18 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate 
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!autoFocus) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    });
+
+    return () => clearTimeout(timer);
+  }, [autoFocus]);
 
   const currentProjectViewSuffix = useMemo(() => {
     const path = location.pathname.split(/[?#]/)[0];

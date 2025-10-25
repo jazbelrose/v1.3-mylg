@@ -136,6 +136,20 @@ describe('GlobalSearch', () => {
     );
   };
 
+  it('focuses search input when autoFocus is enabled', async () => {
+    render(
+      <MemoryRouter>
+        <GlobalSearch autoFocus />
+      </MemoryRouter>
+    );
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
+  });
+
   it('renders search input', () => {
     renderGlobalSearch();
     expect(screen.getByPlaceholderText(PLACEHOLDER_TEXT)).toBeInTheDocument();
