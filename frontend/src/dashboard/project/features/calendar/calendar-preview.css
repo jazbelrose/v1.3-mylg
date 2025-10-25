@@ -37,7 +37,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 350px 1fr;
   gap: 24px;
   padding: 24px;
   overflow-y: auto;
@@ -281,7 +281,7 @@
 }
 
 .mini-calendar__day-button {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 1;
   border-radius: 8px;
   border: none;
   background: transparent;
@@ -1848,7 +1848,7 @@
 
   .mini-calendar,
   .events-tasks {
-    flex: 1 1 260px;
+    flex: 1 1 300px;
   }
 }
 
