@@ -250,9 +250,9 @@ const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
         {open && (
           <motion.div
             className="notifications-drawer"
-            initial={{ x: '100%' }}
+            initial={{ x: '-100%' }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            exit={{ x: '-100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             role="dialog"
             aria-modal={!pinned}
