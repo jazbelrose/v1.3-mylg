@@ -139,6 +139,11 @@
   width: 100%;
 }
 
+.dashboard-nav-panel__search--overlay {
+  padding: 0;
+  margin-top: 8px;
+}
+
 .dashboard-nav-panel__search .global-search-input-container {
   min-height: 40px;
   padding-inline: 12px;
@@ -180,7 +185,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: min(340px, 88vw);
+  width: min(360px, 88vw);
   height: 100vh;
   height: 100svh;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 60%),

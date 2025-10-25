@@ -112,9 +112,26 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
     .join(" ");
 
   const topSection = isOverlay ? (
-    <div className="navigation-drawer-search">
-      <GlobalSearch onNavigate={onClose} />
-    </div>
+    <>
+      {onClose ? (
+        <div className="navigation-drawer-header navigation-drawer-header--overlay">
+          <button
+            type="button"
+            className="close-button"
+            onClick={onClose}
+            aria-label="Close navigation"
+          >
+            <X size={24} color="white" />
+          </button>
+        </div>
+      ) : null}
+      <div className="dashboard-nav-panel__search dashboard-nav-panel__search--overlay">
+        <GlobalSearch
+          className="dashboard-nav-panel__search-input"
+          onNavigate={onClose}
+        />
+      </div>
+    </>
   ) : onClose ? (
     <div className="navigation-drawer-header">
       <button
