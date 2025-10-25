@@ -278,6 +278,25 @@
   width: 100%;
 }
 
+.cardListWrapperEmpty {
+  flex: 1 1 auto;
+  justify-content: center;
+  align-items: center;
+}
+
+.emptyPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  padding: 24px;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.95rem;
+}
+
 .cardList {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(640px, 1fr));

@@ -301,6 +301,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       return { minHeight };
     }, [tableHeight]);
 
+    const isEmpty = paginatedData.length === 0;
+
     const registerMenuContainer = useCallback(
       (id: string, node: HTMLDivElement | null) => {
         if (node) {
@@ -371,8 +373,13 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
           </div>
         )}
 
-        <div className={styles.cardListWrapper} style={listStyle}>
-          {paginatedData.length === 0 ? (
+        <div
+          className={`${styles.cardListWrapper}${
+            isEmpty ? ` ${styles.cardListWrapperEmpty}` : ""
+          }`}
+          style={listStyle}
+        >
+          {isEmpty ? (
             <div className={styles.emptyPlaceholder}>No budget items to display</div>
           ) : (
             <div className={`${styles.cardList}${isMobile ? ` ${styles.cardListMobile}` : ""}`}>
