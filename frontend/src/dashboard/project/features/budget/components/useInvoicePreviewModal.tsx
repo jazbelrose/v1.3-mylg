@@ -60,21 +60,15 @@ export function useInvoicePreviewModal({
     logoDataUrl,
     brandName,
     brandTagline,
-    brandAddress,
-    brandPhone,
-    useProjectAddress,
     showSaved,
     isDirty,
     handleLogoSelect,
     handleLogoDrop,
-    handleToggleProjectAddress,
     handleSaveHeader,
     setBrandLogoKey,
     setLogoDataUrl,
     setBrandName,
     setBrandTagline,
-    setBrandAddress,
-    setBrandPhone,
   } = useInvoiceBranding({
     isOpen,
     userData: userData as UserLite | null | undefined,
@@ -211,6 +205,7 @@ export function useInvoicePreviewModal({
   } = useInvoicePdfManager({
     project,
     brandName,
+    brandTagline,
     brandLogoKey,
     logoDataUrl,
     invoiceNumber,
@@ -268,22 +263,6 @@ export function useInvoicePreviewModal({
       markInvoiceDirty();
     },
     [setBrandTagline, markInvoiceDirty]
-  );
-
-  const handleBrandAddressBlur = useCallback(
-    (value: string) => {
-      setBrandAddress(value);
-      markInvoiceDirty();
-    },
-    [setBrandAddress, markInvoiceDirty]
-  );
-
-  const handleBrandPhoneBlur = useCallback(
-    (value: string) => {
-      setBrandPhone(value);
-      markInvoiceDirty();
-    },
-    [setBrandPhone, markInvoiceDirty]
   );
 
   const saveInvoice = useCallback(async () => {
@@ -349,8 +328,6 @@ export function useInvoicePreviewModal({
         setBrandLogoKey(parsed.brandLogoKey);
         setLogoDataUrl(null);
         setBrandName(parsed.brandName);
-        setBrandAddress(parsed.brandAddress);
-        setBrandPhone(parsed.brandPhone);
         setBrandTagline(parsed.brandTagline);
 
         setInvoiceNumber(parsed.invoiceNumber);
@@ -378,8 +355,6 @@ export function useInvoicePreviewModal({
       setBrandLogoKey,
       setLogoDataUrl,
       setBrandName,
-      setBrandAddress,
-      setBrandPhone,
       setBrandTagline,
       setInvoiceNumber,
       setIssueDate,
@@ -436,12 +411,6 @@ export function useInvoicePreviewModal({
     handleBrandNameBlur,
     brandTagline,
     handleBrandTaglineBlur,
-    brandAddress,
-    handleBrandAddressBlur,
-    brandPhone,
-    handleBrandPhoneBlur,
-    useProjectAddress,
-    handleToggleProjectAddress,
     invoiceNumber,
     handleInvoiceNumberBlur,
     issueDate,

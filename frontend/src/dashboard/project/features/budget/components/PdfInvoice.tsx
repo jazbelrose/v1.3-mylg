@@ -14,6 +14,7 @@ import { getFileUrl } from "@/shared/utils/api";
 
 interface PdfInvoiceProps {
   brandName: string;
+  brandTagline: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
   project?: ProjectLike | null;
@@ -82,6 +83,11 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: 1.1,
+  },
+  brandTagline: {
+    fontSize: 10,
+    color: "#4d4d4d",
+    letterSpacing: 0.6,
   },
   invoiceMeta: {
     display: "flex",
@@ -303,6 +309,7 @@ const getLogoSrc = (logoDataUrl: string | null, brandLogoKey: string): string =>
 const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   const {
     brandName,
+    brandTagline,
     brandLogoKey,
     logoDataUrl,
     project,
@@ -346,6 +353,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   };
 
   const displayBrandName = brandName.trim();
+  const displayBrandTagline = brandTagline.trim();
   const billedToName = project?.clientName || "Client name";
   const billedToCompany = project?.invoiceBrandName || "";
   const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
@@ -355,13 +363,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
   const contactName = project?.company || displayBrandName;
-  const contactAddress = project?.address || "";
-  const contactPhone = project?.invoiceBrandPhone || "";
-  const contactEmail = project?.clientEmail || "";
-  const contactLines = useMemo(() => {
-    const details = [contactAddress, contactPhone, contactEmail].filter(Boolean);
-    return details;
-  }, [contactAddress, contactPhone, contactEmail]);
+  const contactLines = useMemo(() => [], []);
 
   return (
     <Document>
@@ -378,6 +380,9 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               )}
 
               {displayBrandName ? <Text style={styles.brandName}>{displayBrandName}</Text> : null}
+              {displayBrandTagline ? (
+                <Text style={styles.brandTagline}>{displayBrandTagline}</Text>
+              ) : null}
             </View>
 
             <Text style={styles.invoiceTitle}>Invoice</Text>

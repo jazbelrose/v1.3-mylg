@@ -10,6 +10,7 @@ import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
 interface UseInvoicePdfManagerOptions {
   project: InvoicePreviewModalProps["project"];
   brandName: string;
+  brandTagline: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
   invoiceNumber: string;
@@ -38,6 +39,7 @@ interface UseInvoicePdfManagerResult {
 export function useInvoicePdfManager({
   project,
   brandName,
+  brandTagline,
   brandLogoKey,
   logoDataUrl,
   invoiceNumber,
@@ -69,6 +71,7 @@ export function useInvoicePdfManager({
     return (
       <PdfInvoice
         brandName={brandName || project?.company || ""}
+        brandTagline={brandTagline}
         brandLogoKey={brandLogoKey}
         logoDataUrl={logoDataUrl}
         project={project}
@@ -87,6 +90,7 @@ export function useInvoicePdfManager({
   }, [
     brandLogoKey,
     brandName,
+    brandTagline,
     depositReceived,
     dueDate,
     invoiceNumber,
@@ -139,6 +143,7 @@ export function useInvoicePdfManager({
       pages,
       selectedPages,
       brandName,
+      brandTagline,
       brandLogoKey,
       logoDataUrl,
       project,
@@ -156,6 +161,7 @@ export function useInvoicePdfManager({
     pages,
     selectedPages,
     brandName,
+    brandTagline,
     brandLogoKey,
     logoDataUrl,
     project,

@@ -57,12 +57,6 @@ interface InvoicePreviewContentProps {
   onBrandNameBlur: (value: string) => void;
   brandTagline: string;
   onBrandTaglineBlur: (value: string) => void;
-  brandAddress: string;
-  onBrandAddressBlur: (value: string) => void;
-  brandPhone: string;
-  onBrandPhoneBlur: (value: string) => void;
-  useProjectAddress: boolean;
-  onToggleProjectAddress: (checked: boolean) => void;
   project?: ProjectLike | null;
   invoiceNumber: string;
   onInvoiceNumberBlur: (value: string) => void;
@@ -97,8 +91,6 @@ interface InvoicePreviewContentProps {
 type FormDraftField =
   | "brandName"
   | "brandTagline"
-  | "brandAddress"
-  | "brandPhone"
   | "invoiceNumber"
   | "issueDate"
   | "dueDate"
@@ -167,12 +159,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onBrandNameBlur,
   brandTagline,
   onBrandTaglineBlur,
-  brandAddress,
-  onBrandAddressBlur,
-  brandPhone,
-  onBrandPhoneBlur,
-  useProjectAddress,
-  onToggleProjectAddress,
   project,
   invoiceNumber,
   onInvoiceNumberBlur,
@@ -209,18 +195,15 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   }, [brandLogoKey, logoDataUrl]);
 
   const pdfBrandName = useMemo(() => brandName.trim(), [brandName]);
+  const pdfBrandTagline = useMemo(() => brandTagline.trim(), [brandTagline]);
   const paymentContactName = project?.company || pdfBrandName;
   const paymentContactDetails = useMemo(() => {
-    const details = [project?.address || "", project?.invoiceBrandPhone || "", project?.clientEmail || ""].filter(
-      (entry): entry is string => Boolean(entry)
-    );
+    const details = [project?.clientEmail || ""].filter((entry): entry is string => Boolean(entry));
     return details;
-  }, [project?.address, project?.invoiceBrandPhone, project?.clientEmail]);
+  }, [project?.clientEmail]);
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
     brandName,
     brandTagline,
-    brandAddress,
-    brandPhone,
     invoiceNumber,
     issueDate,
     dueDate,
@@ -230,7 +213,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     invoiceSummary,
     paymentSummary,
   }));
-  const [useProjectAddressDraft, setUseProjectAddressDraft] = useState<boolean>(useProjectAddress);
   const [notesDraft, setNotesDraft] = useState<string>(() => htmlToPlainText(notes));
   const [depositInput, setDepositInput] = useState<string>(() => formatNumberInput(depositReceived));
   const [totalDueInput, setTotalDueInput] = useState<string>(() => formatNumberInput(totalDue));
@@ -240,8 +222,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     () => ({
       brandName,
       brandTagline,
-      brandAddress,
-      brandPhone,
       invoiceNumber,
       issueDate,
       dueDate,
@@ -250,15 +230,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       customerSummary,
       invoiceSummary,
       paymentSummary,
-      useProjectAddress,
       notes,
       depositReceived,
       totalDue,
     }),
     [
-      brandAddress,
       brandName,
-      brandPhone,
       brandTagline,
       customerSummary,
       depositReceived,
@@ -271,7 +248,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       projectTitle,
       serviceDate,
       totalDue,
-      useProjectAddress,
     ]
   );
 
@@ -290,8 +266,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     setFormDraft({
       brandName: committedValues.brandName,
       brandTagline: committedValues.brandTagline,
-      brandAddress: committedValues.brandAddress,
-      brandPhone: committedValues.brandPhone,
       invoiceNumber: committedValues.invoiceNumber,
       issueDate: committedValues.issueDate,
       dueDate: committedValues.dueDate,
@@ -301,7 +275,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       invoiceSummary: committedValues.invoiceSummary,
       paymentSummary: committedValues.paymentSummary,
     });
-    setUseProjectAddressDraft(committedValues.useProjectAddress);
     setNotesDraft(htmlToPlainText(committedValues.notes));
     setDepositInput(formatNumberInput(committedValues.depositReceived));
     setTotalDueInput(formatNumberInput(committedValues.totalDue));
@@ -327,16 +300,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     setTotalDueInput(value);
   }, []);
 
-  const handleProjectAddressDraftChange = useCallback((checked: boolean) => {
-    setHasDraftChanges(true);
-    setUseProjectAddressDraft(checked);
-  }, []);
-
   const {
     brandName: draftBrandName,
     brandTagline: draftBrandTagline,
-    brandAddress: draftBrandAddress,
-    brandPhone: draftBrandPhone,
     invoiceNumber: draftInvoiceNumber,
     issueDate: draftIssueDate,
     dueDate: draftDueDate,
@@ -350,9 +316,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const handleApplyUpdates = useCallback(() => {
     onBrandNameBlur(draftBrandName);
     onBrandTaglineBlur(draftBrandTagline);
-    onBrandAddressBlur(draftBrandAddress);
-    onBrandPhoneBlur(draftBrandPhone);
-    onToggleProjectAddress(useProjectAddressDraft);
     onInvoiceNumberBlur(draftInvoiceNumber);
     onIssueDateBlur(draftIssueDate);
     onDueDateChange(draftDueDate);
@@ -366,9 +329,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onTotalDueBlur(totalDueInput);
     setHasDraftChanges(false);
   }, [
-    draftBrandAddress,
     draftBrandName,
-    draftBrandPhone,
     draftBrandTagline,
     draftCustomerSummary,
     draftDueDate,
@@ -380,9 +341,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     draftServiceDate,
     depositInput,
     notesDraft,
-    onBrandAddressBlur,
     onBrandNameBlur,
-    onBrandPhoneBlur,
     onBrandTaglineBlur,
     onCustomerSummaryBlur,
     onDepositBlur,
@@ -396,8 +355,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onServiceDateChange,
     onTotalDueBlur,
     totalDueInput,
-    useProjectAddressDraft,
-    onToggleProjectAddress,
   ]);
 
   const handleSaveButtonClick = useCallback(() => {
@@ -474,6 +431,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
   const renderHeader = useCallback(() => {
     const displayBrandName = pdfBrandName;
+    const displayBrandTagline = pdfBrandTagline;
     const displayInvoiceNumber = invoiceNumber || "0000";
     const displayIssueDate = issueDate || new Date().toLocaleDateString();
     const displayProjectTitle = projectTitle || project?.title || "";
@@ -487,6 +445,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 {logoSrc ? <img src={logoSrc} alt="Company logo" /> : <span>Upload Logo</span>}
               </div>
               {displayBrandName ? <div className="brand-name">{displayBrandName}</div> : null}
+              {displayBrandTagline ? <div className="brand-tagline">{displayBrandTagline}</div> : null}
             </div>
 
             <div className="invoice-title">Invoice</div>
@@ -532,6 +491,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     issueDate,
     logoSrc,
     pdfBrandName,
+    pdfBrandTagline,
     project,
     projectTitle,
     serviceDate,
@@ -541,6 +501,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     () => (
       <PdfInvoice
         brandName={pdfBrandName}
+        brandTagline={pdfBrandTagline}
         brandLogoKey={brandLogoKey}
         logoDataUrl={logoDataUrl}
         project={project}
@@ -565,6 +526,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       logoDataUrl,
       notes,
       pdfBrandName,
+      pdfBrandTagline,
       project,
       projectTitle,
       rowsData,
@@ -746,9 +708,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         <div className={styles.pdfFormPane}>
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Brand</span>
+              <span className={styles.formSectionTitle}>Organization</span>
               <span className={styles.helperText}>
-                Update your branding to see it reflected immediately in the PDF.
+                Update your organization details to see them reflected immediately in the PDF.
               </span>
             </div>
 
@@ -776,12 +738,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
 
             <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-name">Brand name</label>
+              <label htmlFor="invoice-brand-name">Organization name</label>
               <input
                 id="invoice-brand-name"
                 className={styles.textInput}
                 value={draftBrandName}
-                placeholder={project?.company || "Your business name"}
+                placeholder={project?.company || "Your organization name"}
                 onChange={(e) => updateDraftField("brandName", e.target.value)}
               />
             </div>
@@ -794,43 +756,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 value={draftBrandTagline}
                 placeholder="Optional tagline"
                 onChange={(e) => updateDraftField("brandTagline", e.target.value)}
-              />
-            </div>
-
-            <label className={styles.toggleRow}>
-              <input
-                type="checkbox"
-                checked={useProjectAddressDraft}
-                onChange={(e) => handleProjectAddressDraftChange(e.target.checked)}
-              />
-              Use project address{project?.address ? ` (${project.address})` : ""}
-            </label>
-
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-address">Brand address</label>
-              <textarea
-                id="invoice-brand-address"
-                className={styles.textArea}
-                value={draftBrandAddress}
-                placeholder="Business address"
-                onChange={(e) => updateDraftField("brandAddress", e.target.value)}
-                disabled={useProjectAddressDraft}
-              />
-              {useProjectAddressDraft ? (
-                <span className={styles.helperText}>
-                  Using the project address. Uncheck above to edit your saved address.
-                </span>
-              ) : null}
-            </div>
-
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-phone">Phone</label>
-              <input
-                id="invoice-brand-phone"
-                className={styles.textInput}
-                value={draftBrandPhone}
-                placeholder="(123) 456-7890"
-                onChange={(e) => updateDraftField("brandPhone", e.target.value)}
               />
             </div>
 

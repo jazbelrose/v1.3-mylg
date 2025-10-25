@@ -57,12 +57,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     handleBrandNameBlur,
     brandTagline,
     handleBrandTaglineBlur,
-    brandAddress,
-    handleBrandAddressBlur,
-    brandPhone,
-    handleBrandPhoneBlur,
-    useProjectAddress,
-    handleToggleProjectAddress,
     invoiceNumber,
     handleInvoiceNumberBlur,
     issueDate,
@@ -165,12 +159,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onBrandNameBlur={handleBrandNameBlur}
                   brandTagline={brandTagline}
                   onBrandTaglineBlur={handleBrandTaglineBlur}
-                  brandAddress={brandAddress}
-                  onBrandAddressBlur={handleBrandAddressBlur}
-                  brandPhone={brandPhone}
-                  onBrandPhoneBlur={handleBrandPhoneBlur}
-                  useProjectAddress={useProjectAddress}
-                  onToggleProjectAddress={handleToggleProjectAddress}
                   project={project}
                   invoiceNumber={invoiceNumber}
                   onInvoiceNumberBlur={handleInvoiceNumberBlur}

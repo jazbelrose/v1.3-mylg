@@ -16,22 +16,15 @@ interface UseInvoiceBrandingResult {
   logoDataUrl: string | null;
   brandName: string;
   brandTagline: string;
-  brandAddress: string;
-  brandPhone: string;
-  useProjectAddress: boolean;
   showSaved: boolean;
   isDirty: boolean;
   handleLogoSelect: React.ChangeEventHandler<HTMLInputElement>;
   handleLogoDrop: React.DragEventHandler<HTMLDivElement>;
-  handleToggleProjectAddress: (checked: boolean) => void;
   handleSaveHeader: () => Promise<void>;
   setBrandLogoKey: React.Dispatch<React.SetStateAction<string>>;
   setLogoDataUrl: React.Dispatch<React.SetStateAction<string | null>>;
   setBrandName: React.Dispatch<React.SetStateAction<string>>;
   setBrandTagline: React.Dispatch<React.SetStateAction<string>>;
-  setBrandAddress: React.Dispatch<React.SetStateAction<string>>;
-  setBrandPhone: React.Dispatch<React.SetStateAction<string>>;
-  setUseProjectAddress: React.Dispatch<React.SetStateAction<boolean>>;
   setShowSaved: React.Dispatch<React.SetStateAction<boolean>>;
   setIsDirty: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -45,9 +38,6 @@ export function useInvoiceBranding({
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [brandName, setBrandName] = useState("");
   const [brandTagline, setBrandTagline] = useState("");
-  const [brandAddress, setBrandAddress] = useState("");
-  const [brandPhone, setBrandPhone] = useState("");
-  const [useProjectAddress, setUseProjectAddress] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -64,22 +54,13 @@ export function useInvoiceBranding({
       brandLogoKey: data.brandLogoKey || "",
       brandLogoUrl: brandLogoFromUrl || "",
       brandName: data.brandName || "",
-      brandAddress: data.brandAddress || "",
-      brandPhone: data.brandPhone || "",
       brandTagline: data.brandTagline || "",
     };
   }, [userData]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const {
-      brandLogoKey: key,
-      brandLogoUrl,
-      brandName: name,
-      brandAddress: address,
-      brandPhone: phone,
-      brandTagline: tagline,
-    } = currentUserBranding;
+    const { brandLogoKey: key, brandLogoUrl, brandName: name, brandTagline: tagline } = currentUserBranding;
     let resolvedKey = key;
     if (!resolvedKey && brandLogoUrl) {
       resolvedKey = brandLogoUrl.startsWith("public/")
@@ -88,11 +69,8 @@ export function useInvoiceBranding({
     }
     setBrandLogoKey(resolvedKey);
     setBrandName(name);
-    setBrandAddress(address);
-    setBrandPhone(phone);
     setBrandTagline(tagline);
     setLogoDataUrl(null);
-    setUseProjectAddress(false);
     setShowSaved(false);
     setIsDirty(false);
   }, [isOpen, currentUserBranding]);
@@ -101,15 +79,11 @@ export function useInvoiceBranding({
     const dirty =
       (brandLogoKey || "") !== (currentUserBranding.brandLogoKey || "") ||
       (brandName || "") !== (currentUserBranding.brandName || "") ||
-      (brandAddress || "") !== (currentUserBranding.brandAddress || "") ||
-      (brandPhone || "") !== (currentUserBranding.brandPhone || "") ||
       (brandTagline || "") !== (currentUserBranding.brandTagline || "");
     setIsDirty(dirty);
   }, [
-    brandAddress,
     brandLogoKey,
     brandName,
-    brandPhone,
     brandTagline,
     currentUserBranding,
   ]);
@@ -140,10 +114,6 @@ export function useInvoiceBranding({
     reader.readAsDataURL(file);
   }, []);
 
-  const handleToggleProjectAddress = useCallback((checked: boolean) => {
-    setUseProjectAddress(checked);
-  }, []);
-
   const handleSaveHeader = useCallback(async () => {
     try {
       let uploadedKey = brandLogoKey;
@@ -166,8 +136,6 @@ export function useInvoiceBranding({
         ...(userData || {}),
         brandLogoKey: uploadedKey,
         brandName,
-        brandAddress,
-        brandPhone,
         brandTagline,
       } as UserLite;
 
@@ -181,38 +149,22 @@ export function useInvoiceBranding({
       console.error("Failed to save header", error);
       toast.error("Unable to save brand details");
     }
-  }, [
-    brandAddress,
-    brandLogoKey,
-    brandName,
-    brandPhone,
-    brandTagline,
-    logoDataUrl,
-    setUserData,
-    userData,
-  ]);
+  }, [brandLogoKey, brandName, brandTagline, logoDataUrl, setUserData, userData]);
 
   return {
     brandLogoKey,
     logoDataUrl,
     brandName,
     brandTagline,
-    brandAddress,
-    brandPhone,
-    useProjectAddress,
     showSaved,
     isDirty,
     handleLogoSelect,
     handleLogoDrop,
-    handleToggleProjectAddress,
     handleSaveHeader,
     setBrandLogoKey,
     setLogoDataUrl,
     setBrandName,
     setBrandTagline,
-    setBrandAddress,
-    setBrandPhone,
-    setUseProjectAddress,
     setShowSaved,
     setIsDirty,
   };

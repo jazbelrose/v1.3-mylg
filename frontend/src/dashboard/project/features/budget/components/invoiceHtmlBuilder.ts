@@ -6,6 +6,7 @@ interface InvoiceHtmlBuilderOptions {
   pages: RowData[][];
   selectedPages: number[];
   brandName: string;
+  brandTagline: string;
   brandLogoKey: string;
   logoDataUrl: string | null;
   project: InvoicePreviewModalProps["project"];
@@ -25,6 +26,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     pages,
     selectedPages,
     brandName,
+    brandTagline,
     brandLogoKey,
     logoDataUrl,
     project,
@@ -62,6 +64,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
         .join("");
 
       const headerName = brandName.trim();
+      const headerTagline = brandTagline.trim();
       const logoSrc = logoDataUrl || (brandLogoKey ? getFileUrl(brandLogoKey) : "");
 
       const invNum = invoiceNumber || "0000";
@@ -78,11 +81,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
       const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
       const paymentContactName = project?.company || headerName;
-      const paymentContactDetails = [
-        project?.address || "",
-        project?.invoiceBrandPhone || "",
-        project?.clientEmail || "",
-      ]
+      const paymentContactDetails = [project?.clientEmail || ""]
         .map((detail) => detail.trim())
         .filter(Boolean);
 
@@ -154,6 +153,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                 <div class="brand-section">
                   <div class="logo-upload">${logoHtml}</div>
                   ${headerName ? `<div class="brand-name">${headerName}</div>` : ""}
+                  ${headerTagline ? `<div class="brand-tagline">${headerTagline}</div>` : ""}
                 </div>
                 <div class="invoice-title">INVOICE</div>
               </div>

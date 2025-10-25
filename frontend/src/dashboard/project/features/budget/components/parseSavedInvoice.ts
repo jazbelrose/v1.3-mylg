@@ -4,8 +4,6 @@ import type { BudgetItem, GroupField } from "./invoicePreviewTypes";
 interface ParsedInvoiceData {
   brandLogoKey: string;
   brandName: string;
-  brandAddress: string;
-  brandPhone: string;
   brandTagline: string;
   invoiceNumber: string;
   issueDate: string;
@@ -35,8 +33,6 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
 
   const brandLogoKey = q(".invoice-header img")?.getAttribute("src") || "";
   const brandName = q(".brand-name")?.textContent || "";
-  const brandAddress = q(".brand-address")?.textContent || "";
-  const brandPhone = q(".brand-phone")?.textContent || "";
   const brandTagline = q(".brand-tagline")?.textContent || "";
 
   const infoSpans = page.querySelectorAll(".billing-info > div:last-child span");
@@ -86,8 +82,6 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
   return {
     brandLogoKey,
     brandName,
-    brandAddress,
-    brandPhone,
     brandTagline,
     invoiceNumber,
     issueDate,
