@@ -202,14 +202,13 @@ export function useInvoicePreviewModal({
   });
 
   const details = useInvoiceDetails({ isOpen, project, revision });
-  const {
+  const { 
     invoiceDirty,
     setInvoiceDirty,
     invoiceNumber,
     issueDate,
     projectTitle,
     customerSummary,
-    invoiceSummary,
     notes,
     depositReceived,
     taxRate,
@@ -219,7 +218,6 @@ export function useInvoicePreviewModal({
     handleIssueDateBlur,
     handleProjectTitleBlur,
     handleCustomerSummaryBlur,
-    handleInvoiceSummaryBlur,
     handleDepositBlur,
     handleTaxRateBlur,
     handleTotalDueBlur,
@@ -310,6 +308,7 @@ export function useInvoicePreviewModal({
     invoiceNumber,
     issueDate,
     projectTitle,
+    customerSummary,
     rowsData,
     subtotal,
     depositReceived,
@@ -480,8 +479,6 @@ export function useInvoicePreviewModal({
     handleProjectTitleBlur,
     customerSummary,
     handleCustomerSummaryBlur,
-    invoiceSummary,
-    handleInvoiceSummaryBlur,
     rowsData,
     organizationLines,
     organizationName: organizationFields.name,

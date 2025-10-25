@@ -57,8 +57,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     handleProjectTitleBlur,
     customerSummary,
     handleCustomerSummaryBlur,
-    invoiceSummary,
-    handleInvoiceSummaryBlur,
     rowsData,
     organizationLines,
     organizationName,
@@ -156,8 +154,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onProjectTitleBlur={handleProjectTitleBlur}
                   customerSummary={customerSummary}
                   onCustomerSummaryBlur={handleCustomerSummaryBlur}
-                  invoiceSummary={invoiceSummary}
-                  onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
                   rowsData={rowsData}
                   organizationLines={organizationLines}
                   organizationName={organizationName}
