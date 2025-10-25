@@ -4,7 +4,6 @@ import {
   Folder,
   Bell,
   MessageSquare,
-  Settings,
   LogOut,
   Users,
   Plus,
@@ -117,6 +116,10 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
     close();
   }, [navigate, close]);
 
+  const handleSettingsNavigation = useCallback(() => {
+    handleNavigation("settings");
+  }, [handleNavigation]);
+
   const handleSignOut = useCallback(async () => {
     try {
       await signOut();
@@ -208,25 +211,28 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
   const bottomItems: DashboardNavItem[] = useMemo(
     () => [
       {
-        key: "settings",
-        icon: <Settings size={24} color="white" />,
-        label: "Settings",
-        onClick: () => handleNavigation("settings"),
-        isActive: isDashboardPath && activeDashboardView === "settings",
-      },
-      {
         key: "sign-out",
         icon: <LogOut size={24} color="white" />,
         label: "Sign Out",
         onClick: handleSignOut,
       },
     ],
-    [handleNavigation, handleSignOut, isDashboardPath, activeDashboardView]
+    [handleSignOut]
+  );
+
+  const userNavItem = useMemo(
+    () => ({
+      key: "user",
+      onClick: handleSettingsNavigation,
+      isActive: isDashboardPath && activeDashboardView === "settings",
+    }),
+    [handleSettingsNavigation, isDashboardPath, activeDashboardView]
   );
 
   return {
     navItems,
     bottomItems,
+    userNavItem,
   };
 }
 
