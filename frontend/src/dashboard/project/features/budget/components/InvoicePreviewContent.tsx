@@ -958,7 +958,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               />
             </div>
             <div className={styles.formRow}>
-              <label htmlFor="invoice-organization-address">Organization address</label>
+              <label htmlFor="invoice-organization-address">Address & Bank Information</label>
               <textarea
                 id="invoice-organization-address"
                 className={styles.textArea}
