@@ -25,6 +25,7 @@ interface PdfInvoiceProps {
   project?: ProjectLike | null;
   invoiceNumber: string;
   issueDate: string;
+  projectName: string;
   projectTitle: string;
   customerSummary: string;
   rows: RowData[];
@@ -341,6 +342,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     project,
     invoiceNumber,
     issueDate,
+    projectName,
     projectTitle,
     customerSummary,
     rows,
@@ -395,7 +397,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   ].filter(Boolean);
   const billedToLines = billedToLinesFromSummary.length ? billedToLinesFromSummary : fallbackBilledToLines;
   const linesToRender = billedToLines.length ? billedToLines : ["Client details"];
-  const projectTitleForMeta = projectTitle || project?.title || "";
+  const projectNameForMeta = projectName || project?.title || "";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
   const organizationLinesToDisplay = organizationLines.filter((line) => !line.isPlaceholder);
@@ -438,7 +440,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
 
                       <View style={styles.invoiceMeta}>
                       <Text>Invoice #: {displayInvoiceNumber}</Text>
-                      {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
+                      {projectNameForMeta ? <Text>{projectNameForMeta}</Text> : null}
                       <Text>Issue date: {displayIssueDate}</Text>
                     </View>
                   </View>
