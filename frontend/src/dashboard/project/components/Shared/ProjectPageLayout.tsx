@@ -313,8 +313,7 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
       className="dashboard-wrapper active-project-details"
       data-project-theme={theme ? "" : undefined}
       style={themeStyle}
-    >
-      <div
+    > <div
         ref={projectHeaderRef}
         style={{
           position: "sticky",
@@ -323,15 +322,12 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
           backgroundColor: "#0c0c0c",
           display: "flex",
           flexDirection: "column",
-          
+
         }}
       >
-        <WelcomeHeader
-          isDesktopLayout={isDesktop}
-          showDesktopGreeting={false}
-          showGlobalSearch={false}
-          showAvatar={false}
-        />
+        {!isMobile ? (
+          <WelcomeHeader isDesktopLayout={isDesktop} showDesktopGreeting={false} />
+        ) : null}
         {headerNode ? (
           <div style={{ padding: "0" }}>{headerNode}</div>
         ) : null}
