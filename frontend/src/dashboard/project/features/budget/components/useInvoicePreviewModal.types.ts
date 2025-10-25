@@ -5,12 +5,7 @@ import type {
   MutableRefObject,
   SetStateAction,
 } from "react";
-import type {
-  BudgetItem,
-  GroupField,
-  RowData,
-  SavedInvoice,
-} from "./invoicePreviewTypes";
+import type { BudgetItem, GroupField, RowData } from "./invoicePreviewTypes";
 
 export interface UseInvoicePreviewModalResult {
   items: BudgetItem[];
@@ -33,13 +28,6 @@ export interface UseInvoicePreviewModalResult {
   selectedPages: number[];
   handleTogglePage: (index: number) => void;
   handleToggleAllPages: (checked: boolean) => void;
-  savedInvoices: SavedInvoice[];
-  selectedInvoices: Set<string>;
-  toggleInvoiceSelect: (url: string) => void;
-  selectAllInvoices: (checked: boolean) => void;
-  loadInvoice: (url: string) => Promise<void>;
-  handleDeleteInvoice: (url: string) => void;
-  handleDeleteSelectedInvoices: () => void;
   isDirty: boolean;
   handleSaveHeader: () => Promise<void>;
   showSaved: boolean;
@@ -55,18 +43,12 @@ export interface UseInvoicePreviewModalResult {
   handleInvoiceNumberBlur: (value: string) => void;
   issueDate: string;
   handleIssueDateBlur: (value: string) => void;
-  dueDate: string;
-  handleDueDateChange: (value: string) => void;
-  serviceDate: string;
-  handleServiceDateChange: (value: string) => void;
   projectTitle: string;
   handleProjectTitleBlur: (value: string) => void;
   customerSummary: string;
   handleCustomerSummaryBlur: (value: string) => void;
   invoiceSummary: string;
   handleInvoiceSummaryBlur: (value: string) => void;
-  paymentSummary: string;
-  handlePaymentSummaryBlur: (value: string) => void;
   rowsData: RowData[];
   subtotal: number;
   depositReceived: number;
@@ -81,7 +63,4 @@ export interface UseInvoicePreviewModalResult {
   handleStayOpen: () => void;
   handleConfirmLeave: () => void;
   handleAttemptClose: () => void;
-  isConfirmingDelete: boolean;
-  closeDeleteConfirm: () => void;
-  performDeleteInvoices: () => Promise<void>;
 }

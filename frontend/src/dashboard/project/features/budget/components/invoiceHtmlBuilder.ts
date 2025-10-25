@@ -12,8 +12,6 @@ interface InvoiceHtmlBuilderOptions {
   project: InvoicePreviewModalProps["project"];
   invoiceNumber: string;
   issueDate: string;
-  dueDate: string;
-  serviceDate: string;
   projectTitle: string;
   notes: string;
   depositReceived: number;
@@ -32,8 +30,6 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     project,
     invoiceNumber,
     issueDate,
-    dueDate,
-    serviceDate,
     projectTitle,
     notes,
     depositReceived,
@@ -69,8 +65,6 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
 
       const invNum = invoiceNumber || "0000";
       const issue = issueDate || new Date().toLocaleDateString();
-      const due = dueDate || "";
-      const service = serviceDate || "";
 
       const billContact = project?.clientName || "Client Name";
       const billCompany = project?.invoiceBrandName || "Client Company";
@@ -139,8 +133,6 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                   ${invNum ? `<div>Invoice #: <span>${invNum}</span></div>` : ""}
                   ${projTitleMeta ? `<div>${projTitleMeta}</div>` : ""}
                   ${issue ? `<div>Issue date: <span>${issue}</span></div>` : ""}
-                  ${due ? `<div>Due date: <span>${due}</span></div>` : ""}
-                  ${service ? `<div>Service date: <span>${service}</span></div>` : ""}
                 </div>
               </div>`
         : "";
