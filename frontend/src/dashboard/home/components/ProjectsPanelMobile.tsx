@@ -80,7 +80,7 @@ const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
   const [sortOption, setSortOption] = useState<SortOption>("dateNewest");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [query, setQuery] = useState<string>("");
-  const [scope, setScope] = useState<"recents" | "all">("recents");
+  const [scope, setScope] = useState<"recents" | "all">("all");
   // Icons-only strip lives next to the title; main list remains compact list rows
 
   useEffect(() => {
