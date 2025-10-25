@@ -225,8 +225,7 @@ const styles = StyleSheet.create({
   paymentFooterContent: {
     display: "flex",
     flexDirection: "row",
-    gap: 0,
-    justifyContent: "space-between",
+    gap: 24,
   },
   paymentInfoColumn: {
     flex: 1,
@@ -243,6 +242,9 @@ const styles = StyleSheet.create({
   paymentInfoLine: {
     fontSize: 10,
     lineHeight: 1.5,
+  },
+  paymentSpacerColumn: {
+    flex: 0.3,
   },
   organizationColumn: {
     flex: 1,
@@ -499,6 +501,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
                     </Text>
                   ))}
                 </View>
+                <View style={styles.paymentSpacerColumn} />
                 <View style={styles.organizationColumn}>
                   {organizationLinesToDisplay.map((line) => (
                     <Text
