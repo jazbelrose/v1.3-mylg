@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, Menu } from "lucide-react";
+import { User as UserIcon, Menu } from "lucide-react";
 import { useData } from '@/app/contexts/useData';
 import { useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
@@ -40,7 +40,28 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   const normalizedFirstName = firstName
     ? firstName.charAt(0).toUpperCase() + firstName.slice(1)
     : 'there';
-  const userThumbnail = userData?.thumbnail;
+  const thumbnailKey = userData?.thumbnail?.trim();
+  const thumbnailUrl = userData?.thumbnailUrl?.trim();
+  const avatarSrc = useMemo(() => {
+    if (!thumbnailKey && !thumbnailUrl) return undefined;
+
+    if (thumbnailKey) {
+      try {
+        return getFileUrl(thumbnailKey);
+      } catch {
+        return thumbnailUrl;
+      }
+    }
+
+    return thumbnailUrl;
+  }, [thumbnailKey, thumbnailUrl]);
+  const rawAvatarInitial =
+    userData?.firstName?.trim()?.[0] ||
+    userData?.lastName?.trim()?.[0] ||
+    userData?.email?.trim()?.[0] ||
+    normalizedFirstName?.[0] ||
+    '';
+  const avatarInitial = rawAvatarInitial.toUpperCase();
   const userId = userData?.userId;
 
   // online status (derived from presenceChanged events via OnlineStatusContext)
@@ -83,13 +104,6 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     }
   };
 
-  const handleAvatarKeyDown: React.KeyboardEventHandler<HTMLDivElement | SVGElement | HTMLImageElement> = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleHomeClick();
-    }
-  };
-
   const handleLogoKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -108,6 +122,20 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     'welcome-header__brand',
     'squircle',
     isMobile ? 'welcome-header__brand--compact' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const avatarClassName = [
+    'welcome-header-avatar',
+    isMobile ? 'welcome-header-avatar--compact' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const avatarStatusClassName = [
+    'welcome-header-avatar__status',
+    isMobile ? 'welcome-header-avatar__status--compact' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -161,58 +189,34 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
           ) : null}
 
           <div className="welcome-header-actions">
-            <div style={{ position: 'relative' }}>
-              {userThumbnail ? (
-                <img
-                  src={getFileUrl(userThumbnail)}
-                  alt={`${userName}'s Thumbnail`}
-                  style={{
-                    width: isMobile ? '32px' : '40px',
-                    height: isMobile ? '32px' : '40px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    cursor: 'pointer',
-                  }}
-                  onClick={handleHomeClick}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Go to Home"
-                  onKeyDown={handleAvatarKeyDown}
-                />
-              ) : (
-                <User
-                  size={isMobile ? 24 : 30}
-                  color="white"
-                  style={{
-                    borderRadius: '50%',
-                    backgroundColor: '#333',
-                    cursor: 'pointer',
-                    padding: isMobile ? '4px' : '5px',
-                  }}
-                  onClick={handleHomeClick}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Go to Home"
-                  onKeyDown={handleAvatarKeyDown}
-                />
-              )}
-
-              {isUserOnline && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: isMobile ? '1px' : '2px',
-                    right: isMobile ? '1px' : '2px',
-                    width: isMobile ? '10px' : '12px',
-                    height: isMobile ? '10px' : '12px',
-                    borderRadius: '50%',
-                    backgroundColor: '#00ff00',
-                    border: '2px solid #000',
-                  }}
-                  aria-label="Online"
-                />
-              )}
-            </div>
+            <button
+              type="button"
+              className="welcome-header-avatar-button"
+              onClick={handleHomeClick}
+              aria-label="Go to Home"
+              title={userName}
+            >
+              <span className={avatarClassName}>
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt=""
+                    className="welcome-header-avatar__img"
+                  />
+                ) : avatarInitial ? (
+                  <span className="welcome-header-avatar__placeholder" aria-hidden>
+                    {avatarInitial}
+                  </span>
+                ) : (
+                  <span className="welcome-header-avatar__placeholder" aria-hidden>
+                    <UserIcon size={isMobile ? 18 : 22} />
+                  </span>
+                )}
+                {isUserOnline ? (
+                  <span className={avatarStatusClassName} aria-label="Online" />
+                ) : null}
+              </span>
+            </button>
           </div>
         </div>
       </div>
