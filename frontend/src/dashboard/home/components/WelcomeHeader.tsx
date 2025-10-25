@@ -100,6 +100,13 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
 
   const showGlobalSearchInHeader = showGlobalSearch;
 
+  const hasContent =
+    showBrandInHeader ||
+    showHamburger ||
+    Boolean(greetingMessage) ||
+    showGlobalSearchInHeader ||
+    showAvatar;
+
   const handleHomeClick = () => navigate('/');
   const handleNavigationToggle = () => {
     if (onToggleNavigation) {
@@ -142,6 +149,10 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   ]
     .filter(Boolean)
     .join(' ');
+
+  if (!hasContent) {
+    return null;
+  }
 
   return (
     <>
