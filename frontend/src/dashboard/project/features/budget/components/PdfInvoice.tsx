@@ -8,7 +8,12 @@ import {
   View,
 } from "@react-pdf/renderer";
 
-import type { BudgetItem, ProjectLike, RowData } from "./invoicePreviewTypes";
+import type {
+  BudgetItem,
+  OrganizationInfoLine,
+  ProjectLike,
+  RowData,
+} from "./invoicePreviewTypes";
 import { formatCurrency } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
 
@@ -26,6 +31,7 @@ interface PdfInvoiceProps {
   depositReceived: number;
   totalDue: number;
   notes: string;
+  organizationLines: OrganizationInfoLine[];
 }
 
 const styles = StyleSheet.create({
@@ -235,17 +241,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 1.5,
   },
-  contactColumn: {
+  organizationColumn: {
     flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
   },
-  contactName: {
-    fontSize: 10,
-    fontWeight: 700,
-    marginBottom: 6,
-  },
-  contactLine: {
+  organizationLine: {
     fontSize: 10,
     lineHeight: 1.5,
+  },
+  organizationName: {
+    fontSize: 10,
+    fontWeight: 700,
+    marginBottom: 4,
+  },
+  organizationPlaceholder: {
+    color: "#999999",
   },
   pageNumber: {
     position: 'absolute',
@@ -319,6 +331,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     depositReceived,
     totalDue,
     notes,
+    organizationLines,
   } = props;
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
   const paymentInformationText = useMemo(() => toPlainText(notes), [notes]);
@@ -358,8 +371,15 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
   const projectTitleForMeta = projectTitle || project?.title || "";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
-  const contactName = project?.company || displayBrandName;
-  const contactLines = useMemo(() => [], []);
+  const organizationLinesToDisplay = organizationLines.length
+    ? organizationLines
+    : [
+        {
+          id: "organization-placeholder",
+          text: "Add your organization info in Settings",
+          isPlaceholder: true,
+        },
+      ];
 
   return (
     <Document>
@@ -478,28 +498,30 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               <View style={styles.paymentFooterContent}>
                 <View style={styles.paymentInfoColumn}>
                   <Text style={styles.paymentInfoTitle}>Payment Information</Text>
-                  {paymentInformationLines.map((line, index) => (
-                    <Text key={`payment-line-${index}`} style={styles.paymentInfoLine}>
-                      {line}
-                    </Text>
-                  ))}
-                </View>
-                {contactName || contactLines.length ? (
-                  <View style={styles.contactColumn}>
-                    {contactName ? (
-                      <Text style={styles.contactName}>{contactName}</Text>
-                    ) : null}
-                    {contactLines.map((line, index) => (
-                      <Text key={`contact-line-${index}`} style={styles.contactLine}>
-                        {line}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            ) : null
-          }
-        />
+              {paymentInformationLines.map((line, index) => (
+                <Text key={`payment-line-${index}`} style={styles.paymentInfoLine}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.organizationColumn}>
+              {organizationLinesToDisplay.map((line) => (
+                <Text
+                  key={line.id}
+                  style={[
+                    styles.organizationLine,
+                    line.isBold ? styles.organizationName : null,
+                    line.isPlaceholder ? styles.organizationPlaceholder : null,
+                  ]}
+                >
+                  {line.text}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null
+      }
+    />
 
         <Text
           style={styles.pageNumber}

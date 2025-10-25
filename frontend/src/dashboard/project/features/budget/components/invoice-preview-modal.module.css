@@ -876,27 +876,26 @@
   margin: 0 0 0.5rem;
 }
 
-.paymentContactColumn {
+.organizationInfoColumn {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.paymentContactName {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.paymentContactDetails {
+.organizationLine {
   font-size: 0.9rem;
   line-height: 1.5;
+  color: #1a1a1a;
 }
 
-.paymentContactDetails div {
+.organizationName {
+  font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
-.paymentContactDetails div:last-child {
-  margin-bottom: 0;
+.organizationPlaceholder {
+  color: #9a9a9a;
 }
 
 .pageNumber {

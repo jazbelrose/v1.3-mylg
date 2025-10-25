@@ -12,7 +12,12 @@ import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 import PdfInvoice from "./PdfInvoice";
 import styles from "./invoice-preview-modal.module.css";
-import type { GroupField, ProjectLike, RowData } from "./invoicePreviewTypes";
+import type {
+  GroupField,
+  OrganizationInfoLine,
+  ProjectLike,
+  RowData,
+} from "./invoicePreviewTypes";
 import { formatCurrency } from "./invoicePreviewUtils";
 
 interface InvoicePreviewContentProps {
@@ -55,6 +60,7 @@ interface InvoicePreviewContentProps {
   invoiceSummary: string;
   onInvoiceSummaryBlur: (value: string) => void;
   rowsData: RowData[];
+  organizationLines: OrganizationInfoLine[];
   currentPage: number;
   totalPages: number;
   subtotal: number;
@@ -141,6 +147,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   invoiceSummary,
   onInvoiceSummaryBlur,
   rowsData,
+  organizationLines,
   currentPage,
   subtotal,
   depositReceived,
@@ -160,11 +167,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
 
   const pdfBrandName = useMemo(() => brandName.trim(), [brandName]);
   const pdfBrandTagline = useMemo(() => brandTagline.trim(), [brandTagline]);
-  const paymentContactName = project?.company || pdfBrandName;
-  const paymentContactDetails = useMemo(() => {
-    const details = [project?.clientEmail || ""].filter((entry): entry is string => Boolean(entry));
-    return details;
-  }, [project?.clientEmail]);
   const [formDraft, setFormDraft] = useState<FormDraftState>(() => ({
     brandName,
     brandTagline,
@@ -441,6 +443,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         depositReceived={depositReceived}
         totalDue={totalDue}
         notes={notes}
+        organizationLines={organizationLines}
       />
     ),
     [
@@ -450,6 +453,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       issueDate,
       logoDataUrl,
       notes,
+      organizationLines,
       pdfBrandName,
       pdfBrandTagline,
       project,
@@ -552,11 +556,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .payment-info-title{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
         .payment-info-body{font-size:0.9rem;line-height:1.5;}
         .payment-info-body p{margin:0 0 0.5rem;}
-        .payment-contact-column{flex:1;}
-        .payment-contact-name{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
-        .payment-contact-details{font-size:0.9rem;line-height:1.5;}
-        .payment-contact-details div{margin-bottom:0.25rem;}
-        .payment-contact-details div:last-child{margin-bottom:0;}
+        .organization-info-column{flex:1;display:flex;flex-direction:column;gap:0.25rem;}
+        .organization-line{font-size:0.9rem;line-height:1.5;color:#1a1a1a;}
+        .organization-name{font-weight:600;margin-bottom:0.25rem;}
+        .organization-placeholder{color:#9a9a9a;}
         .pageNumber{position:absolute;bottom:16px;left:0;right:0;text-align:center;font-family:'Roboto',Arial,sans-serif;font-size:0.85rem;color:#666;font-weight:normal;pointer-events:none;user-select:none;}
         @media print{
           .invoice-container{width:210mm;max-width:210mm;padding:20px;}
@@ -596,20 +599,22 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <div className="payment-info-title">Payment Information</div>
               <div className="payment-info-body" dangerouslySetInnerHTML={{ __html: notes }} />
             </div>
-            {(paymentContactName || paymentContactDetails.length) && (
-              <div className="payment-contact-column">
-                {paymentContactName ? (
-                  <div className="payment-contact-name">{paymentContactName}</div>
-                ) : null}
-                {paymentContactDetails.length ? (
-                  <div className="payment-contact-details">
-                    {paymentContactDetails.map((detail, index) => (
-                      <div key={`payment-contact-${index}`}>{detail}</div>
-                    ))}
+            <div className="organization-info-column">
+              {organizationLines.map((line) => {
+                const classes = [
+                  "organization-line",
+                  line.isBold ? "organization-name" : "",
+                  line.isPlaceholder ? "organization-placeholder" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <div key={line.id} className={classes}>
+                    {line.text}
                   </div>
-                ) : null}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

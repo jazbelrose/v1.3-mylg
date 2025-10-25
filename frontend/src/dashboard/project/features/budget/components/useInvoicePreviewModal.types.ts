@@ -5,7 +5,12 @@ import type {
   MutableRefObject,
   SetStateAction,
 } from "react";
-import type { BudgetItem, GroupField, RowData } from "./invoicePreviewTypes";
+import type {
+  BudgetItem,
+  GroupField,
+  OrganizationInfoLine,
+  RowData,
+} from "./invoicePreviewTypes";
 
 export interface UseInvoicePreviewModalResult {
   items: BudgetItem[];
@@ -50,6 +55,7 @@ export interface UseInvoicePreviewModalResult {
   invoiceSummary: string;
   handleInvoiceSummaryBlur: (value: string) => void;
   rowsData: RowData[];
+  organizationLines: OrganizationInfoLine[];
   subtotal: number;
   depositReceived: number;
   handleDepositBlur: (value: string) => void;

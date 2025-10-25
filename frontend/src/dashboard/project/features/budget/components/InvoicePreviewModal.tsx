@@ -60,6 +60,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     invoiceSummary,
     handleInvoiceSummaryBlur,
     rowsData,
+    organizationLines,
     subtotal,
     depositReceived,
     handleDepositBlur,
@@ -147,6 +148,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   invoiceSummary={invoiceSummary}
                   onInvoiceSummaryBlur={handleInvoiceSummaryBlur}
                   rowsData={rowsData}
+                  organizationLines={organizationLines}
                   currentPage={currentPage}
                   totalPages={pages.length}
                   subtotal={subtotal}

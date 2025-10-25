@@ -17,6 +17,7 @@ import { useBudget } from "@/dashboard/project/features/budget/context/BudgetCon
 import type {
   BudgetItem,
   InvoicePreviewModalProps,
+  OrganizationInfoLine,
   RowData,
 } from "./invoicePreviewTypes";
 import { useInvoiceBranding } from "./useInvoiceBranding";
@@ -36,6 +37,62 @@ export function useInvoicePreviewModal({
   useModalStack(isOpen);
 
   const { userData, setUserData } = useData();
+  const organizationLines = useMemo<OrganizationInfoLine[]>(() => {
+    const settings = (userData || {}) as Partial<UserLite> & {
+      companyAddress?: string;
+      companyCity?: string;
+      companyState?: string;
+      companyZip?: string;
+    };
+
+    const trimValue = (value?: string | null) =>
+      typeof value === "string" ? value.trim() : "";
+
+    const companyName = trimValue(settings.company);
+    const fullName = [trimValue(settings.firstName), trimValue(settings.lastName)]
+      .filter(Boolean)
+      .join(" ");
+    const displayName = companyName || fullName;
+
+    const street = trimValue(settings.companyAddress);
+    const city = trimValue(settings.companyCity);
+    const state = trimValue(settings.companyState);
+    const zip = trimValue(settings.companyZip);
+
+    const cityState = [city, state].filter(Boolean).join(", ");
+    const locality = [cityState, zip].filter(Boolean).join(" ").trim();
+    const addressParts = [street, locality].filter(Boolean);
+    const address = addressParts.join(", ");
+
+    const phone = trimValue(settings.phoneNumber);
+    const email = trimValue(settings.email);
+
+    const lines: OrganizationInfoLine[] = [
+      {
+        id: "organization-name",
+        text: displayName || "Your organization name",
+        isPlaceholder: !displayName,
+        isBold: Boolean(displayName),
+      },
+      {
+        id: "organization-address",
+        text: address || "Add your mailing address",
+        isPlaceholder: !address,
+      },
+      {
+        id: "organization-phone",
+        text: phone || "Add your phone number",
+        isPlaceholder: !phone,
+      },
+      {
+        id: "organization-email",
+        text: email || "Add your email address",
+        isPlaceholder: !email,
+      },
+    ];
+
+    return lines;
+  }, [userData]);
   const updateUserData = useCallback(
     (user: UserLite) => {
       setUserData(user);
@@ -179,6 +236,7 @@ export function useInvoicePreviewModal({
     revision,
     pages,
     selectedPages,
+    organizationLines,
   });
 
   useEffect(() => {
@@ -309,6 +367,7 @@ export function useInvoicePreviewModal({
     invoiceSummary,
     handleInvoiceSummaryBlur,
     rowsData,
+    organizationLines,
     subtotal,
     depositReceived,
     handleDepositBlur,

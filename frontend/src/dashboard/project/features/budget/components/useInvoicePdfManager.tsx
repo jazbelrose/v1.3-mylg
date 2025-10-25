@@ -5,7 +5,11 @@ import { toast } from "react-toastify";
 
 import PdfInvoice from "./PdfInvoice";
 import { buildInvoiceHtml } from "./invoiceHtmlBuilder";
-import type { InvoicePreviewModalProps, RowData } from "./invoicePreviewTypes";
+import type {
+  InvoicePreviewModalProps,
+  OrganizationInfoLine,
+  RowData,
+} from "./invoicePreviewTypes";
 
 interface UseInvoicePdfManagerOptions {
   project: InvoicePreviewModalProps["project"];
@@ -24,6 +28,7 @@ interface UseInvoicePdfManagerOptions {
   revision: InvoicePreviewModalProps["revision"];
   pages: RowData[][];
   selectedPages: number[];
+  organizationLines: OrganizationInfoLine[];
 }
 
 interface UseInvoicePdfManagerResult {
@@ -51,6 +56,7 @@ export function useInvoicePdfManager({
   revision,
   pages,
   selectedPages,
+  organizationLines,
 }: UseInvoicePdfManagerOptions): UseInvoicePdfManagerResult {
   const pdfPreviewUrlRef = useRef<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -79,6 +85,7 @@ export function useInvoicePdfManager({
         depositReceived={depositReceived}
         totalDue={totalDue}
         notes={notes}
+        organizationLines={organizationLines}
       />
     );
   }, [
@@ -90,6 +97,7 @@ export function useInvoicePdfManager({
     issueDate,
     logoDataUrl,
     notes,
+    organizationLines,
     project,
     projectTitle,
     rowsData,
@@ -146,6 +154,7 @@ export function useInvoicePdfManager({
       depositReceived,
       subtotal,
       totalDue,
+      organizationLines,
     });
   }, [
     pages,
@@ -162,6 +171,7 @@ export function useInvoicePdfManager({
     depositReceived,
     subtotal,
     totalDue,
+    organizationLines,
   ]);
 
   return {
