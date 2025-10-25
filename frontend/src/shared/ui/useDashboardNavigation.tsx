@@ -205,15 +205,19 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
     ]
   );
 
+  const settingsNavItem: DashboardNavItem = useMemo(
+    () => ({
+      key: "settings",
+      icon: <Settings size={24} color="white" />,
+      label: "Settings",
+      onClick: () => handleNavigation("settings"),
+      isActive: isDashboardPath && activeDashboardView === "settings",
+    }),
+    [handleNavigation, isDashboardPath, activeDashboardView]
+  );
+
   const bottomItems: DashboardNavItem[] = useMemo(
     () => [
-      {
-        key: "settings",
-        icon: <Settings size={24} color="white" />,
-        label: "Settings",
-        onClick: () => handleNavigation("settings"),
-        isActive: isDashboardPath && activeDashboardView === "settings",
-      },
       {
         key: "sign-out",
         icon: <LogOut size={24} color="white" />,
@@ -221,12 +225,13 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
         onClick: handleSignOut,
       },
     ],
-    [handleNavigation, handleSignOut, isDashboardPath, activeDashboardView]
+    [handleSignOut]
   );
 
   return {
     navItems,
     bottomItems,
+    settingsNavItem,
   };
 }
 

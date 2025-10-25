@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, User as UserIcon, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
 import Modal from "@/shared/ui/ModalWithStack";
@@ -8,6 +8,9 @@ import useDashboardNavigation, {
   type DashboardNavItem,
   type UseDashboardNavigationArgs,
 } from "./useDashboardNavigation";
+import { useData } from "@/app/contexts/useData";
+import { useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
+import { getFileUrl } from "@/shared/utils/api";
 import "./navigation-drawer.css";
 import searchModalStyles from "./dashboard-nav-search-modal.module.css";
 
@@ -99,7 +102,47 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
-  const { navItems, bottomItems } = useDashboardNavigation({ setActiveView, onClose });
+  const { navItems, bottomItems, settingsNavItem } = useDashboardNavigation({
+    setActiveView,
+    onClose,
+  });
+  const { userData } = useData();
+  const { isOnline } = useOnlineStatus();
+  const thumbnailKey = userData?.thumbnail?.trim() || undefined;
+  const thumbnailUrl = userData?.thumbnailUrl?.trim() || undefined;
+  const accountAvatarSrc = React.useMemo(() => {
+    if (!thumbnailKey && !thumbnailUrl) return undefined;
+
+    if (thumbnailKey) {
+      try {
+        return getFileUrl(thumbnailKey);
+      } catch {
+        // Fall back to thumbnailUrl if getFileUrl fails
+        return thumbnailUrl;
+      }
+    }
+
+    return thumbnailUrl;
+  }, [thumbnailKey, thumbnailUrl]);
+  const userFirstName = userData?.firstName?.trim();
+  const userLastName = userData?.lastName?.trim();
+  const userFullName = [userFirstName, userLastName].filter(Boolean).join(" ") || userData?.email || "Your profile";
+  const occupation = userData?.occupation?.trim() || userData?.role?.trim() || "";
+  const rawInitial = userFirstName?.[0] || userLastName?.[0] || userData?.email?.[0] || "";
+  const userInitial = rawInitial.toUpperCase();
+  const accountIsActive = Boolean(settingsNavItem?.isActive);
+  const accountButtonClass = [
+    "dashboard-nav-panel__account-button",
+    accountIsActive ? "dashboard-nav-panel__account-button--active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const accountAriaLabel = settingsNavItem
+    ? `Open ${settingsNavItem.label} for ${userFullName}`
+    : `Open profile for ${userFullName}`;
+  const accountTitle = isCollapsed ? userFullName : undefined;
+  const accountOnClick = settingsNavItem?.onClick;
+  const isUserOnline = userData?.userId ? isOnline(String(userData.userId)) : false;
   const isOverlay = variant === "overlay";
   const isPersistent = variant === "persistent";
   const [isSearchModalOpen, setIsSearchModalOpen] = React.useState(false);
@@ -198,9 +241,49 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
             renderNavItem(item, isCollapsed)
           )}
         </ul>
-        <ul className="nav-list nav-list--secondary">
-          {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
-        </ul>
+        <div className="dashboard-nav-panel__footer">
+          {settingsNavItem ? (
+            <button
+              type="button"
+              className={accountButtonClass}
+              onClick={accountOnClick}
+              aria-label={accountAriaLabel}
+              title={accountTitle}
+              {...(accountIsActive ? { "aria-current": "page" as const } : {})}
+            >
+              <span className="dashboard-nav-panel__account-avatar">
+                {accountAvatarSrc ? (
+                  <img src={accountAvatarSrc} alt="" />
+                ) : (
+                  <span className="dashboard-nav-panel__account-avatar-placeholder">
+                    {userInitial ? (
+                      <span aria-hidden>{userInitial}</span>
+                    ) : (
+                      <UserIcon size={20} />
+                    )}
+                  </span>
+                )}
+                {isUserOnline ? (
+                  <span
+                    className="dashboard-nav-panel__account-status"
+                    aria-label="Online"
+                  />
+                ) : null}
+              </span>
+              {!isCollapsed ? (
+                <span className="dashboard-nav-panel__account-meta">
+                  <span className="dashboard-nav-panel__account-name">{userFullName}</span>
+                  {occupation ? (
+                    <span className="dashboard-nav-panel__account-occupation">{occupation}</span>
+                  ) : null}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
+          <ul className="nav-list nav-list--secondary">
+            {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
+          </ul>
+        </div>
       </div>
 
       {isPersistent ? (
