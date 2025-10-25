@@ -17,7 +17,6 @@ interface InvoiceHtmlBuilderOptions {
   invoiceNumber: string;
   issueDate: string;
   projectName: string;
-  projectTitle: string;
   customerSummary: string;
   notes: string;
   depositReceived: number;
@@ -40,7 +39,6 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     invoiceNumber,
     issueDate,
     projectName,
-    projectTitle,
     customerSummary,
     notes,
     depositReceived,

@@ -55,8 +55,6 @@ interface InvoicePreviewContentProps {
   onIssueDateBlur: (value: string) => void;
   projectName: string;
   onProjectNameBlur: (value: string) => void;
-  projectTitle: string;
-  onProjectTitleBlur: (value: string) => void;
   customerSummary: string;
   onCustomerSummaryBlur: (value: string) => void;
   rowsData: RowData[];
@@ -91,7 +89,6 @@ type FormDraftField =
   | "invoiceNumber"
   | "issueDate"
   | "projectName"
-  | "projectTitle"
   | "customerSummary"
   | "organizationName"
   | "organizationAddress"
@@ -157,8 +154,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onIssueDateBlur,
   projectName,
   onProjectNameBlur,
-  projectTitle,
-  onProjectTitleBlur,
   customerSummary,
   onCustomerSummaryBlur,
   rowsData,
@@ -199,7 +194,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     invoiceNumber,
     issueDate,
     projectName,
-    projectTitle,
     customerSummary,
     organizationName,
     organizationAddress,
@@ -221,7 +215,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       invoiceNumber,
       issueDate,
       projectName,
-      projectTitle,
       customerSummary,
       organizationName,
       organizationAddress,
@@ -246,7 +239,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       issueDate,
       projectName,
       notes,
-      projectTitle,
       totalDue,
     ]
   );
@@ -269,7 +261,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       invoiceNumber: committedValues.invoiceNumber,
       issueDate: committedValues.issueDate,
       projectName: committedValues.projectName,
-      projectTitle: committedValues.projectTitle,
       customerSummary: committedValues.customerSummary,
       organizationName: committedValues.organizationName,
       organizationAddress: committedValues.organizationAddress,
@@ -313,7 +304,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     invoiceNumber: draftInvoiceNumber,
     issueDate: draftIssueDate,
     projectName: draftProjectName,
-    projectTitle: draftProjectTitle,
     customerSummary: draftCustomerSummary,
     organizationName: draftOrganizationName,
     organizationAddress: draftOrganizationAddress,
@@ -327,7 +317,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onInvoiceNumberBlur(draftInvoiceNumber);
     onIssueDateBlur(draftIssueDate);
     onProjectNameBlur(draftProjectName);
-    onProjectTitleBlur(draftProjectTitle);
     onCustomerSummaryBlur(draftCustomerSummary);
     onOrganizationNameBlur(draftOrganizationName);
     onOrganizationAddressBlur(draftOrganizationAddress);
@@ -349,7 +338,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     draftOrganizationEmail,
     draftOrganizationName,
     draftOrganizationPhone,
-    draftProjectTitle,
     depositInput,
     taxRateInput,
     notesDraft,
@@ -366,7 +354,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onOrganizationEmailBlur,
     onOrganizationNameBlur,
     onOrganizationPhoneBlur,
-    onProjectTitleBlur,
     onTotalDueBlur,
     totalDueInput,
   ]);
@@ -522,7 +509,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         invoiceNumber={invoiceNumber}
         issueDate={issueDate}
         projectName={projectName}
-        projectTitle={projectTitle}
         customerSummary={customerSummary}
         rows={rowsData}
         subtotal={subtotal}
@@ -547,7 +533,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       pdfBrandTagline,
       project,
       projectName,
-      projectTitle,
       rowsData,
       subtotal,
       taxAmount,
@@ -847,15 +832,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               </span>
             </div>
             <div className={styles.formRow}>
-              <label htmlFor="invoice-project-title">Project title</label>
-              <input
-                id="invoice-project-title"
-                className={styles.textInput}
-                value={draftProjectTitle}
-                onChange={(e) => updateDraftField("projectTitle", e.target.value)}
-              />
-            </div>
-            <div className={styles.formRow}>
               <label htmlFor="invoice-customer-summary">Client details</label>
               <textarea
                 id="invoice-customer-summary"
@@ -965,37 +941,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             </div>
           </div>
 
-          {pages.length > 0 ? (
-            <div className={styles.formSection}>
-              <div className={styles.formSectionHeader}>
-                <span className={styles.formSectionTitle}>Pages</span>
-                <span className={styles.helperText}>
-                  Choose which pages to include when generating PDFs or saving HTML copies.
-                </span>
-              </div>
-              <div className={styles.groupSelect} role="group" aria-label="Pages">
-                <label className={styles.groupItem}>
-                  <input
-                    type="checkbox"
-                    checked={selectedPages.length === pages.length}
-                    onChange={(event) => onToggleAllPages(event.target.checked)}
-                  />
-                  Select All Pages
-                </label>
-                {pages.map((_, index) => (
-                  <label key={index} className={styles.groupItem}>
-                    <input
-                      type="checkbox"
-                      checked={selectedPages.includes(index)}
-                      onChange={() => onTogglePage(index)}
-                    />
-                    Page {index + 1}
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>
               <span className={styles.formSectionTitle}>Payment Information</span>
@@ -1056,14 +1001,45 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <span className={styles.helperText}>
                 Supports multi-line content. Line breaks are mirrored in the PDF footer.
               </span>
+          </div>
+        </div>
+
+        {pages.length > 0 ? (
+          <div className={styles.formSection}>
+            <div className={styles.formSectionHeader}>
+              <span className={styles.formSectionTitle}>Pages</span>
+              <span className={styles.helperText}>
+                Choose which pages to include when generating PDFs or saving HTML copies.
+              </span>
+            </div>
+            <div className={styles.groupSelect} role="group" aria-label="Pages">
+              <label className={styles.groupItem}>
+                <input
+                  type="checkbox"
+                  checked={selectedPages.length === pages.length}
+                  onChange={(event) => onToggleAllPages(event.target.checked)}
+                />
+                Select All Pages
+              </label>
+              {pages.map((_, index) => (
+                <label key={index} className={styles.groupItem}>
+                  <input
+                    type="checkbox"
+                    checked={selectedPages.includes(index)}
+                    onChange={() => onTogglePage(index)}
+                  />
+                  Page {index + 1}
+                </label>
+              ))}
             </div>
           </div>
+        ) : null}
 
-          <div className={styles.formActions}>
-            <button
-              type="button"
-              className={`${styles.formActionButton} ${styles.updateButton}`}
-              onClick={handleApplyUpdates}
+        <div className={styles.formActions}>
+          <button
+            type="button"
+            className={`${styles.formActionButton} ${styles.updateButton}`}
+            onClick={handleApplyUpdates}
               disabled={!hasDraftChanges}
             >
               Update

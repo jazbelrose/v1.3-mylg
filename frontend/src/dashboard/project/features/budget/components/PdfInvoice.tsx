@@ -26,7 +26,6 @@ interface PdfInvoiceProps {
   invoiceNumber: string;
   issueDate: string;
   projectName: string;
-  projectTitle: string;
   customerSummary: string;
   rows: RowData[];
   subtotal: number;
@@ -343,7 +342,6 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     invoiceNumber,
     issueDate,
     projectName,
-    projectTitle,
     customerSummary,
     rows,
     subtotal,
@@ -442,7 +440,6 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
                       <Text>Invoice #: {displayInvoiceNumber}</Text>
                       {projectNameForMeta ? <Text>{projectNameForMeta}</Text> : null}
                       <Text>Issue date: {displayIssueDate}</Text>
-                      <Text>{`Pages: ${pageNumber} / ${totalPages}`}</Text>
                     </View>
                   </View>
                 </View>
