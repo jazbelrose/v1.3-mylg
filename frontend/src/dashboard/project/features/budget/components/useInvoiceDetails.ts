@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { DEFAULT_NOTES_HTML } from "./invoicePreviewConstants";
 import type { InvoicePreviewModalProps } from "./invoicePreviewTypes";
+import {
+  getDefaultCustomerSummary,
+  getDefaultInvoiceSummary,
+} from "./invoiceSummaryUtils";
 
 interface UseInvoiceDetailsOptions {
   isOpen: boolean;
@@ -50,8 +54,12 @@ export function useInvoiceDetails({
   const [invoiceNumber, setInvoiceNumber] = useState("0000");
   const [issueDate, setIssueDate] = useState<string>(() => new Date().toLocaleDateString());
   const [projectTitle, setProjectTitle] = useState(project?.title || "Project Title");
-  const [customerSummary, setCustomerSummary] = useState("Customer");
-  const [invoiceSummary, setInvoiceSummary] = useState("Invoice Details");
+  const [customerSummary, setCustomerSummary] = useState(() =>
+    getDefaultCustomerSummary(project)
+  );
+  const [invoiceSummary, setInvoiceSummary] = useState(() =>
+    getDefaultInvoiceSummary(project)
+  );
   const [notes, setNotes] = useState(DEFAULT_NOTES_HTML);
   const [depositReceived, setDepositReceived] = useState<number>(0);
   const [taxRate, setTaxRate] = useState<number>(0);
@@ -62,8 +70,8 @@ export function useInvoiceDetails({
     setInvoiceNumber("0000");
     setIssueDate(new Date().toLocaleDateString());
     setProjectTitle(project?.title || "Project Title");
-    setCustomerSummary(project?.clientName || "Customer");
-    setInvoiceSummary("Invoice Details");
+    setCustomerSummary(getDefaultCustomerSummary(project));
+    setInvoiceSummary(getDefaultInvoiceSummary(project));
     setNotes(DEFAULT_NOTES_HTML);
     setDepositReceived(0);
     setTaxRate(0);
