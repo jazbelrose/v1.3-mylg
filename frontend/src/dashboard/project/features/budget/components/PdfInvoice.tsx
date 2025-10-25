@@ -15,6 +15,11 @@ import type {
   RowData,
 } from "./invoicePreviewTypes";
 import { formatCurrency, formatPercent } from "./invoicePreviewUtils";
+import {
+  DEFAULT_CUSTOMER_SUMMARY,
+  DEFAULT_INVOICE_SUMMARY,
+  splitSummaryLines,
+} from "./invoiceSummaryUtils";
 import { getFileUrl } from "@/shared/utils/api";
 
 interface PdfInvoiceProps {
@@ -26,6 +31,8 @@ interface PdfInvoiceProps {
   invoiceNumber: string;
   issueDate: string;
   projectTitle: string;
+  customerSummary: string;
+  invoiceSummary: string;
   rows: RowData[];
   subtotal: number;
   depositReceived: number;
@@ -341,6 +348,8 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     invoiceNumber,
     issueDate,
     projectTitle,
+    customerSummary,
+    invoiceSummary,
     rows,
     subtotal,
     depositReceived,
@@ -380,11 +389,14 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
 
   const displayBrandName = brandName.trim();
   const displayBrandTagline = brandTagline.trim();
-  const billedToName = project?.clientName || "Client name";
-  const billedToCompany = project?.invoiceBrandName || "";
-  const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
-  const billedToEmail = project?.clientEmail || "";
-  const billedToPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
+  const customerSummaryLines = useMemo(
+    () => splitSummaryLines(customerSummary, DEFAULT_CUSTOMER_SUMMARY),
+    [customerSummary]
+  );
+  const invoiceSummaryLines = useMemo(
+    () => splitSummaryLines(invoiceSummary, DEFAULT_INVOICE_SUMMARY),
+    [invoiceSummary]
+  );
   const projectTitleForMeta = projectTitle || project?.title || "";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
@@ -421,14 +433,15 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
                   <View style={styles.headerBottom}>
                     <View style={styles.billTo}>
                       <Text style={styles.billToLabel}>Billed To:</Text>
-                      <Text>{billedToName}</Text>
-                      {billedToCompany ? <Text>{billedToCompany}</Text> : null}
-                      <Text>{billedToAddress}</Text>
-                      {billedToEmail ? <Text>{billedToEmail}</Text> : null}
-                      {billedToPhone ? <Text>{billedToPhone}</Text> : null}
+                      {customerSummaryLines.map((line, index) => (
+                        <Text key={`customer-summary-${index}`}>{line}</Text>
+                      ))}
                     </View>
 
                     <View style={styles.invoiceMeta}>
+                      {invoiceSummaryLines.map((line, index) => (
+                        <Text key={`invoice-summary-${index}`}>{line}</Text>
+                      ))}
                       <Text>Invoice #: {displayInvoiceNumber}</Text>
                       {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
                       <Text>Issue date: {displayIssueDate}</Text>

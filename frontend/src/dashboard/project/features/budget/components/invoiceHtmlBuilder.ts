@@ -1,5 +1,10 @@
 import { formatCurrency, formatPercent } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
+import {
+  DEFAULT_CUSTOMER_SUMMARY,
+  DEFAULT_INVOICE_SUMMARY,
+  splitSummaryLines,
+} from "./invoiceSummaryUtils";
 import type {
   InvoicePreviewModalProps,
   OrganizationInfoLine,
@@ -17,6 +22,8 @@ interface InvoiceHtmlBuilderOptions {
   invoiceNumber: string;
   issueDate: string;
   projectTitle: string;
+  customerSummary: string;
+  invoiceSummary: string;
   notes: string;
   depositReceived: number;
   taxRate: number;
@@ -38,6 +45,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     invoiceNumber,
     issueDate,
     projectTitle,
+    customerSummary,
+    invoiceSummary,
     notes,
     depositReceived,
     taxRate,
@@ -48,6 +57,17 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
   } = options;
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
+
+  const escapeHtml = (input: string): string =>
+    input
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const customerSummaryLines = splitSummaryLines(customerSummary, DEFAULT_CUSTOMER_SUMMARY);
+  const invoiceSummaryLines = splitSummaryLines(invoiceSummary, DEFAULT_INVOICE_SUMMARY);
 
   const htmlPages = pageIndexes
     .map((idx) => {
@@ -75,12 +95,6 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
 
       const invNum = invoiceNumber || "0000";
       const issue = issueDate || new Date().toLocaleDateString();
-
-      const billContact = project?.clientName || "Client Name";
-      const billCompany = project?.invoiceBrandName || "Client Company";
-      const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
-      const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
-      const billEmail = project?.clientEmail || "";
 
       const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
@@ -126,18 +140,22 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
             </div>`
           : "";
 
+      const customerSummaryHtml = customerSummaryLines
+        .map((line) => `<div>${escapeHtml(line)}</div>`)
+        .join("");
+      const invoiceSummaryHtml = invoiceSummaryLines
+        .map((line) => `<div>${escapeHtml(line)}</div>`)
+        .join("");
+
       const headerDetailsHtml = idx === 0
         ? `<hr class="header-divider" />
             <div class="header-bottom">
                 <div class="bill-to">
                   <strong>Billed To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
+                  ${customerSummaryHtml}
                 </div>
                 <div class="invoice-meta">
+                  ${invoiceSummaryHtml}
                   ${invNum ? `<div>Invoice #: <span>${invNum}</span></div>` : ""}
                   ${projTitleMeta ? `<div>${projTitleMeta}</div>` : ""}
                   ${issue ? `<div>Issue date: <span>${issue}</span></div>` : ""}

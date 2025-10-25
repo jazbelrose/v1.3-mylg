@@ -12,6 +12,11 @@ import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 import PdfInvoice from "./PdfInvoice";
 import styles from "./invoice-preview-modal.module.css";
+import {
+  DEFAULT_CUSTOMER_SUMMARY,
+  DEFAULT_INVOICE_SUMMARY,
+  splitSummaryLines,
+} from "./invoiceSummaryUtils";
 import type {
   GroupField,
   OrganizationInfoLine,
@@ -213,6 +218,14 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
 
   const formattedTaxRate = useMemo(() => formatPercent(taxRate), [taxRate]);
+  const customerSummaryLines = useMemo(
+    () => splitSummaryLines(customerSummary, DEFAULT_CUSTOMER_SUMMARY),
+    [customerSummary]
+  );
+  const invoiceSummaryLines = useMemo(
+    () => splitSummaryLines(invoiceSummary, DEFAULT_INVOICE_SUMMARY),
+    [invoiceSummary]
+  );
 
   const committedValues = useMemo(
     () => ({
@@ -470,13 +483,15 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           <div className="header-bottom">
             <div className="bill-to">
               <strong>Billed To:</strong>
-              <div>{project?.clientName || "Client name"}</div>
-              <div>{project?.clientAddress || "Client address"}</div>
-              <div>{project?.clientEmail || ""}</div>
-              <div>{project?.clientPhone || ""}</div>
+              {customerSummaryLines.map((line, index) => (
+                <div key={`customer-summary-${index}`}>{line}</div>
+              ))}
             </div>
 
             <div className="invoice-meta">
+              {invoiceSummaryLines.map((line, index) => (
+                <div key={`invoice-summary-${index}`}>{line}</div>
+              ))}
               <div>
                 Invoice #: <span>{displayInvoiceNumber}</span>
               </div>
@@ -497,6 +512,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     pdfBrandTagline,
     project,
     projectTitle,
+    customerSummaryLines,
+    invoiceSummaryLines,
   ]);
 
   const pdfDocument = useMemo(
@@ -510,6 +527,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         invoiceNumber={invoiceNumber}
         issueDate={issueDate}
         projectTitle={projectTitle}
+        customerSummary={customerSummary}
+        invoiceSummary={invoiceSummary}
         rows={rowsData}
         subtotal={subtotal}
         depositReceived={depositReceived}
@@ -526,6 +545,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       invoiceNumber,
       issueDate,
       logoDataUrl,
+      customerSummary,
+      invoiceSummary,
       notes,
       organizationLines,
       pdfBrandName,

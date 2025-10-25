@@ -310,6 +310,8 @@ export function useInvoicePreviewModal({
     invoiceNumber,
     issueDate,
     projectTitle,
+    customerSummary,
+    invoiceSummary,
     rowsData,
     subtotal,
     depositReceived,
