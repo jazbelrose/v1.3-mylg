@@ -212,6 +212,7 @@ export function useInvoicePreviewModal({
     invoiceSummary,
     notes,
     depositReceived,
+    taxRate,
     totalDue,
     setTotalDue,
     handleInvoiceNumberBlur,
@@ -220,6 +221,7 @@ export function useInvoicePreviewModal({
     handleCustomerSummaryBlur,
     handleInvoiceSummaryBlur,
     handleDepositBlur,
+    handleTaxRateBlur,
     handleTotalDueBlur,
     handleNotesBlur,
   } = details;
@@ -244,9 +246,14 @@ export function useInvoicePreviewModal({
     [filteredItems]
   );
 
+  const taxAmount = useMemo(() => {
+    const amount = subtotal * (taxRate / 100);
+    return Math.round(amount * 100) / 100;
+  }, [subtotal, taxRate]);
+
   useEffect(() => {
-    setTotalDue(subtotal - depositReceived);
-  }, [subtotal, depositReceived, setTotalDue]);
+    setTotalDue(subtotal - depositReceived + taxAmount);
+  }, [subtotal, depositReceived, taxAmount, setTotalDue]);
 
   const rowsData: RowData[] = useMemo(() => {
     const groups = groupValues.length === 0 ? groupOptions : groupValues;
@@ -306,6 +313,8 @@ export function useInvoicePreviewModal({
     rowsData,
     subtotal,
     depositReceived,
+    taxRate,
+    taxAmount,
     totalDue,
     notes,
     revision,
@@ -486,6 +495,9 @@ export function useInvoicePreviewModal({
     subtotal,
     depositReceived,
     handleDepositBlur,
+    taxRate,
+    handleTaxRateBlur,
+    taxAmount,
     totalDue,
     handleTotalDueBlur,
     notes,

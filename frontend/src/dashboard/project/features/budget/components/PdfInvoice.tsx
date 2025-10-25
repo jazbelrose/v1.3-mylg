@@ -14,7 +14,7 @@ import type {
   ProjectLike,
   RowData,
 } from "./invoicePreviewTypes";
-import { formatCurrency } from "./invoicePreviewUtils";
+import { formatCurrency, formatPercent } from "./invoicePreviewUtils";
 import { getFileUrl } from "@/shared/utils/api";
 
 interface PdfInvoiceProps {
@@ -29,6 +29,8 @@ interface PdfInvoiceProps {
   rows: RowData[];
   subtotal: number;
   depositReceived: number;
+  taxRate: number;
+  taxAmount: number;
   totalDue: number;
   notes: string;
   organizationLines: OrganizationInfoLine[];
@@ -216,6 +218,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 700,
   },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: "#dddddd",
+    marginTop: 6,
+    marginBottom: 6,
+    width: "60%",
+    alignSelf: "flex-end",
+  },
   paymentFooter: {
     marginTop: 32,
     paddingTop: 16,
@@ -334,6 +344,8 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     rows,
     subtotal,
     depositReceived,
+    taxRate,
+    taxAmount,
     totalDue,
     notes,
     organizationLines,
@@ -482,6 +494,11 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               <Text style={styles.totalLabel}>Deposit received</Text>
               <Text style={styles.totalValue}>{formatCurrency(depositReceived)}</Text>
             </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>{`Tax (${formatPercent(taxRate)}%)`}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(taxAmount)}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Due</Text>
               <Text style={styles.totalValue}>{formatCurrency(totalDue)}</Text>

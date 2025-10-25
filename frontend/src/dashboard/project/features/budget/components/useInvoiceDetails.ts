@@ -19,6 +19,7 @@ interface UseInvoiceDetailsResult {
   invoiceSummary: string;
   notes: string;
   depositReceived: number;
+  taxRate: number;
   totalDue: number;
   setTotalDue: React.Dispatch<React.SetStateAction<number>>;
   handleInvoiceNumberBlur: (value: string) => void;
@@ -27,6 +28,7 @@ interface UseInvoiceDetailsResult {
   handleCustomerSummaryBlur: (value: string) => void;
   handleInvoiceSummaryBlur: (value: string) => void;
   handleDepositBlur: (value: string) => void;
+  handleTaxRateBlur: (value: string) => void;
   handleTotalDueBlur: (value: string) => void;
   handleNotesBlur: (value: string) => void;
   setInvoiceNumber: React.Dispatch<React.SetStateAction<string>>;
@@ -35,6 +37,7 @@ interface UseInvoiceDetailsResult {
   setCustomerSummary: React.Dispatch<React.SetStateAction<string>>;
   setInvoiceSummary: React.Dispatch<React.SetStateAction<string>>;
   setDepositReceived: React.Dispatch<React.SetStateAction<number>>;
+  setTaxRate: React.Dispatch<React.SetStateAction<number>>;
   setNotes: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -51,6 +54,7 @@ export function useInvoiceDetails({
   const [invoiceSummary, setInvoiceSummary] = useState("Invoice Details");
   const [notes, setNotes] = useState(DEFAULT_NOTES_HTML);
   const [depositReceived, setDepositReceived] = useState<number>(0);
+  const [taxRate, setTaxRate] = useState<number>(0);
   const [totalDue, setTotalDue] = useState<number>(0);
 
   useEffect(() => {
@@ -62,6 +66,7 @@ export function useInvoiceDetails({
     setInvoiceSummary("Invoice Details");
     setNotes(DEFAULT_NOTES_HTML);
     setDepositReceived(0);
+    setTaxRate(0);
     setInvoiceDirty(true);
   }, [isOpen, project]);
 
@@ -123,6 +128,15 @@ export function useInvoiceDetails({
     [markDirty]
   );
 
+  const handleTaxRateBlur = useCallback(
+    (value: string) => {
+      const parsed = parseFloat(value.replace(/[%,$\s]/g, "")) || 0;
+      setTaxRate(parsed);
+      markDirty();
+    },
+    [markDirty]
+  );
+
   const handleTotalDueBlur = useCallback(
     (value: string) => {
       const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
@@ -150,6 +164,7 @@ export function useInvoiceDetails({
     invoiceSummary,
     notes,
     depositReceived,
+    taxRate,
     totalDue,
     setTotalDue,
     handleInvoiceNumberBlur,
@@ -158,6 +173,7 @@ export function useInvoiceDetails({
     handleCustomerSummaryBlur,
     handleInvoiceSummaryBlur,
     handleDepositBlur,
+    handleTaxRateBlur,
     handleTotalDueBlur,
     handleNotesBlur,
     setInvoiceNumber,
@@ -166,6 +182,7 @@ export function useInvoiceDetails({
     setCustomerSummary,
     setInvoiceSummary,
     setDepositReceived,
+    setTaxRate,
     setNotes,
   };
 }

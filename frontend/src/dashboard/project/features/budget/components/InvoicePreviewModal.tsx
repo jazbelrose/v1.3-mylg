@@ -72,6 +72,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     subtotal,
     depositReceived,
     handleDepositBlur,
+    taxRate,
+    handleTaxRateBlur,
+    taxAmount,
     totalDue,
     handleTotalDueBlur,
     notes,
@@ -170,6 +173,9 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   subtotal={subtotal}
                   depositReceived={depositReceived}
                   onDepositBlur={handleDepositBlur}
+                  taxRate={taxRate}
+                  taxAmount={taxAmount}
+                  onTaxRateBlur={handleTaxRateBlur}
                   totalDue={totalDue}
                   onTotalDueBlur={handleTotalDueBlur}
                   notes={notes}
