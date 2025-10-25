@@ -2,7 +2,6 @@ import React from "react";
 import ProjectMessagesThread from "@/dashboard/features/messages/ProjectMessagesThread";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
-import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import ChatPanel from "./ChatPanel";
 import type { ProjectAccentPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { useData } from "@/app/contexts/useData";
@@ -313,7 +312,8 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
       className="dashboard-wrapper active-project-details"
       data-project-theme={theme ? "" : undefined}
       style={themeStyle}
-    > <div
+    >
+      <div
         ref={projectHeaderRef}
         style={{
           position: "sticky",
@@ -322,12 +322,8 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
           backgroundColor: "#0c0c0c",
           display: "flex",
           flexDirection: "column",
-
         }}
       >
-        {!isMobile ? (
-          <WelcomeHeader isDesktopLayout={isDesktop} showDesktopGreeting={false} />
-        ) : null}
         {headerNode ? (
           <div style={{ padding: "0" }}>{headerNode}</div>
         ) : null}
