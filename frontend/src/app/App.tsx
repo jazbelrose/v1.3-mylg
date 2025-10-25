@@ -76,26 +76,26 @@ export default function App(): React.ReactElement {
         <DataProvider>
           <InvitesProvider>
             <NotificationProvider>
-              <NotificationsDrawerProvider>
-                <DMConversationProvider>
-                  <SocketProvider>
-                    <OnlineStatusProvider>
-                      <NotificationSocketBridge>
-                        <ScrollProvider>
-                          <NavigationDirectionProvider>
-                            <Router basename={import.meta.env.BASE_URL}>
+              <DMConversationProvider>
+                <SocketProvider>
+                  <OnlineStatusProvider>
+                    <NotificationSocketBridge>
+                      <ScrollProvider>
+                        <NavigationDirectionProvider>
+                          <Router basename={import.meta.env.BASE_URL}>
+                            <NotificationsDrawerProvider>
                               <AuthEventHandler />
                               <MainContent isLoading={isLoading} />
                               <NotificationContainer />
-                            </Router>
-                          </NavigationDirectionProvider>
-                        </ScrollProvider>
-                      </NotificationSocketBridge>
-                    </OnlineStatusProvider>
+                            </NotificationsDrawerProvider>
+                          </Router>
+                        </NavigationDirectionProvider>
+                      </ScrollProvider>
+                    </NotificationSocketBridge>
+                  </OnlineStatusProvider>
                 </SocketProvider>
               </DMConversationProvider>
-            </NotificationsDrawerProvider>
-          </NotificationProvider>
+            </NotificationProvider>
           </InvitesProvider>
         </DataProvider>
       </AuthProvider>
