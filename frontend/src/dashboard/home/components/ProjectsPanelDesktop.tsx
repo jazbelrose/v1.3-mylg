@@ -97,6 +97,7 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
   } = useProjectFilters({
     projects: projects as ProjectLike[],
     recentsLimit: DEFAULT_DESKTOP_ROWS,
+    defaultScope: "all",
   });
 
   const kpis = useProjectKpis(projects as ProjectLike[]);
