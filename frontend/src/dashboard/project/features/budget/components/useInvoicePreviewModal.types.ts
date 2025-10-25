@@ -56,6 +56,14 @@ export interface UseInvoicePreviewModalResult {
   handleInvoiceSummaryBlur: (value: string) => void;
   rowsData: RowData[];
   organizationLines: OrganizationInfoLine[];
+  organizationName: string;
+  handleOrganizationNameBlur: (value: string) => void;
+  organizationAddress: string;
+  handleOrganizationAddressBlur: (value: string) => void;
+  organizationPhone: string;
+  handleOrganizationPhoneBlur: (value: string) => void;
+  organizationEmail: string;
+  handleOrganizationEmailBlur: (value: string) => void;
   subtotal: number;
   depositReceived: number;
   handleDepositBlur: (value: string) => void;

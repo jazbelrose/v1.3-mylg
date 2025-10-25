@@ -17,6 +17,7 @@ import { useBudget } from "@/dashboard/project/features/budget/context/BudgetCon
 import type {
   BudgetItem,
   InvoicePreviewModalProps,
+  OrganizationInfoFields,
   OrganizationInfoLine,
   RowData,
 } from "./invoicePreviewTypes";
@@ -37,7 +38,7 @@ export function useInvoicePreviewModal({
   useModalStack(isOpen);
 
   const { userData, setUserData } = useData();
-  const organizationLines = useMemo<OrganizationInfoLine[]>(() => {
+  const organizationDefaults = useMemo<OrganizationInfoFields>(() => {
     const settings = (userData || {}) as Partial<UserLite> & {
       companyAddress?: string;
       companyCity?: string;
@@ -67,12 +68,32 @@ export function useInvoicePreviewModal({
     const phone = trimValue(settings.phoneNumber);
     const email = trimValue(settings.email);
 
-    const lines: OrganizationInfoLine[] = [
+    return {
+      name: displayName,
+      address,
+      phone,
+      email,
+    };
+  }, [userData]);
+  const [organizationFields, setOrganizationFields] = useState<OrganizationInfoFields>(organizationDefaults);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setOrganizationFields(organizationDefaults);
+  }, [organizationDefaults, isOpen]);
+
+  const organizationLines = useMemo<OrganizationInfoLine[]>(() => {
+    const name = organizationFields.name.trim();
+    const address = organizationFields.address.trim();
+    const phone = organizationFields.phone.trim();
+    const email = organizationFields.email.trim();
+
+    return [
       {
         id: "organization-name",
-        text: displayName || "Your organization name",
-        isPlaceholder: !displayName,
-        isBold: Boolean(displayName),
+        text: name || "Your organization name",
+        isPlaceholder: !name,
+        isBold: Boolean(name),
       },
       {
         id: "organization-address",
@@ -90,9 +111,14 @@ export function useInvoicePreviewModal({
         isPlaceholder: !email,
       },
     ];
+  }, [organizationFields]);
 
-    return lines;
-  }, [userData]);
+  const updateOrganizationField = useCallback(
+    (field: keyof OrganizationInfoFields, value: string) => {
+      setOrganizationFields((prev) => ({ ...prev, [field]: value.trim() }));
+    },
+    []
+  );
   const updateUserData = useCallback(
     (user: UserLite) => {
       setUserData(user);
@@ -324,6 +350,38 @@ export function useInvoicePreviewModal({
     }
   }, [invoiceDirty, saveInvoice]);
 
+  const handleOrganizationNameBlur = useCallback(
+    (value: string) => {
+      updateOrganizationField("name", value);
+      markInvoiceDirty();
+    },
+    [markInvoiceDirty, updateOrganizationField]
+  );
+
+  const handleOrganizationAddressBlur = useCallback(
+    (value: string) => {
+      updateOrganizationField("address", value);
+      markInvoiceDirty();
+    },
+    [markInvoiceDirty, updateOrganizationField]
+  );
+
+  const handleOrganizationPhoneBlur = useCallback(
+    (value: string) => {
+      updateOrganizationField("phone", value);
+      markInvoiceDirty();
+    },
+    [markInvoiceDirty, updateOrganizationField]
+  );
+
+  const handleOrganizationEmailBlur = useCallback(
+    (value: string) => {
+      updateOrganizationField("email", value);
+      markInvoiceDirty();
+    },
+    [markInvoiceDirty, updateOrganizationField]
+  );
+
   return {
     items,
     invoiceRef,
@@ -368,6 +426,14 @@ export function useInvoicePreviewModal({
     handleInvoiceSummaryBlur,
     rowsData,
     organizationLines,
+    organizationName: organizationFields.name,
+    handleOrganizationNameBlur,
+    organizationAddress: organizationFields.address,
+    handleOrganizationAddressBlur,
+    organizationPhone: organizationFields.phone,
+    handleOrganizationPhoneBlur,
+    organizationEmail: organizationFields.email,
+    handleOrganizationEmailBlur,
     subtotal,
     depositReceived,
     handleDepositBlur,

@@ -61,6 +61,14 @@ interface InvoicePreviewContentProps {
   onInvoiceSummaryBlur: (value: string) => void;
   rowsData: RowData[];
   organizationLines: OrganizationInfoLine[];
+  organizationName: string;
+  onOrganizationNameBlur: (value: string) => void;
+  organizationAddress: string;
+  onOrganizationAddressBlur: (value: string) => void;
+  organizationPhone: string;
+  onOrganizationPhoneBlur: (value: string) => void;
+  organizationEmail: string;
+  onOrganizationEmailBlur: (value: string) => void;
   currentPage: number;
   totalPages: number;
   subtotal: number;
@@ -81,7 +89,11 @@ type FormDraftField =
   | "issueDate"
   | "projectTitle"
   | "customerSummary"
-  | "invoiceSummary";
+  | "invoiceSummary"
+  | "organizationName"
+  | "organizationAddress"
+  | "organizationPhone"
+  | "organizationEmail";
 
 type FormDraftState = Record<FormDraftField, string>;
 
@@ -148,6 +160,14 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onInvoiceSummaryBlur,
   rowsData,
   organizationLines,
+  organizationName,
+  onOrganizationNameBlur,
+  organizationAddress,
+  onOrganizationAddressBlur,
+  organizationPhone,
+  onOrganizationPhoneBlur,
+  organizationEmail,
+  onOrganizationEmailBlur,
   currentPage,
   subtotal,
   depositReceived,
@@ -175,6 +195,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     projectTitle,
     customerSummary,
     invoiceSummary,
+    organizationName,
+    organizationAddress,
+    organizationPhone,
+    organizationEmail,
   }));
   const [notesDraft, setNotesDraft] = useState<string>(() => htmlToPlainText(notes));
   const [depositInput, setDepositInput] = useState<string>(() => formatNumberInput(depositReceived));
@@ -190,6 +214,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       projectTitle,
       customerSummary,
       invoiceSummary,
+      organizationName,
+      organizationAddress,
+      organizationPhone,
+      organizationEmail,
       notes,
       depositReceived,
       totalDue,
@@ -198,6 +226,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       brandName,
       brandTagline,
       customerSummary,
+      organizationAddress,
+      organizationEmail,
+      organizationName,
+      organizationPhone,
       depositReceived,
       invoiceNumber,
       invoiceSummary,
@@ -228,6 +260,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       projectTitle: committedValues.projectTitle,
       customerSummary: committedValues.customerSummary,
       invoiceSummary: committedValues.invoiceSummary,
+      organizationName: committedValues.organizationName,
+      organizationAddress: committedValues.organizationAddress,
+      organizationPhone: committedValues.organizationPhone,
+      organizationEmail: committedValues.organizationEmail,
     });
     setNotesDraft(htmlToPlainText(committedValues.notes));
     setDepositInput(formatNumberInput(committedValues.depositReceived));
@@ -262,6 +298,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     projectTitle: draftProjectTitle,
     customerSummary: draftCustomerSummary,
     invoiceSummary: draftInvoiceSummary,
+    organizationName: draftOrganizationName,
+    organizationAddress: draftOrganizationAddress,
+    organizationPhone: draftOrganizationPhone,
+    organizationEmail: draftOrganizationEmail,
   } = formDraft;
 
   const handleApplyUpdates = useCallback(() => {
@@ -272,6 +312,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onProjectTitleBlur(draftProjectTitle);
     onCustomerSummaryBlur(draftCustomerSummary);
     onInvoiceSummaryBlur(draftInvoiceSummary);
+    onOrganizationNameBlur(draftOrganizationName);
+    onOrganizationAddressBlur(draftOrganizationAddress);
+    onOrganizationPhoneBlur(draftOrganizationPhone);
+    onOrganizationEmailBlur(draftOrganizationEmail);
     onNotesBlur(plainTextToHtml(notesDraft));
     onDepositBlur(depositInput);
     onTotalDueBlur(totalDueInput);
@@ -283,6 +327,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     draftInvoiceNumber,
     draftInvoiceSummary,
     draftIssueDate,
+    draftOrganizationAddress,
+    draftOrganizationEmail,
+    draftOrganizationName,
+    draftOrganizationPhone,
     draftProjectTitle,
     depositInput,
     notesDraft,
@@ -294,6 +342,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     onInvoiceSummaryBlur,
     onIssueDateBlur,
     onNotesBlur,
+    onOrganizationAddressBlur,
+    onOrganizationEmailBlur,
+    onOrganizationNameBlur,
+    onOrganizationPhoneBlur,
     onProjectTitleBlur,
     onTotalDueBlur,
     totalDueInput,
@@ -551,12 +603,13 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .group-header td{font-weight:bold;background:#fafafa;}
         .totals{margin-top:50px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
         .totals div{display:flex;gap:6px;align-items:baseline;}
-        .payment-footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;display:flex;gap:32px;justify-content:space-between;}
-        .payment-info-column{flex:1;}
+        .payment-footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;align-items:flex-start;}
+        .payment-info-column{display:flex;flex-direction:column;gap:0.5rem;}
         .payment-info-title{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
         .payment-info-body{font-size:0.9rem;line-height:1.5;}
         .payment-info-body p{margin:0 0 0.5rem;}
-        .organization-info-column{flex:1;display:flex;flex-direction:column;gap:0.25rem;}
+        .payment-spacer-column{min-height:1px;}
+        .organization-info-column{display:flex;flex-direction:column;gap:0.25rem;}
         .organization-line{font-size:0.9rem;line-height:1.5;color:#1a1a1a;}
         .organization-name{font-weight:600;margin-bottom:0.25rem;}
         .organization-placeholder{color:#9a9a9a;}
@@ -599,6 +652,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               <div className="payment-info-title">Payment Information</div>
               <div className="payment-info-body" dangerouslySetInnerHTML={{ __html: notes }} />
             </div>
+            <div className="payment-spacer-column" aria-hidden="true" />
             <div className="organization-info-column">
               {organizationLines.map((line) => {
                 const classes = [
@@ -892,6 +946,50 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           <div className={styles.formSection}>
             <div className={styles.formSectionHeader}>
               <span className={styles.formSectionTitle}>Payment Information</span>
+            </div>
+            <div className={styles.formRow}>
+              <label htmlFor="invoice-organization-name">Organization name</label>
+              <input
+                id="invoice-organization-name"
+                className={styles.textInput}
+                value={draftOrganizationName}
+                placeholder="Your organization name"
+                onChange={(e) => updateDraftField("organizationName", e.target.value)}
+              />
+            </div>
+            <div className={styles.formRow}>
+              <label htmlFor="invoice-organization-address">Organization address</label>
+              <input
+                id="invoice-organization-address"
+                className={styles.textInput}
+                value={draftOrganizationAddress}
+                placeholder="Add your mailing address"
+                onChange={(e) => updateDraftField("organizationAddress", e.target.value)}
+              />
+            </div>
+            <div className={styles.formGrid}>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-organization-phone">Phone</label>
+                <input
+                  id="invoice-organization-phone"
+                  className={styles.textInput}
+                  value={draftOrganizationPhone}
+                  placeholder="Add your phone number"
+                  onChange={(e) => updateDraftField("organizationPhone", e.target.value)}
+                  type="tel"
+                />
+              </div>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-organization-email">Email</label>
+                <input
+                  id="invoice-organization-email"
+                  className={styles.textInput}
+                  value={draftOrganizationEmail}
+                  placeholder="Add your email address"
+                  onChange={(e) => updateDraftField("organizationEmail", e.target.value)}
+                  type="email"
+                />
+              </div>
             </div>
             <div className={styles.formRow}>
               <textarea

@@ -226,10 +226,12 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "row",
     gap: 24,
-    justifyContent: "space-between",
   },
   paymentInfoColumn: {
     flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
   },
   paymentInfoTitle: {
     fontSize: 10,
@@ -240,6 +242,9 @@ const styles = StyleSheet.create({
   paymentInfoLine: {
     fontSize: 10,
     lineHeight: 1.5,
+  },
+  paymentSpacerColumn: {
+    flex: 1,
   },
   organizationColumn: {
     flex: 1,
@@ -498,30 +503,31 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               <View style={styles.paymentFooterContent}>
                 <View style={styles.paymentInfoColumn}>
                   <Text style={styles.paymentInfoTitle}>Payment Information</Text>
-              {paymentInformationLines.map((line, index) => (
-                <Text key={`payment-line-${index}`} style={styles.paymentInfoLine}>
-                  {line}
-                </Text>
-              ))}
-            </View>
-            <View style={styles.organizationColumn}>
-              {organizationLinesToDisplay.map((line) => (
-                <Text
-                  key={line.id}
-                  style={[
-                    styles.organizationLine,
-                    line.isBold ? styles.organizationName : null,
-                    line.isPlaceholder ? styles.organizationPlaceholder : null,
-                  ]}
-                >
-                  {line.text}
-                </Text>
-              ))}
-            </View>
-          </View>
-        ) : null
-      }
-    />
+                  {paymentInformationLines.map((line, index) => (
+                    <Text key={`payment-line-${index}`} style={styles.paymentInfoLine}>
+                      {line}
+                    </Text>
+                  ))}
+                </View>
+                <View style={styles.paymentSpacerColumn} />
+                <View style={styles.organizationColumn}>
+                  {organizationLinesToDisplay.map((line) => (
+                    <Text
+                      key={line.id}
+                      style={[
+                        styles.organizationLine,
+                        line.isBold ? styles.organizationName : null,
+                        line.isPlaceholder ? styles.organizationPlaceholder : null,
+                      ]}
+                    >
+                      {line.text}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            ) : null
+          }
+        />
 
         <Text
           style={styles.pageNumber}

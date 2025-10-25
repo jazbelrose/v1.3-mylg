@@ -121,6 +121,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                   <div class="payment-info-title">Payment Information</div>
                   <div class="payment-info-body">${notesText}</div>
                 </div>
+                <div class="payment-spacer-column"></div>
                  ${organizationHtml}
               </div>
             </div>`
