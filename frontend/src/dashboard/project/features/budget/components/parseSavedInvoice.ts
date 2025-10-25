@@ -11,7 +11,6 @@ interface ParsedInvoiceData {
   serviceDate: string;
   projectTitle: string;
   customerSummary: string;
-  invoiceSummary: string;
   paymentSummary: string;
   notes: string;
   depositReceived: number;
@@ -52,9 +51,9 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
   const projectTitle = projectTitleElement?.textContent?.trim() || "";
 
   const summaryDivs = page.querySelectorAll(".summary > div");
-  const customerSummary = summaryDivs[0]?.textContent || "";
-  const invoiceSummary = summaryDivs[1]?.textContent || "";
-  const paymentSummary = summaryDivs[2]?.textContent || "";
+  const summaryTexts = Array.from(summaryDivs).map((div) => div.textContent || "");
+  const customerSummary = summaryTexts[0] || "";
+  const paymentSummary = summaryTexts.slice(1).join("\n\n");
 
   const totalsContainer = page.querySelector(".totals");
   let depositReceived = 0;
@@ -116,7 +115,6 @@ export function parseSavedInvoice(html: string, items: BudgetItem[]): ParsedInvo
     serviceDate,
     projectTitle,
     customerSummary,
-    invoiceSummary,
     paymentSummary,
     notes,
     depositReceived,

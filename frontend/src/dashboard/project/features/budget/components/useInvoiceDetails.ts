@@ -16,7 +16,6 @@ interface UseInvoiceDetailsResult {
   issueDate: string;
   projectTitle: string;
   customerSummary: string;
-  invoiceSummary: string;
   notes: string;
   depositReceived: number;
   taxRate: number;
@@ -26,7 +25,6 @@ interface UseInvoiceDetailsResult {
   handleIssueDateBlur: (value: string) => void;
   handleProjectTitleBlur: (value: string) => void;
   handleCustomerSummaryBlur: (value: string) => void;
-  handleInvoiceSummaryBlur: (value: string) => void;
   handleDepositBlur: (value: string) => void;
   handleTaxRateBlur: (value: string) => void;
   handleTotalDueBlur: (value: string) => void;
@@ -35,11 +33,27 @@ interface UseInvoiceDetailsResult {
   setIssueDate: React.Dispatch<React.SetStateAction<string>>;
   setProjectTitle: React.Dispatch<React.SetStateAction<string>>;
   setCustomerSummary: React.Dispatch<React.SetStateAction<string>>;
-  setInvoiceSummary: React.Dispatch<React.SetStateAction<string>>;
   setDepositReceived: React.Dispatch<React.SetStateAction<number>>;
   setTaxRate: React.Dispatch<React.SetStateAction<number>>;
   setNotes: React.Dispatch<React.SetStateAction<string>>;
 }
+
+const buildClientSummary = (
+  project: InvoicePreviewModalProps["project"]
+): string => {
+  if (!project) return "Client details";
+
+  const parts = [
+    project.clientName,
+    project.clientAddress || project.address,
+    project.clientEmail,
+    project.clientPhone,
+  ].filter((value): value is string => Boolean(value && value.trim()));
+
+  if (parts.length === 0) return "Client details";
+
+  return parts.join("\n");
+};
 
 export function useInvoiceDetails({
   isOpen,
@@ -50,8 +64,7 @@ export function useInvoiceDetails({
   const [invoiceNumber, setInvoiceNumber] = useState("0000");
   const [issueDate, setIssueDate] = useState<string>(() => new Date().toLocaleDateString());
   const [projectTitle, setProjectTitle] = useState(project?.title || "Project Title");
-  const [customerSummary, setCustomerSummary] = useState("Customer");
-  const [invoiceSummary, setInvoiceSummary] = useState("Invoice Details");
+  const [customerSummary, setCustomerSummary] = useState(() => buildClientSummary(project));
   const [notes, setNotes] = useState(DEFAULT_NOTES_HTML);
   const [depositReceived, setDepositReceived] = useState<number>(0);
   const [taxRate, setTaxRate] = useState<number>(0);
@@ -62,8 +75,7 @@ export function useInvoiceDetails({
     setInvoiceNumber("0000");
     setIssueDate(new Date().toLocaleDateString());
     setProjectTitle(project?.title || "Project Title");
-    setCustomerSummary(project?.clientName || "Customer");
-    setInvoiceSummary("Invoice Details");
+    setCustomerSummary(buildClientSummary(project));
     setNotes(DEFAULT_NOTES_HTML);
     setDepositReceived(0);
     setTaxRate(0);
@@ -111,14 +123,6 @@ export function useInvoiceDetails({
     [markDirty]
   );
 
-  const handleInvoiceSummaryBlur = useCallback(
-    (value: string) => {
-      setInvoiceSummary(value);
-      markDirty();
-    },
-    [markDirty]
-  );
-
   const handleDepositBlur = useCallback(
     (value: string) => {
       const parsed = parseFloat(value.replace(/[$,]/g, "")) || 0;
@@ -161,7 +165,6 @@ export function useInvoiceDetails({
     issueDate,
     projectTitle,
     customerSummary,
-    invoiceSummary,
     notes,
     depositReceived,
     taxRate,
@@ -171,7 +174,6 @@ export function useInvoiceDetails({
     handleIssueDateBlur,
     handleProjectTitleBlur,
     handleCustomerSummaryBlur,
-    handleInvoiceSummaryBlur,
     handleDepositBlur,
     handleTaxRateBlur,
     handleTotalDueBlur,
@@ -180,7 +182,6 @@ export function useInvoiceDetails({
     setIssueDate,
     setProjectTitle,
     setCustomerSummary,
-    setInvoiceSummary,
     setDepositReceived,
     setTaxRate,
     setNotes,

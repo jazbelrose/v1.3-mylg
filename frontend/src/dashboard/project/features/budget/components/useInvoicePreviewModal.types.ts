@@ -52,8 +52,6 @@ export interface UseInvoicePreviewModalResult {
   handleProjectTitleBlur: (value: string) => void;
   customerSummary: string;
   handleCustomerSummaryBlur: (value: string) => void;
-  invoiceSummary: string;
-  handleInvoiceSummaryBlur: (value: string) => void;
   rowsData: RowData[];
   organizationLines: OrganizationInfoLine[];
   organizationName: string;

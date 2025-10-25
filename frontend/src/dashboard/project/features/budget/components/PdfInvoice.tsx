@@ -26,6 +26,7 @@ interface PdfInvoiceProps {
   invoiceNumber: string;
   issueDate: string;
   projectTitle: string;
+  customerSummary: string;
   rows: RowData[];
   subtotal: number;
   depositReceived: number;
@@ -341,6 +342,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     invoiceNumber,
     issueDate,
     projectTitle,
+    customerSummary,
     rows,
     subtotal,
     depositReceived,
@@ -380,11 +382,19 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
 
   const displayBrandName = brandName.trim();
   const displayBrandTagline = brandTagline.trim();
-  const billedToName = project?.clientName || "Client name";
-  const billedToCompany = project?.invoiceBrandName || "";
-  const billedToAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client address";
-  const billedToEmail = project?.clientEmail || "";
-  const billedToPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
+  const billedToLinesFromSummary = customerSummary
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const fallbackBilledToLines = [
+    project?.clientName || "Client name",
+    project?.invoiceBrandName || "",
+    project?.invoiceBrandAddress || project?.clientAddress || "Client address",
+    project?.clientEmail || "",
+    project?.invoiceBrandPhone || project?.clientPhone || "",
+  ].filter(Boolean);
+  const billedToLines = billedToLinesFromSummary.length ? billedToLinesFromSummary : fallbackBilledToLines;
+  const linesToRender = billedToLines.length ? billedToLines : ["Client details"];
   const projectTitleForMeta = projectTitle || project?.title || "";
   const displayInvoiceNumber = invoiceNumber || "0000";
   const displayIssueDate = issueDate || new Date().toLocaleDateString();
@@ -418,17 +428,15 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               pageNumber === 1 ? (
                 <View style={styles.headerRuleContainer}>
                   <View style={styles.headerRule} />
-                  <View style={styles.headerBottom}>
-                    <View style={styles.billTo}>
-                      <Text style={styles.billToLabel}>Billed To:</Text>
-                      <Text>{billedToName}</Text>
-                      {billedToCompany ? <Text>{billedToCompany}</Text> : null}
-                      <Text>{billedToAddress}</Text>
-                      {billedToEmail ? <Text>{billedToEmail}</Text> : null}
-                      {billedToPhone ? <Text>{billedToPhone}</Text> : null}
-                    </View>
+                    <View style={styles.headerBottom}>
+                      <View style={styles.billTo}>
+                        <Text style={styles.billToLabel}>Billed To:</Text>
+                        {linesToRender.map((line, index) => (
+                          <Text key={`bill-to-${index}`}>{line}</Text>
+                        ))}
+                      </View>
 
-                    <View style={styles.invoiceMeta}>
+                      <View style={styles.invoiceMeta}>
                       <Text>Invoice #: {displayInvoiceNumber}</Text>
                       {projectTitleForMeta ? <Text>{projectTitleForMeta}</Text> : null}
                       <Text>Issue date: {displayIssueDate}</Text>

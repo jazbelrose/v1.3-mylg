@@ -20,6 +20,7 @@ interface UseInvoicePdfManagerOptions {
   invoiceNumber: string;
   issueDate: string;
   projectTitle: string;
+  customerSummary: string;
   rowsData: RowData[];
   subtotal: number;
   depositReceived: number;
@@ -50,6 +51,7 @@ export function useInvoicePdfManager({
   invoiceNumber,
   issueDate,
   projectTitle,
+  customerSummary,
   rowsData,
   subtotal,
   depositReceived,
@@ -84,6 +86,7 @@ export function useInvoicePdfManager({
         invoiceNumber={invoiceNumber}
         issueDate={issueDate}
         projectTitle={projectTitle}
+        customerSummary={customerSummary}
         rows={rowsData}
         subtotal={subtotal}
         depositReceived={depositReceived}
@@ -98,6 +101,7 @@ export function useInvoicePdfManager({
     brandLogoKey,
     brandName,
     brandTagline,
+    customerSummary,
     depositReceived,
     invoiceNumber,
     issueDate,
@@ -158,6 +162,7 @@ export function useInvoicePdfManager({
       invoiceNumber,
       issueDate,
       projectTitle,
+      customerSummary,
       notes,
       depositReceived,
       taxRate,
@@ -172,6 +177,7 @@ export function useInvoicePdfManager({
     brandName,
     brandTagline,
     brandLogoKey,
+    customerSummary,
     logoDataUrl,
     project,
     invoiceNumber,

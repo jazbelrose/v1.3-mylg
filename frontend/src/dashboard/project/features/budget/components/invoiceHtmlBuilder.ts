@@ -17,6 +17,7 @@ interface InvoiceHtmlBuilderOptions {
   invoiceNumber: string;
   issueDate: string;
   projectTitle: string;
+  customerSummary: string;
   notes: string;
   depositReceived: number;
   taxRate: number;
@@ -38,6 +39,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     invoiceNumber,
     issueDate,
     projectTitle,
+    customerSummary,
     notes,
     depositReceived,
     taxRate,
@@ -76,11 +78,23 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
       const invNum = invoiceNumber || "0000";
       const issue = issueDate || new Date().toLocaleDateString();
 
-      const billContact = project?.clientName || "Client Name";
-      const billCompany = project?.invoiceBrandName || "Client Company";
-      const billAddress = project?.invoiceBrandAddress || project?.clientAddress || "Client Address";
-      const billPhone = project?.invoiceBrandPhone || project?.clientPhone || "";
-      const billEmail = project?.clientEmail || "";
+      const billedToLinesFromSummary = customerSummary
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const fallbackBilledToLines = [
+        project?.clientName || "Client Name",
+        project?.invoiceBrandName || "Client Company",
+        project?.invoiceBrandAddress || project?.clientAddress || "Client Address",
+        project?.clientEmail || "",
+        project?.invoiceBrandPhone || project?.clientPhone || "",
+      ].filter(Boolean);
+      const billedToLines = billedToLinesFromSummary.length
+        ? billedToLinesFromSummary
+        : fallbackBilledToLines;
+      const billedToHtml = (billedToLines.length ? billedToLines : ["Client details"]) 
+        .map((line) => `<div>${line}</div>`)
+        .join("");
 
       const projTitleMeta = projectTitle || project?.title || "";
       const notesText = notes || "";
@@ -131,11 +145,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
             <div class="header-bottom">
                 <div class="bill-to">
                   <strong>Billed To:</strong>
-                  <div>${billContact}</div>
-                  <div>${billCompany}</div>
-                  <div>${billAddress}</div>
-                  ${billPhone ? `<div>${billPhone}</div>` : ""}
-                  ${billEmail ? `<div>${billEmail}</div>` : ""}
+                  ${billedToHtml}
                 </div>
                 <div class="invoice-meta">
                   ${invNum ? `<div>Invoice #: <span>${invNum}</span></div>` : ""}
