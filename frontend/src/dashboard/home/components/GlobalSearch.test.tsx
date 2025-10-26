@@ -155,6 +155,12 @@ describe('GlobalSearch', () => {
     expect(screen.getByPlaceholderText(PLACEHOLDER_TEXT)).toBeInTheDocument();
   });
 
+  it('uses a search input type', () => {
+    renderGlobalSearch();
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT) as HTMLInputElement;
+    expect(input.type).toBe('search');
+  });
+
   it('shows search results when typing', async () => {
     renderGlobalSearch();
     const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);

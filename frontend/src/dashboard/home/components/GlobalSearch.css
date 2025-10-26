@@ -52,6 +52,15 @@
   color: white;
   font-size: 16px;
   font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.global-search-input::-webkit-search-decoration,
+.global-search-input::-webkit-search-cancel-button,
+.global-search-input::-webkit-search-results-button,
+.global-search-input::-webkit-search-results-decoration {
+  display: none;
 }
 
 .global-search-input::placeholder {
