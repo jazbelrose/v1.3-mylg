@@ -159,6 +159,34 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
     setIsSearchModalOpen(false);
   }, []);
 
+  React.useEffect(() => {
+    if (!isPersistent) {
+      return undefined;
+    }
+
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+
+      if (event.key.toLowerCase() !== "f") {
+        return;
+      }
+
+      event.preventDefault();
+      handleOpenSearch();
+
+      window.requestAnimationFrame(() => {
+        const input = document.querySelector<HTMLInputElement>(".global-search-input");
+        input?.focus();
+        input?.select();
+      });
+    };
+
+    window.addEventListener("keydown", handleSearchShortcut);
+    return () => window.removeEventListener("keydown", handleSearchShortcut);
+  }, [handleOpenSearch, isPersistent]);
+
   const primaryNavItems = React.useMemo(() => {
     if (!isPersistent) {
       return navItems;
