@@ -7,9 +7,9 @@
   padding: 24px clamp(20px, 4vw, 40px) 32px;
   width: 100%;
   color: #f4f5f7;
-  background: rgba(12, 12, 12, 0.96);
+ background: var(--bg2, #111213);
   border-radius: 32px 32px 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 2px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
   margin: 16px 0;
