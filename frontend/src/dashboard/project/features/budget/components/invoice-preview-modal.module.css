@@ -417,13 +417,13 @@
 .saveButton {
   background: #fa3356;
   color: #ffffff;
-  box-shadow: 0 10px 24px rgba(250, 51, 86, 0.35);
+  
 }
 
 .updateButton:not(:disabled):hover,
 .saveButton:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(250, 51, 86, 0.45);
+ 
 }
 
 .headerSaveButton {
@@ -927,11 +927,11 @@
 }
 
 .saveButton {
-  margin-top: 10px;
+ 
   background: #fa3356;
   color: white;
   border: none;
-  padding: 6px 10px;
+  
   border-radius: 6px;
   cursor: pointer;
 }
