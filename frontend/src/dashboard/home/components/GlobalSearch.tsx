@@ -639,10 +639,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
     inputRef.current?.focus();
   };
 
-  const handleFormSubmit = useCallback((event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-  }, []);
-
   const getResultIcon = (type: 'project' | 'message' | 'collaborator' | string) => {
     switch (type) {
       case 'project':
@@ -664,12 +660,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
 
   return (
     <div className={rootClassName} ref={searchBoxRef}>
-      <form
+      <div
         className="global-search-input-container"
         role="search"
-        autoComplete="off"
-        noValidate
-        onSubmit={handleFormSubmit}
+        aria-label="Global search"
         data-form-type="other"
         data-1p-ignore="true"
         data-lpignore="true"
@@ -685,7 +679,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
           placeholder="Find anything..."
-          name="global-search"
           autoComplete="off"
           inputMode="search"
           autoCapitalize="none"
@@ -693,6 +686,8 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
           spellCheck={false}
           aria-autocomplete="list"
           aria-label="Global search"
+          aria-expanded={isOpen && (query || results.length > 0) ? true : false}
+          aria-haspopup="listbox"
           enterKeyHint="search"
           data-form-type="other"
           data-1p-ignore="true"
@@ -710,7 +705,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
             <X size={14} />
           </button>
         )}
-      </form>
+      </div>
 
       {isOpen && (query || results.length > 0) && (
         <div className="global-search-results">
