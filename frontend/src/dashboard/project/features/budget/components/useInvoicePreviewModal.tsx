@@ -181,6 +181,7 @@ export function useInvoicePreviewModal({
 
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [currentFileName, setCurrentFileName] = useState<string>("");
+  const [hasSavedInvoice, setHasSavedInvoice] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -346,9 +347,13 @@ export function useInvoicePreviewModal({
     } else {
       setCurrentFileName("invoice.html");
     }
+    setHasSavedInvoice(false);
   }, [isOpen, revision]);
 
-  const markInvoiceDirty = useCallback(() => setInvoiceDirty(true), [setInvoiceDirty]);
+  const markInvoiceDirty = useCallback(() => {
+    setInvoiceDirty(true);
+    setHasSavedInvoice(false);
+  }, [setInvoiceDirty, setHasSavedInvoice]);
 
   const handleBrandNameBlur = useCallback(
     (value: string) => {
@@ -389,6 +394,7 @@ export function useInvoicePreviewModal({
       });
       const result = await uploadTask.result;
       setInvoiceDirty(false);
+      setHasSavedInvoice(true);
       setCurrentFileName(fileName);
       toast.success("Invoice saved");
       const possibleKey = (result as { key?: string } | undefined)?.key;
@@ -416,12 +422,12 @@ export function useInvoicePreviewModal({
   ]);
 
   const handleSaveClick = useCallback(() => {
-    if (invoiceDirty) {
+    if (invoiceDirty || !hasSavedInvoice) {
       void saveInvoice();
     } else {
       toast.info("Invoice already saved");
     }
-  }, [invoiceDirty, saveInvoice]);
+  }, [hasSavedInvoice, invoiceDirty, saveInvoice]);
 
   const handleOrganizationNameBlur = useCallback(
     (value: string) => {

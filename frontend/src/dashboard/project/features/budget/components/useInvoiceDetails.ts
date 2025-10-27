@@ -79,7 +79,7 @@ export function useInvoiceDetails({
     setNotes(DEFAULT_NOTES_HTML);
     setDepositReceived(0);
     setTaxRate(0);
-    setInvoiceDirty(true);
+    setInvoiceDirty(false);
   }, [isOpen, project]);
 
   useEffect(() => {
