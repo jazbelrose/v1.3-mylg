@@ -412,6 +412,7 @@ export function useInvoicePreviewModal({
       });
     } catch (error) {
       console.error("Failed to save invoice", error);
+      toast.error("Unable to save invoice. Please try again.");
     }
   }, [
     buildInvoiceHtmlPayload,
