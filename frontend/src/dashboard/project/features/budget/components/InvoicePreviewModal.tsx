@@ -120,6 +120,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <Fragment>
               <div className={styles.contentRow}>
                 <InvoicePreviewContent
+                  isOpen={isOpen}
                   invoiceRef={invoiceRef}
                   previewRef={previewRef}
                   fileInputRef={fileInputRef}
