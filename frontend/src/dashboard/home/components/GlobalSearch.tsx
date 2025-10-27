@@ -685,8 +685,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
           placeholder="Find anything..."
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? 'global-search-results' : undefined}
           name="global-search"
-          autoComplete="off"
+          autoComplete="section-global-search search"
           inputMode="search"
           autoCapitalize="none"
           autoCorrect="off"
@@ -713,7 +717,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
       </form>
 
       {isOpen && (query || results.length > 0) && (
-        <div className="global-search-results">
+        <div className="global-search-results" id="global-search-results" role="listbox">
           {loading && (
             <div className="global-search-result loading">
               <div className="global-search-result-icon">
