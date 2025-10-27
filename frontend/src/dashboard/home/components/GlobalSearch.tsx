@@ -639,6 +639,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
     inputRef.current?.focus();
   };
 
+  const handleFormSubmit = useCallback((event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+  }, []);
+
   const getResultIcon = (type: 'project' | 'message' | 'collaborator' | string) => {
     switch (type) {
       case 'project':
@@ -660,20 +664,45 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
 
   return (
     <div className={rootClassName} ref={searchBoxRef}>
-      <div className="global-search-input-container">
+      <form
+        className="global-search-input-container"
+        role="search"
+        autoComplete="off"
+        noValidate
+        onSubmit={handleFormSubmit}
+        data-form-type="other"
+        data-1p-ignore="true"
+        data-lpignore="true"
+        data-bwignore="true"
+      >
         <Search size={16} className="global-search-icon" />
         <input
           ref={inputRef}
-          type="text"
+          id="global-search-input"
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
           placeholder="Find anything..."
+          name="global-search"
+          autoComplete="off"
+          inputMode="search"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-autocomplete="list"
+          aria-label="Global search"
+          enterKeyHint="search"
+          data-form-type="other"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
           className="global-search-input"
         />
         {query && (
           <button
+            type="button"
             onClick={handleClear}
             className="global-search-clear"
             aria-label="Clear search"
@@ -681,7 +710,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
             <X size={14} />
           </button>
         )}
-      </div>
+      </form>
 
       {isOpen && (query || results.length > 0) && (
         <div className="global-search-results">
@@ -833,7 +862,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
 };
 
 export default GlobalSearch;
-
 
 
 

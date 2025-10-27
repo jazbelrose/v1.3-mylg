@@ -89,10 +89,19 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   const [selected, setSelected] = useState<number | null>(activeRevision);
   const [deleteTarget, setDeleteTarget] = useState<Revision | null>(null);
   const [previewRevision, setPreviewRevision] = useState<Revision | null>(null);
+  const [previewItems, setPreviewItems] = useState<BudgetItem[] | null>(null);
+  const [invoiceLoadingRevision, setInvoiceLoadingRevision] = useState<number | null>(null);
   const [renaming, setRenaming] = useState<Revision | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const invoiceFetchIdRef = useRef(0);
+
+  const closeInvoicePreview = () => {
+    setPreviewRevision(null);
+    setPreviewItems(null);
+    setInvoiceLoadingRevision(null);
+  };
 
   const resetRenameState = () => {
     setRenaming(null);
@@ -101,7 +110,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   };
 
   const handleClose = () => {
-    if (previewRevision) setPreviewRevision(null);
+    if (previewRevision) closeInvoicePreview();
     resetRenameState();
     onRequestClose?.();
   };
@@ -171,8 +180,38 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
     }
   };
 
-  const openInvoiceEditor = (rev: Revision) => {
-    setPreviewRevision(rev);
+  const openInvoiceEditor = async (rev: Revision) => {
+    if (!rev) return;
+
+    invoiceFetchIdRef.current += 1;
+    const requestId = invoiceFetchIdRef.current;
+
+    closeInvoicePreview();
+
+    if (!rev.budgetId) {
+      setPreviewItems([]);
+      setPreviewRevision(rev);
+      return;
+    }
+
+    setInvoiceLoadingRevision(rev.revision);
+
+    try {
+      const items = (await fetchBudgetItems(rev.budgetId, rev.revision)) as BudgetItem[];
+      if (requestId !== invoiceFetchIdRef.current) return;
+      setPreviewItems(Array.isArray(items) ? items : []);
+      setPreviewRevision(rev);
+    } catch (error) {
+      if (requestId === invoiceFetchIdRef.current) {
+        console.error("Failed to load revision invoice items", error);
+        setPreviewItems([]);
+        setPreviewRevision(rev);
+      }
+    } finally {
+      if (requestId === invoiceFetchIdRef.current) {
+        setInvoiceLoadingRevision(null);
+      }
+    }
   };
 
   const computeInvoiceUrl = (rev: Revision): string | null => {
@@ -432,7 +471,11 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                           <button
                             type="button"
                             className={styles.iconButton}
-                            onClick={() => openInvoiceEditor(rev)}
+                            onClick={() => {
+                              void openInvoiceEditor(rev);
+                            }}
+                            disabled={invoiceLoadingRevision === rev.revision}
+                            aria-busy={invoiceLoadingRevision === rev.revision}
                             aria-label={invoiceUrl ? "Update invoice" : "Create invoice"}
                             title={invoiceUrl ? "Update invoice" : "Create invoice"}
                           >
@@ -535,9 +578,10 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
       {previewRevision && (
         <InvoicePreviewModal
           isOpen={!!previewRevision}
-          onRequestClose={() => setPreviewRevision(null)}
+          onRequestClose={closeInvoicePreview}
           revision={previewRevision}
           project={activeProject}
+          itemsOverride={previewItems ?? []}
           onInvoiceSaved={handleInvoiceSavedInternal}
         />
       )}

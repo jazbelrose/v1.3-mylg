@@ -155,6 +155,36 @@ describe('GlobalSearch', () => {
     expect(screen.getByPlaceholderText(PLACEHOLDER_TEXT)).toBeInTheDocument();
   });
 
+  it('marks the search field to avoid credential autofill', () => {
+    renderGlobalSearch();
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+
+    expect(input).toHaveAttribute('type', 'search');
+    expect(input).toHaveAttribute('autocomplete', 'off');
+    expect(input).toHaveAttribute('inputmode', 'search');
+    expect(input).toHaveAttribute('aria-autocomplete', 'list');
+    expect(input).toHaveAttribute('aria-label', 'Global search');
+    expect(input).toHaveAttribute('data-form-type', 'other');
+    expect(input).toHaveAttribute('data-1p-ignore', 'true');
+    expect(input).toHaveAttribute('data-lpignore', 'true');
+    expect(input).toHaveAttribute('data-bwignore', 'true');
+    expect(input).not.toHaveAttribute('type', 'email');
+    expect(input).not.toHaveAttribute('type', 'password');
+
+    const form = input.closest('form');
+    expect(form).not.toBeNull();
+
+    if (form) {
+      expect(form).toHaveAttribute('autocomplete', 'off');
+      expect(form).toHaveAttribute('role', 'search');
+      expect(form).toHaveAttribute('data-form-type', 'other');
+      expect(form).toHaveAttribute('data-1p-ignore', 'true');
+      expect(form).toHaveAttribute('data-lpignore', 'true');
+      expect(form).toHaveAttribute('data-bwignore', 'true');
+      expect(form).toHaveAttribute('novalidate');
+    }
+  });
+
   it('shows search results when typing', async () => {
     renderGlobalSearch();
     const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
