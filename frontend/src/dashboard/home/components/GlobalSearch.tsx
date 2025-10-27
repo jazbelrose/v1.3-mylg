@@ -664,7 +664,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
         <Search size={16} className="global-search-icon" />
         <input
           ref={inputRef}
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={handleInputFocus}
