@@ -413,26 +413,17 @@
   box-shadow: none;
 }
 
-.updateButton {
+.updateButton,
+.saveButton {
   background: #fa3356;
   color: #ffffff;
   box-shadow: 0 10px 24px rgba(250, 51, 86, 0.35);
 }
 
-.updateButton:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(250, 51, 86, 0.45);
-}
-
-.saveButton {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
+.updateButton:not(:disabled):hover,
 .saveButton:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 14px 28px rgba(250, 51, 86, 0.45);
 }
 
 .headerSaveButton {

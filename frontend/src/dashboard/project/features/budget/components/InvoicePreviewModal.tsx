@@ -111,7 +111,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           beforeClose: styles.modalOverlayBeforeClose,
         }}
       >
-        <InvoiceModalHeader onClose={handleAttemptClose} />
+        <InvoiceModalHeader onClose={handleAttemptClose} revision={revision} />
 
         <div className={styles.modalBody}>
           {items.length === 0 ? (

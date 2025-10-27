@@ -1,15 +1,13 @@
 .modalOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  z-index: 13000;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 1000;
-  box-sizing: border-box;
+  padding: clamp(24px, 6vh, 72px) clamp(12px, 4vw, 48px);
+  background: rgba(8, 8, 10, 0.78);
+  backdrop-filter: blur(8px);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -23,22 +21,26 @@
 }
 
 .modalContent {
-  background: #0c0c0c;
-  color: white;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 22px;
-  width: 90%;
-  max-width: 480px;
-  max-height: 640px;
+  --revision-accent: #fa3356;
+  --revision-surface: color-mix(in srgb, rgb(16 16 18) 92%, transparent);
+  --revision-surface-strong: color-mix(in srgb, rgb(20 20 24) 86%, black 14%);
+  --revision-border: rgba(255, 255, 255, 0.08);
+  --revision-muted: rgba(255, 255, 255, 0.56);
+  background: linear-gradient(150deg, rgba(18, 18, 20, 0.96) 0%, rgba(10, 10, 12, 0.94) 100%);
+  color: #f8f9fc;
+  border: 1px solid var(--revision-border);
+  border-radius: 28px;
+  padding: clamp(24px, 4vw, 36px);
+  width: min(960px, 100%);
+  max-height: calc(100vh - clamp(96px, 14vh, 160px));
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: clamp(18px, 3vw, 28px);
   opacity: 0;
   transform: translateY(-20px);
   transition: opacity 0.3s ease, transform 0.3s ease;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
+  box-shadow: 0 36px 72px rgba(0, 0, 0, 0.55);
+  font-family: "Helvetica Neue", "Helvetica Display", system-ui, -apple-system, sans-serif;
 }
 
 .modalContentAfterOpen {
@@ -53,51 +55,136 @@
 
 .modalHeader {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 0 1rem;
-  margin-bottom: 0.75rem;
-  font-family: system-ui, -apple-system, sans-serif;
+  gap: clamp(16px, 4vw, 28px);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .modalTitle {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.modalSubtitle {
+  margin: 0;
+  color: var(--revision-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.headerActions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1rem;
+  gap: 12px;
+}
+
+.revisionCountPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #ffffff 10%, transparent);
+  color: color-mix(in srgb, #ffffff 78%, transparent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.closeButton {
+  border: none;
+  background: color-mix(in srgb, #ffffff 10%, transparent);
+  color: inherit;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.closeButton:hover {
+  background: color-mix(in srgb, #ffffff 16%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+}
+
+.closeButton:active {
+  transform: translateY(0);
+}
+
+.modalBody {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .modalList {
-  width: 100%;
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
-  margin-top: 10px;
+  padding-right: clamp(6px, 1vw, 12px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-right: 6px;
+  gap: 16px;
+}
+
+.emptyState {
+  padding: clamp(48px, 10vh, 72px) clamp(12px, 4vw, 24px);
+  text-align: center;
+  color: var(--revision-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.modalList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modalList::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.modalList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
 }
 
 .revRow {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  gap: 14px;
+  padding: 18px 22px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  background: color-mix(in srgb, var(--revision-surface) 90%, transparent);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .revRow:hover {
   border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--revision-surface-strong) 92%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 24px 44px rgba(0, 0, 0, 0.35);
 }
 
 .activeRow {
-  border-color: rgba(250, 51, 86, 0.45);
-  background: rgba(250, 51, 86, 0.08);
+  border-color: color-mix(in srgb, var(--revision-accent) 70%, transparent);
+  background: color-mix(in srgb, var(--revision-accent) 18%, transparent);
 }
 
 .revHeader {
@@ -110,17 +197,18 @@
 .revLabel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-weight: 600;
   color: #ffffff;
 }
 
 .revLabel input {
-  accent-color: #fa3356;
+  accent-color: var(--revision-accent);
 }
 
 .revNumber {
   font-size: 0.95rem;
+  letter-spacing: 0.02em;
 }
 
 .revBadges {
@@ -250,36 +338,45 @@
 
 .modalFooter {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
-  padding-top: 16px;
-  width: 100%;
   gap: 12px;
   flex-wrap: wrap;
-  font-family: system-ui, -apple-system, sans-serif;
+  padding-top: clamp(18px, 4vw, 24px);
+  padding-bottom: clamp(10px, 3vw, 18px);
+  border-top: 1px solid var(--revision-border);
+  margin-top: clamp(12px, 3vw, 20px);
 }
 
+
 .iconButton {
-  background: transparent;
-  border: none;
-  color: white;
-  padding: 4px;
+  background: color-mix(in srgb, #ffffff 10%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  padding: 6px;
   cursor: pointer;
-  border-radius: 6px;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  border-radius: 10px;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease,
+    border-color 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 .iconButton:hover {
-  transform: scale(1.03);
-  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+  background-color: color-mix(in srgb, #ffffff 18%, transparent);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.3);
 }
 
 .iconButton:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
+  transform: none;
+  background: color-mix(in srgb, #ffffff 6%, transparent);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
 }
 
 .deleteButton {
