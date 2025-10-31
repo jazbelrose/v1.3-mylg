@@ -40,7 +40,13 @@ import { motion } from 'framer-motion';
 import './UnifiedToolbar.css';
 import ColorPicker from '@/shared/ui/ColorPicker';
 
-type EditorMode = 'brief' | 'canvas' | 'moodboard';
+type EditorMode = string;
+
+type ModeDefinition = {
+    key: EditorMode;
+    label: string;
+    icon: React.ComponentType<{ size?: number }>;
+};
 
 interface UnifiedToolbarProps {
     onBold?: () => void;
@@ -84,14 +90,19 @@ interface UnifiedToolbarProps {
     onModeChange?: (mode: EditorMode) => void;
     theme?: 'dark' | 'light';
     orientation?: 'horizontal' | 'vertical';
+    modes?: ModeDefinition[];
 }
 
-const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnderline, onStrikethrough, onCode, onParagraph, onHeading1, onHeading2, onQuote, onUnorderedList, onOrderedList, onFontChange, onFontSizeChange, onFontColorChange, onBgColorChange, onAlignLeft, onAlignCenter, onAlignRight, onAlignJustify, onAddRectangle, onAddCircle, onFreeDraw, onSelectTool, onAddText, onAddImage, onInsertLayout, onColorChange, onFigma, onVoice, onCopy, onPaste, onDelete, onClearCanvas, onPreview, onSave, onUndo, onRedo, initialMode = 'brief', onModeChange, theme = 'dark', orientation = 'horizontal', }) => {
+const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnderline, onStrikethrough, onCode, onParagraph, onHeading1, onHeading2, onQuote, onUnorderedList, onOrderedList, onFontChange, onFontSizeChange, onFontColorChange, onBgColorChange, onAlignLeft, onAlignCenter, onAlignRight, onAlignJustify, onAddRectangle, onAddCircle, onFreeDraw, onSelectTool, onAddText, onAddImage, onInsertLayout, onColorChange, onFigma, onVoice, onCopy, onPaste, onDelete, onClearCanvas, onPreview, onSave, onUndo, onRedo, initialMode = 'brief', onModeChange, theme = 'dark', orientation = 'horizontal', modes }) => {
     const [mode, setMode] = useState<EditorMode>(initialMode);
     const [fontColor, setFontColor] = useState<string>('');
     const [bgColor, setBgColor] = useState<string>('');
     const [layoutOpen, setLayoutOpen] = useState(false);
     const layoutButtonRef = useRef<HTMLButtonElement | null>(null);
+
+    useEffect(() => {
+        setMode(initialMode);
+    }, [initialMode]);
     
     const handleFontColorChange = (e: { target: { value: string } }) => {
         const value = e.target.value;
@@ -158,7 +169,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
             onModeChange(newMode);
     };
 
-    const modes: { key: EditorMode; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+    const modeDefinitions: ModeDefinition[] = modes ?? [
         { key: 'brief', label: 'Brief', icon: FileText },
         { key: 'canvas', label: 'Canvas', icon: Paintbrush },
         { key: 'moodboard', label: 'Moodboard', icon: LayoutDashboard },
@@ -170,36 +181,40 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
         const node = tabRefs.current[mode];
         if (node) {
             setIndicator({ left: node.offsetLeft, width: node.offsetWidth });
+        } else if (modeDefinitions.length === 0) {
+            setIndicator({ left: 0, width: 0 });
         }
-    }, [mode]);
+    }, [mode, modeDefinitions]);
     
     return (
         <div className={`unified-toolbar ${theme} ${orientation}`}>
-            <div className="toolbar-group mode-switcher">
-                <div className="segmented-control motion" role="tablist" aria-label="Editor mode">
-                    <motion.span
-                        className="segmented-active"
-                        initial={false}
-                        animate={{ x: indicator.left, width: indicator.width }}
-                        transition={{ type: 'tween', duration: 0.2 }}
-                        style={{ opacity: indicator.width ? 1 : 0 }}
-                    />
-                    {modes.map(({ key, label, icon: Icon }) => (
-                        <button
-                            key={key}
-                            type="button"
-                            role="tab"
-                            ref={(el) => { tabRefs.current[key] = el; }}
-                            onClick={() => handleModeChange(key)}
-                            className={mode === key ? 'active' : ''}
-                            aria-selected={mode === key}
-                        >
-                            <Icon size={16} />
-                            <span>{label}</span>
-                        </button>
-                    ))}
+            {modeDefinitions.length > 0 && (
+                <div className="toolbar-group mode-switcher">
+                    <div className="segmented-control motion" role="tablist" aria-label="Editor mode">
+                        <motion.span
+                            className="segmented-active"
+                            initial={false}
+                            animate={{ x: indicator.left, width: indicator.width }}
+                            transition={{ type: 'tween', duration: 0.2 }}
+                            style={{ opacity: indicator.width ? 1 : 0 }}
+                        />
+                        {modeDefinitions.map(({ key, label, icon: Icon }) => (
+                            <button
+                                key={key}
+                                type="button"
+                                role="tab"
+                                ref={(el) => { tabRefs.current[key] = el; }}
+                                onClick={() => handleModeChange(key)}
+                                className={mode === key ? 'active' : ''}
+                                aria-selected={mode === key}
+                            >
+                                <Icon size={16} />
+                                <span>{label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
             
             {mode === 'brief' && (
                 <div className="toolbar-group mode-actions brief-actions">
@@ -368,12 +383,3 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
     );
 };
 export default UnifiedToolbar;
-
-
-
-
-
-
-
-
-

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import DesignerComponent, { DesignerRef } from "@/dashboard/project/features/editor/components/canvas/designercomponent";
@@ -8,9 +7,14 @@ import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLink
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import UnifiedToolbar from "@/dashboard/project/features/editor/components/UnifiedToolbar";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
+import type {
+  LayerGroupKey,
+  LayerGroupState,
+  SheetPageState,
+} from "@/dashboard/project/features/editor/types/sheet";
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -18,6 +22,57 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+
+const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
+
+const generateId = (prefix: string) =>
+  `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+
+const createGroupStates = (
+  overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
+): Record<LayerGroupKey, LayerGroupState> => {
+  const base: Record<LayerGroupKey, LayerGroupState> = {
+    brief: { visible: true, opacity: 0.9 },
+    canvas: { visible: true, opacity: 1 },
+    moodboard: { visible: false, opacity: 0.7 },
+  };
+  if (!overrides) return base;
+  return {
+    brief: { ...base.brief, ...overrides.brief },
+    canvas: { ...base.canvas, ...overrides.canvas },
+    moodboard: { ...base.moodboard, ...overrides.moodboard },
+  };
+};
+
+const cloneGroupStates = (
+  states: Record<LayerGroupKey, LayerGroupState>
+): Record<LayerGroupKey, LayerGroupState> => {
+  const clone: Record<LayerGroupKey, LayerGroupState> = {
+    brief: { ...states.brief },
+    canvas: { ...states.canvas },
+    moodboard: { ...states.moodboard },
+  };
+  return clone;
+};
+
+const createPageState = (
+  name: string,
+  overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
+): SheetPageState => ({
+  id: generateId("page"),
+  name,
+  groupStates: createGroupStates(overrides),
+});
+
+const createSuperSheetState = (): SheetPageState => ({
+  id: "super-sheet",
+  name: "One Sheet",
+  isSuperSheet: true,
+  groupStates: createGroupStates({
+    brief: { opacity: 0.6 },
+    moodboard: { visible: true, opacity: 0.45 },
+  }),
+});
 
 const EditorPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -36,7 +91,6 @@ const EditorPage: React.FC = () => {
   const { ws } = useSocket();
 
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
-  const [activeTab, setActiveTab] = useState<"brief" | "canvas" | "moodboard">("brief");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
@@ -44,6 +98,17 @@ const EditorPage: React.FC = () => {
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const designerRef = useRef<DesignerRef>(null);
+  const initialPageIdRef = useRef<string | null>(null);
+  const [pages, setPages] = useState<SheetPageState[]>(() => {
+    const firstPage = createPageState("Page 1");
+    const superSheet = createSuperSheetState();
+    initialPageIdRef.current = firstPage.id;
+    return [firstPage, superSheet];
+  });
+  const [activePageId, setActivePageId] = useState<string>(
+    () => initialPageIdRef.current ?? ""
+  );
+  const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
 
@@ -169,25 +234,186 @@ const EditorPage: React.FC = () => {
     navigate(getProjectDashboardPath(projectId, title));
   };
 
-  const handleSelectTool = () => designerRef.current?.changeMode("select");
-  const handleBrushTool = () => designerRef.current?.changeMode("brush");
-  const handleRectTool = () => designerRef.current?.changeMode("rect");
-  const handleTextTool = () => designerRef.current?.addText();
-  const handleImageTool = () => designerRef.current?.triggerImageUpload();
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => designerRef.current?.handleColorChange(e.target.value);
-  const handleUndo = () => designerRef.current?.handleUndo();
-  const handleRedo = () => designerRef.current?.handleRedo();
-  const handleCopy = () => designerRef.current?.handleCopy();
-  const handlePaste = () => designerRef.current?.handlePaste();
-  const handleDelete = () => designerRef.current?.handleDelete();
-  const handleClearCanvas = () => designerRef.current?.handleClear();
+  const handleSelectTool = useCallback(() => {
+    designerRef.current?.changeMode("select");
+  }, []);
+  const handleBrushTool = useCallback(() => {
+    designerRef.current?.changeMode("brush");
+  }, []);
+  const handleRectTool = useCallback(() => {
+    designerRef.current?.changeMode("rect");
+  }, []);
+  const handleTextTool = useCallback(() => {
+    designerRef.current?.addText();
+  }, []);
+  const handleImageTool = useCallback(() => {
+    designerRef.current?.triggerImageUpload();
+  }, []);
+  const handleColorChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      designerRef.current?.handleColorChange(e.target.value),
+    []
+  );
+  const handleUndo = useCallback(() => {
+    designerRef.current?.handleUndo();
+  }, []);
+  const handleRedo = useCallback(() => {
+    designerRef.current?.handleRedo();
+  }, []);
+  const handleCopy = useCallback(() => {
+    designerRef.current?.handleCopy();
+  }, []);
+  const handlePaste = useCallback(() => {
+    designerRef.current?.handlePaste();
+  }, []);
+  const handleDelete = useCallback(() => {
+    designerRef.current?.handleDelete();
+  }, []);
+  const handleClearCanvas = useCallback(() => {
+    designerRef.current?.handleClear();
+  }, []);
   const handleSave = useCallback(() => {
-    if (activeTab === "canvas") {
+    if (activeLayer === "canvas") {
       designerRef.current?.handleSave();
-    } else if (activeTab === "brief") {
+    } else if (activeLayer === "brief") {
       void saveBrief();
     }
-  }, [activeTab, saveBrief]);
+  }, [activeLayer, saveBrief]);
+
+  const guardAgainstUnsavedBrief = useCallback(() => {
+    if (activeLayer === "brief" && isBriefDirty) {
+      if (typeof window !== "undefined") {
+        return window.confirm("You have unsaved changes, continue?");
+      }
+      return true;
+    }
+    return true;
+  }, [activeLayer, isBriefDirty]);
+
+  const handleSelectPage = useCallback(
+    (pageId: string) => {
+      if (pageId === activePageId) return;
+      if (!guardAgainstUnsavedBrief()) return;
+      setActivePageId(pageId);
+    },
+    [activePageId, guardAgainstUnsavedBrief]
+  );
+
+  const handleAddPage = useCallback(() => {
+    if (!guardAgainstUnsavedBrief()) return;
+    const regular = pages.filter((page) => !page.isSuperSheet);
+    const newPage = createPageState(`Page ${regular.length + 1}`);
+    const superSheet = pages.find((page) => page.isSuperSheet);
+    const nextRegular = [...regular, newPage];
+    const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
+    setPages(nextPages);
+    setActivePageId(newPage.id);
+  }, [guardAgainstUnsavedBrief, pages]);
+
+  const handleDuplicatePage = useCallback(
+    (pageId: string) => {
+      const target = pages.find(
+        (page) => page.id === pageId && !page.isSuperSheet
+      );
+      if (!target) return;
+      if (!guardAgainstUnsavedBrief()) return;
+      const duplicate: SheetPageState = {
+        ...target,
+        id: generateId("page"),
+        name: `${target.name} Copy`,
+        groupStates: cloneGroupStates(target.groupStates),
+      };
+      const regular = pages.filter((page) => !page.isSuperSheet);
+      const index = regular.findIndex((page) => page.id === pageId);
+      const superSheet = pages.find((page) => page.isSuperSheet);
+      const nextRegular = [...regular];
+      nextRegular.splice(index + 1, 0, duplicate);
+      const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
+      setPages(nextPages);
+      setActivePageId(duplicate.id);
+    },
+    [guardAgainstUnsavedBrief, pages]
+  );
+
+  const handleMovePage = useCallback(
+    (pageId: string, direction: "up" | "down") => {
+      const regular = pages.filter((page) => !page.isSuperSheet);
+      const index = regular.findIndex((page) => page.id === pageId);
+      if (index === -1) return;
+      const nextIndex =
+        direction === "up"
+          ? Math.max(0, index - 1)
+          : Math.min(regular.length - 1, index + 1);
+      if (nextIndex === index) return;
+      const reordered = [...regular];
+      const [moved] = reordered.splice(index, 1);
+      reordered.splice(nextIndex, 0, moved);
+      const superSheet = pages.find((page) => page.isSuperSheet);
+      const nextPages = superSheet ? [...reordered, superSheet] : reordered;
+      setPages(nextPages);
+    },
+    [pages]
+  );
+
+  const handleSelectLayer = useCallback(
+    (layer: LayerGroupKey) => {
+      if (layer === activeLayer) return;
+      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
+      setActiveLayer(layer);
+    },
+    [activeLayer, guardAgainstUnsavedBrief]
+  );
+
+  const handleToggleLayerVisibility = useCallback(
+    (pageId: string, layer: LayerGroupKey) => {
+      setPages((prev) =>
+        prev.map((page) => {
+          if (page.id !== pageId) return page;
+          const current = page.groupStates[layer];
+          return {
+            ...page,
+            groupStates: {
+              ...page.groupStates,
+              [layer]: { ...current, visible: !current.visible },
+            },
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const handleChangeLayerOpacity = useCallback(
+    (pageId: string, layer: LayerGroupKey, value: number) => {
+      setPages((prev) =>
+        prev.map((page) => {
+          if (page.id !== pageId) return page;
+          return {
+            ...page,
+            groupStates: {
+              ...page.groupStates,
+              [layer]: {
+                ...page.groupStates[layer],
+                opacity: Math.min(1, Math.max(0, value)),
+              },
+            },
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const handleToolbarModeChange = useCallback(
+    (mode: string) => {
+      if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
+      const layer = mode as LayerGroupKey;
+      if (layer === activeLayer) return;
+      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
+      setActiveLayer(layer);
+    },
+    [activeLayer, guardAgainstUnsavedBrief]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -221,6 +447,96 @@ const EditorPage: React.FC = () => {
     };
   }, [isBriefDirty]);
 
+  const layerNodes = useMemo(
+    () => ({
+      canvas: (
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          <DesignerComponent ref={designerRef} />
+        </div>
+      ),
+      brief: (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: "24px 32px",
+          }}
+        >
+          {activeProject?.description !== undefined ? (
+            <LexicalEditor
+              key={activeProject?.projectId ?? "default-project"}
+              initialContent={activeProject?.description ?? null}
+              onChange={handleBriefChange}
+              registerToolbar={setBriefToolbarActions}
+            />
+          ) : (
+            <div>Loading...</div>
+          )}
+        </div>
+      ),
+      moodboard: (
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          <MoodboardCanvas
+            projectId={activeProject?.projectId}
+            userId={userId ?? undefined}
+            palette={projectPalette}
+          />
+        </div>
+      ),
+    }),
+    [
+      activeProject?.description,
+      activeProject?.projectId,
+      handleBriefChange,
+      projectPalette,
+      userId,
+    ]
+  );
+
+  const toolbarProps = useMemo(
+    () => ({
+      initialMode: activeLayer,
+      onModeChange: handleToolbarModeChange,
+      onPreview: () => setPreviewOpen(true),
+      onSelectTool: handleSelectTool,
+      onFreeDraw: handleBrushTool,
+      onAddRectangle: handleRectTool,
+      onAddText: handleTextTool,
+      onAddImage: handleImageTool,
+      onColorChange: handleColorChange,
+      onUndo: handleUndo,
+      onRedo: handleRedo,
+      onCopy: handleCopy,
+      onPaste: handlePaste,
+      onDelete: handleDelete,
+      onClearCanvas: handleClearCanvas,
+      onSave: handleSave,
+      ...(activeLayer === "brief" ? briefToolbarActions : {}),
+    }),
+    [
+      activeLayer,
+      briefToolbarActions,
+      handleBrushTool,
+      handleClearCanvas,
+      handleColorChange,
+      handleCopy,
+      handleDelete,
+      handleImageTool,
+      handlePaste,
+      handleRectTool,
+      handleRedo,
+      handleSave,
+      handleSelectTool,
+      handleToolbarModeChange,
+      handleTextTool,
+      handleUndo,
+      setPreviewOpen,
+    ]
+  );
+
   return (
     <ProjectPageLayout
       projectId={projectId}
@@ -240,133 +556,34 @@ const EditorPage: React.FC = () => {
     >
       <div className="designer-outer-container">
         <div className="designer-scroll-container">
-          <UnifiedToolbar
-            initialMode={activeTab}
-            onModeChange={(mode) => {
-              if (mode !== "brief" && activeTab === "brief" && isBriefDirty) {
-                const confirmLeave = window.confirm(
-                  "You have unsaved changes, continue?"
-                );
-                if (!confirmLeave) return;
-              }
-              setActiveTab(mode);
-            }}
-            onPreview={() => setPreviewOpen(true)}
-            {...(activeTab === "brief" ? briefToolbarActions : {})}
-            onSelectTool={handleSelectTool}
-            onFreeDraw={handleBrushTool}
-            onAddRectangle={handleRectTool}
-            onAddText={handleTextTool}
-            onAddImage={handleImageTool}
-            onColorChange={handleColorChange}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onCopy={handleCopy}
-            onPaste={handlePaste}
-            onDelete={handleDelete}
-            onClearCanvas={handleClearCanvas}
-            onSave={handleSave}
+          <QuickLinksComponent ref={quickLinksRef} hideTrigger />
+          <FileManagerComponent
+            isOpen={filesOpen}
+            onRequestClose={() => setFilesOpen(false)}
+            showTrigger={false}
+            folder="uploads"
           />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              className="editor-content-wrapper"
-              initial={{ x: 100, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -100, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-              <FileManagerComponent
-                isOpen={filesOpen}
-                onRequestClose={() => setFilesOpen(false)}
-                showTrigger={false}
-                folder="uploads"
-              />
-              <div className="main-view-container">
-                <AnimatePresence mode="wait">
-                  {activeTab === "brief" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="brief"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        {activeProject?.description !== undefined ? (
-                          <LexicalEditor
-                            key={activeProject?.projectId ?? "default-project"}
-                            initialContent={activeProject?.description ?? null}
-                            onChange={handleBriefChange}
-                            registerToolbar={setBriefToolbarActions}
-                          />
-                        ) : (
-                          <div>Loading...</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "canvas" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="canvas"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <div style={{ maxWidth: "1920px", width: "100%" }}>
-                          <div
-                            className="editor-container"
-                            style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "800px" }}
-                          >
-                            <DesignerComponent ref={designerRef} />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "moodboard" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="moodboard"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <MoodboardCanvas
-                          projectId={activeProject?.projectId}
-                          userId={userId ?? undefined}
-                          palette={projectPalette}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <PreviewDrawer
-                open={previewOpen}
-                onClose={() => setPreviewOpen(false)}
-                url={activeProject?.previewUrl as string}
-                onExportGallery={() => console.log("Export to Gallery")}
-                onExportPDF={() => console.log("Export to PDF")}
-              />
-            </motion.div>
-          </AnimatePresence>
+          <SheetEditor
+            pages={pages}
+            activePageId={activePageId}
+            activeLayer={activeLayer}
+            onSelectPage={handleSelectPage}
+            onAddPage={handleAddPage}
+            onDuplicatePage={handleDuplicatePage}
+            onMovePage={handleMovePage}
+            onSelectLayer={handleSelectLayer}
+            onToggleLayerVisibility={handleToggleLayerVisibility}
+            onChangeLayerOpacity={handleChangeLayerOpacity}
+            layerNodes={layerNodes}
+            toolbarProps={toolbarProps}
+          />
+          <PreviewDrawer
+            open={previewOpen}
+            onClose={() => setPreviewOpen(false)}
+            url={activeProject?.previewUrl as string}
+            onExportGallery={() => console.log("Export to Gallery")}
+            onExportPDF={() => console.log("Export to PDF")}
+          />
         </div>
       </div>
     </ProjectPageLayout>

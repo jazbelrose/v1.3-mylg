@@ -1,0 +1,84 @@
+.layerTree {
+  background: rgba(12, 14, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.header {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupItem {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid transparent;
+}
+
+.groupItem.active {
+  border-color: rgba(120, 108, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(120, 108, 255, 0.25);
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.86);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.visibilityToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.visibilityToggle input[type="checkbox"] {
+  accent-color: #846aff;
+}
+
+.slider {
+  width: 100%;
+}
+
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: #846aff;
+}
