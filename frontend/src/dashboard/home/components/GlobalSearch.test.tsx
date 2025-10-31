@@ -150,6 +150,23 @@ describe('GlobalSearch', () => {
     });
   });
 
+  it('opens search when using the keyboard shortcut', async () => {
+    renderGlobalSearch();
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+
+    expect(input).not.toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
+
+    const root = input.closest('.global-search');
+    expect(root).not.toBeNull();
+    expect(root?.classList.contains('global-search--active')).toBe(true);
+  });
+
   it('renders search input', () => {
     renderGlobalSearch();
     expect(screen.getByPlaceholderText(PLACEHOLDER_TEXT)).toBeInTheDocument();
