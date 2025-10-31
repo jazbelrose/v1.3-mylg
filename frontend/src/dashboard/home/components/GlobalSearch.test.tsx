@@ -160,7 +160,10 @@ describe('GlobalSearch', () => {
     const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
 
     expect(input).toHaveAttribute('type', 'search');
-    expect(input).toHaveAttribute('autocomplete', 'off');
+    expect(input).toHaveAttribute('role', 'combobox');
+    expect(input).toHaveAttribute('aria-haspopup', 'listbox');
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+    expect(input).toHaveAttribute('autocomplete', 'section-global-search search');
     expect(input).toHaveAttribute('inputmode', 'search');
     expect(input).toHaveAttribute('aria-autocomplete', 'list');
     expect(input).toHaveAttribute('aria-label', 'Global search');
