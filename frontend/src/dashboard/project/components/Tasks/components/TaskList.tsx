@@ -19,6 +19,7 @@ type TaskListProps = {
   onTaskSelect: (taskId: string) => void;
   onTaskEdit: (taskId: string) => void;
   onTaskMarkDone: (taskId: string) => void;
+  isTaskMarking: (taskId: string) => boolean;
   formatDueLabel: (task: QuickTask) => string;
   taskListRef: React.RefObject<HTMLUListElement>;
 };
@@ -36,6 +37,7 @@ const TaskList: React.FC<TaskListProps> = ({
   onTaskSelect,
   onTaskEdit,
   onTaskMarkDone,
+  isTaskMarking,
   formatDueLabel,
   taskListRef,
 }) => {
@@ -59,6 +61,8 @@ const TaskList: React.FC<TaskListProps> = ({
         const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
         const badgeToneClass = badgeClassKey ? styles[badgeClassKey as keyof typeof styles] : undefined;
         const badgeClassName = [styles.statusBadge, badgeToneClass].filter(Boolean).join(" ");
+
+        const isMarking = isTaskMarking(task.id);
 
         return (
           <li key={task.id} data-task-id={task.id} className={listItemClassName}>
@@ -126,12 +130,20 @@ const TaskList: React.FC<TaskListProps> = ({
                 <Button
                   size="sm"
                   className={`${styles.taskActionButton} ${styles.taskMarkDoneButton}`}
+                  disabled={isMarking}
+                  aria-busy={isMarking}
                   onClick={(event) => {
                     event.stopPropagation();
                     onTaskMarkDone(task.id);
                   }}
                 >
-                  <Check aria-hidden="true" size={16} /> Mark done
+                  {isMarking ? (
+                    "Marking…"
+                  ) : (
+                    <>
+                      <Check aria-hidden="true" size={16} /> Mark done
+                    </>
+                  )}
                 </Button>
               ) : null}
               <Button

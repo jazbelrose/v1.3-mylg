@@ -10,6 +10,7 @@ import {
   formatDueDate as formatDrawerDueDate,
   getViewportHeight as getTaskViewportHeight,
   normalizeTask as normalizeQuickTask,
+  resolveTaskDueDateIso,
   sortTasksForDrawer,
   DEFAULT_LOCATION as TASKS_DEFAULT_LOCATION,
   DRAWER_SNAP_POINTS,
@@ -28,7 +29,7 @@ import CreateCalendarItemModal, {
   type CreateEventRequest,
 } from "../CreateCalendarItemModal";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
-import type { ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import { updateTask, type Task as ApiTask, type TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
 import DayGrid from "./DayGrid";
@@ -107,10 +108,25 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [currentDragY, setCurrentDragY] = useState(0);
   const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const initialScrollDoneRef = useRef(false);
 
+
+  const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
+    setMarkingTaskIds((current) => {
+      const next = new Set(current);
+      if (marking) {
+        next.add(taskId);
+      } else {
+        next.delete(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const isTaskMarking = useCallback((taskId: string) => markingTaskIds.has(taskId), [markingTaskIds]);
   useEffect(() => {
     setInternalDate((previous) =>
       isSameDay(previous, currentDate) ? previous : new Date(currentDate),
@@ -723,11 +739,80 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   );
 
   const handleTaskMarkDone = useCallback(
-    (taskId: string) => {
+    async (taskId: string) => {
       setActiveDrawerTaskId(taskId);
-      openQuickCreateForTask(taskId, { status: "done" });
+      const quickTask = quickTaskById.get(taskId) ?? null;
+      const sourceTask = taskLookup.get(taskId) ?? null;
+      const normalizedTask = quickTask ?? (sourceTask ? normalizeQuickTask(sourceTask) ?? null : null);
+      const resolvedProjectId =
+        normalizedTask?.projectId ??
+        sourceTask?.projectId ??
+        (activeProjectId ? activeProjectId : null) ??
+        (taskProjects[0]?.id ?? null);
+
+      if (!normalizedTask || !resolvedProjectId) {
+        openQuickCreateForTask(taskId, { status: "done" }, sourceTask ?? undefined);
+        return;
+      }
+
+      setTaskMarkingState(taskId, true);
+
+      try {
+        const dueDateIso = resolveTaskDueDateIso(normalizedTask);
+        const payload: ApiTask = {
+          projectId: resolvedProjectId,
+          taskId,
+          title: normalizedTask.title,
+          status: "done",
+        };
+
+        if (normalizedTask.description) {
+          payload.description = normalizedTask.description;
+        }
+
+        if (normalizedTask.assignedTo) {
+          payload.assigneeId = normalizedTask.assignedTo;
+        }
+
+        if (dueDateIso) {
+          payload.dueDate = dueDateIso;
+        }
+
+        const rawBudgetItemId = (normalizedTask.raw as { budgetItemId?: string | null }).budgetItemId;
+        if (typeof rawBudgetItemId === "string") {
+          payload.budgetItemId = rawBudgetItemId;
+        } else if (rawBudgetItemId === null) {
+          payload.budgetItemId = null;
+        }
+
+        await updateTask(payload);
+        const refreshResult = onRefreshTasks?.();
+        if (refreshResult) {
+          await refreshResult;
+        }
+      } catch (error) {
+        console.error("Failed to mark calendar task done", error);
+        try {
+          const refreshResult = onRefreshTasks?.();
+          if (refreshResult) {
+            await refreshResult;
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh tasks after calendar mark done error", refreshError);
+        }
+      } finally {
+        setTaskMarkingState(taskId, false);
+      }
     },
-    [openQuickCreateForTask],
+    [
+      quickTaskById,
+      taskLookup,
+      activeProjectId,
+      taskProjects,
+      openQuickCreateForTask,
+      setTaskMarkingState,
+      onRefreshTasks,
+    ],
   );
 
   const handleMarkerClick = useCallback(
@@ -1072,6 +1157,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         onTaskSelect={handleTaskSelect}
         onTaskEdit={handleTaskEdit}
         onTaskMarkDone={handleTaskMarkDone}
+        isTaskMarking={isTaskMarking}
         formatDueLabel={formatDrawerDueLabel}
         selectedTask={selectedTask}
         selectedAssigneeName={selectedAssigneeName}

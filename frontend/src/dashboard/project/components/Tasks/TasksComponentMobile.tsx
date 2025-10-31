@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { fetchTasks } from "@/shared/utils/api";
+import { fetchTasks, updateTask, type Task as ApiTaskPayload } from "@/shared/utils/api";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
@@ -21,6 +21,7 @@ import {
   getViewportHeight,
   isSameDay,
   normalizeTask,
+  resolveTaskDueDateIso,
   sortTasksForDrawer,
   type QuickTask,
   type RawTask,
@@ -53,12 +54,27 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
   const [dragStartY, setDragStartY] = useState<number | null>(null);
   const [currentDragY, setCurrentDragY] = useState(0);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const taskListRef = useRef<HTMLUListElement | null>(null);
   const initialScrollDoneRef = useRef(false);
 
+
+  const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
+    setMarkingTaskIds((current) => {
+      const next = new Set(current);
+      if (marking) {
+        next.add(taskId);
+      } else {
+        next.delete(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const isTaskBeingMarked = useCallback((taskId: string) => markingTaskIds.has(taskId), [markingTaskIds]);
   const quickCreateProjects = useMemo<QuickCreateTaskModalProject[]>(() => {
     // Always provide at least the current project for editing tasks
     if (projectId && projectName) {
@@ -311,11 +327,70 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
   );
 
   const handleMarkTaskDone = useCallback(
-    (taskId: string) => {
+    async (taskId: string) => {
       setActiveTaskId(taskId);
-      openTaskEditor(taskId, { status: "done" });
+      const task = tasks.find((item) => item.id === taskId) ?? null;
+      const resolvedProjectId = task?.projectId ?? (projectId ? projectId : null);
+
+      if (!task || !resolvedProjectId) {
+        openTaskEditor(taskId, { status: "done" });
+        return;
+      }
+
+      setTaskMarkingState(taskId, true);
+
+      try {
+        const dueDateIso = resolveTaskDueDateIso(task);
+        const payload: ApiTaskPayload = {
+          projectId: resolvedProjectId,
+          taskId,
+          title: task.title,
+          status: "done",
+        };
+
+        if (task.description) {
+          payload.description = task.description;
+        }
+
+        if (task.assignedTo) {
+          payload.assigneeId = task.assignedTo;
+        }
+
+        if (dueDateIso) {
+          payload.dueDate = dueDateIso;
+        }
+
+        const rawBudgetItemId = (task.raw as { budgetItemId?: string | null }).budgetItemId;
+        if (typeof rawBudgetItemId === "string") {
+          payload.budgetItemId = rawBudgetItemId;
+        } else if (rawBudgetItemId === null) {
+          payload.budgetItemId = null;
+        }
+
+        await updateTask(payload);
+        setTasks((currentTasks) =>
+          currentTasks.map((currentTask) =>
+            currentTask.id === taskId
+              ? {
+                  ...currentTask,
+                  status: "done",
+                  raw: { ...currentTask.raw, status: "done" },
+                }
+              : currentTask,
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to mark task done", error);
+        try {
+          await refreshTasks();
+        } catch (refreshError) {
+          console.error("Failed to refresh tasks after mark done error", refreshError);
+        }
+      } finally {
+        setTaskMarkingState(taskId, false);
+      }
     },
-    [openTaskEditor],
+    [tasks, projectId, openTaskEditor, setTaskMarkingState, refreshTasks],
   );
 
   const handleMarkerClick = useCallback(
@@ -469,6 +544,7 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
         onTaskSelect={handleTaskSelect}
         onTaskEdit={handleEditTask}
         onTaskMarkDone={handleMarkTaskDone}
+        isTaskMarking={isTaskBeingMarked}
         formatDueLabel={formatDueLabel}
         selectedTask={selectedTask}
         selectedAssigneeName={selectedAssigneeName}

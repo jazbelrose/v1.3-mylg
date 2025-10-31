@@ -33,6 +33,7 @@ type TaskDrawerProps = {
   onTaskSelect: (taskId: string) => void;
   onTaskEdit: (taskId: string) => void;
   onTaskMarkDone: (taskId: string) => void;
+  isTaskMarking: (taskId: string) => boolean;
   formatDueLabel: (task: QuickTask) => string;
   selectedTask: QuickTask | null;
   selectedAssigneeName: string | undefined;
@@ -69,6 +70,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({
   onTaskSelect,
   onTaskEdit,
   onTaskMarkDone,
+  isTaskMarking,
   formatDueLabel,
   selectedTask,
   selectedAssigneeName,
@@ -277,6 +279,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({
                 onTaskSelect={onTaskSelect}
                 onTaskEdit={onTaskEdit}
                 onTaskMarkDone={onTaskMarkDone}
+                isTaskMarking={isTaskMarking}
                 formatDueLabel={formatDueLabel}
                 taskListRef={taskListRef}
               />

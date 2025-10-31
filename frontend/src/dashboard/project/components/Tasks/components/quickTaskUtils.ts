@@ -118,6 +118,51 @@ export function formatDueLabel(task: QuickTask): string {
   return formatDueDate(task.dueDate);
 }
 
+export function resolveTaskDueDateIso(task: QuickTask): string | undefined {
+  const raw = task.raw ?? {};
+  const possible = (raw.dueDate ?? raw.due_date ?? raw.dueAt ?? raw.due_at ?? raw.due) as
+    | string
+    | number
+    | Date
+    | undefined;
+
+  if (typeof possible === "string") {
+    const trimmed = possible.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const normalized = new Date(`${trimmed}T00:00:00`);
+      return Number.isNaN(normalized.getTime()) ? undefined : normalized.toISOString();
+    }
+    return trimmed;
+  }
+
+  if (possible instanceof Date && !Number.isNaN(possible.getTime())) {
+    return possible.toISOString();
+  }
+
+  if (typeof possible === "number") {
+    const fromNumber = new Date(possible);
+    return Number.isNaN(fromNumber.getTime()) ? undefined : fromNumber.toISOString();
+  }
+
+  if (task.dueDate instanceof Date && !Number.isNaN(task.dueDate.getTime())) {
+    return task.dueDate.toISOString();
+  }
+
+  if (typeof task.dueDateInput === "string" && task.dueDateInput) {
+    const fromInput = new Date(`${task.dueDateInput}T00:00:00`);
+    return Number.isNaN(fromInput.getTime()) ? undefined : fromInput.toISOString();
+  }
+
+  return undefined;
+}
+
 export function toDateInputString(value: unknown): string | null {
   if (value == null || value === "") {
     return null;
