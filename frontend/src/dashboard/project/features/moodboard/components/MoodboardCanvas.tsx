@@ -96,6 +96,7 @@ export interface MoodboardCanvasProps {
   projectId?: string;
   userId?: string;
   palette?: ProjectAccentPalette;
+  onLayerSync?: (stickers: Sticker[]) => void;
 }
 
 type DragState = {
@@ -108,6 +109,7 @@ const MoodboardCanvas: React.FC<MoodboardCanvasProps> = ({
   projectId,
   userId,
   palette,
+  onLayerSync,
 }) => {
   const { stickers, addSticker, updateSticker, removeSticker, bringToFront, clear } =
     useMoodboardStore({ projectId, userId });
@@ -172,6 +174,10 @@ const MoodboardCanvas: React.FC<MoodboardCanvasProps> = ({
     if (!selectedId) return null;
     return stickers.find((item) => item.id === selectedId) ?? null;
   }, [selectedId, stickers]);
+
+  useEffect(() => {
+    onLayerSync?.(stickers);
+  }, [stickers, onLayerSync]);
 
   const cleanupDrag = useCallback(() => {
     setDragState(null);
