@@ -26,6 +26,8 @@ import styles from "./designer-component.module.css";
 
 interface DesignerComponentProps {
   style?: React.CSSProperties;
+  showLayersPanel?: boolean;
+  onSelectionChange?: (selection: SelectionMeta | null) => void;
   [key: string]: unknown;
 }
 
@@ -39,6 +41,7 @@ interface FabricObjectLike {
   evented?: boolean;
   left?: number;
   top?: number;
+  type?: string;
   canvas?: unknown;
   set?: (props: Record<string, unknown>) => void;
   setCoords?: () => void;
@@ -50,6 +53,13 @@ interface CanvasObject {
   id: string | number;
   name: string;
   obj: FabricObjectLike;
+}
+
+export interface SelectionMeta {
+  id: string | number | null;
+  name?: string;
+  type?: string;
+  object?: FabricObjectLike | null;
 }
 
 export interface DesignerRef {
@@ -106,6 +116,7 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
+    const { showLayersPanel = true, onSelectionChange, style, ...rest } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -262,27 +273,24 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       }
     };
 
-    const loadHistory = useCallback((index: number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      const h = history.current;
-      if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
-
-      isRestoringHistory.current = true;
-      fabricCanvas.loadFromJSON(h.stack[index], () => {
-        fabricCanvas.renderAll();
-        fabricCanvas.requestRenderAll();
-        updateObjects();
-        isRestoringHistory.current = false;
-      });
-      h.index = index;
-    }, []);
-
-    const updateObjects = () => {
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (fabricCanvas) {
         const objs = fabricCanvas.getObjects();
         const active = fabricCanvas.getActiveObject();
         setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
+        if (onSelectionChange) {
+          onSelectionChange(
+            active
+              ? {
+                  id: active.id ?? objs.indexOf(active),
+                  name: active.name ?? `${active.type ?? 'object'}`,
+                  type: active.type as string | undefined,
+                  object: active as FabricObjectLike,
+                }
+              : null
+          );
+        }
         setObjects(
           objs.map((obj: FabricObjectLike, i: number) => ({
             id: obj.id ?? i,
@@ -293,7 +301,25 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }))
         );
       }
-    };
+    }, [onSelectionChange]);
+
+    const loadHistory = useCallback(
+      (index: number) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const h = history.current;
+        if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
+
+        isRestoringHistory.current = true;
+        fabricCanvas.loadFromJSON(h.stack[index], () => {
+          fabricCanvas.renderAll();
+          fabricCanvas.requestRenderAll();
+          updateObjects();
+          isRestoringHistory.current = false;
+        });
+        h.index = index;
+      },
+      [updateObjects]
+    );
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -304,7 +330,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.requestRenderAll();
       saveHistory();
       updateObjects();
-    }, []);
+    }, [updateObjects]);
 
     /* Init canvas */
     useLayoutEffect(() => {
@@ -343,7 +369,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
       fabricCanvas.on("selection:created", updateObjects);
       fabricCanvas.on("selection:updated", updateObjects);
-      fabricCanvas.on("selection:cleared", () => setSelectedId(null));
+      fabricCanvas.on("selection:cleared", () => {
+        setSelectedId(null);
+        if (onSelectionChange) onSelectionChange(null);
+      });
 
       fabricCanvas.on("path:created", () => {
         changeMode(TOOL_MODES.SELECT);
@@ -475,7 +504,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       };
 
       loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+    }, [
+      canvasReady,
+      activeProject?.projectId,
+      activeProject?.canvasJson,
+      setActiveProject,
+      updateObjects,
+    ]);
 
     useEffect(() => {
       applyCanvasMode(mode);
@@ -719,6 +754,14 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.setActiveObject(obj);
       fabricCanvas.requestRenderAll();
       setSelectedId(id);
+      if (onSelectionChange) {
+        onSelectionChange({
+          id,
+          name: obj.name ?? `${obj.type ?? 'object'}`,
+          type: obj.type as string | undefined,
+          object: obj,
+        });
+      }
     };
 
     /* Expose methods to parent */
@@ -753,47 +796,49 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* ---------- Render ---------- */
     return (
-      <div style={{ display: "flex", height: "100%" }}>
+      <div style={{ display: "flex", height: "100%", ...(style ?? {}) }} {...rest}>
         {/* Layers panel */}
-        <div className={styles.layersPanel}>
-          <h4>Layers</h4>
-          {objects.map(({ id, name, obj }) => (
-            <div
-              key={id}
-              className={`${styles.layerItem} ${
-                selectedId === id ? styles.layerItemSelected : ""
-              }`}
-              onClick={() => selectLayer(obj, id)}
-            >
-              <input
-                style={{ flex: "1 1 auto", marginRight: "4px" }}
-                value={name}
-                onChange={(e) => renameObject(obj, e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleVisibility(obj);
-                }}
-                aria-label="Toggle visibility"
+        {showLayersPanel && (
+          <div className={styles.layersPanel}>
+            <h4>Layers</h4>
+            {objects.map(({ id, name, obj }) => (
+              <div
+                key={id}
+                className={`${styles.layerItem} ${
+                  selectedId === id ? styles.layerItemSelected : ""
+                }`}
+                onClick={() => selectLayer(obj, id)}
               >
-                {obj.visible ? "👁️" : "🚫"}
-              </button>
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleLock(obj);
-                }}
-                aria-label="Toggle lock"
-              >
-                {obj.lockMovementX ? "🔒" : "🔓"}
-              </button>
-            </div>
-          ))}
-        </div>
+                <input
+                  style={{ flex: "1 1 auto", marginRight: "4px" }}
+                  value={name}
+                  onChange={(e) => renameObject(obj, e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <button
+                  className={styles.button}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleVisibility(obj);
+                  }}
+                  aria-label="Toggle visibility"
+                >
+                  {obj.visible ? "👁️" : "🚫"}
+                </button>
+                <button
+                  className={styles.button}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLock(obj);
+                  }}
+                  aria-label="Toggle lock"
+                >
+                  {obj.lockMovementX ? "🔒" : "🔓"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Canvas column */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>

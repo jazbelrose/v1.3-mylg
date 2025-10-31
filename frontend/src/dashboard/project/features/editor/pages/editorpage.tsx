@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { v4 as uuid } from "uuid";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
-import DesignerComponent, { DesignerRef } from "@/dashboard/project/features/editor/components/canvas/designercomponent";
+import type { DesignerRef } from "@/dashboard/project/features/editor/components/canvas/designercomponent";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import UnifiedToolbar from "@/dashboard/project/features/editor/components/UnifiedToolbar";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import SheetEditor, {
+  type SheetDescriptor,
+} from "@/dashboard/project/features/editor/components/SheetEditor";
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -18,6 +18,23 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+
+const createInitialSheets = (project?: Project | null): SheetDescriptor[] => {
+  const baseTitle = project?.title?.trim();
+  const sheetName = baseTitle ? `${baseTitle} sheet` : "Main sheet";
+  return [
+    {
+      id: project?.projectId ? `${project.projectId}-sheet` : uuid(),
+      name: sheetName,
+      pages: [
+        {
+          id: uuid(),
+          name: "Page 1",
+        },
+      ],
+    },
+  ];
+};
 
 const EditorPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -36,20 +53,85 @@ const EditorPage: React.FC = () => {
   const { ws } = useSocket();
 
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
-  const [activeTab, setActiveTab] = useState<"brief" | "canvas" | "moodboard">("brief");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const designerRef = useRef<DesignerRef>(null);
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
+  const [sheets, setSheets] = useState<SheetDescriptor[]>(() => createInitialSheets(initialActiveProject));
+  const [activeSheetId, setActiveSheetId] = useState<string>(() => sheets[0]?.id ?? "");
+  const [activePageId, setActivePageId] = useState<string>(() => sheets[0]?.pages[0]?.id ?? "");
+  const lastProjectForSheetsRef = useRef<string | null>(initialActiveProject?.projectId ?? null);
 
   const handleBriefChange = useCallback((json: string) => {
     setBriefContent(json);
     setIsBriefDirty(true);
+  }, []);
+
+  const handleSelectPage = useCallback((sheetId: string, pageId: string) => {
+    setActiveSheetId(sheetId);
+    setActivePageId(pageId);
+  }, []);
+
+  const handleAddPage = useCallback((sheetId: string) => {
+    let createdPageId: string | null = null;
+    setSheets((prev) =>
+      prev.map((sheet) => {
+        if (sheet.id !== sheetId) return sheet;
+        const newPage = {
+          id: uuid(),
+          name: `Page ${sheet.pages.length + 1}`,
+        };
+        createdPageId = newPage.id;
+        return { ...sheet, pages: [...sheet.pages, newPage] };
+      })
+    );
+    if (createdPageId) {
+      setActiveSheetId(sheetId);
+      setActivePageId(createdPageId);
+    }
+  }, []);
+
+  const handleDuplicatePage = useCallback((sheetId: string, pageId: string) => {
+    let newPageId: string | null = null;
+    setSheets((prev) =>
+      prev.map((sheet) => {
+        if (sheet.id !== sheetId) return sheet;
+        const index = sheet.pages.findIndex((page) => page.id === pageId);
+        if (index === -1) return sheet;
+        const original = sheet.pages[index];
+        const duplicate = {
+          id: uuid(),
+          name: `${original.name} Copy`,
+        };
+        newPageId = duplicate.id;
+        const pages = [...sheet.pages];
+        pages.splice(index + 1, 0, duplicate);
+        return { ...sheet, pages };
+      })
+    );
+    if (newPageId) {
+      setActiveSheetId(sheetId);
+      setActivePageId(newPageId);
+    }
+  }, []);
+
+  const handleReorderPages = useCallback((sheetId: string, fromIndex: number, toIndex: number) => {
+    setSheets((prev) =>
+      prev.map((sheet) => {
+        if (sheet.id !== sheetId) return sheet;
+        const pages = [...sheet.pages];
+        if (fromIndex < 0 || fromIndex >= pages.length) return sheet;
+        const safeToIndex = Math.min(pages.length - 1, Math.max(0, toIndex));
+        if (safeToIndex === fromIndex) return sheet;
+        const [moved] = pages.splice(fromIndex, 1);
+        pages.splice(safeToIndex, 0, moved);
+        return { ...sheet, pages };
+      })
+    );
   }, []);
 
   const saveBrief = useCallback(
@@ -86,6 +168,22 @@ const EditorPage: React.FC = () => {
     setBriefContent(activeProject?.description || "");
     setIsBriefDirty(false);
   }, [activeProject?.description]);
+
+  useEffect(() => {
+    const project = activeProject ?? initialActiveProject ?? null;
+    const projectKey = project?.projectId ?? null;
+    if (projectKey && lastProjectForSheetsRef.current === projectKey) {
+      return;
+    }
+    if (!projectKey && lastProjectForSheetsRef.current === null && sheets.length > 0) {
+      return;
+    }
+    const nextSheets = createInitialSheets(project);
+    setSheets(nextSheets);
+    setActiveSheetId(nextSheets[0]?.id ?? "");
+    setActivePageId(nextSheets[0]?.pages[0]?.id ?? "");
+    lastProjectForSheetsRef.current = projectKey;
+  }, [activeProject, initialActiveProject, sheets.length]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -182,12 +280,9 @@ const EditorPage: React.FC = () => {
   const handleDelete = () => designerRef.current?.handleDelete();
   const handleClearCanvas = () => designerRef.current?.handleClear();
   const handleSave = useCallback(() => {
-    if (activeTab === "canvas") {
-      designerRef.current?.handleSave();
-    } else if (activeTab === "brief") {
-      void saveBrief();
-    }
-  }, [activeTab, saveBrief]);
+    designerRef.current?.handleSave();
+    void saveBrief();
+  }, [saveBrief]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -240,133 +335,53 @@ const EditorPage: React.FC = () => {
     >
       <div className="designer-outer-container">
         <div className="designer-scroll-container">
-          <UnifiedToolbar
-            initialMode={activeTab}
-            onModeChange={(mode) => {
-              if (mode !== "brief" && activeTab === "brief" && isBriefDirty) {
-                const confirmLeave = window.confirm(
-                  "You have unsaved changes, continue?"
-                );
-                if (!confirmLeave) return;
-              }
-              setActiveTab(mode);
-            }}
-            onPreview={() => setPreviewOpen(true)}
-            {...(activeTab === "brief" ? briefToolbarActions : {})}
-            onSelectTool={handleSelectTool}
-            onFreeDraw={handleBrushTool}
-            onAddRectangle={handleRectTool}
-            onAddText={handleTextTool}
-            onAddImage={handleImageTool}
-            onColorChange={handleColorChange}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onCopy={handleCopy}
-            onPaste={handlePaste}
-            onDelete={handleDelete}
-            onClearCanvas={handleClearCanvas}
-            onSave={handleSave}
-          />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              className="editor-content-wrapper"
-              initial={{ x: 100, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -100, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-              <FileManagerComponent
-                isOpen={filesOpen}
-                onRequestClose={() => setFilesOpen(false)}
-                showTrigger={false}
-                folder="uploads"
+          <div className="editor-content-wrapper">
+            <QuickLinksComponent ref={quickLinksRef} hideTrigger />
+            <FileManagerComponent
+              isOpen={filesOpen}
+              onRequestClose={() => setFilesOpen(false)}
+              showTrigger={false}
+              folder="uploads"
+            />
+            <div className="main-view-container">
+              <SheetEditor
+                sheets={sheets}
+                activeSheetId={activeSheetId}
+                activePageId={activePageId}
+                onSelectPage={handleSelectPage}
+                onAddPage={handleAddPage}
+                onDuplicatePage={handleDuplicatePage}
+                onReorderPages={handleReorderPages}
+                designerRef={designerRef}
+                briefContent={briefContent}
+                onBriefChange={handleBriefChange}
+                projectId={activeProject?.projectId ?? initialActiveProject?.projectId ?? projectId ?? null}
+                toolbarProps={{
+                  onPreview: () => setPreviewOpen(true),
+                  onSelectTool: handleSelectTool,
+                  onFreeDraw: handleBrushTool,
+                  onAddRectangle: handleRectTool,
+                  onAddText: handleTextTool,
+                  onAddImage: handleImageTool,
+                  onColorChange: handleColorChange,
+                  onUndo: handleUndo,
+                  onRedo: handleRedo,
+                  onCopy: handleCopy,
+                  onPaste: handlePaste,
+                  onDelete: handleDelete,
+                  onClearCanvas: handleClearCanvas,
+                  onSave: handleSave,
+                }}
               />
-              <div className="main-view-container">
-                <AnimatePresence mode="wait">
-                  {activeTab === "brief" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="brief"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        {activeProject?.description !== undefined ? (
-                          <LexicalEditor
-                            key={activeProject?.projectId ?? "default-project"}
-                            initialContent={activeProject?.description ?? null}
-                            onChange={handleBriefChange}
-                            registerToolbar={setBriefToolbarActions}
-                          />
-                        ) : (
-                          <div>Loading...</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "canvas" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="canvas"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <div style={{ maxWidth: "1920px", width: "100%" }}>
-                          <div
-                            className="editor-container"
-                            style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "800px" }}
-                          >
-                            <DesignerComponent ref={designerRef} />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "moodboard" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="moodboard"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <MoodboardCanvas
-                          projectId={activeProject?.projectId}
-                          userId={userId ?? undefined}
-                          palette={projectPalette}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <PreviewDrawer
-                open={previewOpen}
-                onClose={() => setPreviewOpen(false)}
-                url={activeProject?.previewUrl as string}
-                onExportGallery={() => console.log("Export to Gallery")}
-                onExportPDF={() => console.log("Export to PDF")}
-              />
-            </motion.div>
-          </AnimatePresence>
+            </div>
+            <PreviewDrawer
+              open={previewOpen}
+              onClose={() => setPreviewOpen(false)}
+              url={activeProject?.previewUrl as string}
+              onExportGallery={() => console.log("Export to Gallery")}
+              onExportPDF={() => console.log("Export to PDF")}
+            />
+          </div>
         </div>
       </div>
     </ProjectPageLayout>
