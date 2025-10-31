@@ -21,6 +21,7 @@ import type {
 import { formatCurrency, formatPercent } from "./invoicePreviewUtils";
 
 interface InvoicePreviewContentProps {
+  isOpen: boolean;
   invoiceRef: React.RefObject<HTMLDivElement>;
   previewRef: React.RefObject<HTMLDivElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -120,6 +121,7 @@ const formatNumberInput = (value: number): string => {
 };
 
 const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
+  isOpen,
   invoiceRef,
   previewRef,
   fileInputRef,
@@ -250,6 +252,44 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   useEffect(() => {
     hasDraftChangesRef.current = hasDraftChanges;
   }, [hasDraftChanges]);
+
+  useEffect(() => {
+    if (isOpen) return;
+    setFormDraft({
+      brandName: committedValues.brandName,
+      brandTagline: committedValues.brandTagline,
+      invoiceNumber: committedValues.invoiceNumber,
+      issueDate: committedValues.issueDate,
+      projectName: committedValues.projectName,
+      customerSummary: committedValues.customerSummary,
+      organizationName: committedValues.organizationName,
+      organizationAddress: committedValues.organizationAddress,
+      organizationPhone: committedValues.organizationPhone,
+      organizationEmail: committedValues.organizationEmail,
+    });
+    setNotesDraft(htmlToPlainText(committedValues.notes));
+    setDepositInput(formatNumberInput(committedValues.depositReceived));
+    setTaxRateInput(formatNumberInput(committedValues.taxRate));
+    setTotalDueInput(formatNumberInput(committedValues.totalDue));
+    setHasDraftChanges(false);
+    hasDraftChangesRef.current = false;
+  }, [
+    isOpen,
+    committedValues.brandName,
+    committedValues.brandTagline,
+    committedValues.invoiceNumber,
+    committedValues.issueDate,
+    committedValues.projectName,
+    committedValues.customerSummary,
+    committedValues.organizationName,
+    committedValues.organizationAddress,
+    committedValues.organizationPhone,
+    committedValues.organizationEmail,
+    committedValues.notes,
+    committedValues.depositReceived,
+    committedValues.taxRate,
+    committedValues.totalDue,
+  ]);
 
   useEffect(() => {
     if (committedSnapshot === committedSnapshotRef.current) return;
