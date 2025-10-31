@@ -21,6 +21,11 @@ import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import styles from "./designer-component.module.css";
+import { useLayerStage } from "./layers/LayerStageContext";
+import { fabricObjectToLayer } from "./layers/fabricTransforms";
+import type { LayerEntity, LayerStageOperation } from "./layers/types";
+import LayerTree from "./layers/LayerTree";
+import OneSheetOverlay from "./layers/OneSheetOverlay";
 
 /* ---------- Types ---------- */
 
@@ -44,12 +49,6 @@ interface FabricObjectLike {
   setCoords?: () => void;
   clone?: () => Promise<unknown>;
   [key: string]: unknown;
-}
-
-interface CanvasObject {
-  id: string | number;
-  name: string;
-  obj: FabricObjectLike;
 }
 
 export interface DesignerRef {
@@ -111,12 +110,12 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const [mode, setMode] = useState<string>(TOOL_MODES.SELECT);
-    const [objects, setObjects] = useState<CanvasObject[]>([]);
     const [selectedId, setSelectedId] = useState<string | number | null>(null);
     const [color, setColor] = useState<string>("#ffffff");
     const [loadingCanvas, setLoadingCanvas] = useState<boolean>(false);
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
+    const [overlayOpen, setOverlayOpen] = useState<boolean>(false);
 
         const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
         const clipboard = useRef<unknown>(null);
@@ -126,42 +125,41 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const isInitialLoad = useRef<boolean>(true);
 
     const { activeProject, setActiveProject } = useData();
+    const {
+      replaceLayers,
+      commitOperations,
+      pendingOperations,
+      groups: layerGroups,
+      setGroupOpacity,
+      setGroupVisibility,
+      layers: stageLayers,
+    } = useLayerStage();
+    const pendingOperationsRef = useRef<LayerStageOperation[]>([]);
+
+    useEffect(() => {
+      pendingOperationsRef.current = pendingOperations;
+      if (!isInitialLoad.current) {
+        setIsDirty(pendingOperations.length > 0);
+      }
+    }, [pendingOperations]);
 
     /* ---------- Save ---------- */
     const saveCanvas = useCallback(
       async (showToast = false) => {
-        const fabricCanvas = fabricCanvasRef.current;
-        if (!fabricCanvas || !activeProject?.projectId) {
+        if (!activeProject?.projectId) {
           if (showToast) notify("error", "No active project to save");
           return;
         }
-        try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
-          const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-          // apiFetch returns parsed JSON or {} on empty; errors throw.
-          console.debug('Saving canvas to:', apiUrl);
-          await apiFetch(apiUrl, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ canvasJson }),
-          });
-          // console.debug('Save successful:', responseData);
-          setActiveProject((prev: Project | null) => (prev ? { ...prev, canvasJson } : prev));
-          setIsDirty(false);
-          if (showToast) notify("success", "Saved. Nice.");
-        } catch (err: unknown) {
-          const error = err as { message?: string };
-          console.error("Failed to save canvas:", error);
-          if (showToast)
-            notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-        }
+        await commitOperations({ silent: !showToast });
+        setIsDirty(false);
       },
-      [activeProject, setActiveProject]
+      [activeProject?.projectId, commitOperations]
     );
 
     const markDirty = useCallback(() => {
-      if (isInitialLoad.current) return;
-      setIsDirty(true);
+      if (!isInitialLoad.current) {
+        setIsDirty(true);
+      }
     }, []);
 
     const applyCanvasMode = useCallback(
@@ -229,21 +227,23 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     /* Save on unload if dirty */
     useEffect(() => {
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-        if (!isDirty) return;
+        if (!activeProject?.projectId) return;
+        if (pendingOperationsRef.current.length === 0) return;
 
-        if (fabricCanvasRef.current && activeProject?.projectId) {
-          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON());
+        try {
           navigator.sendBeacon(
-            `${EDIT_PROJECT_URL}/${activeProject.projectId}`,
-            JSON.stringify({ canvasJson })
+            `${EDIT_PROJECT_URL}/${activeProject.projectId}/layers`,
+            JSON.stringify({ operations: pendingOperationsRef.current })
           );
+        } catch (err) {
+          console.error("Failed to persist layer operations on unload", err);
         }
         e.preventDefault();
         e.returnValue = "";
       };
       window.addEventListener("beforeunload", handleBeforeUnload);
       return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [isDirty, activeProject?.projectId]);
+    }, [activeProject?.projectId]);
 
     /* History */
     const saveHistory = () => {
@@ -282,16 +282,62 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       if (fabricCanvas) {
         const objs = fabricCanvas.getObjects();
         const active = fabricCanvas.getActiveObject();
-        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
-        setObjects(
-          objs.map((obj: FabricObjectLike, i: number) => ({
-            id: obj.id ?? i,
+        const selectedKey = active ? (active.id ?? objs.indexOf(active)) : null;
+        setSelectedId(
+          selectedKey !== null && selectedKey !== undefined
+            ? String(selectedKey)
+            : null
+        );
+
+        const canvasObjects = objs.map((obj: FabricObjectLike, i: number) => {
+          const rawId = obj.id ?? `layer-${i}`;
+          const id = typeof rawId === "string" ? rawId : String(rawId);
+          return {
+            id,
             name: obj.name ?? `${obj.type}-${i}`,
             visible: obj.visible,
             locked: obj.lockMovementX && obj.lockMovementY,
             obj,
-          }))
-        );
+          };
+        });
+
+        const nextLayers: LayerEntity[] = canvasObjects.map(({ id, name, obj }, index) => {
+          const serialized = (obj.toObject?.([
+            "id",
+            "name",
+            "visible",
+            "lockMovementX",
+            "lockMovementY",
+            "opacity",
+            "left",
+            "top",
+            "width",
+            "height",
+            "scaleX",
+            "scaleY",
+            "angle",
+            "fill",
+            "stroke",
+          ]) ?? {}) as Record<string, unknown>;
+          serialized.id = id;
+          serialized.name = name;
+
+          const layer = fabricObjectToLayer(serialized, index);
+          return {
+            ...layer,
+            id: typeof layer.id === "string" ? layer.id : String(layer.id),
+            name,
+            visible: obj.visible !== false,
+            locked: Boolean(obj.lockMovementX && obj.lockMovementY),
+            opacity: typeof obj.opacity === "number" ? obj.opacity : layer.opacity,
+            order: index,
+            data: {
+              fabric: serialized,
+            },
+          };
+        });
+
+        replaceLayers(nextLayers, { silent: isInitialLoad.current });
       }
     };
 
@@ -684,42 +730,115 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     }, [handleDelete, handleUndo, handleRedo]);
 
     /* Layer list helpers */
-    const toggleVisibility = (obj: FabricObjectLike) => {
-      obj.visible = !obj.visible;
-      const canvas = obj.canvas as Record<string, unknown>;
-      if (typeof canvas.requestRenderAll === 'function') {
-        canvas.requestRenderAll();
-      }
-      updateObjects();
-      markDirty();
-    };
+    const getObjectByLayerId = useCallback(
+      (layerId: string | number): FabricObjectLike | null => {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!fabricCanvas) return null;
+        const targetId = String(layerId);
+        const match = fabricCanvas
+          .getObjects()
+          .find((obj: FabricObjectLike) => String(obj.id ?? obj.name ?? "") === targetId);
+        return match ?? null;
+      },
+      []
+    );
 
-    const toggleLock = (obj: FabricObjectLike) => {
-      const locked = !(obj.lockMovementX && obj.lockMovementY);
-      obj.lockMovementX = obj.lockMovementY = locked;
-      obj.selectable = !locked;
-      obj.evented = !locked;
-      const canvas = obj.canvas as Record<string, unknown>;
-      if (typeof canvas.requestRenderAll === 'function') {
-        canvas.requestRenderAll();
-      }
-      updateObjects();
-      markDirty();
-    };
+    const handleLayerVisibility = useCallback(
+      (layerId: string) => {
+        const obj = getObjectByLayerId(layerId);
+        if (!obj) return;
+        obj.visible = !obj.visible;
+        const canvas = obj.canvas as { requestRenderAll?: () => void } | undefined;
+        canvas?.requestRenderAll?.();
+        updateObjects();
+        markDirty();
+      },
+      [getObjectByLayerId, updateObjects, markDirty]
+    );
 
-    const renameObject = (obj: FabricObjectLike, name: string) => {
-      obj.name = name;
-      updateObjects();
-      markDirty();
-    };
+    const handleLayerLock = useCallback(
+      (layerId: string) => {
+        const obj = getObjectByLayerId(layerId);
+        if (!obj) return;
+        const locked = !(obj.lockMovementX && obj.lockMovementY);
+        obj.lockMovementX = obj.lockMovementY = locked;
+        obj.selectable = !locked;
+        obj.evented = !locked;
+        const canvas = obj.canvas as { requestRenderAll?: () => void } | undefined;
+        canvas?.requestRenderAll?.();
+        updateObjects();
+        markDirty();
+      },
+      [getObjectByLayerId, updateObjects, markDirty]
+    );
 
-    const selectLayer = (obj: FabricObjectLike, id: string | number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      if (!fabricCanvas) return;
-      fabricCanvas.setActiveObject(obj);
-      fabricCanvas.requestRenderAll();
-      setSelectedId(id);
-    };
+    const handleLayerRename = useCallback(
+      (layerId: string, name: string) => {
+        const obj = getObjectByLayerId(layerId);
+        if (!obj) return;
+        obj.name = name;
+        updateObjects();
+        markDirty();
+      },
+      [getObjectByLayerId, updateObjects, markDirty]
+    );
+
+    const handleLayerSelect = useCallback(
+      (layerId: string) => {
+        const obj = getObjectByLayerId(layerId);
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!obj || !fabricCanvas) return;
+        fabricCanvas.setActiveObject(obj);
+        fabricCanvas.requestRenderAll();
+        setSelectedId(layerId);
+      },
+      [getObjectByLayerId]
+    );
+
+    const handleLayerOpacity = useCallback(
+      (layerId: string, opacity: number) => {
+        const obj = getObjectByLayerId(layerId);
+        if (!obj) return;
+        obj.opacity = opacity;
+        const canvas = obj.canvas as { requestRenderAll?: () => void } | undefined;
+        canvas?.requestRenderAll?.();
+        updateObjects();
+        markDirty();
+      },
+      [getObjectByLayerId, updateObjects, markDirty]
+    );
+
+    const handleGroupVisibilityChange = useCallback(
+      (groupId: string, visible: boolean) => {
+        setGroupVisibility(groupId, visible);
+        if (groupId === "canvas") {
+          const fabricCanvas = fabricCanvasRef.current;
+          if (!fabricCanvas) return;
+          fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => {
+            obj.visible = visible;
+          });
+          fabricCanvas.requestRenderAll();
+          updateObjects();
+        }
+      },
+      [setGroupVisibility, updateObjects]
+    );
+
+    const handleGroupOpacityChange = useCallback(
+      (groupId: string, opacity: number) => {
+        setGroupOpacity(groupId, opacity);
+        if (groupId === "canvas") {
+          const fabricCanvas = fabricCanvasRef.current;
+          if (!fabricCanvas) return;
+          fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => {
+            obj.opacity = opacity;
+          });
+          fabricCanvas.requestRenderAll();
+          updateObjects();
+        }
+      },
+      [setGroupOpacity, updateObjects]
+    );
 
     /* Expose methods to parent */
     useImperativeHandle(
@@ -753,47 +872,22 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* ---------- Render ---------- */
     return (
-      <div style={{ display: "flex", height: "100%" }}>
+      <div style={{ display: "flex", height: "100%", position: "relative" }}>
+        <OneSheetOverlay open={overlayOpen} onClose={() => setOverlayOpen(false)} />
         {/* Layers panel */}
-        <div className={styles.layersPanel}>
-          <h4>Layers</h4>
-          {objects.map(({ id, name, obj }) => (
-            <div
-              key={id}
-              className={`${styles.layerItem} ${
-                selectedId === id ? styles.layerItemSelected : ""
-              }`}
-              onClick={() => selectLayer(obj, id)}
-            >
-              <input
-                style={{ flex: "1 1 auto", marginRight: "4px" }}
-                value={name}
-                onChange={(e) => renameObject(obj, e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleVisibility(obj);
-                }}
-                aria-label="Toggle visibility"
-              >
-                {obj.visible ? "👁️" : "🚫"}
-              </button>
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleLock(obj);
-                }}
-                aria-label="Toggle lock"
-              >
-                {obj.lockMovementX ? "🔒" : "🔓"}
-              </button>
-            </div>
-          ))}
-        </div>
+        <LayerTree
+          layers={stageLayers}
+          groups={layerGroups}
+          selectedId={selectedId}
+          onSelectLayer={handleLayerSelect}
+          onRenameLayer={handleLayerRename}
+          onToggleVisibility={handleLayerVisibility}
+          onToggleLock={handleLayerLock}
+          onChangeOpacity={handleLayerOpacity}
+          onGroupVisibility={handleGroupVisibilityChange}
+          onGroupOpacity={handleGroupOpacityChange}
+          onOpenOverlay={() => setOverlayOpen(true)}
+        />
 
         {/* Canvas column */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>

@@ -9,8 +9,9 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import UnifiedToolbar from "@/dashboard/project/features/editor/components/UnifiedToolbar";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import LayeredLexicalEditor from "@/dashboard/project/features/editor/components/canvas/layers/LayeredLexicalEditor";
+import LayeredMoodboardCanvas from "@/dashboard/project/features/editor/components/canvas/layers/LayeredMoodboardCanvas";
+import { LayerStageProvider } from "@/dashboard/project/features/editor/components/canvas/layers/LayerStageContext";
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -222,7 +223,8 @@ const EditorPage: React.FC = () => {
   }, [isBriefDirty]);
 
   return (
-    <ProjectPageLayout
+    <LayerStageProvider projectId={activeProject?.projectId}>
+      <ProjectPageLayout
       projectId={projectId}
       theme={projectPalette}
       header={
@@ -299,7 +301,7 @@ const EditorPage: React.FC = () => {
                         style={{ paddingBottom: "5px" }}
                       >
                         {activeProject?.description !== undefined ? (
-                          <LexicalEditor
+                          <LayeredLexicalEditor
                             key={activeProject?.projectId ?? "default-project"}
                             initialContent={activeProject?.description ?? null}
                             onChange={handleBriefChange}
@@ -348,7 +350,7 @@ const EditorPage: React.FC = () => {
                         className="dashboard-layout editor-mode-layout"
                         style={{ paddingBottom: "5px" }}
                       >
-                        <MoodboardCanvas
+                        <LayeredMoodboardCanvas
                           projectId={activeProject?.projectId}
                           userId={userId ?? undefined}
                           palette={projectPalette}
@@ -369,7 +371,8 @@ const EditorPage: React.FC = () => {
           </AnimatePresence>
         </div>
       </div>
-    </ProjectPageLayout>
+      </ProjectPageLayout>
+    </LayerStageProvider>
   );
 };
 

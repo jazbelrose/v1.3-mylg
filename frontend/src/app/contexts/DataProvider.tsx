@@ -3,6 +3,10 @@ import React, { PropsWithChildren } from "react";
 import { UserProvider } from "./UserProvider";
 import { ProjectsProvider } from "./ProjectsProvider";
 import { MessagesProvider } from "./MessagesProvider";
+import type {
+  LayerEntity,
+  LayerGroupState,
+} from "@/dashboard/project/features/editor/components/canvas/layers/types";
 
 // Export the types and data models from here for backward compatibility
 export type Role = "admin" | "designer" | "builder" | "vendor" | "client" | string;
@@ -68,6 +72,9 @@ export interface Project {
   clientEmail?: string;
   previewUrl?: string;
   quickLinks?: QuickLink[];
+  canvasJson?: string;
+  layers?: LayerEntity[];
+  layerGroups?: LayerGroupState[];
   [k: string]: unknown;
 }
 

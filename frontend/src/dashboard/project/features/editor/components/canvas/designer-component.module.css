@@ -54,6 +54,171 @@
   border-radius: 4px;
 }
 
+.layerNameInput {
+  flex: 1 1 auto;
+  margin-right: 4px;
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.layerGroup {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #444;
+}
+
+.layerGroupHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.layerGroupName {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.layerGroupControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.layerPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.overlayButton {
+  background: #444;
+  border: 1px solid #666;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.overlayButton:hover {
+  background: #555;
+}
+
+.oneSheetBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.oneSheetPanel {
+  background: #1e1e1e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.oneSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.oneSheetDescription {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin-bottom: 12px;
+}
+
+.oneSheetGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oneSheetGroup {
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px;
+  background: #2a2a2a;
+}
+
+.oneSheetGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.oneSheetGroupControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oneSheetLayerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.oneSheetLayerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1f1f1f;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.oneSheetLayerName {
+  font-weight: 600;
+}
+
+.oneSheetLayerMeta {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.oneSheetEmpty {
+  color: #aaa;
+  font-size: 0.85rem;
+}
+
+.opacityLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.opacitySlider {
+  width: 72px;
+}
+
 .canvasContainer {
   width: 100%;
   flex: 1;
