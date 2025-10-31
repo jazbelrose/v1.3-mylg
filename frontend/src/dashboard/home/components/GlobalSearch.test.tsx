@@ -171,17 +171,17 @@ describe('GlobalSearch', () => {
     expect(input).not.toHaveAttribute('type', 'email');
     expect(input).not.toHaveAttribute('type', 'password');
 
-    const form = input.closest('form');
-    expect(form).not.toBeNull();
+    const container = input.closest('.global-search-input-container');
+    expect(container).not.toBeNull();
 
-    if (form) {
-      expect(form).toHaveAttribute('autocomplete', 'off');
-      expect(form).toHaveAttribute('role', 'search');
-      expect(form).toHaveAttribute('data-form-type', 'other');
-      expect(form).toHaveAttribute('data-1p-ignore', 'true');
-      expect(form).toHaveAttribute('data-lpignore', 'true');
-      expect(form).toHaveAttribute('data-bwignore', 'true');
-      expect(form).toHaveAttribute('novalidate');
+    if (container) {
+      expect(container.tagName.toLowerCase()).toBe('div');
+      expect(container).toHaveAttribute('role', 'search');
+      expect(container).toHaveAttribute('aria-label', 'Global search');
+      expect(container).toHaveAttribute('data-form-type', 'other');
+      expect(container).toHaveAttribute('data-1p-ignore', 'true');
+      expect(container).toHaveAttribute('data-lpignore', 'true');
+      expect(container).toHaveAttribute('data-bwignore', 'true');
     }
   });
 
