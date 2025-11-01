@@ -15,12 +15,12 @@ const LABELS: Record<LayerGroupKey, string> = {
 
 const Inspector: React.FC<InspectorProps> = ({ page, activeLayer }) => {
   return (
-    <aside className={styles.inspector} aria-label="Inspector panel">
-      <span className={styles.header}>Inspector</span>
+    <aside className={styles.inspector} aria-label="Properties panel">
+      <span className={styles.header}>Properties</span>
       {!page ? (
         <div className={styles.section}>
-          <label>Status</label>
-          <span>Select a page to inspect details.</span>
+          <label>Selection</label>
+          <span>Select a page or layer to see its settings.</span>
         </div>
       ) : (
         <>
@@ -29,12 +29,12 @@ const Inspector: React.FC<InspectorProps> = ({ page, activeLayer }) => {
             <span>{LABELS[activeLayer]}</span>
           </div>
           <div className={styles.section}>
-            <label>Page</label>
+            <label>Page name</label>
             <span>{page.name}</span>
           </div>
           <div className={styles.section}>
-            <label>Super Sheet</label>
-            <span>{page.isSuperSheet ? "Enabled" : "No"}</span>
+            <label>Layout type</label>
+            <span>{page.isSuperSheet ? "One-sheet overlay" : "Page layout"}</span>
           </div>
         </>
       )}

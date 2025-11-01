@@ -23,8 +23,6 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
-const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
-
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -253,11 +251,6 @@ const EditorPage: React.FC = () => {
   const handleImageTool = useCallback(() => {
     designerRef.current?.triggerImageUpload();
   }, []);
-  const handleColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      designerRef.current?.handleColorChange(e.target.value),
-    []
-  );
   const handleUndo = useCallback(() => {
     designerRef.current?.handleUndo();
   }, []);
@@ -408,17 +401,6 @@ const EditorPage: React.FC = () => {
     []
   );
 
-  const handleToolbarModeChange = useCallback(
-    (mode: string) => {
-      if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
-      const layer = mode as LayerGroupKey;
-      if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
-      setActiveLayer(layer);
-    },
-    [activeLayer, guardAgainstUnsavedBrief]
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
@@ -484,41 +466,36 @@ const EditorPage: React.FC = () => {
 
   const toolbarProps = useMemo(
     () => ({
-      initialMode: activeLayer,
-      onModeChange: handleToolbarModeChange,
-      onPreview: () => setPreviewOpen(true),
       onSelectTool: handleSelectTool,
-      onFreeDraw: handleBrushTool,
-      onAddRectangle: handleRectTool,
       onAddText: handleTextTool,
       onAddImage: handleImageTool,
-      onColorChange: handleColorChange,
+      onAddRectangle: handleRectTool,
+      onAddLine: handleBrushTool,
       onUndo: handleUndo,
       onRedo: handleRedo,
       onCopy: handleCopy,
       onPaste: handlePaste,
       onDelete: handleDelete,
-      onClearCanvas: handleClearCanvas,
+      onClear: handleClearCanvas,
       onSave: handleSave,
+      onPreview: () => setPreviewOpen(true),
       ...(activeLayer === "brief" ? briefToolbarActions : {}),
     }),
     [
       activeLayer,
       briefToolbarActions,
-      handleBrushTool,
       handleClearCanvas,
-      handleColorChange,
       handleCopy,
       handleDelete,
+      handleBrushTool,
       handleImageTool,
-      handlePaste,
       handleRectTool,
-      handleRedo,
-      handleSave,
+      handlePaste,
       handleSelectTool,
-      handleToolbarModeChange,
       handleTextTool,
       handleUndo,
+      handleRedo,
+      handleSave,
       setPreviewOpen,
     ]
   );

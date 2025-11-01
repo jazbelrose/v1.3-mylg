@@ -1,5 +1,12 @@
-import React from "react";
-import { Eye, EyeOff, FileText, LayoutDashboard, Paintbrush } from "lucide-react";
+import React, { useState } from "react";
+import {
+  ChevronDown,
+  Eye,
+  EyeOff,
+  FileText,
+  LayoutDashboard,
+  Paintbrush,
+} from "lucide-react";
 import classNames from "classnames";
 import styles from "./LayerTree.module.css";
 import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
@@ -27,6 +34,8 @@ const LayerTree: React.FC<LayerTreeProps> = ({
   onChangeOpacity,
   disabled,
 }) => {
+  const [expanded, setExpanded] = useState<LayerGroupKey | null>(null);
+
   if (!page) {
     return (
       <aside className={styles.layerTree}>
@@ -44,11 +53,14 @@ const LayerTree: React.FC<LayerTreeProps> = ({
           const state = page.groupStates[layerKey];
           const { label, icon } = GROUP_META[layerKey];
           const visible = state.visible;
+          const isActive = activeLayer === layerKey;
+          const isExpanded = expanded === layerKey || isActive;
           return (
             <div
               key={layerKey}
               className={classNames(styles.groupItem, {
-                [styles.active]: activeLayer === layerKey,
+                [styles.active]: isActive,
+                [styles.expanded]: isExpanded,
               })}
             >
               <div className={styles.groupHeader}>
@@ -70,8 +82,18 @@ const LayerTree: React.FC<LayerTreeProps> = ({
                   {visible ? <Eye size={16} /> : <EyeOff size={16} />}
                   <span>{visible ? "Visible" : "Hidden"}</span>
                 </button>
+                <button
+                  type="button"
+                  className={styles.expandToggle}
+                  onClick={() =>
+                    setExpanded((prev) => (prev === layerKey ? null : layerKey))
+                  }
+                  aria-expanded={isExpanded}
+                >
+                  <ChevronDown size={16} />
+                </button>
               </div>
-              <div className={styles.slider}>
+              <div className={styles.slider} data-visible={isExpanded}>
                 <label htmlFor={`${page.id}-${layerKey}-opacity`}>Opacity</label>
                 <input
                   id={`${page.id}-${layerKey}-opacity`}
