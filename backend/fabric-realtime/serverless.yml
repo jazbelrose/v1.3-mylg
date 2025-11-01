@@ -1,0 +1,124 @@
+service: fabric-realtime
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  app: mylg
+  ver: v12
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  stackName: ${self:custom.app}-${self:custom.ver}-${self:service}-${sls:stage}
+  httpApi:
+    name: ${self:custom.app}-${self:custom.ver}-${self:service}-api-${sls:stage}
+  websocketsApiName: ${self:custom.app}-${self:custom.ver}-${self:service}-ws-${sls:stage}
+  websocketsApiRouteSelectionExpression: $request.body.action
+  environment:
+    ${self:custom.env}
+    FABRIC_DOCUMENTS_TABLE: ${self:custom.app}-${self:custom.ver}-fabric-documents-${sls:stage}
+    FABRIC_CONNECTIONS_TABLE: ${self:custom.app}-${self:custom.ver}-fabric-connections-${sls:stage}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchWriteItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.FABRIC_DOCUMENTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.FABRIC_CONNECTIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:provider.environment.FABRIC_CONNECTIONS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource:
+            - arn:aws:execute-api:${aws:region}:${aws:accountId}:*/${sls:stage}/POST/@connections/*
+
+functions:
+  fabricApi:
+    handler: src/api.handler
+    events:
+      - httpApi:
+          path: /fabric/{proxy+}
+          method: GET
+      - httpApi:
+          path: /fabric/{proxy+}
+          method: PUT
+      - httpApi:
+          path: /fabric/{proxy+}
+          method: POST
+      - httpApi:
+          path: /fabric/{proxy+}
+          method: OPTIONS
+  wsConnect:
+    handler: src/ws/connect.handler
+    events:
+      - websocket:
+          route: $connect
+  wsDisconnect:
+    handler: src/ws/disconnect.handler
+    events:
+      - websocket:
+          route: $disconnect
+  wsSync:
+    handler: src/ws/sync.handler
+    events:
+      - websocket:
+          route: sync
+
+resources:
+  Resources:
+    FabricDocumentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.FABRIC_DOCUMENTS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: documentId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: documentId
+            KeyType: HASH
+    FabricConnectionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.FABRIC_CONNECTIONS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: documentId
+            AttributeType: S
+          - AttributeName: connectionId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: documentId
+            KeyType: HASH
+          - AttributeName: connectionId
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: byConnectionId
+            KeySchema:
+              - AttributeName: connectionId
+                KeyType: HASH
+              - AttributeName: documentId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+package:
+  patterns:
+    - 'src/**/*.mjs'
+    - '!**/*.map'

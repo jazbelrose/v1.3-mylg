@@ -7,8 +7,9 @@ import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLink
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import FabricRealtimeCanvas, {
+  type FabricRealtimeCanvasHandle,
+} from "@/dashboard/project/features/fabric/FabricRealtimeCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -85,7 +86,6 @@ const EditorPage: React.FC = () => {
     setProjects,
     setSelectedProjects,
     userId,
-    updateProjectFields,
   } = useData();
 
   const { ws } = useSocket();
@@ -93,11 +93,12 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const designerRef = useRef<DesignerRef>(null);
+  const briefCanvasRef = useRef<FabricRealtimeCanvasHandle | null>(null);
+  const moodboardCanvasRef = useRef<FabricRealtimeCanvasHandle | null>(null);
   const initialPageIdRef = useRef<string | null>(null);
   const [pages, setPages] = useState<SheetPageState[]>(() => {
     const firstPage = createPageState("Page 1");
@@ -109,52 +110,9 @@ const EditorPage: React.FC = () => {
     () => initialPageIdRef.current ?? ""
   );
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
-  const [briefContent, setBriefContent] = useState<string>("");
-  const [isBriefDirty, setIsBriefDirty] = useState(false);
-  const savedBriefContentRef = useRef<string>("");
-
-  const handleBriefChange = useCallback((json: string) => {
-    setBriefContent(json);
-    setIsBriefDirty(json !== savedBriefContentRef.current);
-  }, []);
-
-  const saveBrief = useCallback(
-    async (showToast = true) => {
-      if (!activeProject?.projectId) {
-        if (showToast) notify("error", "No active project to save");
-        return;
-      }
-      if (!isBriefDirty) {
-        if (showToast) notify("info", "Brief already saved");
-        return;
-      }
-      try {
-        await updateProjectFields(activeProject.projectId, {
-          description: briefContent,
-        });
-        savedBriefContentRef.current = briefContent;
-        setIsBriefDirty(false);
-        if (showToast) notify("success", "Saved. Nice.");
-      } catch (err) {
-        const error = err as { message?: string };
-        console.error("Failed to save brief:", error);
-        if (showToast)
-          notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-      }
-    },
-    [activeProject?.projectId, briefContent, isBriefDirty, updateProjectFields]
-  );
-
   useEffect(() => {
     setActiveProject(initialActiveProject);
   }, [initialActiveProject]);
-
-  useEffect(() => {
-    const description = activeProject?.description || "";
-    savedBriefContentRef.current = description;
-    setBriefContent(description);
-    setIsBriefDirty(false);
-  }, [activeProject?.description]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -218,6 +176,16 @@ const EditorPage: React.FC = () => {
     return Number.isNaN(num) ? 0 : num;
   };
 
+  const getActiveFabricHandle = useCallback(() => {
+    if (activeLayer === "brief") {
+      return briefCanvasRef.current;
+    }
+    if (activeLayer === "moodboard") {
+      return moodboardCanvasRef.current;
+    }
+    return null;
+  }, [activeLayer]);
+
   const handleActiveProjectChange = (updatedProject: Project) => {
     setActiveProject(updatedProject);
   };
@@ -239,60 +207,163 @@ const EditorPage: React.FC = () => {
   };
 
   const handleSelectTool = useCallback(() => {
-    designerRef.current?.changeMode("select");
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.changeMode("select");
+    } else {
+      designerRef.current?.changeMode("select");
+    }
+  }, [getActiveFabricHandle]);
   const handleBrushTool = useCallback(() => {
-    designerRef.current?.changeMode("brush");
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.changeMode("brush");
+    } else {
+      designerRef.current?.changeMode("brush");
+    }
+  }, [getActiveFabricHandle]);
   const handleRectTool = useCallback(() => {
-    designerRef.current?.changeMode("rect");
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.changeMode("rect");
+      fabricHandle.addRectangle();
+    } else {
+      designerRef.current?.changeMode("rect");
+    }
+  }, [getActiveFabricHandle]);
   const handleTextTool = useCallback(() => {
-    designerRef.current?.addText();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.addText();
+    } else {
+      designerRef.current?.addText();
+    }
+  }, [getActiveFabricHandle]);
   const handleImageTool = useCallback(() => {
-    designerRef.current?.triggerImageUpload();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.triggerImageUpload();
+    } else {
+      designerRef.current?.triggerImageUpload();
+    }
+  }, [getActiveFabricHandle]);
   const handleColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      designerRef.current?.handleColorChange(e.target.value),
-    []
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const fabricHandle = getActiveFabricHandle();
+      if (fabricHandle) {
+        fabricHandle.handleColorChange(e.target.value);
+      } else {
+        designerRef.current?.handleColorChange(e.target.value);
+      }
+    },
+    [getActiveFabricHandle]
   );
   const handleUndo = useCallback(() => {
-    designerRef.current?.handleUndo();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.handleUndo();
+    } else {
+      designerRef.current?.handleUndo();
+    }
+  }, [getActiveFabricHandle]);
   const handleRedo = useCallback(() => {
-    designerRef.current?.handleRedo();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.handleRedo();
+    } else {
+      designerRef.current?.handleRedo();
+    }
+  }, [getActiveFabricHandle]);
   const handleCopy = useCallback(() => {
-    designerRef.current?.handleCopy();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.handleCopy();
+    } else {
+      designerRef.current?.handleCopy();
+    }
+  }, [getActiveFabricHandle]);
   const handlePaste = useCallback(() => {
-    designerRef.current?.handlePaste();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.handlePaste();
+    } else {
+      designerRef.current?.handlePaste();
+    }
+  }, [getActiveFabricHandle]);
   const handleDelete = useCallback(() => {
-    designerRef.current?.handleDelete();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.handleDelete();
+    } else {
+      designerRef.current?.handleDelete();
+    }
+  }, [getActiveFabricHandle]);
   const handleClearCanvas = useCallback(() => {
-    designerRef.current?.handleClear();
-  }, []);
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      fabricHandle.handleClear();
+    } else {
+      designerRef.current?.handleClear();
+    }
+  }, [getActiveFabricHandle]);
   const handleSave = useCallback(() => {
-    if (activeLayer === "canvas") {
+    const fabricHandle = getActiveFabricHandle();
+    if (fabricHandle) {
+      void fabricHandle.handleSave();
+    } else {
       designerRef.current?.handleSave();
-    } else if (activeLayer === "brief") {
-      void saveBrief();
     }
-  }, [activeLayer, saveBrief]);
+  }, [getActiveFabricHandle]);
 
-  const guardAgainstUnsavedBrief = useCallback(() => {
-    if (activeLayer === "brief" && isBriefDirty) {
-      if (typeof window !== "undefined") {
-        return window.confirm("You have unsaved changes, continue?");
-      }
-      return true;
+  const exportActiveAsPdf = useCallback(async () => {
+    const fabricHandle = getActiveFabricHandle();
+    if (!fabricHandle) {
+      notify("info", "Switch to the Fabric layer to export as PDF.");
+      return;
     }
-    return true;
-  }, [activeLayer, isBriefDirty]);
+    try {
+      await fabricHandle.exportAsPdf(`${activeProject?.title ?? "deck"}.pdf`);
+      notify("success", "PDF export generated.");
+    } catch (error) {
+      console.error("Failed to export PDF", error);
+      notify("error", "We couldn’t generate the PDF. Try again shortly.");
+    }
+  }, [activeProject?.title, getActiveFabricHandle]);
+
+  const exportActiveAsSite = useCallback(() => {
+    const fabricHandle = getActiveFabricHandle();
+    if (!fabricHandle) {
+      notify("info", "Switch to the Fabric layer to export a site.");
+      return;
+    }
+    const html = fabricHandle.exportAsHtml();
+    if (!html) {
+      notify("error", "Nothing to export just yet.");
+      return;
+    }
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fabricHandle.getDocumentId()}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    notify("success", "Static site export ready—check downloads.");
+  }, [getActiveFabricHandle]);
+
+  const briefDocumentId = useMemo(() => {
+    const key = activeProject?.projectId ?? projectId ?? "draft";
+    return `project:${key}:brief`;
+  }, [activeProject?.projectId, projectId]);
+
+  const moodboardDocumentId = useMemo(() => {
+    const key = activeProject?.projectId ?? projectId ?? "draft";
+    return `project:${key}:moodboard`;
+  }, [activeProject?.projectId, projectId]);
+
+  const guardAgainstUnsavedBrief = useCallback(() => true, []);
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
@@ -432,54 +503,27 @@ const EditorPage: React.FC = () => {
     };
   }, [handleSave]);
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isBriefDirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isBriefDirty]);
-
-  useEffect(() => {
-    window.hasUnsavedChanges = () => isBriefDirty;
-    window.unsavedChanges = isBriefDirty;
-    return () => {
-      delete window.hasUnsavedChanges;
-      delete window.unsavedChanges;
-    };
-  }, [isBriefDirty]);
-
   const layerNodes = useMemo(
     () => ({
       canvas: <DesignerComponent ref={designerRef} />,
-      brief:
-        activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
-          />
-        ) : (
-          <div>Loading...</div>
-        ),
+      brief: (
+        <FabricRealtimeCanvas
+          key={briefDocumentId}
+          ref={briefCanvasRef}
+          documentId={briefDocumentId}
+          accentColor={projectPalette?.accent}
+        />
+      ),
       moodboard: (
-        <MoodboardCanvas
-          projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
+        <FabricRealtimeCanvas
+          key={moodboardDocumentId}
+          ref={moodboardCanvasRef}
+          documentId={moodboardDocumentId}
+          accentColor={projectPalette?.accent}
         />
       ),
     }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
+    [briefDocumentId, designerRef, moodboardDocumentId, projectPalette?.accent]
   );
 
   const toolbarProps = useMemo(
@@ -500,11 +544,9 @@ const EditorPage: React.FC = () => {
       onDelete: handleDelete,
       onClearCanvas: handleClearCanvas,
       onSave: handleSave,
-      ...(activeLayer === "brief" ? briefToolbarActions : {}),
     }),
     [
       activeLayer,
-      briefToolbarActions,
       handleBrushTool,
       handleClearCanvas,
       handleColorChange,
@@ -567,8 +609,8 @@ const EditorPage: React.FC = () => {
             open={previewOpen}
             onClose={() => setPreviewOpen(false)}
             url={activeProject?.previewUrl as string}
-            onExportGallery={() => console.log("Export to Gallery")}
-            onExportPDF={() => console.log("Export to PDF")}
+            onExportGallery={exportActiveAsSite}
+            onExportPDF={() => void exportActiveAsPdf()}
           />
         </div>
       </div>

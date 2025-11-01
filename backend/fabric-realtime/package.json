@@ -1,0 +1,10 @@
+{
+  "name": "fabric-realtime",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.485.0",
+    "@aws-sdk/client-dynamodb": "^3.485.0",
+    "@aws-sdk/lib-dynamodb": "^3.485.0"
+  }
+}

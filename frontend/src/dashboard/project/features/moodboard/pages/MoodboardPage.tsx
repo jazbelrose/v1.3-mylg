@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
-import MoodboardCanvas from "../components/MoodboardCanvas";
+import FabricRealtimeCanvas from "@/dashboard/project/features/fabric/FabricRealtimeCanvas";
 import { useData } from "@/app/contexts/useData";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import type { Project } from "@/app/contexts/DataProvider";
@@ -169,28 +169,30 @@ const MoodboardPage: React.FC = () => {
   }, [navigate]);
 
   const resolvedProjectId = activeProject?.projectId ?? "";
-  const currentUserId = userId ?? "";
+  const moodboardDocumentId = useMemo(() => {
+    const key = resolvedProjectId || projectId || "draft";
+    return `project:${key}:moodboard`;
+  }, [projectId, resolvedProjectId]);
 
   const board = useMemo(
     () => (
       <AnimatePresence mode="wait">
         <motion.div
-          key={resolvedProjectId || "moodboard"}
+          key={moodboardDocumentId}
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -24 }}
           transition={{ duration: 0.25 }}
           style={{ height: "100%" }}
         >
-          <MoodboardCanvas
-            projectId={resolvedProjectId}
-            userId={currentUserId}
-            palette={projectPalette}
+          <FabricRealtimeCanvas
+            documentId={moodboardDocumentId}
+            accentColor={projectPalette?.accent}
           />
         </motion.div>
       </AnimatePresence>
     ),
-    [currentUserId, resolvedProjectId, projectPalette]
+    [moodboardDocumentId, projectPalette?.accent]
   );
 
   return (
@@ -200,7 +202,7 @@ const MoodboardPage: React.FC = () => {
       header={
         <ProjectHeader
           parseStatusToNumber={parseStatusToNumber}
-          userId={currentUserId}
+          userId={userId ?? ""}
           onProjectDeleted={handleProjectDeleted}
           activeProject={activeProject}
           showWelcomeScreen={showWelcomeScreen}
