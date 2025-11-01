@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, useMemo, ChangeEvent } from 'react';
 import {
     Bold,
     Italic,
@@ -47,6 +47,12 @@ type ModeDefinition = {
     label: string;
     icon: React.ComponentType<{ size?: number }>;
 };
+
+const DEFAULT_MODE_DEFINITIONS: ModeDefinition[] = [
+    { key: 'brief', label: 'Brief', icon: FileText },
+    { key: 'canvas', label: 'Canvas', icon: Paintbrush },
+    { key: 'moodboard', label: 'Moodboard', icon: LayoutDashboard },
+];
 
 interface UnifiedToolbarProps {
     onBold?: () => void;
@@ -169,20 +175,33 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
             onModeChange(newMode);
     };
 
-    const modeDefinitions: ModeDefinition[] = modes ?? [
-        { key: 'brief', label: 'Brief', icon: FileText },
-        { key: 'canvas', label: 'Canvas', icon: Paintbrush },
-        { key: 'moodboard', label: 'Moodboard', icon: LayoutDashboard },
-    ];
+    const modeDefinitions = useMemo<ModeDefinition[]>(() => {
+        if (Array.isArray(modes)) {
+            return modes;
+        }
+        return DEFAULT_MODE_DEFINITIONS;
+    }, [modes]);
     
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const [indicator, setIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
     useEffect(() => {
         const node = tabRefs.current[mode];
         if (node) {
-            setIndicator({ left: node.offsetLeft, width: node.offsetWidth });
+            const nextLeft = node.offsetLeft;
+            const nextWidth = node.offsetWidth;
+            setIndicator((prev) => {
+                if (prev.left === nextLeft && prev.width === nextWidth) {
+                    return prev;
+                }
+                return { left: nextLeft, width: nextWidth };
+            });
         } else if (modeDefinitions.length === 0) {
-            setIndicator({ left: 0, width: 0 });
+            setIndicator((prev) => {
+                if (prev.left === 0 && prev.width === 0) {
+                    return prev;
+                }
+                return { left: 0, width: 0 };
+            });
         }
     }, [mode, modeDefinitions]);
     

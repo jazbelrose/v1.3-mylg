@@ -111,10 +111,11 @@ const EditorPage: React.FC = () => {
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
+  const savedBriefContentRef = useRef<string>("");
 
   const handleBriefChange = useCallback((json: string) => {
     setBriefContent(json);
-    setIsBriefDirty(true);
+    setIsBriefDirty(json !== savedBriefContentRef.current);
   }, []);
 
   const saveBrief = useCallback(
@@ -131,6 +132,7 @@ const EditorPage: React.FC = () => {
         await updateProjectFields(activeProject.projectId, {
           description: briefContent,
         });
+        savedBriefContentRef.current = briefContent;
         setIsBriefDirty(false);
         if (showToast) notify("success", "Saved. Nice.");
       } catch (err) {
@@ -148,7 +150,9 @@ const EditorPage: React.FC = () => {
   }, [initialActiveProject]);
 
   useEffect(() => {
-    setBriefContent(activeProject?.description || "");
+    const description = activeProject?.description || "";
+    savedBriefContentRef.current = description;
+    setBriefContent(description);
     setIsBriefDirty(false);
   }, [activeProject?.description]);
 
