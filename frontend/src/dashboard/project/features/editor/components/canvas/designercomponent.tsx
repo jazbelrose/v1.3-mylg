@@ -46,12 +46,6 @@ interface FabricObjectLike {
   [key: string]: unknown;
 }
 
-interface CanvasObject {
-  id: string | number;
-  name: string;
-  obj: FabricObjectLike;
-}
-
 export interface DesignerRef {
   changeMode: (mode: string) => void;
   addText: () => void;
@@ -64,6 +58,12 @@ export interface DesignerRef {
   handleDelete: () => void;
   handleClear: () => void;
   handleSave: () => void;
+  zoomIn: (step?: number) => void;
+  zoomOut: (step?: number) => void;
+  resetZoom: () => void;
+  fitToViewport: () => void;
+  setZoom: (value: number) => void;
+  getZoom: () => number;
 }
 
 /* Fabric façade (for easier mocking / tree-shaking friendliness) */
@@ -83,6 +83,8 @@ const TOOL_MODES = {
   TEXT: "text",
   IMAGE: "image",
 } as const;
+
+const clampZoom = (value: number) => Math.min(3, Math.max(0.5, value));
 
 /* ---------- Defensive fabric patches ---------- */
 if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensivePatched) {
@@ -112,17 +114,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const [mode, setMode] = useState<string>(TOOL_MODES.SELECT);
-    const [objects, setObjects] = useState<CanvasObject[]>([]);
-    const [selectedId, setSelectedId] = useState<string | number | null>(null);
     const [color, setColor] = useState<string>("#ffffff");
     const [loadingCanvas, setLoadingCanvas] = useState<boolean>(false);
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
 
-        const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
-        const clipboard = useRef<unknown>(null);
+    const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
+    const clipboard = useRef<unknown>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fabricCanvasRef = useRef<any>(null);
+    const zoomRef = useRef<number>(1);
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
 
@@ -192,6 +193,79 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       },
       [applyCanvasMode]
     );
+
+    const applyZoom = useCallback(
+      (nextZoom: number, focal?: { x: number; y: number }) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!fabricCanvas) return;
+        const clamped = clampZoom(nextZoom);
+        const center =
+          focal ?? {
+            x: fabricCanvas.getWidth() / 2,
+            y: fabricCanvas.getHeight() / 2,
+          };
+        fabricCanvas.zoomToPoint(center, clamped);
+        zoomRef.current = clamped;
+        fabricCanvas.requestRenderAll();
+      },
+      []
+    );
+
+    const zoomIn = useCallback(
+      (step = 0.2) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!fabricCanvas) return;
+        applyZoom(fabricCanvas.getZoom() + step);
+      },
+      [applyZoom]
+    );
+
+    const zoomOut = useCallback(
+      (step = 0.2) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!fabricCanvas) return;
+        applyZoom(fabricCanvas.getZoom() - step);
+      },
+      [applyZoom]
+    );
+
+    const setZoom = useCallback(
+      (value: number) => {
+        applyZoom(value);
+      },
+      [applyZoom]
+    );
+
+    const resetZoom = useCallback(() => {
+      applyZoom(1);
+    }, [applyZoom]);
+
+    const fitToViewport = useCallback(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) {
+        return;
+      }
+      const container = containerRef.current;
+      if (!container) {
+        applyZoom(1);
+        return;
+      }
+      const width = fabricCanvas.getWidth();
+      const height = fabricCanvas.getHeight();
+      if (!width || !height) {
+        applyZoom(1);
+        return;
+      }
+      const widthScale = container.clientWidth / width;
+      const heightScale = container.clientHeight / height;
+      const nextZoom = clampZoom(Math.min(widthScale, heightScale));
+      applyZoom(nextZoom);
+    }, [applyZoom]);
+
+    const getZoom = useCallback(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      return fabricCanvas?.getZoom() ?? zoomRef.current;
+    }, []);
 
     const handleColorChange = useCallback(
       (eOrColor: React.ChangeEvent<HTMLInputElement> | string) => {
@@ -272,29 +346,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.loadFromJSON(h.stack[index], () => {
         fabricCanvas.renderAll();
         fabricCanvas.requestRenderAll();
-        updateObjects();
         isRestoringHistory.current = false;
       });
       h.index = index;
     }, []);
-
-    const updateObjects = () => {
-      const fabricCanvas = fabricCanvasRef.current;
-      if (fabricCanvas) {
-        const objs = fabricCanvas.getObjects();
-        const active = fabricCanvas.getActiveObject();
-        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
-        setObjects(
-          objs.map((obj: FabricObjectLike, i: number) => ({
-            id: obj.id ?? i,
-            name: obj.name ?? `${obj.type}-${i}`,
-            visible: obj.visible,
-            locked: obj.lockMovementX && obj.lockMovementY,
-            obj,
-          }))
-        );
-      }
-    };
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -304,7 +359,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.discardActiveObject();
       fabricCanvas.requestRenderAll();
       saveHistory();
-      updateObjects();
     }, []);
 
     /* Init canvas */
@@ -329,22 +383,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       });
 
       fabricCanvasRef.current = fabricCanvas;
+      zoomRef.current = fabricCanvas.getZoom();
 
       fabricCanvas.on("object:added", saveHistory);
-      fabricCanvas.on("object:added", updateObjects);
       fabricCanvas.on("object:added", markDirty);
 
       fabricCanvas.on("object:modified", saveHistory);
-      fabricCanvas.on("object:modified", updateObjects);
       fabricCanvas.on("object:modified", markDirty);
 
       fabricCanvas.on("object:removed", saveHistory);
-      fabricCanvas.on("object:removed", updateObjects);
       fabricCanvas.on("object:removed", markDirty);
-
-      fabricCanvas.on("selection:created", updateObjects);
-      fabricCanvas.on("selection:updated", updateObjects);
-      fabricCanvas.on("selection:cleared", () => setSelectedId(null));
 
       fabricCanvas.on("path:created", () => {
         changeMode(TOOL_MODES.SELECT);
@@ -367,8 +415,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         const delta = e.deltaY;
         let zoom = fabricCanvas.getZoom();
         zoom *= 0.999 ** delta;
-        zoom = Math.min(3, Math.max(0.5, zoom));
-        fabricCanvas.zoomToPoint({ x: e.offsetX, y: e.offsetY }, zoom);
+        const clamped = clampZoom(zoom);
+        fabricCanvas.zoomToPoint({ x: e.offsetX, y: e.offsetY }, clamped);
+        zoomRef.current = clamped;
+        fabricCanvas.requestRenderAll();
         e.stopPropagation();
       };
       canvasEl.addEventListener("wheel", handleWheel, { passive: false });
@@ -456,7 +506,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
                 });
               });
               isRestoringHistory.current = false;
-              updateObjects();
               saveHistory();
             } else {
               // When there's no canvas data, just clear and render without waiting
@@ -540,7 +589,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         (fabricCanvas as Record<string, unknown>).__drawingObject = null;
         (fabricCanvas as Record<string, unknown>).__isDrawingRect = false;
         saveHistory();
-        updateObjects();
         changeMode(TOOL_MODES.SELECT);
       }
     };
@@ -684,44 +732,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       return () => window.removeEventListener("keydown", handleKeyDown);
     }, [handleDelete, handleUndo, handleRedo]);
 
-    /* Layer list helpers */
-    const toggleVisibility = (obj: FabricObjectLike) => {
-      obj.visible = !obj.visible;
-      const canvas = obj.canvas as Record<string, unknown>;
-      if (typeof canvas.requestRenderAll === 'function') {
-        canvas.requestRenderAll();
-      }
-      updateObjects();
-      markDirty();
-    };
-
-    const toggleLock = (obj: FabricObjectLike) => {
-      const locked = !(obj.lockMovementX && obj.lockMovementY);
-      obj.lockMovementX = obj.lockMovementY = locked;
-      obj.selectable = !locked;
-      obj.evented = !locked;
-      const canvas = obj.canvas as Record<string, unknown>;
-      if (typeof canvas.requestRenderAll === 'function') {
-        canvas.requestRenderAll();
-      }
-      updateObjects();
-      markDirty();
-    };
-
-    const renameObject = (obj: FabricObjectLike, name: string) => {
-      obj.name = name;
-      updateObjects();
-      markDirty();
-    };
-
-    const selectLayer = (obj: FabricObjectLike, id: string | number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      if (!fabricCanvas) return;
-      fabricCanvas.setActiveObject(obj);
-      fabricCanvas.requestRenderAll();
-      setSelectedId(id);
-    };
-
     /* Expose methods to parent */
     useImperativeHandle(
       ref,
@@ -737,6 +747,12 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         handleDelete,
         handleClear,
         handleSave,
+        zoomIn,
+        zoomOut,
+        resetZoom,
+        fitToViewport,
+        setZoom,
+        getZoom,
       }),
       [
         changeMode,
@@ -749,6 +765,12 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         handleDelete,
         handleClear,
         handleSave,
+        zoomIn,
+        zoomOut,
+        resetZoom,
+        fitToViewport,
+        setZoom,
+        getZoom,
       ]
     );
 
@@ -756,73 +778,28 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     return (
       <div
         {...restProps}
+        className={styles.canvasRoot}
         style={{
-          display: "flex",
-          height: "100%",
           ...(forwardedStyle ?? {}),
         }}
       >
-        {/* Layers panel */}
-        <div className={styles.layersPanel}>
-          <h4>Layers</h4>
-          {objects.map(({ id, name, obj }) => (
-            <div
-              key={id}
-              className={`${styles.layerItem} ${
-                selectedId === id ? styles.layerItemSelected : ""
-              }`}
-              onClick={() => selectLayer(obj, id)}
-            >
-              <input
-                style={{ flex: "1 1 auto", marginRight: "4px" }}
-                value={name}
-                onChange={(e) => renameObject(obj, e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleVisibility(obj);
-                }}
-                aria-label="Toggle visibility"
-              >
-                {obj.visible ? "👁️" : "🚫"}
-              </button>
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleLock(obj);
-                }}
-                aria-label="Toggle lock"
-              >
-                {obj.lockMovementX ? "🔒" : "🔓"}
-              </button>
-            </div>
-          ))}
+        <div
+          ref={containerRef}
+          className={styles.canvasContainer}
+          onMouseDown={mode === TOOL_MODES.RECT ? handleMouseDown : undefined}
+          onMouseMove={mode === TOOL_MODES.RECT ? handleMouseMove : undefined}
+          onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
+        >
+          {loadingCanvas && <SpinnerOverlay />}
         </div>
 
-        {/* Canvas column */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <div
-            ref={containerRef}
-            className={styles.canvasContainer}
-            onMouseDown={mode === TOOL_MODES.RECT ? handleMouseDown : undefined}
-            onMouseMove={mode === TOOL_MODES.RECT ? handleMouseMove : undefined}
-            onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
-          >
-            {loadingCanvas && <SpinnerOverlay />}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={handleImageUpload}
-          />
-        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleImageUpload}
+        />
       </div>
     );
   }
