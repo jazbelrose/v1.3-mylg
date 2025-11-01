@@ -1,0 +1,3 @@
+export const STAGE_BASE_WIDTH = 1280;
+export const STAGE_ASPECT_RATIO = 16 / 9;
+export const STAGE_BASE_HEIGHT = Math.round(STAGE_BASE_WIDTH / STAGE_ASPECT_RATIO);

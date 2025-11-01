@@ -38,53 +38,58 @@ const LayerTree: React.FC<LayerTreeProps> = ({
 
   return (
     <aside className={styles.layerTree} aria-label="Layer controls">
-      <span className={styles.header}>Layers</span>
+      <div className={styles.header}>Layers</div>
       <div className={styles.groupList}>
         {(Object.keys(page.groupStates) as LayerGroupKey[]).map((layerKey) => {
           const state = page.groupStates[layerKey];
           const { label, icon } = GROUP_META[layerKey];
           const visible = state.visible;
+          const isActiveLayer = activeLayer === layerKey;
           return (
             <div
               key={layerKey}
               className={classNames(styles.groupItem, {
-                [styles.active]: activeLayer === layerKey,
+                [styles.active]: isActiveLayer,
               })}
             >
-              <div className={styles.groupHeader}>
-                <button
-                  type="button"
-                  className={styles.groupLabel}
-                  onClick={() => onSelectLayer(layerKey)}
-                  disabled={disabled}
-                >
-                  {icon}
-                  <span>{label}</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.visibilityToggle}
-                  onClick={() => onToggleVisibility(layerKey)}
-                  disabled={disabled}
-                >
-                  {visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                  <span>{visible ? "Visible" : "Hidden"}</span>
-                </button>
-              </div>
-              <div className={styles.slider}>
-                <label htmlFor={`${page.id}-${layerKey}-opacity`}>Opacity</label>
-                <input
-                  id={`${page.id}-${layerKey}-opacity`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(state.opacity * 100)}
-                  onChange={(event) =>
-                    onChangeOpacity(layerKey, Number(event.target.value) / 100)
-                  }
-                  disabled={disabled}
-                />
-              </div>
+              <button
+                type="button"
+                className={styles.groupLabel}
+                onClick={() => onSelectLayer(layerKey)}
+                disabled={disabled}
+                aria-pressed={isActiveLayer}
+              >
+                {icon}
+                <span>{label}</span>
+              </button>
+              <button
+                type="button"
+                className={classNames(styles.visibilityToggle, {
+                  [styles.hidden]: !visible,
+                })}
+                onClick={() => onToggleVisibility(layerKey)}
+                disabled={disabled}
+              >
+                {visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                <span>{visible ? "Visible" : "Hidden"}</span>
+              </button>
+              {isActiveLayer && (
+                <div className={styles.slider}>
+                  <label htmlFor={`${page.id}-${layerKey}-opacity`}>Opacity</label>
+                  <input
+                    id={`${page.id}-${layerKey}-opacity`}
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(state.opacity * 100)}
+                    onChange={(event) =>
+                      onChangeOpacity(layerKey, Number(event.target.value) / 100)
+                    }
+                    disabled={disabled}
+                  />
+                  <span>{`${Math.round(state.opacity * 100)}%`}</span>
+                </div>
+              )}
             </div>
           );
         })}

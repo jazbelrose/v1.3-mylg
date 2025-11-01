@@ -1,5 +1,13 @@
 import React from "react";
-import { Plus, Copy, ArrowUp, ArrowDown, Layers } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Layers,
+  Plus,
+} from "lucide-react";
 import classNames from "classnames";
 import styles from "./PageRail.module.css";
 import type { SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
@@ -11,6 +19,8 @@ interface PageRailProps {
   onAdd: () => void;
   onDuplicate: (pageId: string) => void;
   onMove: (pageId: string, direction: "up" | "down") => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const PageRail: React.FC<PageRailProps> = ({
@@ -20,59 +30,74 @@ const PageRail: React.FC<PageRailProps> = ({
   onAdd,
   onDuplicate,
   onMove,
+  collapsed = false,
+  onToggleCollapse,
 }) => {
   const regularPages = pages.filter((page) => !page.isSuperSheet);
   const superSheet = pages.find((page) => page.isSuperSheet);
 
+  if (collapsed) {
+    return (
+      <div className={classNames(styles.pageRail, styles.collapsed)}>
+        <button
+          type="button"
+          className={styles.collapseHandle}
+          onClick={onToggleCollapse}
+          aria-label="Expand page rail"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <aside className={styles.pageRail} aria-label="Page rail">
+    <div className={styles.pageRail} aria-label="Pages">
       <div className={styles.header}>
-        <span>Pages</span>
-        <Layers size={16} aria-hidden="true" />
+        <div className={styles.headerTitle}>
+          <Layers size={16} aria-hidden="true" />
+          <span>Pages</span>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className={styles.collapseHandle}
+          aria-label="Collapse page rail"
+        >
+          <ChevronLeft size={16} />
+        </button>
       </div>
       <div className={styles.list}>
         {regularPages.map((page, index) => {
           const handleSelect = () => onSelect(page.id);
+          const isActive = page.id === activePageId;
           return (
             <div
               key={page.id}
-              role="button"
-              tabIndex={0}
-              onClick={handleSelect}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleSelect();
-                }
-              }}
-              className={classNames(styles.pageButton, {
-                [styles.active]: page.id === activePageId,
+              className={classNames(styles.pageItem, {
+                [styles.active]: isActive,
               })}
             >
-              <span className={styles.thumbnail}>{index + 1}</span>
-              <div className={styles.meta}>
-                <span>{page.name}</span>
-                <small>Custom layout</small>
-              </div>
-              <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.thumbnailButton}
+                onClick={handleSelect}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <span className={styles.thumbnailIndex}>{index + 1}</span>
+                <span className={styles.thumbnailName}>{page.name}</span>
+              </button>
+              <div className={styles.pageActions}>
                 <button
                   type="button"
-                  className={styles.actionButton}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDuplicate(page.id);
-                  }}
+                  onClick={() => onDuplicate(page.id)}
                   aria-label={`Duplicate ${page.name}`}
                 >
                   <Copy size={14} />
                 </button>
                 <button
                   type="button"
-                  className={styles.actionButton}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onMove(page.id, "up");
-                  }}
+                  onClick={() => onMove(page.id, "up")}
                   disabled={index === 0}
                   aria-label={`Move ${page.name} up`}
                 >
@@ -80,11 +105,7 @@ const PageRail: React.FC<PageRailProps> = ({
                 </button>
                 <button
                   type="button"
-                  className={styles.actionButton}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onMove(page.id, "down");
-                  }}
+                  onClick={() => onMove(page.id, "down")}
                   disabled={index === regularPages.length - 1}
                   aria-label={`Move ${page.name} down`}
                 >
@@ -95,36 +116,29 @@ const PageRail: React.FC<PageRailProps> = ({
           );
         })}
         {superSheet && (
-          <>
-            <div className={styles.separator} aria-hidden="true" />
-            <div
-              key={superSheet.id}
-              role="button"
-              tabIndex={0}
+          <div
+            key={superSheet.id}
+            className={classNames(styles.pageItem, styles.superSheet, {
+              [styles.active]: superSheet.id === activePageId,
+            })}
+          >
+            <button
+              type="button"
+              className={styles.thumbnailButton}
               onClick={() => onSelect(superSheet.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(superSheet.id);
-                }
-              }}
-              className={classNames(styles.pageButton, {
-                [styles.active]: superSheet.id === activePageId,
-              })}
+              aria-current={superSheet.id === activePageId ? "page" : undefined}
             >
-              <span className={styles.thumbnail}>∞</span>
-              <div className={styles.meta}>
-                <span>{superSheet.name}</span>
-                <small>All layers</small>
-              </div>
-            </div>
-          </>
+              <span className={styles.thumbnailIndex}>∞</span>
+              <span className={styles.thumbnailName}>{superSheet.name}</span>
+            </button>
+          </div>
         )}
       </div>
       <button type="button" onClick={onAdd} className={styles.addButton}>
-        <Plus size={16} /> Add page
+        <Plus size={16} />
+        <span>New page</span>
       </button>
-    </aside>
+    </div>
   );
 };
 

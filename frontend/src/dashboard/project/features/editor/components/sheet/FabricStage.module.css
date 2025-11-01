@@ -1,36 +1,45 @@
 .stageContainer {
-  position: relative;
-  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 55%),
-    radial-gradient(circle at 80% 0%, rgba(137, 78, 255, 0.12), transparent 45%),
-    rgba(17, 19, 24, 0.92);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
-.stageTopBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.9rem;
-}
-
-.canvasWrapper {
-  position: relative;
+.viewport {
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 32px;
-  box-sizing: border-box;
+  padding: 32px;
   overflow: auto;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.04), transparent 55%),
+    radial-gradient(circle at 70% 80%, rgba(64, 202, 255, 0.04), transparent 60%),
+    #0c0c0c;
+}
+
+.surface {
+  display: inline-block;
+  transform-origin: center top;
+  transition: transform 0.2s ease;
+}
+
+.surfaceFrame {
+  position: relative;
+  background: #111215;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.surfaceBackdrop {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .layer {
@@ -41,48 +50,32 @@
   justify-content: center;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  padding: 0;
 }
 
 .layer.active {
   pointer-events: auto;
-  z-index: 5;
-}
-
-.layerSurface {
-  position: relative;
-  width: 100%;
-  max-width: 1920px;
-  max-height: 100%;
-  background: rgba(12, 14, 18, 0.92);
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  pointer-events: inherit;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  height: auto;
-  margin: 0 auto;
+  z-index: 2;
 }
 
 .layerContent {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
   pointer-events: inherit;
 }
 
-.layerContent > * {
-  flex: 1;
-  min-height: 0;
+.surfaceEmpty,
+.placeholder {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 32px;
 }
 
-.placeholder {
-  margin: auto;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
+.surfaceEmpty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
