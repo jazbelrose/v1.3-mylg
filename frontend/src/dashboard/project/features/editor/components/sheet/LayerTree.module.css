@@ -1,84 +1,123 @@
 .layerTree {
-  background: rgba(12, 14, 18, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .header {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.groupList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.empty {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.groupItem {
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border: 1px solid transparent;
+  overflow-y: auto;
 }
 
-.groupItem.active {
-  border-color: rgba(120, 108, 255, 0.6);
-  box-shadow: 0 0 0 1px rgba(120, 108, 255, 0.25);
-}
-
-.groupHeader {
+.layerRow {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.groupLabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.layerRow:hover,
+.layerRow:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.layerRowActive {
+  background: rgba(88, 114, 255, 0.25);
+  box-shadow: 0 8px 18px rgba(88, 114, 255, 0.24);
+}
+
+.layerLabel {
   font-weight: 600;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.86);
-  background: transparent;
-  border: none;
-  cursor: pointer;
 }
 
-.visibilityToggle {
-  display: flex;
+.rowActions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.iconButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.7);
-  background: transparent;
-  border: none;
+  justify-content: center;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.visibilityToggle input[type="checkbox"] {
-  accent-color: #846aff;
+.iconButton:hover:not(:disabled),
+.iconButton:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.slider {
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconButtonDisabled {
+  opacity: 0.35;
+}
+
+.opacityRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 0 12px 8px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.opacityRowVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.opacityRow label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.opacityRow input[type="range"] {
   width: 100%;
 }
 
-.slider input[type="range"] {
-  width: 100%;
-  accent-color: #846aff;
+.opacityValue {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
 }

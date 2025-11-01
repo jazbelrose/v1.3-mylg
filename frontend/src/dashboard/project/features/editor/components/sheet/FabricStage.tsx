@@ -29,14 +29,12 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
   );
 
   return (
-    <section className={styles.stageContainer} aria-label="Sheet stage">
-      <div className={styles.stageTopBar}>
-        <span>{page ? page.name : "Select a page"}</span>
-        <span>{page?.isSuperSheet ? "One-sheet overlay" : "Page layout"}</span>
-      </div>
-      <div className={styles.canvasWrapper}>
+    <div className={styles.stageContainer} aria-label="Stage">
+      <div className={styles.stageSurface}>
         {nothingVisible ? (
-          <div className={styles.placeholder}>Enable a layer from the Layer Tree to start editing.</div>
+          <div className={styles.placeholder}>
+            Enable a layer from the Layers tab to start editing.
+          </div>
         ) : (
           layerEntries.map(([key, state]) => {
             const node = layerNodes[key];
@@ -57,7 +55,7 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
           })
         )}
       </div>
-    </section>
+    </div>
   );
 };
 

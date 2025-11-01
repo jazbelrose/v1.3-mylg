@@ -15,30 +15,26 @@ const LABELS: Record<LayerGroupKey, string> = {
 
 const Inspector: React.FC<InspectorProps> = ({ page, activeLayer }) => {
   return (
-    <aside className={styles.inspector} aria-label="Inspector panel">
-      <span className={styles.header}>Inspector</span>
+    <section className={styles.inspector} aria-label="Properties">
       {!page ? (
-        <div className={styles.section}>
-          <label>Status</label>
-          <span>Select a page to inspect details.</span>
-        </div>
+        <p className={styles.empty}>Select a page to see contextual properties.</p>
       ) : (
-        <>
-          <div className={styles.section}>
-            <label>Active Layer</label>
-            <span>{LABELS[activeLayer]}</span>
-          </div>
-          <div className={styles.section}>
-            <label>Page</label>
-            <span>{page.name}</span>
-          </div>
-          <div className={styles.section}>
-            <label>Super Sheet</label>
-            <span>{page.isSuperSheet ? "Enabled" : "No"}</span>
-          </div>
-        </>
+        <ul className={styles.propertyList}>
+          <li>
+            <span className={styles.label}>Active layer</span>
+            <span className={styles.value}>{LABELS[activeLayer]}</span>
+          </li>
+          <li>
+            <span className={styles.label}>Page</span>
+            <span className={styles.value}>{page.name}</span>
+          </li>
+          <li>
+            <span className={styles.label}>Super sheet</span>
+            <span className={styles.value}>{page.isSuperSheet ? "Enabled" : "Off"}</span>
+          </li>
+        </ul>
       )}
-    </aside>
+    </section>
   );
 };
 

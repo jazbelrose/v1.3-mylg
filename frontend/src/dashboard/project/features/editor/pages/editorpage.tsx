@@ -10,6 +10,16 @@ import PreviewDrawer from "@/dashboard/project/features/editor/components/Previe
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
+import {
+  ClipboardPaste,
+  Copy as CopyIcon,
+  Eraser,
+  Eye,
+  Redo2,
+  Save as SaveIcon,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import type {
   LayerGroupKey,
   LayerGroupState,
@@ -22,8 +32,6 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
-
-const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
 
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -93,7 +101,7 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
+  const [, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
@@ -111,6 +119,7 @@ const EditorPage: React.FC = () => {
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const savedBriefContentRef = useRef<string>("");
 
   const handleBriefChange = useCallback((json: string) => {
@@ -238,9 +247,6 @@ const EditorPage: React.FC = () => {
     navigate(getProjectDashboardPath(projectId, title));
   };
 
-  const handleSelectTool = useCallback(() => {
-    designerRef.current?.changeMode("select");
-  }, []);
   const handleBrushTool = useCallback(() => {
     designerRef.current?.changeMode("brush");
   }, []);
@@ -253,11 +259,28 @@ const EditorPage: React.FC = () => {
   const handleImageTool = useCallback(() => {
     designerRef.current?.triggerImageUpload();
   }, []);
-  const handleColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      designerRef.current?.handleColorChange(e.target.value),
-    []
-  );
+  const syncZoom = useCallback(() => {
+    const current = designerRef.current?.getZoom();
+    if (typeof current === "number" && !Number.isNaN(current)) {
+      setZoom(current);
+    }
+  }, [designerRef]);
+  const handleZoomIn = useCallback(() => {
+    designerRef.current?.zoomIn();
+    syncZoom();
+  }, [designerRef, syncZoom]);
+  const handleZoomOut = useCallback(() => {
+    designerRef.current?.zoomOut();
+    syncZoom();
+  }, [designerRef, syncZoom]);
+  const handleZoomReset = useCallback(() => {
+    designerRef.current?.resetZoom();
+    syncZoom();
+  }, [designerRef, syncZoom]);
+  const handleZoomFit = useCallback(() => {
+    designerRef.current?.fitToViewport();
+    syncZoom();
+  }, [designerRef, syncZoom]);
   const handleUndo = useCallback(() => {
     designerRef.current?.handleUndo();
   }, []);
@@ -408,17 +431,6 @@ const EditorPage: React.FC = () => {
     []
   );
 
-  const handleToolbarModeChange = useCallback(
-    (mode: string) => {
-      if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
-      const layer = mode as LayerGroupKey;
-      if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
-      setActiveLayer(layer);
-    },
-    [activeLayer, guardAgainstUnsavedBrief]
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
@@ -482,46 +494,88 @@ const EditorPage: React.FC = () => {
     ]
   );
 
-  const toolbarProps = useMemo(
-    () => ({
-      initialMode: activeLayer,
-      onModeChange: handleToolbarModeChange,
-      onPreview: () => setPreviewOpen(true),
-      onSelectTool: handleSelectTool,
-      onFreeDraw: handleBrushTool,
-      onAddRectangle: handleRectTool,
-      onAddText: handleTextTool,
-      onAddImage: handleImageTool,
-      onColorChange: handleColorChange,
-      onUndo: handleUndo,
-      onRedo: handleRedo,
-      onCopy: handleCopy,
-      onPaste: handlePaste,
-      onDelete: handleDelete,
-      onClearCanvas: handleClearCanvas,
-      onSave: handleSave,
-      ...(activeLayer === "brief" ? briefToolbarActions : {}),
-    }),
-    [
-      activeLayer,
-      briefToolbarActions,
-      handleBrushTool,
-      handleClearCanvas,
-      handleColorChange,
-      handleCopy,
-      handleDelete,
-      handleImageTool,
-      handlePaste,
-      handleRectTool,
-      handleRedo,
-      handleSave,
-      handleSelectTool,
-      handleToolbarModeChange,
-      handleTextTool,
-      handleUndo,
-      setPreviewOpen,
-    ]
-  );
+  const toolbarProps = useMemo(() => {
+    const zoomLabel = `${Math.round(zoom * 100)}%`;
+    return {
+      onInsertText: handleTextTool,
+      onInsertImage: handleImageTool,
+      onInsertShape: handleRectTool,
+      onInsertLine: handleBrushTool,
+      onZoomIn: handleZoomIn,
+      onZoomOut: handleZoomOut,
+      onZoomFit: handleZoomFit,
+      onZoomReset: handleZoomReset,
+      zoomLabel,
+      moreActions: [
+        {
+          id: "preview",
+          label: "Open preview",
+          onSelect: () => setPreviewOpen(true),
+          icon: <Eye size={14} />,
+        },
+        {
+          id: "undo",
+          label: "Undo",
+          onSelect: handleUndo,
+          icon: <Undo2 size={14} />,
+        },
+        {
+          id: "redo",
+          label: "Redo",
+          onSelect: handleRedo,
+          icon: <Redo2 size={14} />,
+        },
+        {
+          id: "copy",
+          label: "Copy",
+          onSelect: handleCopy,
+          icon: <CopyIcon size={14} />,
+        },
+        {
+          id: "paste",
+          label: "Paste",
+          onSelect: handlePaste,
+          icon: <ClipboardPaste size={14} />,
+        },
+        {
+          id: "delete",
+          label: "Delete",
+          onSelect: handleDelete,
+          icon: <Trash2 size={14} />,
+        },
+        {
+          id: "clear",
+          label: "Clear canvas",
+          onSelect: handleClearCanvas,
+          icon: <Eraser size={14} />,
+        },
+        {
+          id: "save",
+          label: "Save",
+          onSelect: handleSave,
+          icon: <SaveIcon size={14} />,
+        },
+      ],
+    };
+  }, [
+    handleBrushTool,
+    handleClearCanvas,
+    handleCopy,
+    handleDelete,
+    handleImageTool,
+    handlePaste,
+    handleRectTool,
+    handleRedo,
+    handleSave,
+    handleTextTool,
+    handleUndo,
+    handleZoomFit,
+    handleZoomIn,
+    handleZoomOut,
+    handleZoomReset,
+    setPreviewOpen,
+    zoom,
+  ]);
 
   return (
     <ProjectPageLayout

@@ -1,5 +1,13 @@
 import React from "react";
-import { Plus, Copy, ArrowUp, ArrowDown, Layers } from "lucide-react";
+import {
+  Plus,
+  Copy,
+  ArrowUp,
+  ArrowDown,
+  LayoutGrid,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import classNames from "classnames";
 import styles from "./PageRail.module.css";
 import type { SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
@@ -11,6 +19,8 @@ interface PageRailProps {
   onAdd: () => void;
   onDuplicate: (pageId: string) => void;
   onMove: (pageId: string, direction: "up" | "down") => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 const PageRail: React.FC<PageRailProps> = ({
@@ -20,44 +30,60 @@ const PageRail: React.FC<PageRailProps> = ({
   onAdd,
   onDuplicate,
   onMove,
+  collapsed,
+  onToggleCollapse,
 }) => {
   const regularPages = pages.filter((page) => !page.isSuperSheet);
   const superSheet = pages.find((page) => page.isSuperSheet);
 
+  if (collapsed) {
+    return (
+      <div className={classNames(styles.pageRail, styles.collapsed)}>
+        <button
+          type="button"
+          className={styles.collapseToggle}
+          onClick={onToggleCollapse}
+          aria-label="Expand pages panel"
+        >
+          <ChevronsRight size={18} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <aside className={styles.pageRail} aria-label="Page rail">
+    <div className={styles.pageRail} aria-label="Page thumbnails">
       <div className={styles.header}>
-        <span>Pages</span>
-        <Layers size={16} aria-hidden="true" />
+        <span className={styles.headerLabel}>
+          <LayoutGrid size={16} aria-hidden="true" /> Pages
+        </span>
+        <button
+          type="button"
+          className={styles.collapseToggle}
+          onClick={onToggleCollapse}
+          aria-label="Collapse pages panel"
+        >
+          <ChevronsLeft size={16} />
+        </button>
       </div>
       <div className={styles.list}>
         {regularPages.map((page, index) => {
-          const handleSelect = () => onSelect(page.id);
+          const isActive = page.id === activePageId;
           return (
-            <div
-              key={page.id}
-              role="button"
-              tabIndex={0}
-              onClick={handleSelect}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleSelect();
-                }
-              }}
-              className={classNames(styles.pageButton, {
-                [styles.active]: page.id === activePageId,
-              })}
-            >
-              <span className={styles.thumbnail}>{index + 1}</span>
-              <div className={styles.meta}>
-                <span>{page.name}</span>
-                <small>Custom layout</small>
-              </div>
-              <div className={styles.actions}>
+            <div key={page.id} className={styles.thumbnailSlot}>
+              <button
+                type="button"
+                className={classNames(styles.thumbnailButton, {
+                  [styles.active]: isActive,
+                })}
+                onClick={() => onSelect(page.id)}
+                aria-label={`Select ${page.name}`}
+              >
+                <span className={styles.thumbnailNumber}>{index + 1}</span>
+              </button>
+              <div className={styles.thumbnailActions}>
                 <button
                   type="button"
-                  className={styles.actionButton}
                   onClick={(event) => {
                     event.stopPropagation();
                     onDuplicate(page.id);
@@ -68,7 +94,6 @@ const PageRail: React.FC<PageRailProps> = ({
                 </button>
                 <button
                   type="button"
-                  className={styles.actionButton}
                   onClick={(event) => {
                     event.stopPropagation();
                     onMove(page.id, "up");
@@ -80,7 +105,6 @@ const PageRail: React.FC<PageRailProps> = ({
                 </button>
                 <button
                   type="button"
-                  className={styles.actionButton}
                   onClick={(event) => {
                     event.stopPropagation();
                     onMove(page.id, "down");
@@ -95,36 +119,24 @@ const PageRail: React.FC<PageRailProps> = ({
           );
         })}
         {superSheet && (
-          <>
-            <div className={styles.separator} aria-hidden="true" />
-            <div
-              key={superSheet.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(superSheet.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(superSheet.id);
-                }
-              }}
-              className={classNames(styles.pageButton, {
+          <div className={styles.thumbnailSlot}>
+            <button
+              type="button"
+              className={classNames(styles.thumbnailButton, {
                 [styles.active]: superSheet.id === activePageId,
               })}
+              onClick={() => onSelect(superSheet.id)}
+              aria-label={`Select ${superSheet.name}`}
             >
-              <span className={styles.thumbnail}>∞</span>
-              <div className={styles.meta}>
-                <span>{superSheet.name}</span>
-                <small>All layers</small>
-              </div>
-            </div>
-          </>
+              <span className={styles.thumbnailNumber}>∞</span>
+            </button>
+          </div>
         )}
       </div>
       <button type="button" onClick={onAdd} className={styles.addButton}>
-        <Plus size={16} /> Add page
+        <Plus size={16} /> New page
       </button>
-    </aside>
+    </div>
   );
 };
 

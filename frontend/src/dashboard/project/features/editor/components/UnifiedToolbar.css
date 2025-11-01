@@ -1,111 +1,174 @@
 .unified-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--toolbar-bg, #181818);
-  color: var(--toolbar-fg, #f5f5f5);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.unified-toolbar.light {
-  --toolbar-bg: #f5f5f5;
-  --toolbar-fg: #000;
-  --hover-bg: rgba(0, 0, 0, 0.05);
-}
-
-.unified-toolbar.dark {
-  --toolbar-bg: #181818;
-  --toolbar-fg: #f5f5f5;
-  --hover-bg: rgba(255, 255, 255, 0.1);
-}
-
-.unified-toolbar.vertical {
-  flex-direction: column;
-}
-
-.toolbar-group {
-  display: flex;
-  gap: 0.5rem;
-  margin-right: 0.5rem;
-}
-
-
-.toolbar-group.global-actions {
-  margin-left: auto;
-}
-
-.toolbar-group button {
-  background: none;
-  border: none;
-  padding: 0.5rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-.toolbar-group select {
-  padding: 0.25rem;
-  border: 1px solid #444;
-  background: #2a2a2a;
-  color: inherit;
-}
-
-.toolbar-group button:hover {
-  background-color: var(--hover-bg);
-}
-
-.color-input {
-  width: 1.5rem;
-  height: 1.5rem;
-  border: none;
-  padding: 0;
-  background: transparent;
-  border-radius: 50%;
-}
-
-/* Layout dropdown styles */
-.layout-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background-color: white;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  min-width: 200px;
-  padding: 8px;
-}
-
-.layout-dropdown-item {
-  margin: 8px 0;
+  gap: 16px;
   padding: 8px 12px;
-  color: #050505;
-  cursor: pointer;
-  line-height: 16px;
-  font-size: 15px;
+  background: rgba(12, 12, 12, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #f5f5f5;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.unified-toolbar__group {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background-color: #fff;
+  gap: 8px;
+  padding-right: 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.unified-toolbar__group--trailing {
+  margin-left: auto;
+  border-right: none;
+  padding-right: 0;
+  position: relative;
+}
+
+.unified-toolbar__group:last-of-type {
+  border-right: none;
+  padding-right: 0;
+}
+
+.unified-toolbar__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: none;
-  width: 100%;
-  box-sizing: border-box;
-  transition: background-color 0.3s;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.layout-dropdown-item:hover {
-  background-color: #eee;
+.unified-toolbar__button:hover:not(:disabled),
+.unified-toolbar__button:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
 }
 
+.unified-toolbar__button:active:not(:disabled) {
+  transform: translateY(1px);
+}
 
+.unified-toolbar__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
+.unified-toolbar__button--active {
+  background: rgba(88, 114, 255, 0.28);
+  color: #ffffff;
+}
 
+.unified-toolbar__button--label {
+  padding: 0 10px;
+  width: auto;
+  min-width: 52px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
+.unified-toolbar__compositeIcon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-radius: 2px;
+}
 
+.unified-toolbar__focusIcon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
 
+.unified-toolbar__focusIcon::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.unified-toolbar__focusIcon--active::after {
+  opacity: 1;
+}
+
+.unified-toolbar__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: rgba(18, 18, 18, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 50;
+}
+
+.unified-toolbar__menuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-align: left;
+}
+
+.unified-toolbar__menuItem:hover:not(:disabled),
+.unified-toolbar__menuItem:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.unified-toolbar__menuItem:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.unified-toolbar__menuEmpty {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.unified-toolbar__menuIcon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 1200px) {
+  .unified-toolbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .unified-toolbar__group {
+    border-right: none;
+    padding-right: 0;
+  }
+
+  .unified-toolbar__group--trailing {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
