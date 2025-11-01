@@ -20,6 +20,7 @@
     "@aws-sdk/client-sns": "^3.0.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
     "dotenv": "^17.2.2",
+    "pdfkit": "^0.15.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

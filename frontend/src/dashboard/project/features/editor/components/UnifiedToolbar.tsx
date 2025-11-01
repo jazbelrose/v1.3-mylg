@@ -59,6 +59,7 @@ export interface UnifiedToolbarProps {
   onDelete?: () => void;
   onClearCanvas?: () => void;
   onPreview?: () => void;
+  onExport?: () => void;
   onSave?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -128,6 +129,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
   onDelete,
   onClearCanvas,
   onPreview,
+  onExport,
   onSave,
   onUndo,
   onRedo,
@@ -194,6 +196,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
   const moreActions = useMemo(
     () => [
       { label: "Preview", onClick: onPreview },
+      { label: "Export deck", onClick: onExport },
       { label: "Save", onClick: onSave },
       { label: "Undo", onClick: onUndo },
       { label: "Redo", onClick: onRedo },
@@ -202,7 +205,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
       { label: "Clear canvas", onClick: onClearCanvas },
       { label: "Delete", onClick: onDelete },
     ],
-    [onPreview, onSave, onUndo, onRedo, onCopy, onPaste, onClearCanvas, onDelete]
+    [onPreview, onExport, onSave, onUndo, onRedo, onCopy, onPaste, onClearCanvas, onDelete]
   );
 
   return (

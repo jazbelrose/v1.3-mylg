@@ -98,7 +98,7 @@ export const useFileTransfers = ({
     if (!projectId) return [];
     const prefixes =
       folderKey === "uploads"
-        ? ["uploads/", "lexical/", "chat_uploads/"].map((dir) => `projects/${projectId}/${dir}`)
+        ? ["uploads/", "fabric/", "chat_uploads/"].map((dir) => `projects/${projectId}/${dir}`)
         : [`projects/${projectId}/${folderKey}/`];
 
     try {

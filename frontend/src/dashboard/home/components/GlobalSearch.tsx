@@ -8,6 +8,7 @@ import type { Project, Message, UserLite } from '@/app/contexts/DataProvider';
 import { getFileUrl } from '@/shared/utils/api';
 import type { AppUser } from '@/dashboard/features/messages/types';
 import { getUserDisplayName, getUserThumbnail } from '@/dashboard/features/messages/utils/userHelpers';
+import extractFabricPlainText from '@/dashboard/shared/fabric/extractFabricPlainText';
 import SVGThumbnail from './SvgThumbnail';
 import Squircle from '@/shared/ui/Squircle';
 
@@ -126,6 +127,16 @@ const extractPlainText = (input: unknown): string => {
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
         const parsed = JSON.parse(trimmed);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          Array.isArray((parsed as { objects?: unknown[] }).objects)
+        ) {
+          const fabricText = extractFabricPlainText(trimmed);
+          if (fabricText) {
+            return fabricText;
+          }
+        }
         const fromLexical = collectLexicalText((parsed as Record<string, unknown>).root ?? parsed);
         if (fromLexical) {
           return fromLexical;

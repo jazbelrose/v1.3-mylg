@@ -7,7 +7,7 @@ import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLink
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
+import FabricRealtimeCanvas from "@/dashboard/shared/fabric/FabricRealtimeCanvas";
 import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
@@ -22,8 +22,15 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import { exportFabricDeck } from "@/shared/utils/api";
+import type { UnifiedToolbarProps } from "@/dashboard/project/features/editor/components/UnifiedToolbar";
+import extractFabricPlainText from "@/dashboard/shared/fabric/extractFabricPlainText";
 
 const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
+
+type FabricToolbarActions = Partial<UnifiedToolbarProps> & {
+  __fabricExportState?: () => unknown;
+};
 
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -93,7 +100,7 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
+  const [briefToolbarActions, setBriefToolbarActions] = useState<FabricToolbarActions>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
@@ -110,12 +117,17 @@ const EditorPage: React.FC = () => {
   );
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
   const [briefContent, setBriefContent] = useState<string>("");
+  const [briefSummary, setBriefSummary] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
   const savedBriefContentRef = useRef<string>("");
+  const savedBriefSummaryRef = useRef<string>("");
 
-  const handleBriefChange = useCallback((json: string) => {
+  const handleBriefChange = useCallback((json: string, summary: string) => {
     setBriefContent(json);
-    setIsBriefDirty(json !== savedBriefContentRef.current);
+    setBriefSummary(summary);
+    setIsBriefDirty(
+      json !== savedBriefContentRef.current || summary !== savedBriefSummaryRef.current
+    );
   }, []);
 
   const saveBrief = useCallback(
@@ -131,8 +143,10 @@ const EditorPage: React.FC = () => {
       try {
         await updateProjectFields(activeProject.projectId, {
           description: briefContent,
+          descriptionPlainText: briefSummary,
         });
         savedBriefContentRef.current = briefContent;
+        savedBriefSummaryRef.current = briefSummary;
         setIsBriefDirty(false);
         if (showToast) notify("success", "Saved. Nice.");
       } catch (err) {
@@ -142,7 +156,13 @@ const EditorPage: React.FC = () => {
           notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
       }
     },
-    [activeProject?.projectId, briefContent, isBriefDirty, updateProjectFields]
+    [
+      activeProject?.projectId,
+      briefContent,
+      briefSummary,
+      isBriefDirty,
+      updateProjectFields,
+    ]
   );
 
   useEffect(() => {
@@ -153,6 +173,11 @@ const EditorPage: React.FC = () => {
     const description = activeProject?.description || "";
     savedBriefContentRef.current = description;
     setBriefContent(description);
+    const summaryFallback =
+      (activeProject as { descriptionPlainText?: string })?.descriptionPlainText ??
+      extractFabricPlainText(description);
+    savedBriefSummaryRef.current = summaryFallback;
+    setBriefSummary(summaryFallback);
     setIsBriefDirty(false);
   }, [activeProject?.description]);
 
@@ -283,6 +308,32 @@ const EditorPage: React.FC = () => {
       void saveBrief();
     }
   }, [activeLayer, saveBrief]);
+
+  const handleExportDeck = useCallback(async () => {
+    if (!activeProject?.projectId) {
+      notify("error", "No active project to export");
+      return;
+    }
+
+    try {
+      const documentId = `${activeProject.projectId}:deck`;
+      const response = await exportFabricDeck(documentId);
+      const download = document.createElement("a");
+      download.href = `data:application/pdf;base64,${response.pdfBase64}`;
+      const safeTitle = (activeProject.title ?? "deck")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      download.download = `${safeTitle || "deck"}.pdf`;
+      document.body.appendChild(download);
+      download.click();
+      document.body.removeChild(download);
+      notify("success", "Deck exported to PDF");
+    } catch (error) {
+      console.error("Failed to export deck", error);
+      notify("error", "Unable to export deck PDF");
+    }
+  }, [activeProject?.projectId, activeProject?.title]);
 
   const guardAgainstUnsavedBrief = useCallback(() => {
     if (activeLayer === "brief" && isBriefDirty) {
@@ -451,42 +502,43 @@ const EditorPage: React.FC = () => {
     };
   }, [isBriefDirty]);
 
-  const layerNodes = useMemo(
-    () => ({
-      canvas: <DesignerComponent ref={designerRef} />,
-      brief:
-        activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
-          />
-        ) : (
-          <div>Loading...</div>
-        ),
+  const layerNodes = useMemo(() => {
+    const briefDocumentId = `${activeProject?.projectId ?? "local"}:brief`;
+    const briefInitial = activeProject?.description ?? briefContent ?? "";
+    const moodboardInitial = (activeProject as { moodboardCanvas?: string })?.moodboardCanvas;
+
+    return {
+      canvas: <DesignerComponent ref={designerRef} />, 
+      brief: (
+        <FabricRealtimeCanvas
+          key={briefDocumentId}
+          documentId={briefDocumentId}
+          initialState={briefInitial}
+          onChange={handleBriefChange}
+          registerToolbar={setBriefToolbarActions}
+          disableRealtime={!activeProject?.projectId}
+        />
+      ),
       moodboard: (
         <MoodboardCanvas
           projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
+          initialState={moodboardInitial}
         />
       ),
-    }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
-  );
+    };
+  }, [
+    activeProject?.description,
+    activeProject?.projectId,
+    briefContent,
+    handleBriefChange,
+  ]);
 
   const toolbarProps = useMemo(
     () => ({
       initialMode: activeLayer,
       onModeChange: handleToolbarModeChange,
       onPreview: () => setPreviewOpen(true),
+      onExport: handleExportDeck,
       onSelectTool: handleSelectTool,
       onFreeDraw: handleBrushTool,
       onAddRectangle: handleRectTool,
@@ -507,6 +559,7 @@ const EditorPage: React.FC = () => {
       briefToolbarActions,
       handleBrushTool,
       handleClearCanvas,
+      handleExportDeck,
       handleColorChange,
       handleCopy,
       handleDelete,
@@ -568,7 +621,7 @@ const EditorPage: React.FC = () => {
             onClose={() => setPreviewOpen(false)}
             url={activeProject?.previewUrl as string}
             onExportGallery={() => console.log("Export to Gallery")}
-            onExportPDF={() => console.log("Export to PDF")}
+            onExportPDF={handleExportDeck}
           />
         </div>
       </div>

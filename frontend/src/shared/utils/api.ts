@@ -260,6 +260,7 @@ const BASE_ENDPOINTS = {
     USER_SERVICE_URL: 'https://gy8dq7w0a3.execute-api.us-west-2.amazonaws.com',
     MESSAGES_SERVICE_URL: 'https://uzcx04lrr9.execute-api.us-west-2.amazonaws.com',
     WEBSOCKET_URL: 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev',
+    FABRIC_SERVICE_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com',
     
     // Mapped endpoints using v1.2 services with correct routes
     API_BASE_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com',
@@ -320,6 +321,7 @@ export const {
   PROJECTS_SERVICE_URL,
   USER_SERVICE_URL,
   MESSAGES_SERVICE_URL,
+  FABRIC_SERVICE_URL,
   // Core endpoints
   API_BASE_URL,
   USER_PROFILES_API_URL,
@@ -655,6 +657,24 @@ export async function updateProjectFields(projectId: string, fields: Partial<Pro
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
+  });
+}
+
+export interface FabricExportResponse {
+  documentId: string;
+  version: number;
+  pdfBase64: string;
+  html: string;
+  objectCount: number;
+}
+
+export async function exportFabricDeck(documentId: string): Promise<FabricExportResponse> {
+  if (!documentId) throw new Error('documentId is required for exportFabricDeck');
+  const url = `${FABRIC_SERVICE_URL}/fabric/export/${encodeURIComponent(documentId)}`;
+  return apiFetch<FabricExportResponse>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
   });
 }
 
