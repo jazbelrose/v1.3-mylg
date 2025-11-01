@@ -15,10 +15,6 @@ import {
   Image as FabricImage,
   StaticCanvas,
 } from "fabric";
-import { useData } from "@/app/contexts/useData";
-import type { Project } from "@/app/contexts/DataProvider";
-import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
-import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import styles from "./designer-component.module.css";
 
@@ -26,7 +22,11 @@ import styles from "./designer-component.module.css";
 
 interface DesignerComponentProps {
   style?: React.CSSProperties;
-  [key: string]: unknown;
+  documentId?: string;
+  documentJson?: string | null;
+  documentVersion?: number;
+  onDocumentChange?: (json: string) => void;
+  onSave?: (json: string) => void;
 }
 
 interface FabricObjectLike {
@@ -106,7 +106,15 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
-    const { style: forwardedStyle, ...restProps } = props;
+    const {
+      style: forwardedStyle,
+      documentId,
+      documentJson,
+      documentVersion,
+      onDocumentChange,
+      onSave,
+      ...restProps
+    } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -126,44 +134,43 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
 
-    const { activeProject, setActiveProject } = useData();
+    const lastLoadedJsonRef = useRef<string | null>(null);
+    const lastVersionRef = useRef<number | null>(null);
+    const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    /* ---------- Save ---------- */
-    const saveCanvas = useCallback(
-      async (showToast = false) => {
-        const fabricCanvas = fabricCanvasRef.current;
-        if (!fabricCanvas || !activeProject?.projectId) {
-          if (showToast) notify("error", "No active project to save");
-          return;
+    const emitDocumentChange = useCallback(() => {
+      if (!onDocumentChange) return;
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) return;
+      const json = JSON.stringify(fabricCanvas.toJSON());
+      lastLoadedJsonRef.current = json;
+      onDocumentChange(json);
+    }, [onDocumentChange]);
+
+    const scheduleDocumentSync = useCallback(() => {
+      if (!onDocumentChange) return;
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+      syncTimerRef.current = setTimeout(() => {
+        syncTimerRef.current = null;
+        emitDocumentChange();
+      }, 300);
+    }, [emitDocumentChange, onDocumentChange]);
+
+    useEffect(() => {
+      return () => {
+        if (syncTimerRef.current) {
+          clearTimeout(syncTimerRef.current);
         }
-        try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
-          const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-          // apiFetch returns parsed JSON or {} on empty; errors throw.
-          console.debug('Saving canvas to:', apiUrl);
-          await apiFetch(apiUrl, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ canvasJson }),
-          });
-          // console.debug('Save successful:', responseData);
-          setActiveProject((prev: Project | null) => (prev ? { ...prev, canvasJson } : prev));
-          setIsDirty(false);
-          if (showToast) notify("success", "Saved. Nice.");
-        } catch (err: unknown) {
-          const error = err as { message?: string };
-          console.error("Failed to save canvas:", error);
-          if (showToast)
-            notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-        }
-      },
-      [activeProject, setActiveProject]
-    );
+      };
+    }, []);
 
     const markDirty = useCallback(() => {
       if (isInitialLoad.current) return;
       setIsDirty(true);
-    }, []);
+      scheduleDocumentSync();
+    }, [scheduleDocumentSync]);
 
     const applyCanvasMode = useCallback(
       (nextMode: string) => {
@@ -224,30 +231,30 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     );
 
     const handleSave = useCallback(() => {
-      saveCanvas(true);
-    }, [saveCanvas]);
-
-    /* Save on unload if dirty */
-    useEffect(() => {
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-        if (!isDirty) return;
-
-        if (fabricCanvasRef.current && activeProject?.projectId) {
-          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON());
-          navigator.sendBeacon(
-            `${EDIT_PROJECT_URL}/${activeProject.projectId}`,
-            JSON.stringify({ canvasJson })
-          );
+      emitDocumentChange();
+      if (onSave) {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (fabricCanvas) {
+          const json = JSON.stringify(fabricCanvas.toJSON());
+          onSave(json);
         }
-        e.preventDefault();
-        e.returnValue = "";
+      }
+      setIsDirty(false);
+    }, [emitDocumentChange, onSave]);
+
+    useEffect(() => {
+      const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+        if (!isDirty) return;
+        emitDocumentChange();
+        event.preventDefault();
+        event.returnValue = "";
       };
       window.addEventListener("beforeunload", handleBeforeUnload);
       return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [isDirty, activeProject?.projectId]);
+    }, [emitDocumentChange, isDirty]);
 
     /* History */
-    const saveHistory = () => {
+    const saveHistory = useCallback(() => {
       if (isRestoringHistory.current) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
@@ -261,7 +268,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         h.stack.push(json);
         h.index++;
       }
-    };
+    }, []);
 
     const loadHistory = useCallback((index: number) => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -278,7 +285,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       h.index = index;
     }, []);
 
-    const updateObjects = () => {
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (fabricCanvas) {
         const objs = fabricCanvas.getObjects();
@@ -294,7 +301,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }))
         );
       }
-    };
+    }, []);
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -396,87 +403,64 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    /* Load canvas data when ready / project changes */
+    /* Load canvas data when ready / external updates */
     useEffect(() => {
       if (!canvasReady) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
+      const normalizedJson = documentJson ?? null;
+      const version = documentVersion ?? null;
+
+      if (
+        normalizedJson === lastLoadedJsonRef.current &&
+        version === lastVersionRef.current
+      ) {
+        return;
+      }
+
       const loadCanvas = async () => {
         setLoadingCanvas(true);
-        const fabricCanvas = fabricCanvasRef.current;
         try {
-          // Start with any canvas JSON already on the active project as a fallback
-          let jsonString: string | null = (activeProject?.canvasJson as string | null) ?? null;
-
-          if (activeProject?.projectId) {
-            const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-            console.debug('Loading canvas from:', apiUrl);
+          if (normalizedJson) {
+            let parsed: unknown;
             try {
-              // apiFetch returns parsed JSON; will throw for non-2xx
-              const data: { canvasJson?: string } = await apiFetch(apiUrl);
-              jsonString = data?.canvasJson ?? jsonString;
-              setActiveProject((prev: Project | null) =>
-                prev ? { ...prev, canvasJson: jsonString ?? undefined } : prev
-              );
-            } catch (e) {
-              // Network or server errors shouldn't wipe existing canvas data
-              console.error('Canvas fetch failed:', e);
-              notify(
-                'error',
-                'Failed to load canvas from server. Using local copy if available.'
-              );
-            }
-          }
-
-          if (jsonString) {
-            let jsonObj: Record<string, unknown>;
-            try {
-              jsonObj =
-                typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
-            } catch (e) {
-              console.error('Failed to parse canvas JSON:', e);
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
+              parsed = JSON.parse(normalizedJson);
+            } catch (error) {
+              console.error("Failed to parse canvas JSON:", error);
+              fabricCanvas.clear();
+              fabricCanvas.renderAll();
               saveHistory();
               return;
             }
 
-            if (
-              jsonObj &&
-              Array.isArray((jsonObj as { objects?: unknown[] }).objects) &&
-              (jsonObj as { objects: unknown[] }).objects.length > 0
-            ) {
-              isRestoringHistory.current = true;
-              await new Promise<void>((resolve) => {
-                fabricCanvas?.loadFromJSON(jsonObj, () => {
-                  fabricCanvas?.renderAll();
-                  fabricCanvas?.requestRenderAll();
-                  resolve();
-                });
+            isRestoringHistory.current = true;
+            await new Promise<void>((resolve) => {
+              fabricCanvas.loadFromJSON(parsed, () => {
+                fabricCanvas.renderAll();
+                fabricCanvas.requestRenderAll();
+                resolve();
               });
-              isRestoringHistory.current = false;
-              updateObjects();
-              saveHistory();
-            } else {
-              // When there's no canvas data, just clear and render without waiting
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
-              saveHistory();
-            }
+            });
+            isRestoringHistory.current = false;
+            updateObjects();
+            saveHistory();
           } else {
-            fabricCanvas?.clear();
-            fabricCanvas?.renderAll();
+            fabricCanvas.clear();
+            fabricCanvas.renderAll();
             saveHistory();
           }
+          lastLoadedJsonRef.current = normalizedJson;
+          lastVersionRef.current = version;
+          setIsDirty(false);
         } finally {
           setLoadingCanvas(false);
           isInitialLoad.current = false;
         }
       };
 
-      loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+      void loadCanvas();
+    }, [canvasReady, documentJson, documentVersion, saveHistory, updateObjects]);
 
     useEffect(() => {
       applyCanvasMode(mode);
@@ -756,6 +740,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     return (
       <div
         {...restProps}
+        data-document-id={documentId ?? undefined}
         style={{
           display: "flex",
           height: "100%",
