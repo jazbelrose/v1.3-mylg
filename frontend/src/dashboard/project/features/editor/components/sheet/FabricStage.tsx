@@ -1,23 +1,40 @@
 import React, { useMemo } from "react";
 import classNames from "classnames";
 import styles from "./FabricStage.module.css";
-import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
+import type {
+  LayerGroupKey,
+  SheetPageState,
+} from "@/dashboard/project/features/editor/types/sheet";
 
 interface FabricStageProps {
   page: SheetPageState | undefined;
   activeLayer: LayerGroupKey;
   layerNodes: Record<LayerGroupKey, React.ReactNode>;
+  zoom: number;
+  baseWidth: number;
+  baseHeight: number;
 }
 
 const ORDER: LayerGroupKey[] = ["canvas", "brief", "moodboard"];
-const WIDESCREEN_ASPECT_RATIO = 16 / 9;
 
-const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes }) => {
+const FabricStage: React.FC<FabricStageProps> = ({
+  page,
+  activeLayer,
+  layerNodes,
+  zoom,
+  baseWidth,
+  baseHeight,
+}) => {
   const layerEntries = useMemo(() => {
-    if (!page) return [] as Array<[LayerGroupKey, { visible: boolean; opacity: number }]>;
+    if (!page) {
+      return [] as Array<[
+        LayerGroupKey,
+        { visible: boolean; opacity: number },
+      ]>;
+    }
     return ORDER.map((key) => [key, page.groupStates[key]]) as Array<[
       LayerGroupKey,
-      { visible: boolean; opacity: number }
+      { visible: boolean; opacity: number },
     ]>;
   }, [page]);
 
@@ -25,18 +42,16 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
     () =>
       !page ||
       layerEntries.every(([, state]) => !state?.visible || state.opacity <= 0),
-    [layerEntries, page]
+    [layerEntries, page],
   );
 
   return (
     <section className={styles.stageContainer} aria-label="Sheet stage">
-      <div className={styles.stageTopBar}>
-        <span>{page ? page.name : "Select a page"}</span>
-        <span>{page?.isSuperSheet ? "One-sheet overlay" : "Page layout"}</span>
-      </div>
-      <div className={styles.canvasWrapper}>
+      <div className={styles.viewport}>
         {nothingVisible ? (
-          <div className={styles.placeholder}>Enable a layer from the Layer Tree to start editing.</div>
+          <div className={styles.placeholder}>
+            Enable a layer from the sidebar to start editing this slide.
+          </div>
         ) : (
           layerEntries.map(([key, state]) => {
             const node = layerNodes[key];
@@ -49,8 +64,23 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
                 })}
                 style={{ opacity: state.opacity }}
               >
-                <div className={styles.layerSurface} style={{ aspectRatio: WIDESCREEN_ASPECT_RATIO }}>
-                  <div className={styles.layerContent}>{node}</div>
+                <div
+                  className={styles.layerFrame}
+                  style={{
+                    width: baseWidth * zoom,
+                    height: baseHeight * zoom,
+                  }}
+                >
+                  <div
+                    className={styles.layerSurface}
+                    style={{
+                      width: baseWidth,
+                      height: baseHeight,
+                      transform: `scale(${zoom})`,
+                    }}
+                  >
+                    <div className={styles.layerContent}>{node}</div>
+                  </div>
                 </div>
               </div>
             );

@@ -1,5 +1,11 @@
 import React from "react";
-import { Plus, Copy, ArrowUp, ArrowDown, Layers } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  Layers,
+  Plus,
+} from "lucide-react";
 import classNames from "classnames";
 import styles from "./PageRail.module.css";
 import type { SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
@@ -25,106 +31,98 @@ const PageRail: React.FC<PageRailProps> = ({
   const superSheet = pages.find((page) => page.isSuperSheet);
 
   return (
-    <aside className={styles.pageRail} aria-label="Page rail">
+    <nav className={styles.pageRail} aria-label="Slides">
       <div className={styles.header}>
-        <span>Pages</span>
-        <Layers size={16} aria-hidden="true" />
+        <div className={styles.titleGroup}>
+          <Layers size={16} aria-hidden="true" />
+          <span>Pages</span>
+        </div>
+        <button
+          type="button"
+          className={styles.iconButton}
+          onClick={onAdd}
+          aria-label="Add a new page"
+        >
+          <Plus size={16} />
+        </button>
       </div>
-      <div className={styles.list}>
+      <ol className={styles.thumbnailList}>
         {regularPages.map((page, index) => {
-          const handleSelect = () => onSelect(page.id);
+          const isActive = page.id === activePageId;
           return (
-            <div
-              key={page.id}
-              role="button"
-              tabIndex={0}
-              onClick={handleSelect}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  handleSelect();
-                }
-              }}
-              className={classNames(styles.pageButton, {
-                [styles.active]: page.id === activePageId,
-              })}
-            >
-              <span className={styles.thumbnail}>{index + 1}</span>
-              <div className={styles.meta}>
-                <span>{page.name}</span>
-                <small>Custom layout</small>
-              </div>
-              <div className={styles.actions}>
-                <button
-                  type="button"
-                  className={styles.actionButton}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDuplicate(page.id);
-                  }}
-                  aria-label={`Duplicate ${page.name}`}
-                >
-                  <Copy size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.actionButton}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onMove(page.id, "up");
-                  }}
-                  disabled={index === 0}
-                  aria-label={`Move ${page.name} up`}
-                >
-                  <ArrowUp size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.actionButton}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onMove(page.id, "down");
-                  }}
-                  disabled={index === regularPages.length - 1}
-                  aria-label={`Move ${page.name} down`}
-                >
-                  <ArrowDown size={14} />
-                </button>
-              </div>
-            </div>
+            <li key={page.id}>
+              <button
+                type="button"
+                className={classNames(styles.thumbnailButton, {
+                  [styles.active]: isActive,
+                })}
+                onClick={() => onSelect(page.id)}
+                aria-pressed={isActive}
+                title={page.name}
+              >
+                <span className={styles.pageIndex}>{index + 1}</span>
+                <div className={styles.thumbnail} aria-hidden="true">
+                  <div className={styles.thumbCanvas} />
+                </div>
+                <div className={styles.thumbnailActions}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDuplicate(page.id);
+                    }}
+                    aria-label={`Duplicate ${page.name}`}
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onMove(page.id, "up");
+                    }}
+                    disabled={index === 0}
+                    aria-label={`Move ${page.name} up`}
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onMove(page.id, "down");
+                    }}
+                    disabled={index === regularPages.length - 1}
+                    aria-label={`Move ${page.name} down`}
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                </div>
+              </button>
+            </li>
           );
         })}
-        {superSheet && (
-          <>
-            <div className={styles.separator} aria-hidden="true" />
-            <div
-              key={superSheet.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(superSheet.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(superSheet.id);
-                }
-              }}
-              className={classNames(styles.pageButton, {
-                [styles.active]: superSheet.id === activePageId,
-              })}
-            >
-              <span className={styles.thumbnail}>∞</span>
-              <div className={styles.meta}>
-                <span>{superSheet.name}</span>
-                <small>All layers</small>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+      </ol>
+      {superSheet && (
+        <button
+          type="button"
+          className={classNames(styles.thumbnailButton, styles.superSlide, {
+            [styles.active]: superSheet.id === activePageId,
+          })}
+          onClick={() => onSelect(superSheet.id)}
+          title={superSheet.name}
+        >
+          <span className={styles.pageIndex}>∞</span>
+          <div className={styles.thumbnail} aria-hidden="true">
+            <div className={styles.thumbCanvas} />
+          </div>
+        </button>
+      )}
       <button type="button" onClick={onAdd} className={styles.addButton}>
-        <Plus size={16} /> Add page
+        <Plus size={16} />
+        <span>Add page</span>
       </button>
-    </aside>
+    </nav>
   );
 };
 

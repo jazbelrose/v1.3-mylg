@@ -1,6 +1,9 @@
 import React from "react";
 import styles from "./Inspector.module.css";
-import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
+import type {
+  LayerGroupKey,
+  SheetPageState,
+} from "@/dashboard/project/features/editor/types/sheet";
 
 interface InspectorProps {
   page: SheetPageState | undefined;
@@ -15,30 +18,29 @@ const LABELS: Record<LayerGroupKey, string> = {
 
 const Inspector: React.FC<InspectorProps> = ({ page, activeLayer }) => {
   return (
-    <aside className={styles.inspector} aria-label="Inspector panel">
-      <span className={styles.header}>Inspector</span>
+    <section className={styles.inspector} aria-label="Properties panel">
+      <header className={styles.header}>Properties</header>
       {!page ? (
         <div className={styles.section}>
-          <label>Status</label>
-          <span>Select a page to inspect details.</span>
+          <span className={styles.emptyState}>Select a page to see its details.</span>
         </div>
       ) : (
-        <>
-          <div className={styles.section}>
-            <label>Active Layer</label>
-            <span>{LABELS[activeLayer]}</span>
-          </div>
-          <div className={styles.section}>
+        <div className={styles.sectionGrid}>
+          <div className={styles.property}>
             <label>Page</label>
             <span>{page.name}</span>
           </div>
-          <div className={styles.section}>
-            <label>Super Sheet</label>
-            <span>{page.isSuperSheet ? "Enabled" : "No"}</span>
+          <div className={styles.property}>
+            <label>Layer</label>
+            <span>{LABELS[activeLayer]}</span>
           </div>
-        </>
+          <div className={styles.property}>
+            <label>Type</label>
+            <span>{page.isSuperSheet ? "Master" : "Standard"}</span>
+          </div>
+        </div>
       )}
-    </aside>
+    </section>
   );
 };
 
