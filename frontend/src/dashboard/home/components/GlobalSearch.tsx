@@ -322,7 +322,7 @@ interface GlobalSearchProps {
   autoFocus?: boolean;
 }
 
-const PROJECT_VIEW_SUFFIXES = new Set(['budget', 'calendar', 'editor', 'moodboard']);
+const PROJECT_VIEW_SUFFIXES = new Set(['budget', 'calendar', 'editor']);
 
 const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate, autoFocus = false }) => {
   const [isOpen, setIsOpen] = useState(false);

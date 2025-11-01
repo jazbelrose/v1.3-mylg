@@ -10,6 +10,7 @@ const apigw = new ApiGatewayManagementApiClient({
 
 const CONNECTIONS_TABLE = (process.env.CONNECTIONS_TABLE || "").trim();
 const USER_GSI = (process.env.CONNECTIONS_USER_GSI || "userId-sessionId-index").trim();
+const DECK_SESSIONS_TABLE = (process.env.DECK_SESSIONS_TABLE || "").trim();
 
 /* ------------------------- helpers ------------------------- */
 
@@ -65,6 +66,18 @@ async function userHasAnotherSession(userId) {
   return false;              // zero or one (i.e., this one)
 }
 
+async function removeDeckSession(connectionId) {
+  if (!DECK_SESSIONS_TABLE) return;
+  try {
+    await dynamoDb.send(new DeleteCommand({
+      TableName: DECK_SESSIONS_TABLE,
+      Key: { connectionId },
+    }));
+  } catch (err) {
+    console.warn("⚠️ Failed to delete deck session entry:", err?.message);
+  }
+}
+
 /* ------------------------ handler ------------------------- */
 
 export const handler = async (event) => {
@@ -77,6 +90,8 @@ export const handler = async (event) => {
 
   const connectionId = event.requestContext.connectionId;
   console.log("🛑 Disconnect for", connectionId);
+
+  await removeDeckSession(connectionId);
 
   // 1) Strongly-consistent Get on the base table (learn userId even if item vanishes later)
   let userId;

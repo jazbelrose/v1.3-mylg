@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 import path from 'path'
@@ -11,7 +11,7 @@ const devCsp = [
   "font-src 'self' data: fonts.gstatic.com",
   "img-src 'self' data: blob: *.amazonaws.com *.cloudfront.net https://tiles.stadiamaps.com https://www.google.com https://icons.duckduckgo.com",
   "media-src 'self' https: blob:",
-  // ⬇️ allow LAN fetch + HMR over WS on 3000 (and any port if you change later) + ws/wss for Yjs
+  // ⬇️ allow LAN fetch + HMR over WS on 3000 (and any port if you change later)
   "connect-src 'self' http://localhost:* ws://localhost:* http://192.168.1.200:* ws://192.168.1.200:* https://*.amazonaws.com https://*.amplify.aws wss://*.amazonaws.com https://*.cloudfront.net https://nominatim.openstreetmap.org data: blob: ws: wss:",
   "frame-src 'self' blob:",
   "frame-ancestors 'self' http://localhost:* https://localhost:* http://192.168.1.200:* https://192.168.1.200:*",
@@ -30,14 +30,6 @@ const prodCsp = [
 ].join('; ')
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
-  const isHttps = false; // Vite dev is usually http
-  const scheme = isHttps ? "wss" : "ws";
-
-  const yjsTarget =
-    (env.VITE_YJS_WS_URL && env.VITE_YJS_WS_URL.trim()) ||
-    `${scheme}://35.165.113.63:1234`;
-
   const isDev = mode === 'development';
 
   const securityHeaders = {
@@ -72,34 +64,23 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: ['react', 'react-dom', 'aws-amplify'],
-      exclude: ['@lexical/react', 'lexical'],
     },
     envPrefix: 'VITE_',
 
     server: {
-      host: true,          // ⬅️ bind to 0.0.0.0 so LAN can reach it
-        port: 5173,
+      host: true, // ⬅️ bind to 0.0.0.0 so LAN can reach it
+      port: 5173,
       strictPort: true,
       open: true,
       headers: securityHeaders,
       hmr: {
-        host: '192.168.1.200',  // ⬅️ your LAN IP
-          port: 5173,
+        host: '192.168.1.200', // ⬅️ your LAN IP
+        port: 5173,
         protocol: 'ws',
       },
-      proxy: {
-        "/yjs": {
-          target: yjsTarget,
-          ws: true,
-          changeOrigin: true,
-          secure: false,
-          rewrite: (p) => p.replace(/^\/yjs/, ""), // so final path is "/<room>"
-        },
-      },
-
       allowedHosts: [
-    '.ngrok-free.app', // allow any ngrok tunnel
-  ],
+        '.ngrok-free.app', // allow any ngrok tunnel
+      ],
     },
 
     preview: { headers: securityHeaders },

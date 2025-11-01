@@ -7,8 +7,6 @@ import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLink
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -16,63 +14,16 @@ import type {
   SheetPageState,
 } from "@/dashboard/project/features/editor/types/sheet";
 import { useData } from "@/app/contexts/useData";
-import { Project } from "@/app/contexts/DataProvider";
+import type { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import useDeckRealtime from "@/dashboard/project/features/editor/hooks/useDeckRealtime";
 
-const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
-
-const generateId = (prefix: string) =>
-  `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-
-const createGroupStates = (
-  overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
-): Record<LayerGroupKey, LayerGroupState> => {
-  const base: Record<LayerGroupKey, LayerGroupState> = {
-    brief: { visible: true, opacity: 0.9 },
-    canvas: { visible: true, opacity: 1 },
-    moodboard: { visible: false, opacity: 0.7 },
-  };
-  if (!overrides) return base;
-  return {
-    brief: { ...base.brief, ...overrides.brief },
-    canvas: { ...base.canvas, ...overrides.canvas },
-    moodboard: { ...base.moodboard, ...overrides.moodboard },
-  };
-};
-
-const cloneGroupStates = (
-  states: Record<LayerGroupKey, LayerGroupState>
-): Record<LayerGroupKey, LayerGroupState> => {
-  const clone: Record<LayerGroupKey, LayerGroupState> = {
-    brief: { ...states.brief },
-    canvas: { ...states.canvas },
-    moodboard: { ...states.moodboard },
-  };
-  return clone;
-};
-
-const createPageState = (
-  name: string,
-  overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
-): SheetPageState => ({
-  id: generateId("page"),
-  name,
-  groupStates: createGroupStates(overrides),
-});
-
-const createSuperSheetState = (): SheetPageState => ({
-  id: "super-sheet",
-  name: "One Sheet",
-  isSuperSheet: true,
-  groupStates: createGroupStates({
-    brief: { opacity: 0.6 },
-    moodboard: { visible: true, opacity: 0.45 },
-  }),
-});
+const CANVAS_LAYER: LayerGroupKey = "canvas";
+const DEFAULT_LAYER_STATE: LayerGroupState = { visible: true, opacity: 1 };
 
 const EditorPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -85,7 +36,6 @@ const EditorPage: React.FC = () => {
     setProjects,
     setSelectedProjects,
     userId,
-    updateProjectFields,
   } = useData();
 
   const { ws } = useSocket();
@@ -93,68 +43,32 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
+  const designerRef = useRef<DesignerRef>(null);
+
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
-  const designerRef = useRef<DesignerRef>(null);
-  const initialPageIdRef = useRef<string | null>(null);
-  const [pages, setPages] = useState<SheetPageState[]>(() => {
-    const firstPage = createPageState("Page 1");
-    const superSheet = createSuperSheetState();
-    initialPageIdRef.current = firstPage.id;
-    return [firstPage, superSheet];
-  });
-  const [activePageId, setActivePageId] = useState<string>(
-    () => initialPageIdRef.current ?? ""
-  );
-  const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
-  const [briefContent, setBriefContent] = useState<string>("");
-  const [isBriefDirty, setIsBriefDirty] = useState(false);
-  const savedBriefContentRef = useRef<string>("");
 
-  const handleBriefChange = useCallback((json: string) => {
-    setBriefContent(json);
-    setIsBriefDirty(json !== savedBriefContentRef.current);
-  }, []);
+  const {
+    deck,
+    pages: deckPages,
+    activePageId,
+    selectPage,
+    addPage,
+    duplicatePage,
+    movePage,
+    renamePage,
+    updatePageCanvas,
+    requestExport,
+    isReady: deckReady,
+    exportStatus,
+  } = useDeckRealtime({ projectId, userId });
 
-  const saveBrief = useCallback(
-    async (showToast = true) => {
-      if (!activeProject?.projectId) {
-        if (showToast) notify("error", "No active project to save");
-        return;
-      }
-      if (!isBriefDirty) {
-        if (showToast) notify("info", "Brief already saved");
-        return;
-      }
-      try {
-        await updateProjectFields(activeProject.projectId, {
-          description: briefContent,
-        });
-        savedBriefContentRef.current = briefContent;
-        setIsBriefDirty(false);
-        if (showToast) notify("success", "Saved. Nice.");
-      } catch (err) {
-        const error = err as { message?: string };
-        console.error("Failed to save brief:", error);
-        if (showToast)
-          notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-      }
-    },
-    [activeProject?.projectId, briefContent, isBriefDirty, updateProjectFields]
-  );
+  const [layerState, setLayerState] = useState<Record<string, LayerGroupState>>({});
 
   useEffect(() => {
     setActiveProject(initialActiveProject);
   }, [initialActiveProject]);
-
-  useEffect(() => {
-    const description = activeProject?.description || "";
-    savedBriefContentRef.current = description;
-    setBriefContent(description);
-    setIsBriefDirty(false);
-  }, [activeProject?.description]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -169,19 +83,13 @@ const EditorPage: React.FC = () => {
     if (!title) return;
 
     const currentPath = location.pathname.split(/[?#]/)[0];
-    if (!currentPath.includes('/editor')) return;
+    if (!currentPath.includes("/editor")) return;
 
-    const canonicalPath = getProjectDashboardPath(projectId, title, '/editor');
+    const canonicalPath = getProjectDashboardPath(projectId, title, "/editor");
     if (currentPath === canonicalPath) return;
 
     navigate(canonicalPath, { replace: true });
-  }, [
-    projectId,
-    activeProject?.title,
-    initialActiveProject?.title,
-    location.pathname,
-    navigate,
-  ]);
+  }, [projectId, activeProject?.title, initialActiveProject?.title, location.pathname, navigate]);
 
   const lastFetchedId = useRef<string | null>(null);
   useEffect(() => {
@@ -211,317 +119,189 @@ const EditorPage: React.FC = () => {
     sendWhenReady();
   }, [ws, activeProject?.projectId]);
 
-  const parseStatusToNumber = (statusString: string | number | undefined | null): number => {
-    if (statusString === undefined || statusString === null) return 0;
-    const str = typeof statusString === "string" ? statusString : String(statusString);
-    const num = parseFloat(str.replace("%", ""));
-    return Number.isNaN(num) ? 0 : num;
-  };
-
-  const handleActiveProjectChange = (updatedProject: Project) => {
-    setActiveProject(updatedProject);
-  };
-
-  const handleProjectDeleted = (deletedProjectId: string) => {
-    setProjects((prev: Project[]) => prev.filter((p) => p.projectId !== deletedProjectId));
-    setSelectedProjects((prev: string[]) => prev.filter((id) => id !== deletedProjectId));
-    navigate("/dashboard/projects/allprojects");
-  };
-
-  const handleBack = () => {
-    if (!projectId) {
-      navigate('/dashboard/projects/allprojects');
-      return;
-    }
-
-    const title = activeProject?.title ?? initialActiveProject?.title;
-    navigate(getProjectDashboardPath(projectId, title));
-  };
-
-  const handleSelectTool = useCallback(() => {
-    designerRef.current?.changeMode("select");
-  }, []);
-  const handleBrushTool = useCallback(() => {
-    designerRef.current?.changeMode("brush");
-  }, []);
-  const handleRectTool = useCallback(() => {
-    designerRef.current?.changeMode("rect");
-  }, []);
-  const handleTextTool = useCallback(() => {
-    designerRef.current?.addText();
-  }, []);
-  const handleImageTool = useCallback(() => {
-    designerRef.current?.triggerImageUpload();
-  }, []);
-  const handleColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      designerRef.current?.handleColorChange(e.target.value),
-    []
-  );
-  const handleUndo = useCallback(() => {
-    designerRef.current?.handleUndo();
-  }, []);
-  const handleRedo = useCallback(() => {
-    designerRef.current?.handleRedo();
-  }, []);
-  const handleCopy = useCallback(() => {
-    designerRef.current?.handleCopy();
-  }, []);
-  const handlePaste = useCallback(() => {
-    designerRef.current?.handlePaste();
-  }, []);
-  const handleDelete = useCallback(() => {
-    designerRef.current?.handleDelete();
-  }, []);
-  const handleClearCanvas = useCallback(() => {
-    designerRef.current?.handleClear();
-  }, []);
-  const handleSave = useCallback(() => {
-    if (activeLayer === "canvas") {
-      designerRef.current?.handleSave();
-    } else if (activeLayer === "brief") {
-      void saveBrief();
-    }
-  }, [activeLayer, saveBrief]);
-
-  const guardAgainstUnsavedBrief = useCallback(() => {
-    if (activeLayer === "brief" && isBriefDirty) {
-      if (typeof window !== "undefined") {
-        return window.confirm("You have unsaved changes, continue?");
+  useEffect(() => {
+    setLayerState((prev) => {
+      const next: Record<string, LayerGroupState> = {};
+      let changed = false;
+      deckPages.forEach((page) => {
+        const existing = prev[page.id];
+        if (existing) {
+          next[page.id] = existing;
+        } else {
+          next[page.id] = DEFAULT_LAYER_STATE;
+          changed = true;
+        }
+      });
+      if (Object.keys(prev).length !== deckPages.length) {
+        changed = true;
       }
-      return true;
+      return changed ? next : prev;
+    });
+  }, [deckPages]);
+
+  useEffect(() => {
+    if (!activePageId && deckPages[0]) {
+      selectPage(deckPages[0].id);
     }
-    return true;
-  }, [activeLayer, isBriefDirty]);
+  }, [activePageId, deckPages, selectPage]);
+
+  useEffect(() => {
+    if (!exportStatus) return;
+    if (exportStatus.action === "deck.export.ready") {
+      const message = exportStatus.url
+        ? `Deck export ready. Download from ${exportStatus.url}`
+        : "Deck export is ready.";
+      notify("success", message);
+    } else if (exportStatus.action === "deck.export.ack") {
+      notify("info", "Deck export queued.");
+    }
+  }, [exportStatus]);
+
+  const activeSheetPageId = activePageId ?? deckPages[0]?.id ?? "";
+  const activeDeckPage = useMemo(
+    () => deckPages.find((page) => page.id === activeSheetPageId) ?? null,
+    [deckPages, activeSheetPageId]
+  );
+
+  const sheetPages = useMemo<SheetPageState[]>(
+    () =>
+      deckPages.map((page) => ({
+        id: page.id,
+        name: page.name,
+        groupStates: {
+          [CANVAS_LAYER]: layerState[page.id] ?? DEFAULT_LAYER_STATE,
+        } as Record<LayerGroupKey, LayerGroupState>,
+      })),
+    [deckPages, layerState]
+  );
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
-      if (pageId === activePageId) return;
-      if (!guardAgainstUnsavedBrief()) return;
-      setActivePageId(pageId);
+      selectPage(pageId);
     },
-    [activePageId, guardAgainstUnsavedBrief]
+    [selectPage]
   );
 
   const handleAddPage = useCallback(() => {
-    if (!guardAgainstUnsavedBrief()) return;
-    const regular = pages.filter((page) => !page.isSuperSheet);
-    const newPage = createPageState(`Page ${regular.length + 1}`);
-    const superSheet = pages.find((page) => page.isSuperSheet);
-    const nextRegular = [...regular, newPage];
-    const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
-    setPages(nextPages);
-    setActivePageId(newPage.id);
-  }, [guardAgainstUnsavedBrief, pages]);
+    addPage();
+  }, [addPage]);
 
   const handleDuplicatePage = useCallback(
     (pageId: string) => {
-      const target = pages.find(
-        (page) => page.id === pageId && !page.isSuperSheet
-      );
-      if (!target) return;
-      if (!guardAgainstUnsavedBrief()) return;
-      const duplicate: SheetPageState = {
-        ...target,
-        id: generateId("page"),
-        name: `${target.name} Copy`,
-        groupStates: cloneGroupStates(target.groupStates),
-      };
-      const regular = pages.filter((page) => !page.isSuperSheet);
-      const index = regular.findIndex((page) => page.id === pageId);
-      const superSheet = pages.find((page) => page.isSuperSheet);
-      const nextRegular = [...regular];
-      nextRegular.splice(index + 1, 0, duplicate);
-      const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
-      setPages(nextPages);
-      setActivePageId(duplicate.id);
+      duplicatePage(pageId);
     },
-    [guardAgainstUnsavedBrief, pages]
+    [duplicatePage]
   );
 
   const handleMovePage = useCallback(
     (pageId: string, direction: "up" | "down") => {
-      const regular = pages.filter((page) => !page.isSuperSheet);
-      const index = regular.findIndex((page) => page.id === pageId);
-      if (index === -1) return;
-      const nextIndex =
-        direction === "up"
-          ? Math.max(0, index - 1)
-          : Math.min(regular.length - 1, index + 1);
-      if (nextIndex === index) return;
-      const reordered = [...regular];
-      const [moved] = reordered.splice(index, 1);
-      reordered.splice(nextIndex, 0, moved);
-      const superSheet = pages.find((page) => page.isSuperSheet);
-      const nextPages = superSheet ? [...reordered, superSheet] : reordered;
-      setPages(nextPages);
+      movePage(pageId, direction);
     },
-    [pages]
+    [movePage]
   );
 
-  const handleSelectLayer = useCallback(
-    (layer: LayerGroupKey) => {
-      if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
-      setActiveLayer(layer);
-    },
-    [activeLayer, guardAgainstUnsavedBrief]
-  );
+  const handleSelectLayer = useCallback(() => {
+    // Single-layer canvas; nothing to change beyond ensuring selection
+  }, []);
 
   const handleToggleLayerVisibility = useCallback(
     (pageId: string, layer: LayerGroupKey) => {
-      setPages((prev) =>
-        prev.map((page) => {
-          if (page.id !== pageId) return page;
-          const current = page.groupStates[layer];
-          return {
-            ...page,
-            groupStates: {
-              ...page.groupStates,
-              [layer]: { ...current, visible: !current.visible },
-            },
-          };
-        })
-      );
+      if (layer !== CANVAS_LAYER) return;
+      setLayerState((prev) => {
+        const current = prev[pageId] ?? DEFAULT_LAYER_STATE;
+        return {
+          ...prev,
+          [pageId]: { ...current, visible: !current.visible },
+        };
+      });
     },
     []
   );
 
   const handleChangeLayerOpacity = useCallback(
     (pageId: string, layer: LayerGroupKey, value: number) => {
-      setPages((prev) =>
-        prev.map((page) => {
-          if (page.id !== pageId) return page;
-          return {
-            ...page,
-            groupStates: {
-              ...page.groupStates,
-              [layer]: {
-                ...page.groupStates[layer],
-                opacity: Math.min(1, Math.max(0, value)),
-              },
-            },
-          };
-        })
-      );
+      if (layer !== CANVAS_LAYER) return;
+      const nextOpacity = Math.min(1, Math.max(0, value));
+      setLayerState((prev) => {
+        const current = prev[pageId] ?? DEFAULT_LAYER_STATE;
+        return {
+          ...prev,
+          [pageId]: { ...current, opacity: nextOpacity },
+        };
+      });
     },
     []
   );
 
-  const handleToolbarModeChange = useCallback(
-    (mode: string) => {
-      if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
-      const layer = mode as LayerGroupKey;
-      if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
-      setActiveLayer(layer);
-    },
-    [activeLayer, guardAgainstUnsavedBrief]
-  );
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleSave]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isBriefDirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isBriefDirty]);
-
-  useEffect(() => {
-    window.hasUnsavedChanges = () => isBriefDirty;
-    window.unsavedChanges = isBriefDirty;
-    return () => {
-      delete window.hasUnsavedChanges;
-      delete window.unsavedChanges;
-    };
-  }, [isBriefDirty]);
-
   const layerNodes = useMemo(
     () => ({
-      canvas: <DesignerComponent ref={designerRef} />,
-      brief:
-        activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
-          />
-        ) : (
-          <div>Loading...</div>
-        ),
-      moodboard: (
-        <MoodboardCanvas
-          projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
+      canvas: (
+        <DesignerComponent
+          key={activeDeckPage?.id ?? "canvas"}
+          ref={designerRef}
+          documentId={activeDeckPage?.id}
+          documentJson={activeDeckPage?.canvasJson ?? null}
+          documentVersion={deck.version}
+          onDocumentChange={(json) => {
+            if (activeDeckPage) {
+              updatePageCanvas(activeDeckPage.id, json);
+            }
+          }}
+          onSave={(json) => {
+            if (activeDeckPage) {
+              updatePageCanvas(activeDeckPage.id, json);
+            }
+          }}
         />
       ),
     }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
+    [activeDeckPage, deck.version, updatePageCanvas]
   );
 
   const toolbarProps = useMemo(
     () => ({
-      initialMode: activeLayer,
-      onModeChange: handleToolbarModeChange,
+      initialMode: CANVAS_LAYER,
+      onModeChange: () => undefined,
       onPreview: () => setPreviewOpen(true),
-      onSelectTool: handleSelectTool,
-      onFreeDraw: handleBrushTool,
-      onAddRectangle: handleRectTool,
-      onAddText: handleTextTool,
-      onAddImage: handleImageTool,
-      onColorChange: handleColorChange,
-      onUndo: handleUndo,
-      onRedo: handleRedo,
-      onCopy: handleCopy,
-      onPaste: handlePaste,
-      onDelete: handleDelete,
-      onClearCanvas: handleClearCanvas,
-      onSave: handleSave,
-      ...(activeLayer === "brief" ? briefToolbarActions : {}),
+      onSelectTool: () => designerRef.current?.changeMode("select"),
+      onFreeDraw: () => designerRef.current?.changeMode("brush"),
+      onAddRectangle: () => designerRef.current?.changeMode("rect"),
+      onAddText: () => designerRef.current?.addText(),
+      onAddImage: () => designerRef.current?.triggerImageUpload(),
+      onColorChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+        designerRef.current?.handleColorChange(event.target.value),
+      onUndo: () => designerRef.current?.handleUndo(),
+      onRedo: () => designerRef.current?.handleRedo(),
+      onCopy: () => designerRef.current?.handleCopy(),
+      onPaste: () => designerRef.current?.handlePaste(),
+      onDelete: () => designerRef.current?.handleDelete(),
+      onClearCanvas: () => designerRef.current?.handleClear(),
+      onSave: () => designerRef.current?.handleSave(),
     }),
-    [
-      activeLayer,
-      briefToolbarActions,
-      handleBrushTool,
-      handleClearCanvas,
-      handleColorChange,
-      handleCopy,
-      handleDelete,
-      handleImageTool,
-      handlePaste,
-      handleRectTool,
-      handleRedo,
-      handleSave,
-      handleSelectTool,
-      handleToolbarModeChange,
-      handleTextTool,
-      handleUndo,
-      setPreviewOpen,
-    ]
+    []
   );
+
+  const parseStatusToNumber = (statusString: string | number | undefined | null): number => {
+    if (statusString === undefined || statusString === null) return 0;
+    const str = typeof statusString === "string" ? statusString : String(statusString);
+    const num = Number.parseFloat(str.replace("%", ""));
+    return Number.isNaN(num) ? 0 : num;
+  };
+
+  const handleProjectDeleted = (deletedProjectId: string) => {
+    setProjects((prev) => prev.filter((project) => project.projectId !== deletedProjectId));
+    setSelectedProjects((prev) => prev.filter((id) => id !== deletedProjectId));
+    navigate("/dashboard/projects/allprojects");
+  };
+
+  const handleBack = () => {
+    if (!projectId) {
+      navigate("/dashboard/projects/allprojects");
+      return;
+    }
+    const title = activeProject?.title ?? initialActiveProject?.title;
+    navigate(getProjectDashboardPath(projectId, title));
+  };
 
   return (
     <ProjectPageLayout
@@ -534,7 +314,7 @@ const EditorPage: React.FC = () => {
           userId={userId}
           onProjectDeleted={handleProjectDeleted}
           showWelcomeScreen={handleBack}
-          onActiveProjectChange={handleActiveProjectChange}
+          onActiveProjectChange={setActiveProject}
           onOpenFiles={() => setFilesOpen(true)}
           onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
         />
@@ -550,9 +330,9 @@ const EditorPage: React.FC = () => {
             folder="uploads"
           />
           <SheetEditor
-            pages={pages}
-            activePageId={activePageId}
-            activeLayer={activeLayer}
+            pages={sheetPages}
+            activePageId={activeSheetPageId}
+            activeLayer={CANVAS_LAYER}
             onSelectPage={handleSelectPage}
             onAddPage={handleAddPage}
             onDuplicatePage={handleDuplicatePage}
@@ -567,9 +347,12 @@ const EditorPage: React.FC = () => {
             open={previewOpen}
             onClose={() => setPreviewOpen(false)}
             url={activeProject?.previewUrl as string}
-            onExportGallery={() => console.log("Export to Gallery")}
-            onExportPDF={() => console.log("Export to PDF")}
+            onExportGallery={() => requestExport("site", activeDeckPage?.id)}
+            onExportPDF={() => requestExport("pdf", activeDeckPage?.id)}
           />
+          {!deckReady && (
+            <div className="px-6 py-4 text-sm text-muted-foreground">Connecting to deck workspace…</div>
+          )}
         </div>
       </div>
     </ProjectPageLayout>
@@ -577,12 +360,3 @@ const EditorPage: React.FC = () => {
 };
 
 export default EditorPage;
-
-
-
-
-
-
-
-
-

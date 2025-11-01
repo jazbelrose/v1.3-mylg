@@ -35,6 +35,8 @@ provider:
 
     # ---- WebSocket
     WEBSOCKET_ENDPOINT: https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev
+    DECK_STATE_TABLE: ${env:DECK_STATE_TABLE}
+    DECK_SESSIONS_TABLE: ${env:DECK_SESSIONS_TABLE}
 
   iam:
     role:
@@ -61,6 +63,9 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:INBOX_TABLE}/index/*
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:NOTIFICATIONS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_STATE_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_SESSIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_SESSIONS_TABLE}/index/*
         - Effect: Allow
           Action:
             - dynamodb:GetItem
@@ -94,7 +99,65 @@ functions:
       - websocket:
           route: $default
 
+  deckJoin:
+    handler: deckRealtime.join
+    events:
+      - websocket:
+          route: deck.join
+
+  deckPatch:
+    handler: deckRealtime.patch
+    events:
+      - websocket:
+          route: deck.patch
+
+  deckMeta:
+    handler: deckRealtime.meta
+    events:
+      - websocket:
+          route: deck.meta
+
+  deckExport:
+    handler: deckRealtime.exportDeck
+    events:
+      - websocket:
+          route: deck.export
+
 package:
   patterns:
     - '*.mjs'
     - '!**/*.map'
+
+resources:
+  Resources:
+    DeckStateTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${env:DECK_STATE_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: projectId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: projectId
+            KeyType: HASH
+    DeckSessionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${env:DECK_SESSIONS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: connectionId
+            AttributeType: S
+          - AttributeName: projectId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: connectionId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: projectId-index
+            KeySchema:
+              - AttributeName: projectId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
