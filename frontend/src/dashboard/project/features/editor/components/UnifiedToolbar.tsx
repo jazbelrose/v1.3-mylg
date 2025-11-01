@@ -83,6 +83,7 @@ export interface UnifiedToolbarProps {
   activeMode?: EditorMode;
   isGridEnabled?: boolean;
   isSnapEnabled?: boolean;
+  disableCanvasTools?: boolean;
 }
 
 interface ToolbarButtonProps {
@@ -149,6 +150,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
   isSnapEnabled,
   orientation = "horizontal",
   theme = "dark",
+  disableCanvasTools = false,
 }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const [gridEnabled, setGridEnabled] = useState(Boolean(isGridEnabled));
@@ -177,7 +179,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
   }, [moreOpen]);
 
   const isCanvasMode = activeMode === "canvas";
-  const isBriefMode = activeMode === "brief";
+  const canUseCanvasTools = isCanvasMode && !disableCanvasTools;
 
   const handleToggleGrid = () => {
     const next = !gridEnabled;
@@ -214,28 +216,28 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
             label="Text"
             icon={TypeIcon}
             onClick={onAddText}
-            disabled={!onAddText || !isCanvasMode}
+            disabled={!onAddText || !canUseCanvasTools}
             title="Insert text"
           />
           <ToolbarButton
             label="Image"
             icon={ImageIcon}
             onClick={onAddImage}
-            disabled={!onAddImage || !isCanvasMode}
+            disabled={!onAddImage || !canUseCanvasTools}
             title="Insert image"
           />
           <ToolbarButton
             label="Shape"
             icon={Square}
             onClick={onAddRectangle ?? onAddCircle}
-            disabled={!((onAddRectangle ?? onAddCircle) && isCanvasMode)}
+            disabled={!((onAddRectangle ?? onAddCircle) && canUseCanvasTools)}
             title="Insert shape"
           />
           <ToolbarButton
             label="Line"
             icon={Minus}
             onClick={onFreeDraw}
-            disabled={!onFreeDraw || !isCanvasMode}
+            disabled={!onFreeDraw || !canUseCanvasTools}
             title="Draw a line"
           />
         </div>
@@ -246,49 +248,49 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
             label="Forward"
             icon={BringToFront}
             onClick={onBringForward}
-            disabled={!onBringForward || !isCanvasMode}
+            disabled={!onBringForward || !canUseCanvasTools}
             title="Bring forward"
           />
           <ToolbarButton
             label="Back"
             icon={SendToBack}
             onClick={onSendBackward}
-            disabled={!onSendBackward || !isCanvasMode}
+            disabled={!onSendBackward || !canUseCanvasTools}
             title="Send backward"
           />
           <ToolbarButton
             label="Align"
             icon={AlignLeft}
             onClick={onAlignLeft}
-            disabled={!onAlignLeft || !isCanvasMode}
+            disabled={!onAlignLeft || !canUseCanvasTools}
             title="Align left"
           />
           <ToolbarButton
             label="Center"
             icon={AlignCenter}
             onClick={onAlignCenter}
-            disabled={!onAlignCenter || !isCanvasMode}
+            disabled={!onAlignCenter || !canUseCanvasTools}
             title="Align center"
           />
           <ToolbarButton
             label="Right"
             icon={AlignRight}
             onClick={onAlignRight}
-            disabled={!onAlignRight || !isCanvasMode}
+            disabled={!onAlignRight || !canUseCanvasTools}
             title="Align right"
           />
           <ToolbarButton
             label="Distribute"
             icon={AlignJustify}
             onClick={onDistribute ?? onAlignJustify}
-            disabled={!(onDistribute ?? onAlignJustify) || !isCanvasMode}
+            disabled={!(onDistribute ?? onAlignJustify) || !canUseCanvasTools}
             title="Distribute"
           />
           <ToolbarButton
             label="Group"
             icon={LayoutList}
             onClick={onGroup}
-            disabled={!onGroup || !isCanvasMode}
+            disabled={!onGroup || !canUseCanvasTools}
             title="Group selection"
           />
         </div>
@@ -378,11 +380,6 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
         </div>
       </div>
 
-      {isBriefMode && (
-        <div className={styles.contextHint}>
-          Text formatting tools now live in the Properties panel.
-        </div>
-      )}
     </div>
   );
 };

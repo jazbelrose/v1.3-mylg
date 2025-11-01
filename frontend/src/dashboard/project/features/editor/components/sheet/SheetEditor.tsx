@@ -72,6 +72,8 @@ const SheetEditor: React.FC<SheetEditorProps> = ({
     setActiveMode(initialMode);
   }, [initialMode]);
 
+  const showModeTabs = modes.length > 1;
+
   const handleModeChange = useCallback(
     (mode: EditorMode) => {
       setActiveMode(mode);
@@ -231,23 +233,25 @@ const SheetEditor: React.FC<SheetEditorProps> = ({
           onResetZoom={handleZoomReset}
         />
       </div>
-      <div className={styles.modeTabs} role="tablist" aria-label="Editor mode">
-        {modes.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => handleModeChange(key)}
-            className={classNames(styles.modeTab, {
-              [styles.modeTabActive]: activeMode === key,
-            })}
-            role="tab"
-            aria-selected={activeMode === key}
-          >
-            {Icon ? <Icon size={16} aria-hidden="true" /> : null}
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
+      {showModeTabs && (
+        <div className={styles.modeTabs} role="tablist" aria-label="Editor mode">
+          {modes.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => handleModeChange(key)}
+              className={classNames(styles.modeTab, {
+                [styles.modeTabActive]: activeMode === key,
+              })}
+              role="tab"
+              aria-selected={activeMode === key}
+            >
+              {Icon ? <Icon size={16} aria-hidden="true" /> : null}
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className={styles.editorBody}>
         <aside
           className={classNames(styles.pageRail, {

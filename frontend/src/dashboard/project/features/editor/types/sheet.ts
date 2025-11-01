@@ -1,4 +1,4 @@
-export type LayerGroupKey = "brief" | "canvas" | "moodboard";
+export type LayerGroupKey = "canvas";
 
 export interface LayerGroupState {
   visible: boolean;

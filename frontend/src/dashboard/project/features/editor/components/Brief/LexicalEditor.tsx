@@ -30,6 +30,7 @@ import DeleteImagePlugin from "./plugins/DeleteImagePlugin";
 import ImageLockPlugin from "./plugins/ImageLockPlugin";
 import ImageCopyPastePlugin from "./plugins/ImageCopyPastePlugin";
 import YjsSyncPlugin from "./plugins/YjsSyncPlugin";
+import type { ToolbarActions } from "./plugins/ToolbarActionsPlugin";
 
 import { WebsocketProvider } from "y-websocket";
 import { IndexeddbPersistence } from "y-indexeddb";
@@ -65,7 +66,8 @@ import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 type LexicalEditorProps = {
   onChange: (json: string) => void;
   initialContent?: unknown | null;
-  registerToolbar?: (actions: unknown) => void;
+  registerToolbar?: (actions: ToolbarActions) => void;
+  onFocusChange?: (isFocused: boolean) => void;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -79,6 +81,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onChange,
   initialContent,
   registerToolbar,
+  onFocusChange,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -96,6 +99,12 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
   const initialContentRef = useRef<unknown | null>(initialContent ?? null);
   const hasScrolledToBottom = useRef<boolean>(false);
+
+  useEffect(() => {
+    return () => {
+      onFocusChange?.(false);
+    };
+  }, [onFocusChange]);
 
   // Memoize the project ID so it isn’t recalculated unnecessarily.
   const projectId = useMemo<string>(() => {
@@ -270,6 +279,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                     <ContentEditable
                       className="editor-input"
                       style={{ position: "relative", minHeight: "100%" }}
+                      onFocus={() => onFocusChange?.(true)}
+                      onBlur={() => onFocusChange?.(false)}
                     />
                   }
                   ErrorBoundary={LexicalErrorBoundary}
@@ -328,12 +339,3 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 };
 
 export default LexicalEditor;
-
-
-
-
-
-
-
-
-

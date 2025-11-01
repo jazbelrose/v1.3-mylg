@@ -8,7 +8,7 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import type { ToolbarActions as LexicalToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -23,8 +23,6 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
-const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
-
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -32,15 +30,11 @@ const createGroupStates = (
   overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
 ): Record<LayerGroupKey, LayerGroupState> => {
   const base: Record<LayerGroupKey, LayerGroupState> = {
-    brief: { visible: true, opacity: 0.9 },
     canvas: { visible: true, opacity: 1 },
-    moodboard: { visible: false, opacity: 0.7 },
   };
   if (!overrides) return base;
   return {
-    brief: { ...base.brief, ...overrides.brief },
     canvas: { ...base.canvas, ...overrides.canvas },
-    moodboard: { ...base.moodboard, ...overrides.moodboard },
   };
 };
 
@@ -48,9 +42,7 @@ const cloneGroupStates = (
   states: Record<LayerGroupKey, LayerGroupState>
 ): Record<LayerGroupKey, LayerGroupState> => {
   const clone: Record<LayerGroupKey, LayerGroupState> = {
-    brief: { ...states.brief },
     canvas: { ...states.canvas },
-    moodboard: { ...states.moodboard },
   };
   return clone;
 };
@@ -68,10 +60,7 @@ const createSuperSheetState = (): SheetPageState => ({
   id: "super-sheet",
   name: "One Sheet",
   isSuperSheet: true,
-  groupStates: createGroupStates({
-    brief: { opacity: 0.6 },
-    moodboard: { visible: true, opacity: 0.45 },
-  }),
+  groupStates: createGroupStates(),
 });
 
 const EditorPage: React.FC = () => {
@@ -93,7 +82,15 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
+  const [lexicalToolbarActions, setLexicalToolbarActions] =
+    useState<LexicalToolbarActions | null>(null);
+  const [isLexicalFocused, setIsLexicalFocused] = useState(false);
+  useEffect(() => {
+    if (activeProject?.description === undefined) {
+      setLexicalToolbarActions(null);
+      setIsLexicalFocused(false);
+    }
+  }, [activeProject?.description]);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
@@ -108,7 +105,6 @@ const EditorPage: React.FC = () => {
   const [activePageId, setActivePageId] = useState<string>(
     () => initialPageIdRef.current ?? ""
   );
-  const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
   const savedBriefContentRef = useRef<string>("");
@@ -277,34 +273,19 @@ const EditorPage: React.FC = () => {
     designerRef.current?.handleClear();
   }, []);
   const handleSave = useCallback(() => {
-    if (activeLayer === "canvas") {
-      designerRef.current?.handleSave();
-    } else if (activeLayer === "brief") {
-      void saveBrief();
-    }
-  }, [activeLayer, saveBrief]);
-
-  const guardAgainstUnsavedBrief = useCallback(() => {
-    if (activeLayer === "brief" && isBriefDirty) {
-      if (typeof window !== "undefined") {
-        return window.confirm("You have unsaved changes, continue?");
-      }
-      return true;
-    }
-    return true;
-  }, [activeLayer, isBriefDirty]);
+    designerRef.current?.handleSave();
+    void saveBrief();
+  }, [saveBrief]);
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
       if (pageId === activePageId) return;
-      if (!guardAgainstUnsavedBrief()) return;
       setActivePageId(pageId);
     },
-    [activePageId, guardAgainstUnsavedBrief]
+    [activePageId]
   );
 
   const handleAddPage = useCallback(() => {
-    if (!guardAgainstUnsavedBrief()) return;
     const regular = pages.filter((page) => !page.isSuperSheet);
     const newPage = createPageState(`Page ${regular.length + 1}`);
     const superSheet = pages.find((page) => page.isSuperSheet);
@@ -312,7 +293,7 @@ const EditorPage: React.FC = () => {
     const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
     setPages(nextPages);
     setActivePageId(newPage.id);
-  }, [guardAgainstUnsavedBrief, pages]);
+  }, [pages]);
 
   const handleDuplicatePage = useCallback(
     (pageId: string) => {
@@ -320,7 +301,6 @@ const EditorPage: React.FC = () => {
         (page) => page.id === pageId && !page.isSuperSheet
       );
       if (!target) return;
-      if (!guardAgainstUnsavedBrief()) return;
       const duplicate: SheetPageState = {
         ...target,
         id: generateId("page"),
@@ -336,7 +316,7 @@ const EditorPage: React.FC = () => {
       setPages(nextPages);
       setActivePageId(duplicate.id);
     },
-    [guardAgainstUnsavedBrief, pages]
+    [pages]
   );
 
   const handleMovePage = useCallback(
@@ -359,14 +339,7 @@ const EditorPage: React.FC = () => {
     [pages]
   );
 
-  const handleSelectLayer = useCallback(
-    (layer: LayerGroupKey) => {
-      if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
-      setActiveLayer(layer);
-    },
-    [activeLayer, guardAgainstUnsavedBrief]
-  );
+  const handleSelectLayer = useCallback(() => {}, []);
 
   const handleToggleLayerVisibility = useCallback(
     (pageId: string, layer: LayerGroupKey) => {
@@ -408,17 +381,6 @@ const EditorPage: React.FC = () => {
     []
   );
 
-  const handleToolbarModeChange = useCallback(
-    (mode: string) => {
-      if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
-      const layer = mode as LayerGroupKey;
-      if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
-      setActiveLayer(layer);
-    },
-    [activeLayer, guardAgainstUnsavedBrief]
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
@@ -451,41 +413,42 @@ const EditorPage: React.FC = () => {
     };
   }, [isBriefDirty]);
 
+  const lexicalEditorNode = useMemo(() => {
+    if (activeProject?.description === undefined) {
+      return <div>Loading...</div>;
+    }
+    return (
+      <LexicalEditor
+        key={activeProject?.projectId ?? "default-project"}
+        initialContent={activeProject?.description ?? null}
+        onChange={handleBriefChange}
+        registerToolbar={(actions) => setLexicalToolbarActions(actions)}
+        onFocusChange={setIsLexicalFocused}
+      />
+    );
+  }, [
+    activeProject?.description,
+    activeProject?.projectId,
+    handleBriefChange,
+    setIsLexicalFocused,
+    setLexicalToolbarActions,
+  ]);
+
   const layerNodes = useMemo(
     () => ({
-      canvas: <DesignerComponent ref={designerRef} />,
-      brief:
-        activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
-          />
-        ) : (
-          <div>Loading...</div>
-        ),
-      moodboard: (
-        <MoodboardCanvas
-          projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
-        />
+      canvas: (
+        <DesignerComponent ref={designerRef} lexicalEditor={lexicalEditorNode} />
       ),
     }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
+    [lexicalEditorNode]
   );
 
-  const toolbarProps = useMemo(
-    () => ({
-      initialMode: activeLayer,
-      onModeChange: handleToolbarModeChange,
+  const toolbarProps = useMemo(() => {
+    const lexicalActions =
+      isLexicalFocused && lexicalToolbarActions ? lexicalToolbarActions : {};
+
+    return {
+      initialMode: "canvas" as LayerGroupKey,
       onPreview: () => setPreviewOpen(true),
       onSelectTool: handleSelectTool,
       onFreeDraw: handleBrushTool,
@@ -500,28 +463,27 @@ const EditorPage: React.FC = () => {
       onDelete: handleDelete,
       onClearCanvas: handleClearCanvas,
       onSave: handleSave,
-      ...(activeLayer === "brief" ? briefToolbarActions : {}),
-    }),
-    [
-      activeLayer,
-      briefToolbarActions,
-      handleBrushTool,
-      handleClearCanvas,
-      handleColorChange,
-      handleCopy,
-      handleDelete,
-      handleImageTool,
-      handlePaste,
-      handleRectTool,
-      handleRedo,
-      handleSave,
-      handleSelectTool,
-      handleToolbarModeChange,
-      handleTextTool,
-      handleUndo,
-      setPreviewOpen,
-    ]
-  );
+      disableCanvasTools: isLexicalFocused,
+      ...lexicalActions,
+    };
+  }, [
+    handleBrushTool,
+    handleClearCanvas,
+    handleColorChange,
+    handleCopy,
+    handleDelete,
+    handleImageTool,
+    handlePaste,
+    handleRectTool,
+    handleRedo,
+    handleSave,
+    handleSelectTool,
+    handleTextTool,
+    handleUndo,
+    isLexicalFocused,
+    lexicalToolbarActions,
+    setPreviewOpen,
+  ]);
 
   return (
     <ProjectPageLayout
@@ -552,7 +514,7 @@ const EditorPage: React.FC = () => {
           <SheetEditor
             pages={pages}
             activePageId={activePageId}
-            activeLayer={activeLayer}
+            activeLayer="canvas"
             onSelectPage={handleSelectPage}
             onAddPage={handleAddPage}
             onDuplicatePage={handleDuplicatePage}

@@ -6,6 +6,7 @@ import React, {
   useCallback,
   forwardRef,
   useImperativeHandle,
+  type ReactNode,
 } from "react";
 import {
   Canvas as FabricCanvas,
@@ -26,6 +27,7 @@ import styles from "./designer-component.module.css";
 
 interface DesignerComponentProps {
   style?: React.CSSProperties;
+  lexicalEditor?: ReactNode;
   [key: string]: unknown;
 }
 
@@ -106,7 +108,7 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
-    const { style: forwardedStyle, ...restProps } = props;
+    const { style: forwardedStyle, lexicalEditor, ...restProps } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -804,7 +806,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         </div>
 
         {/* Canvas column */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <div className={styles.canvasColumn}>
           <div
             ref={containerRef}
             className={styles.canvasContainer}
@@ -823,6 +825,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             onChange={handleImageUpload}
           />
         </div>
+
+        {lexicalEditor ? (
+          <aside className={styles.lexicalPanel}>
+            <header className={styles.lexicalHeader}>Project Brief</header>
+            <div className={styles.lexicalContent}>{lexicalEditor}</div>
+          </aside>
+        ) : null}
       </div>
     );
   }
