@@ -106,6 +106,7 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
+    const { style: forwardedStyle, ...restProps } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -753,7 +754,14 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* ---------- Render ---------- */
     return (
-      <div style={{ display: "flex", height: "100%" }}>
+      <div
+        {...restProps}
+        style={{
+          display: "flex",
+          height: "100%",
+          ...(forwardedStyle ?? {}),
+        }}
+      >
         {/* Layers panel */}
         <div className={styles.layersPanel}>
           <h4>Layers</h4>
