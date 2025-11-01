@@ -1,0 +1,31 @@
+.overlay {
+  position: absolute;
+  z-index: 10;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.editable {
+  flex: 1;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  min-height: 100%;
+  color: #111827;
+}
+
+.paragraph {
+  margin: 0;
+}
+
+.error {
+  color: #b91c1c;
+  padding: 8px;
+}
