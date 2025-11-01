@@ -360,6 +360,38 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       });
     }, [ensureTextMetadata]);
 
+    /* History */
+    const saveHistory = useCallback(() => {
+      if (isRestoringHistory.current) return;
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) return;
+
+      const json = fabricCanvas.toJSON();
+      const isEmptyCanvas = json.objects.length === 0;
+
+      const h = history.current;
+      if (h.stack.length === 0 || !isEmptyCanvas) {
+        h.stack = h.stack.slice(0, h.index + 1);
+        h.stack.push(json);
+        h.index++;
+      }
+    }, []);
+
+    const loadHistory = useCallback((index: number) => {
+      const fabricCanvas = fabricCanvasRef.current;
+      const h = history.current;
+      if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
+
+      isRestoringHistory.current = true;
+      fabricCanvas.loadFromJSON(h.stack[index], () => {
+        fabricCanvas.renderAll();
+        fabricCanvas.requestRenderAll();
+        updateObjects();
+        isRestoringHistory.current = false;
+      });
+      h.index = index;
+    }, []);
+
     const closeTextEditorOverlay = useCallback(
       (shouldPersist = true) => {
         const text = editingTextRef.current;
@@ -452,38 +484,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       window.addEventListener("beforeunload", handleBeforeUnload);
       return () => window.removeEventListener("beforeunload", handleBeforeUnload);
     }, [isDirty, activeProject?.projectId]);
-
-    /* History */
-    const saveHistory = useCallback(() => {
-      if (isRestoringHistory.current) return;
-      const fabricCanvas = fabricCanvasRef.current;
-      if (!fabricCanvas) return;
-
-      const json = fabricCanvas.toJSON();
-      const isEmptyCanvas = json.objects.length === 0;
-
-      const h = history.current;
-      if (h.stack.length === 0 || !isEmptyCanvas) {
-        h.stack = h.stack.slice(0, h.index + 1);
-        h.stack.push(json);
-        h.index++;
-      }
-    }, []);
-
-    const loadHistory = useCallback((index: number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      const h = history.current;
-      if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
-
-      isRestoringHistory.current = true;
-      fabricCanvas.loadFromJSON(h.stack[index], () => {
-        fabricCanvas.renderAll();
-        fabricCanvas.requestRenderAll();
-        updateObjects();
-        isRestoringHistory.current = false;
-      });
-      h.index = index;
-    }, []);
 
     const updateObjects = () => {
       const fabricCanvas = fabricCanvasRef.current;
