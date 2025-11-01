@@ -42,7 +42,7 @@ Based on our analysis, several positive findings indicate strong architectural d
 - **Real-time WebSocket messaging** with optimistic UI updates
 - **Project management** with budgets, timelines, and file handling
 - **Calendar integration** and task planning system
-- **Rich text editing** with Lexical editor
+- **Collaborative canvas editing** powered by Fabric.js
 - **Gallery and portfolio management** with S3 integration
 - **Comprehensive notification system** for user engagement
 - **Multi-revision budget tracking** with Excel/CSV export capabilities

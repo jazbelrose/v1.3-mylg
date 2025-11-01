@@ -15,7 +15,7 @@
 - ✅ **Real-time WebSocket Messaging** - Optimistic UI with reconnection logic
 - ✅ **Project Management** - Budgets, timelines, file handling, and collaboration
 - ✅ **Calendar Integration** - Task planning and scheduling system
-- ✅ **Rich Text Editing** - Lexical editor with advanced formatting
+- ✅ **Collaborative Canvas** - Fabric.js canvas with shared editing tools
 - ✅ **Gallery & Portfolio Management** - Image/video uploads with S3 integration
 - ✅ **Notification System** - Comprehensive in-app and push notifications
 - ✅ **Budget Management** - Multi-revision budget tracking with Excel/CSV export
@@ -179,7 +179,7 @@
 - ✅ **TypeScript ~5.8.3** - Modern TypeScript features
 - ✅ **Vite 7.1.2** - Latest build tool
 - ✅ **AWS Amplify 6.15.5** - Current authentication/storage
-- ✅ **Lexical 0.34.0** - Modern rich text editor
+- ✅ **Fabric.js 6.x** - Modern canvas rendering and object manipulation
 
 #### **Potential Upgrades**
 - 📈 **@vitejs/plugin-react** - Could use latest features

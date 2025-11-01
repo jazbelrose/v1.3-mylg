@@ -62,6 +62,45 @@ Resources:
       SSESpecification:
         SSEEnabled: true
       DeletionProtectionEnabled: true
+  FabricConnections:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: FabricConnections
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+        - AttributeName: documentId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: documentId-index
+          KeySchema:
+            - AttributeName: documentId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  FabricDocuments:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: FabricDocuments
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: documentId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: documentId
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
   Events:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain

@@ -1,0 +1,97 @@
+service: mylg-fabric-realtime
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 20
+  websocketsApiName: ${self:service}-${sls:stage}
+  websocketsApiRouteSelectionExpression: $request.body.type
+  environment:
+    FABRIC_CONNECTIONS_TABLE: ${env:FABRIC_CONNECTIONS_TABLE}
+    FABRIC_CONNECTIONS_INDEX: ${env:FABRIC_CONNECTIONS_INDEX}
+    FABRIC_DOCUMENTS_TABLE: ${env:FABRIC_DOCUMENTS_TABLE}
+    FABRIC_EXPORT_BUCKET: ${env:FABRIC_EXPORT_BUCKET}
+    ALLOWED_ORIGINS: ${env:ALLOWED_ORIGINS}
+    CORS_WILDCARD_HOSTS: ${env:CORS_WILDCARD_HOSTS}
+    CORS_ALLOW_CREDENTIALS: ${env:CORS_ALLOW_CREDENTIALS}
+    CORS_DEFAULT_ORIGIN: ${env:CORS_DEFAULT_ORIGIN}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:FABRIC_CONNECTIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:FABRIC_CONNECTIONS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:FABRIC_DOCUMENTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:FABRIC_DOCUMENTS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource: arn:aws:execute-api:${aws:region}:${aws:accountId}:*/${sls:stage}/POST/@connections/*
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+          Resource: arn:aws:s3:::${env:FABRIC_EXPORT_BUCKET}/*
+
+functions:
+  connect:
+    handler: handlers/connect.handler
+    events:
+      - websocket:
+          route: $connect
+  disconnect:
+    handler: handlers/disconnect.handler
+    events:
+      - websocket:
+          route: $disconnect
+  message:
+    handler: handlers/message.handler
+    events:
+      - websocket:
+          route: $default
+  getDocument:
+    handler: handlers/getDocument.handler
+    events:
+      - httpApi:
+          method: get
+          path: /fabric/projects/{projectId}/pages/{pageId}
+  saveDocument:
+    handler: handlers/saveDocument.handler
+    events:
+      - httpApi:
+          method: put
+          path: /fabric/projects/{projectId}/pages/{pageId}
+  exportDocument:
+    handler: handlers/exportDocument.handler
+    events:
+      - httpApi:
+          method: post
+          path: /fabric/projects/{projectId}/pages/{pageId}/export
+  health:
+    handler: handlers/health.handler
+    events:
+      - httpApi:
+          method: get
+          path: /fabric/health
+
+package:
+  patterns:
+    - handlers/*.mjs
+    - '!**/*.map'

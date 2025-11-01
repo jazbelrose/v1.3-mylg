@@ -34,9 +34,12 @@ export default defineConfig(({ mode }) => {
   const isHttps = false; // Vite dev is usually http
   const scheme = isHttps ? "wss" : "ws";
 
-  const yjsTarget =
-    (env.VITE_YJS_WS_URL && env.VITE_YJS_WS_URL.trim()) ||
-    `${scheme}://35.165.113.63:1234`;
+  const fabricApiTarget =
+    (env.VITE_FABRIC_API_PROXY && env.VITE_FABRIC_API_PROXY.trim()) ||
+    "http://localhost:4000";
+  const fabricWsTarget =
+    (env.VITE_FABRIC_WS_PROXY && env.VITE_FABRIC_WS_PROXY.trim()) ||
+    `${scheme}://localhost:4000`;
 
   const isDev = mode === 'development';
 
@@ -72,7 +75,6 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: ['react', 'react-dom', 'aws-amplify'],
-      exclude: ['@lexical/react', 'lexical'],
     },
     envPrefix: 'VITE_',
 
@@ -88,12 +90,17 @@ export default defineConfig(({ mode }) => {
         protocol: 'ws',
       },
       proxy: {
-        "/yjs": {
-          target: yjsTarget,
+        "/fabric": {
+          target: fabricApiTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/fabric-ws": {
+          target: fabricWsTarget,
           ws: true,
           changeOrigin: true,
           secure: false,
-          rewrite: (p) => p.replace(/^\/yjs/, ""), // so final path is "/<room>"
+          rewrite: (p) => p.replace(/^\/fabric-ws/, ""),
         },
       },
 

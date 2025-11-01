@@ -116,6 +116,29 @@ const collectLexicalText = (node: unknown): string => {
   return toSingleLine(parts.filter(Boolean).join(' '));
 };
 
+const collectFabricText = (snapshot: unknown): string => {
+  if (!snapshot || typeof snapshot !== 'object') return '';
+  const root = snapshot as Record<string, unknown>;
+  const objects = Array.isArray(root.objects) ? (root.objects as unknown[]) : [];
+  const parts: string[] = [];
+
+  for (const item of objects) {
+    if (!item || typeof item !== 'object') continue;
+    const fabricNode = item as Record<string, unknown>;
+    if (typeof fabricNode.text === 'string') {
+      parts.push(fabricNode.text);
+    }
+    if (typeof fabricNode.caption === 'string') {
+      parts.push(fabricNode.caption);
+    }
+    if (typeof fabricNode.alt === 'string') {
+      parts.push(fabricNode.alt);
+    }
+  }
+
+  return toSingleLine(parts.join(' '));
+};
+
 const extractPlainText = (input: unknown): string => {
   if (!input) return '';
 
@@ -126,10 +149,11 @@ const extractPlainText = (input: unknown): string => {
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
         const parsed = JSON.parse(trimmed);
-        const fromLexical = collectLexicalText((parsed as Record<string, unknown>).root ?? parsed);
-        if (fromLexical) {
-          return fromLexical;
-        }
+        const rootNode = (parsed as Record<string, unknown>).root ?? parsed;
+        const fromLexical = collectLexicalText(rootNode);
+        if (fromLexical) return fromLexical;
+        const fromFabric = collectFabricText(parsed);
+        if (fromFabric) return fromFabric;
       } catch {
         // fall through to HTML stripping below
       }
@@ -139,10 +163,11 @@ const extractPlainText = (input: unknown): string => {
   }
 
   if (typeof input === 'object') {
-    const fromLexical = collectLexicalText((input as Record<string, unknown>).root ?? input);
-    if (fromLexical) {
-      return fromLexical;
-    }
+    const rootNode = (input as Record<string, unknown>).root ?? input;
+    const fromLexical = collectLexicalText(rootNode);
+    if (fromLexical) return fromLexical;
+    const fromFabric = collectFabricText(input);
+    if (fromFabric) return fromFabric;
   }
 
   return '';
