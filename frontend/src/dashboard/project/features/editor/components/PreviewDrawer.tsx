@@ -6,7 +6,7 @@ interface PreviewDrawerProps {
   open: boolean;
   onClose: () => void;
   url: string;
-  onExportGallery: () => void;
+  onExportSite: () => void;
   onExportPDF: () => void;
 }
 
@@ -14,7 +14,7 @@ const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
   open,
   onClose,
   url,
-  onExportGallery,
+  onExportSite,
   onExportPDF,
 }) => {
   useEffect(() => {
@@ -62,8 +62,8 @@ const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
             <PDFPreview url={url} />
 
             <div className="preview-actions">
-              <button type="button" onClick={onExportGallery}>
-                Export to Gallery
+              <button type="button" onClick={onExportSite}>
+                Export to Site
               </button>
               <button type="button" onClick={onExportPDF}>
                 Export to PDF

@@ -274,11 +274,11 @@ const BASE_ENDPOINTS = {
     GET_PROJECT_MESSAGES_URL: 'https://uzcx04lrr9.execute-api.us-west-2.amazonaws.com/messages',
     EDIT_PROJECT_MESSAGE_URL: 'https://uzcx04lrr9.execute-api.us-west-2.amazonaws.com/messages',
     EDIT_MESSAGE_URL: 'https://uzcx04lrr9.execute-api.us-west-2.amazonaws.com/messages',
-  GALLERY_UPLOAD_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects/galleries/upload',
-  // create-gallery is deployed as a separate service; use its HTTP API 'process' endpoint for function-style actions
-  CREATE_GALLERY_FUNCTION_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/projects/galleries/process',
-  DELETE_GALLERY_FUNCTION_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/projects/galleries/process',
-  GALLERIES_API_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects/galleries',
+    GALLERY_UPLOAD_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects/galleries/upload',
+    // create-gallery is deployed as a separate service; use its HTTP API 'process' endpoint for function-style actions
+    CREATE_GALLERY_FUNCTION_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/projects/galleries/process',
+    DELETE_GALLERY_FUNCTION_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/projects/galleries/process',
+    GALLERIES_API_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects/galleries',
     POST_PROJECTS_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects',
     POST_PROJECT_TO_USER_URL: 'https://gy8dq7w0a3.execute-api.us-west-2.amazonaws.com/postProjectToUserId',
     SEND_PROJECT_NOTIFICATION_URL: 'https://uzcx04lrr9.execute-api.us-west-2.amazonaws.com/messages/notifications',
@@ -290,6 +290,10 @@ const BASE_ENDPOINTS = {
     COLLAB_INVITES_BASE_URL: 'https://gy8dq7w0a3.execute-api.us-west-2.amazonaws.com/invites',
     USER_INVITES_URL: 'https://gy8dq7w0a3.execute-api.us-west-2.amazonaws.com/invites/users',
     TASKS_API_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects/',
+
+    // Realtime deck service
+    DECK_REALTIME_WS_URL: 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/deck',
+    DECK_EXPORT_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/deck/export',
     
     // External services (unchanged)
     NOMINATIM_SEARCH_URL: 'https://nominatim.openstreetmap.org/search?format=json&q=',
@@ -352,6 +356,8 @@ export const {
   COLLAB_INVITES_BASE_URL,
   USER_INVITES_URL,
   TASKS_API_URL,
+  DECK_REALTIME_WS_URL,
+  DECK_EXPORT_URL,
 } = API_ENDPOINTS as Record<string, string>;
 
 /**

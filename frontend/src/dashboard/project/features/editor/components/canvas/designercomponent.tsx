@@ -26,6 +26,10 @@ import styles from "./designer-component.module.css";
 
 interface DesignerComponentProps {
   style?: React.CSSProperties;
+  loadFromLegacyApi?: boolean;
+  initialCanvasJson?: string | null;
+  onCanvasChange?: (json: string) => void;
+  onSave?: (json: string) => Promise<void> | void;
   [key: string]: unknown;
 }
 
@@ -64,6 +68,8 @@ export interface DesignerRef {
   handleDelete: () => void;
   handleClear: () => void;
   handleSave: () => void;
+  getCanvasJson: () => string | null;
+  loadCanvasJson: (json: string, options?: { silent?: boolean }) => void;
 }
 
 /* Fabric façade (for easier mocking / tree-shaking friendliness) */
@@ -106,7 +112,14 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
-    const { style: forwardedStyle, ...restProps } = props;
+    const {
+      style: forwardedStyle,
+      loadFromLegacyApi = true,
+      initialCanvasJson = null,
+      onCanvasChange,
+      onSave,
+      ...restProps
+    } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -124,7 +137,23 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fabricCanvasRef = useRef<any>(null);
     const isRestoringHistory = useRef<boolean>(false);
+    const isApplyingExternal = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
+    const onCanvasChangeRef = useRef<typeof onCanvasChange>(onCanvasChange);
+    const onSaveOverrideRef = useRef<typeof onSave>(onSave);
+    const initialJsonRef = useRef<string | null>(initialCanvasJson);
+
+    useEffect(() => {
+      onCanvasChangeRef.current = onCanvasChange;
+    }, [onCanvasChange]);
+
+    useEffect(() => {
+      onSaveOverrideRef.current = onSave;
+    }, [onSave]);
+
+    useEffect(() => {
+      initialJsonRef.current = initialCanvasJson;
+    }, [initialCanvasJson]);
 
     const { activeProject, setActiveProject } = useData();
 
@@ -132,21 +161,38 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const saveCanvas = useCallback(
       async (showToast = false) => {
         const fabricCanvas = fabricCanvasRef.current;
-        if (!fabricCanvas || !activeProject?.projectId) {
+        if (!fabricCanvas) {
+          if (showToast) notify("error", "Canvas not ready");
+          return;
+        }
+
+        const canvasJson = JSON.stringify(fabricCanvas.toJSON());
+        const customSave = onSaveOverrideRef.current;
+
+        if (customSave) {
+          try {
+            await customSave(canvasJson);
+            setIsDirty(false);
+            if (showToast) notify("success", "Saved. Nice.");
+          } catch (error) {
+            console.error("Custom canvas save failed", error);
+            if (showToast) notify("error", "Failed to save canvas");
+          }
+          return;
+        }
+
+        if (!activeProject?.projectId) {
           if (showToast) notify("error", "No active project to save");
           return;
         }
+
         try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
           const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-          // apiFetch returns parsed JSON or {} on empty; errors throw.
-          console.debug('Saving canvas to:', apiUrl);
           await apiFetch(apiUrl, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ canvasJson }),
           });
-          // console.debug('Save successful:', responseData);
           setActiveProject((prev: Project | null) => (prev ? { ...prev, canvasJson } : prev));
           setIsDirty(false);
           if (showToast) notify("success", "Saved. Nice.");
@@ -161,8 +207,18 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     );
 
     const markDirty = useCallback(() => {
-      if (isInitialLoad.current) return;
+      if (isInitialLoad.current || isRestoringHistory.current || isApplyingExternal.current) return;
       setIsDirty(true);
+      const callback = onCanvasChangeRef.current;
+      const fabricCanvas = fabricCanvasRef.current;
+      if (callback && fabricCanvas) {
+        try {
+          const json = JSON.stringify(fabricCanvas.toJSON());
+          callback(json);
+        } catch (error) {
+          console.error("Failed to serialize canvas", error);
+        }
+      }
     }, []);
 
     const applyCanvasMode = useCallback(
@@ -232,11 +288,22 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
         if (!isDirty) return;
 
-        if (fabricCanvasRef.current && activeProject?.projectId) {
-          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON());
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        const json = JSON.stringify(canvas.toJSON());
+        const customSave = onSaveOverrideRef.current;
+
+        if (customSave) {
+          try {
+            customSave(json);
+          } catch (error) {
+            console.error("Custom beforeunload save failed", error);
+          }
+        } else if (activeProject?.projectId) {
           navigator.sendBeacon(
             `${EDIT_PROJECT_URL}/${activeProject.projectId}`,
-            JSON.stringify({ canvasJson })
+            JSON.stringify({ canvasJson: json })
           );
         }
         e.preventDefault();
@@ -248,7 +315,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* History */
     const saveHistory = () => {
-      if (isRestoringHistory.current) return;
+      if (isRestoringHistory.current || isApplyingExternal.current) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
@@ -263,20 +330,59 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       }
     };
 
-    const loadHistory = useCallback((index: number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      const h = history.current;
-      if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
+    const loadCanvasFromJson = useCallback(
+      async (
+        json: string | Record<string, unknown>,
+        options?: { silent?: boolean }
+      ) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!fabricCanvas) return;
 
-      isRestoringHistory.current = true;
-      fabricCanvas.loadFromJSON(h.stack[index], () => {
-        fabricCanvas.renderAll();
-        fabricCanvas.requestRenderAll();
+        let parsed: Record<string, unknown> | string = json;
+        if (typeof json === "string") {
+          try {
+            parsed = JSON.parse(json) as Record<string, unknown>;
+          } catch (error) {
+            console.error("Failed to parse canvas JSON", error);
+            return;
+          }
+        }
+
+        isApplyingExternal.current = true;
+        await new Promise<void>((resolve) => {
+          fabricCanvas.loadFromJSON(parsed, () => {
+            fabricCanvas.renderAll();
+            fabricCanvas.requestRenderAll();
+            resolve();
+          });
+        });
         updateObjects();
-        isRestoringHistory.current = false;
-      });
-      h.index = index;
-    }, []);
+        isApplyingExternal.current = false;
+        saveHistory();
+        if (!options?.silent) {
+          markDirty();
+        }
+      },
+      [markDirty, updateObjects]
+    );
+
+    const loadHistory = useCallback(
+      (index: number) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const h = history.current;
+        if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
+
+        isRestoringHistory.current = true;
+        fabricCanvas.loadFromJSON(h.stack[index], () => {
+          fabricCanvas.renderAll();
+          fabricCanvas.requestRenderAll();
+          updateObjects();
+          isRestoringHistory.current = false;
+        });
+        h.index = index;
+      },
+      [updateObjects]
+    );
 
     const updateObjects = () => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -404,23 +510,19 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
       const loadCanvas = async () => {
         setLoadingCanvas(true);
-        const fabricCanvas = fabricCanvasRef.current;
         try {
-          // Start with any canvas JSON already on the active project as a fallback
-          let jsonString: string | null = (activeProject?.canvasJson as string | null) ?? null;
+          let jsonString: string | null = initialJsonRef.current ?? (activeProject?.canvasJson as string | null) ?? null;
 
-          if (activeProject?.projectId) {
+          if (loadFromLegacyApi && activeProject?.projectId) {
             const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
             console.debug('Loading canvas from:', apiUrl);
             try {
-              // apiFetch returns parsed JSON; will throw for non-2xx
               const data: { canvasJson?: string } = await apiFetch(apiUrl);
               jsonString = data?.canvasJson ?? jsonString;
               setActiveProject((prev: Project | null) =>
                 prev ? { ...prev, canvasJson: jsonString ?? undefined } : prev
               );
             } catch (e) {
-              // Network or server errors shouldn't wipe existing canvas data
               console.error('Canvas fetch failed:', e);
               notify(
                 'error',
@@ -430,43 +532,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }
 
           if (jsonString) {
-            let jsonObj: Record<string, unknown>;
-            try {
-              jsonObj =
-                typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
-            } catch (e) {
-              console.error('Failed to parse canvas JSON:', e);
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
-              saveHistory();
-              return;
-            }
-
-            if (
-              jsonObj &&
-              Array.isArray((jsonObj as { objects?: unknown[] }).objects) &&
-              (jsonObj as { objects: unknown[] }).objects.length > 0
-            ) {
-              isRestoringHistory.current = true;
-              await new Promise<void>((resolve) => {
-                fabricCanvas?.loadFromJSON(jsonObj, () => {
-                  fabricCanvas?.renderAll();
-                  fabricCanvas?.requestRenderAll();
-                  resolve();
-                });
-              });
-              isRestoringHistory.current = false;
-              updateObjects();
-              saveHistory();
-            } else {
-              // When there's no canvas data, just clear and render without waiting
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
-              saveHistory();
-            }
+            await loadCanvasFromJson(jsonString, { silent: true });
           } else {
-            fabricCanvas?.clear();
-            fabricCanvas?.renderAll();
+            fabricCanvas.clear();
+            fabricCanvas.renderAll();
             saveHistory();
           }
         } finally {
@@ -476,7 +545,14 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       };
 
       loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+    }, [
+      canvasReady,
+      activeProject?.projectId,
+      activeProject?.canvasJson,
+      setActiveProject,
+      loadCanvasFromJson,
+      loadFromLegacyApi,
+    ]);
 
     useEffect(() => {
       applyCanvasMode(mode);
@@ -737,6 +813,20 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         handleDelete,
         handleClear,
         handleSave,
+        loadCanvasFromJson,
+        getCanvasJson: () => {
+          const canvas = fabricCanvasRef.current;
+          if (!canvas) return null;
+          try {
+            return JSON.stringify(canvas.toJSON());
+          } catch (error) {
+            console.error("Failed to serialize canvas", error);
+            return null;
+          }
+        },
+        loadCanvasJson: (json, options) => {
+          void loadCanvasFromJson(json, options);
+        },
       }),
       [
         changeMode,
@@ -749,6 +839,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         handleDelete,
         handleClear,
         handleSave,
+        loadCanvasFromJson,
       ]
     );
 

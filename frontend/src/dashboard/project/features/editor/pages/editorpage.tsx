@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
-import DesignerComponent, { DesignerRef } from "@/dashboard/project/features/editor/components/canvas/designercomponent";
+import FabricRealtimeCanvas, {
+  type RealtimeDesignerHandle,
+} from "@/dashboard/project/features/editor/components/FabricRealtimeCanvas";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -20,10 +20,11 @@ import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
+import { DECK_EXPORT_URL, apiFetch } from "@/shared/utils/api";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
-const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
+const LAYER_KEYS: LayerGroupKey[] = ["canvas"];
 
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -32,27 +33,20 @@ const createGroupStates = (
   overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
 ): Record<LayerGroupKey, LayerGroupState> => {
   const base: Record<LayerGroupKey, LayerGroupState> = {
-    brief: { visible: true, opacity: 0.9 },
     canvas: { visible: true, opacity: 1 },
-    moodboard: { visible: false, opacity: 0.7 },
   };
   if (!overrides) return base;
   return {
-    brief: { ...base.brief, ...overrides.brief },
     canvas: { ...base.canvas, ...overrides.canvas },
-    moodboard: { ...base.moodboard, ...overrides.moodboard },
   };
 };
 
 const cloneGroupStates = (
   states: Record<LayerGroupKey, LayerGroupState>
 ): Record<LayerGroupKey, LayerGroupState> => {
-  const clone: Record<LayerGroupKey, LayerGroupState> = {
-    brief: { ...states.brief },
+  return {
     canvas: { ...states.canvas },
-    moodboard: { ...states.moodboard },
   };
-  return clone;
 };
 
 const createPageState = (
@@ -68,10 +62,7 @@ const createSuperSheetState = (): SheetPageState => ({
   id: "super-sheet",
   name: "One Sheet",
   isSuperSheet: true,
-  groupStates: createGroupStates({
-    brief: { opacity: 0.6 },
-    moodboard: { visible: true, opacity: 0.45 },
-  }),
+  groupStates: createGroupStates({}),
 });
 
 const EditorPage: React.FC = () => {
@@ -85,7 +76,6 @@ const EditorPage: React.FC = () => {
     setProjects,
     setSelectedProjects,
     userId,
-    updateProjectFields,
   } = useData();
 
   const { ws } = useSocket();
@@ -93,11 +83,10 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
-  const designerRef = useRef<DesignerRef>(null);
+  const designerRef = useRef<RealtimeDesignerHandle | null>(null);
   const initialPageIdRef = useRef<string | null>(null);
   const [pages, setPages] = useState<SheetPageState[]>(() => {
     const firstPage = createPageState("Page 1");
@@ -109,52 +98,11 @@ const EditorPage: React.FC = () => {
     () => initialPageIdRef.current ?? ""
   );
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
-  const [briefContent, setBriefContent] = useState<string>("");
-  const [isBriefDirty, setIsBriefDirty] = useState(false);
-  const savedBriefContentRef = useRef<string>("");
-
-  const handleBriefChange = useCallback((json: string) => {
-    setBriefContent(json);
-    setIsBriefDirty(json !== savedBriefContentRef.current);
-  }, []);
-
-  const saveBrief = useCallback(
-    async (showToast = true) => {
-      if (!activeProject?.projectId) {
-        if (showToast) notify("error", "No active project to save");
-        return;
-      }
-      if (!isBriefDirty) {
-        if (showToast) notify("info", "Brief already saved");
-        return;
-      }
-      try {
-        await updateProjectFields(activeProject.projectId, {
-          description: briefContent,
-        });
-        savedBriefContentRef.current = briefContent;
-        setIsBriefDirty(false);
-        if (showToast) notify("success", "Saved. Nice.");
-      } catch (err) {
-        const error = err as { message?: string };
-        console.error("Failed to save brief:", error);
-        if (showToast)
-          notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-      }
-    },
-    [activeProject?.projectId, briefContent, isBriefDirty, updateProjectFields]
-  );
 
   useEffect(() => {
     setActiveProject(initialActiveProject);
   }, [initialActiveProject]);
 
-  useEffect(() => {
-    const description = activeProject?.description || "";
-    savedBriefContentRef.current = description;
-    setBriefContent(description);
-    setIsBriefDirty(false);
-  }, [activeProject?.description]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -277,34 +225,18 @@ const EditorPage: React.FC = () => {
     designerRef.current?.handleClear();
   }, []);
   const handleSave = useCallback(() => {
-    if (activeLayer === "canvas") {
-      designerRef.current?.handleSave();
-    } else if (activeLayer === "brief") {
-      void saveBrief();
-    }
-  }, [activeLayer, saveBrief]);
-
-  const guardAgainstUnsavedBrief = useCallback(() => {
-    if (activeLayer === "brief" && isBriefDirty) {
-      if (typeof window !== "undefined") {
-        return window.confirm("You have unsaved changes, continue?");
-      }
-      return true;
-    }
-    return true;
-  }, [activeLayer, isBriefDirty]);
+    designerRef.current?.handleSave();
+  }, []);
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
       if (pageId === activePageId) return;
-      if (!guardAgainstUnsavedBrief()) return;
       setActivePageId(pageId);
     },
-    [activePageId, guardAgainstUnsavedBrief]
+    [activePageId]
   );
 
   const handleAddPage = useCallback(() => {
-    if (!guardAgainstUnsavedBrief()) return;
     const regular = pages.filter((page) => !page.isSuperSheet);
     const newPage = createPageState(`Page ${regular.length + 1}`);
     const superSheet = pages.find((page) => page.isSuperSheet);
@@ -312,7 +244,7 @@ const EditorPage: React.FC = () => {
     const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
     setPages(nextPages);
     setActivePageId(newPage.id);
-  }, [guardAgainstUnsavedBrief, pages]);
+  }, [pages]);
 
   const handleDuplicatePage = useCallback(
     (pageId: string) => {
@@ -320,7 +252,6 @@ const EditorPage: React.FC = () => {
         (page) => page.id === pageId && !page.isSuperSheet
       );
       if (!target) return;
-      if (!guardAgainstUnsavedBrief()) return;
       const duplicate: SheetPageState = {
         ...target,
         id: generateId("page"),
@@ -336,7 +267,7 @@ const EditorPage: React.FC = () => {
       setPages(nextPages);
       setActivePageId(duplicate.id);
     },
-    [guardAgainstUnsavedBrief, pages]
+    [pages]
   );
 
   const handleMovePage = useCallback(
@@ -362,10 +293,9 @@ const EditorPage: React.FC = () => {
   const handleSelectLayer = useCallback(
     (layer: LayerGroupKey) => {
       if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
       setActiveLayer(layer);
     },
-    [activeLayer, guardAgainstUnsavedBrief]
+    [activeLayer]
   );
 
   const handleToggleLayerVisibility = useCallback(
@@ -413,10 +343,9 @@ const EditorPage: React.FC = () => {
       if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
       const layer = mode as LayerGroupKey;
       if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
       setActiveLayer(layer);
     },
-    [activeLayer, guardAgainstUnsavedBrief]
+    [activeLayer]
   );
 
   useEffect(() => {
@@ -431,56 +360,73 @@ const EditorPage: React.FC = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleSave]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isBriefDirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isBriefDirty]);
-
-  useEffect(() => {
-    window.hasUnsavedChanges = () => isBriefDirty;
-    window.unsavedChanges = isBriefDirty;
-    return () => {
-      delete window.hasUnsavedChanges;
-      delete window.unsavedChanges;
-    };
-  }, [isBriefDirty]);
+  const activePage = useMemo(
+    () => pages.find((page) => page.id === activePageId) ?? null,
+    [pages, activePageId]
+  );
 
   const layerNodes = useMemo(
     () => ({
-      canvas: <DesignerComponent ref={designerRef} />,
-      brief:
-        activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
-          />
-        ) : (
-          <div>Loading...</div>
-        ),
-      moodboard: (
-        <MoodboardCanvas
+      canvas: (
+        <FabricRealtimeCanvas
+          ref={designerRef}
           projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
+          pageId={activePage?.id}
+          pageName={activePage?.name}
         />
       ),
     }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
+    [activePage?.id, activePage?.name, activeProject?.projectId]
   );
+
+  const exportDeck = useCallback(
+    async (format: "pdf" | "site") => {
+      if (!activeProject?.projectId || !activePage?.id) {
+        notify("error", "Select a project page before exporting.");
+        return null;
+      }
+      const state = designerRef.current?.getCanvasJson();
+      try {
+        const response = await apiFetch<{
+          pdf?: string;
+          site?: string;
+        }>(DECK_EXPORT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId: activeProject.projectId,
+            pageId: activePage.id,
+            format,
+            state: state ?? undefined,
+          }),
+        });
+        return response;
+      } catch (error) {
+        console.error("Deck export failed", error);
+        notify("error", "Export failed. Please try again.");
+        return null;
+      }
+    },
+    [activePage?.id, activeProject?.projectId]
+  );
+
+  const handleExportPdf = useCallback(async () => {
+    const result = await exportDeck("pdf");
+    const pdf = result?.pdf;
+    if (pdf) {
+      window.open(pdf, "_blank", "noopener");
+      notify("success", "PDF export ready in a new tab.");
+    }
+  }, [exportDeck]);
+
+  const handleExportSite = useCallback(async () => {
+    const result = await exportDeck("site");
+    const site = result?.site;
+    if (site) {
+      window.open(site, "_blank", "noopener");
+      notify("success", "Live site export opened in a new tab.");
+    }
+  }, [exportDeck]);
 
   const toolbarProps = useMemo(
     () => ({
@@ -500,11 +446,9 @@ const EditorPage: React.FC = () => {
       onDelete: handleDelete,
       onClearCanvas: handleClearCanvas,
       onSave: handleSave,
-      ...(activeLayer === "brief" ? briefToolbarActions : {}),
     }),
     [
       activeLayer,
-      briefToolbarActions,
       handleBrushTool,
       handleClearCanvas,
       handleColorChange,
@@ -567,8 +511,8 @@ const EditorPage: React.FC = () => {
             open={previewOpen}
             onClose={() => setPreviewOpen(false)}
             url={activeProject?.previewUrl as string}
-            onExportGallery={() => console.log("Export to Gallery")}
-            onExportPDF={() => console.log("Export to PDF")}
+            onExportSite={handleExportSite}
+            onExportPDF={handleExportPdf}
           />
         </div>
       </div>
