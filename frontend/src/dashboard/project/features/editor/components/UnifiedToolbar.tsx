@@ -176,8 +176,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
     };
   }, [moreOpen]);
 
-  const isCanvasMode = activeMode === "canvas";
-  const isBriefMode = activeMode === "brief";
+  const isCanvasMode = !activeMode || activeMode === "canvas";
 
   const handleToggleGrid = () => {
     const next = !gridEnabled;
@@ -378,11 +377,6 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({
         </div>
       </div>
 
-      {isBriefMode && (
-        <div className={styles.contextHint}>
-          Text formatting tools now live in the Properties panel.
-        </div>
-      )}
     </div>
   );
 };

@@ -11,7 +11,7 @@ interface FabricStageProps {
   zoom: number;
 }
 
-const ORDER: LayerGroupKey[] = ["canvas", "brief", "moodboard"];
+const ORDER: LayerGroupKey[] = ["canvas"];
 
 const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes, zoom }) => {
   const layerEntries = useMemo(() => {

@@ -8,9 +8,7 @@ interface InspectorProps {
 }
 
 const LABELS: Record<LayerGroupKey, string> = {
-  brief: "Brief",
   canvas: "Canvas",
-  moodboard: "Moodboard",
 };
 
 const Inspector: React.FC<InspectorProps> = ({ page, activeLayer }) => {
