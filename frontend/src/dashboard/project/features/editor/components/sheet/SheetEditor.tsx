@@ -23,7 +23,7 @@ import type {
 
 interface SheetEditorProps {
   pages: SheetPageState[];
-  activePageId: string;
+  activePageId: string | null;
   activeLayer: LayerGroupKey;
   onSelectPage: (pageId: string) => void;
   onAddPage: () => void;

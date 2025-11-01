@@ -67,6 +67,8 @@ export const handler = async (event) => {
       return await broadcastTimelineUpdate(payload);
     case "setActiveConversation":
       return await handleSetActiveConversation(event, payload);
+    case "setActiveDeck":
+      return await handleSetActiveDeck(event, payload);
     case "timelineUpdated":
       return await persistTimelineUpdate(payload);
     case "projectUpdated":
@@ -170,6 +172,80 @@ const handleSetActiveConversation = async (event, payload) => {
     }
     console.error("❌ Failed to set active conversation:", err);
     return { statusCode: 500, body: "DB update error" };
+  }
+};
+
+const handleSetActiveDeck = async (event, payload) => {
+  const connectionId = event.requestContext?.connectionId;
+  if (!connectionId) {
+    console.warn("⚠️ Missing connectionId in setActiveDeck");
+    return { statusCode: 400, body: "Missing connectionId" };
+  }
+
+  const projectId = typeof payload?.projectId === "string" && payload.projectId.trim()
+    ? payload.projectId.trim()
+    : null;
+  const pageId = typeof payload?.pageId === "string" && payload.pageId.trim() ? payload.pageId.trim() : null;
+  const nowIso = new Date().toISOString();
+
+  const setParts = ["updatedAt = :now"];
+  const removeParts = [];
+  const values = { ":now": nowIso };
+
+  if (projectId) {
+    setParts.push("activeDeckProjectId = :projectId");
+    values[":projectId"] = projectId;
+  } else {
+    removeParts.push("activeDeckProjectId");
+  }
+
+  if (pageId) {
+    setParts.push("activeDeckPageId = :pageId");
+    values[":pageId"] = pageId;
+  } else {
+    removeParts.push("activeDeckPageId");
+  }
+
+  let updateExpression = `SET ${setParts.join(", ")}`;
+  if (removeParts.length) {
+    updateExpression += ` REMOVE ${removeParts.join(", ")}`;
+  }
+
+  try {
+    await dynamoDb.send(
+      new UpdateCommand({
+        TableName: process.env.CONNECTIONS_TABLE,
+        Key: { connectionId },
+        UpdateExpression: updateExpression,
+        ExpressionAttributeValues: values,
+      })
+    );
+    return { statusCode: 200, body: "Deck context updated" };
+  } catch (err) {
+    if (err.name === "ConditionalCheckFailedException") {
+      try {
+        const item = {
+          connectionId,
+          userId: event.requestContext?.authorizer?.userId || null,
+          activeDeckProjectId: projectId || undefined,
+          activeDeckPageId: pageId || undefined,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
+        await dynamoDb.send(
+          new PutCommand({
+            TableName: process.env.CONNECTIONS_TABLE,
+            Item: Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined)),
+          })
+        );
+        return { statusCode: 200, body: "Deck context inserted" };
+      } catch (insertErr) {
+        console.error("❌ Failed to insert deck context", insertErr);
+        return { statusCode: 500, body: "Deck context insert failed" };
+      }
+    }
+    console.error("❌ Failed to set active deck", err);
+    return { statusCode: 500, body: "Deck context update failed" };
   }
 };
 

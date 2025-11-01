@@ -37,6 +37,8 @@ const BUDGET_ITEM_ID_INDEX    = process.env.BUDGET_ITEM_ID_INDEX    || "budgetIt
 const GALLERIES_TABLE = process.env.GALLERIES_TABLE || "Galleries";
 const GALLERIES_PROJECT_INDEX = process.env.GALLERIES_PROJECT_INDEX || "projectId-index";
 
+const DECK_PAGES_TABLE = process.env.DECK_PAGES_TABLE || "DeckPages";
+
 // Dev-only: allow scans when not filtered
 const SCANS_ALLOWED = (process.env.SCANS_ALLOWED || "true").toLowerCase() === "true";
 
@@ -182,6 +184,199 @@ const chunk = (arr, n = 1000) => {
   const out = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
+};
+
+const slugify = (value) => {
+  return String(value || "deck-page")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64) || "deck-page";
+};
+
+const normalizeCanvasPayload = (canvas) => {
+  if (canvas === null || canvas === undefined) return "";
+  if (typeof canvas === "string") return canvas;
+  try {
+    return JSON.stringify(canvas);
+  } catch {
+    return "";
+  }
+};
+
+const buildDeckHtml = ({ title, canvasJson }) => {
+  const safeTitle = String(title || "Deck Page");
+  const payload = typeof canvasJson === "string" ? canvasJson : normalizeCanvasPayload(canvasJson);
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>${safeTitle.replace(/</g, "&lt;")}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f4f5f7; margin: 0; padding: 2rem; }
+      pre { background: #111827; color: #f9fafb; padding: 1.5rem; border-radius: 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+      h1 { margin-bottom: 1rem; }
+      section { max-width: 960px; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <h1>${safeTitle.replace(/</g, "&lt;")}</h1>
+      <p>This static export contains the Fabric canvas JSON for this deck page.</p>
+      <pre id="canvas-json">${payload.replace(/</g, "&lt;")}</pre>
+    </section>
+    <script>
+      const raw = document.getElementById('canvas-json');
+      try {
+        const json = JSON.parse(raw.textContent || '{}');
+        raw.textContent = JSON.stringify(json, null, 2);
+      } catch {}
+    </script>
+  </body>
+</html>`;
+};
+
+const mapDeckPage = (item) => {
+  if (!item) return null;
+  const revisionNumber = Number(item.revision);
+  return {
+    projectId: item.projectId,
+    pageId: item.pageId,
+    name: item.name || "Untitled page",
+    canvasJson: typeof item.canvasJson === "string" ? item.canvasJson : normalizeCanvasPayload(item.canvasJson),
+    updatedAt: item.updatedAt || null,
+    updatedBy: item.updatedBy || null,
+    createdAt: item.createdAt || null,
+    revision: Number.isFinite(revisionNumber) ? revisionNumber : 0,
+  };
+};
+
+const listDeckPages = async (_e, C, { projectId }) => {
+  if (!projectId) return json(400, C, { error: "projectId required" });
+
+  const result = await ddb.query({
+    TableName: DECK_PAGES_TABLE,
+    KeyConditionExpression: "projectId = :p",
+    ExpressionAttributeValues: { ":p": projectId },
+  });
+
+  const items = (result.Items || []).map(mapDeckPage).filter(Boolean);
+  items.sort((a, b) => {
+    const aKey = a.createdAt || a.updatedAt || a.pageId;
+    const bKey = b.createdAt || b.updatedAt || b.pageId;
+    return String(aKey).localeCompare(String(bKey));
+  });
+
+  return json(200, C, { items });
+};
+
+const getDeckPage = async (_e, C, { projectId, pageId }) => {
+  if (!projectId || !pageId) return json(400, C, { error: "projectId and pageId required" });
+  const result = await ddb.get({
+    TableName: DECK_PAGES_TABLE,
+    Key: { projectId, pageId },
+  });
+  if (!result.Item) return json(404, C, { error: "Deck page not found" });
+  return json(200, C, mapDeckPage(result.Item));
+};
+
+const putDeckPage = async (e, C, { projectId, pageId }) => {
+  if (!projectId || !pageId) return json(400, C, { error: "projectId and pageId required" });
+  const body = B(e);
+  const user = getUserFromEvent(e);
+  const now = nowISO();
+
+  const rawCanvas = body.canvasJson ?? body.canvas ?? body.document ?? "";
+  const normalizedCanvas = normalizeCanvasPayload(rawCanvas);
+  const trimmedName = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "Untitled page";
+  const revisionValue = body.revision;
+
+  const params = {
+    TableName: DECK_PAGES_TABLE,
+    Key: { projectId, pageId },
+    UpdateExpression:
+      "SET #name = :name, canvasJson = :json, updatedAt = :updatedAt, updatedBy = :updatedBy, revision = if_not_exists(revision, :zero) + :inc, createdAt = if_not_exists(createdAt, :createdAt)",
+    ExpressionAttributeNames: {
+      "#name": "name",
+    },
+    ExpressionAttributeValues: {
+      ":name": trimmedName,
+      ":json": normalizedCanvas,
+      ":updatedAt": now,
+      ":updatedBy": user.userId || user.username || user.email || "unknown",
+      ":zero": 0,
+      ":inc": 1,
+      ":createdAt": now,
+    },
+    ReturnValues: "ALL_NEW",
+  };
+
+  if (Number.isFinite(Number(revisionValue))) {
+    params.ConditionExpression = "attribute_not_exists(revision) OR revision = :expected";
+    params.ExpressionAttributeValues[":expected"] = Number(revisionValue);
+  }
+
+  try {
+    const result = await ddb.update(params);
+    return json(200, C, mapDeckPage(result.Attributes));
+  } catch (err) {
+    if (err?.name === "ConditionalCheckFailedException") {
+      const current = await ddb.get({
+        TableName: DECK_PAGES_TABLE,
+        Key: { projectId, pageId },
+      });
+      return json(409, C, { error: "revision_mismatch", current: mapDeckPage(current.Item) });
+    }
+    throw err;
+  }
+};
+
+const deleteDeckPage = async (_e, C, { projectId, pageId }) => {
+  if (!projectId || !pageId) return json(400, C, { error: "projectId and pageId required" });
+  await ddb.delete({
+    TableName: DECK_PAGES_TABLE,
+    Key: { projectId, pageId },
+  });
+  return json(204, C, "");
+};
+
+const exportDeckPage = async (_e, C, { projectId, pageId }) => {
+  if (!projectId || !pageId) return json(400, C, { error: "projectId and pageId required" });
+
+  const result = await ddb.get({
+    TableName: DECK_PAGES_TABLE,
+    Key: { projectId, pageId },
+  });
+
+  if (!result.Item) {
+    return json(404, C, { error: "Deck page not found" });
+  }
+
+  const item = mapDeckPage(result.Item);
+  const html = buildDeckHtml({ title: item.name, canvasJson: item.canvasJson });
+  const exportMetadata = {
+    projectId,
+    pageId,
+    name: item.name,
+    exportedAt: nowISO(),
+    revision: item.revision,
+    canvasJson: item.canvasJson,
+  };
+
+  const pdfPayload = Buffer.from(JSON.stringify(exportMetadata, null, 2)).toString("base64");
+  const htmlPayload = Buffer.from(html).toString("base64");
+  const base = slugify(item.name || pageId);
+
+  return json(200, C, {
+    status: "ready",
+    suggestedFilenames: {
+      pdf: `${base}.json`,
+      site: `${base}.html`,
+    },
+    pdfDataUri: `data:application/json;base64,${pdfPayload}`,
+    siteDataUri: `data:text/html;base64,${htmlPayload}`,
+  });
 };
 
 /* ============== Handlers ============== */
@@ -1227,6 +1422,13 @@ const routes = [
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: getProject },
   { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: patchProject },
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: deleteProject },
+
+  // Deck pages
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-pages$/i,                          h: listDeckPages },
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-pages\/(?<pageId>[^/]+)$/i,        h: getDeckPage },
+  { m: "PUT",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-pages\/(?<pageId>[^/]+)$/i,        h: putDeckPage },
+  { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/deck-pages\/(?<pageId>[^/]+)$/i,        h: deleteDeckPage },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-pages\/(?<pageId>[^/]+)\/export$/i, h: exportDeckPage },
 
   // Team
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/team$/i,                                 h: getTeam },
