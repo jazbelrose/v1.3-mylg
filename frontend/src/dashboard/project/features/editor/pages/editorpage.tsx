@@ -7,8 +7,7 @@ import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLink
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import CollaborativeFabricCanvas from "@/dashboard/project/features/canvas/components/CollaborativeFabricCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -19,7 +18,6 @@ import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
-import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
@@ -85,7 +83,6 @@ const EditorPage: React.FC = () => {
     setProjects,
     setSelectedProjects,
     userId,
-    updateProjectFields,
   } = useData();
 
   const { ws } = useSocket();
@@ -93,7 +90,6 @@ const EditorPage: React.FC = () => {
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
@@ -109,52 +105,10 @@ const EditorPage: React.FC = () => {
     () => initialPageIdRef.current ?? ""
   );
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
-  const [briefContent, setBriefContent] = useState<string>("");
-  const [isBriefDirty, setIsBriefDirty] = useState(false);
-  const savedBriefContentRef = useRef<string>("");
-
-  const handleBriefChange = useCallback((json: string) => {
-    setBriefContent(json);
-    setIsBriefDirty(json !== savedBriefContentRef.current);
-  }, []);
-
-  const saveBrief = useCallback(
-    async (showToast = true) => {
-      if (!activeProject?.projectId) {
-        if (showToast) notify("error", "No active project to save");
-        return;
-      }
-      if (!isBriefDirty) {
-        if (showToast) notify("info", "Brief already saved");
-        return;
-      }
-      try {
-        await updateProjectFields(activeProject.projectId, {
-          description: briefContent,
-        });
-        savedBriefContentRef.current = briefContent;
-        setIsBriefDirty(false);
-        if (showToast) notify("success", "Saved. Nice.");
-      } catch (err) {
-        const error = err as { message?: string };
-        console.error("Failed to save brief:", error);
-        if (showToast)
-          notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-      }
-    },
-    [activeProject?.projectId, briefContent, isBriefDirty, updateProjectFields]
-  );
 
   useEffect(() => {
     setActiveProject(initialActiveProject);
   }, [initialActiveProject]);
-
-  useEffect(() => {
-    const description = activeProject?.description || "";
-    savedBriefContentRef.current = description;
-    setBriefContent(description);
-    setIsBriefDirty(false);
-  }, [activeProject?.description]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -279,32 +233,18 @@ const EditorPage: React.FC = () => {
   const handleSave = useCallback(() => {
     if (activeLayer === "canvas") {
       designerRef.current?.handleSave();
-    } else if (activeLayer === "brief") {
-      void saveBrief();
     }
-  }, [activeLayer, saveBrief]);
-
-  const guardAgainstUnsavedBrief = useCallback(() => {
-    if (activeLayer === "brief" && isBriefDirty) {
-      if (typeof window !== "undefined") {
-        return window.confirm("You have unsaved changes, continue?");
-      }
-      return true;
-    }
-    return true;
-  }, [activeLayer, isBriefDirty]);
+  }, [activeLayer]);
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
       if (pageId === activePageId) return;
-      if (!guardAgainstUnsavedBrief()) return;
       setActivePageId(pageId);
     },
-    [activePageId, guardAgainstUnsavedBrief]
+    [activePageId]
   );
 
   const handleAddPage = useCallback(() => {
-    if (!guardAgainstUnsavedBrief()) return;
     const regular = pages.filter((page) => !page.isSuperSheet);
     const newPage = createPageState(`Page ${regular.length + 1}`);
     const superSheet = pages.find((page) => page.isSuperSheet);
@@ -312,7 +252,7 @@ const EditorPage: React.FC = () => {
     const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
     setPages(nextPages);
     setActivePageId(newPage.id);
-  }, [guardAgainstUnsavedBrief, pages]);
+  }, [pages]);
 
   const handleDuplicatePage = useCallback(
     (pageId: string) => {
@@ -320,7 +260,6 @@ const EditorPage: React.FC = () => {
         (page) => page.id === pageId && !page.isSuperSheet
       );
       if (!target) return;
-      if (!guardAgainstUnsavedBrief()) return;
       const duplicate: SheetPageState = {
         ...target,
         id: generateId("page"),
@@ -336,7 +275,7 @@ const EditorPage: React.FC = () => {
       setPages(nextPages);
       setActivePageId(duplicate.id);
     },
-    [guardAgainstUnsavedBrief, pages]
+    [pages]
   );
 
   const handleMovePage = useCallback(
@@ -362,10 +301,9 @@ const EditorPage: React.FC = () => {
   const handleSelectLayer = useCallback(
     (layer: LayerGroupKey) => {
       if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
       setActiveLayer(layer);
     },
-    [activeLayer, guardAgainstUnsavedBrief]
+    [activeLayer]
   );
 
   const handleToggleLayerVisibility = useCallback(
@@ -413,73 +351,40 @@ const EditorPage: React.FC = () => {
       if (!LAYER_KEYS.includes(mode as LayerGroupKey)) return;
       const layer = mode as LayerGroupKey;
       if (layer === activeLayer) return;
-      if (layer !== "brief" && !guardAgainstUnsavedBrief()) return;
       setActiveLayer(layer);
     },
-    [activeLayer, guardAgainstUnsavedBrief]
+    [activeLayer]
   );
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.code === "KeyS") {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleSave]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isBriefDirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isBriefDirty]);
-
-  useEffect(() => {
-    window.hasUnsavedChanges = () => isBriefDirty;
-    window.unsavedChanges = isBriefDirty;
-    return () => {
-      delete window.hasUnsavedChanges;
-      delete window.unsavedChanges;
-    };
-  }, [isBriefDirty]);
 
   const layerNodes = useMemo(
     () => ({
       canvas: <DesignerComponent ref={designerRef} />,
       brief:
-        activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
+        activeProject?.projectId !== undefined ? (
+          <CollaborativeFabricCanvas
+            key={`brief-${activeProject.projectId}`}
+            projectId={activeProject.projectId}
+            pageId="brief"
+            documentId={`${activeProject.projectId}#brief`}
+            backgroundColor="#0f172a"
           />
         ) : (
           <div>Loading...</div>
         ),
-      moodboard: (
-        <MoodboardCanvas
-          projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
-        />
-      ),
+      moodboard:
+        activeProject?.projectId !== undefined ? (
+          <CollaborativeFabricCanvas
+            key={`moodboard-${activeProject.projectId}`}
+            projectId={activeProject.projectId}
+            pageId="moodboard"
+            documentId={`${activeProject.projectId}#moodboard`}
+            backgroundColor={projectPalette?.dominantColor ?? "#111"}
+          />
+        ) : (
+          <div>Loading...</div>
+        ),
     }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
+    [activeProject?.projectId, projectPalette]
   );
 
   const toolbarProps = useMemo(
@@ -500,11 +405,9 @@ const EditorPage: React.FC = () => {
       onDelete: handleDelete,
       onClearCanvas: handleClearCanvas,
       onSave: handleSave,
-      ...(activeLayer === "brief" ? briefToolbarActions : {}),
     }),
     [
       activeLayer,
-      briefToolbarActions,
       handleBrushTool,
       handleClearCanvas,
       handleColorChange,

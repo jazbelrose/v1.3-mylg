@@ -154,7 +154,7 @@ Storage utilities: 20 errors, 4 warnings
 vendor.js: ~800KB (React, AWS SDK, etc.)
 pages/dashboard: ~400KB (could be split)
 features/budget: ~300KB (needs optimization)
-lexical-editor: ~250KB (appropriate size)
+fabric-canvas: ~220KB (appropriate size)
 
 // Optimization opportunities:
 - Dynamic imports for large features

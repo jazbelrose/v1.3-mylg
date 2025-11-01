@@ -22,7 +22,7 @@ Production Bundle Size (estimated):
 ├── Vendor chunk: ~800KB (React, AWS SDK, utilities)
 ├── Dashboard chunk: ~400KB (main application)
 ├── Budget features: ~300KB (budget management)
-├── Lexical editor: ~250KB (rich text editor)
+├── Fabric canvas: ~220KB (Fabric.js core + controls)
 └── Other features: ~550KB (gallery, messaging, etc.)
 
 Performance Budget Status:
@@ -197,7 +197,7 @@ const ProjectProvider = ({ children }) => {
 // Vendor chunk analysis (~800KB):
 ├── React/ReactDOM: ~200KB (necessary)
 ├── AWS Amplify SDK: ~300KB (could be optimized)
-├── Lexical editor: ~150KB (necessary)
+├── Fabric canvas: ~180KB (necessary for collaborative canvas)
 ├── Chart libraries: ~100KB (could be lazy loaded)
 └── Utility libraries: ~50KB (good)
 

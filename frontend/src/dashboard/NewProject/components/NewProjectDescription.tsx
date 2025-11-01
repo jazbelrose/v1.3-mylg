@@ -1,22 +1,5 @@
-import React, { useCallback, useMemo, useRef } from "react";
-import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { ContentEditable } from "@lexical/react/LexicalContentEditable";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
-import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { ListPlugin } from "@lexical/react/LexicalListPlugin";
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
-import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { ListNode, ListItemNode } from "@lexical/list";
-import { LinkNode } from "@lexical/link";
-import {
-  $createParagraphNode,
-  $getRoot,
-  Klass,
-  LexicalNode,
-  type EditorState,
-} from "lexical";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fabric } from "fabric";
 import styles from "./new-project-description.module.css";
 
 interface NewProjectDescriptionProps {
@@ -24,134 +7,151 @@ interface NewProjectDescriptionProps {
   setDescription: (value: string, plainText: string) => void;
 }
 
-const Placeholder: React.FC = () => (
-  <div className={styles.placeholder}>Describe your project in a few words</div>
-);
+const DEFAULT_SNAPSHOT = JSON.stringify({
+  version: "6.0.0",
+  objects: [],
+});
 
-const ExternalStatePlugin: React.FC<{
-  description: string;
-  lastEmittedValueRef: React.MutableRefObject<string | null>;
-}> = ({ description, lastEmittedValueRef }) => {
-  const [editor] = useLexicalComposerContext();
+const getPlainText = (canvas: fabric.Canvas): string => {
+  return canvas
+    .getObjects()
+    .map(obj => {
+      if ("text" in obj && typeof (obj as fabric.Textbox).text === "string") {
+        return (obj as fabric.Textbox).text;
+      }
+      if ("name" in obj && typeof obj.name === "string") {
+        return obj.name;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+};
 
-  React.useEffect(() => {
-    if (description === lastEmittedValueRef.current) {
-      return;
-    }
-
-    if (!description) {
-      editor.update(() => {
-        const root = $getRoot();
-        root.clear();
-        root.append($createParagraphNode());
-        root.selectEnd();
-      });
-      lastEmittedValueRef.current = description;
-      return;
-    }
-
-    try {
-      const editorState = editor.parseEditorState(description);
-      editor.setEditorState(editorState);
-      lastEmittedValueRef.current = description;
-    } catch (error) {
-      console.error("Failed to parse project description", error);
-    }
-  }, [description, editor, lastEmittedValueRef]);
-
-  return null;
+const parseSnapshot = (value: string | null | undefined) => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch (err) {
+    console.warn("Failed to parse stored project description", err);
+    return null;
+  }
 };
 
 const NewProjectDescription: React.FC<NewProjectDescriptionProps> = ({
   description,
   setDescription,
 }) => {
-  const lastEmittedValueRef = useRef<string | null>(description ?? null);
+  const canvasElementRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<fabric.Canvas | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const lastSnapshotRef = useRef<string>(description || DEFAULT_SNAPSHOT);
 
-  const handleChange = useCallback(
-    (editorState: EditorState) => {
-      editorState.read(() => {
-        const root = $getRoot();
-        const plainText = root.getTextContent();
-        const json = JSON.stringify(editorState.toJSON());
-        lastEmittedValueRef.current = json;
-        setDescription(json, plainText);
-      });
-    },
-    [setDescription]
-  );
+  const ensureCanvas = useCallback(() => {
+    if (!canvasElementRef.current) return null;
+    if (canvasRef.current) return canvasRef.current;
+    const canvas = new fabric.Canvas(canvasElementRef.current, {
+      backgroundColor: "#101827",
+      width: canvasElementRef.current.parentElement?.clientWidth ?? 720,
+      height: 200,
+      selection: true,
+    });
+    canvasRef.current = canvas;
+    return canvas;
+  }, []);
 
-  const theme = useMemo(
-    () => ({
-      paragraph: styles.paragraph,
-      list: {
-        listitem: styles.listItem,
-        ul: styles.unorderedList,
-        ol: styles.orderedList,
-      },
-      text: {
-        bold: styles.textBold,
-        italic: styles.textItalic,
-        underline: styles.textUnderline,
-      },
-      link: styles.link,
-    }),
-    []
-  );
+  const emitSnapshot = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const snapshot = JSON.stringify(canvas.toJSON());
+    if (snapshot === lastSnapshotRef.current) return;
+    lastSnapshotRef.current = snapshot;
+    setDescription(snapshot, getPlainText(canvas));
+  }, [setDescription]);
 
-  const initialConfig = useMemo(
-    () => ({
-      namespace: "new-project-description",
-      theme,
-      onError: (error: Error) => console.error("Lexical Editor Error:", error),
-      nodes: [
-        HeadingNode,
-        QuoteNode,
-        ListNode,
-        ListItemNode,
-        LinkNode,
-      ] as Klass<LexicalNode>[],
-      editorState: description || null,
-    }),
-    [description, theme]
-  );
+  useEffect(() => {
+    const canvas = ensureCanvas();
+    if (!canvas) return;
+
+    const handleModified = () => {
+      emitSnapshot();
+    };
+
+    canvas.on("object:added", handleModified);
+    canvas.on("object:modified", handleModified);
+    canvas.on("object:removed", handleModified);
+
+    setIsLoaded(true);
+
+    return () => {
+      canvas.off("object:added", handleModified);
+      canvas.off("object:modified", handleModified);
+      canvas.off("object:removed", handleModified);
+      canvas.dispose();
+      canvasRef.current = null;
+    };
+  }, [emitSnapshot, ensureCanvas]);
+
+  useEffect(() => {
+    const canvas = ensureCanvas();
+    if (!canvas || !isLoaded) return;
+
+    const snapshot = parseSnapshot(description) ?? parseSnapshot(DEFAULT_SNAPSHOT);
+    if (!snapshot) return;
+
+    canvas.loadFromJSON(snapshot, () => {
+      canvas.renderAll();
+      lastSnapshotRef.current = JSON.stringify(canvas.toJSON());
+    });
+  }, [description, ensureCanvas, isLoaded]);
+
+  const addText = useCallback(() => {
+    const canvas = ensureCanvas();
+    if (!canvas) return;
+    const text = new fabric.Textbox("Describe your project", {
+      left: 40,
+      top: 40,
+      width: 320,
+      fill: "#f8fafc",
+      fontSize: 20,
+      fontFamily: "Inter, sans-serif",
+      editable: true,
+    });
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    canvas.renderAll();
+    emitSnapshot();
+  }, [ensureCanvas, emitSnapshot]);
+
+  const clearCanvas = useCallback(() => {
+    const canvas = ensureCanvas();
+    if (!canvas) return;
+    if (!canvas.getObjects().length) return;
+    canvas.getObjects().forEach(obj => canvas.remove(obj));
+    emitSnapshot();
+  }, [ensureCanvas, emitSnapshot]);
+
+  const containerClass = useMemo(() => styles.descriptionContainer, []);
 
   return (
-    <div className={styles.descriptionContainer}>
-      <LexicalComposer initialConfig={initialConfig}>
-        <div className={styles.editorWrapper}>
-          <div className={styles.editorInner}>
-            <RichTextPlugin
-              contentEditable={
-                <ContentEditable
-                  className={styles.editorInput}
-                  aria-label="Project description"
-                />
-              }
-              placeholder={<Placeholder />}
-            />
-            <HistoryPlugin />
-            <ListPlugin />
-            <LinkPlugin />
-            <ExternalStatePlugin
-              description={description}
-              lastEmittedValueRef={lastEmittedValueRef}
-            />
-            <OnChangePlugin onChange={handleChange} />
-          </div>
+    <div className={containerClass}>
+      <div className={styles.toolbar}>
+        <span>Project Canvas</span>
+        <div className={styles.toolbarButtons}>
+          <button type="button" onClick={addText}>
+            Add Text
+          </button>
+          <button type="button" onClick={clearCanvas}>
+            Clear
+          </button>
         </div>
-      </LexicalComposer>
+      </div>
+      <div className={styles.canvasWrapper}>
+        <canvas ref={canvasElementRef} aria-label="Project description canvas" />
+      </div>
     </div>
   );
 };
 
 export default NewProjectDescription;
-
-
-
-
-
-
-
-
-

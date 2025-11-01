@@ -1,11 +1,45 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import { vi } from "vitest";
+import { describe, expect, test, vi, beforeEach } from "vitest";
 import { BudgetProvider } from "./BudgetProvider";
 import { useBudget } from "./BudgetContext";
 
+const mockBudgetHeader = {
+  headerBallPark: 1000,
+  headerFinalTotalCost: 1500,
+  headerBudgetedTotalCost: 1200,
+  headerActualTotalCost: 1100,
+  headerEffectiveMarkup: 0.25,
+  revision: 1,
+  clientRevisionId: 1,
+};
+
+const mockBudgetItems = [
+  { itemBudgetedCost: 500, invoiceGroup: "Group A" },
+  { itemBudgetedCost: 300, invoiceGroup: "Group B" },
+  { itemBudgetedCost: 700, invoiceGroup: "Group A" },
+];
+
+const mockBudgetApiItems = [
+  { itemBudgetedCost: 500, invoiceGroup: "Group A" },
+  { itemBudgetedCost: 300, invoiceGroup: "Group B" },
+  { itemBudgetedCost: 700, invoiceGroup: "Group A" },
+];
+
+const mockBudgetValue = {
+  budgetHeader: mockBudgetHeader,
+  budgetItems: mockBudgetItems,
+  setBudgetHeader: vi.fn(),
+  setBudgetItems: vi.fn(),
+  refresh: vi.fn(),
+  loading: false,
+  clientBudgetHeader: null,
+  clientBudgetItems: [],
+  clientLoading: false,
+};
+
 // Mock the dependencies
-vi.mock("@/app/contexts/SocketContext", () => ({
+vi.mock("@/app/contexts/useSocket", () => ({
   useSocket: () => ({ ws: null, isConnected: false }),
 }));
 
@@ -13,60 +47,38 @@ vi.mock("@/app/contexts/useData", () => ({
   useData: () => ({ user: { firstName: "Test" }, userId: "test-user" }),
 }));
 
+vi.mock("@/shared/utils/api", () => ({
+  fetchBudgetHeader: vi.fn(async () => ({
+    budgetItemId: "HEADER-123",
+    projectId: "test-project",
+    budgetId: "budget-123",
+    revision: 2,
+    clientRevisionId: 1,
+    headerBallPark: 1000,
+    headerFinalTotalCost: 1500,
+    headerBudgetedTotalCost: 1200,
+    headerActualTotalCost: 1100,
+    headerEffectiveMarkup: 0.25,
+  })),
+  fetchBudgetItems: vi.fn(async () => mockBudgetApiItems),
+}));
+
 vi.mock("./useBudget", () => ({
   __esModule: true,
-  default: () => ({
-    budgetHeader: {
-      headerBallPark: 1000,
-      headerFinalTotalCost: 1500,
-      headerBudgetedTotalCost: 1200,
-      headerActualTotalCost: 1100,
-      headerEffectiveMarkup: 0.25,
-      revision: 1,
-      clientRevisionId: 1,
-    },
-    budgetItems: [
-      { itemBudgetedCost: 500, invoiceGroup: "Group A" },
-      { itemBudgetedCost: 300, invoiceGroup: "Group B" },
-      { itemBudgetedCost: 700, invoiceGroup: "Group A" },
-    ],
-    setBudgetHeader: vi.fn(),
-    setBudgetItems: vi.fn(),
-    refresh: vi.fn(),
-    loading: false,
-    clientBudgetHeader: null,
-    clientBudgetItems: [],
-    clientLoading: false,
-  }),
+  default: () => mockBudgetValue,
 }));
 
 // Mock the BudgetContext to provide the useBudget hook
-vi.mock("./BudgetContext", async (importOriginal) => {
-  const actual = await importOriginal() as unknown;
+vi.mock("./BudgetContext", async () => {
+  const actual = await vi.importActual<typeof import("./BudgetContext")>("./BudgetContext");
   return {
     ...actual,
     useBudget: () => ({
-      budgetHeader: {
-        headerBallPark: 1000,
-        headerFinalTotalCost: 1500,
-        headerBudgetedTotalCost: 1200,
-        headerActualTotalCost: 1100,
-        headerEffectiveMarkup: 0.25,
-        revision: 1,
-        clientRevisionId: 1,
-      },
-      budgetItems: [
-        { itemBudgetedCost: 500, invoiceGroup: "Group A" },
-        { itemBudgetedCost: 300, invoiceGroup: "Group B" },
-        { itemBudgetedCost: 700, invoiceGroup: "Group A" },
-      ],
+      budgetHeader: mockBudgetHeader,
+      budgetItems: mockBudgetItems,
       clientBudgetHeader: {
-        headerBallPark: 1000,
-        headerFinalTotalCost: 1500,
-        headerBudgetedTotalCost: 1200,
-        headerActualTotalCost: 1100,
-        headerEffectiveMarkup: 0.25,
-        revision: 1,
+        ...mockBudgetHeader,
+        revision: 2,
       },
       clientBudgetItems: [
         { itemFinalCost: 600, invoiceGroup: "Group A" },
@@ -107,6 +119,14 @@ vi.mock("./BudgetContext", async (importOriginal) => {
       },
     }),
   };
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockBudgetValue.clientBudgetHeader = null;
+  mockBudgetValue.clientBudgetItems = [];
+  mockBudgetValue.loading = false;
+  mockBudgetValue.clientLoading = false;
 });
 
 // Test component to access context

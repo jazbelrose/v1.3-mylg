@@ -34,7 +34,7 @@
 - **Real-time WebSocket Messaging** - Optimistic UI with reconnection logic
 - **Project Management** - Budgets, timelines, file handling
 - **Calendar Integration** - Task planning and scheduling
-- **Rich Text Editing** - Lexical editor with advanced formatting
+- **Collaborative Canvas** - Fabric.js editor powering shared deck authoring
 - **Gallery & Portfolio** - S3 integration for media management
 - **Notification System** - Comprehensive in-app notifications
 - **Budget Management** - Multi-revision tracking with export capabilities

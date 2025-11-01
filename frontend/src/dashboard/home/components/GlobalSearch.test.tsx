@@ -436,25 +436,20 @@ describe('GlobalSearch', () => {
     expect(dueLabels.length).toBeGreaterThan(0);
   });
 
-  it('shows plain text excerpts for lexical descriptions', async () => {
-    const lexicalDescription = JSON.stringify({
-      root: {
-        children: [
-          {
-            type: 'paragraph',
-            children: [
-              { type: 'text', text: 'Lexical summary text' }
-            ]
-          }
-        ]
-      }
+  it('shows plain text excerpts for fabric canvas descriptions', async () => {
+    const fabricDescription = JSON.stringify({
+      version: '6.0.0',
+      objects: [
+        { type: 'textbox', text: 'Fabric summary text' },
+        { type: 'textbox', text: 'Second line content' }
+      ]
     });
 
     mockUseData.projects = [
       {
-        projectId: 'project-lexical',
-        title: 'Lexical Project',
-        description: lexicalDescription,
+        projectId: 'project-fabric',
+        title: 'Fabric Project',
+        description: fabricDescription,
         status: 'pending',
         finishline: '2024-06-01'
       }
@@ -464,13 +459,15 @@ describe('GlobalSearch', () => {
     const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
 
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: 'lexical' } });
+    fireEvent.change(input, { target: { value: 'fabric' } });
 
     await waitFor(() => {
-      expect(screen.getByText('Lexical summary text')).toBeInTheDocument();
+      expect(
+        screen.getByText(content => content.includes('Fabric summary text'))
+      ).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(lexicalDescription)).not.toBeInTheDocument();
+    expect(screen.queryByText(fabricDescription)).not.toBeInTheDocument();
   });
 
   it('closes search results on Escape key', async () => {

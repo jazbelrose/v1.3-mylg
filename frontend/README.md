@@ -27,7 +27,7 @@ Interactive Tools
 
 Calendar integration for task planning and time-blocking
 
-Lexical-based rich text editor for project notes and proposals with real-time collaboration
+Fabric.js collaborative canvas for briefs, deck pages, and moodboards with real-time sync
 
 Support for voice notes and (planned) voice recognition
 
@@ -51,16 +51,16 @@ Improved rendering workflows for 2D/3D assets
 
 ## 📖 Technical Documentation
 
-### Lexical Editor System
-For detailed technical information about the real-time collaborative editor:
+### Fabric Canvas System
+For detailed technical information about the Fabric-powered real-time canvas:
 
-- **[Lexical Editor Architecture](./LEXICAL_EDITOR_ARCHITECTURE.md)** - Complete technical analysis including content hydration, YJS WebSocket server role, data persistence, and improvement recommendations
-- **[Editor Flow Diagrams](./LEXICAL_EDITOR_DIAGRAMS.md)** - Visual diagrams showing data flow, component relationships, and system architecture
-- **[Editor Summary](./LEXICAL_EDITOR_SUMMARY.md)** - Executive summary with actionable recommendations and implementation roadmap
+- **[Fabric Canvas Architecture](./FABRIC_CANVAS_ARCHITECTURE.md)** - Design notes covering DynamoDB persistence, WebSocket fan-out, and export services
+- **[Canvas Flow Diagrams](./FABRIC_CANVAS_DIAGRAMS.md)** - Visual diagrams showing data flow, component relationships, and system architecture
+- **[Canvas Summary](./FABRIC_CANVAS_SUMMARY.md)** - Executive summary with actionable recommendations and implementation roadmap
 
 ### Key Technical Features
-- **Real-time Collaboration**: Operational transforms via Yjs for conflict-free editing
-- **Multi-layer Persistence**: IndexedDB for offline support + DynamoDB for permanent storage  
-- **Performance Optimization**: Debounced updates and intelligent batching
+- **Real-time Collaboration**: Serverless WebSockets fan-out with optimistic Fabric snapshots
+- **Multi-layer Persistence**: DynamoDB-backed snapshots with HTTP sync + client-side caching
+- **Performance Optimization**: Debounced snapshot writes and selective object updates
 - **Security**: JWT authentication for WebSocket connections (planned improvements)
 - **Scalability**: Architecture supports 100+ concurrent users per document
