@@ -72,7 +72,6 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: ['react', 'react-dom', 'aws-amplify'],
-      exclude: ['@lexical/react', 'lexical'],
     },
     envPrefix: 'VITE_',
 

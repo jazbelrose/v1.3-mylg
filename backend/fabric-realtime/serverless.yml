@@ -1,0 +1,94 @@
+service: fabric-realtime
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 20
+  environment:
+    FABRIC_STATE_TABLE: ${env:FABRIC_STATE_TABLE}
+    FABRIC_EXPORT_BUCKET: ${env:FABRIC_EXPORT_BUCKET}
+    FABRIC_WEBSOCKET_ENDPOINT: ${env:FABRIC_WEBSOCKET_ENDPOINT}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:FABRIC_STATE_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:FABRIC_STATE_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource: arn:aws:execute-api:${aws:region}:${aws:accountId}:*/${sls:stage}/POST/@connections/*
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+          Resource: arn:aws:s3:::${env:FABRIC_EXPORT_BUCKET}/*
+
+functions:
+  connect:
+    handler: src/connect.handler
+    events:
+      - websocket:
+          route: $connect
+
+  disconnect:
+    handler: src/disconnect.handler
+    events:
+      - websocket:
+          route: $disconnect
+
+  default:
+    handler: src/default.handler
+    events:
+      - websocket:
+          route: $default
+
+  exportDeck:
+    handler: src/exportDeck.handler
+    events:
+      - httpApi:
+          method: post
+          path: /fabric/export/{documentId}
+
+package:
+  patterns:
+    - src/**
+    - '!src/**/*.test.*'
+
+resources:
+  Resources:
+    FabricStateTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${env:FABRIC_STATE_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true

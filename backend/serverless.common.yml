@@ -50,5 +50,10 @@ env:
   CONNECTIONS_USER_GSI: userId-sessionId-index
   WEBSOCKET_ENDPOINT: ""  # Set this to your websocket API gateway domain (leave blank for service-specific overrides)
 
+  # ---- Fabric realtime canvas
+  FABRIC_STATE_TABLE: FabricRealtimeState
+  FABRIC_EXPORT_BUCKET: mylg-fabric-exports
+  FABRIC_WEBSOCKET_ENDPOINT: ""
+
   # ---- Misc
   SCANS_ALLOWED: "false"                     # flip to "true" only for dev scans

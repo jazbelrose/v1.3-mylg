@@ -21,6 +21,7 @@ import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import styles from "./designer-component.module.css";
+import useFabricRealtime from "@/dashboard/shared/fabric/useFabricRealtime";
 
 /* ---------- Types ---------- */
 
@@ -123,10 +124,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         const clipboard = useRef<unknown>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fabricCanvasRef = useRef<any>(null);
+    const isApplyingRemoteRef = useRef<boolean>(false);
+    const broadcastTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const scheduleBroadcastRef = useRef<() => void>(() => undefined);
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
 
-    const { activeProject, setActiveProject } = useData();
+    const { activeProject, setActiveProject, userId } = useData();
 
     /* ---------- Save ---------- */
     const saveCanvas = useCallback(
@@ -218,9 +222,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }
           fabricCanvas.requestRenderAll();
           markDirty();
+          scheduleBroadcast();
         }
       },
-      [markDirty]
+      [markDirty, scheduleBroadcast]
     );
 
     const handleSave = useCallback(() => {
@@ -276,7 +281,8 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         isRestoringHistory.current = false;
       });
       h.index = index;
-    }, []);
+      scheduleBroadcast();
+    }, [scheduleBroadcast]);
 
     const updateObjects = () => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -295,6 +301,63 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         );
       }
     };
+
+    const realtimeDocumentId = activeProject?.projectId
+      ? `${activeProject.projectId}:deck`
+      : undefined;
+
+    const realtime = useFabricRealtime<Record<string, unknown>>({
+      documentId: realtimeDocumentId,
+      actorId: userId ?? undefined,
+      onError: (message) => console.error("Realtime error", message),
+      onRemoteState: (incomingState) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        if (!fabricCanvas) return;
+        try {
+          const parsed =
+            typeof incomingState === "string"
+              ? JSON.parse(incomingState)
+              : incomingState;
+          if (!parsed) return;
+          isApplyingRemoteRef.current = true;
+          isRestoringHistory.current = true;
+          fabricCanvas.loadFromJSON(parsed, () => {
+            fabricCanvas.renderAll();
+            fabricCanvas.requestRenderAll();
+            isRestoringHistory.current = false;
+            isApplyingRemoteRef.current = false;
+            updateObjects();
+            saveHistory();
+          });
+        } catch (error) {
+          console.error("Failed to apply realtime deck state", error);
+          isApplyingRemoteRef.current = false;
+          isRestoringHistory.current = false;
+        }
+      },
+    });
+
+    const scheduleBroadcast = useCallback(() => {
+      if (isApplyingRemoteRef.current) return;
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) return;
+      if (broadcastTimerRef.current) {
+        clearTimeout(broadcastTimerRef.current);
+      }
+      broadcastTimerRef.current = setTimeout(() => {
+        broadcastTimerRef.current = null;
+        try {
+          const payload = fabricCanvas.toJSON();
+          realtime.sendState(payload);
+        } catch (error) {
+          console.error("Failed to broadcast deck update", error);
+        }
+      }, 150);
+    }, [realtime]);
+
+    useEffect(() => {
+      scheduleBroadcastRef.current = scheduleBroadcast;
+    }, [scheduleBroadcast]);
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -333,14 +396,17 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.on("object:added", saveHistory);
       fabricCanvas.on("object:added", updateObjects);
       fabricCanvas.on("object:added", markDirty);
+      fabricCanvas.on("object:added", () => scheduleBroadcastRef.current());
 
       fabricCanvas.on("object:modified", saveHistory);
       fabricCanvas.on("object:modified", updateObjects);
       fabricCanvas.on("object:modified", markDirty);
+      fabricCanvas.on("object:modified", () => scheduleBroadcastRef.current());
 
       fabricCanvas.on("object:removed", saveHistory);
       fabricCanvas.on("object:removed", updateObjects);
       fabricCanvas.on("object:removed", markDirty);
+      fabricCanvas.on("object:removed", () => scheduleBroadcastRef.current());
 
       fabricCanvas.on("selection:created", updateObjects);
       fabricCanvas.on("selection:updated", updateObjects);
@@ -348,6 +414,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
       fabricCanvas.on("path:created", () => {
         changeMode(TOOL_MODES.SELECT);
+        scheduleBroadcastRef.current();
       });
 
       applyCanvasMode(mode);
@@ -394,6 +461,14 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         canvasRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+      return () => {
+        if (broadcastTimerRef.current) {
+          clearTimeout(broadcastTimerRef.current);
+        }
+      };
     }, []);
 
     /* Load canvas data when ready / project changes */
@@ -469,6 +544,8 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             fabricCanvas?.renderAll();
             saveHistory();
           }
+
+          scheduleBroadcast();
         } finally {
           setLoadingCanvas(false);
           isInitialLoad.current = false;
