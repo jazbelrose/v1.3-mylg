@@ -38,6 +38,10 @@
   box-shadow: 0 0 0 1px rgba(120, 108, 255, 0.25);
 }
 
+.groupItem.expanded {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .groupHeader {
   display: flex;
   align-items: center;
@@ -74,8 +78,38 @@
   accent-color: #846aff;
 }
 
+.expandToggle {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  display: inline-flex;
+}
+
+.groupItem.expanded .expandToggle {
+  transform: rotate(180deg);
+}
+
 .slider {
   width: 100%;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease;
+  display: grid;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.slider[data-visible="true"] {
+  max-height: 80px;
+  padding-top: 4px;
+}
+
+.slider label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .slider input[type="range"] {

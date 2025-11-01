@@ -7,12 +7,26 @@ interface FabricStageProps {
   page: SheetPageState | undefined;
   activeLayer: LayerGroupKey;
   layerNodes: Record<LayerGroupKey, React.ReactNode>;
+  zoomLevel?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onFit?: () => void;
+  onResetZoom?: () => void;
 }
 
 const ORDER: LayerGroupKey[] = ["canvas", "brief", "moodboard"];
 const WIDESCREEN_ASPECT_RATIO = 16 / 9;
 
-const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes }) => {
+const FabricStage: React.FC<FabricStageProps> = ({
+  page,
+  activeLayer,
+  layerNodes,
+  zoomLevel = 1,
+  onZoomIn,
+  onZoomOut,
+  onFit,
+  onResetZoom,
+}) => {
   const layerEntries = useMemo(() => {
     if (!page) return [] as Array<[LayerGroupKey, { visible: boolean; opacity: number }]>;
     return ORDER.map((key) => [key, page.groupStates[key]]) as Array<[
@@ -30,13 +44,15 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
 
   return (
     <section className={styles.stageContainer} aria-label="Sheet stage">
-      <div className={styles.stageTopBar}>
-        <span>{page ? page.name : "Select a page"}</span>
-        <span>{page?.isSuperSheet ? "One-sheet overlay" : "Page layout"}</span>
+      <div className={styles.stageHeader}>
+        <span className={styles.stageTitle}>{page ? page.name : "Select a page"}</span>
+        <span className={styles.stageMeta}>
+          {page?.isSuperSheet ? "One-sheet overlay" : "Page layout"}
+        </span>
       </div>
       <div className={styles.canvasWrapper}>
         {nothingVisible ? (
-          <div className={styles.placeholder}>Enable a layer from the Layer Tree to start editing.</div>
+          <div className={styles.placeholder}>Enable a layer from the Layers tab to start editing.</div>
         ) : (
           layerEntries.map(([key, state]) => {
             const node = layerNodes[key];
@@ -56,6 +72,21 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
             );
           })
         )}
+        <div className={styles.zoomControls}>
+          <button type="button" onClick={onZoomOut} disabled={!onZoomOut}>
+            –
+          </button>
+          <span>{`${Math.round(zoomLevel * 100)}%`}</span>
+          <button type="button" onClick={onZoomIn} disabled={!onZoomIn}>
+            +
+          </button>
+          <button type="button" onClick={onFit} disabled={!onFit}>
+            Fit
+          </button>
+          <button type="button" onClick={onResetZoom} disabled={!onResetZoom}>
+            100%
+          </button>
+        </div>
       </div>
     </section>
   );

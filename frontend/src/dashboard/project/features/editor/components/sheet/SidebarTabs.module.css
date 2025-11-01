@@ -1,0 +1,60 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 19, 24, 0.9);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  padding: 16px;
+  gap: 16px;
+  width: 320px;
+  box-sizing: border-box;
+}
+
+.tabList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tab {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab[aria-selected="true"] {
+  background: rgba(111, 132, 255, 0.24);
+  color: #fff;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.assetsPane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.assetsPane small {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
