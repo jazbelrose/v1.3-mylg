@@ -10,6 +10,7 @@ interface FabricStageProps {
 }
 
 const ORDER: LayerGroupKey[] = ["canvas", "brief", "moodboard"];
+const WIDESCREEN_ASPECT_RATIO = 16 / 9;
 
 const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes }) => {
   const layerEntries = useMemo(() => {
@@ -48,7 +49,9 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
                 })}
                 style={{ opacity: state.opacity }}
               >
-                {node}
+                <div className={styles.layerSurface} style={{ aspectRatio: WIDESCREEN_ASPECT_RATIO }}>
+                  <div className={styles.layerContent}>{node}</div>
+                </div>
               </div>
             );
           })

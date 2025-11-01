@@ -25,18 +25,6 @@ import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
 const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
 
-const layerBaseStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  flex: 1,
-  minHeight: 0,
-  padding: "24px 32px",
-};
-
-const briefLayerStyle: React.CSSProperties = { ...layerBaseStyle, overflow: "auto" };
-const canvasLayerStyle: React.CSSProperties = { ...layerBaseStyle, overflow: "hidden" };
-const moodboardLayerStyle: React.CSSProperties = { ...layerBaseStyle, overflow: "hidden" };
-
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -465,33 +453,24 @@ const EditorPage: React.FC = () => {
 
   const layerNodes = useMemo(
     () => ({
-      canvas: (
-        <div style={canvasLayerStyle}>
-          <DesignerComponent ref={designerRef} style={{ flex: 1, minHeight: 0 }} />
-        </div>
-      ),
-      brief: (
-        <div style={briefLayerStyle}>
-          {activeProject?.description !== undefined ? (
-            <LexicalEditor
-              key={activeProject?.projectId ?? "default-project"}
-              initialContent={activeProject?.description ?? null}
-              onChange={handleBriefChange}
-              registerToolbar={setBriefToolbarActions}
-            />
-          ) : (
-            <div>Loading...</div>
-          )}
-        </div>
-      ),
-      moodboard: (
-        <div style={moodboardLayerStyle}>
-          <MoodboardCanvas
-            projectId={activeProject?.projectId}
-            userId={userId ?? undefined}
-            palette={projectPalette}
+      canvas: <DesignerComponent ref={designerRef} />,
+      brief:
+        activeProject?.description !== undefined ? (
+          <LexicalEditor
+            key={activeProject?.projectId ?? "default-project"}
+            initialContent={activeProject?.description ?? null}
+            onChange={handleBriefChange}
+            registerToolbar={setBriefToolbarActions}
           />
-        </div>
+        ) : (
+          <div>Loading...</div>
+        ),
+      moodboard: (
+        <MoodboardCanvas
+          projectId={activeProject?.projectId}
+          userId={userId ?? undefined}
+          palette={projectPalette}
+        />
       ),
     }),
     [
@@ -598,7 +577,6 @@ const EditorPage: React.FC = () => {
 };
 
 export default EditorPage;
-
 
 
 

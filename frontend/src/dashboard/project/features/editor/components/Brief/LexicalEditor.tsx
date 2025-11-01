@@ -230,8 +230,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
       style={{
         maxWidth: "1920px",
         width: "100%",
-        height: "100vh",
-        minHeight: "800px",
+        height: "100%",
+        minHeight: 0,
       }}
     >
       <LexicalComposer initialConfig={initialConfig}>
