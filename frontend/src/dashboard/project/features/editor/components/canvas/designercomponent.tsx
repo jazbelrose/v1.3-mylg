@@ -11,7 +11,6 @@ import {
   Canvas as FabricCanvas,
   PencilBrush,
   Rect,
-  IText,
   Image as FabricImage,
   StaticCanvas,
 } from "fabric";
@@ -20,6 +19,7 @@ import type { Project } from "@/app/contexts/DataProvider";
 import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
+import LexicalEditor from "../Brief/LexicalEditor";
 import styles from "./designer-component.module.css";
 
 /* ---------- Types ---------- */
@@ -71,7 +71,6 @@ const fabric = {
   Canvas: FabricCanvas,
   PencilBrush,
   Rect,
-  IText,
   Image: FabricImage,
 };
 
@@ -83,6 +82,217 @@ const TOOL_MODES = {
   TEXT: "text",
   IMAGE: "image",
 } as const;
+
+const LEXICAL_TEXT_KIND = "lexical-text-frame";
+
+type LexicalFrameData = {
+  kind: typeof LEXICAL_TEXT_KIND;
+  docId: string;
+  initialContent?: unknown;
+};
+
+const SERIALIZE_PROPS = ["data"];
+
+const createDocId = () =>
+  `text-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+const isLexicalTextFrame = (
+  obj: FabricObjectLike | undefined
+): obj is FabricObjectLike & { data: LexicalFrameData } =>
+  !!obj &&
+  typeof obj === "object" &&
+  "data" in obj &&
+  !!(obj as { data?: LexicalFrameData }).data &&
+  (obj as { data?: LexicalFrameData }).data?.kind === LEXICAL_TEXT_KIND;
+
+type TextFrameDescriptor = {
+  id: string;
+  docId: string;
+  object: FabricObjectLike & { data: LexicalFrameData };
+  initialContent?: unknown;
+};
+
+const multiplyMatrices = (a: number[], b: number[]) => [
+  a[0] * b[0] + a[2] * b[1],
+  a[1] * b[0] + a[3] * b[1],
+  a[0] * b[2] + a[2] * b[3],
+  a[1] * b[2] + a[3] * b[3],
+  a[0] * b[4] + a[2] * b[5] + a[4],
+  a[1] * b[4] + a[3] * b[5] + a[5],
+];
+
+const CanvasTextOverlayManager: React.FC<{
+  canvasRef: React.MutableRefObject<FabricCanvas | null>;
+  markDirty: () => void;
+}> = ({ canvasRef, markDirty }) => {
+  const [frames, setFrames] = useState<TextFrameDescriptor[]>([]);
+  const [activeFrameId, setActiveFrameId] = useState<string | number | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const collect = () => {
+      const descriptors: TextFrameDescriptor[] = [];
+      canvas.getObjects().forEach((obj, index) => {
+        if (isLexicalTextFrame(obj as FabricObjectLike) && obj.visible !== false) {
+          const frameObj = obj as FabricObjectLike & { data: LexicalFrameData };
+          const docId = frameObj.data.docId;
+          const id =
+            (typeof frameObj.id === "string" || typeof frameObj.id === "number")
+              ? frameObj.id.toString()
+              : docId ?? `text-${index}`;
+          descriptors.push({
+            id,
+            docId,
+            object: frameObj,
+            initialContent: frameObj.data?.initialContent,
+          });
+        }
+      });
+      setFrames(descriptors);
+    };
+
+    const events: string[] = [
+      "object:added",
+      "object:removed",
+      "object:modified",
+      "canvas:cleared",
+    ];
+
+    events.forEach((event) => canvas.on(event as never, collect));
+    collect();
+
+    const updateActive = () => {
+      const active = canvas.getActiveObject() as FabricObjectLike | undefined;
+      if (isLexicalTextFrame(active)) {
+        setActiveFrameId(active.id ?? active.data.docId);
+      } else {
+        setActiveFrameId(null);
+      }
+    };
+    const handleSelectionCleared = () => setActiveFrameId(null);
+
+    canvas.on("selection:created" as never, updateActive);
+    canvas.on("selection:updated" as never, updateActive);
+    canvas.on("selection:cleared" as never, handleSelectionCleared);
+
+    return () => {
+      events.forEach((event) => canvas.off(event as never, collect));
+      canvas.off("selection:created" as never, updateActive);
+      canvas.off("selection:updated" as never, updateActive);
+      canvas.off("selection:cleared" as never, handleSelectionCleared);
+    };
+  }, [canvasRef]);
+
+  if (frames.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={styles.overlayRoot}>
+      {frames.map((frame) => (
+        <LexicalTextOverlay
+          key={frame.id}
+          frame={frame}
+          canvasRef={canvasRef}
+          isActive={activeFrameId === frame.object.id || activeFrameId === frame.id}
+          markDirty={markDirty}
+        />
+      ))}
+    </div>
+  );
+};
+
+const LexicalTextOverlay: React.FC<{
+  frame: TextFrameDescriptor;
+  canvasRef: React.MutableRefObject<FabricCanvas | null>;
+  isActive: boolean;
+  markDirty: () => void;
+}> = ({ frame, canvasRef, isActive, markDirty }) => {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  const applyTransform = useCallback(() => {
+    const canvas = canvasRef.current;
+    const overlay = overlayRef.current;
+    const { object } = frame;
+    if (!canvas || !overlay || !object) return;
+
+    const viewport = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0];
+    const objectMatrix =
+      typeof (object as FabricObjectLike & { calcTransformMatrix?: () => number[] }).calcTransformMatrix ===
+      "function"
+        ? (object as FabricObjectLike & { calcTransformMatrix: () => number[] }).calcTransformMatrix()
+        : [1, 0, 0, 1, object.left ?? 0, object.top ?? 0];
+    const matrix = multiplyMatrices(viewport, objectMatrix);
+
+    overlay.style.transform = `matrix(${matrix[0]}, ${matrix[1]}, ${matrix[2]}, ${matrix[3]}, ${matrix[4]}, ${matrix[5]})`;
+    overlay.style.transformOrigin = "0 0";
+
+    const width =
+      typeof object.get === "function" && object.get("width")
+        ? (object.get("width") as number)
+        : (object as { width?: number }).width ?? 0;
+    const height =
+      typeof object.get === "function" && object.get("height")
+        ? (object.get("height") as number)
+        : (object as { height?: number }).height ?? 0;
+
+    overlay.style.width = `${width || 1}px`;
+    overlay.style.height = `${height || 1}px`;
+  }, [canvasRef, frame]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const sync = () => {
+      applyTransform();
+    };
+
+    canvas.on("after:render" as never, sync);
+    window.addEventListener("resize", sync);
+    sync();
+
+    return () => {
+      canvas.off("after:render" as never, sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, [applyTransform, canvasRef]);
+
+  useEffect(() => {
+    applyTransform();
+  }, [applyTransform, frame, canvasRef]);
+
+  const handleContentChange = useCallback(
+    (json: string) => {
+      frame.object.data = {
+        ...frame.object.data,
+        initialContent: json,
+      };
+      markDirty();
+    },
+    [frame, markDirty]
+  );
+
+  return (
+    <div
+      ref={overlayRef}
+      className={styles.overlayPane}
+      style={{
+        pointerEvents: isActive ? "auto" : "none",
+      }}
+    >
+      <div className={styles.overlayContent}>
+        <LexicalEditor
+          roomId={frame.docId}
+          initialContent={frame.initialContent}
+          onChange={handleContentChange}
+        />
+      </div>
+    </div>
+  );
+};
 
 /* ---------- Defensive fabric patches ---------- */
 if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensivePatched) {
@@ -119,10 +329,9 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
 
-        const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
-        const clipboard = useRef<unknown>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fabricCanvasRef = useRef<any>(null);
+    const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
+    const clipboard = useRef<unknown>(null);
+    const fabricCanvasRef = useRef<FabricCanvas | null>(null);
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
 
@@ -137,7 +346,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           return;
         }
         try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
+          const canvasJson = JSON.stringify(fabricCanvas.toJSON(SERIALIZE_PROPS));
           const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
           // apiFetch returns parsed JSON or {} on empty; errors throw.
           console.debug('Saving canvas to:', apiUrl);
@@ -208,7 +417,9 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
         const active = fabricCanvas.getActiveObject();
         if (active) {
-          if (active.type === "i-text") {
+          if (isLexicalTextFrame(active as FabricObjectLike)) {
+            active.set({ stroke: newColor });
+          } else if (active.type === "i-text") {
             active.set({ fill: newColor });
           } else {
             active.set({ stroke: newColor });
@@ -233,7 +444,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         if (!isDirty) return;
 
         if (fabricCanvasRef.current && activeProject?.projectId) {
-          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON());
+          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON(SERIALIZE_PROPS));
           navigator.sendBeacon(
             `${EDIT_PROJECT_URL}/${activeProject.projectId}`,
             JSON.stringify({ canvasJson })
@@ -252,7 +463,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
-      const json = fabricCanvas.toJSON();
+      const json = fabricCanvas.toJSON(SERIALIZE_PROPS);
       const isEmptyCanvas = json.objects.length === 0;
 
       const h = history.current;
@@ -287,7 +498,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         setObjects(
           objs.map((obj: FabricObjectLike, i: number) => ({
             id: obj.id ?? i,
-            name: obj.name ?? `${obj.type}-${i}`,
+            name: obj.name
+              ?? (isLexicalTextFrame(obj)
+                ? `Text box ${(obj.data?.docId ?? "").slice(-4)}`.trim()
+                : `${obj.type}-${i}`),
             visible: obj.visible,
             locked: obj.lockMovementX && obj.lockMovementY,
             obj,
@@ -550,25 +764,38 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
-      const text = new fabric.IText("Text", {
-        left: 100,
-        top: 100,
-        selectable: true,
+      const docId = createDocId();
+      const textFrame = new fabric.Rect({
+        width: 320,
+        height: 180,
+        left: 120,
+        top: 120,
+        fill: "transparent",
+        stroke: color,
+        strokeWidth: 1.5,
+        strokeDashArray: [6, 4],
         name: `text-${Date.now()}`,
-        fill: color,
+        selectable: true,
+        evented: true,
+        hasBorders: true,
+        hasControls: true,
+        lockScalingFlip: true,
+        originX: "left",
+        originY: "top",
+        data: {
+          kind: LEXICAL_TEXT_KIND,
+          docId,
+        } as LexicalFrameData,
       });
 
-      fabricCanvas.add(text);
-      fabricCanvas.setActiveObject(text);
-      const textObj = text as Record<string, unknown>;
-      if (typeof textObj.enterEditing === 'function') {
-        textObj.enterEditing();
-      }
-      const hiddenTextarea = textObj.hiddenTextarea as { focus?: () => void } | undefined;
-      hiddenTextarea?.focus?.();
+      (textFrame as FabricObjectLike).id = docId;
+
+      fabricCanvas.add(textFrame);
+      fabricCanvas.setActiveObject(textFrame);
       fabricCanvas.requestRenderAll();
       changeMode(TOOL_MODES.SELECT);
-    }, [color, changeMode]);
+      markDirty();
+    }, [color, changeMode, markDirty]);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -651,11 +878,20 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         top: (clonedObj.top ?? 0) + 10,
         selectable: true,
       });
+      if (isLexicalTextFrame(clonedObj)) {
+        const newDocId = createDocId();
+        clonedObj.data = {
+          ...clonedObj.data,
+          docId: newDocId,
+        };
+        clonedObj.id = newDocId;
+      }
       fabricCanvas.add(clonedObj);
       fabricCanvas.setActiveObject(clonedObj);
       fabricCanvas.requestRenderAll();
       changeMode(TOOL_MODES.SELECT);
-    }, [changeMode]);
+      markDirty();
+    }, [changeMode, markDirty]);
 
     /* Global hotkeys */
     useEffect(() => {
@@ -686,10 +922,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* Layer list helpers */
     const toggleVisibility = (obj: FabricObjectLike) => {
-      obj.visible = !obj.visible;
+      const nextVisible = !obj.visible;
+      obj.set?.({ visible: nextVisible });
       const canvas = obj.canvas as Record<string, unknown>;
       if (typeof canvas.requestRenderAll === 'function') {
         canvas.requestRenderAll();
+      }
+      if (typeof (canvas as { fire?: (event: string, data?: unknown) => void }).fire === "function") {
+        (canvas as { fire: (event: string, data?: unknown) => void }).fire("object:modified", {
+          target: obj,
+        });
       }
       updateObjects();
       markDirty();
@@ -697,19 +939,27 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     const toggleLock = (obj: FabricObjectLike) => {
       const locked = !(obj.lockMovementX && obj.lockMovementY);
-      obj.lockMovementX = obj.lockMovementY = locked;
-      obj.selectable = !locked;
-      obj.evented = !locked;
+      obj.set?.({
+        lockMovementX: locked,
+        lockMovementY: locked,
+        selectable: !locked,
+        evented: !locked,
+      });
       const canvas = obj.canvas as Record<string, unknown>;
       if (typeof canvas.requestRenderAll === 'function') {
         canvas.requestRenderAll();
+      }
+      if (typeof (canvas as { fire?: (event: string, data?: unknown) => void }).fire === "function") {
+        (canvas as { fire: (event: string, data?: unknown) => void }).fire("object:modified", {
+          target: obj,
+        });
       }
       updateObjects();
       markDirty();
     };
 
     const renameObject = (obj: FabricObjectLike, name: string) => {
-      obj.name = name;
+      obj.set?.({ name });
       updateObjects();
       markDirty();
     };
@@ -804,15 +1054,18 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         </div>
 
         {/* Canvas column */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <div
-            ref={containerRef}
-            className={styles.canvasContainer}
-            onMouseDown={mode === TOOL_MODES.RECT ? handleMouseDown : undefined}
-            onMouseMove={mode === TOOL_MODES.RECT ? handleMouseMove : undefined}
-            onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
-          >
-            {loadingCanvas && <SpinnerOverlay />}
+        <div className={styles.canvasColumn}>
+          <div className={styles.canvasStack}>
+            <div
+              ref={containerRef}
+              className={styles.canvasContainer}
+              onMouseDown={mode === TOOL_MODES.RECT ? handleMouseDown : undefined}
+              onMouseMove={mode === TOOL_MODES.RECT ? handleMouseMove : undefined}
+              onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
+            >
+              {loadingCanvas && <SpinnerOverlay />}
+            </div>
+            <CanvasTextOverlayManager canvasRef={fabricCanvasRef} markDirty={markDirty} />
           </div>
 
           <input

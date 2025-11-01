@@ -66,6 +66,7 @@ type LexicalEditorProps = {
   onChange: (json: string) => void;
   initialContent?: unknown | null;
   registerToolbar?: (actions: unknown) => void;
+  roomId?: string;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -73,12 +74,14 @@ type ActiveProjectLike = { projectId?: string } | string | null | undefined;
 // Extend to allow us to stash helper props safely
 interface ExtendedWebsocketProvider extends WebsocketProvider {
   sharedType?: Y.Text;
+  roomId?: string;
 }
 
 const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onChange,
   initialContent,
   registerToolbar,
+  roomId,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -106,19 +109,22 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
     return (ap as string) || "default-project";
   }, [activeProject]);
 
+  const resolvedRoomId = useMemo<string>(() => roomId ?? projectId, [projectId, roomId]);
+
   useEffect(() => {
     const persistence = persistenceRef.current;
     if (persistence) {
       persistence
         .destroy()
         .then(() => {
-          console.log("IndexedDB cleared for project:", projectId);
+          console.log("IndexedDB cleared for room:", resolvedRoomId);
         })
         .catch((err: unknown) => {
           console.error("Error clearing IndexedDB:", err);
         });
+      persistenceRef.current = null;
     }
-  }, [projectId]);
+  }, [resolvedRoomId]);
 
   // If needed, you can set up the anchor element for plugins (like draggable blocks)
   useEffect(() => {
@@ -129,46 +135,61 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
   useEffect(() => {
     hasScrolledToBottom.current = false;
-  }, [projectId]);
+  }, [resolvedRoomId]);
 
   // Only to trigger re-renders if you want; not otherwise used.
   // (Keep for parity with original; can be removed if truly unused.)
   const [, setYjsProvider] = useState<ExtendedWebsocketProvider | null>(null);
 
   const getProvider = useCallback(
-    (id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
-      if (providerRef.current) {
+    (_id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
+      const room = resolvedRoomId;
+
+      if (providerRef.current && providerRef.current.roomId === room) {
         return providerRef.current as unknown as Provider;
       }
 
-      let doc = yjsDocMap.get(id);
-      if (!doc) {
-        doc = new Y.Doc();
-        yjsDocMap.set(id, doc);
+      if (providerRef.current && providerRef.current.roomId !== room) {
+        providerRef.current.destroy();
+        providerRef.current = null;
       }
 
-      // Create and store the persistence instance.
-      const persistence = new IndexeddbPersistence(id, doc);
+      let doc = yjsDocMap.get(room);
+      if (!doc) {
+        doc = new Y.Doc();
+        yjsDocMap.set(room, doc);
+      }
+
+      const persistence = new IndexeddbPersistence(room, doc);
       persistence.on("synced", () => {
-        console.log("IndexedDB synced for project:", id);
+        console.log("IndexedDB synced for room:", room);
       });
       persistenceRef.current = persistence;
 
       const provider = new WebsocketProvider(
-        YJS_WS_URL.replace(/\/$/, ""),       // base only, no trailing slash
-        id,                                  // room id; y-websocket appends this
+        YJS_WS_URL.replace(/\/$/, ""),
+        room,
         doc
       ) as ExtendedWebsocketProvider;
 
-      // Expose a shared text type for convenience (handy for custom plugins).
+      provider.roomId = room;
       provider.sharedType = doc.getText("lexical");
 
       providerRef.current = provider;
       setYjsProvider(provider);
       return provider as unknown as Provider;
     },
-    []
+    [resolvedRoomId]
   );
+
+  useEffect(() => {
+    return () => {
+      providerRef.current?.destroy();
+      providerRef.current = null;
+      persistenceRef.current?.destroy();
+      persistenceRef.current = null;
+    };
+  }, []);
 
   // Memoize the LexicalComposer configuration so it’s only created once.
   const initialConfig: InitialConfigType = useMemo(
@@ -276,7 +297,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                 />
 
                 <CollaborationPlugin
-                  id={projectId}
+                  id={resolvedRoomId}
                   providerFactory={getProvider}
                   initialEditorState={initialContentRef.current as never}
                   shouldBootstrap={true}

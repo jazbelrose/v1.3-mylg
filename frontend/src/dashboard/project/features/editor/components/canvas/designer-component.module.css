@@ -55,10 +55,12 @@
 }
 
 .canvasContainer {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  flex: 1;
-  position: relative;
+  height: 100%;
   pointer-events: auto;
+  z-index: 1;
 }
 
 .colorInput {
@@ -67,6 +69,42 @@
   border: 1px solid #555;
   background: transparent;
   padding: 0;
+}
+
+.canvasColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.canvasStack {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.overlayRoot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.overlayPane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.overlayContent {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 
