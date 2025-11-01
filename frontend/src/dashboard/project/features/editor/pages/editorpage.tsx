@@ -22,6 +22,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import { CanvasDocProvider } from "../contexts/CanvasDocProvider";
 
 const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
 
@@ -524,7 +525,8 @@ const EditorPage: React.FC = () => {
   );
 
   return (
-    <ProjectPageLayout
+    <CanvasDocProvider projectId={activeProject?.projectId}>
+      <ProjectPageLayout
       projectId={projectId}
       theme={projectPalette}
       header={
@@ -572,7 +574,8 @@ const EditorPage: React.FC = () => {
           />
         </div>
       </div>
-    </ProjectPageLayout>
+      </ProjectPageLayout>
+    </CanvasDocProvider>
   );
 };
 

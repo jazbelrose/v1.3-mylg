@@ -21,6 +21,13 @@ import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import styles from "./designer-component.module.css";
+import CanvasTextEditorOverlay from "./CanvasTextEditorOverlay";
+import { useCanvasDoc } from "../contexts/CanvasDocProvider";
+import {
+  createLexicalParagraphState,
+  lexicalStateToPlainText,
+} from "../../utils/lexicalConversion";
+import type { Text as YText, YTextEvent } from "yjs";
 
 /* ---------- Types ---------- */
 
@@ -52,6 +59,13 @@ interface CanvasObject {
   obj: FabricObjectLike;
 }
 
+type TextEditorBounds = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 export interface DesignerRef {
   changeMode: (mode: string) => void;
   addText: () => void;
@@ -74,6 +88,8 @@ const fabric = {
   IText,
   Image: FabricImage,
 };
+
+const SERIALIZED_PROPS: string[] = ["objectId", "canvasDocKey"];
 
 /* ---------- Modes ---------- */
 const TOOL_MODES = {
@@ -118,15 +134,29 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const [loadingCanvas, setLoadingCanvas] = useState<boolean>(false);
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
+    const [activeTextEditor, setActiveTextEditor] = useState<
+      | {
+          objectId: string;
+          docKey: string;
+          bounds: { left: number; top: number; width: number; height: number };
+          initialState: string;
+        }
+      | null
+    >(null);
 
-        const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
-        const clipboard = useRef<unknown>(null);
+    const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
+    const clipboard = useRef<unknown>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fabricCanvasRef = useRef<any>(null);
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
+    const textBindingsRef = useRef<
+      Map<string, { yText: YText; observer: (event: YTextEvent) => void }>
+    >(new Map());
+    const editingTextRef = useRef<FabricObjectLike | null>(null);
 
     const { activeProject, setActiveProject } = useData();
+    const { getText, doc } = useCanvasDoc();
 
     /* ---------- Save ---------- */
     const saveCanvas = useCallback(
@@ -137,7 +167,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           return;
         }
         try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
+          const canvasJson = JSON.stringify(fabricCanvas.toJSON(SERIALIZED_PROPS));
           const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
           // apiFetch returns parsed JSON or {} on empty; errors throw.
           console.debug('Saving canvas to:', apiUrl);
@@ -164,6 +194,194 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       if (isInitialLoad.current) return;
       setIsDirty(true);
     }, []);
+
+    const ensureObjectMetadata = useCallback((obj: FabricObjectLike) => {
+      let objectId = (obj as Record<string, unknown>).objectId as string | undefined;
+      if (!objectId) {
+        const existingId = obj.id as string | undefined;
+        objectId =
+          existingId ?? `obj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        (obj as Record<string, unknown>).objectId = objectId;
+        obj.id = obj.id ?? objectId;
+      }
+
+      let docKey = (obj as Record<string, unknown>).canvasDocKey as string | undefined;
+      if (!docKey) {
+        docKey = `canvas:${objectId}`;
+        (obj as Record<string, unknown>).canvasDocKey = docKey;
+      }
+
+      if (obj.type === "i-text") {
+        (obj as Record<string, unknown>).editable = false;
+      }
+
+      return { objectId, docKey };
+    }, []);
+
+    const detachTextBinding = useCallback((obj: FabricObjectLike) => {
+      const bindingId = (obj as Record<string, unknown>).objectId as string | undefined;
+      if (!bindingId) return;
+      const entry = textBindingsRef.current.get(bindingId);
+      if (entry) {
+        entry.yText.unobserve(entry.observer);
+        textBindingsRef.current.delete(bindingId);
+      }
+      if (editingTextRef.current === obj) {
+        editingTextRef.current = null;
+        setActiveTextEditor(null);
+      }
+    }, []);
+
+    const ensureTextBinding = useCallback(
+      (obj: FabricObjectLike) => {
+        if (obj.type !== "i-text") return;
+
+        const { objectId, docKey } = ensureObjectMetadata(obj);
+        const yText = getText(docKey);
+        if (!yText) return;
+
+        const existing = textBindingsRef.current.get(objectId);
+        if (existing && existing.yText === yText) {
+          return;
+        }
+
+        if (existing) {
+          existing.yText.unobserve(existing.observer);
+          textBindingsRef.current.delete(objectId);
+        }
+
+        const syncFromDoc = () => {
+          const json = yText.toString();
+          if (!json) return;
+          const plain = lexicalStateToPlainText(json);
+          obj.set?.({ text: plain });
+          obj.setCoords?.();
+          (obj.canvas as { requestRenderAll?: () => void } | undefined)?.requestRenderAll?.();
+        };
+
+        if (yText.length === 0) {
+          const initialState = createLexicalParagraphState((obj.text as string) || "");
+          const yDoc = yText.doc;
+          const seed = () => {
+            if (yText.length > 0) yText.delete(0, yText.length);
+            yText.insert(0, initialState);
+          };
+          if (yDoc) {
+            yDoc.transact(seed);
+          } else {
+            seed();
+          }
+          syncFromDoc();
+        } else {
+          syncFromDoc();
+        }
+
+        const observer = (event: YTextEvent) => {
+          if (event.transaction?.local && editingTextRef.current === obj) {
+            return;
+          }
+          syncFromDoc();
+        };
+
+        yText.observe(observer);
+        textBindingsRef.current.set(objectId, { yText, observer });
+      },
+      [ensureObjectMetadata, getText]
+    );
+
+    const computeTextEditorBounds = useCallback(
+      (obj: FabricObjectLike): TextEditorBounds | null => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const container = containerRef.current;
+        if (!fabricCanvas || !container || !fabricCanvas.lowerCanvasEl) return null;
+
+        const canvasEl = fabricCanvas.lowerCanvasEl as HTMLCanvasElement;
+        const canvasRect = canvasEl.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const bounding = obj.getBoundingRect(true, true);
+
+        const width = fabricCanvas.getWidth() || canvasRect.width;
+        const height = fabricCanvas.getHeight() || canvasRect.height;
+        const scaleX = canvasRect.width / width;
+        const scaleY = canvasRect.height / height;
+
+        return {
+          left: canvasRect.left + bounding.left * scaleX - containerRect.left,
+          top: canvasRect.top + bounding.top * scaleY - containerRect.top,
+          width: bounding.width * scaleX,
+          height: bounding.height * scaleY,
+        };
+      },
+      []
+    );
+
+    const updateActiveTextEditorBounds = useCallback(() => {
+      if (!editingTextRef.current) return;
+      const bounds = computeTextEditorBounds(editingTextRef.current);
+      if (!bounds) return;
+      setActiveTextEditor((prev) => (prev ? { ...prev, bounds } : prev));
+    }, [computeTextEditorBounds]);
+
+    const closeTextEditor = useCallback(() => {
+      editingTextRef.current = null;
+      setActiveTextEditor(null);
+    }, []);
+
+    const commitTextEditor = useCallback(
+      ({ json, plainText }: { json: string; plainText: string }) => {
+        const obj = editingTextRef.current;
+        if (!obj) return;
+
+        const { docKey } = ensureObjectMetadata(obj);
+        const yText = getText(docKey);
+        if (yText) {
+          const yDoc = yText.doc;
+          const apply = () => {
+            if (yText.length > 0) yText.delete(0, yText.length);
+            yText.insert(0, json);
+          };
+          if (yDoc) {
+            yDoc.transact(apply);
+          } else {
+            apply();
+          }
+        }
+
+        obj.set?.({ text: plainText });
+        obj.setCoords?.();
+        fabricCanvasRef.current?.requestRenderAll();
+        markDirty();
+        saveHistory();
+        updateObjects();
+        closeTextEditor();
+      },
+      [closeTextEditor, ensureObjectMetadata, getText, markDirty, saveHistory, updateObjects]
+    );
+
+    const openTextEditor = useCallback(
+      (obj: FabricObjectLike) => {
+        if (obj.type !== "i-text") return;
+        const metadata = ensureObjectMetadata(obj);
+        ensureTextBinding(obj);
+
+        const bounds = computeTextEditorBounds(obj);
+        const binding = textBindingsRef.current.get(metadata.objectId);
+        const yText = binding?.yText ?? getText(metadata.docKey);
+        let initialState = yText?.toString() ?? "";
+        if (!initialState) {
+          initialState = createLexicalParagraphState((obj.text as string) || "");
+        }
+
+        editingTextRef.current = obj;
+        setActiveTextEditor({
+          objectId: metadata.objectId,
+          docKey: metadata.docKey,
+          bounds: bounds ?? { left: 0, top: 0, width: 240, height: 120 },
+          initialState,
+        });
+      },
+      [computeTextEditorBounds, ensureObjectMetadata, ensureTextBinding, getText]
+    );
 
     const applyCanvasMode = useCallback(
       (nextMode: string) => {
@@ -233,7 +451,9 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         if (!isDirty) return;
 
         if (fabricCanvasRef.current && activeProject?.projectId) {
-          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON());
+          const canvasJson = JSON.stringify(
+            fabricCanvasRef.current.toJSON(SERIALIZED_PROPS)
+          );
           navigator.sendBeacon(
             `${EDIT_PROJECT_URL}/${activeProject.projectId}`,
             JSON.stringify({ canvasJson })
@@ -247,12 +467,12 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     }, [isDirty, activeProject?.projectId]);
 
     /* History */
-    const saveHistory = () => {
+    const saveHistory = useCallback(() => {
       if (isRestoringHistory.current) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
-      const json = fabricCanvas.toJSON();
+      const json = fabricCanvas.toJSON(SERIALIZED_PROPS);
       const isEmptyCanvas = json.objects.length === 0;
 
       const h = history.current;
@@ -261,7 +481,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         h.stack.push(json);
         h.index++;
       }
-    };
+    }, []);
 
     const loadHistory = useCallback((index: number) => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -276,36 +496,45 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         isRestoringHistory.current = false;
       });
       h.index = index;
-    }, []);
+    }, [updateObjects]);
 
-    const updateObjects = () => {
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
-      if (fabricCanvas) {
-        const objs = fabricCanvas.getObjects();
-        const active = fabricCanvas.getActiveObject();
-        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
-        setObjects(
-          objs.map((obj: FabricObjectLike, i: number) => ({
-            id: obj.id ?? i,
+      if (!fabricCanvas) return;
+
+      const objs = fabricCanvas.getObjects();
+      const active = fabricCanvas.getActiveObject();
+      const activeId = active ? ensureObjectMetadata(active as FabricObjectLike).objectId : null;
+
+      setSelectedId(activeId ?? null);
+      setObjects(
+        objs.map((obj: FabricObjectLike, i: number) => {
+          const { objectId } = ensureObjectMetadata(obj);
+          return {
+            id: objectId ?? i,
             name: obj.name ?? `${obj.type}-${i}`,
             visible: obj.visible,
-            locked: obj.lockMovementX && obj.lockMovementY,
+            locked: Boolean(obj.lockMovementX && obj.lockMovementY),
             obj,
-          }))
-        );
-      }
-    };
+          };
+        })
+      );
+    }, [ensureObjectMetadata]);
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
-      fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => fabricCanvas.remove(obj));
+      fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => {
+        detachTextBinding(obj);
+        fabricCanvas.remove(obj);
+      });
+      textBindingsRef.current.clear();
       fabricCanvas.discardActiveObject();
       fabricCanvas.requestRenderAll();
       saveHistory();
       updateObjects();
-    }, []);
+    }, [detachTextBinding, saveHistory, updateObjects]);
 
     /* Init canvas */
     useLayoutEffect(() => {
@@ -330,17 +559,42 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
       fabricCanvasRef.current = fabricCanvas;
 
+      const handleObjectLifecycle = (event: unknown) => {
+        const target = (event as { target?: FabricObjectLike })?.target;
+        if (target) {
+          ensureObjectMetadata(target);
+          ensureTextBinding(target);
+        }
+      };
+
+      const handleRemoved = (event: unknown) => {
+        const target = (event as { target?: FabricObjectLike })?.target;
+        if (target) {
+          detachTextBinding(target);
+        }
+      };
+
+      const handleDblClick = (event: unknown) => {
+        const target = (event as { target?: FabricObjectLike })?.target;
+        if (target && target.type === "i-text") {
+          openTextEditor(target);
+        }
+      };
+
       fabricCanvas.on("object:added", saveHistory);
       fabricCanvas.on("object:added", updateObjects);
       fabricCanvas.on("object:added", markDirty);
+      fabricCanvas.on("object:added", handleObjectLifecycle);
 
       fabricCanvas.on("object:modified", saveHistory);
       fabricCanvas.on("object:modified", updateObjects);
       fabricCanvas.on("object:modified", markDirty);
+      fabricCanvas.on("object:modified", handleObjectLifecycle);
 
       fabricCanvas.on("object:removed", saveHistory);
       fabricCanvas.on("object:removed", updateObjects);
       fabricCanvas.on("object:removed", markDirty);
+      fabricCanvas.on("object:removed", handleRemoved);
 
       fabricCanvas.on("selection:created", updateObjects);
       fabricCanvas.on("selection:updated", updateObjects);
@@ -350,7 +604,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         changeMode(TOOL_MODES.SELECT);
       });
 
-      applyCanvasMode(mode);
+      fabricCanvas.on("mouse:dblclick", handleDblClick);
       setCanvasReady(true);
 
       const handleResize = () => {
@@ -393,8 +647,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         fabricCanvasRef.current = null;
         canvasRef.current = null;
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [
+      changeMode,
+      detachTextBinding,
+      ensureObjectMetadata,
+      ensureTextBinding,
+      markDirty,
+      openTextEditor,
+      saveHistory,
+      updateObjects,
+    ]);
 
     /* Load canvas data when ready / project changes */
     useEffect(() => {
@@ -476,11 +738,43 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       };
 
       loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+    }, [
+      canvasReady,
+      activeProject?.projectId,
+      activeProject?.canvasJson,
+      setActiveProject,
+      saveHistory,
+      updateObjects,
+    ]);
 
     useEffect(() => {
       applyCanvasMode(mode);
     }, [mode, color, applyCanvasMode]);
+
+    useEffect(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!doc || !fabricCanvas) return;
+
+      fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => {
+        if (obj.type === "i-text") {
+          ensureTextBinding(obj);
+        }
+      });
+    }, [doc, ensureTextBinding]);
+
+    useEffect(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas || !activeTextEditor) return;
+
+      const handleRender = () => updateActiveTextEditorBounds();
+      fabricCanvas.on("after:render", handleRender);
+      window.addEventListener("resize", handleRender);
+
+      return () => {
+        fabricCanvas.off("after:render", handleRender);
+        window.removeEventListener("resize", handleRender);
+      };
+    }, [activeTextEditor, updateActiveTextEditorBounds]);
 
     /* Drawing handlers for RECT mode (mouse events on container) */
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -556,19 +850,17 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         selectable: true,
         name: `text-${Date.now()}`,
         fill: color,
+        editable: false,
       });
 
       fabricCanvas.add(text);
       fabricCanvas.setActiveObject(text);
-      const textObj = text as Record<string, unknown>;
-      if (typeof textObj.enterEditing === 'function') {
-        textObj.enterEditing();
-      }
-      const hiddenTextarea = textObj.hiddenTextarea as { focus?: () => void } | undefined;
-      hiddenTextarea?.focus?.();
       fabricCanvas.requestRenderAll();
+      ensureObjectMetadata(text as FabricObjectLike);
+      ensureTextBinding(text as FabricObjectLike);
+      openTextEditor(text as FabricObjectLike);
       changeMode(TOOL_MODES.SELECT);
-    }, [color, changeMode]);
+    }, [color, changeMode, ensureObjectMetadata, ensureTextBinding, openTextEditor]);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -624,10 +916,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       if (!fabricCanvas) return;
 
       const active = fabricCanvas.getActiveObjects();
-      active.forEach((obj: FabricObjectLike) => fabricCanvas.remove(obj));
+      active.forEach((obj: FabricObjectLike) => {
+        detachTextBinding(obj);
+        fabricCanvas.remove(obj);
+      });
       fabricCanvas.discardActiveObject();
       fabricCanvas.requestRenderAll();
-    }, []);
+    }, [detachTextBinding]);
 
     const handleCopy = useCallback(async () => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -651,17 +946,24 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         top: (clonedObj.top ?? 0) + 10,
         selectable: true,
       });
+      if (clonedObj.type === "i-text") {
+        (clonedObj as Record<string, unknown>).objectId = undefined;
+        (clonedObj as Record<string, unknown>).canvasDocKey = undefined;
+        ensureObjectMetadata(clonedObj);
+        ensureTextBinding(clonedObj);
+      }
       fabricCanvas.add(clonedObj);
       fabricCanvas.setActiveObject(clonedObj);
       fabricCanvas.requestRenderAll();
       changeMode(TOOL_MODES.SELECT);
-    }, [changeMode]);
+    }, [changeMode, ensureObjectMetadata, ensureTextBinding]);
 
     /* Global hotkeys */
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
         const target = e.target as HTMLElement;
         const tag = target?.tagName;
+        if (activeTextEditor) return;
         if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
 
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -682,7 +984,18 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       };
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleDelete, handleUndo, handleRedo]);
+    }, [activeTextEditor, handleDelete, handleUndo, handleRedo]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+      return () => {
+        const bindings = Array.from(textBindingsRef.current.values());
+        bindings.forEach(({ yText, observer }) => yText.unobserve(observer));
+        textBindingsRef.current.clear();
+        editingTextRef.current = null;
+        setActiveTextEditor(null);
+      };
+    }, []);
 
     /* Layer list helpers */
     const toggleVisibility = (obj: FabricObjectLike) => {
@@ -813,6 +1126,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
           >
             {loadingCanvas && <SpinnerOverlay />}
+            <div className={styles.textEditorOverlayRoot}>
+              {activeTextEditor && (
+                <CanvasTextEditorOverlay
+                  bounds={activeTextEditor.bounds}
+                  initialState={activeTextEditor.initialState}
+                  onCommit={commitTextEditor}
+                  onCancel={closeTextEditor}
+                />
+              )}
+            </div>
           </div>
 
           <input
