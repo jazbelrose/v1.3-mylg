@@ -50,5 +50,11 @@ env:
   CONNECTIONS_USER_GSI: userId-sessionId-index
   WEBSOCKET_ENDPOINT: ""  # Set this to your websocket API gateway domain (leave blank for service-specific overrides)
 
+  # ---- Deck realtime editing
+  DECK_CONNECTIONS_TABLE: DeckRealtimeConnections
+  DECK_CONNECTIONS_DECK_GSI: deckKey-index
+  DECK_PAGES_TABLE: DeckPages
+  DECK_WEBSOCKET_ENDPOINT: ""
+
   # ---- Misc
   SCANS_ALLOWED: "false"                     # flip to "true" only for dev scans

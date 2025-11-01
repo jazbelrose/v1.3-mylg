@@ -1,5 +1,5 @@
 import type React from "react";
-import { FileText, LayoutDashboard, Paintbrush } from "lucide-react";
+import { Paintbrush } from "lucide-react";
 
 export type EditorMode = string;
 
@@ -10,7 +10,5 @@ export type ModeDefinition = {
 };
 
 export const DEFAULT_MODE_DEFINITIONS: ModeDefinition[] = [
-  { key: "brief", label: "Brief", icon: FileText },
   { key: "canvas", label: "Canvas", icon: Paintbrush },
-  { key: "moodboard", label: "Moodboard", icon: LayoutDashboard },
 ];
