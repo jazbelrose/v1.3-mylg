@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fabric } from "fabric";
+import * as fabric from "fabric";
 import { useData } from "@/app/contexts/useData";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useFabricRealtime } from "../hooks/useFabricRealtime";

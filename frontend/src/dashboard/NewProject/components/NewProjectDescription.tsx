@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fabric } from "fabric";
+import * as fabric from "fabric";
 import styles from "./new-project-description.module.css";
 
 interface NewProjectDescriptionProps {
