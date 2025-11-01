@@ -61,6 +61,53 @@
   pointer-events: auto;
 }
 
+.canvasOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lexicalTextBox {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  border-radius: 10px;
+}
+
+.lexicalTextBoxActive {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.6);
+}
+
+.lexicalTextBoxEditing {
+  pointer-events: auto;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8);
+  backdrop-filter: blur(2px);
+}
+
+.lexicalTextBoxContent {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  border-radius: inherit;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #f8fafc;
+}
+
+.lexicalTextBoxContent :global(.canvas-lexical-editor) {
+  display: flex;
+  flex: 1;
+}
+
+.lexicalTextBoxContent :global(.canvas-lexical-paragraph) {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .colorInput {
   width: 32px;
   height: 32px;
