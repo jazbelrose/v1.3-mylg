@@ -216,7 +216,7 @@ const DEV_PREVIEW_DATA: DevPreviewData = {
       conversationId: "thread-avery",
       otherUserId: "avery-harper",
       lastMsgTs: "2024-05-21T15:30:00.000Z",
-      snippet: "Moodboard feedback looks great — I dropped comments.",
+      snippet: "Design feedback looks great — I dropped comments.",
       read: false,
     },
     {
