@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { fabric } from "fabric";
+import * as fabric from "fabric";
 import { FABRIC_API_BASE, FABRIC_WS_URL } from "@/config/fabricRealtime";
 
 export type FabricCanvasMode = "select" | "brush" | "rect";
