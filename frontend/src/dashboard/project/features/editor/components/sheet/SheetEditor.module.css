@@ -3,54 +3,187 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: rgba(15, 17, 20, 0.85);
-  backdrop-filter: blur(16px);
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(circle at 0% 0%, rgba(37, 63, 255, 0.06), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(255, 125, 79, 0.08), transparent 40%),
+    #050506;
+  color: rgba(255, 255, 255, 0.9);
+  --page-rail-width: 240px;
+  --sidebar-width: 320px;
 }
 
-.toolbarWrapper {
-  padding: 16px 20px 12px;
+.pageRailCollapsed {
+  --page-rail-width: 56px;
+}
+
+.focusMode {
+  --page-rail-width: 0px;
+  --sidebar-width: 0px;
+}
+
+.stageToolbar {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.sheetBody {
+.modeTabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: rgba(8, 8, 10, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+}
+
+.modeTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modeTab:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.modeTabActive {
+  background: linear-gradient(135deg, rgba(113, 90, 255, 0.3), rgba(64, 202, 255, 0.35));
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(45, 55, 175, 0.35);
+}
+
+.editorBody {
   flex: 1;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 220px;
-  gap: 16px;
-  padding: 16px 20px 20px;
+  grid-template-columns: minmax(0, var(--page-rail-width)) minmax(0, 1fr) minmax(0, var(--sidebar-width));
   min-height: 0;
+  backdrop-filter: blur(12px);
 }
 
-.layerAndInspector {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 220px;
-  gap: 16px;
+.pageRail {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 8, 12, 0.96);
+  min-width: 0;
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease;
 }
 
-@media (max-width: 1440px) {
-  .sheetBody {
-    grid-template-columns: 200px minmax(0, 1fr) 200px;
-  }
+.hiddenPanel {
+  display: none;
 }
 
-@media (max-width: 1280px) {
-  .sheetBody {
-    grid-template-columns: 180px minmax(0, 1fr) 180px;
-  }
+.stageColumn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #0c0c0c;
 }
 
-@media (max-width: 1100px) {
-  .sheetEditor {
-    border-radius: 20px;
-  }
+.stageHeader {
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
 
-  .sheetBody {
-    grid-template-columns: 160px minmax(0, 1fr);
-  }
+.stageViewport {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
 
-  .layerAndInspector {
-    display: none;
-  }
+.zoomControls {
+  position: absolute;
+  right: 32px;
+  bottom: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(10, 10, 12, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  font-size: 0.85rem;
+}
+
+.zoomControls button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.zoomControls button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.zoomControls span {
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: center;
+}
+
+.zoomDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 8, 12, 0.96);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.assetsPlaceholder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.assetsPlaceholder h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.assetsPlaceholder p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.assetsPlaceholder button {
+  align-self: flex-start;
+  background: linear-gradient(135deg, rgba(113, 90, 255, 0.85), rgba(79, 202, 255, 0.85));
+  border: none;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.assetsPlaceholder button:hover {
+  filter: brightness(1.1);
 }
