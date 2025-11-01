@@ -450,7 +450,16 @@ const EditorPage: React.FC = () => {
   const layerNodes = useMemo(
     () => ({
       canvas: (
-        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: "24px 32px",
+          }}
+        >
           <DesignerComponent ref={designerRef} />
         </div>
       ),

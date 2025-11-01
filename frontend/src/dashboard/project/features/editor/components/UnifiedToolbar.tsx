@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, ChangeEvent, useMemo } from 'react';
 import {
     Bold,
     Italic,
@@ -93,6 +93,12 @@ interface UnifiedToolbarProps {
     modes?: ModeDefinition[];
 }
 
+const DEFAULT_MODE_DEFINITIONS: ModeDefinition[] = [
+    { key: 'brief', label: 'Brief', icon: FileText },
+    { key: 'canvas', label: 'Canvas', icon: Paintbrush },
+    { key: 'moodboard', label: 'Moodboard', icon: LayoutDashboard },
+];
+
 const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnderline, onStrikethrough, onCode, onParagraph, onHeading1, onHeading2, onQuote, onUnorderedList, onOrderedList, onFontChange, onFontSizeChange, onFontColorChange, onBgColorChange, onAlignLeft, onAlignCenter, onAlignRight, onAlignJustify, onAddRectangle, onAddCircle, onFreeDraw, onSelectTool, onAddText, onAddImage, onInsertLayout, onColorChange, onFigma, onVoice, onCopy, onPaste, onDelete, onClearCanvas, onPreview, onSave, onUndo, onRedo, initialMode = 'brief', onModeChange, theme = 'dark', orientation = 'horizontal', modes }) => {
     const [mode, setMode] = useState<EditorMode>(initialMode);
     const [fontColor, setFontColor] = useState<string>('');
@@ -169,20 +175,17 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
             onModeChange(newMode);
     };
 
-    const modeDefinitions: ModeDefinition[] = modes ?? [
-        { key: 'brief', label: 'Brief', icon: FileText },
-        { key: 'canvas', label: 'Canvas', icon: Paintbrush },
-        { key: 'moodboard', label: 'Moodboard', icon: LayoutDashboard },
-    ];
+    const modeDefinitions: ModeDefinition[] = useMemo(() => modes ?? DEFAULT_MODE_DEFINITIONS, [modes]);
     
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const [indicator, setIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
     useEffect(() => {
         const node = tabRefs.current[mode];
         if (node) {
-            setIndicator({ left: node.offsetLeft, width: node.offsetWidth });
+            const next = { left: node.offsetLeft, width: node.offsetWidth };
+            setIndicator((prev) => (prev.left === next.left && prev.width === next.width ? prev : next));
         } else if (modeDefinitions.length === 0) {
-            setIndicator({ left: 0, width: 0 });
+            setIndicator((prev) => (prev.left === 0 && prev.width === 0 ? prev : { left: 0, width: 0 }));
         }
     }, [mode, modeDefinitions]);
     
