@@ -8,7 +8,9 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
+import type { SharedYjsProvider } from "@/dashboard/project/features/editor/types/collaboration";
 import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+import { moodboardAuditDecision } from "@/dashboard/project/features/moodboard/moodboardAudit";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -112,10 +114,15 @@ const EditorPage: React.FC = () => {
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
   const savedBriefContentRef = useRef<string>("");
+  const [sharedProvider, setSharedProvider] = useState<SharedYjsProvider | null>(null);
 
   const handleBriefChange = useCallback((json: string) => {
     setBriefContent(json);
     setIsBriefDirty(json !== savedBriefContentRef.current);
+  }, []);
+
+  useEffect(() => {
+    console.info("[Moodboard] Audit decision", moodboardAuditDecision);
   }, []);
 
   const saveBrief = useCallback(
@@ -453,24 +460,27 @@ const EditorPage: React.FC = () => {
 
   const layerNodes = useMemo(
     () => ({
-      canvas: <DesignerComponent ref={designerRef} />,
+      canvas: <DesignerComponent ref={designerRef} provider={sharedProvider} />,
       brief:
         activeProject?.description !== undefined ? (
-          <LexicalEditor
-            key={activeProject?.projectId ?? "default-project"}
-            initialContent={activeProject?.description ?? null}
-            onChange={handleBriefChange}
-            registerToolbar={setBriefToolbarActions}
-          />
+            <LexicalEditor
+              key={activeProject?.projectId ?? "default-project"}
+              initialContent={activeProject?.description ?? null}
+              onChange={handleBriefChange}
+              registerToolbar={setBriefToolbarActions}
+              onProviderReady={setSharedProvider}
+            />
         ) : (
           <div>Loading...</div>
         ),
       moodboard: (
-        <MoodboardCanvas
-          projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
-        />
+        moodboardAuditDecision.migrateToCanvas ? null : (
+          <MoodboardCanvas
+            projectId={activeProject?.projectId}
+            userId={userId ?? undefined}
+            palette={projectPalette}
+          />
+        )
       ),
     }),
     [
@@ -478,6 +488,7 @@ const EditorPage: React.FC = () => {
       activeProject?.projectId,
       handleBriefChange,
       projectPalette,
+      sharedProvider,
       userId,
     ]
   );

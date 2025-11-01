@@ -20,12 +20,15 @@ import type { Project } from "@/app/contexts/DataProvider";
 import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
+import FabricTextOverlay from "./FabricTextOverlay";
 import styles from "./designer-component.module.css";
+import type { SharedYjsProvider } from "@/dashboard/project/features/editor/types/collaboration";
 
 /* ---------- Types ---------- */
 
 interface DesignerComponentProps {
   style?: React.CSSProperties;
+  provider?: SharedYjsProvider | null;
   [key: string]: unknown;
 }
 
@@ -43,6 +46,7 @@ interface FabricObjectLike {
   set?: (props: Record<string, unknown>) => void;
   setCoords?: () => void;
   clone?: () => Promise<unknown>;
+  lexicalState?: string | null;
   [key: string]: unknown;
 }
 
@@ -50,6 +54,12 @@ interface CanvasObject {
   id: string | number;
   name: string;
   obj: FabricObjectLike;
+}
+
+interface TextOverlayState {
+  object: FabricObjectLike;
+  objectId: string;
+  lexicalState: string | null;
 }
 
 export interface DesignerRef {
@@ -102,11 +112,29 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
   ((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensivePatched = true;
 }
 
+if (!((fabric.IText.prototype as unknown) as { _lexicalPatched?: boolean })._lexicalPatched) {
+  const originalToObject = fabric.IText.prototype.toObject;
+  fabric.IText.prototype.toObject = function (propertiesToInclude?: string[]) {
+    const result = originalToObject.call(this, propertiesToInclude);
+    const lexicalState = (this as FabricObjectLike).lexicalState;
+    if (lexicalState !== undefined) {
+      (result as { lexicalState?: string | null }).lexicalState =
+        lexicalState ?? null;
+    }
+    if (this.id && !(result as { id?: string | number }).id) {
+      (result as { id?: string | number }).id = this.id as string | number;
+    }
+    return result;
+  };
+  ((fabric.IText.prototype as unknown) as { _lexicalPatched?: boolean })._lexicalPatched =
+    true;
+}
+
 /* ========================================================================== */
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
-    const { style: forwardedStyle, ...restProps } = props;
+    const { style: forwardedStyle, provider, ...restProps } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -118,6 +146,15 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const [loadingCanvas, setLoadingCanvas] = useState<boolean>(false);
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
+    const [textOverlay, setTextOverlay] = useState<TextOverlayState | null>(null);
+    const [overlayRect, setOverlayRect] = useState<
+      | { left: number; top: number; width: number; height: number }
+      | null
+    >(null);
+
+    const lastSerializedRef = useRef<string | null>(null);
+    const overlayDirtyRef = useRef<boolean>(false);
+    const textOverlayRef = useRef<TextOverlayState | null>(null);
 
         const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
         const clipboard = useRef<unknown>(null);
@@ -126,7 +163,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
 
-    const { activeProject, setActiveProject } = useData();
+    const { activeProject, setActiveProject, userName, userData } = useData() as {
+      activeProject: Project | null;
+      setActiveProject: React.Dispatch<React.SetStateAction<Project | null>>;
+      userName?: string;
+      userData?: { thumbnail?: string };
+    };
+    const avatarUrl = userData?.thumbnail as string | undefined;
 
     /* ---------- Save ---------- */
     const saveCanvas = useCallback(
@@ -247,7 +290,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     }, [isDirty, activeProject?.projectId]);
 
     /* History */
-    const saveHistory = () => {
+    const saveHistory = useCallback(() => {
       if (isRestoringHistory.current) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
@@ -261,24 +304,152 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         h.stack.push(json);
         h.index++;
       }
-    };
-
-    const loadHistory = useCallback((index: number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      const h = history.current;
-      if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
-
-      isRestoringHistory.current = true;
-      fabricCanvas.loadFromJSON(h.stack[index], () => {
-        fabricCanvas.renderAll();
-        fabricCanvas.requestRenderAll();
-        updateObjects();
-        isRestoringHistory.current = false;
-      });
-      h.index = index;
     }, []);
 
-    const updateObjects = () => {
+    const loadHistory = useCallback(
+      (index: number) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const h = history.current;
+        if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
+
+        isRestoringHistory.current = true;
+        fabricCanvas.loadFromJSON(h.stack[index], () => {
+          fabricCanvas.renderAll();
+          fabricCanvas.requestRenderAll();
+          updateObjects();
+          isRestoringHistory.current = false;
+        });
+        h.index = index;
+      },
+      [updateObjects]
+    );
+
+    const deriveOverlayRect = useCallback((obj: FabricObjectLike | null) => {
+      if (!obj) return null;
+      if (typeof obj.setCoords === "function") {
+        obj.setCoords();
+      }
+      const coords = (obj as { aCoords?: Record<string, { x: number; y: number }> }).aCoords;
+      if (!coords) return null;
+      const points = [coords.tl, coords.tr, coords.br, coords.bl].filter(
+        (pt): pt is { x: number; y: number } => Boolean(pt)
+      );
+      if (!points.length) return null;
+      const xs = points.map((pt) => pt.x);
+      const ys = points.map((pt) => pt.y);
+      const left = Math.min(...xs);
+      const top = Math.min(...ys);
+      const width = Math.max(...xs) - left;
+      const height = Math.max(...ys) - top;
+      return { left, top, width, height };
+    }, []);
+
+    const updateOverlayBounds = useCallback(() => {
+      const overlay = textOverlayRef.current;
+      if (!overlay) {
+        setOverlayRect(null);
+        return;
+      }
+      const rect = deriveOverlayRect(overlay.object);
+      if (rect) {
+        setOverlayRect(rect);
+      }
+    }, [deriveOverlayRect]);
+
+    const syncActiveTextOverlay = useCallback(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) return;
+      const active = fabricCanvas.getActiveObject() as FabricObjectLike | undefined;
+
+      if (active && active.type === "i-text") {
+        const idValue = (active.id ?? active.name ?? `text-${Date.now()}`).toString();
+        if (!active.id) {
+          active.id = idValue;
+        }
+        if (!active.name) {
+          active.name = idValue;
+        }
+        const lexicalState =
+          typeof active.lexicalState === "string" ? active.lexicalState : null;
+        const payload: TextOverlayState = {
+          object: active,
+          objectId: idValue,
+          lexicalState,
+        };
+        textOverlayRef.current = payload;
+        setTextOverlay(payload);
+        lastSerializedRef.current = lexicalState;
+        overlayDirtyRef.current = false;
+        setTimeout(() => {
+          updateOverlayBounds();
+        }, 0);
+      } else {
+        if (textOverlayRef.current && overlayDirtyRef.current) {
+          saveHistory();
+        }
+        setTextOverlay(null);
+        textOverlayRef.current = null;
+        setOverlayRect(null);
+        lastSerializedRef.current = null;
+        overlayDirtyRef.current = false;
+      }
+    }, [saveHistory, updateOverlayBounds]);
+
+    const handleOverlayChange = useCallback(
+      (payload: { json: string; plainText: string }) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const overlay = textOverlayRef.current;
+        if (!fabricCanvas || !overlay) return;
+
+        const { object } = overlay;
+        const { json, plainText } = payload;
+        if (lastSerializedRef.current === json) return;
+        lastSerializedRef.current = json;
+        overlayDirtyRef.current = true;
+
+        object.lexicalState = json;
+        if (typeof object.set === "function") {
+          object.set({ text: plainText });
+        } else {
+          object.text = plainText;
+        }
+        if (typeof object.setCoords === "function") {
+          object.setCoords();
+        }
+        fabricCanvas.requestRenderAll();
+        const updatedOverlay: TextOverlayState = {
+          object,
+          objectId: overlay.objectId,
+          lexicalState: json,
+        };
+        textOverlayRef.current = updatedOverlay;
+        setTextOverlay(updatedOverlay);
+        markDirty();
+        updateOverlayBounds();
+      },
+      [markDirty, updateOverlayBounds]
+    );
+
+    const handleOverlayClose = useCallback(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) return;
+      fabricCanvas.discardActiveObject();
+      fabricCanvas.requestRenderAll();
+      if (overlayDirtyRef.current) {
+        saveHistory();
+        overlayDirtyRef.current = false;
+      }
+      syncActiveTextOverlay();
+    }, [saveHistory, syncActiveTextOverlay]);
+
+    useEffect(() => {
+      textOverlayRef.current = textOverlay;
+      if (textOverlay) {
+        updateOverlayBounds();
+      }
+    }, [textOverlay, updateOverlayBounds]);
+
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (fabricCanvas) {
         const objs = fabricCanvas.getObjects();
@@ -294,7 +465,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }))
         );
       }
-    };
+    }, []);
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -305,7 +476,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.requestRenderAll();
       saveHistory();
       updateObjects();
-    }, []);
+    }, [saveHistory, updateObjects]);
 
     /* Init canvas */
     useLayoutEffect(() => {
@@ -333,18 +504,40 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.on("object:added", saveHistory);
       fabricCanvas.on("object:added", updateObjects);
       fabricCanvas.on("object:added", markDirty);
+      fabricCanvas.on("object:added", () => {
+        syncActiveTextOverlay();
+        updateOverlayBounds();
+      });
 
       fabricCanvas.on("object:modified", saveHistory);
       fabricCanvas.on("object:modified", updateObjects);
       fabricCanvas.on("object:modified", markDirty);
+      fabricCanvas.on("object:modified", updateOverlayBounds);
+
+      fabricCanvas.on("object:moving", updateOverlayBounds);
+      fabricCanvas.on("object:scaling", updateOverlayBounds);
+      fabricCanvas.on("object:rotating", updateOverlayBounds);
 
       fabricCanvas.on("object:removed", saveHistory);
       fabricCanvas.on("object:removed", updateObjects);
       fabricCanvas.on("object:removed", markDirty);
+      fabricCanvas.on("object:removed", () => {
+        syncActiveTextOverlay();
+        updateOverlayBounds();
+      });
 
-      fabricCanvas.on("selection:created", updateObjects);
-      fabricCanvas.on("selection:updated", updateObjects);
-      fabricCanvas.on("selection:cleared", () => setSelectedId(null));
+      fabricCanvas.on("selection:created", () => {
+        updateObjects();
+        syncActiveTextOverlay();
+      });
+      fabricCanvas.on("selection:updated", () => {
+        updateObjects();
+        syncActiveTextOverlay();
+      });
+      fabricCanvas.on("selection:cleared", () => {
+        setSelectedId(null);
+        syncActiveTextOverlay();
+      });
 
       fabricCanvas.on("path:created", () => {
         changeMode(TOOL_MODES.SELECT);
@@ -370,6 +563,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         zoom = Math.min(3, Math.max(0.5, zoom));
         fabricCanvas.zoomToPoint({ x: e.offsetX, y: e.offsetY }, zoom);
         e.stopPropagation();
+        updateOverlayBounds();
       };
       canvasEl.addEventListener("wheel", handleWheel, { passive: false });
 
@@ -449,14 +643,27 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             ) {
               isRestoringHistory.current = true;
               await new Promise<void>((resolve) => {
-                fabricCanvas?.loadFromJSON(jsonObj, () => {
-                  fabricCanvas?.renderAll();
-                  fabricCanvas?.requestRenderAll();
-                  resolve();
-                });
+                fabricCanvas?.loadFromJSON(
+                  jsonObj,
+                  () => {
+                    fabricCanvas?.renderAll();
+                    fabricCanvas?.requestRenderAll();
+                    resolve();
+                  },
+                  (obj: Record<string, unknown>, object?: unknown) => {
+                    if ((obj.type as string | undefined) === "i-text" && object) {
+                      const lexicalState = (obj as { lexicalState?: string | null })
+                        .lexicalState;
+                      (object as FabricObjectLike).lexicalState =
+                        typeof lexicalState === "string" ? lexicalState : null;
+                    }
+                  }
+                );
               });
               isRestoringHistory.current = false;
               updateObjects();
+              syncActiveTextOverlay();
+              updateOverlayBounds();
               saveHistory();
             } else {
               // When there's no canvas data, just clear and render without waiting
@@ -476,7 +683,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       };
 
       loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+    }, [
+      canvasReady,
+      activeProject?.projectId,
+      activeProject?.canvasJson,
+      setActiveProject,
+      saveHistory,
+      updateObjects,
+      syncActiveTextOverlay,
+      updateOverlayBounds,
+    ]);
 
     useEffect(() => {
       applyCanvasMode(mode);
@@ -550,12 +766,15 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
+      const objectId = `text-${Date.now()}`;
       const text = new fabric.IText("Text", {
         left: 100,
         top: 100,
         selectable: true,
-        name: `text-${Date.now()}`,
+        name: objectId,
+        id: objectId,
         fill: color,
+        lexicalState: null,
       });
 
       fabricCanvas.add(text);
@@ -813,6 +1032,21 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
           >
             {loadingCanvas && <SpinnerOverlay />}
+            <div className={styles.overlayRoot}>
+              {textOverlay && overlayRect ? (
+                <FabricTextOverlay
+                  key={textOverlay.objectId}
+                  objectId={textOverlay.objectId}
+                  lexicalState={textOverlay.lexicalState}
+                  provider={provider}
+                  position={overlayRect}
+                  onChange={handleOverlayChange}
+                  onClose={handleOverlayClose}
+                  userName={userName}
+                  avatarUrl={avatarUrl}
+                />
+              ) : null}
+            </div>
           </div>
 
           <input
