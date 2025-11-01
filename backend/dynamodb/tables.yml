@@ -50,6 +50,8 @@ Resources:
           AttributeType: S
         - AttributeName: userId
           AttributeType: S
+        - AttributeName: activeDeckProjectId
+          AttributeType: S
       GlobalSecondaryIndexes:
         - IndexName: userId-sessionId-index
           KeySchema:
@@ -59,6 +61,31 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+        - IndexName: activeDeckProjectId-index
+          KeySchema:
+            - AttributeName: activeDeckProjectId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  DeckPages:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: DeckPages
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: pageId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: pageId
+          AttributeType: S
       SSESpecification:
         SSEEnabled: true
       DeletionProtectionEnabled: true

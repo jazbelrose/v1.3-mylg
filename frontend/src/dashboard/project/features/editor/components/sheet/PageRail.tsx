@@ -14,7 +14,7 @@ import type { SheetPageState } from "@/dashboard/project/features/editor/types/s
 
 interface PageRailProps {
   pages: SheetPageState[];
-  activePageId: string;
+  activePageId: string | null;
   onSelect: (pageId: string) => void;
   onAdd: () => void;
   onDuplicate: (pageId: string) => void;

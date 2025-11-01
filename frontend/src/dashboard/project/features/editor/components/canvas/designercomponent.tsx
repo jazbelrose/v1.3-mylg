@@ -15,9 +15,6 @@ import {
   Image as FabricImage,
   StaticCanvas,
 } from "fabric";
-import { useData } from "@/app/contexts/useData";
-import type { Project } from "@/app/contexts/DataProvider";
-import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import styles from "./designer-component.module.css";
@@ -26,6 +23,12 @@ import styles from "./designer-component.module.css";
 
 interface DesignerComponentProps {
   style?: React.CSSProperties;
+  documentJson?: string | null;
+  documentVersion?: number | string | null;
+  onDocumentChange?: (canvasJson: string) => void;
+  onSave?: (canvasJson: string) => Promise<void> | void;
+  isSaving?: boolean;
+  readOnly?: boolean;
   [key: string]: unknown;
 }
 
@@ -106,7 +109,16 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
-    const { style: forwardedStyle, ...restProps } = props;
+    const {
+      style: forwardedStyle,
+      documentJson,
+      documentVersion,
+      onDocumentChange,
+      onSave,
+      isSaving,
+      readOnly,
+      ...restProps
+    } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -119,62 +131,89 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
 
+    const isReadOnly = Boolean(readOnly);
+
         const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
-        const clipboard = useRef<unknown>(null);
+    const clipboard = useRef<unknown>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fabricCanvasRef = useRef<any>(null);
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
-
-    const { activeProject, setActiveProject } = useData();
+    const pendingSyncTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastLoadedVersion = useRef<number | string | null>(null);
+    const lastLoadedDocument = useRef<string | null>(null);
+    const lastSerialized = useRef<string | null>(null);
 
     /* ---------- Save ---------- */
+    const flushPendingChange = useCallback(() => {
+      if (!onDocumentChange) return;
+      const fabricCanvas = fabricCanvasRef.current;
+      if (!fabricCanvas) return;
+      try {
+        const canvasJson = JSON.stringify(fabricCanvas.toJSON());
+        lastSerialized.current = canvasJson;
+        onDocumentChange(canvasJson);
+      } catch (err) {
+        console.error("Failed to serialize canvas", err);
+      }
+    }, [onDocumentChange]);
+
+    const scheduleDocumentChange = useCallback(() => {
+      if (!onDocumentChange) return;
+      if (pendingSyncTimeout.current) {
+        clearTimeout(pendingSyncTimeout.current);
+      }
+      pendingSyncTimeout.current = setTimeout(() => {
+        pendingSyncTimeout.current = null;
+        flushPendingChange();
+      }, 300);
+    }, [flushPendingChange, onDocumentChange]);
+
     const saveCanvas = useCallback(
       async (showToast = false) => {
         const fabricCanvas = fabricCanvasRef.current;
-        if (!fabricCanvas || !activeProject?.projectId) {
-          if (showToast) notify("error", "No active project to save");
+        if (!fabricCanvas) {
+          if (showToast) notify("error", "Canvas not ready");
+          return;
+        }
+        const canvasJson = JSON.stringify(fabricCanvas.toJSON());
+        if (!onSave) {
+          if (showToast) notify("info", "Save handler not configured");
           return;
         }
         try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
-          const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-          // apiFetch returns parsed JSON or {} on empty; errors throw.
-          console.debug('Saving canvas to:', apiUrl);
-          await apiFetch(apiUrl, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ canvasJson }),
-          });
-          // console.debug('Save successful:', responseData);
-          setActiveProject((prev: Project | null) => (prev ? { ...prev, canvasJson } : prev));
+          await onSave(canvasJson);
           setIsDirty(false);
+          lastSerialized.current = canvasJson;
           if (showToast) notify("success", "Saved. Nice.");
-        } catch (err: unknown) {
+        } catch (err) {
           const error = err as { message?: string };
           console.error("Failed to save canvas:", error);
           if (showToast)
-            notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
+            notify("error", error?.message || "Unable to save canvas");
         }
       },
-      [activeProject, setActiveProject]
+      [onSave]
     );
 
     const markDirty = useCallback(() => {
-      if (isInitialLoad.current) return;
+      if (isInitialLoad.current || isReadOnly) return;
       setIsDirty(true);
-    }, []);
+      scheduleDocumentChange();
+    }, [isReadOnly, scheduleDocumentChange]);
 
     const applyCanvasMode = useCallback(
       (nextMode: string) => {
         const fabricCanvas = fabricCanvasRef.current;
         if (!fabricCanvas) return;
 
-        fabricCanvas.isDrawingMode = nextMode === TOOL_MODES.BRUSH;
-        fabricCanvas.selection = nextMode === TOOL_MODES.SELECT;
-        fabricCanvas.skipTargetFind = nextMode !== TOOL_MODES.SELECT;
+        const effectiveMode = isReadOnly ? TOOL_MODES.SELECT : nextMode;
 
-        if (nextMode === TOOL_MODES.BRUSH) {
+        fabricCanvas.isDrawingMode = !isReadOnly && effectiveMode === TOOL_MODES.BRUSH;
+        fabricCanvas.selection = !isReadOnly && effectiveMode === TOOL_MODES.SELECT;
+        fabricCanvas.skipTargetFind = isReadOnly || effectiveMode !== TOOL_MODES.SELECT;
+
+        if (!isReadOnly && effectiveMode === TOOL_MODES.BRUSH) {
           if (!fabricCanvas.freeDrawingBrush) {
             fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas);
           }
@@ -182,7 +221,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           fabricCanvas.freeDrawingBrush.width = 2;
         }
       },
-      [color]
+      [color, isReadOnly]
     );
 
     const changeMode = useCallback(
@@ -195,6 +234,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     const handleColorChange = useCallback(
       (eOrColor: React.ChangeEvent<HTMLInputElement> | string) => {
+        if (isReadOnly) return;
         const newColor =
           typeof eOrColor === "string" ? eOrColor : (eOrColor.target.value as string);
         setColor(newColor);
@@ -220,7 +260,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           markDirty();
         }
       },
-      [markDirty]
+      [markDirty, isReadOnly]
     );
 
     const handleSave = useCallback(() => {
@@ -231,23 +271,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     useEffect(() => {
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
         if (!isDirty) return;
-
-        if (fabricCanvasRef.current && activeProject?.projectId) {
-          const canvasJson = JSON.stringify(fabricCanvasRef.current.toJSON());
-          navigator.sendBeacon(
-            `${EDIT_PROJECT_URL}/${activeProject.projectId}`,
-            JSON.stringify({ canvasJson })
-          );
-        }
+        flushPendingChange();
         e.preventDefault();
         e.returnValue = "";
       };
       window.addEventListener("beforeunload", handleBeforeUnload);
       return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [isDirty, activeProject?.projectId]);
+    }, [isDirty, flushPendingChange]);
 
     /* History */
-    const saveHistory = () => {
+    const saveHistory = useCallback(() => {
       if (isRestoringHistory.current) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
@@ -261,24 +294,27 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         h.stack.push(json);
         h.index++;
       }
-    };
-
-    const loadHistory = useCallback((index: number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      const h = history.current;
-      if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
-
-      isRestoringHistory.current = true;
-      fabricCanvas.loadFromJSON(h.stack[index], () => {
-        fabricCanvas.renderAll();
-        fabricCanvas.requestRenderAll();
-        updateObjects();
-        isRestoringHistory.current = false;
-      });
-      h.index = index;
     }, []);
 
-    const updateObjects = () => {
+    const loadHistory = useCallback(
+      (index: number) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const h = history.current;
+        if (!fabricCanvas || index < 0 || index >= h.stack.length) return;
+
+        isRestoringHistory.current = true;
+        fabricCanvas.loadFromJSON(h.stack[index], () => {
+          fabricCanvas.renderAll();
+          fabricCanvas.requestRenderAll();
+          updateObjects();
+          isRestoringHistory.current = false;
+        });
+        h.index = index;
+      },
+      [updateObjects]
+    );
+
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (fabricCanvas) {
         const objs = fabricCanvas.getObjects();
@@ -294,9 +330,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }))
         );
       }
-    };
+    }, []);
 
     const handleClear = useCallback(() => {
+      if (isReadOnly) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
@@ -305,7 +342,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.requestRenderAll();
       saveHistory();
       updateObjects();
-    }, []);
+    }, [isReadOnly, saveHistory, updateObjects]);
 
     /* Init canvas */
     useLayoutEffect(() => {
@@ -392,91 +429,83 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         }
         fabricCanvasRef.current = null;
         canvasRef.current = null;
+        if (pendingSyncTimeout.current) {
+          clearTimeout(pendingSyncTimeout.current);
+          pendingSyncTimeout.current = null;
+        }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    /* Load canvas data when ready / project changes */
+    /* Load canvas data when ready / document changes */
     useEffect(() => {
       if (!canvasReady) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
+      const versionKey = documentVersion ?? documentJson ?? null;
+      if (lastLoadedVersion.current === versionKey && lastLoadedDocument.current === (documentJson ?? null)) {
+        return;
+      }
+      lastLoadedVersion.current = versionKey;
+      lastLoadedDocument.current = documentJson ?? null;
+
       const loadCanvas = async () => {
         setLoadingCanvas(true);
-        const fabricCanvas = fabricCanvasRef.current;
+        const canvasInstance = fabricCanvasRef.current;
         try {
-          // Start with any canvas JSON already on the active project as a fallback
-          let jsonString: string | null = (activeProject?.canvasJson as string | null) ?? null;
-
-          if (activeProject?.projectId) {
-            const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-            console.debug('Loading canvas from:', apiUrl);
-            try {
-              // apiFetch returns parsed JSON; will throw for non-2xx
-              const data: { canvasJson?: string } = await apiFetch(apiUrl);
-              jsonString = data?.canvasJson ?? jsonString;
-              setActiveProject((prev: Project | null) =>
-                prev ? { ...prev, canvasJson: jsonString ?? undefined } : prev
-              );
-            } catch (e) {
-              // Network or server errors shouldn't wipe existing canvas data
-              console.error('Canvas fetch failed:', e);
-              notify(
-                'error',
-                'Failed to load canvas from server. Using local copy if available.'
-              );
-            }
+          if (!canvasInstance) return;
+          if (!documentJson) {
+            canvasInstance.clear();
+            canvasInstance.renderAll();
+            saveHistory();
+            setIsDirty(false);
+            return;
           }
 
-          if (jsonString) {
-            let jsonObj: Record<string, unknown>;
-            try {
-              jsonObj =
-                typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
-            } catch (e) {
-              console.error('Failed to parse canvas JSON:', e);
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
-              saveHistory();
-              return;
-            }
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(documentJson);
+          } catch (err) {
+            console.error("Failed to parse canvas JSON:", err);
+            canvasInstance.clear();
+            canvasInstance.renderAll();
+            saveHistory();
+            setIsDirty(false);
+            return;
+          }
 
-            if (
-              jsonObj &&
-              Array.isArray((jsonObj as { objects?: unknown[] }).objects) &&
-              (jsonObj as { objects: unknown[] }).objects.length > 0
-            ) {
-              isRestoringHistory.current = true;
-              await new Promise<void>((resolve) => {
-                fabricCanvas?.loadFromJSON(jsonObj, () => {
-                  fabricCanvas?.renderAll();
-                  fabricCanvas?.requestRenderAll();
-                  resolve();
-                });
+          if (
+            parsed &&
+            typeof parsed === "object" &&
+            Array.isArray((parsed as { objects?: unknown[] }).objects) &&
+            (parsed as { objects: unknown[] }).objects.length > 0
+          ) {
+            isRestoringHistory.current = true;
+            await new Promise<void>((resolve) => {
+              canvasInstance.loadFromJSON(parsed as Record<string, unknown>, () => {
+                canvasInstance.renderAll();
+                canvasInstance.requestRenderAll();
+                resolve();
               });
-              isRestoringHistory.current = false;
-              updateObjects();
-              saveHistory();
-            } else {
-              // When there's no canvas data, just clear and render without waiting
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
-              saveHistory();
-            }
+            });
+            isRestoringHistory.current = false;
+            updateObjects();
+            saveHistory();
           } else {
-            fabricCanvas?.clear();
-            fabricCanvas?.renderAll();
+            canvasInstance.clear();
+            canvasInstance.renderAll();
             saveHistory();
           }
+          setIsDirty(false);
         } finally {
           setLoadingCanvas(false);
           isInitialLoad.current = false;
         }
       };
 
-      loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+      void loadCanvas();
+    }, [canvasReady, documentJson, documentVersion, saveHistory, updateObjects]);
 
     useEffect(() => {
       applyCanvasMode(mode);
@@ -484,6 +513,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* Drawing handlers for RECT mode (mouse events on container) */
     const handleMouseDown = (e: React.MouseEvent) => {
+      if (isReadOnly) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
       if (mode === TOOL_MODES.RECT) {
@@ -508,6 +538,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
+      if (isReadOnly) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas || !(fabricCanvas as Record<string, unknown>).__drawingObject) return;
 
@@ -532,6 +563,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     };
 
     const handleMouseUp = () => {
+      if (isReadOnly) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
@@ -547,6 +579,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* Text + Image */
     const addText = useCallback(() => {
+      if (isReadOnly) return;
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
 
@@ -568,9 +601,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       hiddenTextarea?.focus?.();
       fabricCanvas.requestRenderAll();
       changeMode(TOOL_MODES.SELECT);
-    }, [color, changeMode]);
+    }, [color, changeMode, isReadOnly]);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isReadOnly) return;
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -686,6 +720,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* Layer list helpers */
     const toggleVisibility = (obj: FabricObjectLike) => {
+      if (isReadOnly) return;
       obj.visible = !obj.visible;
       const canvas = obj.canvas as Record<string, unknown>;
       if (typeof canvas.requestRenderAll === 'function') {
@@ -696,6 +731,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     };
 
     const toggleLock = (obj: FabricObjectLike) => {
+      if (isReadOnly) return;
       const locked = !(obj.lockMovementX && obj.lockMovementY);
       obj.lockMovementX = obj.lockMovementY = locked;
       obj.selectable = !locked;
@@ -709,6 +745,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     };
 
     const renameObject = (obj: FabricObjectLike, name: string) => {
+      if (isReadOnly) return;
       obj.name = name;
       updateObjects();
       markDirty();
@@ -728,7 +765,10 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       (): DesignerRef => ({
         changeMode,
         addText,
-        triggerImageUpload: () => fileInputRef.current?.click(),
+        triggerImageUpload: () => {
+          if (isReadOnly) return;
+          fileInputRef.current?.click();
+        },
         handleColorChange: (c: string) => handleColorChange(c),
         handleUndo,
         handleRedo,
@@ -749,6 +789,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         handleDelete,
         handleClear,
         handleSave,
+        isReadOnly,
       ]
     );
 
@@ -812,7 +853,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             onMouseMove={mode === TOOL_MODES.RECT ? handleMouseMove : undefined}
             onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
           >
-            {loadingCanvas && <SpinnerOverlay />}
+            {(loadingCanvas || isSaving) && <SpinnerOverlay />}
           </div>
 
           <input

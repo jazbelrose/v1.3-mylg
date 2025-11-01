@@ -94,6 +94,12 @@ functions:
       - websocket:
           route: $default
 
+  deckSync:
+    handler: deckSync.handler
+    events:
+      - websocket:
+          route: deckSync
+
 package:
   patterns:
     - '*.mjs'

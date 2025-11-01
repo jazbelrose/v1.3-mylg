@@ -48,6 +48,8 @@ env:
   # ---- WebSocket
   CONNECTIONS_TABLE: Connections
   CONNECTIONS_USER_GSI: userId-sessionId-index
+  CONNECTIONS_DECK_PROJECT_GSI: activeDeckProjectId-index
+  DECK_PAGES_TABLE: DeckPages
   WEBSOCKET_ENDPOINT: ""  # Set this to your websocket API gateway domain (leave blank for service-specific overrides)
 
   # ---- Misc
