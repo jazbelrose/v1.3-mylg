@@ -8,7 +8,6 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
 import SheetEditor from "@/dashboard/project/features/editor/components/sheet/SheetEditor";
 import type {
   LayerGroupKey,
@@ -23,7 +22,7 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
-const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas", "moodboard"];
+const LAYER_KEYS: LayerGroupKey[] = ["brief", "canvas"];
 
 const generateId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -34,13 +33,11 @@ const createGroupStates = (
   const base: Record<LayerGroupKey, LayerGroupState> = {
     brief: { visible: true, opacity: 0.9 },
     canvas: { visible: true, opacity: 1 },
-    moodboard: { visible: false, opacity: 0.7 },
   };
   if (!overrides) return base;
   return {
     brief: { ...base.brief, ...overrides.brief },
     canvas: { ...base.canvas, ...overrides.canvas },
-    moodboard: { ...base.moodboard, ...overrides.moodboard },
   };
 };
 
@@ -50,7 +47,6 @@ const cloneGroupStates = (
   const clone: Record<LayerGroupKey, LayerGroupState> = {
     brief: { ...states.brief },
     canvas: { ...states.canvas },
-    moodboard: { ...states.moodboard },
   };
   return clone;
 };
@@ -70,7 +66,6 @@ const createSuperSheetState = (): SheetPageState => ({
   isSuperSheet: true,
   groupStates: createGroupStates({
     brief: { opacity: 0.6 },
-    moodboard: { visible: true, opacity: 0.45 },
   }),
 });
 
@@ -465,21 +460,8 @@ const EditorPage: React.FC = () => {
         ) : (
           <div>Loading...</div>
         ),
-      moodboard: (
-        <MoodboardCanvas
-          projectId={activeProject?.projectId}
-          userId={userId ?? undefined}
-          palette={projectPalette}
-        />
-      ),
     }),
-    [
-      activeProject?.description,
-      activeProject?.projectId,
-      handleBriefChange,
-      projectPalette,
-      userId,
-    ]
+    [activeProject?.description, activeProject?.projectId, handleBriefChange]
   );
 
   const toolbarProps = useMemo(

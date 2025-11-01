@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, EyeOff, FileText, LayoutDashboard, Paintbrush } from "lucide-react";
+import { Eye, EyeOff, FileText, Paintbrush } from "lucide-react";
 import classNames from "classnames";
 import styles from "./LayerTree.module.css";
 import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
@@ -7,7 +7,6 @@ import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features
 const GROUP_META: Record<LayerGroupKey, { label: string; icon: React.ReactElement }> = {
   brief: { label: "Brief", icon: <FileText size={16} aria-hidden="true" /> },
   canvas: { label: "Canvas", icon: <Paintbrush size={16} aria-hidden="true" /> },
-  moodboard: { label: "Moodboard", icon: <LayoutDashboard size={16} aria-hidden="true" /> },
 };
 
 interface LayerTreeProps {
