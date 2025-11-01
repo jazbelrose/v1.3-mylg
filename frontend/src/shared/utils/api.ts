@@ -46,6 +46,30 @@ export interface QuickLink {
   [k: string]: unknown;
 }
 
+export interface DeckCanvasPage extends JsonRecord {
+  pageId: string;
+  name: string;
+  canvasJson?: string;
+  preview?: JsonRecord | string | null;
+  updatedAt?: string;
+  updatedBy?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface DeckCanvasDocument extends JsonRecord {
+  pages: DeckCanvasPage[];
+  updatedAt?: string;
+  lastModifiedPageId?: string | null;
+  lastExport?: {
+    format: "pdf" | "site";
+    status: string;
+    requestedAt?: string;
+    requestedBy?: string | null;
+    requestedByName?: string | null;
+    downloadUrl?: string | null;
+  } | null;
+}
+
 export interface Project {
   projectId: string;
   title?: string;
@@ -67,6 +91,7 @@ export interface Project {
   clientEmail?: string;
   previewUrl?: string;
   quickLinks?: QuickLink[];
+  deckCanvas?: DeckCanvasDocument;
   [key: string]: unknown;
 }
 

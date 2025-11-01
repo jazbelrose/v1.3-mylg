@@ -24,8 +24,15 @@ import styles from "./designer-component.module.css";
 
 /* ---------- Types ---------- */
 
+interface DesignerPersistAdapter {
+  load?: () => Promise<string | null> | string | null;
+  save?: (json: string) => Promise<void> | void;
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
 interface DesignerComponentProps {
   style?: React.CSSProperties;
+  persistAdapter?: DesignerPersistAdapter;
   [key: string]: unknown;
 }
 
@@ -106,7 +113,7 @@ if (!((StaticCanvas.prototype as unknown) as Record<string, unknown>)._defensive
 
 const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
   (props, ref) => {
-    const { style: forwardedStyle, ...restProps } = props;
+    const { style: forwardedStyle, persistAdapter, ...restProps } = props;
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -132,38 +139,53 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const saveCanvas = useCallback(
       async (showToast = false) => {
         const fabricCanvas = fabricCanvasRef.current;
-        if (!fabricCanvas || !activeProject?.projectId) {
-          if (showToast) notify("error", "No active project to save");
+        if (!fabricCanvas) {
+          if (showToast) notify("error", "Canvas is not ready");
           return;
         }
+
+        const canvasJson = JSON.stringify(fabricCanvas.toJSON());
+
         try {
-          const canvasJson = JSON.stringify(fabricCanvas.toJSON());
-          const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-          // apiFetch returns parsed JSON or {} on empty; errors throw.
-          console.debug('Saving canvas to:', apiUrl);
-          await apiFetch(apiUrl, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ canvasJson }),
-          });
-          // console.debug('Save successful:', responseData);
-          setActiveProject((prev: Project | null) => (prev ? { ...prev, canvasJson } : prev));
+          if (persistAdapter?.save) {
+            await persistAdapter.save(canvasJson);
+          } else {
+            if (!activeProject?.projectId) {
+              if (showToast) notify("error", "No active project to save");
+              return;
+            }
+            const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
+            console.debug('Saving canvas to:', apiUrl);
+            await apiFetch(apiUrl, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ canvasJson }),
+            });
+            setActiveProject((prev: Project | null) => (prev ? { ...prev, canvasJson } : prev));
+          }
+
           setIsDirty(false);
+          persistAdapter?.onDirtyChange?.(false);
           if (showToast) notify("success", "Saved. Nice.");
         } catch (err: unknown) {
           const error = err as { message?: string };
           console.error("Failed to save canvas:", error);
-          if (showToast)
-            notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
+          if (showToast) {
+            const failureMessage = persistAdapter?.save
+              ? "We couldn’t sync the canvas right now—retrying shortly."
+              : "Can’t reach the server—your edits are safe; we’ll retry.";
+            notify("error", failureMessage);
+          }
         }
       },
-      [activeProject, setActiveProject]
+      [activeProject?.projectId, persistAdapter, setActiveProject]
     );
 
     const markDirty = useCallback(() => {
       if (isInitialLoad.current) return;
       setIsDirty(true);
-    }, []);
+      persistAdapter?.onDirtyChange?.(true);
+    }, [persistAdapter]);
 
     const applyCanvasMode = useCallback(
       (nextMode: string) => {
@@ -229,6 +251,8 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
     /* Save on unload if dirty */
     useEffect(() => {
+      if (persistAdapter) return undefined;
+
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
         if (!isDirty) return;
 
@@ -244,7 +268,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       };
       window.addEventListener("beforeunload", handleBeforeUnload);
       return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [isDirty, activeProject?.projectId]);
+    }, [isDirty, activeProject?.projectId, persistAdapter]);
 
     /* History */
     const saveHistory = () => {
@@ -278,7 +302,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       h.index = index;
     }, []);
 
-    const updateObjects = () => {
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (fabricCanvas) {
         const objs = fabricCanvas.getObjects();
@@ -294,7 +318,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           }))
         );
       }
-    };
+    }, []);
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
@@ -404,28 +428,42 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
 
       const loadCanvas = async () => {
         setLoadingCanvas(true);
-        const fabricCanvas = fabricCanvasRef.current;
+        const currentCanvas = fabricCanvasRef.current;
         try {
-          // Start with any canvas JSON already on the active project as a fallback
-          let jsonString: string | null = (activeProject?.canvasJson as string | null) ?? null;
+          let jsonString: string | null = null;
 
-          if (activeProject?.projectId) {
-            const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
-            console.debug('Loading canvas from:', apiUrl);
+          if (persistAdapter?.load) {
             try {
-              // apiFetch returns parsed JSON; will throw for non-2xx
-              const data: { canvasJson?: string } = await apiFetch(apiUrl);
-              jsonString = data?.canvasJson ?? jsonString;
-              setActiveProject((prev: Project | null) =>
-                prev ? { ...prev, canvasJson: jsonString ?? undefined } : prev
-              );
-            } catch (e) {
-              // Network or server errors shouldn't wipe existing canvas data
-              console.error('Canvas fetch failed:', e);
-              notify(
-                'error',
-                'Failed to load canvas from server. Using local copy if available.'
-              );
+              const loaded = await persistAdapter.load();
+              if (typeof loaded === "string") {
+                jsonString = loaded;
+              } else if (loaded && typeof loaded === "object") {
+                jsonString = JSON.stringify(loaded);
+              }
+            } catch (error) {
+              console.error("Failed to load canvas via adapter:", error);
+            }
+          }
+
+          if (jsonString === null) {
+            jsonString = (activeProject?.canvasJson as string | null) ?? null;
+
+            if (!persistAdapter?.load && activeProject?.projectId) {
+              const apiUrl = `${EDIT_PROJECT_URL}/${activeProject.projectId}`;
+              console.debug('Loading canvas from:', apiUrl);
+              try {
+                const data: { canvasJson?: string } = await apiFetch(apiUrl);
+                jsonString = data?.canvasJson ?? jsonString;
+                setActiveProject((prev: Project | null) =>
+                  prev ? { ...prev, canvasJson: jsonString ?? undefined } : prev
+                );
+              } catch (e) {
+                console.error('Canvas fetch failed:', e);
+                notify(
+                  'error',
+                  'Failed to load canvas from server. Using local copy if available.'
+                );
+              }
             }
           }
 
@@ -436,8 +474,8 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
                 typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
             } catch (e) {
               console.error('Failed to parse canvas JSON:', e);
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
+              currentCanvas?.clear();
+              currentCanvas?.renderAll();
               saveHistory();
               return;
             }
@@ -449,9 +487,9 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             ) {
               isRestoringHistory.current = true;
               await new Promise<void>((resolve) => {
-                fabricCanvas?.loadFromJSON(jsonObj, () => {
-                  fabricCanvas?.renderAll();
-                  fabricCanvas?.requestRenderAll();
+                currentCanvas?.loadFromJSON(jsonObj, () => {
+                  currentCanvas?.renderAll();
+                  currentCanvas?.requestRenderAll();
                   resolve();
                 });
               });
@@ -459,24 +497,31 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
               updateObjects();
               saveHistory();
             } else {
-              // When there's no canvas data, just clear and render without waiting
-              fabricCanvas?.clear();
-              fabricCanvas?.renderAll();
+              currentCanvas?.clear();
+              currentCanvas?.renderAll();
               saveHistory();
             }
           } else {
-            fabricCanvas?.clear();
-            fabricCanvas?.renderAll();
+            currentCanvas?.clear();
+            currentCanvas?.renderAll();
             saveHistory();
           }
         } finally {
           setLoadingCanvas(false);
           isInitialLoad.current = false;
+          persistAdapter?.onDirtyChange?.(false);
         }
       };
 
       loadCanvas();
-    }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
+    }, [
+      canvasReady,
+      activeProject?.projectId,
+      activeProject?.canvasJson,
+      persistAdapter,
+      setActiveProject,
+      updateObjects,
+    ]);
 
     useEffect(() => {
       applyCanvasMode(mode);

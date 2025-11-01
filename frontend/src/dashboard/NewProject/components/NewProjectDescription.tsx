@@ -1,22 +1,4 @@
-import React, { useCallback, useMemo, useRef } from "react";
-import { LexicalComposer } from "@lexical/react/LexicalComposer";
-import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import { ContentEditable } from "@lexical/react/LexicalContentEditable";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
-import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-import { ListPlugin } from "@lexical/react/LexicalListPlugin";
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
-import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { ListNode, ListItemNode } from "@lexical/list";
-import { LinkNode } from "@lexical/link";
-import {
-  $createParagraphNode,
-  $getRoot,
-  Klass,
-  LexicalNode,
-  type EditorState,
-} from "lexical";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import React, { useEffect, useMemo, useState } from "react";
 import styles from "./new-project-description.module.css";
 
 interface NewProjectDescriptionProps {
@@ -24,134 +6,69 @@ interface NewProjectDescriptionProps {
   setDescription: (value: string, plainText: string) => void;
 }
 
-const Placeholder: React.FC = () => (
-  <div className={styles.placeholder}>Describe your project in a few words</div>
-);
+const collectLexicalText = (node: unknown): string => {
+  if (!node) return "";
+  if (Array.isArray(node)) {
+    return node.map((item) => collectLexicalText(item)).filter(Boolean).join(" ");
+  }
+  if (typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof obj.text === "string") parts.push(obj.text);
+    if (Array.isArray(obj.children)) parts.push(collectLexicalText(obj.children));
+    if (Array.isArray(obj.rows)) parts.push(collectLexicalText(obj.rows));
+    if (Array.isArray(obj.cells)) parts.push(collectLexicalText(obj.cells));
+    return parts.filter(Boolean).join(" ");
+  }
+  return "";
+};
 
-const ExternalStatePlugin: React.FC<{
-  description: string;
-  lastEmittedValueRef: React.MutableRefObject<string | null>;
-}> = ({ description, lastEmittedValueRef }) => {
-  const [editor] = useLexicalComposerContext();
-
-  React.useEffect(() => {
-    if (description === lastEmittedValueRef.current) {
-      return;
+const lexicalToPlainText = (value: string): string => {
+  if (!value) return "";
+  try {
+    const parsed = JSON.parse(value) as { root?: unknown; text?: string };
+    if (parsed && typeof parsed.text === "string") {
+      return parsed.text;
     }
-
-    if (!description) {
-      editor.update(() => {
-        const root = $getRoot();
-        root.clear();
-        root.append($createParagraphNode());
-        root.selectEnd();
-      });
-      lastEmittedValueRef.current = description;
-      return;
+    if (parsed && parsed.root) {
+      return collectLexicalText(parsed.root);
     }
-
-    try {
-      const editorState = editor.parseEditorState(description);
-      editor.setEditorState(editorState);
-      lastEmittedValueRef.current = description;
-    } catch (error) {
-      console.error("Failed to parse project description", error);
-    }
-  }, [description, editor, lastEmittedValueRef]);
-
-  return null;
+  } catch {
+    /* ignore malformed lexical payloads */
+  }
+  return value;
 };
 
 const NewProjectDescription: React.FC<NewProjectDescriptionProps> = ({
   description,
   setDescription,
 }) => {
-  const lastEmittedValueRef = useRef<string | null>(description ?? null);
+  const initialValue = useMemo(() => lexicalToPlainText(description), [description]);
+  const [value, setValue] = useState<string>(initialValue);
 
-  const handleChange = useCallback(
-    (editorState: EditorState) => {
-      editorState.read(() => {
-        const root = $getRoot();
-        const plainText = root.getTextContent();
-        const json = JSON.stringify(editorState.toJSON());
-        lastEmittedValueRef.current = json;
-        setDescription(json, plainText);
-      });
-    },
-    [setDescription]
-  );
-
-  const theme = useMemo(
-    () => ({
-      paragraph: styles.paragraph,
-      list: {
-        listitem: styles.listItem,
-        ul: styles.unorderedList,
-        ol: styles.orderedList,
-      },
-      text: {
-        bold: styles.textBold,
-        italic: styles.textItalic,
-        underline: styles.textUnderline,
-      },
-      link: styles.link,
-    }),
-    []
-  );
-
-  const initialConfig = useMemo(
-    () => ({
-      namespace: "new-project-description",
-      theme,
-      onError: (error: Error) => console.error("Lexical Editor Error:", error),
-      nodes: [
-        HeadingNode,
-        QuoteNode,
-        ListNode,
-        ListItemNode,
-        LinkNode,
-      ] as Klass<LexicalNode>[],
-      editorState: description || null,
-    }),
-    [description, theme]
-  );
+  useEffect(() => {
+    setValue(lexicalToPlainText(description));
+  }, [description]);
 
   return (
     <div className={styles.descriptionContainer}>
-      <LexicalComposer initialConfig={initialConfig}>
-        <div className={styles.editorWrapper}>
-          <div className={styles.editorInner}>
-            <RichTextPlugin
-              contentEditable={
-                <ContentEditable
-                  className={styles.editorInput}
-                  aria-label="Project description"
-                />
-              }
-              placeholder={<Placeholder />}
-            />
-            <HistoryPlugin />
-            <ListPlugin />
-            <LinkPlugin />
-            <ExternalStatePlugin
-              description={description}
-              lastEmittedValueRef={lastEmittedValueRef}
-            />
-            <OnChangePlugin onChange={handleChange} />
-          </div>
+      <div className={styles.editorWrapper}>
+        <div className={styles.editorInner}>
+          <textarea
+            className={styles.editorInput}
+            value={value}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setValue(nextValue);
+              setDescription(nextValue, nextValue);
+            }}
+            placeholder="Describe your project in a few words"
+            aria-label="Project description"
+          />
         </div>
-      </LexicalComposer>
+      </div>
     </div>
   );
 };
 
 export default NewProjectDescription;
-
-
-
-
-
-
-
-
-

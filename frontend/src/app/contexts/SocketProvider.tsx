@@ -5,6 +5,7 @@ import { useAuth } from "./useAuth";
 import { useData } from "./useData";
 import { useDMConversation } from "./useDMConversation";
 import { WEBSOCKET_URL } from "@/shared/utils/api";
+import type { DeckCanvasDocument } from "@/shared/utils/api";
 import { mergeAndDedupeMessages } from "@/shared/utils/messageUtils";
 import { createSecureWebSocketConnection } from "@/shared/utils/secureWebSocketAuth";
 import { logSecurityEvent } from "@/shared/utils/securityUtils";
@@ -36,6 +37,20 @@ export const SocketProvider: React.FC<React.PropsWithChildren> = ({ children }) 
 
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+
+  const normalizeDeckDocument = useCallback((value: unknown): DeckCanvasDocument | undefined => {
+    if (!value || typeof value !== "object") return undefined;
+    const candidate = value as DeckCanvasDocument;
+    const pages = Array.isArray(candidate.pages)
+      ? candidate.pages.filter(
+          (page) =>
+            page &&
+            typeof page === "object" &&
+            typeof (page as { pageId?: unknown }).pageId === "string"
+        )
+      : [];
+    return { ...candidate, pages };
+  }, []);
 
   // ---- refs
   const refreshUsersRef = useRef(refreshUsers);
@@ -151,6 +166,22 @@ export const SocketProvider: React.FC<React.PropsWithChildren> = ({ children }) 
             setProjects((prev) => prev.map((p) => (p.projectId === data.projectId ? { ...p, ...data.fields } : p)));
             setUserProjects((prev) => prev.map((p) => (p.projectId === data.projectId ? { ...p, ...data.fields } : p)));
             setActiveProject((prev) => (prev && prev.projectId === data.projectId ? { ...prev, ...data.fields } : prev));
+            return;
+          }
+
+          if (data.action === "deckCanvasUpdate" && data.projectId) {
+            const deckCanvas = normalizeDeckDocument(data.deckCanvas);
+            if (deckCanvas) {
+              setProjects((prev) =>
+                prev.map((p) => (p.projectId === data.projectId ? { ...p, deckCanvas } : p))
+              );
+              setUserProjects((prev) =>
+                prev.map((p) => (p.projectId === data.projectId ? { ...p, deckCanvas } : p))
+              );
+              setActiveProject((prev) =>
+                prev && prev.projectId === data.projectId ? { ...prev, deckCanvas } : prev
+              );
+            }
             return;
           }
 
