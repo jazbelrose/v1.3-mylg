@@ -23,6 +23,10 @@ interface ImportMetaEnv {
   readonly PROD: boolean;
   readonly BASE_URL: string;
   readonly NODE_ENV: string;
+  readonly VITE_YJS_WS_URL?: string;
+  readonly VITE_YJS_USE_PROXY?: string;
+  readonly VITE_FABRIC_API_URL?: string;
+  readonly VITE_FABRIC_WS_URL?: string;
 }
 
 interface ImportMeta {
