@@ -31,11 +31,8 @@ import ImageLockPlugin from "./plugins/ImageLockPlugin";
 import ImageCopyPastePlugin from "./plugins/ImageCopyPastePlugin";
 import YjsSyncPlugin from "./plugins/YjsSyncPlugin";
 
-import { WebsocketProvider } from "y-websocket";
-import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
 import type { Provider } from "@lexical/yjs";
-import { YJS_WS_URL } from "@/config/realtime";
 
 import "./lexical-editor.css";
 
@@ -61,6 +58,11 @@ import SpeechToTextPlugin from "./plugins/SpeechToTextPlugin";
 import { LayoutPlugin } from "./plugins/LayoutPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
+import {
+  ensureProjectCollaboration,
+  getProjectProvider,
+  getProjectDoc,
+} from "../../collaboration/projectCollaboration";
 
 type LexicalEditorProps = {
   onChange: (json: string) => void;
@@ -92,7 +94,6 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   const providerRef = useRef<ExtendedWebsocketProvider | null>(null);
-  const persistenceRef = useRef<IndexeddbPersistence | null>(null);
 
   const initialContentRef = useRef<unknown | null>(initialContent ?? null);
   const hasScrolledToBottom = useRef<boolean>(false);
@@ -107,17 +108,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   }, [activeProject]);
 
   useEffect(() => {
-    const persistence = persistenceRef.current;
-    if (persistence) {
-      persistence
-        .destroy()
-        .then(() => {
-          console.log("IndexedDB cleared for project:", projectId);
-        })
-        .catch((err: unknown) => {
-          console.error("Error clearing IndexedDB:", err);
-        });
-    }
+    ensureProjectCollaboration(projectId);
   }, [projectId]);
 
   // If needed, you can set up the anchor element for plugins (like draggable blocks)
@@ -136,38 +127,16 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   const [, setYjsProvider] = useState<ExtendedWebsocketProvider | null>(null);
 
   const getProvider = useCallback(
-    (id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
-      if (providerRef.current) {
-        return providerRef.current as unknown as Provider;
-      }
-
-      let doc = yjsDocMap.get(id);
-      if (!doc) {
-        doc = new Y.Doc();
-        yjsDocMap.set(id, doc);
-      }
-
-      // Create and store the persistence instance.
-      const persistence = new IndexeddbPersistence(id, doc);
-      persistence.on("synced", () => {
-        console.log("IndexedDB synced for project:", id);
-      });
-      persistenceRef.current = persistence;
-
-      const provider = new WebsocketProvider(
-        YJS_WS_URL.replace(/\/$/, ""),       // base only, no trailing slash
-        id,                                  // room id; y-websocket appends this
-        doc
-      ) as ExtendedWebsocketProvider;
-
-      // Expose a shared text type for convenience (handy for custom plugins).
+    (_id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
+      const doc = getProjectDoc(projectId);
+      const provider = getProjectProvider(projectId) as ExtendedWebsocketProvider;
       provider.sharedType = doc.getText("lexical");
-
+      yjsDocMap.set(projectId, doc);
       providerRef.current = provider;
       setYjsProvider(provider);
       return provider as unknown as Provider;
     },
-    []
+    [projectId]
   );
 
   // Memoize the LexicalComposer configuration so it’s only created once.

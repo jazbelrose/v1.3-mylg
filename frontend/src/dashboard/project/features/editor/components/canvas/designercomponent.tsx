@@ -21,6 +21,13 @@ import { EDIT_PROJECT_URL, apiFetch } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import styles from "./designer-component.module.css";
+import CanvasTextOverlay from "./CanvasTextOverlay";
+import {
+  getCanvasTextSnapshot,
+  setCanvasTextSnapshot,
+  subscribeToCanvasText,
+  removeCanvasTextSnapshot,
+} from "../../collaboration/projectCollaboration";
 
 /* ---------- Types ---------- */
 
@@ -51,6 +58,67 @@ interface CanvasObject {
   name: string;
   obj: FabricObjectLike;
 }
+
+const generateObjectId = (): string => `canvas-obj-${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+
+const isTextObject = (obj: FabricObjectLike): obj is FabricObjectLike & { text?: string } =>
+  Boolean((obj as { type?: string }).type === "i-text" || (obj as { text?: unknown }).text);
+
+const extractPlainText = (json: string | null): string => {
+  if (!json) return "";
+  try {
+    const parsed = JSON.parse(json) as { root?: { children?: unknown[] } };
+    const visit = (node: unknown): string => {
+      if (!node) return "";
+      if (typeof node !== "object") return "";
+      const obj = node as { type?: string; text?: string; children?: unknown[] };
+      if (obj.type === "text" && typeof obj.text === "string") {
+        return obj.text;
+      }
+      if (Array.isArray(obj.children)) {
+        return obj.children.map(visit).join(" ").trim();
+      }
+      return "";
+    };
+    const root = (parsed?.root as { children?: unknown[] }) ?? null;
+    if (!root || !Array.isArray(root.children)) return "";
+    return root.children.map(visit).join(" ").replace(/\s+/g, " ").trim();
+  } catch (error) {
+    console.warn("Failed to parse Lexical JSON for canvas text", error);
+    return "";
+  }
+};
+
+const createInitialLexicalState = (seedText: string): string =>
+  JSON.stringify({
+    root: {
+      children: [
+        {
+          children: [
+            {
+              detail: 0,
+              format: 0,
+              mode: "normal",
+              style: "",
+              text: seedText,
+              type: "text",
+              version: 1,
+            },
+          ],
+          direction: null,
+          format: "",
+          indent: 0,
+          type: "paragraph",
+          version: 1,
+        },
+      ],
+      direction: null,
+      format: "",
+      indent: 0,
+      type: "root",
+      version: 1,
+    },
+  });
 
 export interface DesignerRef {
   changeMode: (mode: string) => void;
@@ -118,6 +186,11 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const [loadingCanvas, setLoadingCanvas] = useState<boolean>(false);
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
     const [isDirty, setIsDirty] = useState<boolean>(false);
+    const [textOverlayState, setTextOverlayState] = useState<{
+      objectId: string;
+      bounds: { left: number; top: number; width: number; height: number };
+      initialState: string | null;
+    } | null>(null);
 
         const history = useRef<{ stack: unknown[]; index: number }>({ stack: [], index: -1 });
         const clipboard = useRef<unknown>(null);
@@ -125,8 +198,86 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const fabricCanvasRef = useRef<any>(null);
     const isRestoringHistory = useRef<boolean>(false);
     const isInitialLoad = useRef<boolean>(true);
+    const overlayTargetRef = useRef<FabricObjectLike | null>(null);
+    const textSubscriptions = useRef<Map<string, () => void>>(new Map());
 
     const { activeProject, setActiveProject } = useData();
+
+    const ensureObjectId = useCallback((obj: FabricObjectLike): string => {
+      if (obj.id === undefined || obj.id === null || obj.id === "") {
+        const newId = generateObjectId();
+        obj.id = newId;
+        if (typeof obj.set === "function") {
+          obj.set({ id: newId });
+        }
+        return newId;
+      }
+      return String(obj.id);
+    }, []);
+
+    const computeOverlayBounds = useCallback(
+      (obj: FabricObjectLike) => {
+        const fabricCanvas = fabricCanvasRef.current;
+        const canvasEl = canvasRef.current;
+        const container = containerRef.current;
+        if (!fabricCanvas || !canvasEl || !container) return null;
+        if (typeof (obj as { getBoundingRect?: unknown }).getBoundingRect !== "function") {
+          return null;
+        }
+        const rect = (obj as unknown as { getBoundingRect: (absolute: boolean, calc: boolean) => {
+          left: number;
+          top: number;
+          width: number;
+          height: number;
+        } }).getBoundingRect(true, true);
+
+        const viewport = fabricCanvas.viewportTransform ?? [1, 0, 0, 1, 0, 0];
+        const zoom = fabricCanvas.getZoom();
+        const canvasRect = canvasEl.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        const offsetLeft = canvasRect.left - containerRect.left;
+        const offsetTop = canvasRect.top - containerRect.top;
+
+        const left = rect.left * zoom + viewport[4] + offsetLeft;
+        const top = rect.top * zoom + viewport[5] + offsetTop;
+        const width = rect.width * zoom;
+        const height = rect.height * zoom;
+        return { left, top, width, height };
+      },
+      []
+    );
+
+    const openTextOverlay = useCallback(
+      (target: FabricObjectLike) => {
+        if (!isTextObject(target)) return;
+        const bounds = computeOverlayBounds(target);
+        if (!bounds) return;
+
+        const projectId = activeProject?.projectId ?? null;
+        const objectId = ensureObjectId(target);
+        let initialState: string | null = null;
+        if (projectId) {
+          initialState = getCanvasTextSnapshot(projectId, objectId);
+          if (!initialState) {
+            const seed = (target as { text?: string }).text ?? "";
+            initialState = createInitialLexicalState(seed);
+            setCanvasTextSnapshot(projectId, objectId, initialState);
+          }
+        } else {
+          const seed = (target as { text?: string }).text ?? "";
+          initialState = createInitialLexicalState(seed);
+        }
+
+        overlayTargetRef.current = target;
+        setTextOverlayState({ objectId, bounds, initialState });
+      },
+      [
+        activeProject?.projectId,
+        computeOverlayBounds,
+        ensureObjectId,
+      ]
+    );
 
     /* ---------- Save ---------- */
     const saveCanvas = useCallback(
@@ -278,34 +429,145 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       h.index = index;
     }, []);
 
-    const updateObjects = () => {
+    const updateObjects = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
-      if (fabricCanvas) {
-        const objs = fabricCanvas.getObjects();
-        const active = fabricCanvas.getActiveObject();
-        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
-        setObjects(
-          objs.map((obj: FabricObjectLike, i: number) => ({
-            id: obj.id ?? i,
-            name: obj.name ?? `${obj.type}-${i}`,
-            visible: obj.visible,
-            locked: obj.lockMovementX && obj.lockMovementY,
-            obj,
-          }))
-        );
+      const projectId = activeProject?.projectId;
+      if (!fabricCanvas) return;
+
+      const objs = fabricCanvas.getObjects();
+      const active = fabricCanvas.getActiveObject();
+      setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
+      setObjects(
+        objs.map((obj: FabricObjectLike, i: number) => ({
+          id: obj.id ?? i,
+          name: obj.name ?? `${obj.type}-${i}`,
+          visible: obj.visible,
+          locked: obj.lockMovementX && obj.lockMovementY,
+          obj,
+        }))
+      );
+
+      if (projectId) {
+        const seen = new Set<string>();
+        objs.forEach((obj: FabricObjectLike) => {
+          if (!isTextObject(obj)) return;
+          const objectId = ensureObjectId(obj);
+          seen.add(objectId);
+
+          if (!textSubscriptions.current.has(objectId)) {
+            const unsubscribe = subscribeToCanvasText(projectId, objectId, (json) => {
+              if (overlayTargetRef.current === obj) return;
+              const nextText = extractPlainText(json);
+              if (typeof (obj as { set?: unknown }).set === "function") {
+                (obj as { set: (props: Record<string, unknown>) => void }).set({
+                  text: nextText,
+                });
+              } else {
+                (obj as { text?: string }).text = nextText;
+              }
+              fabricCanvas.requestRenderAll();
+            });
+            textSubscriptions.current.set(objectId, unsubscribe);
+          }
+
+          const existingSnapshot = getCanvasTextSnapshot(projectId, objectId);
+          if (!existingSnapshot) {
+            const seed = (obj as { text?: string }).text ?? "";
+            setCanvasTextSnapshot(projectId, objectId, createInitialLexicalState(seed));
+          }
+        });
+
+        textSubscriptions.current.forEach((unsubscribe, objectId) => {
+          if (!seen.has(objectId)) {
+            unsubscribe();
+            textSubscriptions.current.delete(objectId);
+            removeCanvasTextSnapshot(projectId, objectId);
+          }
+        });
+        if (
+          overlayTargetRef.current &&
+          !objs.includes(overlayTargetRef.current as never)
+        ) {
+          overlayTargetRef.current = null;
+          setTextOverlayState(null);
+        }
       }
-    };
+
+      if (overlayTargetRef.current) {
+        const bounds = computeOverlayBounds(overlayTargetRef.current);
+        if (bounds) {
+          setTextOverlayState((prev) =>
+            prev ? { ...prev, bounds } : prev
+          );
+        }
+      }
+    }, [
+      activeProject?.projectId,
+      computeOverlayBounds,
+      ensureObjectId,
+      setObjects,
+      setSelectedId,
+    ]);
+
+    const commitTextOverlay = useCallback(
+      (json: string, plainText: string) => {
+        const target = overlayTargetRef.current;
+        if (!target || !textOverlayState) return;
+        const projectId = activeProject?.projectId ?? null;
+        if (projectId) {
+          setCanvasTextSnapshot(projectId, textOverlayState.objectId, json);
+        }
+        if (typeof (target as { set?: unknown }).set === "function") {
+          (target as { set: (props: Record<string, unknown>) => void }).set({
+            text: plainText,
+          });
+        } else {
+          (target as { text?: string }).text = plainText;
+        }
+        target.setCoords?.();
+        fabricCanvasRef.current?.requestRenderAll();
+        markDirty();
+        saveHistory();
+        updateObjects();
+        overlayTargetRef.current = null;
+        setTextOverlayState(null);
+      },
+      [
+        activeProject?.projectId,
+        markDirty,
+        saveHistory,
+        textOverlayState,
+        updateObjects,
+      ]
+    );
+
+    const cancelTextOverlay = useCallback(() => {
+      overlayTargetRef.current = null;
+      setTextOverlayState(null);
+    }, []);
 
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
+      const projectId = activeProject?.projectId;
       if (!fabricCanvas) return;
 
-      fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => fabricCanvas.remove(obj));
+      fabricCanvas.getObjects().forEach((obj: FabricObjectLike) => {
+        if (projectId && isTextObject(obj)) {
+          const objectId = ensureObjectId(obj);
+          removeCanvasTextSnapshot(projectId, objectId);
+          const unsubscribe = textSubscriptions.current.get(objectId);
+          if (unsubscribe) {
+            unsubscribe();
+            textSubscriptions.current.delete(objectId);
+          }
+        }
+        fabricCanvas.remove(obj);
+      });
       fabricCanvas.discardActiveObject();
       fabricCanvas.requestRenderAll();
       saveHistory();
       updateObjects();
-    }, []);
+    }, [activeProject?.projectId, ensureObjectId]);
 
     /* Init canvas */
     useLayoutEffect(() => {
@@ -346,6 +608,12 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.on("selection:updated", updateObjects);
       fabricCanvas.on("selection:cleared", () => setSelectedId(null));
 
+      fabricCanvas.on("mouse:dblclick", (evt: { target?: FabricObjectLike | null }) => {
+        if (evt?.target) {
+          openTextOverlay(evt.target);
+        }
+      });
+
       fabricCanvas.on("path:created", () => {
         changeMode(TOOL_MODES.SELECT);
       });
@@ -358,6 +626,14 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           fabricCanvas.setWidth(container.clientWidth);
           fabricCanvas.setHeight(container.clientHeight);
           fabricCanvas.renderAll();
+          if (overlayTargetRef.current) {
+            const bounds = computeOverlayBounds(overlayTargetRef.current);
+            if (bounds) {
+              setTextOverlayState((prev) =>
+                prev ? { ...prev, bounds } : prev
+              );
+            }
+          }
         }
       };
       window.addEventListener("resize", handleResize);
@@ -370,6 +646,14 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         zoom = Math.min(3, Math.max(0.5, zoom));
         fabricCanvas.zoomToPoint({ x: e.offsetX, y: e.offsetY }, zoom);
         e.stopPropagation();
+        if (overlayTargetRef.current) {
+          const bounds = computeOverlayBounds(overlayTargetRef.current);
+          if (bounds) {
+            setTextOverlayState((prev) =>
+              prev ? { ...prev, bounds } : prev
+            );
+          }
+        }
       };
       canvasEl.addEventListener("wheel", handleWheel, { passive: false });
 
@@ -393,8 +677,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         fabricCanvasRef.current = null;
         canvasRef.current = null;
       };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [changeMode, computeOverlayBounds, markDirty, updateObjects]);
 
     /* Load canvas data when ready / project changes */
     useEffect(() => {
@@ -479,6 +762,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     }, [canvasReady, activeProject?.projectId, activeProject?.canvasJson, setActiveProject]);
 
     useEffect(() => {
+      return () => {
+        textSubscriptions.current.forEach((unsubscribe) => unsubscribe());
+        textSubscriptions.current.clear();
+      };
+    }, []);
+
+    useEffect(() => {
       applyCanvasMode(mode);
     }, [mode, color, applyCanvasMode]);
 
@@ -557,18 +847,19 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         name: `text-${Date.now()}`,
         fill: color,
       });
+      (text as unknown as { editable?: boolean }).editable = false;
 
       fabricCanvas.add(text);
       fabricCanvas.setActiveObject(text);
-      const textObj = text as Record<string, unknown>;
-      if (typeof textObj.enterEditing === 'function') {
-        textObj.enterEditing();
-      }
-      const hiddenTextarea = textObj.hiddenTextarea as { focus?: () => void } | undefined;
-      hiddenTextarea?.focus?.();
       fabricCanvas.requestRenderAll();
+
+      openTextOverlay(text as unknown as FabricObjectLike);
       changeMode(TOOL_MODES.SELECT);
-    }, [color, changeMode]);
+    }, [
+      changeMode,
+      color,
+      openTextOverlay,
+    ]);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -813,6 +1104,16 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             onMouseUp={mode === TOOL_MODES.RECT ? handleMouseUp : undefined}
           >
             {loadingCanvas && <SpinnerOverlay />}
+            {textOverlayState && (
+              <CanvasTextOverlay
+                key={textOverlayState.objectId}
+                objectId={textOverlayState.objectId}
+                bounds={textOverlayState.bounds}
+                initialState={textOverlayState.initialState}
+                onCommit={commitTextOverlay}
+                onCancel={cancelTextOverlay}
+              />
+            )}
           </div>
 
           <input
