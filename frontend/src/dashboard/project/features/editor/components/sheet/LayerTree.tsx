@@ -1,8 +1,18 @@
 import React from "react";
-import { Eye, EyeOff, FileText, LayoutDashboard, Paintbrush } from "lucide-react";
+import {
+  ChevronDown,
+  Eye,
+  EyeOff,
+  FileText,
+  LayoutDashboard,
+  Paintbrush,
+} from "lucide-react";
 import classNames from "classnames";
 import styles from "./LayerTree.module.css";
-import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
+import type {
+  LayerGroupKey,
+  SheetPageState,
+} from "@/dashboard/project/features/editor/types/sheet";
 
 const GROUP_META: Record<LayerGroupKey, { label: string; icon: React.ReactElement }> = {
   brief: { label: "Brief", icon: <FileText size={16} aria-hidden="true" /> },
@@ -50,6 +60,7 @@ const LayerTree: React.FC<LayerTreeProps> = ({
               className={classNames(styles.groupItem, {
                 [styles.active]: activeLayer === layerKey,
               })}
+              data-active={activeLayer === layerKey}
             >
               <div className={styles.groupHeader}>
                 <button
@@ -61,15 +72,20 @@ const LayerTree: React.FC<LayerTreeProps> = ({
                   {icon}
                   <span>{label}</span>
                 </button>
-                <button
-                  type="button"
-                  className={styles.visibilityToggle}
-                  onClick={() => onToggleVisibility(layerKey)}
-                  disabled={disabled}
-                >
-                  {visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                  <span>{visible ? "Visible" : "Hidden"}</span>
-                </button>
+                <div className={styles.groupActions}>
+                  <button
+                    type="button"
+                    className={styles.visibilityToggle}
+                    onClick={() => onToggleVisibility(layerKey)}
+                    disabled={disabled}
+                  >
+                    {visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                    <span>{visible ? "Visible" : "Hidden"}</span>
+                  </button>
+                  <span className={styles.chevron} aria-hidden="true">
+                    <ChevronDown size={16} />
+                  </span>
+                </div>
               </div>
               <div className={styles.slider}>
                 <label htmlFor={`${page.id}-${layerKey}-opacity`}>Opacity</label>
