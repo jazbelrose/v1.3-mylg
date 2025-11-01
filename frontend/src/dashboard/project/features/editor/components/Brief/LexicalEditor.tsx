@@ -52,6 +52,7 @@ import { SvgNode } from "./plugins/nodes/SvgNode";
 import { FigmaEmbedNode } from "./plugins/nodes/FigmaEmbedNode";
 import { LayoutContainerNode } from "./plugins/nodes/LayoutContainerNode";
 import { LayoutItemNode } from "./plugins/nodes/LayoutItemNode";
+import type { SharedYjsProvider } from "@/dashboard/project/features/editor/types/collaboration";
 import RemoveEmptyLayoutItemsOnBackspacePlugin from "./plugins/BackspacePlugin";
 import ColorPlugin from "./plugins/ColorPlugin";
 import FontPlugin from "./plugins/FontPlugin";
@@ -66,19 +67,16 @@ type LexicalEditorProps = {
   onChange: (json: string) => void;
   initialContent?: unknown | null;
   registerToolbar?: (actions: unknown) => void;
+  onProviderReady?: (provider: SharedYjsProvider | null) => void;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
-
-// Extend to allow us to stash helper props safely
-interface ExtendedWebsocketProvider extends WebsocketProvider {
-  sharedType?: Y.Text;
-}
 
 const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onChange,
   initialContent,
   registerToolbar,
+  onProviderReady,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -91,7 +89,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const providerRef = useRef<ExtendedWebsocketProvider | null>(null);
+  const providerRef = useRef<SharedYjsProvider | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
 
   const initialContentRef = useRef<unknown | null>(initialContent ?? null);
@@ -133,7 +131,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
   // Only to trigger re-renders if you want; not otherwise used.
   // (Keep for parity with original; can be removed if truly unused.)
-  const [, setYjsProvider] = useState<ExtendedWebsocketProvider | null>(null);
+  const [currentProvider, setCurrentProvider] = useState<SharedYjsProvider | null>(null);
 
   const getProvider = useCallback(
     (id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
@@ -158,17 +156,36 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         YJS_WS_URL.replace(/\/$/, ""),       // base only, no trailing slash
         id,                                  // room id; y-websocket appends this
         doc
-      ) as ExtendedWebsocketProvider;
+      ) as SharedYjsProvider;
 
       // Expose a shared text type for convenience (handy for custom plugins).
       provider.sharedType = doc.getText("lexical");
 
+      const textMap = provider.textMap ?? new Map<string, Y.Text>();
+      provider.textMap = textMap;
+      provider.getTextForObject = (objectId: string) => {
+        if (!textMap.has(objectId)) {
+          textMap.set(objectId, doc.getText(`fabric:${objectId}`));
+        }
+        return textMap.get(objectId) as Y.Text;
+      };
+
       providerRef.current = provider;
-      setYjsProvider(provider);
+      setCurrentProvider(provider);
       return provider as unknown as Provider;
     },
     []
   );
+
+  useEffect(() => {
+    if (typeof onProviderReady === "function") {
+      onProviderReady(currentProvider);
+      return () => {
+        onProviderReady(null);
+      };
+    }
+    return undefined;
+  }, [currentProvider, onProviderReady]);
 
   // Memoize the LexicalComposer configuration so it’s only created once.
   const initialConfig: InitialConfigType = useMemo(
