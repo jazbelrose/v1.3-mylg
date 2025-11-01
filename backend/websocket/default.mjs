@@ -71,6 +71,8 @@ export const handler = async (event) => {
       return await persistTimelineUpdate(payload);
     case "projectUpdated":
       return await handleProjectUpdated(payload);
+    case "deckCanvasUpdate":
+      return await handleDeckCanvasUpdate(payload);
     case "budgetUpdated":
       return await handleBudgetUpdated(payload, userId);
     case "lineLocked":
@@ -992,6 +994,51 @@ const handleProjectUpdated = async (payload) => {
   }
 
   return { statusCode: 200, body: "project update broadcast" };
+};
+
+
+const handleDeckCanvasUpdate = async (payload) => {
+  const { projectId, conversationId, deckCanvas, pageId, canvasJson } = payload || {};
+
+  if (!projectId) {
+    console.warn("⚠️ [handleDeckCanvasUpdate] Missing projectId");
+    return { statusCode: 400, body: "Missing projectId" };
+  }
+
+  const finalConversationId = conversationId || `project#${projectId}`;
+  const wsPayload = {
+    action: "deckCanvasUpdate",
+    projectId,
+    pageId: pageId || null,
+  };
+  if (deckCanvas) wsPayload.deckCanvas = deckCanvas;
+  if (canvasJson) wsPayload.canvasJson = canvasJson;
+
+  try {
+    await broadcastToConversation(finalConversationId, wsPayload);
+  } catch (err) {
+    console.error("❌ [handleDeckCanvasUpdate] Failed broadcastToConversation", err);
+  }
+
+  if (deckCanvas && typeof deckCanvas === "object") {
+    try {
+      await dynamoDb.send(
+        new UpdateCommand({
+          TableName: projectsTable,
+          Key: { projectId },
+          UpdateExpression: "SET deckCanvas = :deck, updatedAt = :ts",
+          ExpressionAttributeValues: {
+            ":deck": deckCanvas,
+            ":ts": new Date().toISOString(),
+          },
+        })
+      );
+    } catch (err) {
+      console.error("❌ [handleDeckCanvasUpdate] Failed to persist deckCanvas", err);
+    }
+  }
+
+  return { statusCode: 200, body: "deck canvas broadcast" };
 };
 
 

@@ -3,6 +3,7 @@ import React, { PropsWithChildren } from "react";
 import { UserProvider } from "./UserProvider";
 import { ProjectsProvider } from "./ProjectsProvider";
 import { MessagesProvider } from "./MessagesProvider";
+import type { DeckCanvasDocument } from "@/shared/utils/api";
 
 // Export the types and data models from here for backward compatibility
 export type Role = "admin" | "designer" | "builder" | "vendor" | "client" | string;
@@ -68,6 +69,7 @@ export interface Project {
   clientEmail?: string;
   previewUrl?: string;
   quickLinks?: QuickLink[];
+  deckCanvas?: DeckCanvasDocument;
   [k: string]: unknown;
 }
 

@@ -520,6 +520,157 @@ const patchProject = async (e, C, { projectId }) => {
   return json(200, C, r.Attributes);
 };
 
+const normalizeDeckCanvas = (raw) => {
+  if (!raw || typeof raw !== "object") {
+    return { pages: [] };
+  }
+
+  const pages = Array.isArray(raw.pages)
+    ? raw.pages.filter((page) => page && typeof page === "object" && typeof page.pageId === "string")
+    : [];
+
+  const hydrated = { ...raw, pages };
+  if (hydrated.pages.length === 0) {
+    hydrated.pages = [];
+  }
+  return hydrated;
+};
+
+const getDeckCanvas = async (_e, C, { projectId }) => {
+  const res = await ddb.get({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    ProjectionExpression: "deckCanvas",
+  });
+  const deckCanvas = normalizeDeckCanvas(res.Item?.deckCanvas || null);
+  return json(200, C, { projectId, deckCanvas });
+};
+
+const patchDeckCanvas = async (e, C, { projectId }) => {
+  const body = B(e) || {};
+  const { userId, username } = getUserFromEvent(e);
+  const ts = nowISO();
+
+  const pageId = typeof body.pageId === "string" && body.pageId.trim()
+    ? body.pageId.trim()
+    : `deck-${uuidv4()}`;
+
+  const existing = await ddb.get({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    ProjectionExpression: "deckCanvas",
+  });
+
+  const deck = normalizeDeckCanvas(existing.Item?.deckCanvas || null);
+  const currentPages = Array.isArray(deck.pages) ? [...deck.pages] : [];
+  const index = currentPages.findIndex((page) => page.pageId === pageId);
+
+  const nextPage = index >= 0 ? { ...currentPages[index] } : { pageId };
+  const providedName = typeof body.name === "string" && body.name.trim() ? body.name.trim() : undefined;
+  nextPage.name = providedName || nextPage.name || `Page ${currentPages.length + 1}`;
+  if (body.canvasJson !== undefined) {
+    nextPage.canvasJson = body.canvasJson;
+  }
+  if (body.preview !== undefined) {
+    nextPage.preview = body.preview;
+  }
+  nextPage.updatedAt = ts;
+  if (userId) nextPage.updatedBy = userId;
+  if (username) nextPage.updatedByName = username;
+
+  if (index >= 0) {
+    currentPages[index] = nextPage;
+  } else {
+    currentPages.push(nextPage);
+  }
+
+  const deckCanvas = {
+    ...deck,
+    pages: currentPages,
+    updatedAt: ts,
+    lastModifiedPageId: pageId,
+  };
+
+  await ddb.update({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    UpdateExpression: "SET deckCanvas = :deck, updatedAt = :ts",
+    ExpressionAttributeValues: {
+      ":deck": deckCanvas,
+      ":ts": ts,
+    },
+  });
+
+  await updateProjectDirectory(projectId, { deckUpdatedAt: ts });
+
+  return json(200, C, { projectId, page: nextPage, deckCanvas });
+};
+
+const deleteDeckPage = async (_e, C, { projectId, pageId }) => {
+  if (!pageId) return json(400, C, { error: "pageId is required" });
+
+  const res = await ddb.get({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    ProjectionExpression: "deckCanvas",
+  });
+
+  const deck = normalizeDeckCanvas(res.Item?.deckCanvas || null);
+  const pages = Array.isArray(deck.pages) ? deck.pages.filter((page) => page.pageId !== pageId) : [];
+
+  if (pages.length === deck.pages.length) {
+    return json(404, C, { error: "Page not found" });
+  }
+
+  const ts = nowISO();
+  const deckCanvas = {
+    ...deck,
+    pages,
+    updatedAt: ts,
+  };
+
+  await ddb.update({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    UpdateExpression: "SET deckCanvas = :deck, updatedAt = :ts",
+    ExpressionAttributeValues: {
+      ":deck": deckCanvas,
+      ":ts": ts,
+    },
+  });
+
+  await updateProjectDirectory(projectId, { deckUpdatedAt: ts });
+
+  return json(200, C, { projectId, removedPageId: pageId, deckCanvas });
+};
+
+const exportDeck = async (e, C, { projectId }) => {
+  const body = B(e) || {};
+  const { userId, username } = getUserFromEvent(e);
+  const format = body.format === "site" ? "site" : "pdf";
+  const ts = nowISO();
+
+  const exportRecord = {
+    format,
+    status: "queued",
+    requestedAt: ts,
+    requestedBy: userId || null,
+    requestedByName: username || null,
+  };
+
+  await ddb.update({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    UpdateExpression: "SET deckCanvas.lastExport = :export, updatedAt = :ts",
+    ExpressionAttributeValues: {
+      ":export": exportRecord,
+      ":ts": ts,
+    },
+  });
+
+  return json(202, C, { projectId, export: exportRecord });
+};
+
 const deleteProject = async (_e, C, { projectId }) => {
   await ddb.delete({ TableName: PROJECTS_TABLE, Key: { projectId } });
   return json(204, C, "");
@@ -1227,6 +1378,12 @@ const routes = [
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: getProject },
   { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: patchProject },
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: deleteProject },
+
+  // Deck canvas
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/deck$/i,                                  h: getDeckCanvas },
+  { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/deck$/i,                                  h: patchDeckCanvas },
+  { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/deck\/(?<pageId>[^/]+)$/i,                h: deleteDeckPage },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck\/export$/i,                          h: exportDeck },
 
   // Team
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/team$/i,                                 h: getTeam },
