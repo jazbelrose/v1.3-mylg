@@ -1,7 +1,11 @@
 import React, { useMemo } from "react";
 import classNames from "classnames";
 import styles from "./FabricStage.module.css";
-import { STAGE_ASPECT_RATIO, STAGE_BASE_WIDTH } from "./stageDimensions";
+import {
+  STAGE_ASPECT_RATIO,
+  STAGE_BASE_WIDTH,
+  STAGE_BASE_HEIGHT,
+} from "./stageDimensions";
 import type { LayerGroupKey, SheetPageState } from "@/dashboard/project/features/editor/types/sheet";
 
 interface FabricStageProps {
@@ -21,6 +25,17 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
       { visible: boolean; opacity: number }
     ]>;
   }, [page]);
+
+  const frameStyle = useMemo<React.CSSProperties>(
+    () => ({
+      width: STAGE_BASE_WIDTH,
+      minHeight: STAGE_BASE_HEIGHT,
+      "--deck-stage-width": `${STAGE_BASE_WIDTH}px`,
+      "--deck-page-height": `${STAGE_BASE_HEIGHT}px`,
+      "--deck-stage-aspect": STAGE_ASPECT_RATIO,
+    }),
+    []
+  );
 
   const nothingVisible = useMemo(
     () =>
@@ -46,10 +61,7 @@ const FabricStage: React.FC<FabricStageProps> = ({ page, activeLayer, layerNodes
           className={styles.surface}
           style={{ transform: `scale(${zoom})` }}
         >
-          <div
-            className={styles.surfaceFrame}
-            style={{ width: STAGE_BASE_WIDTH, aspectRatio: STAGE_ASPECT_RATIO }}
-          >
+          <div className={styles.surfaceFrame} style={frameStyle}>
             <div className={styles.surfaceBackdrop} />
             {nothingVisible ? (
               <div className={styles.surfaceEmpty}>Enable a layer to start editing.</div>
