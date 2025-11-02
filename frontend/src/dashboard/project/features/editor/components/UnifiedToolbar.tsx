@@ -33,14 +33,13 @@ import {
     Mic,
     FileText,
     Paintbrush,
-    LayoutDashboard,
 } from 'lucide-react';
 import { LayoutOutlined as LayoutIcon } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import './UnifiedToolbar.css';
 import ColorPicker from '@/shared/ui/ColorPicker';
 
-type EditorMode = 'brief' | 'canvas' | 'moodboard';
+type EditorMode = 'brief' | 'canvas';
 
 interface UnifiedToolbarProps {
     onBold?: () => void;
@@ -161,7 +160,6 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
     const modes: { key: EditorMode; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
         { key: 'brief', label: 'Brief', icon: FileText },
         { key: 'canvas', label: 'Canvas', icon: Paintbrush },
-        { key: 'moodboard', label: 'Moodboard', icon: LayoutDashboard },
     ];
     
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -354,7 +352,7 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
                 <button type="button" onClick={onPreview} title="Preview">
                     <Eye size={16} />
                 </button>
-                <button type="button" onClick={onSave} title="Save" disabled={mode === 'moodboard'}>
+                <button type="button" onClick={onSave} title="Save">
                     <Save size={16} />
                 </button>
                 <button type="button" onClick={onUndo} title="Undo">

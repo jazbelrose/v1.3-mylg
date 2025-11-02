@@ -10,7 +10,7 @@ import FileManagerComponent from "@/dashboard/project/components/FileManager/Fil
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import UnifiedToolbar from "@/dashboard/project/features/editor/components/UnifiedToolbar";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
+
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -36,7 +36,7 @@ const EditorPage: React.FC = () => {
   const { ws } = useSocket();
 
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
-  const [activeTab, setActiveTab] = useState<"brief" | "canvas" | "moodboard">("brief");
+  const [activeTab, setActiveTab] = useState<"brief" | "canvas">("brief");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
@@ -332,27 +332,6 @@ const EditorPage: React.FC = () => {
                             <DesignerComponent ref={designerRef} />
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "moodboard" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="moodboard"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <MoodboardCanvas
-                          projectId={activeProject?.projectId}
-                          userId={userId ?? undefined}
-                          palette={projectPalette}
-                        />
                       </div>
                     </motion.div>
                   )}

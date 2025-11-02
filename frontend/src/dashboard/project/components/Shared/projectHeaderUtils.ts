@@ -70,7 +70,7 @@ export function getCanonicalProjectPath(
     if (afterProjectId.length > 0) {
       const [firstSegment, ...restSegments] = afterProjectId;
       const expectedSlug = encodeURIComponent((project.title ?? "").trim());
-      const knownSuffixes = new Set(["budget", "calendar", "moodboard", "editor"]);
+      const knownSuffixes = new Set(["budget", "calendar", "editor"]);
 
       let suffixSegments: string[] = [];
       const slugMatchesExpected = expectedSlug.length > 0 && firstSegment === expectedSlug;
