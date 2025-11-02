@@ -141,19 +141,12 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
         <button
           aria-label="Add Image"
           type="button"
-          style={{
-            background: isHovered ? "#eee" : "none",
-            border: "none",
-            cursor: "pointer",
-            
-            borderRadius: "8px",
-            transition: "background 0.3s ease",
-          }}
+         style={{ background: "none", border: "none", cursor: "pointer", paddingRight: 18 }}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           onClick={() => setIsOpen(true)}
         >
-          <FileImageOutlined style={{ fontSize: 18, color: "#777" }} />
+          <FileImageOutlined style={{ fontSize: 18, color: "black" }} />
         </button>
       )}
 

@@ -58,7 +58,7 @@ export default function VectorPlugin({ showToolbarButton = true }: Props) {
           style={{ background: "none", border: "none", cursor: "pointer", paddingRight: 18 }}
           type="button"
         >
-          <NodeIndexOutlined style={{ fontSize: 18, color: "#777" }} />
+          <NodeIndexOutlined style={{ fontSize: 18, color: "black" }} />
         </button>
       )}
 
