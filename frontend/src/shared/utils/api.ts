@@ -294,6 +294,7 @@ const BASE_ENDPOINTS = {
     // Realtime deck service
     DECK_REALTIME_WS_URL: 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev',
     DECK_EXPORT_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/deck/export',
+    DECK_PAGES_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/deck/pages',
     
     // External services (unchanged)
     NOMINATIM_SEARCH_URL: 'https://nominatim.openstreetmap.org/search?format=json&q=',
@@ -358,6 +359,7 @@ export const {
   TASKS_API_URL,
   DECK_REALTIME_WS_URL,
   DECK_EXPORT_URL,
+  DECK_PAGES_URL,
 } = API_ENDPOINTS as Record<string, string>;
 
 /**

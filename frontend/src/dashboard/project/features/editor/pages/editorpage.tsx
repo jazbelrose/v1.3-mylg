@@ -15,6 +15,11 @@ import type {
   LayerGroupState,
   SheetPageState,
 } from "@/dashboard/project/features/editor/types/sheet";
+import {
+  createDeckPage,
+  fetchDeckPages,
+  reorderDeckPages,
+} from "@/dashboard/project/features/editor/api/deckPages";
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -25,9 +30,6 @@ import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 
 const LAYER_KEYS: LayerGroupKey[] = ["canvas"];
-
-const generateId = (prefix: string) =>
-  `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 const createGroupStates = (
   overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
@@ -50,20 +52,23 @@ const cloneGroupStates = (
 };
 
 const createPageState = (
+  id: string,
   name: string,
-  overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>
+  overrides?: Partial<Record<LayerGroupKey, Partial<LayerGroupState>>>,
+  options?: { isSuperSheet?: boolean; isPersisted?: boolean }
 ): SheetPageState => ({
-  id: generateId("page"),
+  id,
   name,
+  isSuperSheet: options?.isSuperSheet,
+  isPersisted: options?.isPersisted ?? !options?.isSuperSheet,
   groupStates: createGroupStates(overrides),
 });
 
-const createSuperSheetState = (): SheetPageState => ({
-  id: "super-sheet",
-  name: "One Sheet",
-  isSuperSheet: true,
-  groupStates: createGroupStates({}),
-});
+const createSuperSheetState = (): SheetPageState =>
+  createPageState("super-sheet", "One Sheet", {}, {
+    isSuperSheet: true,
+    isPersisted: false,
+  });
 
 const EditorPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -88,15 +93,19 @@ const EditorPage: React.FC = () => {
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const designerRef = useRef<RealtimeDesignerHandle | null>(null);
   const initialPageIdRef = useRef<string | null>(null);
-  const [pages, setPages] = useState<SheetPageState[]>(() => {
-    const firstPage = createPageState("Page 1");
-    const superSheet = createSuperSheetState();
-    initialPageIdRef.current = firstPage.id;
-    return [firstPage, superSheet];
-  });
-  const [activePageId, setActivePageId] = useState<string>(
-    () => initialPageIdRef.current ?? ""
+  const [superSheet, setSuperSheet] = useState<SheetPageState>(() =>
+    createSuperSheetState()
   );
+  const [regularPages, setRegularPages] = useState<SheetPageState[]>([]);
+  const regularPagesRef = useRef<SheetPageState[]>(regularPages);
+  useEffect(() => {
+    regularPagesRef.current = regularPages;
+  }, [regularPages]);
+  const pages = useMemo(
+    () => [...regularPages, superSheet],
+    [regularPages, superSheet]
+  );
+  const [activePageId, setActivePageId] = useState<string>(superSheet.id);
   const [activeLayer, setActiveLayer] = useState<LayerGroupKey>("canvas");
 
   useEffect(() => {
@@ -110,6 +119,78 @@ const EditorPage: React.FC = () => {
       fetchProjectDetails(projectId);
     }
   }, [projectId, initialActiveProject, fetchProjectDetails]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    const loadDeckPages = async () => {
+      try {
+        const metadata = await fetchDeckPages(projectId);
+        let normalized = metadata.filter((page) => !page.isSuperSheet);
+        if (!normalized.length) {
+          const created = await createDeckPage({
+            projectId,
+            name: "Page 1",
+            afterPageId: null,
+          });
+          normalized = [created];
+        }
+        if (cancelled) return;
+        setRegularPages((previous) => {
+          const previousMap = new Map(previous.map((page) => [page.id, page]));
+          return normalized.map((meta, index) => {
+            const existing = previousMap.get(meta.pageId);
+            if (existing) {
+              return {
+                ...existing,
+                name: meta.name ?? existing.name,
+                isPersisted: true,
+              };
+            }
+            return createPageState(
+              meta.pageId,
+              meta.name ?? `Page ${index + 1}`,
+              undefined,
+              { isPersisted: true }
+            );
+          });
+        });
+        initialPageIdRef.current = normalized[0]?.pageId ?? null;
+        setActivePageId((previous) => {
+          if (
+            previous &&
+            normalized.some((meta) => typeof meta.pageId === "string" && meta.pageId === previous)
+          ) {
+            return previous;
+          }
+          return normalized[0]?.pageId ?? superSheet.id;
+        });
+      } catch (error) {
+        console.error("Failed to load deck pages", error);
+        if (cancelled) return;
+        if (regularPagesRef.current.length === 0) {
+          const fallbackId = `local-${Date.now()}`;
+          const fallbackPage = createPageState(
+            fallbackId,
+            "Page 1",
+            undefined,
+            { isPersisted: false }
+          );
+          setRegularPages([fallbackPage]);
+          initialPageIdRef.current = fallbackId;
+          setActivePageId(fallbackId);
+        }
+        notify(
+          "error",
+          "Unable to load deck pages. Changes will stay local until reconnected."
+        );
+      }
+    };
+    void loadDeckPages();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, superSheet.id, fetchDeckPages, createDeckPage]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -237,57 +318,159 @@ const EditorPage: React.FC = () => {
   );
 
   const handleAddPage = useCallback(() => {
-    const regular = pages.filter((page) => !page.isSuperSheet);
-    const newPage = createPageState(`Page ${regular.length + 1}`);
-    const superSheet = pages.find((page) => page.isSuperSheet);
-    const nextRegular = [...regular, newPage];
-    const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
-    setPages(nextPages);
-    setActivePageId(newPage.id);
-  }, [pages]);
+    const regular = regularPagesRef.current;
+    const defaultName = `Page ${regular.length + 1}`;
+    const offlineFallback = () => {
+      const fallbackId = `local-${Date.now()}`;
+      const fallbackPage = createPageState(
+        fallbackId,
+        defaultName,
+        undefined,
+        { isPersisted: false }
+      );
+      setRegularPages((previous) => [...previous, fallbackPage]);
+      if (!regular.length) {
+        initialPageIdRef.current = fallbackId;
+      }
+      setActivePageId(fallbackPage.id);
+    };
+    if (!projectId) {
+      offlineFallback();
+      notify(
+        "warning",
+        "Working offline. New pages will sync once reconnected."
+      );
+      return;
+    }
+    const lastPageId = regular.length ? regular[regular.length - 1].id : null;
+    void (async () => {
+      try {
+        const metadata = await createDeckPage({
+          projectId,
+          name: defaultName,
+          afterPageId: lastPageId,
+        });
+        const newPage = createPageState(
+          metadata.pageId,
+          metadata.name ?? defaultName,
+          undefined,
+          { isPersisted: true }
+        );
+        setRegularPages((previous) => [...previous, newPage]);
+        setActivePageId(newPage.id);
+      } catch (error) {
+        console.error("Failed to create deck page", error);
+        offlineFallback();
+        notify(
+          "error",
+          "Couldn't create a new page. Changes will sync once reconnected."
+        );
+      }
+    })();
+  }, [projectId]);
 
   const handleDuplicatePage = useCallback(
     (pageId: string) => {
-      const target = pages.find(
-        (page) => page.id === pageId && !page.isSuperSheet
-      );
+      const regular = regularPagesRef.current;
+      const target = regular.find((page) => page.id === pageId);
       if (!target) return;
-      const duplicate: SheetPageState = {
-        ...target,
-        id: generateId("page"),
-        name: `${target.name} Copy`,
-        groupStates: cloneGroupStates(target.groupStates),
+      const baseName = `${target.name} Copy`;
+      const offlineFallback = () => {
+        const fallbackId = `local-${Date.now()}`;
+        const duplicate: SheetPageState = {
+          ...target,
+          id: fallbackId,
+          name: baseName,
+          isPersisted: false,
+          groupStates: cloneGroupStates(target.groupStates),
+        };
+        setRegularPages((previous) => {
+          const next = [...previous];
+          const index = next.findIndex((page) => page.id === pageId);
+          if (index === -1) return previous;
+          next.splice(index + 1, 0, duplicate);
+          return next;
+        });
+        setActivePageId(duplicate.id);
       };
-      const regular = pages.filter((page) => !page.isSuperSheet);
-      const index = regular.findIndex((page) => page.id === pageId);
-      const superSheet = pages.find((page) => page.isSuperSheet);
-      const nextRegular = [...regular];
-      nextRegular.splice(index + 1, 0, duplicate);
-      const nextPages = superSheet ? [...nextRegular, superSheet] : nextRegular;
-      setPages(nextPages);
-      setActivePageId(duplicate.id);
+      if (!projectId) {
+        offlineFallback();
+        notify(
+          "warning",
+          "Working offline. Duplicated pages will sync once reconnected."
+        );
+        return;
+      }
+      const insertAfterId = pageId;
+      void (async () => {
+        try {
+          const metadata = await createDeckPage({
+            projectId,
+            name: baseName,
+            afterPageId: insertAfterId,
+            sourcePageId: pageId,
+          });
+          const duplicate: SheetPageState = {
+            ...target,
+            id: metadata.pageId,
+            name: metadata.name ?? baseName,
+            isPersisted: true,
+            groupStates: cloneGroupStates(target.groupStates),
+          };
+          setRegularPages((previous) => {
+            const next = [...previous];
+            const index = next.findIndex((page) => page.id === pageId);
+            if (index === -1) return previous;
+            next.splice(index + 1, 0, duplicate);
+            return next;
+          });
+          setActivePageId(duplicate.id);
+        } catch (error) {
+          console.error("Failed to duplicate deck page", error);
+          offlineFallback();
+          notify(
+            "error",
+            "Couldn't duplicate the page. Changes will sync once reconnected."
+          );
+        }
+      })();
     },
-    [pages]
+    [projectId]
   );
 
   const handleMovePage = useCallback(
     (pageId: string, direction: "up" | "down") => {
-      const regular = pages.filter((page) => !page.isSuperSheet);
-      const index = regular.findIndex((page) => page.id === pageId);
+      const regular = regularPagesRef.current;
+      const previous = [...regular];
+      const index = previous.findIndex((page) => page.id === pageId);
       if (index === -1) return;
       const nextIndex =
         direction === "up"
           ? Math.max(0, index - 1)
-          : Math.min(regular.length - 1, index + 1);
+          : Math.min(previous.length - 1, index + 1);
       if (nextIndex === index) return;
-      const reordered = [...regular];
+      const reordered = [...previous];
       const [moved] = reordered.splice(index, 1);
       reordered.splice(nextIndex, 0, moved);
-      const superSheet = pages.find((page) => page.isSuperSheet);
-      const nextPages = superSheet ? [...reordered, superSheet] : reordered;
-      setPages(nextPages);
+      setRegularPages(reordered);
+      if (!projectId) return;
+      void (async () => {
+        try {
+          await reorderDeckPages(
+            projectId,
+            reordered.map((page) => page.id)
+          );
+        } catch (error) {
+          console.error("Failed to reorder deck pages", error);
+          notify(
+            "error",
+            "Couldn't reorder pages. Restoring previous order."
+          );
+          setRegularPages(previous);
+        }
+      })();
     },
-    [pages]
+    [projectId]
   );
 
   const handleSelectLayer = useCallback(
@@ -300,7 +483,20 @@ const EditorPage: React.FC = () => {
 
   const handleToggleLayerVisibility = useCallback(
     (pageId: string, layer: LayerGroupKey) => {
-      setPages((prev) =>
+      if (pageId === superSheet.id) {
+        setSuperSheet((previous) => {
+          const current = previous.groupStates[layer];
+          return {
+            ...previous,
+            groupStates: {
+              ...previous.groupStates,
+              [layer]: { ...current, visible: !current.visible },
+            },
+          };
+        });
+        return;
+      }
+      setRegularPages((prev) =>
         prev.map((page) => {
           if (page.id !== pageId) return page;
           const current = page.groupStates[layer];
@@ -314,12 +510,26 @@ const EditorPage: React.FC = () => {
         })
       );
     },
-    []
+    [superSheet.id]
   );
 
   const handleChangeLayerOpacity = useCallback(
     (pageId: string, layer: LayerGroupKey, value: number) => {
-      setPages((prev) =>
+      const normalized = Math.min(1, Math.max(0, value));
+      if (pageId === superSheet.id) {
+        setSuperSheet((previous) => ({
+          ...previous,
+          groupStates: {
+            ...previous.groupStates,
+            [layer]: {
+              ...previous.groupStates[layer],
+              opacity: normalized,
+            },
+          },
+        }));
+        return;
+      }
+      setRegularPages((prev) =>
         prev.map((page) => {
           if (page.id !== pageId) return page;
           return {
@@ -328,14 +538,14 @@ const EditorPage: React.FC = () => {
               ...page.groupStates,
               [layer]: {
                 ...page.groupStates[layer],
-                opacity: Math.min(1, Math.max(0, value)),
+                opacity: normalized,
               },
             },
           };
         })
       );
     },
-    []
+    [superSheet.id]
   );
 
   const handleToolbarModeChange = useCallback(
@@ -383,6 +593,7 @@ const EditorPage: React.FC = () => {
           pageId={page.id}
           pageName={page.name}
           isActive={isActive}
+          joinEnabled={!page.isSuperSheet && page.isPersisted !== false}
         />
       ),
     }),
