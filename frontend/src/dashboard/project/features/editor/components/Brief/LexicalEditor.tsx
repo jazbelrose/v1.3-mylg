@@ -191,6 +191,36 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
       // Expose a shared text type for convenience (handy for custom plugins).
       provider.sharedType = doc.getText("lexical");
 
+      // Attach lightweight debug listeners so we can observe provider state in
+      // the browser console (helps distinguish client vs server/network issues).
+      try {
+        const anyProvider = provider as unknown as {
+          on?: (event: string, cb: unknown) => void;
+          wsconnected?: boolean;
+          connected?: boolean;
+        };
+
+        if (typeof anyProvider.on === "function") {
+          anyProvider.on("status", (ev: unknown) => {
+            // y-websocket emits { status: 'connected'|'disconnected' }
+            console.log("[Yjs] Provider status:", ev);
+          });
+
+          anyProvider.on("sync", (isSynced: boolean) => {
+            console.log("[Yjs] Provider sync:", isSynced);
+          });
+        }
+
+        // Some provider builds expose a connected/wsconnected flag — print if present
+        console.log(
+          "[Yjs] Provider connection flag:",
+          anyProvider.wsconnected ?? anyProvider.connected ?? undefined
+        );
+      } catch (e) {
+        // Don't allow debug code to break the editor
+        console.warn("[Yjs] failed to attach debug listeners:", e);
+      }
+
       providerRef.current = provider;
       setYjsProvider(provider);
       return provider as unknown as Provider;

@@ -266,10 +266,21 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
 
     const handleKeyDown = (e) => {
       if (!isSelected || isLocked) return;
-      
+      // Allow delete/backspace to remove the selected image node.
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        e.stopPropagation();
+        editor.update(() => {
+          const node = $getNodeByKey(nodeKey);
+          if (!node) return;
+          node.remove();
+        });
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
-      
+
       editor.update(() => {
         const node = $getNodeByKey(nodeKey);
         if (!node) return;
