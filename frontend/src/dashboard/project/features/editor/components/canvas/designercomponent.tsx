@@ -125,8 +125,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const [mode, setMode] = useState<string>(TOOL_MODES.SELECT);
-    const [objects, setObjects] = useState<CanvasObject[]>([]);
-    const [selectedId, setSelectedId] = useState<string | number | null>(null);
     const [color, setColor] = useState<string>("#ffffff");
     const [loadingCanvas, setLoadingCanvas] = useState<boolean>(false);
     const [canvasReady, setCanvasReady] = useState<boolean>(false);
@@ -330,24 +328,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       }
     };
 
-    const updateObjects = useCallback(() => {
-      const fabricCanvas = fabricCanvasRef.current;
-      if (fabricCanvas) {
-        const objs = fabricCanvas.getObjects();
-        const active = fabricCanvas.getActiveObject();
-        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
-        setObjects(
-          objs.map((obj: FabricObjectLike, i: number) => ({
-            id: obj.id ?? i,
-            name: obj.name ?? `${obj.type}-${i}`,
-            visible: obj.visible,
-            locked: obj.lockMovementX && obj.lockMovementY,
-            obj,
-          }))
-        );
-      }
-    }, []);
-
     const loadCanvasFromJson = useCallback(
       async (
         json: string | Record<string, unknown>,
@@ -374,14 +354,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             resolve();
           });
         });
-        updateObjects();
         isApplyingExternal.current = false;
         saveHistory();
         if (!options?.silent) {
           markDirty();
         }
       },
-      [markDirty, updateObjects]
+      [markDirty]
     );
 
     const loadHistory = useCallback(
@@ -394,12 +373,11 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         fabricCanvas.loadFromJSON(h.stack[index], () => {
           fabricCanvas.renderAll();
           fabricCanvas.requestRenderAll();
-          updateObjects();
           isRestoringHistory.current = false;
         });
         h.index = index;
       },
-      [updateObjects]
+      []
     );
 
     const handleClear = useCallback(() => {
@@ -410,8 +388,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.discardActiveObject();
       fabricCanvas.requestRenderAll();
       saveHistory();
-      updateObjects();
-    }, [updateObjects]);
+    }, []);
 
     /* Init canvas */
     useLayoutEffect(() => {
@@ -437,20 +414,13 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvasRef.current = fabricCanvas;
 
       fabricCanvas.on("object:added", saveHistory);
-      fabricCanvas.on("object:added", updateObjects);
       fabricCanvas.on("object:added", markDirty);
 
       fabricCanvas.on("object:modified", saveHistory);
-      fabricCanvas.on("object:modified", updateObjects);
       fabricCanvas.on("object:modified", markDirty);
 
       fabricCanvas.on("object:removed", saveHistory);
-      fabricCanvas.on("object:removed", updateObjects);
       fabricCanvas.on("object:removed", markDirty);
-
-      fabricCanvas.on("selection:created", updateObjects);
-      fabricCanvas.on("selection:updated", updateObjects);
-      fabricCanvas.on("selection:cleared", () => setSelectedId(null));
 
       fabricCanvas.on("path:created", () => {
         changeMode(TOOL_MODES.SELECT);
@@ -760,44 +730,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       return () => window.removeEventListener("keydown", handleKeyDown);
     }, [handleDelete, handleUndo, handleRedo]);
 
-    /* Layer list helpers */
-    const toggleVisibility = (obj: FabricObjectLike) => {
-      obj.visible = !obj.visible;
-      const canvas = obj.canvas as Record<string, unknown>;
-      if (typeof canvas.requestRenderAll === 'function') {
-        canvas.requestRenderAll();
-      }
-      updateObjects();
-      markDirty();
-    };
-
-    const toggleLock = (obj: FabricObjectLike) => {
-      const locked = !(obj.lockMovementX && obj.lockMovementY);
-      obj.lockMovementX = obj.lockMovementY = locked;
-      obj.selectable = !locked;
-      obj.evented = !locked;
-      const canvas = obj.canvas as Record<string, unknown>;
-      if (typeof canvas.requestRenderAll === 'function') {
-        canvas.requestRenderAll();
-      }
-      updateObjects();
-      markDirty();
-    };
-
-    const renameObject = (obj: FabricObjectLike, name: string) => {
-      obj.name = name;
-      updateObjects();
-      markDirty();
-    };
-
-    const selectLayer = (obj: FabricObjectLike, id: string | number) => {
-      const fabricCanvas = fabricCanvasRef.current;
-      if (!fabricCanvas) return;
-      fabricCanvas.setActiveObject(obj);
-      fabricCanvas.requestRenderAll();
-      setSelectedId(id);
-    };
-
     /* Expose methods to parent */
     useImperativeHandle(
       ref,
@@ -813,7 +745,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
         handleDelete,
         handleClear,
         handleSave,
-        loadCanvasFromJson,
+        loadCanvasJson: loadCanvasFromJson,
         getCanvasJson: () => {
           const canvas = fabricCanvasRef.current;
           if (!canvas) return null;
@@ -853,47 +785,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
           ...(forwardedStyle ?? {}),
         }}
       >
-        {/* Layers panel */}
-        <div className={styles.layersPanel}>
-          <h4>Layers</h4>
-          {objects.map(({ id, name, obj }) => (
-            <div
-              key={id}
-              className={`${styles.layerItem} ${
-                selectedId === id ? styles.layerItemSelected : ""
-              }`}
-              onClick={() => selectLayer(obj, id)}
-            >
-              <input
-                style={{ flex: "1 1 auto", marginRight: "4px" }}
-                value={name}
-                onChange={(e) => renameObject(obj, e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleVisibility(obj);
-                }}
-                aria-label="Toggle visibility"
-              >
-                {obj.visible ? "👁️" : "🚫"}
-              </button>
-              <button
-                className={styles.button}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleLock(obj);
-                }}
-                aria-label="Toggle lock"
-              >
-                {obj.lockMovementX ? "🔒" : "🔓"}
-              </button>
-            </div>
-          ))}
-        </div>
-
         {/* Canvas column */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <div
