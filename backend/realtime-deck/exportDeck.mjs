@@ -4,6 +4,12 @@ import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const pagesTable = process.env.DECK_PAGES_TABLE;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  "Access-Control-Allow-Methods": "POST,OPTIONS",
+};
+
 const buildPdfPlaceholder = (projectId, pageId) => {
   const content = `Deck export for ${projectId}/${pageId}`;
   return Buffer.from(content, "utf8").toString("base64");
@@ -16,8 +22,20 @@ const buildHtmlPlaceholder = (state) => {
 };
 
 export const handler = async (event) => {
+  // Handle preflight OPTIONS request
+  if (event.requestContext?.http?.method === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: "",
+    };
+  }
   if (!pagesTable) {
-    return { statusCode: 500, body: JSON.stringify({ message: "Deck pages table not configured" }) };
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ message: "Deck pages table not configured" })
+    };
   }
 
   let body;
@@ -26,14 +44,22 @@ export const handler = async (event) => {
       body = JSON.parse(event.body || "{}");
     } catch (error) {
       console.error("Invalid export payload", error);
-      return { statusCode: 400, body: JSON.stringify({ message: "Invalid JSON payload" }) };
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: "Invalid JSON payload" })
+      };
     }
   } else {
     body = event.body ?? {};
   }
   const { projectId, pageId, format, state } = body;
   if (!projectId || !pageId) {
-    return { statusCode: 400, body: JSON.stringify({ message: "projectId and pageId are required" }) };
+    return {
+      statusCode: 400,
+      headers: corsHeaders,
+      body: JSON.stringify({ message: "projectId and pageId are required" })
+    };
   }
 
   let deckState = state ?? null;
@@ -60,18 +86,30 @@ export const handler = async (event) => {
   if (format === "pdf") {
     return {
       statusCode: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({ projectId, pageId, pdf: payload.pdf }),
     };
   }
   if (format === "site") {
     return {
       statusCode: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({ projectId, pageId, site: payload.site }),
     };
   }
 
   return {
     statusCode: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(payload),
   };
 };

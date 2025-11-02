@@ -108,15 +108,18 @@ export const createSecureWebSocketConnection = async (
   sessionId: string
 ): Promise<WebSocket> => {
   try {
-    // Use Sec-WebSocket-Protocol as an array for authentication
-    const subprotocols = [jwtToken, sessionId];
+    // Use query parameters for authentication instead of subprotocols
+    // AWS API Gateway WebSocket supports query parameters better than custom subprotocols
+    const url = new URL(baseUrl);
+    url.searchParams.set('token', jwtToken);
+    url.searchParams.set('sessionId', sessionId);
 
     logSecurityEvent('secure_websocket_connection_initiated', { 
       url: baseUrl,
       sessionId: sessionId?.substring(0, 8) + '...'
     });
 
-    return new WebSocket(baseUrl, subprotocols);
+    return new WebSocket(url.toString());
   } catch (error) {
     logSecurityEvent('secure_websocket_connection_failed', { 
       error: (error as Error).message,
@@ -175,7 +178,7 @@ export const createWebSocketWithSecProtocol = (baseUrl: string, accessToken: str
 };
 
 export const initializeWebSocketWithJWT = (jwtToken: string): WebSocket => {
-  const baseUrl = 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev';
+  const baseUrl = 'wss://nt3enat0ik.execute-api.us-west-2.amazonaws.com/dev';
   return new WebSocket(baseUrl, jwtToken);
 };
 

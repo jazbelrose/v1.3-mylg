@@ -79,6 +79,23 @@ functions:
       - httpApi:
           method: post
           path: /deck/export
+          cors: true
+
+  getDeckPages:
+    handler: getDeckPages.handler
+    events:
+      - httpApi:
+          method: get
+          path: /deck/pages
+          cors: true
+
+  createDeckPage:
+    handler: createDeckPage.handler
+    events:
+      - httpApi:
+          method: post
+          path: /deck/pages
+          cors: true
 
 resources:
   Resources:
