@@ -82,10 +82,33 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
-    userData?: { thumbnailUrl?: string };
+    userData?: { thumbnail?: string; thumbnailUrl?: string; firstName?: string; lastName?: string; email?: string };
     activeProject?: ActiveProjectLike;
   };
-  const avatarUrl = userData?.thumbnailUrl as string | undefined;
+  const avatarUrl = (userData?.thumbnailUrl || userData?.thumbnail) as string | undefined;
+  
+  // Helper function to get user initials
+  const getUserInitials = (firstName?: string, lastName?: string): string => {
+    const trimmedFirst = firstName?.trim();
+    const trimmedLast = lastName?.trim();
+    if (trimmedFirst && trimmedLast) {
+      return `${trimmedFirst[0]}${trimmedLast[0]}`.toUpperCase();
+    }
+    if (trimmedFirst) {
+      return trimmedFirst.slice(0, 2).toUpperCase();
+    }
+    return "";
+  };
+  
+  // Create a proper display name for collaboration (prefer initials for compact display)
+  const displayName = (() => {
+    const initials = getUserInitials(userData?.firstName, userData?.lastName);
+    if (initials) return initials;
+    
+    if (userData?.firstName?.trim()) return userData.firstName.trim();
+    if (userData?.email?.split('@')[0]) return userData.email.split('@')[0];
+    return userName?.trim() || "Anonymous";
+  })();
 
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
@@ -280,7 +303,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                   providerFactory={getProvider}
                   initialEditorState={initialContentRef.current as never}
                   shouldBootstrap={true}
-                  username={userName}
+                  username={displayName}
                   awarenessData={avatarUrl ? { avatar: avatarUrl } : undefined}
                   syncCursorPositionsFn={syncCursorPositionsWithAvatars}
                 />
