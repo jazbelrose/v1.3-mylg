@@ -120,9 +120,11 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
 
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
+  const insertButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const blockDropdownId = "block-dropdown";
+  const insertDropdownId = "insert-dropdown";
 
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -279,6 +281,14 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
   const handleDropdownItemClick = (type: BlockType) => {
     formatBlock(type);
     closeDropdown();
+  };
+
+  const handleInsertDropdownToggle = () => {
+    if (activeDropdown === insertDropdownId) {
+      closeDropdown();
+    } else {
+      openDropdown(insertDropdownId, insertButtonRef.current);
+    }
   };
 
   return (
@@ -471,11 +481,24 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
             <Divider />
             <ColorPlugin />
             <Divider />
-            <ImagePlugin />
-            <VectorPlugin />
-            <FigmaPlugin />
-            <LayoutPlugin />
-            <SpeechToTextPlugin />
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={handleInsertDropdownToggle}
+              ref={insertButtonRef}
+              aria-label="Insert Options"
+            >
+              <span className="text">Insert</span>
+              <i className="chevron-down" />
+            </button>
+            {activeDropdown === insertDropdownId && (
+              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+                <div className="item"><ImagePlugin /></div>
+                <div className="item"><VectorPlugin /></div>
+                <div className="item"><FigmaPlugin /></div>
+                <div className="item"><LayoutPlugin /></div>
+              </div>
+            )}
             <Divider />
             {onPreview && (
               <button
