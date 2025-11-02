@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import classNames from "classnames";
 import styles from "./FabricStage.module.css";
 import { STAGE_ASPECT_RATIO, STAGE_BASE_WIDTH } from "./stageDimensions";
@@ -40,6 +40,66 @@ const FabricStage: React.FC<FabricStageProps> = ({
     [pages]
   );
 
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const wheelDeltaRef = useRef(0);
+  const scrollCooldownRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (!onSelectPage || pages.length <= 1) {
+        return;
+      }
+
+      const currentIndex = pages.findIndex((page) => page.id === activePageId);
+      if (currentIndex === -1) {
+        return;
+      }
+
+      if (scrollCooldownRef.current !== null) {
+        return;
+      }
+
+      const primaryDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+        ? event.deltaY
+        : event.deltaX;
+      if (primaryDelta === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      wheelDeltaRef.current += primaryDelta;
+
+      const threshold = 60;
+      if (wheelDeltaRef.current > threshold && currentIndex < pages.length - 1) {
+        onSelectPage(pages[currentIndex + 1].id);
+      } else if (wheelDeltaRef.current < -threshold && currentIndex > 0) {
+        onSelectPage(pages[currentIndex - 1].id);
+      } else {
+        return;
+      }
+
+      wheelDeltaRef.current = 0;
+      scrollCooldownRef.current = window.setTimeout(() => {
+        scrollCooldownRef.current = null;
+      }, 350);
+    };
+
+    const options: AddEventListenerOptions = { passive: false };
+    viewport.addEventListener("wheel", handleWheel, options);
+
+    return () => {
+      viewport.removeEventListener("wheel", handleWheel, options);
+      if (scrollCooldownRef.current !== null) {
+        window.clearTimeout(scrollCooldownRef.current);
+        scrollCooldownRef.current = null;
+      }
+      wheelDeltaRef.current = 0;
+    };
+  }, [activePageId, onSelectPage, pages]);
+
   if (pageEntries.length === 0) {
     return (
       <section className={styles.stageContainer}>
@@ -52,7 +112,7 @@ const FabricStage: React.FC<FabricStageProps> = ({
 
   return (
     <section className={styles.stageContainer}>
-      <div className={styles.viewport}>
+      <div className={styles.viewport} ref={viewportRef}>
         <div className={styles.deck}>
           {pageEntries.map(({ page, layers }, index) => {
             const nothingVisible = layers.every(
@@ -74,9 +134,10 @@ const FabricStage: React.FC<FabricStageProps> = ({
                   [styles.activePage]: isActive,
                 })}
                 data-active={isActive ? "true" : "false"}
-                tabIndex={0}
+                tabIndex={isActive ? 0 : -1}
                 role="button"
                 aria-current={isActive ? "page" : undefined}
+                aria-hidden={isActive ? undefined : "true"}
                 aria-label={`${page.name} page`}
                 onClick={handleSelect}
                 onKeyDown={handleKeyDown}

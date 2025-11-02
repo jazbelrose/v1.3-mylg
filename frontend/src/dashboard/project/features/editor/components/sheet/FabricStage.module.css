@@ -38,6 +38,10 @@
   cursor: pointer;
 }
 
+.surfaceWrapper[data-active="false"] {
+  display: none;
+}
+
 .surfaceWrapper:focus-visible {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.6);
   border-radius: 24px;
