@@ -319,21 +319,30 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
           </span>
         </div>
         <div className={styles.canvasBody}>
-          <DesignerComponent
-            ref={(instance) => {
-              designerRef.current = instance as DesignerInstance;
-            }}
-            loadFromLegacyApi={false}
-            onCanvasChange={handleLocalChange}
-            onSave={(json) => {
-              if (!projectId || !pageId) {
-                notify("warning", "Connect project to sync changes.");
-                return;
-              }
-              sendPayload({ action: "deckSave", projectId, pageId, state: json });
-              notify("success", "Deck saved to realtime storage.");
-            }}
-          />
+          <div className={styles.canvasPages}>
+            <section className={styles.canvasPageCard} aria-label="Deck page">
+              {pageName ? (
+                <header className={styles.canvasPageTitle}>{pageName}</header>
+              ) : null}
+              <div className={styles.canvasPageSurface}>
+                <DesignerComponent
+                  ref={(instance) => {
+                    designerRef.current = instance as DesignerInstance;
+                  }}
+                  loadFromLegacyApi={false}
+                  onCanvasChange={handleLocalChange}
+                  onSave={(json) => {
+                    if (!projectId || !pageId) {
+                      notify("warning", "Connect project to sync changes.");
+                      return;
+                    }
+                    sendPayload({ action: "deckSave", projectId, pageId, state: json });
+                    notify("success", "Deck saved to realtime storage.");
+                  }}
+                />
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     );
