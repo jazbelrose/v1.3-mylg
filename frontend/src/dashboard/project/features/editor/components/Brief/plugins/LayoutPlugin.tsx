@@ -298,7 +298,7 @@ export function LayoutPlugin() {
         type="button"
         aria-label="Insert Layout"
         onClick={toggleDropdown}
-        
+        className="layout-toggle-button"
       >
         <LayoutIcon />
       </button>

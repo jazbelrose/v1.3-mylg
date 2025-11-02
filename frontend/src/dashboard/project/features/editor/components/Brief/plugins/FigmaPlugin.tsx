@@ -76,11 +76,10 @@ export default function FigmaPlugin({ showToolbarButton = true }: Props) {
         <button
           aria-label="Add Figma Document"
           onClick={() => setIsOpen(true)}
-          
-          style={{ background: "none", border: "none", cursor: "pointer" }}
+          style={{ background: "none", border: "none", cursor: "pointer", paddingRight: 18 }}
           type="button"
         >
-          <SiFigma size={18} color="#777" />
+          <SiFigma size={18} color="black" />
         </button>
       )}
 

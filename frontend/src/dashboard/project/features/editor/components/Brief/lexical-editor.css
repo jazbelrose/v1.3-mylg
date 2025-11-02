@@ -821,7 +821,7 @@ i.bg-color::before {
   /* Center the SVG horizontally */
   background: none;
   border: none;
-  padding: 12px 8px;
+  padding: 2px 18px 2px 8px;
   /* Reduced padding to minimize space */
   border-radius: 10px;
   cursor: pointer;
