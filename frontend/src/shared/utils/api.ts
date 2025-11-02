@@ -307,7 +307,11 @@ const BASE_ENDPOINTS = {
   production: {},
 };
 
-const defaults = (BASE_ENDPOINTS as Record<string, Record<string, string>>)[ENV] || BASE_ENDPOINTS.development;
+const envOverrides = (BASE_ENDPOINTS as Record<string, Record<string, string> | undefined>)[ENV] || {};
+const defaults = {
+  ...BASE_ENDPOINTS.development,
+  ...envOverrides,
+};
 
 export const API_ENDPOINTS: ApiEndpoints = Object.keys(BASE_ENDPOINTS.development).reduce<ApiEndpoints>(
   (acc, key) => {
