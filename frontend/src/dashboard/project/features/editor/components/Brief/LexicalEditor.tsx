@@ -59,7 +59,6 @@ import FontPlugin from "./plugins/FontPlugin";
 import ImagePlugin from "./plugins/ImagePlugin";
 import FigmaPlugin from "./plugins/FigmaPlugin";
 import SpeechToTextPlugin from "./plugins/SpeechToTextPlugin";
-import { LayoutPlugin } from "./plugins/LayoutPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 
@@ -127,7 +126,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   const providerRef = useRef<ExtendedWebsocketProvider | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
 
-  const initialContentRef = useRef<unknown | null>(initialContent ?? null);
+  const initialContentRef = useRef<unknown | null>(null);
   const hasScrolledToBottom = useRef<boolean>(false);
 
   // Memoize the project ID so it isn’t recalculated unnecessarily.
@@ -139,9 +138,17 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
     return (ap as string) || "default-project";
   }, [activeProject]);
 
+  // Lock initialContentRef.current after first assignment to prevent re-bootstrap
+  useEffect(() => {
+    if (initialContentRef.current === null && initialContent) {
+      initialContentRef.current = initialContent;
+    }
+  }, [initialContent]);
+
   useEffect(() => {
     const persistence = persistenceRef.current;
     if (persistence) {
+      console.log("[Yjs] Destroying IndexedDB persistence for project:", projectId);
       persistence
         .destroy()
         .then(() => {
@@ -152,6 +159,17 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         });
     }
   }, [projectId]);
+
+  // Clean up provider only when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (providerRef.current) {
+        console.log("[Yjs] Cleaning up provider on unmount");
+        providerRef.current.disconnect();
+        providerRef.current = null;
+      }
+    };
+  }, []);
 
   // If needed, you can set up the anchor element for plugins (like draggable blocks)
   useEffect(() => {
@@ -170,8 +188,16 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
   const getProvider = useCallback(
     (id: string, yjsDocMap: Map<string, Y.Doc>): Provider => {
-      if (providerRef.current) {
+      console.log("[Yjs] getProvider called for:", id);  // Confirm called only once per session/project
+      // ✅ Don’t recreate the provider if we already have one for this room
+      if (providerRef.current && providerRef.current.roomname === id) {
         return providerRef.current as unknown as Provider;
+      }
+
+      // ❌ Clean out old provider if room name doesn't match
+      if (providerRef.current) {
+        providerRef.current.disconnect();
+        providerRef.current = null;
       }
 
       let doc = yjsDocMap.get(id);
@@ -213,6 +239,28 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
           anyProvider.on("sync", (isSynced: boolean) => {
             console.log("[Yjs] Provider sync:", isSynced);
+          });
+
+          anyProvider.on("connection-close", (...args: unknown[]) => {
+            const [event] = Array.isArray(args) ? args : [undefined];
+            const closeEvent = Array.isArray(event)
+              ? (event[0] as CloseEvent | null | undefined)
+              : (event as CloseEvent | null | undefined);
+
+            const details =
+              closeEvent == null
+                ? {}
+                : {
+                    code: closeEvent.code,
+                    reason: closeEvent.reason,
+                    wasClean: closeEvent.wasClean,
+                  };
+            console.warn("[Yjs] Provider connection closed", details);
+          });
+
+          anyProvider.on("connection-error", (...args: unknown[]) => {
+            const [err] = Array.isArray(args) ? args : [undefined];
+            console.error("[Yjs] Provider connection error", err);
           });
         }
 
@@ -392,7 +440,6 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 };
 
 export default LexicalEditor;
-
 
 
 
