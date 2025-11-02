@@ -55,7 +55,7 @@ export default function VectorPlugin({ showToolbarButton = true }: Props) {
           aria-label="Add SVG"
           onClick={() => setIsOpen(true)}
           
-          style={{ background: "none", border: "none", cursor: "pointer" }}
+          style={{ background: "none", border: "none", cursor: "pointer", paddingRight: 18 }}
           type="button"
         >
           <NodeIndexOutlined style={{ fontSize: 18, color: "#777" }} />
