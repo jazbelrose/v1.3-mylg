@@ -351,6 +351,16 @@ pre::-webkit-scrollbar-thumb {
 .toolbar .toolbar-item:hover:not([disabled]) {
   background-color: #eee;
   color: black;
+  font-weight: bold;
+}
+
+.toolbar .toolbar-item:hover:not([disabled]) .text {
+  color: black;
+}
+
+.toolbar .toolbar-item:hover:not([disabled]) i,
+.toolbar .toolbar-item:hover:not([disabled]) .icon {
+  color: black;
 }
 
 .toolbar .divider {
