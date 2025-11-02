@@ -16,9 +16,35 @@ const connectionsDeckGsi = process.env.DECK_CONNECTIONS_DECK_GSI || "deckKey-ind
 const pagesTable = process.env.DECK_PAGES_TABLE;
 const endpoint = process.env.DECK_WEBSOCKET_ENDPOINT;
 
-const apigw = new ApiGatewayManagementApiClient(
-  endpoint ? { endpoint } : {}
-);
+const clientCache = new Map();
+
+const getApiGatewayClient = (event) => {
+  if (endpoint) {
+    if (!clientCache.has(endpoint)) {
+      clientCache.set(endpoint, new ApiGatewayManagementApiClient({ endpoint }));
+    }
+    return clientCache.get(endpoint);
+  }
+
+  const domainName = event?.requestContext?.domainName;
+  const stage = event?.requestContext?.stage;
+  if (domainName && stage) {
+    const derivedEndpoint = `https://${domainName}/${stage}`;
+    if (!clientCache.has(derivedEndpoint)) {
+      clientCache.set(
+        derivedEndpoint,
+        new ApiGatewayManagementApiClient({ endpoint: derivedEndpoint })
+      );
+    }
+    return clientCache.get(derivedEndpoint);
+  }
+
+  const fallbackKey = "__default__";
+  if (!clientCache.has(fallbackKey)) {
+    clientCache.set(fallbackKey, new ApiGatewayManagementApiClient({}));
+  }
+  return clientCache.get(fallbackKey);
+};
 
 export const deckKeyOf = (projectId, pageId) => `${projectId}#${pageId}`;
 
@@ -35,9 +61,9 @@ export const parseBody = (body) => {
   return body;
 };
 
-export const postTo = async (connectionId, payload) => {
+const sendWithClient = async (apigwClient, connectionId, payload) => {
   try {
-    await apigw.send(
+    await apigwClient.send(
       new PostToConnectionCommand({
         ConnectionId: connectionId,
         Data: JSON.stringify(payload),
@@ -52,7 +78,12 @@ export const postTo = async (connectionId, payload) => {
   }
 };
 
-export const broadcastToDeck = async (deckKey, payload, excludeConnectionId) => {
+export const postTo = async (event, connectionId, payload) => {
+  const apigwClient = getApiGatewayClient(event);
+  await sendWithClient(apigwClient, connectionId, payload);
+};
+
+export const broadcastToDeck = async (event, deckKey, payload, excludeConnectionId) => {
   if (!connectionsTable) return;
   const result = await dynamo.send(
     new QueryCommand({
@@ -64,11 +95,12 @@ export const broadcastToDeck = async (deckKey, payload, excludeConnectionId) => 
   );
 
   const items = result.Items ?? [];
+  const apigwClient = getApiGatewayClient(event);
   await Promise.all(
     items
       .filter((item) => item.connectionId && item.connectionId !== excludeConnectionId)
       .map((item) =>
-        postTo(item.connectionId, payload).catch((error) => {
+        sendWithClient(apigwClient, item.connectionId, payload).catch((error) => {
           console.error(`Failed to post to ${item.connectionId}`, error);
         })
       )
@@ -110,7 +142,7 @@ export const handleJoinDeck = async (event, payload) => {
     })
   );
 
-  await postTo(connectionId, {
+  await postTo(event, connectionId, {
     action: "deckState",
     projectId,
     pageId,
@@ -158,6 +190,6 @@ export const handleDeckPatch = async (event, payload) => {
     updatedAt: nowIso,
   };
 
-  await broadcastToDeck(deckKey, payloadToBroadcast, connectionId);
+  await broadcastToDeck(event, deckKey, payloadToBroadcast, connectionId);
   return { statusCode: 200 };
 };
