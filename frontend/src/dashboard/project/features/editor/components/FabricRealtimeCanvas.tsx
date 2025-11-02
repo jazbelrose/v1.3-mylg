@@ -47,7 +47,7 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
     const designerRef = useRef<DesignerInstance | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const latestStateRef = useRef<string | null>(null);
+    const latestStateRef = useRef<Map<string, string>>(new Map());
     const pendingPatchRef = useRef<string | null>(null);
     const joinRequestedRef = useRef(false);
     const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
@@ -114,28 +114,57 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
         pageName,
       });
       joinRequestedRef.current = true;
-      if (latestStateRef.current) {
-        sendPayload({ action: "deckPatch", projectId, pageId, state: latestStateRef.current });
+      const existingState = latestStateRef.current.get(pageId);
+      if (existingState) {
+        sendPayload({ action: "deckPatch", projectId, pageId, state: existingState });
       }
     }, [pageId, pageName, projectId, sendPayload]);
 
     const applyRemoteState = useCallback(
-      (state: string | null) => {
-        if (!designerRef.current?.loadCanvasJson || state == null) return;
-        designerRef.current.loadCanvasJson(state, { silent: true });
-        latestStateRef.current = state;
+      (state: string | null, sourcePageId?: string) => {
+        const targetPageId = sourcePageId ?? pageId;
+        if (!targetPageId) return;
+
+        if (state == null) {
+          latestStateRef.current.delete(targetPageId);
+          if (targetPageId === pageId) {
+            designerRef.current?.handleClear?.();
+          }
+          return;
+        }
+
+        latestStateRef.current.set(targetPageId, state);
+
+        if (targetPageId === pageId) {
+          designerRef.current?.loadCanvasJson?.(state, { silent: true });
+        }
       },
-      []
+      [pageId]
     );
 
     const handleLocalChange = useCallback(
       (state: string) => {
-        latestStateRef.current = state;
-        if (!projectId || !pageId) return;
+        if (!pageId) return;
+        latestStateRef.current.set(pageId, state);
+        if (!projectId) return;
         sendPayload({ action: "deckPatch", projectId, pageId, state });
       },
       [pageId, projectId, sendPayload]
     );
+
+    useEffect(() => {
+      if (!pageId) {
+        designerRef.current?.handleClear?.();
+        return;
+      }
+
+      const storedState = latestStateRef.current.get(pageId);
+      if (storedState) {
+        designerRef.current?.loadCanvasJson?.(storedState, { silent: true });
+      } else {
+        designerRef.current?.handleClear?.();
+      }
+    }, [pageId]);
 
     const connectSocket = useCallback(async () => {
       if (!websocketUrl || !projectId || !pageId) {
@@ -192,11 +221,15 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
           try {
             const data = JSON.parse(event.data);
             if (data.action === "deckState" && data.state !== undefined) {
-              applyRemoteState(typeof data.state === "string" ? data.state : JSON.stringify(data.state));
+              const normalized =
+                typeof data.state === "string" ? data.state : JSON.stringify(data.state);
+              applyRemoteState(normalized, data.pageId as string | undefined);
               return;
             }
             if (data.action === "deckPatch" && data.state !== undefined) {
-              applyRemoteState(typeof data.state === "string" ? data.state : JSON.stringify(data.state));
+              const normalized =
+                typeof data.state === "string" ? data.state : JSON.stringify(data.state);
+              applyRemoteState(normalized, data.pageId as string | undefined);
             }
           } catch (error) {
             console.error("Failed to parse realtime deck payload", error);
