@@ -54,7 +54,7 @@ export default function VectorPlugin({ showToolbarButton = true }: Props) {
         <button
           aria-label="Add SVG"
           onClick={() => setIsOpen(true)}
-          className="toolbar-item"
+          
           style={{ background: "none", border: "none", cursor: "pointer" }}
           type="button"
         >

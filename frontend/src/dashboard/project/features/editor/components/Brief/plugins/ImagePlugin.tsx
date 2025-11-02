@@ -145,7 +145,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
             background: isHovered ? "#eee" : "none",
             border: "none",
             cursor: "pointer",
-            padding: "8px",
+            
             borderRadius: "8px",
             transition: "background 0.3s ease",
           }}

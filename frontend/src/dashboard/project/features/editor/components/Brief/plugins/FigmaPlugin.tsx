@@ -76,7 +76,7 @@ export default function FigmaPlugin({ showToolbarButton = true }: Props) {
         <button
           aria-label="Add Figma Document"
           onClick={() => setIsOpen(true)}
-          className="toolbar-item"
+          
           style={{ background: "none", border: "none", cursor: "pointer" }}
           type="button"
         >
