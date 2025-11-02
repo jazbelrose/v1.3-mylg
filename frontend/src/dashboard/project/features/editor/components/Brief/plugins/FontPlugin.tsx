@@ -108,59 +108,63 @@ export default function FontPlugin({ showToolbar = true }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        className="toolbar-item font-family-controls"
-        onClick={handleFontFamilyDropdownToggle}
-        ref={fontFamilyButtonRef}
-        aria-label="Font Family"
-      >
-        <span className="text">{fontFamily}</span>
-        <i className="chevron-down" />
-      </button>
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="toolbar-item font-family-controls"
+          onClick={handleFontFamilyDropdownToggle}
+          ref={fontFamilyButtonRef}
+          aria-label="Font Family"
+        >
+          <span className="text">{fontFamily}</span>
+          <i className="chevron-down" />
+        </button>
 
-      {activeDropdown === fontFamilyDropdownId && (
-        <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-          {FONT_FAMILIES.map((family) => (
-            <button
-              key={family}
-              type="button"
-              className="item"
-              onClick={() => handleFontFamilyItemClick(family)}
-            >
-              <span className="text">{family}</span>
-              {fontFamily === family && <span className="active">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+        {activeDropdown === fontFamilyDropdownId && (
+          <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+            {FONT_FAMILIES.map((family) => (
+              <button
+                key={family}
+                type="button"
+                className="item"
+                onClick={() => handleFontFamilyItemClick(family)}
+              >
+                <span className="text">{family}</span>
+                {fontFamily === family && <span className="active">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      <button
-        type="button"
-        className="toolbar-item font-size-controls"
-        onClick={handleFontSizeDropdownToggle}
-        ref={fontSizeButtonRef}
-        aria-label="Font Size"
-      >
-        <span className="text">{fontSize}</span>
-        <i className="chevron-down" />
-      </button>
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="toolbar-item font-size-controls"
+          onClick={handleFontSizeDropdownToggle}
+          ref={fontSizeButtonRef}
+          aria-label="Font Size"
+        >
+          <span className="text">{fontSize}</span>
+          <i className="chevron-down" />
+        </button>
 
-      {activeDropdown === fontSizeDropdownId && (
-        <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-          {FONT_SIZES.map((size) => (
-            <button
-              key={size}
-              type="button"
-              className="item"
-              onClick={() => handleFontSizeItemClick(size)}
-            >
-              <span className="text">{size}</span>
-              {fontSize === size && <span className="active">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+        {activeDropdown === fontSizeDropdownId && (
+          <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+            {FONT_SIZES.map((size) => (
+              <button
+                key={size}
+                type="button"
+                className="item"
+                onClick={() => handleFontSizeItemClick(size)}
+              >
+                <span className="text">{size}</span>
+                {fontSize === size && <span className="active">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </>
   );
 }

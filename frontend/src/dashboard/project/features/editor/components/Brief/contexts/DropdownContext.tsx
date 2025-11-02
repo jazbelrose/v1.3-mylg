@@ -14,16 +14,33 @@ const DropdownContext = createContext<DropdownContextValue | undefined>(undefine
 export const DropdownProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   const openDropdown = (dropdownId: string, ref: HTMLElement | null) => {
     setActiveDropdown(dropdownId);
-    dropdownRef.current = ref;
+    triggerRef.current = ref;
   };
 
   const closeDropdown = () => {
     setActiveDropdown(null);
+    triggerRef.current = null;
     dropdownRef.current = null;
   };
+
+  // Position the dropdown relative to the trigger when it opens
+  useEffect(() => {
+    if (activeDropdown && triggerRef.current && dropdownRef.current) {
+      const trigger = triggerRef.current;
+      const dropdown = dropdownRef.current;
+      const triggerRect = trigger.getBoundingClientRect();
+      
+      // Position the dropdown below the trigger, aligned to the left
+      dropdown.style.position = 'fixed';
+      dropdown.style.top = `${triggerRect.bottom}px`;
+      dropdown.style.left = `${triggerRect.left}px`;
+      dropdown.style.zIndex = '1000';
+    }
+  }, [activeDropdown]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
