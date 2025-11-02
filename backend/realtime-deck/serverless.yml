@@ -16,10 +16,10 @@ provider:
   websocketsApiName: ${self:service}-${sls:stage}
   websocketsApiRouteSelectionExpression: $request.body.action
   environment:
-    DECK_CONNECTIONS_TABLE: ${env:DECK_CONNECTIONS_TABLE}
-    DECK_CONNECTIONS_DECK_GSI: ${env:DECK_CONNECTIONS_DECK_GSI}
-    DECK_PAGES_TABLE: ${env:DECK_PAGES_TABLE}
-    DECK_WEBSOCKET_ENDPOINT: ${env:DECK_WEBSOCKET_ENDPOINT}
+    DECK_CONNECTIONS_TABLE: ${self:custom.env.DECK_CONNECTIONS_TABLE}
+    DECK_CONNECTIONS_DECK_GSI: ${self:custom.env.DECK_CONNECTIONS_DECK_GSI}
+    DECK_PAGES_TABLE: ${self:custom.env.DECK_PAGES_TABLE}
+    DECK_WEBSOCKET_ENDPOINT: ${self:custom.env.DECK_WEBSOCKET_ENDPOINT}
   iam:
     role:
       statements:
@@ -31,10 +31,10 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Query
           Resource:
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_CONNECTIONS_TABLE}
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_CONNECTIONS_TABLE}/index/*
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_PAGES_TABLE}
-            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:DECK_PAGES_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.DECK_CONNECTIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.DECK_CONNECTIONS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.DECK_PAGES_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.DECK_PAGES_TABLE}/index/*
         - Effect: Allow
           Action:
             - execute-api:ManageConnections
@@ -85,7 +85,7 @@ resources:
     DeckRealtimeConnections:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${env:DECK_CONNECTIONS_TABLE}
+        TableName: ${self:custom.env.DECK_CONNECTIONS_TABLE}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: connectionId
@@ -96,7 +96,7 @@ resources:
           - AttributeName: connectionId
             KeyType: HASH
         GlobalSecondaryIndexes:
-          - IndexName: ${env:DECK_CONNECTIONS_DECK_GSI}
+          - IndexName: ${self:custom.env.DECK_CONNECTIONS_DECK_GSI}
             KeySchema:
               - AttributeName: deckKey
                 KeyType: HASH
@@ -105,7 +105,7 @@ resources:
     DeckPages:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${env:DECK_PAGES_TABLE}
+        TableName: ${self:custom.env.DECK_PAGES_TABLE}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: projectId
