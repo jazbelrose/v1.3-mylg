@@ -25,6 +25,7 @@ interface FabricRealtimeCanvasProps {
   projectId?: string;
   pageId?: string;
   pageName?: string;
+  isActive?: boolean;
 }
 
 type ConnectionState = "idle" | "connecting" | "connected" | "disconnected" | "error";
@@ -42,7 +43,7 @@ const randomId = () => {
 };
 
 const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCanvasProps>(
-  ({ projectId, pageId, pageName }, ref) => {
+  ({ projectId, pageId, pageName, isActive = true }, ref) => {
     const { getAuthTokens } = useAuth();
     const designerRef = useRef<DesignerInstance | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
@@ -310,7 +311,10 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
     );
 
     return (
-      <div className={styles.canvasShell}>
+      <div
+        className={styles.canvasShell}
+        data-active={isActive ? "true" : "false"}
+      >
         <div className={styles.statusBar}>
           <span>Fabric canvas</span>
           <span className={styles.connectionHint}>{pageName}</span>

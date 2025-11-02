@@ -368,15 +368,25 @@ const EditorPage: React.FC = () => {
   const layerNodes = useMemo(
     () => ({
       canvas: (
+        page: SheetPageState,
+        { isActive }: { isActive: boolean }
+      ) => (
         <FabricRealtimeCanvas
-          ref={designerRef}
+          ref={(instance) => {
+            if (isActive) {
+              designerRef.current = instance;
+            } else if (designerRef.current === instance) {
+              designerRef.current = null;
+            }
+          }}
           projectId={activeProject?.projectId}
-          pageId={activePage?.id}
-          pageName={activePage?.name}
+          pageId={page.id}
+          pageName={page.name}
+          isActive={isActive}
         />
       ),
     }),
-    [activePage?.id, activePage?.name, activeProject?.projectId]
+    [activeProject?.projectId, designerRef]
   );
 
   const exportDeck = useCallback(
