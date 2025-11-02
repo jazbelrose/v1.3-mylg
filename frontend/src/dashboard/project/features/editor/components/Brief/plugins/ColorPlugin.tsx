@@ -8,7 +8,7 @@ import {
 } from "lexical";
 import { $patchStyleText } from "@lexical/selection";
 import { SET_TEXT_COLOR_COMMAND, SET_BG_COLOR_COMMAND } from "../commands";
-import ColorPicker from "@/dashboard/project/features/editor/components/Brief/plugins/colorpicker/LexicalColorPicker";
+import ColorPicker from "@/shared/ui/ColorPicker";
 import { useDropdown } from "../contexts/DropdownContext";
 
 type Props = {
@@ -60,12 +60,14 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
   };
 
   // --- Apply color to selection via commands (also used by external callers) ---
-  const handleTextColorChange = (newColor: string) => {
+  const handleTextColorChange = (e: { target: { value: string } }) => {
+    const newColor = e.target.value;
     setCurrentTextColor(newColor);
     editor.dispatchCommand(SET_TEXT_COLOR_COMMAND as LexicalCommand<ColorValue>, newColor);
   };
 
-  const handleBgColorChange = (newColor: string) => {
+  const handleBgColorChange = (e: { target: { value: string } }) => {
+    const newColor = e.target.value;
     setCurrentBgColor(newColor);
     editor.dispatchCommand(SET_BG_COLOR_COMMAND as LexicalCommand<ColorValue>, newColor);
   };
@@ -145,8 +147,8 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
         >
           <ColorPicker
             color={currentTextColor || "#000000"}
-            defaultColor="#000000"
             onChange={handleTextColorChange}
+            title="Text color"
           />
         </div>
       )}
@@ -174,8 +176,8 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
         >
           <ColorPicker
             color={currentBgColor || "#FFFFFF"}
-            defaultColor="#FFFFFF"
             onChange={handleBgColorChange}
+            title="Background color"
           />
         </div>
       )}

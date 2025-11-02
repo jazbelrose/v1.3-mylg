@@ -7,7 +7,6 @@ import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLink
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import UnifiedToolbar from "@/dashboard/project/features/editor/components/UnifiedToolbar";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
@@ -34,10 +33,8 @@ const EditorPage: React.FC = () => {
   const { ws } = useSocket();
 
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
-  const [activeTab, setActiveTab] = useState<"brief">("brief");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
@@ -221,22 +218,6 @@ const EditorPage: React.FC = () => {
     >
       <div className="designer-outer-container">
         <div className="designer-scroll-container">
-          <UnifiedToolbar
-            initialMode={activeTab}
-            onModeChange={(mode) => {
-              if (mode !== "brief" && activeTab === "brief" && isBriefDirty) {
-                const confirmLeave = window.confirm(
-                  "You have unsaved changes, continue?"
-                );
-                if (!confirmLeave) return;
-              }
-              // Since we only have brief mode now, just handle brief
-              setActiveTab("brief");
-            }}
-            onPreview={() => setPreviewOpen(true)}
-            {...(activeTab === "brief" ? briefToolbarActions : {})}
-            onSave={handleSave}
-          />
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -254,34 +235,32 @@ const EditorPage: React.FC = () => {
                 folder="uploads"
               />
               <div className="main-view-container">
-                <AnimatePresence mode="wait">
-                  {activeTab === "brief" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="brief"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        {activeProject?.description !== undefined ? (
-                          <LexicalEditor
-                            key={activeProject?.projectId ?? "default-project"}
-                            initialContent={activeProject?.description ?? null}
-                            onChange={handleBriefChange}
-                            registerToolbar={setBriefToolbarActions}
-                          />
-                        ) : (
-                          <div>Loading...</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <motion.div
+                  className="editor-mode-panel"
+                  key="brief"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div
+                    className="dashboard-layout editor-mode-layout"
+                    style={{ paddingBottom: "5px" }}
+                  >
+                    {activeProject?.description !== undefined ? (
+                      <LexicalEditor
+                        key={activeProject?.projectId ?? "default-project"}
+                        initialContent={activeProject?.description ?? null}
+                        onChange={handleBriefChange}
+                        registerToolbar={() => {}}
+                        onPreview={() => setPreviewOpen(true)}
+                        onSave={handleSave}
+                      />
+                    ) : (
+                      <div>Loading...</div>
+                    )}
+                  </div>
+                </motion.div>
               </div>
               <PreviewDrawer
                 open={previewOpen}

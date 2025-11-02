@@ -19,7 +19,6 @@ export { default as ReactionBar } from "./ReactionBar";
 export { default as SpinnerOverlay } from "./SpinnerOverlay";
 export { default as SpinnerScreen } from "./SpinnerScreen";
 export { default as ToastNotifications } from "./ToastNotifications";
-export { default as UnifiedToolbar } from "../../dashboard/project/features/editor/components/UnifiedToolbar";
 export { default as UserProfilePicture } from "./UserProfilePicture";
 export { default as VerificationCodeModal } from "./VerificationCodeModal";
 export { default as WebSocketDiagnostic } from "./WebSocketDiagnostic";

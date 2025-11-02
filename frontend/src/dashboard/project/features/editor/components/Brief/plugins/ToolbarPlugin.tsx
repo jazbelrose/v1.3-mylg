@@ -49,6 +49,11 @@ const LowPriority = 1 as const;
 
 type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
 
+interface ToolbarPluginProps {
+  onPreview?: () => void;
+  onSave?: () => void;
+}
+
 const supportedBlockTypes = new Set<BlockType>([
   "paragraph",
   "quote",
@@ -95,7 +100,7 @@ function Select({ onChange, className, options, value }: SelectProps) {
   );
 }
 
-export default function ToolbarPlugin() {
+export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps = {}) {
   const [editor] = useLexicalComposerContext();
 
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -456,6 +461,27 @@ export default function ToolbarPlugin() {
             <FigmaPlugin />
             <LayoutPlugin />
             <SpeechToTextPlugin />
+            <Divider />
+            {onPreview && (
+              <button
+                type="button"
+                onClick={onPreview}
+                className="toolbar-item spaced"
+                aria-label="Preview"
+              >
+                <i className="format eye" />
+              </button>
+            )}
+            {onSave && (
+              <button
+                type="button"
+                onClick={onSave}
+                className="toolbar-item spaced"
+                aria-label="Save"
+              >
+                <i className="format save" />
+              </button>
+            )}
           </>
         )}
 

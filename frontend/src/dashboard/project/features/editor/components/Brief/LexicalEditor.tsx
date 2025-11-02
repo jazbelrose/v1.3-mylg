@@ -53,6 +53,7 @@ import { FigmaEmbedNode } from "./plugins/nodes/FigmaEmbedNode";
 import { LayoutContainerNode } from "./plugins/nodes/LayoutContainerNode";
 import { LayoutItemNode } from "./plugins/nodes/LayoutItemNode";
 import RemoveEmptyLayoutItemsOnBackspacePlugin from "./plugins/BackspacePlugin";
+import ToolbarPlugin from "./plugins/ToolbarPlugin";
 import ColorPlugin from "./plugins/ColorPlugin";
 import FontPlugin from "./plugins/FontPlugin";
 import ImagePlugin from "./plugins/ImagePlugin";
@@ -66,6 +67,8 @@ type LexicalEditorProps = {
   onChange: (json: string) => void;
   initialContent?: unknown | null;
   registerToolbar?: (actions: unknown) => void;
+  onPreview?: () => void;
+  onSave?: () => void;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -79,6 +82,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onChange,
   initialContent,
   registerToolbar,
+  onPreview,
+  onSave,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -271,6 +276,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
               }}
             >
               <ToolbarActionsPlugin registerToolbar={registerToolbar} />
+              <ToolbarPlugin onPreview={onPreview} onSave={onSave} />
               <ColorPlugin showToolbar={false} />
               <FontPlugin showToolbar={false} />
               <ImagePlugin showToolbarButton={false} />

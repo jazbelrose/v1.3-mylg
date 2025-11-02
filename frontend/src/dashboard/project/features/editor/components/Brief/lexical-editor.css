@@ -278,16 +278,15 @@ pre::-webkit-scrollbar-thumb {
   /* Establishes the positioning context */
   display: flex;
 
-  background: #fff;
-
+  background: #111;
   border-top-left-radius: 15px;
   border-top-right-radius: 15px;
   vertical-align: middle;
   max-width: 100%;
 }
 .floating-toolbar {
-  background-color: var(--toolbar-bg, #fff);
-  color: var(--toolbar-fg, #000);
+  background-color: var(--toolbar-bg, transparent);
+  color: var(--toolbar-fg, inherit);
   border-radius: 15px;
   padding: 8px;
   display: flex;
@@ -297,7 +296,7 @@ pre::-webkit-scrollbar-thumb {
 
 .floating-toolbar button,
 .floating-toolbar input {
-  color: var(--toolbar-fg, #000);
+  color: var(--toolbar-fg, inherit);
 }
 
 .floating-toolbar input {
@@ -960,6 +959,20 @@ i.bg-color {
 .moveable-hidden .moveable-line,
 .moveable-hidden .moveable-control {
   display: none !important;
+}
+
+/* Ensure editor content area respects theme */
+.editor-input {
+  background: transparent !important;
+  color: inherit !important;
+  outline: none;
+  border: none;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.editor-input:focus {
+  outline: none;
 }
 
 
