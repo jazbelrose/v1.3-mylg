@@ -756,9 +756,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
             return null;
           }
         },
-        loadCanvasJson: (json, options) => {
-          void loadCanvasFromJson(json, options);
-        },
       }),
       [
         changeMode,
