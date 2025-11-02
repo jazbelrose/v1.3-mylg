@@ -124,64 +124,24 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
 
   return (
     <div className="toolbar" role="toolbar" aria-label="Text and background color">
-      {/* Text Color */}
-      <button
-        type="button"
-        onClick={toggleTextColorPicker}
-        aria-haspopup="true"
-        aria-expanded={activeDropdown === textColorDropdownId}
-        aria-controls={textColorDropdownId}
-        aria-label="Set Text Color"
-        className="toolbar-item"
-      >
-        <i className="format font-color" style={{ opacity: 1 }} />
-      </button>
-      {activeDropdown === textColorDropdownId && (
-        <div
-          id={textColorDropdownId}
-          className="color-dropdown"
-          ref={dropdownRef}
-          onMouseDown={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-label="Text color picker"
-        >
+      
           <ColorPicker
             color={currentTextColor || "#000000"}
             onChange={handleTextColorChange}
             title="Text color"
           />
-        </div>
-      )}
+        
+     
 
       {/* Background Color */}
-      <button
-        type="button"
-        onClick={toggleBgColorPicker}
-        aria-haspopup="true"
-        aria-expanded={activeDropdown === bgColorDropdownId}
-        aria-controls={bgColorDropdownId}
-        aria-label="Set Background Color"
-        className="toolbar-item"
-      >
-        <i className="format bg-color" style={{ opacity: 1 }} />
-      </button>
-      {activeDropdown === bgColorDropdownId && (
-        <div
-          id={bgColorDropdownId}
-          className="color-dropdown"
-          ref={dropdownRef}
-          onMouseDown={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-label="Background color picker"
-        >
+
           <ColorPicker
             color={currentBgColor || "#FFFFFF"}
             onChange={handleBgColorChange}
             title="Background color"
           />
         </div>
-      )}
-    </div>
+ 
   );
 }
 
