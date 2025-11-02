@@ -3,14 +3,11 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
-import DesignerComponent, { DesignerRef } from "@/dashboard/project/features/editor/components/canvas/designercomponent";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
-import UnifiedToolbar from "@/dashboard/project/features/editor/components/UnifiedToolbar";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
-import MoodboardCanvas from "@/dashboard/project/features/moodboard/components/MoodboardCanvas";
 import { useData } from "@/app/contexts/useData";
 import { Project } from "@/app/contexts/DataProvider";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -36,14 +33,11 @@ const EditorPage: React.FC = () => {
   const { ws } = useSocket();
 
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
-  const [activeTab, setActiveTab] = useState<"brief" | "canvas" | "moodboard">("brief");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [briefToolbarActions, setBriefToolbarActions] = useState<Record<string, unknown>>({});
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
-  const designerRef = useRef<DesignerRef>(null);
   const [briefContent, setBriefContent] = useState<string>("");
   const [isBriefDirty, setIsBriefDirty] = useState(false);
 
@@ -169,25 +163,9 @@ const EditorPage: React.FC = () => {
     navigate(getProjectDashboardPath(projectId, title));
   };
 
-  const handleSelectTool = () => designerRef.current?.changeMode("select");
-  const handleBrushTool = () => designerRef.current?.changeMode("brush");
-  const handleRectTool = () => designerRef.current?.changeMode("rect");
-  const handleTextTool = () => designerRef.current?.addText();
-  const handleImageTool = () => designerRef.current?.triggerImageUpload();
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => designerRef.current?.handleColorChange(e.target.value);
-  const handleUndo = () => designerRef.current?.handleUndo();
-  const handleRedo = () => designerRef.current?.handleRedo();
-  const handleCopy = () => designerRef.current?.handleCopy();
-  const handlePaste = () => designerRef.current?.handlePaste();
-  const handleDelete = () => designerRef.current?.handleDelete();
-  const handleClearCanvas = () => designerRef.current?.handleClear();
   const handleSave = useCallback(() => {
-    if (activeTab === "canvas") {
-      designerRef.current?.handleSave();
-    } else if (activeTab === "brief") {
-      void saveBrief();
-    }
-  }, [activeTab, saveBrief]);
+    void saveBrief();
+  }, [saveBrief]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -240,33 +218,20 @@ const EditorPage: React.FC = () => {
     >
       <div className="designer-outer-container">
         <div className="designer-scroll-container">
-          <UnifiedToolbar
-            initialMode={activeTab}
-            onModeChange={(mode) => {
-              if (mode !== "brief" && activeTab === "brief" && isBriefDirty) {
-                const confirmLeave = window.confirm(
-                  "You have unsaved changes, continue?"
-                );
-                if (!confirmLeave) return;
-              }
-              setActiveTab(mode);
-            }}
-            onPreview={() => setPreviewOpen(true)}
-            {...(activeTab === "brief" ? briefToolbarActions : {})}
-            onSelectTool={handleSelectTool}
-            onFreeDraw={handleBrushTool}
-            onAddRectangle={handleRectTool}
-            onAddText={handleTextTool}
-            onAddImage={handleImageTool}
-            onColorChange={handleColorChange}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onCopy={handleCopy}
-            onPaste={handlePaste}
-            onDelete={handleDelete}
-            onClearCanvas={handleClearCanvas}
-            onSave={handleSave}
-          />
+          <div className="editor-simple-actions">
+            <button type="button" onClick={() => setPreviewOpen(true)}>
+              Preview
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleSave();
+              }}
+              disabled={!isBriefDirty}
+            >
+              {isBriefDirty ? "Save" : "Saved"}
+            </button>
+          </div>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -284,79 +249,29 @@ const EditorPage: React.FC = () => {
                 folder="uploads"
               />
               <div className="main-view-container">
-                <AnimatePresence mode="wait">
-                  {activeTab === "brief" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="brief"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        {activeProject?.description !== undefined ? (
-                          <LexicalEditor
-                            key={activeProject?.projectId ?? "default-project"}
-                            initialContent={activeProject?.description ?? null}
-                            onChange={handleBriefChange}
-                            registerToolbar={setBriefToolbarActions}
-                          />
-                        ) : (
-                          <div>Loading...</div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "canvas" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="canvas"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <div style={{ maxWidth: "1920px", width: "100%" }}>
-                          <div
-                            className="editor-container"
-                            style={{ display: "flex", flexDirection: "column", overflow: "hidden", height: "800px" }}
-                          >
-                            <DesignerComponent ref={designerRef} />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === "moodboard" && (
-                    <motion.div
-                      className="editor-mode-panel"
-                      key="moodboard"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div
-                        className="dashboard-layout editor-mode-layout"
-                        style={{ paddingBottom: "5px" }}
-                      >
-                        <MoodboardCanvas
-                          projectId={activeProject?.projectId}
-                          userId={userId ?? undefined}
-                          palette={projectPalette}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <motion.div
+                  className="editor-mode-panel"
+                  key="brief"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div
+                    className="dashboard-layout editor-mode-layout"
+                    style={{ paddingBottom: "5px" }}
+                  >
+                    {activeProject?.description !== undefined ? (
+                      <LexicalEditor
+                        key={activeProject?.projectId ?? "default-project"}
+                        initialContent={activeProject?.description ?? null}
+                        onChange={handleBriefChange}
+                      />
+                    ) : (
+                      <div>Loading...</div>
+                    )}
+                  </div>
+                </motion.div>
               </div>
               <PreviewDrawer
                 open={previewOpen}

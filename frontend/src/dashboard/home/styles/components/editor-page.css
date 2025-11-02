@@ -22,6 +22,50 @@
   min-height: 0;
 }
 
+.editor-simple-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  align-items: center;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(12px);
+}
+
+.editor-simple-actions button {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #f8fafc;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(14, 165, 233, 0.8));
+  box-shadow: 0 8px 22px rgba(56, 189, 248, 0.28);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.editor-simple-actions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.editor-simple-actions button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(56, 189, 248, 0.32);
+}
+
+.editor-simple-actions button + button {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.85));
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.28);
+}
+
 .editor-mode-panel {
   flex: 1;
   display: flex;
