@@ -653,15 +653,6 @@ input[type="color"]::-webkit-color-swatch {
   text-decoration: underline;
 }
 
-
-i.undo {
-
-}
-
-i.redo {
-
-}
-
 .icon.paragraph {
 
 }
@@ -695,51 +686,92 @@ i.redo {
 }
 
 i.bold {
-
+  font-style: normal;
 }
 
 i.italic {
-
+  font-style: normal;
 }
 
 i.underline {
-
+  font-style: normal;
 }
 
 i.strikethrough {
-
+  font-style: normal;
 }
 
 i.code {
-
+  font-style: normal;
 }
 
 i.link {
+  font-style: normal;
+}
 
+i.undo {
+  font-style: normal;
+}
+
+i.redo {
+  font-style: normal;
 }
 
 i.left-align {
+  font-style: normal;
+}
 
+i.left-align::before {
+  content: "⫷";
+  font-size: 14px;
 }
 
 i.center-align {
+  font-style: normal;
+}
 
+i.center-align::before {
+  content: "≡";
+  font-size: 14px;
 }
 
 i.right-align {
+  font-style: normal;
+}
 
+i.right-align::before {
+  content: "⫸";
+  font-size: 14px;
 }
 
 i.justify-align {
+  font-style: normal;
+}
 
+i.justify-align::before {
+  content: "≣";
+  font-size: 14px;
 }
 
 i.font-color {
+  font-style: normal;
+}
 
+i.font-color::before {
+  content: "A";
+  color: inherit;
+  font-weight: bold;
+  font-family: serif;
 }
 
 i.bg-color {
+  font-style: normal;
+}
 
+i.bg-color::before {
+  content: "■";
+  background-color: inherit;
+  font-size: 12px;
 }
 
 .editor-text-color {

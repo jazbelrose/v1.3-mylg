@@ -35,6 +35,21 @@ import {
   type HeadingTagType,
 } from "@lexical/rich-text";
 import { $createCodeNode, $isCodeNode, getDefaultCodeLanguage, getCodeLanguages } from "@lexical/code";
+import {
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Code,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Undo2,
+  Redo2,
+  Eye,
+  Save,
+} from "lucide-react";
 
 import { useDropdown } from "../contexts/DropdownContext";
 import ImagePlugin from "./ImagePlugin";
@@ -276,7 +291,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
           className="toolbar-item spaced"
           aria-label="Undo"
         >
-          <i className="format undo" />
+          <Undo2 size={16} />
         </button>
 
         <button
@@ -286,7 +301,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
           className="toolbar-item"
           aria-label="Redo"
         >
-          <i className="format redo" />
+          <Redo2 size={16} />
         </button>
 
         <Divider />
@@ -375,7 +390,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className={"toolbar-item spaced " + (isBold ? "active" : "")}
               aria-label="Format Bold"
             >
-              <i className="format bold" />
+              <Bold size={16} />
             </button>
             <button
               type="button"
@@ -383,7 +398,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className={"toolbar-item spaced " + (isItalic ? "active" : "")}
               aria-label="Format Italics"
             >
-              <i className="format italic" />
+              <Italic size={16} />
             </button>
             <button
               type="button"
@@ -393,7 +408,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className={"toolbar-item spaced " + (isUnderline ? "active" : "")}
               aria-label="Format Underline"
             >
-              <i className="format underline" />
+              <Underline size={16} />
             </button>
             <button
               type="button"
@@ -403,7 +418,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className={"toolbar-item spaced " + (isStrikethrough ? "active" : "")}
               aria-label="Format Strikethrough"
             >
-              <i className="format strikethrough" />
+              <Strikethrough size={16} />
             </button>
             <button
               type="button"
@@ -411,7 +426,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className={"toolbar-item spaced " + (isCode ? "active" : "")}
               aria-label="Insert Code"
             >
-              <i className="format code" />
+              <Code size={16} />
             </button>
 
             <Divider />
@@ -422,7 +437,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className="toolbar-item spaced"
               aria-label="Left Align"
             >
-              <i className="format left-align" />
+              <AlignLeft size={16} />
             </button>
             <button
               type="button"
@@ -430,7 +445,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className="toolbar-item spaced"
               aria-label="Center Align"
             >
-              <i className="format center-align" />
+              <AlignCenter size={16} />
             </button>
             <button
               type="button"
@@ -438,7 +453,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className="toolbar-item spaced"
               aria-label="Right Align"
             >
-              <i className="format right-align" />
+              <AlignRight size={16} />
             </button>
             <button
               type="button"
@@ -448,7 +463,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               className="toolbar-item"
               aria-label="Justify Align"
             >
-              <i className="format justify-align" />
+              <AlignJustify size={16} />
             </button>
 
             <Divider />
@@ -469,7 +484,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
                 className="toolbar-item spaced"
                 aria-label="Preview"
               >
-                <i className="format eye" />
+                <Eye size={16} />
               </button>
             )}
             {onSave && (
@@ -479,7 +494,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
                 className="toolbar-item spaced"
                 aria-label="Save"
               >
-                <i className="format save" />
+                <Save size={16} />
               </button>
             )}
           </>
