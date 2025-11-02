@@ -143,11 +143,8 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
   if (!showToolbar) return null;
 
   return (
-    <div
-      className="toolbar"
-      role="toolbar"
-      aria-label="Text and background color"
-    >
+    <>
+    
       <ColorPicker
         color={currentTextColor || "#000000"}
         onChange={handleTextColorChange}
@@ -161,7 +158,7 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
         onChange={handleBgColorChange}
         title="Background color"
       />
-    </div>
+    </>
   );
 }
 

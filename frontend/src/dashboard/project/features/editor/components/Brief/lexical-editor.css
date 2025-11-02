@@ -279,19 +279,21 @@ pre::-webkit-scrollbar-thumb {
   display: flex;
 
   background: #111;
-  border-top-left-radius: 15px;
-  border-top-right-radius: 15px;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
   vertical-align: middle;
   max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .floating-toolbar {
-  background-color: var(--toolbar-bg, transparent);
+  background-color: var(--bg2, #111213);
   color: var(--toolbar-fg, inherit);
   border-radius: 15px;
-  padding: 8px;
+  padding: px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .floating-toolbar button,

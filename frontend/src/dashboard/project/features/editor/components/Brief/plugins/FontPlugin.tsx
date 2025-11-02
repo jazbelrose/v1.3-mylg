@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   $getSelection,
@@ -8,6 +8,7 @@ import {
 } from "lexical";
 import { $patchStyleText } from "@lexical/selection";
 import { SET_FONT_FAMILY_COMMAND, SET_FONT_SIZE_COMMAND } from "../commands";
+import { useDropdown } from "../contexts/DropdownContext";
 
 const FONT_FAMILIES = [
   "Helvetica Special",
@@ -32,6 +33,12 @@ export default function FontPlugin({ showToolbar = true }: Props) {
   const [editor] = useLexicalComposerContext();
   const [fontFamily, setFontFamily] = useState<FontFamily>(FONT_FAMILIES[0]);
   const [fontSize, setFontSize] = useState<FontSize>("16px");
+
+  const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
+  const fontFamilyDropdownId = "font-family-dropdown";
+  const fontSizeDropdownId = "font-size-dropdown";
+  const fontFamilyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const fontSizeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Register commands once
   useEffect(() => {
@@ -69,48 +76,92 @@ export default function FontPlugin({ showToolbar = true }: Props) {
     };
   }, [editor]);
 
-  const onFontFamilyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value as FontFamily;
-    setFontFamily(value);
-    editor.dispatchCommand(SET_FONT_FAMILY_COMMAND as LexicalCommand<FontFamily>, value);
+  const handleFontFamilyDropdownToggle = () => {
+    if (activeDropdown === fontFamilyDropdownId) {
+      closeDropdown();
+    } else {
+      openDropdown(fontFamilyDropdownId, fontFamilyButtonRef.current);
+    }
   };
 
-  const onFontSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value as FontSize;
-    setFontSize(value);
-    editor.dispatchCommand(SET_FONT_SIZE_COMMAND as LexicalCommand<FontSize>, value);
+  const handleFontSizeDropdownToggle = () => {
+    if (activeDropdown === fontSizeDropdownId) {
+      closeDropdown();
+    } else {
+      openDropdown(fontSizeDropdownId, fontSizeButtonRef.current);
+    }
+  };
+
+  const handleFontFamilyItemClick = (family: FontFamily) => {
+    setFontFamily(family);
+    editor.dispatchCommand(SET_FONT_FAMILY_COMMAND as LexicalCommand<FontFamily>, family);
+    closeDropdown();
+  };
+
+  const handleFontSizeItemClick = (size: FontSize) => {
+    setFontSize(size);
+    editor.dispatchCommand(SET_FONT_SIZE_COMMAND as LexicalCommand<FontSize>, size);
+    closeDropdown();
   };
 
   if (!showToolbar) return null;
 
   return (
-    <div className="toolbar">
-      <select
-        className="toolbar-item font-family"
-        value={fontFamily}
-        onChange={onFontFamilyChange}
+    <>
+      <button
+        type="button"
+        className="toolbar-item font-family-controls"
+        onClick={handleFontFamilyDropdownToggle}
+        ref={fontFamilyButtonRef}
         aria-label="Font Family"
       >
-        {FONT_FAMILIES.map((f) => (
-          <option key={f} value={f}>
-            {f}
-          </option>
-        ))}
-      </select>
+        <span className="text">{fontFamily}</span>
+        <i className="chevron-down" />
+      </button>
 
-      <select
-        className="toolbar-item font-size"
-        value={fontSize}
-        onChange={onFontSizeChange}
+      {activeDropdown === fontFamilyDropdownId && (
+        <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+          {FONT_FAMILIES.map((family) => (
+            <button
+              key={family}
+              type="button"
+              className="item"
+              onClick={() => handleFontFamilyItemClick(family)}
+            >
+              <span className="text">{family}</span>
+              {fontFamily === family && <span className="active">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="toolbar-item font-size-controls"
+        onClick={handleFontSizeDropdownToggle}
+        ref={fontSizeButtonRef}
         aria-label="Font Size"
       >
-        {FONT_SIZES.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
-    </div>
+        <span className="text">{fontSize}</span>
+        <i className="chevron-down" />
+      </button>
+
+      {activeDropdown === fontSizeDropdownId && (
+        <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+          {FONT_SIZES.map((size) => (
+            <button
+              key={size}
+              type="button"
+              className="item"
+              onClick={() => handleFontSizeItemClick(size)}
+            >
+              <span className="text">{size}</span>
+              {fontSize === size && <span className="active">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
