@@ -108,7 +108,7 @@ export default function FontPlugin({ showToolbar = true }: Props) {
 
   return (
     <>
-      <div style={{ position: 'relative' }}>
+      
         <button
           type="button"
           className="toolbar-item font-family-controls"
@@ -135,9 +135,8 @@ export default function FontPlugin({ showToolbar = true }: Props) {
             ))}
           </div>
         )}
-      </div>
+      
 
-      <div style={{ position: 'relative' }}>
         <button
           type="button"
           className="toolbar-item font-size-controls"
@@ -164,7 +163,7 @@ export default function FontPlugin({ showToolbar = true }: Props) {
             ))}
           </div>
         )}
-      </div>
+      
     </>
   );
 }
