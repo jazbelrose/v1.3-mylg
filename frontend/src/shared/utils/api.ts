@@ -292,7 +292,7 @@ const BASE_ENDPOINTS = {
     TASKS_API_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects/',
 
     // Realtime deck service
-    DECK_REALTIME_WS_URL: 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/deck',
+    DECK_REALTIME_WS_URL: 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev',
     DECK_EXPORT_URL: 'https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev/deck/export',
     
     // External services (unchanged)
