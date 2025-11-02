@@ -91,6 +91,11 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
     activeProject?: ActiveProjectLike;
   };
   const avatarUrl = (userData?.thumbnailUrl || userData?.thumbnail) as string | undefined;
+
+  const awarenessData = useMemo(
+    () => (avatarUrl ? { avatar: avatarUrl } : undefined),
+    [avatarUrl]
+  );
   
   // Helper function to get user initials
   const getUserInitials = (firstName?: string, lastName?: string): string => {
@@ -340,7 +345,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                   initialEditorState={initialContentRef.current as never}
                   shouldBootstrap={true}
                   username={displayName}
-                  awarenessData={avatarUrl ? { avatar: avatarUrl } : undefined}
+                  awarenessData={awarenessData}
                   syncCursorPositionsFn={syncCursorPositionsWithAvatars}
                 />
 
