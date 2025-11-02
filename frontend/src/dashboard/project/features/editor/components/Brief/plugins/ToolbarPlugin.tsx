@@ -493,10 +493,10 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
             </button>
             {activeDropdown === insertDropdownId && (
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-                <div className="item"><ImagePlugin /></div>
-                <div className="item"><VectorPlugin /></div>
-                <div className="item"><FigmaPlugin /></div>
-                <div className="item"><LayoutPlugin /></div>
+                <div className="item"><ImagePlugin /><span className="text">Image</span></div>
+                <div className="item"><VectorPlugin /><span className="text">Vector</span></div>
+                <div className="item"><FigmaPlugin /><span className="text">Figma</span></div>
+                <div className="item"><LayoutPlugin /><span className="text">Layout</span></div>
               </div>
             )}
             <Divider />
