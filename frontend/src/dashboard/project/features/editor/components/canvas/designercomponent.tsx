@@ -330,6 +330,24 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       }
     };
 
+    const updateObjects = useCallback(() => {
+      const fabricCanvas = fabricCanvasRef.current;
+      if (fabricCanvas) {
+        const objs = fabricCanvas.getObjects();
+        const active = fabricCanvas.getActiveObject();
+        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
+        setObjects(
+          objs.map((obj: FabricObjectLike, i: number) => ({
+            id: obj.id ?? i,
+            name: obj.name ?? `${obj.type}-${i}`,
+            visible: obj.visible,
+            locked: obj.lockMovementX && obj.lockMovementY,
+            obj,
+          }))
+        );
+      }
+    }, []);
+
     const loadCanvasFromJson = useCallback(
       async (
         json: string | Record<string, unknown>,
@@ -384,24 +402,6 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       [updateObjects]
     );
 
-    const updateObjects = () => {
-      const fabricCanvas = fabricCanvasRef.current;
-      if (fabricCanvas) {
-        const objs = fabricCanvas.getObjects();
-        const active = fabricCanvas.getActiveObject();
-        setSelectedId(active ? (active.id ?? objs.indexOf(active)) : null);
-        setObjects(
-          objs.map((obj: FabricObjectLike, i: number) => ({
-            id: obj.id ?? i,
-            name: obj.name ?? `${obj.type}-${i}`,
-            visible: obj.visible,
-            locked: obj.lockMovementX && obj.lockMovementY,
-            obj,
-          }))
-        );
-      }
-    };
-
     const handleClear = useCallback(() => {
       const fabricCanvas = fabricCanvasRef.current;
       if (!fabricCanvas) return;
@@ -411,7 +411,7 @@ const DesignerComponent = forwardRef<DesignerRef, DesignerComponentProps>(
       fabricCanvas.requestRenderAll();
       saveHistory();
       updateObjects();
-    }, []);
+    }, [updateObjects]);
 
     /* Init canvas */
     useLayoutEffect(() => {
