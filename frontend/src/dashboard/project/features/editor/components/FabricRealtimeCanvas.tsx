@@ -26,6 +26,7 @@ interface FabricRealtimeCanvasProps {
   pageId?: string;
   pageName?: string;
   isActive?: boolean;
+  joinEnabled?: boolean;
 }
 
 type ConnectionState = "idle" | "connecting" | "connected" | "disconnected" | "error";
@@ -43,7 +44,7 @@ const randomId = () => {
 };
 
 const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCanvasProps>(
-  ({ projectId, pageId, pageName, isActive = true }, ref) => {
+  ({ projectId, pageId, pageName, isActive = true, joinEnabled = true }, ref) => {
     const { getAuthTokens } = useAuth();
     const designerRef = useRef<DesignerInstance | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
@@ -105,7 +106,7 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
     );
 
     const joinDeck = useCallback(() => {
-      if (!projectId || !pageId) return;
+      if (!joinEnabled || !projectId || !pageId) return;
       const socket = wsRef.current;
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
       sendPayload({
@@ -119,7 +120,7 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
       if (existingState) {
         sendPayload({ action: "deckPatch", projectId, pageId, state: existingState });
       }
-    }, [pageId, pageName, projectId, sendPayload]);
+    }, [joinEnabled, pageId, pageName, projectId, sendPayload]);
 
     const applyRemoteState = useCallback(
       (state: string | null, sourcePageId?: string) => {
@@ -168,7 +169,7 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
     }, [pageId]);
 
     const connectSocket = useCallback(async () => {
-      if (!websocketUrl || !projectId || !pageId) {
+      if (!joinEnabled || !websocketUrl || !projectId || !pageId) {
         setConnectionState("disconnected");
         return;
       }
@@ -250,6 +251,7 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
       cleanupSocket,
       getAuthTokens,
       joinDeck,
+      joinEnabled,
       pageId,
       projectId,
       scheduleReconnect,
@@ -257,7 +259,7 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
     ]);
 
     useEffect(() => {
-      if (!projectId || !pageId) {
+      if (!joinEnabled || !projectId || !pageId) {
         cleanupSocket();
         setConnectionState("disconnected");
         return;
@@ -266,14 +268,14 @@ const FabricRealtimeCanvas = forwardRef<RealtimeDesignerHandle, FabricRealtimeCa
       return () => {
         cleanupSocket();
       };
-    }, [cleanupSocket, connectSocket, pageId, projectId]);
+    }, [cleanupSocket, connectSocket, joinEnabled, pageId, projectId]);
 
     useEffect(() => {
-      if (!projectId || !pageId) return;
+      if (!joinEnabled || !projectId || !pageId) return;
       if ((connectionState === "disconnected" || connectionState === "error") && !reconnectTimeout.current) {
         connectSocket();
       }
-    }, [connectSocket, connectionState, pageId, projectId]);
+    }, [connectSocket, connectionState, joinEnabled, pageId, projectId]);
 
     const connectionLabel = useMemo(() => {
       switch (connectionState) {

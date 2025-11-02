@@ -9,6 +9,7 @@ export interface SheetPageState {
   id: string;
   name: string;
   isSuperSheet?: boolean;
+  isPersisted?: boolean;
   groupStates: Record<LayerGroupKey, LayerGroupState>;
 }
 
