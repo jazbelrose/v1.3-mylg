@@ -154,7 +154,7 @@ export const UserProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const isClient = role === "client";
 
   // Backward compatibility
-  const userName = userData?.firstName ? `${userData.firstName} ` : "Guest";
+  const userName = userData?.firstName ? `${userData.firstName}${userData.lastName ? ` ${userData.lastName}` : ''}` : "Guest";
   const setUserData = setUser; // alias for backward compatibility
   const refreshUser = fetchUserProfile; // alias for backward compatibility
 

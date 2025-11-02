@@ -72,7 +72,7 @@ const NotificationList: React.FC<NotificationListProps> = ({
   const { removeNotification } = useNotifications();
   const { emitNotificationRead } = useNotificationSocket();
   const { allUsers, projects } = useData() as {
-    allUsers: Array<{ userId?: string; username?: string; firstName?: string; lastName?: string; thumbnail?: string }>;
+    allUsers: Array<{ userId?: string; username?: string; firstName?: string; lastName?: string; thumbnailUrl?: string }>;
     projects: Array<{ projectId?: string; thumbnails?: string[]; title?: string }>;
   };
 
@@ -85,7 +85,7 @@ const NotificationList: React.FC<NotificationListProps> = ({
       {notifications.map((notif, idx) => {
         const sender = allUsers.find((u) => u.userId === notif.senderId) || {};
         const project = projects.find((p) => p.projectId === notif.projectId);
-        const thumb = project?.thumbnails?.[0] || sender.thumbnail;
+        const thumb = project?.thumbnails?.[0] || sender.thumbnailUrl;
         const name = project
           ? project.title || 'Project'
           : sender.firstName

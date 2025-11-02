@@ -19,8 +19,8 @@ const CurrentUserProfile: React.FC<CurrentUserProfileProps> = ({
   return (
     <div className={styles.profileBlock}>
       <div className={styles.avatarWrapper}>
-        {userData?.thumbnail ? (
-          <img src={getFileUrl(userData.thumbnail)} alt="Me" className={styles.avatar} />
+        {userData?.thumbnailUrl ? (
+          <img src={getFileUrl(userData.thumbnailUrl as string)} alt="Me" className={styles.avatar} />
         ) : (
           <div className={styles.avatarPlaceholder} />
         )}

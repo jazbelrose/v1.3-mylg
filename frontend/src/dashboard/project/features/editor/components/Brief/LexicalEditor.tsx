@@ -82,10 +82,10 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
-    userData?: { thumbnail?: string };
+    userData?: { thumbnailUrl?: string };
     activeProject?: ActiveProjectLike;
   };
-  const avatarUrl = userData?.thumbnail as string | undefined;
+  const avatarUrl = userData?.thumbnailUrl as string | undefined;
 
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
