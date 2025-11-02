@@ -19,11 +19,14 @@ export class ResizableImageNode extends DecoratorNode {
       node.__width,
       node.__height,
       node.__originalAspectRatio,
-      node.__key
+      node.__key,
+      node.__x,
+      node.__y,
+      node.__rotation
     );
   }
 
-  constructor(src, altText, width, height, originalAspectRatio, key) {
+  constructor(src, altText, width, height, originalAspectRatio, key, x = 0, y = 0, rotation = 0) {
     super(key);
     this.__src = src;
     this.__altText = altText;
@@ -31,6 +34,9 @@ export class ResizableImageNode extends DecoratorNode {
     this.__height = typeof height === "number" ? height : 200;
     this.__originalAspectRatio =
       originalAspectRatio || this.__width / this.__height;
+    this.__x = x;
+    this.__y = y;
+    this.__rotation = rotation;
   }
 
   getOriginalAspectRatio() {
@@ -59,6 +65,32 @@ export class ResizableImageNode extends DecoratorNode {
     return this.__height;
   }
 
+  // Position getters/setters
+  setX(newX) {
+    const writable = this.getWritable();
+    writable.__x = newX;
+  }
+  getX() {
+    return this.__x;
+  }
+
+  setY(newY) {
+    const writable = this.getWritable();
+    writable.__y = newY;
+  }
+  getY() {
+    return this.__y;
+  }
+
+  // Rotation getters/setters
+  setRotation(newRotation) {
+    const writable = this.getWritable();
+    writable.__rotation = newRotation;
+  }
+  getRotation() {
+    return this.__rotation;
+  }
+
   createDOM() {
     return document.createElement("div");
   }
@@ -68,8 +100,8 @@ export class ResizableImageNode extends DecoratorNode {
   }
 
   static importJSON(serializedNode) {
-    const { src, altText, width, height, originalAspectRatio } = serializedNode;
-    return new ResizableImageNode(src, altText, width, height, originalAspectRatio);
+    const { src, altText, width, height, originalAspectRatio, x, y, rotation } = serializedNode;
+    return new ResizableImageNode(src, altText, width, height, originalAspectRatio, undefined, x, y, rotation);
   }
 
   exportJSON() {
@@ -81,6 +113,9 @@ export class ResizableImageNode extends DecoratorNode {
       width: this.__width,
       height: this.__height,
       originalAspectRatio: this.__originalAspectRatio,
+      x: this.__x,
+      y: this.__y,
+      rotation: this.__rotation,
     };
   }
 
@@ -91,6 +126,9 @@ export class ResizableImageNode extends DecoratorNode {
         altText={this.__altText}
         width={this.__width}
         height={this.__height}
+        x={this.__x}
+        y={this.__y}
+        rotation={this.__rotation}
         nodeKey={this.__key}
       />
     );
@@ -107,13 +145,20 @@ export function $createResizableImageNode({
   width = 300,
   height = 200,
   originalAspectRatio,
+  x = 0,
+  y = 0,
+  rotation = 0,
 }) {
   return new ResizableImageNode(
     src,
     altText,
     width,
     height,
-    originalAspectRatio ?? width / height
+    originalAspectRatio ?? width / height,
+    undefined,
+    x,
+    y,
+    rotation
   );
 }
 
@@ -121,7 +166,7 @@ export function $createResizableImageNode({
  * The DecoratorNode's React component that handles display and resizing.
  * This version always locks the aspect ratio.
  */
-function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
+function ResizableImageComponent({ src, altText, width, height, x, y, rotation, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
   const containerRef = useRef(null);
@@ -131,6 +176,8 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
   const lockedBy = locks[nodeKey];
   const isLocked = lockedBy && lockedBy !== userName;
   const [isResizing, setIsResizing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   const [currentHandle, setCurrentHandle] = useState(null);
   const startEdit = () => {
     if (provider) {
@@ -150,6 +197,9 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
   const initialYRef = useRef(0);
   const initialWidthRef = useRef(width);
   const initialHeightRef = useRef(height);
+  const initialPosXRef = useRef(x);
+  const initialPosYRef = useRef(y);
+  const initialRotationRef = useRef(rotation);
 
   // Read the original aspect ratio from the node.
   const originalAspectRatioRef = useRef(
@@ -177,13 +227,24 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
     editor.focus();
     if (isLocked) return;
     skipClickClearRef.current = true;
-    setIsResizing(true);
+    
+    if (handleType === 'rotate') {
+      setIsRotating(true);
+    } else if (handleType === 'move') {
+      setIsDragging(true);
+    } else {
+      setIsResizing(true);
+    }
+    
     startEdit();
     setCurrentHandle(handleType);
     initialXRef.current = e.clientX;
     initialYRef.current = e.clientY;
     initialWidthRef.current = width;
     initialHeightRef.current = height;
+    initialPosXRef.current = x;
+    initialPosYRef.current = y;
+    initialRotationRef.current = rotation;
   };
 
   useEffect(() => {
@@ -192,68 +253,145 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
     const onBlur = () => setIsFocused(false);
     root.addEventListener("focusin", onFocus);
     root.addEventListener("focusout", onBlur);
+    
     const handleWindowClick = (e) => {
       if (skipClickClearRef.current) {
         skipClickClearRef.current = false;
         return;
       }
       if (containerRef.current && !containerRef.current.contains(e.target)) {
-        
+        clearSelection();
       }
     };
+
+    const handleKeyDown = (e) => {
+      if (!isSelected || isLocked) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (!node) return;
+
+        const step = e.shiftKey ? 10 : 1; // Larger steps with Shift
+        const rotationStep = e.shiftKey ? 15 : 5; // Larger rotation with Shift
+
+        switch (e.key) {
+          case "ArrowLeft":
+            node.setX(node.getX() - step);
+            break;
+          case "ArrowRight":
+            node.setX(node.getX() + step);
+            break;
+          case "ArrowUp":
+            node.setY(node.getY() - step);
+            break;
+          case "ArrowDown":
+            node.setY(node.getY() + step);
+            break;
+          case "r":
+          case "R":
+            if (e.ctrlKey || e.metaKey) {
+              // Ctrl+R or Cmd+R: rotate clockwise
+              node.setRotation(node.getRotation() + rotationStep);
+            }
+            break;
+          case "l":
+          case "L":
+            if (e.ctrlKey || e.metaKey) {
+              // Ctrl+L or Cmd+L: rotate counter-clockwise
+              node.setRotation(node.getRotation() - rotationStep);
+            }
+            break;
+          case "0":
+            if (e.ctrlKey || e.metaKey) {
+              // Ctrl+0 or Cmd+0: reset rotation
+              node.setRotation(0);
+            }
+            break;
+        }
+      });
+    };
+    
     window.addEventListener("click", handleWindowClick);
+    window.addEventListener("keydown", handleKeyDown);
+    
     return () => {
       root.removeEventListener("focusin", onFocus);
       root.removeEventListener("focusout", onBlur);
       window.removeEventListener("click", handleWindowClick);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [editor]);
+  }, [editor, isSelected, isLocked, nodeKey, clearSelection]);
 
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing && !isDragging && !isRotating) return;
 
     function onMouseMove(e) {
       editor.update(() => {
         const node = $getNodeByKey(nodeKey);
         if (!node) return;
 
-        const ratio = node.getOriginalAspectRatio();
-        let newWidth, newHeight;
         const deltaX = e.clientX - initialXRef.current;
         const deltaY = e.clientY - initialYRef.current;
 
-        // For vertical edge handles, adjust based on deltaY;
-        // for horizontal and corner handles, adjust based on deltaX.
-        if (currentHandle === "top" || currentHandle === "bottom") {
-          const factor = currentHandle === "bottom" ? 1 : -1;
-          newHeight = initialHeightRef.current + factor * deltaY;
-          newWidth = newHeight * ratio;
-        } else {
-          // For handles "left", "right", "top-left", "top-right", "bottom-left", "bottom-right"
-          const factor =
-            currentHandle === "left" ||
-            currentHandle === "top-left" ||
-            currentHandle === "bottom-left"
-              ? -1
-              : 1;
-          newWidth = initialWidthRef.current + factor * deltaX;
-          newHeight = newWidth / ratio;
+        if (isDragging) {
+          // Handle dragging (movement)
+          const newX = initialPosXRef.current + deltaX;
+          const newY = initialPosYRef.current + deltaY;
+          node.setX(newX);
+          node.setY(newY);
+        } else if (isRotating) {
+          // Handle rotation
+          const containerRect = containerRef.current?.getBoundingClientRect();
+          if (containerRect) {
+            const centerX = containerRect.left + containerRect.width / 2;
+            const centerY = containerRect.top + containerRect.height / 2;
+            const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+            const degrees = (angle * 180) / Math.PI;
+            node.setRotation(degrees);
+          }
+        } else if (isResizing) {
+          // Handle resizing (existing logic)
+          const ratio = node.getOriginalAspectRatio();
+          let newWidth, newHeight;
+
+          // For vertical edge handles, adjust based on deltaY;
+          // for horizontal and corner handles, adjust based on deltaX.
+          if (currentHandle === "top" || currentHandle === "bottom") {
+            const factor = currentHandle === "bottom" ? 1 : -1;
+            newHeight = initialHeightRef.current + factor * deltaY;
+            newWidth = newHeight * ratio;
+          } else {
+            // For handles "left", "right", "top-left", "top-right", "bottom-left", "bottom-right"
+            const factor =
+              currentHandle === "left" ||
+              currentHandle === "top-left" ||
+              currentHandle === "bottom-left"
+                ? -1
+                : 1;
+            newWidth = initialWidthRef.current + factor * deltaX;
+            newHeight = newWidth / ratio;
+          }
+
+          // Clamp to a minimum size.
+          newWidth = Math.max(50, newWidth);
+          newHeight = Math.max(50, newHeight);
+
+          node.setWidth(newWidth);
+          node.setHeight(newHeight);
         }
-
-        // Clamp to a minimum size.
-        newWidth = Math.max(50, newWidth);
-        newHeight = Math.max(50, newHeight);
-
-        node.setWidth(newWidth);
-        node.setHeight(newHeight);
       });
     }
 
     function onMouseUp() {
       setIsResizing(false);
+      setIsDragging(false);
+      setIsRotating(false);
       setCurrentHandle(null);
       endEdit();
-      // keep the image selected after resizing ends
+      // keep the image selected after interaction ends
       setSelected(true);
     }
 
@@ -263,7 +401,7 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [isResizing, editor, nodeKey, currentHandle]);
+  }, [isResizing, isDragging, isRotating, editor, nodeKey, currentHandle]);
 
   const onImageLoad = (e) => {
     const naturalW = e.target.naturalWidth;
@@ -285,11 +423,18 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
   const paddingPercentage = width ? (height / width) * 100 : 50;
   return (
     <div
+      ref={containerRef}
       style={{
         display: "inline-block",
         position: "relative",
+        left: x,
+        top: y,
         width: width, // desired pixel width
         maxWidth: "100%", // allow container to shrink on small screens
+        transform: `rotate(${rotation}deg)`,
+        transformOrigin: "center center",
+        zIndex: isSelected ? 1000 : 1,
+        margin: "10px", // Add some margin to prevent overlap
       }}
     >
       <div style={{ position: "relative", width: "100%", paddingTop: `${paddingPercentage}%` }}>
@@ -299,13 +444,7 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
         <img
           src={src}
           alt={altText}
-          draggable
-          onDragStart={(e) => {
-            const isCopy = e.ctrlKey || e.metaKey;
-            e.dataTransfer.setData("lexical-image-drag", nodeKey);
-            e.dataTransfer.setData("lexical-image-copy", isCopy ? "1" : "0");
-            e.dataTransfer.effectAllowed = isCopy ? "copy" : "move";
-          }}
+          draggable={false}
           onClick={onClickImage}
           onLoad={onImageLoad}
           style={{
@@ -315,9 +454,10 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
             width: "100%",
             height: "100%",
             objectFit: "contain",
-            cursor: "pointer",
+            cursor: isSelected && !isLocked ? "move" : "pointer",
             pointerEvents: isLocked ? "none" : "auto",
           }}
+          onMouseDown={(e) => isSelected && !isLocked && handleMouseDown(e, "move")}
         />
         {isSelected && isFocused && !isLocked && (
           <div
@@ -327,7 +467,7 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
               left: 0,
               width: "100%",
               height: "100%",
-              border: isResizing ? "2px solid blue" : "none",
+              border: isResizing || isDragging || isRotating ? "2px solid blue" : "1px solid blue",
               boxSizing: "border-box",
               pointerEvents: "none",
             }}
@@ -341,6 +481,53 @@ function ResizableImageComponent({ src, altText, width, height, nodeKey }) {
             <div style={handleStyle("bottom", "center")} onMouseDown={(e) => handleMouseDown(e, "bottom")} />
             <div style={handleStyle("bottom", "left")} onMouseDown={(e) => handleMouseDown(e, "bottom-left")} />
             <div style={handleStyle("middle", "left")} onMouseDown={(e) => handleMouseDown(e, "left")} />
+            
+            {/* Rotation handle */}
+            <div 
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "20px",
+                height: "20px",
+                backgroundColor: "green",
+                border: "2px solid white",
+                borderRadius: "50%",
+                cursor: "grab",
+                pointerEvents: "all",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                color: "white",
+                fontWeight: "bold",
+              }}
+              onMouseDown={(e) => handleMouseDown(e, "rotate")}
+              title="Rotate"
+            >
+              ↻
+            </div>
+            
+            {/* Controls info panel */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "-60px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                color: "white",
+                padding: "4px 8px",
+                borderRadius: "4px",
+                fontSize: "10px",
+                whiteSpace: "nowrap",
+                pointerEvents: "none",
+                zIndex: 1001,
+              }}
+            >
+              Arrows: Move | Ctrl+R/L: Rotate | Ctrl+0: Reset | Shift: 10x
+            </div>
           </div>
         )}
       </div>
@@ -359,7 +546,7 @@ function handleStyle(vertical, horizontal) {
     border: "1px solid blue",
     boxSizing: "border-box",
     pointerEvents: "all",
-    cursor: "pointer",
+    cursor: getResizeCursor(vertical, horizontal),
   };
 
   // Set vertical position.
@@ -383,6 +570,18 @@ function handleStyle(vertical, horizontal) {
   }
 
   return style;
+}
+
+function getResizeCursor(vertical, horizontal) {
+  if (vertical === "top" && horizontal === "left") return "nw-resize";
+  if (vertical === "top" && horizontal === "center") return "n-resize";
+  if (vertical === "top" && horizontal === "right") return "ne-resize";
+  if (vertical === "middle" && horizontal === "left") return "w-resize";
+  if (vertical === "middle" && horizontal === "right") return "e-resize";
+  if (vertical === "bottom" && horizontal === "left") return "sw-resize";
+  if (vertical === "bottom" && horizontal === "center") return "s-resize";
+  if (vertical === "bottom" && horizontal === "right") return "se-resize";
+  return "pointer";
 }
 
 
