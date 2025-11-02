@@ -15,16 +15,6 @@ import {
     AlignCenter,
     AlignRight,
     AlignJustify,
-    Square,
-    Circle,
-    Pencil,
-    Type,
-    Image as ImageIcon,
-    MousePointer,
-    ClipboardCopy,
-    ClipboardPaste,
-    Trash2,
-    Eraser,
     Eye,
     Save,
     Undo2,
@@ -39,7 +29,7 @@ import { motion } from 'framer-motion';
 import './UnifiedToolbar.css';
 import ColorPicker from '@/shared/ui/ColorPicker';
 
-type EditorMode = 'brief' | 'canvas';
+type EditorMode = 'brief';
 
 interface UnifiedToolbarProps {
     onBold?: () => void;
@@ -61,20 +51,9 @@ interface UnifiedToolbarProps {
     onAlignCenter?: () => void;
     onAlignRight?: () => void;
     onAlignJustify?: () => void;
-    onAddRectangle?: () => void;
-    onAddCircle?: () => void;
-    onFreeDraw?: () => void;
-    onSelectTool?: () => void;
-    onAddText?: () => void;
-    onAddImage?: () => void;
     onInsertLayout?: (template: string) => void;
-    onColorChange?: (e: ChangeEvent<HTMLInputElement>) => void;
     onFigma?: () => void;
     onVoice?: () => void;
-    onCopy?: () => void;
-    onPaste?: () => void;
-    onDelete?: () => void;
-    onClearCanvas?: () => void;
     onPreview?: () => void;
     onSave?: () => void;
     onUndo?: () => void;
@@ -85,7 +64,7 @@ interface UnifiedToolbarProps {
     orientation?: 'horizontal' | 'vertical';
 }
 
-const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnderline, onStrikethrough, onCode, onParagraph, onHeading1, onHeading2, onQuote, onUnorderedList, onOrderedList, onFontChange, onFontSizeChange, onFontColorChange, onBgColorChange, onAlignLeft, onAlignCenter, onAlignRight, onAlignJustify, onAddRectangle, onAddCircle, onFreeDraw, onSelectTool, onAddText, onAddImage, onInsertLayout, onColorChange, onFigma, onVoice, onCopy, onPaste, onDelete, onClearCanvas, onPreview, onSave, onUndo, onRedo, initialMode = 'brief', onModeChange, theme = 'dark', orientation = 'horizontal', }) => {
+const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnderline, onStrikethrough, onCode, onParagraph, onHeading1, onHeading2, onQuote, onUnorderedList, onOrderedList, onFontChange, onFontSizeChange, onFontColorChange, onBgColorChange, onAlignLeft, onAlignCenter, onAlignRight, onAlignJustify, onInsertLayout, onFigma, onVoice, onPreview, onSave, onUndo, onRedo, initialMode = 'brief', onModeChange, theme = 'dark', orientation = 'horizontal', }) => {
     const [mode, setMode] = useState<EditorMode>(initialMode);
     const [fontColor, setFontColor] = useState<string>('');
     const [bgColor, setBgColor] = useState<string>('');
@@ -159,7 +138,6 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
 
     const modes: { key: EditorMode; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
         { key: 'brief', label: 'Brief', icon: FileText },
-        { key: 'canvas', label: 'Canvas', icon: Paintbrush },
     ];
     
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -251,9 +229,6 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
                     <button type="button" onClick={onAlignJustify} title="Justify">
                         <AlignJustify size={16} />
                     </button>
-                    <button type="button" onClick={onAddImage} title="Add image">
-                        <ImageIcon size={16} />
-                    </button>
                     <div style={{ position: 'relative' }}>
                         <button
                             type="button"
@@ -308,42 +283,6 @@ const UnifiedToolbar: React.FC<UnifiedToolbarProps> = ({ onBold, onItalic, onUnd
                     </button>
                     <button type="button" onClick={onVoice} title="Voice">
                         <Mic size={16} />
-                    </button>
-                </div>
-            )}
-            
-            {mode === 'canvas' && (
-                <div className="toolbar-group mode-actions canvas-actions">
-                    <button type="button" onClick={onSelectTool} title="Select tool">
-                        <MousePointer size={16} />
-                    </button>
-                    <button type="button" onClick={onAddRectangle} title="Add rectangle">
-                        <Square size={16} />
-                    </button>
-                    <button type="button" onClick={onAddCircle} title="Add circle">
-                        <Circle size={16} />
-                    </button>
-                    <button type="button" onClick={onFreeDraw} title="Free draw">
-                        <Pencil size={16} />
-                    </button>
-                    <button type="button" onClick={onAddText} title="Add text">
-                        <Type size={16} />
-                    </button>
-                    <button type="button" onClick={onAddImage} title="Add image">
-                        <ImageIcon size={16} />
-                    </button>
-                    <input type="color" onChange={onColorChange} title="Color" className="color-input" />
-                    <button type="button" onClick={onCopy} title="Copy">
-                        <ClipboardCopy size={16} />
-                    </button>
-                    <button type="button" onClick={onPaste} title="Paste">
-                        <ClipboardPaste size={16} />
-                    </button>
-                    <button type="button" onClick={onDelete} title="Delete selected">
-                        <Trash2 size={16} />
-                    </button>
-                    <button type="button" onClick={onClearCanvas} title="Clear canvas">
-                        <Eraser size={16} />
                     </button>
                 </div>
             )}

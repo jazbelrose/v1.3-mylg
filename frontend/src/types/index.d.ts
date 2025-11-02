@@ -174,61 +174,6 @@ declare module 'scramble-text' {
   }
 }
 
-declare module 'fabric' {
-  export class StaticCanvas {
-    constructor(element: string | HTMLCanvasElement, options?: any);
-    toDataURL(options?: any): string;
-    getContext(): CanvasRenderingContext2D;
-    clearContext(ctx: CanvasRenderingContext2D): void;
-  }
-
-  export class Canvas extends StaticCanvas {
-    constructor(element: string | HTMLCanvasElement, options?: any);
-    setWidth(width: number): Canvas;
-    setHeight(height: number): Canvas;
-    add(object: any): Canvas;
-    renderAll(): Canvas;
-    clear(): Canvas;
-    toJSON(): any;
-    loadFromJSON(json: any, callback?: () => void): void;
-    dispose(): void;
-    freeDrawingBrush: any;
-    isDrawingMode: boolean;
-    selection: boolean;
-    on(event: string, handler: (e: any) => void): void;
-    off(event: string, handler?: (e: any) => void): void;
-    getObjects(): any[];
-    remove(...objects: any[]): Canvas;
-    getActiveObject(): any;
-    discardActiveObject(): Canvas;
-    requestRenderAll(): void;
-    getZoom(): number;
-    zoomToPoint(point: any, value: number): void;
-  }
-  
-  export class PencilBrush {
-    constructor(canvas: Canvas);
-    color: string;
-    width: number;
-  }
-  
-  export class Rect {
-    constructor(options?: any);
-    static fromObject(object: any): Rect;
-  }
-  
-  export class IText {
-    constructor(text: string, options?: any);
-    static fromObject(object: any): IText;
-  }
-  
-  export class Image {
-    constructor(element: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | string, options?: any);
-    static fromURL(url: string, options?: any): Promise<Image>;
-    static fromObject(object: any): Image;
-  }
-}
-
 // Allow importing CSS modules and plain CSS files
 declare module '*.module.css' {
   const classes: { [key: string]: string };
