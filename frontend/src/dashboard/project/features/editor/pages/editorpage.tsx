@@ -365,18 +365,25 @@ const EditorPage: React.FC = () => {
     [pages, activePageId]
   );
 
-  const layerNodes = useMemo(
+  const layerRenderers = useMemo(
     () => ({
-      canvas: (
+      canvas: ({ page, isActive }: { page: SheetPageState; isActive: boolean }) => (
         <FabricRealtimeCanvas
-          ref={designerRef}
+          ref={(instance) => {
+            if (isActive) {
+              designerRef.current = instance;
+            }
+            if (!instance && designerRef.current && page.id === activePageId) {
+              designerRef.current = null;
+            }
+          }}
           projectId={activeProject?.projectId}
-          pageId={activePage?.id}
-          pageName={activePage?.name}
+          pageId={page.id}
+          pageName={page.name}
         />
       ),
     }),
-    [activePage?.id, activePage?.name, activeProject?.projectId]
+    [activePageId, activeProject?.projectId]
   );
 
   const exportDeck = useCallback(
@@ -504,7 +511,7 @@ const EditorPage: React.FC = () => {
             onSelectLayer={handleSelectLayer}
             onToggleLayerVisibility={handleToggleLayerVisibility}
             onChangeLayerOpacity={handleChangeLayerOpacity}
-            layerNodes={layerNodes}
+            layerRenderers={layerRenderers}
             toolbarProps={toolbarProps}
           />
           <PreviewDrawer
