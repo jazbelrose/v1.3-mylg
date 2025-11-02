@@ -248,7 +248,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
   };
 
   useEffect(() => {
-    const root = editor.getRootElement();
+  const root = editor.getRootElement();
     const onFocus = () => setIsFocused(true);
     const onBlur = () => setIsFocused(false);
     root.addEventListener("focusin", onFocus);
@@ -315,13 +315,24 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
     };
     
     window.addEventListener("click", handleWindowClick);
-    window.addEventListener("keydown", handleKeyDown);
+    // Register keydown on the editor root in the capture phase so we can
+    // intercept arrow keys before Lexical's rich-text handlers run and
+    // unselect the image. Fall back to window with capture if root is missing.
+    if (root) {
+      root.addEventListener("keydown", handleKeyDown, true);
+    } else {
+      window.addEventListener("keydown", handleKeyDown, true);
+    }
     
     return () => {
       root.removeEventListener("focusin", onFocus);
       root.removeEventListener("focusout", onBlur);
       window.removeEventListener("click", handleWindowClick);
-      window.removeEventListener("keydown", handleKeyDown);
+      if (root) {
+        root.removeEventListener("keydown", handleKeyDown, true);
+      } else {
+        window.removeEventListener("keydown", handleKeyDown, true);
+      }
     };
   }, [editor, isSelected, isLocked, nodeKey, clearSelection]);
 
