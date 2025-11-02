@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   $getSelection,
@@ -6,7 +6,10 @@ import {
   COMMAND_PRIORITY_EDITOR,
   type LexicalCommand,
 } from "lexical";
-import { $patchStyleText } from "@lexical/selection";
+import {
+  $patchStyleText,
+  $getSelectionStyleValueForProperty,
+} from "@lexical/selection";
 import { SET_TEXT_COLOR_COMMAND, SET_BG_COLOR_COMMAND } from "../commands";
 import ColorPicker from "@/shared/ui/ColorPicker";
 import { useDropdown } from "../contexts/DropdownContext";
@@ -33,43 +36,60 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
   const [editor] = useLexicalComposerContext();
 
   const [currentTextColor, setCurrentTextColor] = useState<string>("#000000");
-  const [currentBgColor, setCurrentBgColor] = useState<string>("#FFFFFF");
+  const [currentBgColor, setCurrentBgColor] = useState<string>("#ffffff");
+
+  const updateColorState = useCallback(() => {
+    editor.getEditorState().read(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        const textColor = $getSelectionStyleValueForProperty(
+          selection,
+          "color",
+          "#000000"
+        );
+        const bgColor = $getSelectionStyleValueForProperty(
+          selection,
+          "background-color",
+          "#ffffff"
+        );
+        setCurrentTextColor(textColor);
+        setCurrentBgColor(bgColor);
+      }
+    });
+  }, [editor]);
+
+  useEffect(() => {
+    const unregisterUpdate = editor.registerUpdateListener(
+      ({ editorState }) => {
+        editorState.read(() => {
+          updateColorState();
+        });
+      }
+    );
+    return unregisterUpdate;
+  }, [editor, updateColorState]);
 
   // DropdownProvider is supplied by the surrounding LexicalEditor
-  const { activeDropdown, openDropdown, closeDropdown, dropdownRef } =
+  const { closeDropdown } =
     useDropdown() as unknown as DropdownCtx;
-
-  const textColorDropdownId = "text-color-dropdown";
-  const bgColorDropdownId = "bg-color-dropdown";
-
-  // --- Toggle handlers ---
-  const toggleTextColorPicker = () => {
-    if (activeDropdown === textColorDropdownId) {
-      closeDropdown();
-    } else {
-      openDropdown(textColorDropdownId, dropdownRef);
-    }
-  };
-
-  const toggleBgColorPicker = () => {
-    if (activeDropdown === bgColorDropdownId) {
-      closeDropdown();
-    } else {
-      openDropdown(bgColorDropdownId, dropdownRef);
-    }
-  };
 
   // --- Apply color to selection via commands (also used by external callers) ---
   const handleTextColorChange = (e: { target: { value: string } }) => {
     const newColor = e.target.value;
-    setCurrentTextColor(newColor);
-    editor.dispatchCommand(SET_TEXT_COLOR_COMMAND as LexicalCommand<ColorValue>, newColor);
+    editor.dispatchCommand(
+      SET_TEXT_COLOR_COMMAND as LexicalCommand<ColorValue>,
+      newColor
+    );
+    closeDropdown();
   };
 
   const handleBgColorChange = (e: { target: { value: string } }) => {
     const newColor = e.target.value;
-    setCurrentBgColor(newColor);
-    editor.dispatchCommand(SET_BG_COLOR_COMMAND as LexicalCommand<ColorValue>, newColor);
+    editor.dispatchCommand(
+      SET_BG_COLOR_COMMAND as LexicalCommand<ColorValue>,
+      newColor
+    );
+    closeDropdown();
   };
 
   // --- Register command handlers once ---
@@ -123,25 +143,25 @@ function ColorPluginContent({ showToolbar }: { showToolbar: boolean }) {
   if (!showToolbar) return null;
 
   return (
-    <div className="toolbar" role="toolbar" aria-label="Text and background color">
-      
-          <ColorPicker
-            color={currentTextColor || "#000000"}
-            onChange={handleTextColorChange}
-            title="Text color"
-          />
-        
-     
+    <div
+      className="toolbar"
+      role="toolbar"
+      aria-label="Text and background color"
+    >
+      <ColorPicker
+        color={currentTextColor || "#000000"}
+        onChange={handleTextColorChange}
+        title="Text color"
+      />
 
       {/* Background Color */}
 
-          <ColorPicker
-            color={currentBgColor || "#FFFFFF"}
-            onChange={handleBgColorChange}
-            title="Background color"
-          />
-        </div>
- 
+      <ColorPicker
+        color={currentBgColor || "#ffffff"}
+        onChange={handleBgColorChange}
+        title="Background color"
+      />
+    </div>
   );
 }
 
