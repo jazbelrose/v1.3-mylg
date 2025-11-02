@@ -8,8 +8,9 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   padding: 32px;
   overflow: auto;
   background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.04), transparent 55%),
@@ -17,10 +18,49 @@
     #0c0c0c;
 }
 
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  width: 100%;
+  align-items: center;
+  padding: 8px 0 64px;
+}
+
+.surfaceWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  outline: none;
+  cursor: pointer;
+}
+
+.surfaceWrapper:focus-visible {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.6);
+  border-radius: 24px;
+}
+
+.surfaceWrapper[data-active="false"] .surfaceFrame {
+  opacity: 0.9;
+  filter: saturate(0.85);
+}
+
+.surfaceWrapper[data-active="false"] .layerContent {
+  pointer-events: none;
+}
+
+.surfaceWrapper[data-active="false"] .surface {
+  pointer-events: none;
+}
+
 .surface {
   display: inline-block;
   transform-origin: center top;
   transition: transform 0.2s ease;
+  margin: 0 auto;
 }
 
 .surfaceFrame {
@@ -63,6 +103,11 @@
   pointer-events: inherit;
 }
 
+.activePage .surfaceFrame {
+  box-shadow: 0 32px 56px rgba(0, 0, 0, 0.6);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
 .surfaceEmpty,
 .placeholder {
   color: rgba(255, 255, 255, 0.68);
@@ -78,4 +123,35 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.pageMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pageIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.2);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.pageName {
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }

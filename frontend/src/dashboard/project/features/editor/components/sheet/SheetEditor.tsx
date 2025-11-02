@@ -21,6 +21,11 @@ import type {
   SheetPageState,
 } from "@/dashboard/project/features/editor/types/sheet";
 
+type LayerRenderer = (
+  page: SheetPageState,
+  options: { isActive: boolean }
+) => React.ReactNode;
+
 interface SheetEditorProps {
   pages: SheetPageState[];
   activePageId: string;
@@ -32,7 +37,7 @@ interface SheetEditorProps {
   onSelectLayer: (layer: LayerGroupKey) => void;
   onToggleLayerVisibility: (pageId: string, layer: LayerGroupKey) => void;
   onChangeLayerOpacity: (pageId: string, layer: LayerGroupKey, value: number) => void;
-  layerNodes: Record<LayerGroupKey, React.ReactNode>;
+  layerNodes: Record<LayerGroupKey, LayerRenderer>;
   toolbarProps: ComponentProps<typeof UnifiedToolbar>;
 }
 
@@ -269,10 +274,12 @@ const SheetEditor: React.FC<SheetEditorProps> = ({
           <header className={styles.stageHeader}>{stageSummary}</header>
           <div className={styles.stageViewport} ref={viewportRef}>
             <FabricStage
-              page={activePage}
+              pages={pages}
+              activePageId={activePageId}
               activeLayer={activeLayer}
               layerNodes={layerNodes}
               zoom={zoom}
+              onSelectPage={onSelectPage}
             />
             <div className={styles.zoomControls} aria-label="Zoom controls">
               <button type="button" onClick={handleZoomOut} aria-label="Zoom out">
