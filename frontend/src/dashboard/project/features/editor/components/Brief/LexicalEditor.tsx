@@ -281,7 +281,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
               <FontPlugin showToolbar={false} />
               <ImagePlugin showToolbarButton={false} />
               <FigmaPlugin showToolbarButton={false} />
-              <LayoutPlugin />
+              
               <SpeechToTextPlugin showToolbarButton={false} />
               <FloatingToolbar editorRef={editorRef} />
 
