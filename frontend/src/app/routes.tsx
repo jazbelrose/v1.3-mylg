@@ -22,6 +22,7 @@ const DashboardSingleProject = React.lazy(() => import("@/dashboard/project/proj
 const DashboardBudgetPage = React.lazy(() => import("../dashboard/project/features/budget/pages/BudgetPage"));
 const DashboardCalendarPage = React.lazy(() => import("@/dashboard/project/features/calendar/calendar"));
 const DashboardEditorPage = React.lazy(() => import("@/dashboard/project/features/editor/pages/editorpage"));
+const DashboardSlidesPage = React.lazy(() => import("@/dashboard/project/features/slides/SlidesPage"));
 const DashboardTasksPage = React.lazy(() => import("../dashboard/home/pages/TasksListPage"));
 
 const ScrollToTop: React.FC = () => {
@@ -169,6 +170,10 @@ const ActualRoutes: React.FC<ActualRoutesProps> = ({ location }) => {
           <Route
             path="projects/:projectId/:projectName?/editor"
             element={<DashboardEditorPage />}
+          />
+          <Route
+            path="projects/:projectId/:projectName?/slides"
+            element={<DashboardSlidesPage />}
           />
           <Route path="tasks" element={<DashboardTasksPage />} />
           <Route path="new" element={<DashboardNewProject />} />
