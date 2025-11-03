@@ -722,8 +722,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </div>
 
-      <div className={styles.pdfEditor}>
-        <div className={styles.pdfViewerPane}>
+      <div className={styles.pdfEditor} style={allowSave ? {} : { justifyContent: 'center' }}>
+        <div className={styles.pdfViewerPane} style={allowSave ? {} : { flex: '0 0 auto', maxWidth: '800px' }}>
           {inlinePdfUrl ? (
             <iframe src={inlinePdfUrl} title="Invoice PDF preview" className={styles.pdfIframe} />
           ) : (
@@ -737,356 +737,356 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           </div>
         </div>
 
-        <div className={styles.pdfFormPane}>
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Organization</span>
-              <span className={styles.helperText}>
-                Update your organization details to see them reflected immediately in the PDF.
-              </span>
-            </div>
+        {allowSave ? (
+          <div className={styles.pdfFormPane}>
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Organization</span>
+                <span className={styles.helperText}>
+                  Update your organization details to see them reflected immediately in the PDF.
+                </span>
+              </div>
 
-            <div
-              className={styles.logoDropzone}
-              role="button"
-              tabIndex={0}
-              onClick={handleLogoZoneClick}
-              onKeyDown={handleLogoZoneKeyDown}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handleLogoDropInternal}
-            >
-              {logoSrc ? (
-                <img src={logoSrc} alt="Uploaded logo" className={styles.logoImage} />
-              ) : (
-                <span className={styles.logoEmpty}>Click or drop an image</span>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                style={{ display: "none" }}
-                onChange={onLogoSelect}
-              />
-            </div>
-
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-name">Organization name</label>
-              <input
-                id="invoice-brand-name"
-                className={styles.textInput}
-                value={draftBrandName}
-                placeholder={project?.company || "Your organization name"}
-                onChange={(e) => updateDraftField("brandName", e.target.value)}
-              />
-            </div>
-
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-brand-tagline">Tagline</label>
-              <input
-                id="invoice-brand-tagline"
-                className={styles.textInput}
-                value={draftBrandTagline}
-                placeholder="Optional tagline"
-                onChange={(e) => updateDraftField("brandTagline", e.target.value)}
-              />
-            </div>
-
-            {isDirty ? (
-              <button
-                type="button"
-                className={styles.headerSaveButton}
-                onClick={onSaveHeader}
+              <div
+                className={styles.logoDropzone}
+                role="button"
+                tabIndex={0}
+                onClick={handleLogoZoneClick}
+                onKeyDown={handleLogoZoneKeyDown}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={handleLogoDropInternal}
               >
-                Save as my default invoice header
-              </button>
-            ) : null}
-            {showSaved ? (
-              <div className={styles.savedMsg} role="status">
-                Header info saved! Future invoices will use this by default.
-              </div>
-            ) : null}
-          </div>
-
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Invoice Details</span>
-            </div>
-
-            <div className={styles.formGrid}>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-number">Invoice #</label>
+                {logoSrc ? (
+                  <img src={logoSrc} alt="Uploaded logo" className={styles.logoImage} />
+                ) : (
+                  <span className={styles.logoEmpty}>Click or drop an image</span>
+                )}
                 <input
-                  id="invoice-number"
-                  className={styles.textInput}
-                  value={draftInvoiceNumber}
-                  onChange={(e) => updateDraftField("invoiceNumber", e.target.value)}
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: "none" }}
+                  onChange={onLogoSelect}
                 />
               </div>
+
               <div className={styles.formRow}>
-                <label htmlFor="invoice-issue-date">Issue date</label>
+                <label htmlFor="invoice-brand-name">Organization name</label>
                 <input
-                  id="invoice-issue-date"
+                  id="invoice-brand-name"
                   className={styles.textInput}
-                  value={draftIssueDate}
-                  onChange={(e) => updateDraftField("issueDate", e.target.value)}
+                  value={draftBrandName}
+                  placeholder={project?.company || "Your organization name"}
+                  onChange={(e) => updateDraftField("brandName", e.target.value)}
                 />
               </div>
+
               <div className={styles.formRow}>
-                <label htmlFor="invoice-project-name">Project</label>
+                <label htmlFor="invoice-brand-tagline">Tagline</label>
                 <input
-                  id="invoice-project-name"
+                  id="invoice-brand-tagline"
                   className={styles.textInput}
-                  value={draftProjectName}
-                  placeholder={project?.title || "Project name"}
-                  onChange={(e) => updateDraftField("projectName", e.target.value)}
+                  value={draftBrandTagline}
+                  placeholder="Optional tagline"
+                  onChange={(e) => updateDraftField("brandTagline", e.target.value)}
                 />
               </div>
-            </div>
-          </div>
 
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Billed to</span>
-              <span className={styles.helperText}>
-                Prefilled from the client profile. Update any line to override final PDF.
-              </span>
-            </div>
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-customer-summary">Client details</label>
-              <textarea
-                id="invoice-customer-summary"
-                className={styles.textArea}
-                value={draftCustomerSummary}
-                onChange={(e) => updateDraftField("customerSummary", e.target.value)}
-              ></textarea>
-            </div>
-          </div>
-
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Grouping</span>
-              <span className={styles.helperText}>
-                Group By options are applied directly to the PDF preview and export.
-              </span>
+              {isDirty ? (
+                <button
+                  type="button"
+                  className={styles.headerSaveButton}
+                  onClick={onSaveHeader}
+                >
+                  Save as my default invoice header
+                </button>
+              ) : null}
+              {showSaved ? (
+                <div className={styles.savedMsg} role="status">
+                  Header info saved! Future invoices will use this by default.
+                </div>
+              ) : null}
             </div>
 
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-group-field">Group By:</label>
-              <select
-                id="invoice-group-field"
-                className={styles.selectInput}
-                value={groupField}
-                onChange={(event) => onGroupFieldChange(event.target.value as GroupField)}
-              >
-                {groupFields.map((field) => (
-                  <option key={field.value} value={field.value}>
-                    {field.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Invoice Details</span>
+              </div>
 
-            {groupOptions.length > 0 ? (
-              <div className={styles.groupSelect} role="group" aria-label="Groups">
-                <label className={styles.groupItem}>
+              <div className={styles.formGrid}>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-number">Invoice #</label>
                   <input
-                    type="checkbox"
-                    checked={groupValues.length === groupOptions.length}
-                    onChange={(event) => onToggleAllGroupValues(event.target.checked)}
+                    id="invoice-number"
+                    className={styles.textInput}
+                    value={draftInvoiceNumber}
+                    onChange={(e) => updateDraftField("invoiceNumber", e.target.value)}
                   />
-                  Select All
-                </label>
-                {groupOptions.map((value) => (
-                  <label key={value} className={styles.groupItem}>
+                </div>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-issue-date">Issue date</label>
+                  <input
+                    id="invoice-issue-date"
+                    className={styles.textInput}
+                    value={draftIssueDate}
+                    onChange={(e) => updateDraftField("issueDate", e.target.value)}
+                  />
+                </div>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-project-name">Project</label>
+                  <input
+                    id="invoice-project-name"
+                    className={styles.textInput}
+                    value={draftProjectName}
+                    placeholder={project?.title || "Project name"}
+                    onChange={(e) => updateDraftField("projectName", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Billed to</span>
+                <span className={styles.helperText}>
+                  Prefilled from the client profile. Update any line to override final PDF.
+                </span>
+              </div>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-customer-summary">Client details</label>
+                <textarea
+                  id="invoice-customer-summary"
+                  className={styles.textArea}
+                  value={draftCustomerSummary}
+                  onChange={(e) => updateDraftField("customerSummary", e.target.value)}
+                ></textarea>
+              </div>
+            </div>
+
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Grouping</span>
+                <span className={styles.helperText}>
+                  Group By options are applied directly to the PDF preview and export.
+                </span>
+              </div>
+
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-group-field">Group By:</label>
+                <select
+                  id="invoice-group-field"
+                  className={styles.selectInput}
+                  value={groupField}
+                  onChange={(event) => onGroupFieldChange(event.target.value as GroupField)}
+                >
+                  {groupFields.map((field) => (
+                    <option key={field.value} value={field.value}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {groupOptions.length > 0 ? (
+                <div className={styles.groupSelect} role="group" aria-label="Groups">
+                  <label className={styles.groupItem}>
                     <input
                       type="checkbox"
-                      checked={groupValues.includes(value)}
-                      onChange={() => onToggleGroupValue(value)}
+                      checked={groupValues.length === groupOptions.length}
+                      onChange={(event) => onToggleAllGroupValues(event.target.checked)}
                     />
-                    {value}
+                    Select All
                   </label>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.helperText}>
-                No groups available for the selected field.
-              </div>
-            )}
-          </div>
+                  {groupOptions.map((value) => (
+                    <label key={value} className={styles.groupItem}>
+                      <input
+                        type="checkbox"
+                        checked={groupValues.includes(value)}
+                        onChange={() => onToggleGroupValue(value)}
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.helperText}>
+                  No groups available for the selected field.
+                </div>
+              )}
+            </div>
 
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Totals</span>
-            </div>
-            <div className={styles.formGrid}>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-subtotal">Subtotal</label>
-                <input
-                  id="invoice-subtotal"
-                  className={styles.textInput}
-                  value={formatCurrency(subtotal)}
-                  readOnly
-                />
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Totals</span>
               </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-deposit">Deposit received</label>
-                <input
-                  id="invoice-deposit"
-                  className={styles.textInput}
-                  value={depositInput}
-                  onChange={(e) => handleDepositChange(e.target.value)}
-                  inputMode="decimal"
-                />
-              </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-tax-rate">Tax rate (%)</label>
-                <input
-                  id="invoice-tax-rate"
-                  className={styles.textInput}
-                  value={taxRateInput}
-                  onChange={(e) => handleTaxRateChange(e.target.value)}
-                  inputMode="decimal"
-                />
-              </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-total-due">Total due</label>
-                <input
-                  id="invoice-total-due"
-                  className={styles.textInput}
-                  value={totalDueInput}
-                  onChange={(e) => handleTotalDueChange(e.target.value)}
-                  inputMode="decimal"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Payment Information</span>
-            </div>
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-organization-name">Organization name</label>
-              <input
-                id="invoice-organization-name"
-                className={styles.textInput}
-                value={draftOrganizationName}
-                placeholder="Your organization name"
-                onChange={(e) => updateDraftField("organizationName", e.target.value)}
-              />
-            </div>
-            <div className={styles.formRow}>
-              <label htmlFor="invoice-organization-address">Address & Bank Information</label>
-              <textarea
-                id="invoice-organization-address"
-                className={styles.textArea}
-                value={draftOrganizationAddress}
-                placeholder="Add your mailing address"
-                onChange={(e) => updateDraftField("organizationAddress", e.target.value)}
-                rows={3}
-              ></textarea>
-            </div>
-            <div className={styles.formGrid}>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-organization-phone">Phone</label>
-                <input
-                  id="invoice-organization-phone"
-                  className={styles.textInput}
-                  value={draftOrganizationPhone}
-                  placeholder="Add your phone number"
-                  onChange={(e) => updateDraftField("organizationPhone", e.target.value)}
-                  type="tel"
-                />
-              </div>
-              <div className={styles.formRow}>
-                <label htmlFor="invoice-organization-email">Email</label>
-                <input
-                  id="invoice-organization-email"
-                  className={styles.textInput}
-                  value={draftOrganizationEmail}
-                  placeholder="Add your email address"
-                  onChange={(e) => updateDraftField("organizationEmail", e.target.value)}
-                  type="email"
-                />
-              </div>
-            </div>
-            <div className={styles.formRow}>
-              <textarea
-                id="invoice-notes"
-                className={styles.textAreaLarge}
-                value={notesDraft}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                placeholder="Bank name, account number, payment instructions"
-              ></textarea>
-              <span className={styles.helperText}>
-                Supports multi-line content. Line breaks are mirrored in the PDF footer.
-              </span>
-          </div>
-        </div>
-
-        {pages.length > 0 ? (
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.formSectionTitle}>Pages</span>
-              <span className={styles.helperText}>
-                Choose which pages to include when generating PDFs or saving HTML copies.
-              </span>
-            </div>
-            <div className={styles.groupSelect} role="group" aria-label="Pages">
-              <label className={styles.groupItem}>
-                <input
-                  type="checkbox"
-                  checked={selectedPages.length === pages.length}
-                  onChange={(event) => onToggleAllPages(event.target.checked)}
-                />
-                Select All Pages
-              </label>
-              {pages.map((_, index) => (
-                <label key={index} className={styles.groupItem}>
+              <div className={styles.formGrid}>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-subtotal">Subtotal</label>
                   <input
-                    type="checkbox"
-                    checked={selectedPages.includes(index)}
-                    onChange={() => onTogglePage(index)}
+                    id="invoice-subtotal"
+                    className={styles.textInput}
+                    value={formatCurrency(subtotal)}
+                    readOnly
                   />
-                  Page {index + 1}
-                </label>
-              ))}
+                </div>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-deposit">Deposit received</label>
+                  <input
+                    id="invoice-deposit"
+                    className={styles.textInput}
+                    value={depositInput}
+                    onChange={(e) => handleDepositChange(e.target.value)}
+                    inputMode="decimal"
+                  />
+                </div>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-tax-rate">Tax rate (%)</label>
+                  <input
+                    id="invoice-tax-rate"
+                    className={styles.textInput}
+                    value={taxRateInput}
+                    onChange={(e) => handleTaxRateChange(e.target.value)}
+                    inputMode="decimal"
+                  />
+                </div>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-total-due">Total due</label>
+                  <input
+                    id="invoice-total-due"
+                    className={styles.textInput}
+                    value={totalDueInput}
+                    onChange={(e) => handleTotalDueChange(e.target.value)}
+                    inputMode="decimal"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.formSection}>
+              <div className={styles.formSectionHeader}>
+                <span className={styles.formSectionTitle}>Payment Information</span>
+              </div>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-organization-name">Organization name</label>
+                <input
+                  id="invoice-organization-name"
+                  className={styles.textInput}
+                  value={draftOrganizationName}
+                  placeholder="Your organization name"
+                  onChange={(e) => updateDraftField("organizationName", e.target.value)}
+                />
+              </div>
+              <div className={styles.formRow}>
+                <label htmlFor="invoice-organization-address">Address & Bank Information</label>
+                <textarea
+                  id="invoice-organization-address"
+                  className={styles.textArea}
+                  value={draftOrganizationAddress}
+                  placeholder="Add your mailing address"
+                  onChange={(e) => updateDraftField("organizationAddress", e.target.value)}
+                  rows={3}
+                ></textarea>
+              </div>
+              <div className={styles.formGrid}>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-organization-phone">Phone</label>
+                  <input
+                    id="invoice-organization-phone"
+                    className={styles.textInput}
+                    value={draftOrganizationPhone}
+                    placeholder="Add your phone number"
+                    onChange={(e) => updateDraftField("organizationPhone", e.target.value)}
+                    type="tel"
+                  />
+                </div>
+                <div className={styles.formRow}>
+                  <label htmlFor="invoice-organization-email">Email</label>
+                  <input
+                    id="invoice-organization-email"
+                    className={styles.textInput}
+                    value={draftOrganizationEmail}
+                    placeholder="Add your email address"
+                    onChange={(e) => updateDraftField("organizationEmail", e.target.value)}
+                    type="email"
+                  />
+                </div>
+              </div>
+              <div className={styles.formRow}>
+                <textarea
+                  id="invoice-notes"
+                  className={styles.textAreaLarge}
+                  value={notesDraft}
+                  onChange={(e) => handleNotesChange(e.target.value)}
+                  placeholder="Bank name, account number, payment instructions"
+                ></textarea>
+                <span className={styles.helperText}>
+                  Supports multi-line content. Line breaks are mirrored in the PDF footer.
+                </span>
+              </div>
+            </div>
+
+            {pages.length > 0 ? (
+              <div className={styles.formSection}>
+                <div className={styles.formSectionHeader}>
+                  <span className={styles.formSectionTitle}>Pages</span>
+                  <span className={styles.helperText}>
+                    Choose which pages to include when generating PDFs or saving HTML copies.
+                  </span>
+                </div>
+                <div className={styles.groupSelect} role="group" aria-label="Pages">
+                  <label className={styles.groupItem}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPages.length === pages.length}
+                      onChange={(event) => onToggleAllPages(event.target.checked)}
+                    />
+                    Select All Pages
+                  </label>
+                  {pages.map((_, index) => (
+                    <label key={index} className={styles.groupItem}>
+                      <input
+                        type="checkbox"
+                        checked={selectedPages.includes(index)}
+                        onChange={() => onTogglePage(index)}
+                      />
+                      Page {index + 1}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={`${styles.formActionButton} ${styles.updateButton}`}
+                onClick={handleApplyUpdates}
+                disabled={!hasDraftChanges}
+              >
+                Update
+              </button>
+              {allowSave ? (
+                <div className={styles.saveActionGroup}>
+                  <button
+                    type="button"
+                    className={`${styles.formActionButton} ${styles.saveButton}`}
+                    onClick={handleSaveButtonClick}
+                    disabled={hasDraftChanges}
+                    title={hasDraftChanges ? "Apply updates before saving" : undefined}
+                  >
+                    Save
+                  </button>
+                  {hasSavedInvoice ? (
+                    <span className={styles.saveStatus} role="status">
+                      {formattedLastSaved ? `Saved ${formattedLastSaved}` : "Invoice saved"}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
-
-        <div className={styles.formActions}>
-          <button
-            type="button"
-            className={`${styles.formActionButton} ${styles.updateButton}`}
-            onClick={handleApplyUpdates}
-            disabled={!hasDraftChanges}
-          >
-            Update
-          </button>
-          {allowSave ? (
-            <div className={styles.saveActionGroup}>
-              <button
-                type="button"
-                className={`${styles.formActionButton} ${styles.saveButton}`}
-                onClick={handleSaveButtonClick}
-                disabled={hasDraftChanges}
-                title={hasDraftChanges ? "Apply updates before saving" : undefined}
-              >
-                Save
-              </button>
-              {hasSavedInvoice ? (
-                <span className={styles.saveStatus} role="status">
-                  {formattedLastSaved ? `Saved ${formattedLastSaved}` : "Invoice saved"}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
       </div>
     </div>
-  </div>
   );
-};
-
-export default InvoicePreviewContent;
+};export default InvoicePreviewContent;
