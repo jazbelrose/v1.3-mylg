@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef } from "react";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
+import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
@@ -129,6 +130,7 @@ const NewProjectDescription: React.FC<NewProjectDescriptionProps> = ({
                 />
               }
               placeholder={<Placeholder />}
+              ErrorBoundary={LexicalErrorBoundary}
             />
             <HistoryPlugin />
             <ListPlugin />

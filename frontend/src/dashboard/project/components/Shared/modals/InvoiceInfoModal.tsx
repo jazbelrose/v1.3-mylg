@@ -117,7 +117,7 @@ const InvoiceInfoModal = ({ modal }: InvoiceInfoModalProps) => {
     return `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`;
   }, [gradientEnd, accentColor]);
 
-  const accentStyles = useMemo<CSSProperties>(
+  const accentStyles = useMemo<CSSProperties & Record<`--${string}`, string>>(
     () => ({
       "--invoice-accent": accentColor,
       "--invoice-accent-rgb": accentRgbString,

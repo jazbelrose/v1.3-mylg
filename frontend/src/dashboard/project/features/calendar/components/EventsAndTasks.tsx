@@ -217,8 +217,6 @@ function EventsAndTasks({
               <PopoverContent
                 className="events-tasks__filter-popover"
                 align="start"
-                side="right"
-                sideOffset={12}
               >
                 <div className="events-tasks__filter-section">
                   <div className="events-tasks__filter-heading">Events</div>

@@ -41,7 +41,6 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
   const [url, setURL] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [editor] = useLexicalComposerContext();
 
@@ -142,8 +141,6 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           aria-label="Add Image"
           type="button"
          style={{ background: "none", border: "none", cursor: "pointer", paddingRight: 18 }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
           onClick={() => setIsOpen(true)}
         >
           <FileImageOutlined style={{ fontSize: 18, color: "black" }} />

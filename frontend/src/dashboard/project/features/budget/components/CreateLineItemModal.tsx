@@ -282,8 +282,8 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const touchStartYRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const lastOffsetRef = useRef(0);
-  const swipeCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeCloseTimeoutRef = useRef<number | null>(null);
+  const closeResetTimeoutRef = useRef<number | null>(null);
 
   const resetSwipeState = useCallback(() => {
     setSwipeOffset(0);
@@ -982,7 +982,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     <>
       <Modal
         isOpen={isOpen}
-        onRequestClose={handleClose}
+        onRequestClose={() => handleClose()}
         contentLabel={title}
         closeTimeoutMS={300}
         shouldCloseOnEsc={false}
@@ -1021,7 +1021,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
               </div>
               <div className={styles.headerActions}>
                 <span className={styles.revisionPill}>Rev. {revision}</span>
-                <button type="button" className={styles.closeButton} onClick={handleClose} aria-label="Close">
+                <button type="button" className={styles.closeButton} onClick={() => handleClose()} aria-label="Close">
                   <FontAwesomeIcon icon={faXmark} />
                 </button>
               </div>
@@ -1061,7 +1061,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
             <footer className={styles.modalFooter}>
               <div className={styles.shortcutHint}>Press ⌘+Enter / Ctrl+Enter to save.</div>
               <div className={styles.footerActions}>
-                <button type="button" className={styles.secondaryButton} onClick={handleClose}>
+                <button type="button" className={styles.secondaryButton} onClick={() => handleClose()}>
                   Cancel
                 </button>
                 <button type="submit" className={styles.primaryButton}>

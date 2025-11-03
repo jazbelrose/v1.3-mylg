@@ -241,11 +241,11 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         return;
       }
 
-      const header = await fetchBudgetHeader(projectKey, targetRevision);
+      const header = await fetchBudgetHeader(projectKey, targetRevision as number);
       if (!header || !header.budgetId) return;
       const items = await fetchBudgetItems(
         String(header.budgetId),
-        header.revision ?? targetRevision
+        (header.revision as number | null) ?? (targetRevision as number)
       );
       setInvoiceRevision(header as BudgetHeaderData);
       setInvoiceItems(items as Array<Record<string, unknown>>);

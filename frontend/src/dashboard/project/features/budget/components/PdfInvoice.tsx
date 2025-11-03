@@ -424,7 +424,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
           </View>
 
           <View
-            render={({ pageNumber, totalPages }) =>
+            render={({ pageNumber }) =>
               pageNumber === 1 ? (
                 <View style={styles.headerRuleContainer}>
                   <View style={styles.headerRule} />

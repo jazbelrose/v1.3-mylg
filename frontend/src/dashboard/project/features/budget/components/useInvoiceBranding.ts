@@ -103,15 +103,15 @@ export function useInvoiceBranding({
         : currentUserBranding.brandTagline;
 
     const base: BrandingSnapshot = {
-      brandLogoKey: resolvedKey,
+      brandLogoKey: resolvedKey as string,
       brandLogoDataUrl: initialLogoDataUrl,
-      brandName: baseBrandName,
-      brandTagline: baseBrandTagline,
+      brandName: baseBrandName as string,
+      brandTagline: baseBrandTagline as string,
     };
 
-    setBrandLogoKey(resolvedKey);
-    setBrandName(baseBrandName);
-    setBrandTagline(baseBrandTagline);
+    setBrandLogoKey(resolvedKey as string);
+    setBrandName(baseBrandName as string);
+    setBrandTagline(baseBrandTagline as string);
     setLogoDataUrl(initialLogoDataUrl);
     setShowSaved(false);
     setIsDirty(false);

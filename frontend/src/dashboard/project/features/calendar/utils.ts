@@ -1,4 +1,4 @@
-import type { ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import type { Task as ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
 
 export type CalendarCategory = "Work" | "Education" | "Personal";
 

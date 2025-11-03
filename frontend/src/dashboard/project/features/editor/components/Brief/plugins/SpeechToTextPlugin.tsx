@@ -3,30 +3,7 @@ import { AudioOutlined, AudioFilled } from "@ant-design/icons";
 import { useSpeech } from "../contexts/SpeechContext";
 
 /* ---------- Minimal typings for Web Speech API (and webkit fallback) ---------- */
-type SpeechRecognitionResultLike = {
-  0: { transcript: string };
-  isFinal: boolean;
-};
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: SpeechRecognitionResultLike[];
-};
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((ev: SpeechRecognitionEventLike) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
-declare global {
-  interface Window {
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-  }
-}
+// Speech recognition types are declared in SpeechProvider.tsx
 
 type Props = {
   /** Show a toolbar button that toggles voice input */

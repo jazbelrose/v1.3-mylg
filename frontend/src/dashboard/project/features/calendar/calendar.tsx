@@ -671,7 +671,7 @@ const CalendarPage: React.FC = () => {
       const nextStatus = target.status === "done" ? "todo" : "done";
       const optimistic = previous.map((task) =>
         task.taskId === target.taskId || (task as { id?: string }).id === taskId
-          ? { ...task, status: nextStatus }
+          ? ({ ...task, status: nextStatus } as ApiTask)
           : task,
       );
 
