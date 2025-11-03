@@ -19,6 +19,24 @@ const FONT_FAMILIES = [
   "mylg-serif",
 ] as const;
 
+const FONT_FAMILY_CSS_VALUES: Record<FontFamily, string> = {
+  "Helvetica Special": "var(--font-family-helvetica-special)",
+  "Helvetica Black": "var(--font-family-helvetica-black)",
+  "Helvetica Light": "var(--font-family-helvetica-light)", 
+  "Helvetica Neue": "var(--font-family-helvetica-neue)",
+  "Helvetica Medium": "var(--font-family-helvetica-medium)",
+  "mylg-serif": "var(--font-family-serif)",
+};
+
+const FONT_FAMILY_WEIGHTS: Record<FontFamily, string> = {
+  "Helvetica Special": "700",
+  "Helvetica Black": "900",
+  "Helvetica Light": "300",
+  "Helvetica Neue": "400",
+  "Helvetica Medium": "500",
+  "mylg-serif": "500",
+};
+
 const FONT_SIZES = ["12px", "14px", "16px", "18px", "24px", "32px", "48px"] as const;
 
 type FontFamily = (typeof FONT_FAMILIES)[number];
@@ -48,7 +66,10 @@ export default function FontPlugin({ showToolbar = true }: Props) {
         editor.update(() => {
           const selection = $getSelection();
           if ($isRangeSelection(selection)) {
-            $patchStyleText(selection, { "font-family": family });
+            $patchStyleText(selection, { 
+              "font-family": FONT_FAMILY_CSS_VALUES[family],
+              "font-weight": FONT_FAMILY_WEIGHTS[family]
+            });
           }
         });
         return true;
