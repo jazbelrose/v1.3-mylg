@@ -16,6 +16,7 @@ import { useBudget } from "@/dashboard/project/features/budget/context/BudgetCon
 import { updateBudgetItem } from "@/shared/utils/api";
 import type {
   BudgetItem,
+  GroupField,
   InvoiceDetailsPayload,
   InvoicePreviewModalProps,
   OrganizationInfoFields,
@@ -485,6 +486,30 @@ export function useInvoicePreviewModal({
     [setBrandTagline, markInvoiceDirty]
   );
 
+  const handleGroupFieldChangeWrapped = useCallback(
+    (field: GroupField) => {
+      handleGroupFieldChange(field);
+      markInvoiceDirty();
+    },
+    [handleGroupFieldChange, markInvoiceDirty]
+  );
+
+  const handleToggleGroupValueWrapped = useCallback(
+    (value: string) => {
+      handleToggleGroupValue(value);
+      markInvoiceDirty();
+    },
+    [handleToggleGroupValue, markInvoiceDirty]
+  );
+
+  const handleToggleAllGroupValuesWrapped = useCallback(
+    (checked: boolean) => {
+      handleToggleAllGroupValues(checked);
+      markInvoiceDirty();
+    },
+    [handleToggleAllGroupValues, markInvoiceDirty]
+  );
+
   const saveInvoice = useCallback(async () => {
     const revisionBudgetItemId =
       (revision as { budgetItemId?: string } | null)?.budgetItemId ??
@@ -683,11 +708,11 @@ export function useInvoicePreviewModal({
     setCurrentPage,
     pages,
     groupField,
-    handleGroupFieldChange,
+    handleGroupFieldChange: handleGroupFieldChangeWrapped,
     groupOptions,
     groupValues,
-    handleToggleGroupValue,
-    handleToggleAllGroupValues,
+    handleToggleGroupValue: handleToggleGroupValueWrapped,
+    handleToggleAllGroupValues: handleToggleAllGroupValuesWrapped,
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,
