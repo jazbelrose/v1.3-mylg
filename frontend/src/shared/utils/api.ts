@@ -142,6 +142,7 @@ export interface BudgetInvoiceDetails extends JsonRecord {
   subtotal?: number;
   totalDue?: number;
   brandLogoKey?: string | null;
+  brandLogoDataUrl?: string | null;
   brandName?: string;
   brandTagline?: string;
   organization?: {

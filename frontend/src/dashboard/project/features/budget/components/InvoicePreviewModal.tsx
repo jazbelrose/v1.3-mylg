@@ -84,6 +84,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     handleStayOpen,
     handleConfirmLeave,
     handleAttemptClose,
+    hasSavedInvoice,
+    lastSavedAt,
   } = useInvoicePreviewModal({
     isOpen,
     onRequestClose,
@@ -180,6 +182,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   onNotesBlur={handleNotesBlur}
                   pdfPreviewUrl={pdfPreviewUrl}
                   onClosePdfPreview={closePdfPreview}
+                  hasSavedInvoice={hasSavedInvoice}
+                  lastSavedAt={lastSavedAt}
                 />
               </div>
             </Fragment>

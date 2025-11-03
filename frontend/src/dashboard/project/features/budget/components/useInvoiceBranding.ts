@@ -7,6 +7,7 @@ import type { UserLite } from "@/app/contexts/DataProvider";
 
 interface BrandingSnapshot {
   brandLogoKey: string;
+  brandLogoDataUrl: string | null;
   brandName: string;
   brandTagline: string;
 }
@@ -50,6 +51,7 @@ export function useInvoiceBranding({
   const [isDirty, setIsDirty] = useState(false);
   const [baselineBranding, setBaselineBranding] = useState<BrandingSnapshot>({
     brandLogoKey: "",
+    brandLogoDataUrl: null,
     brandName: "",
     brandTagline: "",
   });
@@ -73,7 +75,7 @@ export function useInvoiceBranding({
 
   useEffect(() => {
     if (!isOpen) return;
-    const initial = initialBranding ?? {};
+    const initial: Partial<BrandingSnapshot> = initialBranding ?? {};
     const rawInitialKey =
       typeof initial.brandLogoKey === "string"
         ? initial.brandLogoKey
@@ -89,22 +91,28 @@ export function useInvoiceBranding({
         : `public/${currentUserBranding.brandLogoUrl}`;
     }
 
+    const initialLogoDataUrl =
+      typeof initial.brandLogoDataUrl === "string" ? initial.brandLogoDataUrl : null;
+    const baseBrandName =
+      typeof initial.brandName === "string"
+        ? initial.brandName
+        : currentUserBranding.brandName;
+    const baseBrandTagline =
+      typeof initial.brandTagline === "string"
+        ? initial.brandTagline
+        : currentUserBranding.brandTagline;
+
     const base: BrandingSnapshot = {
       brandLogoKey: resolvedKey,
-      brandName:
-        typeof initial.brandName === "string"
-          ? initial.brandName
-          : currentUserBranding.brandName,
-      brandTagline:
-        typeof initial.brandTagline === "string"
-          ? initial.brandTagline
-          : currentUserBranding.brandTagline,
+      brandLogoDataUrl: initialLogoDataUrl,
+      brandName: baseBrandName,
+      brandTagline: baseBrandTagline,
     };
 
     setBrandLogoKey(resolvedKey);
-    setBrandName(base.brandName);
-    setBrandTagline(base.brandTagline);
-    setLogoDataUrl(null);
+    setBrandName(baseBrandName);
+    setBrandTagline(baseBrandTagline);
+    setLogoDataUrl(initialLogoDataUrl);
     setShowSaved(false);
     setIsDirty(false);
     setBaselineBranding(base);
@@ -115,12 +123,14 @@ export function useInvoiceBranding({
     const dirty =
       normalize(brandLogoKey) !== normalize(baselineBranding.brandLogoKey) ||
       normalize(brandName) !== normalize(baselineBranding.brandName) ||
-      normalize(brandTagline) !== normalize(baselineBranding.brandTagline);
+      normalize(brandTagline) !== normalize(baselineBranding.brandTagline) ||
+      normalize(logoDataUrl) !== normalize(baselineBranding.brandLogoDataUrl);
     setIsDirty(dirty);
   }, [
     brandLogoKey,
     brandName,
     brandTagline,
+    logoDataUrl,
     baselineBranding,
   ]);
 
@@ -181,6 +191,12 @@ export function useInvoiceBranding({
       setLogoDataUrl(null);
       setShowSaved(true);
       setIsDirty(false);
+      setBaselineBranding({
+        brandLogoKey: uploadedKey,
+        brandLogoDataUrl: null,
+        brandName,
+        brandTagline,
+      });
     } catch (error) {
       console.error("Failed to save header", error);
       toast.error("Unable to save brand details");

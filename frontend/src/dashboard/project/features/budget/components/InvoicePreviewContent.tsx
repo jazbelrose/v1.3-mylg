@@ -25,6 +25,8 @@ interface InvoicePreviewContentProps {
   previewRef: React.RefObject<HTMLDivElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   allowSave: boolean;
+  hasSavedInvoice: boolean;
+  lastSavedAt: string | null;
   onSaveInvoice: () => void;
   groupFields: Array<{ label: string; value: GroupField }>;
   groupField: GroupField;
@@ -124,6 +126,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   previewRef,
   fileInputRef,
   allowSave,
+  hasSavedInvoice,
+  lastSavedAt,
   onSaveInvoice,
   groupFields,
   groupField,
@@ -207,6 +211,17 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
 
   const formattedTaxRate = useMemo(() => formatPercent(taxRate), [taxRate]);
+  const formattedLastSaved = useMemo(() => {
+    if (!lastSavedAt) return null;
+    const parsed = new Date(lastSavedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, [lastSavedAt]);
 
   const committedValues = useMemo(
     () => ({
@@ -605,7 +620,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       ) : null}
 
-      <style id="invoice-preview-styles">{`
+      <style
+        id="invoice-preview-styles"
+        dangerouslySetInnerHTML={{
+          __html: `
         @page { margin: 0; }
         body { margin: 0; }
         .invoice-container{background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;width:min(100%,210mm);max-width:210mm;box-sizing:border-box;margin:0 auto;padding:20px;overflow-x:hidden;}
@@ -645,7 +663,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           .invoice-page{width:210mm;max-width:210mm;height:297mm;min-height:auto;box-shadow:none;margin:0;page-break-after:always;padding:20px 20px 50px;}
           .invoice-page:last-child{page-break-after:auto;}
         }
-      `}</style>
+      `,
+        }}
+      />
 
       <div
         className="invoice-page invoice-container"
@@ -838,7 +858,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 className={styles.textArea}
                 value={draftCustomerSummary}
                 onChange={(e) => updateDraftField("customerSummary", e.target.value)}
-              />
+              ></textarea>
             </div>
           </div>
 
@@ -964,7 +984,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 placeholder="Add your mailing address"
                 onChange={(e) => updateDraftField("organizationAddress", e.target.value)}
                 rows={3}
-              />
+              ></textarea>
             </div>
             <div className={styles.formGrid}>
               <div className={styles.formRow}>
@@ -997,7 +1017,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 value={notesDraft}
                 onChange={(e) => handleNotesChange(e.target.value)}
                 placeholder="Bank name, account number, payment instructions"
-              />
+              ></textarea>
               <span className={styles.helperText}>
                 Supports multi-line content. Line breaks are mirrored in the PDF footer.
               </span>
@@ -1040,11 +1060,12 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             type="button"
             className={`${styles.formActionButton} ${styles.updateButton}`}
             onClick={handleApplyUpdates}
-              disabled={!hasDraftChanges}
-            >
-              Update
-            </button>
-            {allowSave ? (
+            disabled={!hasDraftChanges}
+          >
+            Update
+          </button>
+          {allowSave ? (
+            <div className={styles.saveActionGroup}>
               <button
                 type="button"
                 className={`${styles.formActionButton} ${styles.saveButton}`}
@@ -1054,11 +1075,17 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               >
                 Save
               </button>
-            ) : null}
-          </div>
+              {hasSavedInvoice ? (
+                <span className={styles.saveStatus} role="status">
+                  {formattedLastSaved ? `Saved ${formattedLastSaved}` : "Invoice saved"}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
+  </div>
   );
 };
 

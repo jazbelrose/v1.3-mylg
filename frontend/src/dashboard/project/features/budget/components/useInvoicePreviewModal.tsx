@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { ChangeEventHandler, DragEventHandler } from "react";
 import { toast } from "react-toastify";
 
 import useModalStack from "@/shared/utils/useModalStack";
@@ -191,6 +192,7 @@ export function useInvoicePreviewModal({
       resolvedInvoiceDetails
         ? {
             brandLogoKey: resolvedInvoiceDetails.brandLogoKey ?? "",
+            brandLogoDataUrl: resolvedInvoiceDetails.brandLogoDataUrl ?? null,
             brandName: resolvedInvoiceDetails.brandName ?? "",
             brandTagline: resolvedInvoiceDetails.brandTagline ?? "",
           }
@@ -234,6 +236,7 @@ export function useInvoicePreviewModal({
 
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [hasSavedInvoice, setHasSavedInvoice] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -245,8 +248,8 @@ export function useInvoicePreviewModal({
     brandTagline,
     showSaved,
     isDirty,
-    handleLogoSelect,
-    handleLogoDrop,
+    handleLogoSelect: brandingHandleLogoSelect,
+    handleLogoDrop: brandingHandleLogoDrop,
     handleSaveHeader,
     setBrandName,
     setBrandTagline,
@@ -438,12 +441,29 @@ export function useInvoicePreviewModal({
   useEffect(() => {
     if (!isOpen) return;
     setHasSavedInvoice(Boolean(resolvedInvoiceDetails));
+    setLastSavedAt(resolvedInvoiceDetails?.savedAt ?? null);
   }, [isOpen, resolvedInvoiceDetails]);
 
   const markInvoiceDirty = useCallback(() => {
     setInvoiceDirty(true);
     setHasSavedInvoice(false);
   }, [setInvoiceDirty, setHasSavedInvoice]);
+
+  const handleLogoSelect = useCallback<ChangeEventHandler<HTMLInputElement>>(
+    (event) => {
+      brandingHandleLogoSelect(event);
+      markInvoiceDirty();
+    },
+    [brandingHandleLogoSelect, markInvoiceDirty],
+  );
+
+  const handleLogoDrop = useCallback<DragEventHandler<HTMLDivElement>>(
+    (event) => {
+      brandingHandleLogoDrop(event);
+      markInvoiceDirty();
+    },
+    [brandingHandleLogoDrop, markInvoiceDirty],
+  );
 
   const handleBrandNameBlur = useCallback(
     (value: string) => {
@@ -487,6 +507,11 @@ export function useInvoicePreviewModal({
       email: organizationFields.email.trim(),
     };
 
+    const brandLogoDataUrl =
+      typeof logoDataUrl === "string" && logoDataUrl.startsWith("data:")
+        ? logoDataUrl
+        : resolvedInvoiceDetails?.brandLogoDataUrl ?? null;
+
     const invoiceDetails: InvoiceDetailsPayload = {
       invoiceNumber: invoiceNumber.trim(),
       issueDate: issueDate.trim(),
@@ -499,6 +524,7 @@ export function useInvoicePreviewModal({
       subtotal,
       totalDue,
       brandLogoKey: brandLogoKey ? brandLogoKey : null,
+      brandLogoDataUrl,
       brandName: brandName.trim(),
       brandTagline: brandTagline.trim(),
       organization,
@@ -517,6 +543,7 @@ export function useInvoicePreviewModal({
 
       setInvoiceDirty(false);
       setHasSavedInvoice(true);
+      setLastSavedAt(invoiceDetails.savedAt);
       toast.success("Invoice saved");
 
       setBudgetHeader((prev) => {
@@ -560,6 +587,7 @@ export function useInvoicePreviewModal({
     project?.projectId,
     projectName,
     revision,
+    resolvedInvoiceDetails,
     setBudgetHeader,
     setInvoiceDirty,
     subtotal,
@@ -674,6 +702,8 @@ export function useInvoicePreviewModal({
     handleStayOpen,
     handleConfirmLeave,
     handleAttemptClose,
+    hasSavedInvoice,
+    lastSavedAt,
   };
 }
 

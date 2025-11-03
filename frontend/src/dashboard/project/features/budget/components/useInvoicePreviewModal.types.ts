@@ -77,4 +77,6 @@ export interface UseInvoicePreviewModalResult {
   handleStayOpen: () => void;
   handleConfirmLeave: () => void;
   handleAttemptClose: () => void;
+   hasSavedInvoice: boolean;
+   lastSavedAt: string | null;
 }

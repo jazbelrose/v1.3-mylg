@@ -77,6 +77,7 @@ export interface InvoiceDetailsPayload {
   subtotal: number;
   totalDue: number;
   brandLogoKey: string | null;
+  brandLogoDataUrl: string | null;
   brandName: string;
   brandTagline: string;
   organization: OrganizationInfoFields;

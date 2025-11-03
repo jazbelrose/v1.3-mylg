@@ -390,6 +390,18 @@
   z-index: 1;
 }
 
+.saveActionGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.saveStatus {
+  align-self: center;
+  font-size: 0.75rem;
+  color: rgba(226, 232, 240, 0.75);
+}
+
 .formActionButton {
   border: none;
   border-radius: 8px;
