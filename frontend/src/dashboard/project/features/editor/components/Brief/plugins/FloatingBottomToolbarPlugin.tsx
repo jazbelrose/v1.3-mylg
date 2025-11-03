@@ -18,15 +18,34 @@ export default function FloatingBottomToolbarPlugin({
   onPreview,
   onSave,
 }: FloatingBottomToolbarPluginProps) {
-  const { listening, toggleListening } = useSpeech();
+  const { listening, toggleListening, micStatus } = useSpeech();
+
+  const getMicButtonProps = () => {
+    if (micStatus === 'denied') {
+      return {
+        title: "Microphone access denied - click to retry",
+        disabled: false,
+        style: { color: "#f00" },
+        icon: <MicOff size={18} strokeWidth={1.8} />,
+      };
+    }
+    return {
+      title: listening ? "Stop Voice Input" : "Voice",
+      disabled: false,
+      style: listening ? { color: "#c00" } : {},
+      icon: listening ? <MicOff size={18} strokeWidth={1.8} /> : <Mic size={18} strokeWidth={1.8} />,
+    };
+  };
+
+  const micProps = getMicButtonProps();
 
   return (
     <div
       className="floating-toolbar"
       style={{
-        position: "fixed",
-        bottom: "24px",
-        right: "24px",
+        position: "absolute",
+        bottom: "10px",
+        right: "10px",
         background: "#111",
         border: "1px solid #333",
         borderRadius: "12px",
@@ -52,13 +71,13 @@ export default function FloatingBottomToolbarPlugin({
       <button
         className="toolbar-btn"
         onClick={() => {
-          console.log("Mic button clicked");
           toggleListening();
         }}
-        title={listening ? "Stop Voice Input" : "Voice"}
-        style={listening ? { color: "#c00" } : {}}
+        title={micProps.title}
+        disabled={micProps.disabled}
+        style={micProps.style}
       >
-        {listening ? <MicOff size={18} strokeWidth={1.8} /> : <Mic size={18} strokeWidth={1.8} />}
+        {micProps.icon}
       </button>
     </div>
   );

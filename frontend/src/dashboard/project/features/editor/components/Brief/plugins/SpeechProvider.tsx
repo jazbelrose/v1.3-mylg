@@ -8,6 +8,7 @@ import {
   $createTextNode,
 } from "lexical";
 import { SpeechContext } from "../contexts/SpeechContext";
+import { notify } from "@/shared/ui/ToastNotifications";
 
 /* ---------- Minimal typings for Web Speech API (and webkit fallback) ---------- */
 type SpeechRecognitionResultLike = {
@@ -47,33 +48,27 @@ type Props = {
 };
 
 export default function SpeechProvider({ children }: Props) {
-  console.log("SpeechProvider mounted");
   const [editor] = useLexicalComposerContext();
-  console.log("Editor:", editor);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [listening, setListening] = useState(false);
+  const [micStatus, setMicStatus] = useState<PermissionState | null>(null);
 
   useEffect(() => {
-    console.log("SpeechProvider useEffect running");
     if (typeof window === "undefined") {
-      console.log("Window is undefined, skipping");
       return;
     }
 
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) {
-      console.log("Speech recognition not supported");
       return;
     }
 
-    console.log("Creating speech recognition");
     const recognition = new Ctor();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = "en-US";
 
     recognition.onstart = () => {
-      console.log("Speech recognition started");
       setListening(true);
     };
 
@@ -81,18 +76,20 @@ export default function SpeechProvider({ children }: Props) {
       console.error("Speech recognition error:", event);
       setListening(false);
       if (event.error === 'not-allowed') {
-        alert("Microphone permission is required for speech recognition. Please allow microphone access and try again.");
+        notify('error', "Microphone access was denied. Please allow microphone permission and try again.");
+      } else if (event.error === 'no-speech') {
+        notify('info', "No speech detected. Try speaking more clearly or check your mic.");
+      } else {
+        notify('error', `Speech recognition error: ${event.error}`);
       }
     };
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      console.log("Speech recognition result:", event);
       const transcript = Array.from(event.results)
         .slice(event.resultIndex)
         .map((res) => res[0].transcript)
         .join(" ");
 
-      console.log("Transcript:", transcript);
       editor.update(() => {
         const selection = $getSelection();
         if ($isRangeSelection(selection)) {
@@ -106,15 +103,12 @@ export default function SpeechProvider({ children }: Props) {
     };
 
     recognition.onend = () => {
-      console.log("Speech recognition ended");
       setListening(false);
     };
 
     recognitionRef.current = recognition;
-    console.log("Speech recognition created and stored");
 
     return () => {
-      console.log("Cleaning up speech recognition");
       try {
         recognition.stop();
       } catch {
@@ -124,17 +118,14 @@ export default function SpeechProvider({ children }: Props) {
     };
   }, [editor]);
 
-  const toggleListening = useCallback(() => {
-    console.log("toggleListening called, current listening:", listening);
+  const toggleListening = useCallback(async () => {
     const recognition = recognitionRef.current;
     if (!recognition) {
-      console.log("No speech recognition available");
-      alert("Speech recognition is not supported in this browser.");
+      notify('error', "Speech recognition is not supported in this browser.");
       return;
     }
 
     if (listening) {
-      console.log("Stopping speech recognition");
       try {
         recognition.stop();
       } catch (e) {
@@ -142,18 +133,32 @@ export default function SpeechProvider({ children }: Props) {
       }
       setListening(false);
     } else {
-      console.log("Starting speech recognition");
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        notify('error', "Your browser doesn't support microphone access. Please update your browser.");
+        return;
+      }
+
       try {
+        // Always request microphone permission
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Immediately stop the stream as we only needed permission
+        stream.getTracks().forEach(track => track.stop());
+        setMicStatus('granted');
+        
         recognition.start();
         // Don't set listening here, wait for onstart
-      } catch (e) {
-        console.error("Speech recognition start error:", e);
+      } catch (permissionError) {
+        console.error("Microphone permission denied:", permissionError);
+        setMicStatus('denied');
+        notify('error', "Microphone access is required for speech recognition. Please click 'Allow' when your browser asks for microphone permission, or enable it in your browser settings.");
+        return;
       }
     }
   }, [listening]);
 
   return (
-    <SpeechContext.Provider value={{ listening, toggleListening }}>
+    <SpeechContext.Provider value={{ listening, toggleListening, micStatus }}>
       {children}
     </SpeechContext.Provider>
   );
