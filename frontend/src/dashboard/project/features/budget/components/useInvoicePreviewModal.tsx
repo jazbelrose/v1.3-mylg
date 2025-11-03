@@ -379,12 +379,12 @@ export function useInvoicePreviewModal({
   } = useInvoiceLayout(rowsData);
 
   const handleAttemptClose = useCallback(() => {
-    if (isDirty || invoiceDirty) {
+    if (invoiceDirty || !hasSavedInvoice) {
       setShowUnsavedPrompt(true);
       return;
     }
     onRequestClose();
-  }, [isDirty, invoiceDirty, onRequestClose]);
+  }, [invoiceDirty, hasSavedInvoice, onRequestClose]);
 
   const handleConfirmLeave = useCallback(() => {
     setShowUnsavedPrompt(false);
@@ -447,6 +447,7 @@ export function useInvoicePreviewModal({
   const markInvoiceDirty = useCallback(() => {
     setInvoiceDirty(true);
     setHasSavedInvoice(false);
+    setLastSavedAt(null);
   }, [setInvoiceDirty, setHasSavedInvoice]);
 
   const handleLogoSelect = useCallback<ChangeEventHandler<HTMLInputElement>>(
