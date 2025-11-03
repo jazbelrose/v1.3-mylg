@@ -307,7 +307,11 @@ export function LayoutPlugin() {
         footer={null}
         width={400}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+        >
           <Button
             type="text"
             onClick={() => handleInsertLayout("1fr 1fr")}
