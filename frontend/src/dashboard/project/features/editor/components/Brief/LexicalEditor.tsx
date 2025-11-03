@@ -64,6 +64,14 @@ import SpeechToTextPlugin from "./plugins/SpeechToTextPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 
+import {
+  Download,
+  Upload,
+  Eye,
+  Save,
+  Mic,
+} from "lucide-react";
+
 type LexicalEditorProps = {
   onChange: (json: string) => void;
   initialContent?: unknown | null;
@@ -439,6 +447,41 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                   )}
                 />
               </div>
+
+              {/* Floating bottom-right toolbar */}
+              <div
+                className="floating-toolbar"
+                style={{
+                  position: "fixed",
+                  bottom: "24px",
+                  right: "24px",
+                  background: "#111",
+                  border: "1px solid #333",
+                  borderRadius: "12px",
+                  padding: "8px",
+                  display: "flex",
+                  gap: "10px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                  zIndex: 1000,
+                }}
+              >
+                <button className="toolbar-btn" title="Import">
+                  <Download size={18} strokeWidth={1.8} />
+                </button>
+                <button className="toolbar-btn" title="Export">
+                  <Upload size={18} strokeWidth={1.8} />
+                </button>
+                <button className="toolbar-btn" onClick={onPreview} title="Preview">
+                  <Eye size={18} strokeWidth={1.8} />
+                </button>
+                <button className="toolbar-btn" onClick={onSave} title="Save">
+                  <Save size={18} strokeWidth={1.8} />
+                </button>
+                <button className="toolbar-btn" title="Voice">
+                  <Mic size={18} strokeWidth={1.8} />
+                </button>
+              </div>
+
             </div>
           </ImageLockPlugin>
         </DropdownProvider>
