@@ -60,6 +60,7 @@ import ImagePlugin from "./plugins/ImagePlugin";
 import VectorPlugin from "./plugins/VectorPlugin";
 import FigmaPlugin from "./plugins/FigmaPlugin";
 import { LayoutPlugin } from "./plugins/LayoutPlugin";
+import SpeechProvider from "./plugins/SpeechProvider";
 import SpeechToTextPlugin from "./plugins/SpeechToTextPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import FloatingBottomToolbarPlugin from "./plugins/FloatingBottomToolbarPlugin";
@@ -355,16 +356,17 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
       <LexicalComposer initialConfig={initialConfig}>
         <DropdownProvider>
           <ImageLockPlugin provider={providerRef.current}>
-            <div
-              className="editor-container"
-              ref={editorContainerRef}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                height: "100%",
-              }}
-            >
+            <SpeechProvider>
+              <div
+                className="editor-container"
+                ref={editorContainerRef}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  height: "100%",
+                }}
+              >
               <ToolbarActionsPlugin registerToolbar={registerToolbar} />
               <ToolbarPlugin onPreview={onPreview} onSave={onSave} />
               <ColorPlugin showToolbar={false} />
@@ -443,7 +445,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
               <FloatingBottomToolbarPlugin onPreview={onPreview} onSave={onSave} />
 
-            </div>
+              </div>
+            </SpeechProvider>
           </ImageLockPlugin>
         </DropdownProvider>
       </LexicalComposer>

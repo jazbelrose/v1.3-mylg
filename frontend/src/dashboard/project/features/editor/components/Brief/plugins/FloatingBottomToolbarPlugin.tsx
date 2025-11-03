@@ -1,12 +1,12 @@
 import React from "react";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { TOGGLE_SPEECH_COMMAND } from "../commands";
+import { useSpeech } from "../contexts/SpeechContext";
 import {
   Download,
   Upload,
   Eye,
   Save,
   Mic,
+  MicOff,
 } from "lucide-react";
 
 type FloatingBottomToolbarPluginProps = {
@@ -18,7 +18,7 @@ export default function FloatingBottomToolbarPlugin({
   onPreview,
   onSave,
 }: FloatingBottomToolbarPluginProps) {
-  const [editor] = useLexicalComposerContext();
+  const { listening, toggleListening } = useSpeech();
 
   return (
     <div
@@ -51,10 +51,14 @@ export default function FloatingBottomToolbarPlugin({
       </button>
       <button
         className="toolbar-btn"
-        onClick={() => editor.dispatchCommand(TOGGLE_SPEECH_COMMAND, undefined)}
-        title="Voice"
+        onClick={() => {
+          console.log("Mic button clicked");
+          toggleListening();
+        }}
+        title={listening ? "Stop Voice Input" : "Voice"}
+        style={listening ? { color: "#c00" } : {}}
       >
-        <Mic size={18} strokeWidth={1.8} />
+        {listening ? <MicOff size={18} strokeWidth={1.8} /> : <Mic size={18} strokeWidth={1.8} />}
       </button>
     </div>
   );
