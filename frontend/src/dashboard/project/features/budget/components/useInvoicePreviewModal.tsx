@@ -5,18 +5,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { uploadData } from "aws-amplify/storage";
-import { v4 as uuid } from "uuid";
 import { toast } from "react-toastify";
 
 import useModalStack from "@/shared/utils/useModalStack";
 import { useData } from "@/app/contexts/useData";
 import type { UserLite } from "@/app/contexts/DataProvider";
-import { slugify } from "@/shared/utils/slug";
-import { getFileUrl } from "@/shared/utils/api";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
+import { updateBudgetItem } from "@/shared/utils/api";
 import type {
   BudgetItem,
+  InvoiceDetailsPayload,
   InvoicePreviewModalProps,
   OrganizationInfoFields,
   OrganizationInfoLine,
@@ -78,11 +76,6 @@ export function useInvoicePreviewModal({
     };
   }, [userData]);
   const [organizationFields, setOrganizationFields] = useState<OrganizationInfoFields>(organizationDefaults);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setOrganizationFields(organizationDefaults);
-  }, [organizationDefaults, isOpen]);
 
   const organizationLines = useMemo<OrganizationInfoLine[]>(() => {
     const name = organizationFields.name.trim();
@@ -176,11 +169,58 @@ export function useInvoicePreviewModal({
     },
     [setUserData]
   );
-  const { budgetItems: contextBudgetItems } = useBudget();
+  const { budgetHeader: contextBudgetHeader, budgetItems: contextBudgetItems, setBudgetHeader } =
+    useBudget();
   const budgetItems = (itemsOverride ?? (contextBudgetItems as unknown as BudgetItem[])) as BudgetItem[];
+  const resolvedInvoiceDetails = useMemo<InvoiceDetailsPayload | null>(() => {
+    const fromRevision = (revision as { invoiceDetails?: InvoiceDetailsPayload | null } | null)
+      ?.invoiceDetails;
+    if (fromRevision && typeof fromRevision === "object") {
+      return fromRevision as InvoiceDetailsPayload;
+    }
+    const fromContext = (contextBudgetHeader as { invoiceDetails?: InvoiceDetailsPayload | null } | null)
+      ?.invoiceDetails;
+    if (fromContext && typeof fromContext === "object") {
+      return fromContext as InvoiceDetailsPayload;
+    }
+    return null;
+  }, [contextBudgetHeader, revision]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const base: OrganizationInfoFields = {
+      name: organizationDefaults.name?.trim() ?? "",
+      address: organizationDefaults.address?.trim() ?? "",
+      phone: organizationDefaults.phone?.trim() ?? "",
+      email: organizationDefaults.email?.trim() ?? "",
+    };
+
+    const invoiceOrg = resolvedInvoiceDetails?.organization;
+    if (invoiceOrg) {
+      setOrganizationFields({
+        name:
+          typeof invoiceOrg.name === "string"
+            ? invoiceOrg.name.trim()
+            : base.name,
+        address:
+          typeof invoiceOrg.address === "string"
+            ? invoiceOrg.address.trim()
+            : base.address,
+        phone:
+          typeof invoiceOrg.phone === "string"
+            ? invoiceOrg.phone.trim()
+            : base.phone,
+        email:
+          typeof invoiceOrg.email === "string"
+            ? invoiceOrg.email.trim()
+            : base.email,
+      });
+    } else {
+      setOrganizationFields(base);
+    }
+  }, [isOpen, organizationDefaults, resolvedInvoiceDetails]);
 
   const [items, setItems] = useState<BudgetItem[]>([]);
-  const [currentFileName, setCurrentFileName] = useState<string>("");
   const [hasSavedInvoice, setHasSavedInvoice] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
@@ -196,6 +236,7 @@ export function useInvoicePreviewModal({
     handleLogoSelect,
     handleLogoDrop,
     handleSaveHeader,
+    setBrandLogoKey,
     setBrandName,
     setBrandTagline,
   } = useInvoiceBranding({
@@ -204,7 +245,27 @@ export function useInvoicePreviewModal({
     setUserData: updateUserData,
   });
 
-  const details = useInvoiceDetails({ isOpen, project, revision });
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!resolvedInvoiceDetails) return;
+
+    if ("brandLogoKey" in resolvedInvoiceDetails) {
+      setBrandLogoKey(resolvedInvoiceDetails.brandLogoKey ?? "");
+    }
+    if ("brandName" in resolvedInvoiceDetails) {
+      setBrandName(resolvedInvoiceDetails.brandName ?? "");
+    }
+    if ("brandTagline" in resolvedInvoiceDetails) {
+      setBrandTagline(resolvedInvoiceDetails.brandTagline ?? "");
+    }
+  }, [isOpen, resolvedInvoiceDetails, setBrandLogoKey, setBrandName, setBrandTagline]);
+
+  const details = useInvoiceDetails({
+    isOpen,
+    project,
+    revision,
+    invoiceDetails: resolvedInvoiceDetails,
+  });
   const {
     invoiceDirty,
     setInvoiceDirty,
@@ -230,13 +291,51 @@ export function useInvoicePreviewModal({
   const grouping = useInvoiceGrouping({ items });
   const {
     groupField,
+    setGroupField,
     groupValues,
+    setGroupValues,
     groupOptions,
     filteredItems,
     handleGroupFieldChange,
     handleToggleGroupValue,
     handleToggleAllGroupValues,
   } = grouping;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const desiredField = resolvedInvoiceDetails?.groupField;
+    if (
+      desiredField === "invoiceGroup" ||
+      desiredField === "areaGroup" ||
+      desiredField === "category"
+    ) {
+      if (desiredField !== groupField) {
+        setGroupField(desiredField);
+      }
+    }
+  }, [groupField, isOpen, resolvedInvoiceDetails, setGroupField]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const storedValues = resolvedInvoiceDetails?.groupValues;
+    if (!Array.isArray(storedValues)) return;
+
+    if (storedValues.length === 0) {
+      setGroupValues([]);
+      return;
+    }
+
+    const normalized = storedValues
+      .map((value) => String(value).trim())
+      .filter((value) => value.length > 0 && groupOptions.includes(value));
+
+    setGroupValues((prev) => {
+      const sameLength = prev.length === normalized.length;
+      const sameValues =
+        sameLength && prev.every((value, index) => value === normalized[index]);
+      return sameValues ? prev : normalized;
+    });
+  }, [groupOptions, isOpen, resolvedInvoiceDetails, setGroupValues]);
 
   const subtotal = useMemo(
     () =>
@@ -301,7 +400,6 @@ export function useInvoicePreviewModal({
     closePdfPreview,
     handleSavePdf,
     handlePreviewPdf,
-    buildInvoiceHtmlPayload,
   } = useInvoicePdfManager({
     project,
     brandName,
@@ -342,13 +440,8 @@ export function useInvoicePreviewModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    if (revision?.revision != null) {
-      setCurrentFileName(`invoice-revision-${revision.revision}.html`);
-    } else {
-      setCurrentFileName("invoice.html");
-    }
-    setHasSavedInvoice(false);
-  }, [isOpen, revision]);
+    setHasSavedInvoice(Boolean(resolvedInvoiceDetails));
+  }, [isOpen, resolvedInvoiceDetails]);
 
   const markInvoiceDirty = useCallback(() => {
     setInvoiceDirty(true);
@@ -372,53 +465,111 @@ export function useInvoicePreviewModal({
   );
 
   const saveInvoice = useCallback(async () => {
-    const html = buildInvoiceHtmlPayload();
-    if (!html || !project?.projectId) return;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+    const revisionBudgetItemId =
+      (revision as { budgetItemId?: string } | null)?.budgetItemId ??
+      (contextBudgetHeader as { budgetItemId?: string } | null)?.budgetItemId;
+    const projectId =
+      project?.projectId ??
+      (revision as { projectId?: string } | null)?.projectId ??
+      (contextBudgetHeader as { projectId?: string } | null)?.projectId;
+    const revisionNumber = Number(
+      (revision as { revision?: number | string } | null)?.revision ??
+        (contextBudgetHeader as { revision?: number | string } | null)?.revision ??
+        1,
+    );
 
-    const unique = uuid().slice(0, 8);
-    const date = new Date().toISOString().split("T")[0];
-    const projectSlug = slugify(project.title || "project");
-    const rev = revision?.revision ?? "0";
-    const fileName = `${projectSlug}-${rev}-${date}-${unique}.html`;
-    const key = `projects/${project.projectId}/invoices/${fileName}`;
+    if (!projectId || !revisionBudgetItemId) {
+      toast.error("Cannot save invoice without project budget header details");
+      return;
+    }
+
+    const organization: OrganizationInfoFields = {
+      name: organizationFields.name.trim(),
+      address: organizationFields.address.trim(),
+      phone: organizationFields.phone.trim(),
+      email: organizationFields.email.trim(),
+    };
+
+    const invoiceDetails: InvoiceDetailsPayload = {
+      invoiceNumber: invoiceNumber.trim(),
+      issueDate: issueDate.trim(),
+      projectName: projectName.trim(),
+      customerSummary,
+      notes,
+      depositReceived,
+      taxRate,
+      taxAmount,
+      subtotal,
+      totalDue,
+      brandLogoKey: brandLogoKey ? brandLogoKey : null,
+      brandName: brandName.trim(),
+      brandTagline: brandTagline.trim(),
+      organization,
+      groupField,
+      groupValues: groupValues.length > 0 ? [...groupValues] : [],
+      savedAt: new Date().toISOString(),
+    };
 
     try {
-      const uploadTask = uploadData({
-        key,
-        data: blob,
-        options: {
-          accessLevel: "guest",
-          metadata: { friendlyName: fileName },
-        },
+      await updateBudgetItem(projectId, revisionBudgetItemId, {
+        invoiceDetails,
+        invoiceFileKey: null,
+        invoiceFileUrl: null,
+        revision: revisionNumber,
       });
-      const result = await uploadTask.result;
+
       setInvoiceDirty(false);
       setHasSavedInvoice(true);
-      setCurrentFileName(fileName);
       toast.success("Invoice saved");
-      const possibleKey = (result as { key?: string } | undefined)?.key;
-      const storedKey =
-        typeof possibleKey === "string" && possibleKey.length > 0 ? possibleKey : key;
-      const storageKey = storedKey.startsWith("public/")
-        ? storedKey
-        : `public/${storedKey}`;
-      const fileUrl = getFileUrl(storageKey);
+
+      setBudgetHeader((prev) => {
+        if (!prev || prev.budgetItemId !== revisionBudgetItemId) return prev;
+        return {
+          ...prev,
+          invoiceDetails,
+          invoiceFileKey: null,
+          invoiceFileUrl: null,
+        };
+      });
+
+      const nextRevision = {
+        ...(revision ?? {}),
+        invoiceDetails,
+        invoiceFileKey: null,
+        invoiceFileUrl: null,
+      };
+
       onInvoiceSaved?.({
-        revision,
-        fileKey: storedKey,
-        fileUrl,
-        fileName,
+        revision: nextRevision,
+        invoiceDetails,
       });
     } catch (error) {
       console.error("Failed to save invoice", error);
+      toast.error("Failed to save invoice");
     }
   }, [
-    buildInvoiceHtmlPayload,
-    project,
-    revision,
-    setInvoiceDirty,
+    brandLogoKey,
+    brandName,
+    brandTagline,
+    contextBudgetHeader,
+    customerSummary,
+    groupField,
+    groupValues,
+    invoiceNumber,
+    issueDate,
+    notes,
     onInvoiceSaved,
+    organizationFields,
+    project?.projectId,
+    projectName,
+    revision,
+    setBudgetHeader,
+    setInvoiceDirty,
+    subtotal,
+    depositReceived,
+    taxAmount,
+    taxRate,
+    totalDue,
   ]);
 
   const handleSaveClick = useCallback(() => {
@@ -466,7 +617,6 @@ export function useInvoicePreviewModal({
     invoiceRef,
     previewRef,
     fileInputRef,
-    currentFileName,
     handleSaveClick,
     handleSavePdf,
     handlePreviewPdf,
@@ -531,3 +681,4 @@ export function useInvoicePreviewModal({
 }
 
 export default useInvoicePreviewModal;
+

@@ -42,6 +42,7 @@ import {
   deleteBudgetItem,
 } from "@/shared/utils/api";
 import { v4 as uuid } from "uuid";
+import type { InvoiceDetailsPayload } from "@/dashboard/project/features/budget/components/invoicePreviewTypes";
 
 
 const TABLE_BOTTOM_MARGIN = 20;
@@ -525,36 +526,39 @@ const BudgetPageContent = () => {
     }
   };
 
-  const handleRevisionInvoiceSaved = async (
+  const handleRevisionInvoiceSaved = (
     revision: { budgetItemId?: string; revision: number },
-    invoice: { fileKey: string; fileUrl: string },
+    invoice: { invoiceDetails: InvoiceDetailsPayload },
   ) => {
-    if (!activeProject?.projectId || !revision?.budgetItemId) return;
+    if (!revision?.budgetItemId) return;
 
-    try {
-      await updateBudgetItem(activeProject.projectId, revision.budgetItemId, {
-        invoiceFileKey: invoice.fileKey,
-        revision: revision.revision,
-      });
+    const nextDetails = invoice.invoiceDetails;
 
-      setRevisions((prev) =>
-        prev.map((item) =>
-          item.budgetItemId === revision.budgetItemId
-            ? { ...item, invoiceFileKey: invoice.fileKey, invoiceFileUrl: invoice.fileUrl }
-            : item,
-        ),
-      );
+    setRevisions((prev) =>
+      prev.map((item) =>
+        item.budgetItemId === revision.budgetItemId
+          ? {
+              ...item,
+              invoiceDetails: nextDetails,
+              invoiceFileKey: null,
+              invoiceFileUrl: null,
+            }
+          : item,
+      ),
+    );
 
-      setBudgetHeader((prev) =>
-        prev && prev.budgetItemId === revision.budgetItemId
-          ? { ...prev, invoiceFileKey: invoice.fileKey, invoiceFileUrl: invoice.fileUrl }
-          : prev,
-      );
+    setBudgetHeader((prev) =>
+      prev && prev.budgetItemId === revision.budgetItemId
+        ? {
+            ...prev,
+            invoiceDetails: nextDetails,
+            invoiceFileKey: null,
+            invoiceFileUrl: null,
+          }
+        : prev,
+    );
 
-      emitBudgetUpdate();
-    } catch (error) {
-      console.error("Failed to attach invoice to revision", error);
-    }
+    emitBudgetUpdate();
   };
 
   const parseFile = async (file) => {

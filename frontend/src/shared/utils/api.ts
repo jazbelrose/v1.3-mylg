@@ -130,6 +130,31 @@ export interface Gallery extends JsonRecord {
   slug?: string;
 }
 
+export interface BudgetInvoiceDetails extends JsonRecord {
+  invoiceNumber?: string;
+  issueDate?: string;
+  projectName?: string;
+  customerSummary?: string;
+  notes?: string;
+  depositReceived?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  subtotal?: number;
+  totalDue?: number;
+  brandLogoKey?: string | null;
+  brandName?: string;
+  brandTagline?: string;
+  organization?: {
+    name?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  };
+  groupField?: string;
+  groupValues?: string[];
+  savedAt?: string;
+}
+
 export interface BudgetHeader extends JsonRecord {
   budgetItemId: `HEADER-${string}`;
   projectId: string;
@@ -139,6 +164,7 @@ export interface BudgetHeader extends JsonRecord {
   revisionName?: string | null;
   invoiceFileKey?: string | null;
   invoiceFileUrl?: string | null;
+  invoiceDetails?: BudgetInvoiceDetails | null;
 }
 
 export interface BudgetLine extends JsonRecord {

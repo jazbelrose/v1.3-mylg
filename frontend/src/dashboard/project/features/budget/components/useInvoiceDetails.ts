@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DEFAULT_NOTES_HTML } from "./invoicePreviewConstants";
-import type { InvoicePreviewModalProps } from "./invoicePreviewTypes";
+import type { InvoicePreviewModalProps, InvoiceDetailsPayload } from "./invoicePreviewTypes";
 
 interface UseInvoiceDetailsOptions {
   isOpen: boolean;
   project: InvoicePreviewModalProps["project"];
   revision: InvoicePreviewModalProps["revision"];
+  invoiceDetails?: InvoiceDetailsPayload | null;
 }
 
 interface UseInvoiceDetailsResult {
@@ -59,6 +60,7 @@ export function useInvoiceDetails({
   isOpen,
   project,
   revision,
+  invoiceDetails = null,
 }: UseInvoiceDetailsOptions): UseInvoiceDetailsResult {
   const [invoiceDirty, setInvoiceDirty] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState("0000");
@@ -72,15 +74,31 @@ export function useInvoiceDetails({
 
   useEffect(() => {
     if (!isOpen) return;
-    setInvoiceNumber("0000");
-    setIssueDate(new Date().toLocaleDateString());
-    setProjectName(project?.title || "");
-    setCustomerSummary(buildClientSummary(project));
-    setNotes(DEFAULT_NOTES_HTML);
-    setDepositReceived(0);
-    setTaxRate(0);
+
+    if (invoiceDetails) {
+      setInvoiceNumber(invoiceDetails.invoiceNumber || "0000");
+      setIssueDate(invoiceDetails.issueDate || new Date().toLocaleDateString());
+      setProjectName(invoiceDetails.projectName || project?.title || "");
+      setCustomerSummary(
+        invoiceDetails.customerSummary || buildClientSummary(project)
+      );
+      setNotes(invoiceDetails.notes ?? DEFAULT_NOTES_HTML);
+      setDepositReceived(invoiceDetails.depositReceived ?? 0);
+      setTaxRate(invoiceDetails.taxRate ?? 0);
+      setTotalDue(invoiceDetails.totalDue ?? 0);
+    } else {
+      setInvoiceNumber("0000");
+      setIssueDate(new Date().toLocaleDateString());
+      setProjectName(project?.title || "");
+      setCustomerSummary(buildClientSummary(project));
+      setNotes(DEFAULT_NOTES_HTML);
+      setDepositReceived(0);
+      setTaxRate(0);
+      setTotalDue(0);
+    }
+
     setInvoiceDirty(false);
-  }, [isOpen, project]);
+  }, [invoiceDetails, isOpen, project]);
 
   useEffect(() => {
     if (!isOpen) return;

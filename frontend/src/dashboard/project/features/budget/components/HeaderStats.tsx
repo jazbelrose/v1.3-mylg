@@ -18,7 +18,7 @@ import BudgetDonut, {
 } from "@/dashboard/project/features/budget/components/BudgetDonut";
 import { useSocket } from "@/app/contexts/useSocket";
 
-import { updateBudgetItem } from "@/shared/utils/api";
+import { updateBudgetItem, type BudgetInvoiceDetails } from "@/shared/utils/api";
 import { formatUSD, parseBudget } from "@/shared/utils/budgetUtils";
 import {
   CHART_COLORS,
@@ -73,6 +73,7 @@ export interface BudgetHeaderData {
   revisionName?: string | null;
   invoiceFileKey?: string | null;
   invoiceFileUrl?: string | null;
+  invoiceDetails?: BudgetInvoiceDetails | null;
 }
 
 export interface ProjectLike {

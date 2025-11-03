@@ -17,7 +17,6 @@ export interface UseInvoicePreviewModalResult {
   invoiceRef: MutableRefObject<HTMLDivElement | null>;
   previewRef: MutableRefObject<HTMLDivElement | null>;
   fileInputRef: MutableRefObject<HTMLInputElement | null>;
-  currentFileName: string;
   handleSaveClick: () => void;
   handleSavePdf: () => void;
   handlePreviewPdf: () => void;
@@ -65,6 +64,9 @@ export interface UseInvoicePreviewModalResult {
   subtotal: number;
   depositReceived: number;
   handleDepositBlur: (value: string) => void;
+  taxRate: number;
+  handleTaxRateBlur: (value: string) => void;
+  taxAmount: number;
   totalDue: number;
   handleTotalDueBlur: (value: string) => void;
   notes: string;

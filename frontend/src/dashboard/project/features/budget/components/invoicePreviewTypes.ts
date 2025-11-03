@@ -65,9 +65,27 @@ export interface InvoicePreviewModalProps {
   onInvoiceSaved?: (result: RevisionInvoiceSaveResult) => void;
 }
 
+export interface InvoiceDetailsPayload {
+  invoiceNumber: string;
+  issueDate: string;
+  projectName: string;
+  customerSummary: string;
+  notes: string;
+  depositReceived: number;
+  taxRate: number;
+  taxAmount: number;
+  subtotal: number;
+  totalDue: number;
+  brandLogoKey: string | null;
+  brandName: string;
+  brandTagline: string;
+  organization: OrganizationInfoFields;
+  groupField: GroupField;
+  groupValues: string[];
+  savedAt: string;
+}
+
 export interface RevisionInvoiceSaveResult {
   revision: RevisionLike;
-  fileKey: string;
-  fileUrl: string;
-  fileName: string;
+  invoiceDetails: InvoiceDetailsPayload;
 }

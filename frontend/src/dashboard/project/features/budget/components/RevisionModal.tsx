@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowUpRightFromSquare,
   faClone,
   faFileCsv,
   faFileInvoice,
@@ -13,11 +12,11 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { saveAs } from "file-saver";
-import { fetchBudgetItems, getFileUrl } from "@/shared/utils/api";
+import { fetchBudgetItems } from "@/shared/utils/api";
 import InvoicePreviewModal from "@/dashboard/project/features/budget/components/InvoicePreviewModal";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import styles from "./revision-modal.module.css";
-import type { RevisionInvoiceSaveResult } from "./invoicePreviewTypes";
+import type { InvoiceDetailsPayload, RevisionInvoiceSaveResult } from "./invoicePreviewTypes";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -31,12 +30,11 @@ type Revision = {
   revisionName?: string | null;
   invoiceFileKey?: string | null;
   invoiceFileUrl?: string | null;
+  invoiceDetails?: InvoiceDetailsPayload | null;
 };
 
 type RevisionInvoiceAttachment = {
-  fileKey: string;
-  fileUrl: string;
-  fileName: string;
+  invoiceDetails: InvoiceDetailsPayload;
 };
 
 type Project = {
@@ -214,20 +212,6 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
     }
   };
 
-  const computeInvoiceUrl = (rev: Revision): string | null => {
-    const source = rev.invoiceFileUrl ?? rev.invoiceFileKey;
-    if (!source) return null;
-    if (source.startsWith("http")) return source;
-    const key = source.startsWith("public/") ? source : `public/${source}`;
-    return getFileUrl(key);
-  };
-
-  const handleInvoiceLinkClick = (rev: Revision) => {
-    const url = computeInvoiceUrl(rev);
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
   const handleRenameToggle = (rev: Revision) => {
     const isSame =
       renaming &&
@@ -277,13 +261,11 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   const handleInvoiceSavedInternal = (result: RevisionInvoiceSaveResult) => {
     if (!previewRevision) return;
     const invoice: RevisionInvoiceAttachment = {
-      fileKey: result.fileKey,
-      fileUrl: result.fileUrl,
-      fileName: result.fileName,
+      invoiceDetails: result.invoiceDetails,
     };
     onInvoiceSaved?.(previewRevision, invoice);
     setPreviewRevision((prev) =>
-      prev ? { ...prev, invoiceFileKey: invoice.fileKey, invoiceFileUrl: invoice.fileUrl } : prev
+      prev ? { ...prev, invoiceDetails: result.invoiceDetails } : prev
     );
   };
 
@@ -341,7 +323,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
               revisions.map((rev) => {
                 const isActive = rev.revision === activeRevision;
                 const isClient = rev.clientRevisionId === rev.revision;
-                const invoiceUrl = computeInvoiceUrl(rev);
+                const hasInvoice = Boolean(rev.invoiceDetails);
                 const isRenaming =
                   renaming &&
                   ((renaming.budgetItemId &&
@@ -448,22 +430,11 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                       <div className={styles.invoiceStatusWrapper}>
                         <span
                           className={
-                            invoiceUrl ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
+                            hasInvoice ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
                           }
                         >
-                          {invoiceUrl ? "Invoice attached" : "No invoice attached"}
+                          {hasInvoice ? "Invoice saved" : "No invoice saved"}
                         </span>
-                        {invoiceUrl && (
-                          <button
-                            type="button"
-                            className={styles.iconButton}
-                            onClick={() => handleInvoiceLinkClick(rev)}
-                            aria-label="Open saved invoice"
-                            title="Open saved invoice"
-                          >
-                            <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
-                          </button>
-                        )}
                       </div>
 
                       {isAdmin && (
@@ -476,8 +447,8 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                             }}
                             disabled={invoiceLoadingRevision === rev.revision}
                             aria-busy={invoiceLoadingRevision === rev.revision}
-                            aria-label={invoiceUrl ? "Update invoice" : "Create invoice"}
-                            title={invoiceUrl ? "Update invoice" : "Create invoice"}
+                            aria-label={hasInvoice ? "Update invoice" : "Create invoice"}
+                            title={hasInvoice ? "Update invoice" : "Create invoice"}
                           >
                             <FontAwesomeIcon icon={faFileInvoice} />
                           </button>
