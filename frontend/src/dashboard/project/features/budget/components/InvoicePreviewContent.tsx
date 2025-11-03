@@ -722,10 +722,10 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </div>
 
-      <div className={styles.pdfEditor} style={allowSave ? {} : { justifyContent: 'center' }}>
-        <div className={styles.pdfViewerPane} style={allowSave ? {} : { flex: '0 0 auto', maxWidth: '800px' }}>
+      <div className={styles.pdfEditor} style={allowSave ? {} : { justifyContent: 'center', height: 'calc(100vh - 140px)', maxHeight: 'calc(100vh - 140px)' }}>
+        <div className={styles.pdfViewerPane} style={allowSave ? {} : { flex: '0 0 80vw', maxWidth: '1100px', height: '100%', maxHeight: '100%' }}>
           {inlinePdfUrl ? (
-            <iframe src={inlinePdfUrl} title="Invoice PDF preview" className={styles.pdfIframe} />
+            <iframe src={inlinePdfUrl} title="Invoice PDF preview" className={styles.pdfIframe} style={{ height: '100%', maxHeight: '100%' }} />
           ) : (
             <div className={styles.pdfFallback}>
               {isBrowser
