@@ -11,6 +11,7 @@ import SlideToolbar from "./components/SlideToolbar";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
+import { saveSlideThumb } from "./lib/thumbnails";
 
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -181,7 +182,20 @@ const SlidesPage: React.FC = () => {
       )
     );
     setIsDirty(true);
-  }, []);
+
+    // Generate thumbnail after content changes (debounced by saveSlideThumb)
+    if (projectId) {
+      setTimeout(() => {
+        saveSlideThumb(projectId, slideId, (thumbnailUrl) => {
+          setSlides((prev) =>
+            prev.map((slide) =>
+              slide.id === slideId ? { ...slide, thumbnail: thumbnailUrl } : slide
+            )
+          );
+        });
+      }, 3000); // Wait 3 seconds after content change
+    }
+  }, [projectId]);
 
   const saveSlides = useCallback(
     async (slidesToSave: Slide[]) => {

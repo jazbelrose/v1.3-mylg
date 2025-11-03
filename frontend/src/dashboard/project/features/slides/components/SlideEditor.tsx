@@ -40,7 +40,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   }, [saveSlide, slide.content]);
 
   return (
-    <div className="slide-editor-container" style={{ height: "100%", width: "100%" }}>
+    <div 
+      className="slide-editor-container" 
+      style={{ height: "100%", width: "100%" }}
+      data-slide-id={slide.id}
+    >
       <LexicalEditor
         onChange={handleChange}
         initialContent={slide.content ? JSON.parse(slide.content) : null}
