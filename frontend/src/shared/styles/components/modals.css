@@ -13,7 +13,7 @@ body.ReactModal__Body--open .dashboard-wrapper {
 .ReactModal__Content {
   filter: none !important;
   z-index: 1002 !important;
-  padding: var(--space-8);
+  
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   font-family: "Helvetica Neue", "Helvetica Display", sans-serif;
