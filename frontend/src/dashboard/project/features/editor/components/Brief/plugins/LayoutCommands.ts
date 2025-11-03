@@ -7,6 +7,7 @@ export const UPDATE_LAYOUT_COMMAND: LexicalCommand<{
   template: string;
   nodeKey: string;
 }> = createCommand();
+export const OPEN_LAYOUT_COMMAND: LexicalCommand<void> = createCommand("OPEN_LAYOUT_MODAL");
 
 /* --------------------------------- Helpers --------------------------------- */
 

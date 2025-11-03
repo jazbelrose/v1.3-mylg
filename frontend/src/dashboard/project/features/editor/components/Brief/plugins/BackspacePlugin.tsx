@@ -9,6 +9,7 @@ import {
 } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $isLayoutItemNode, type LayoutItemNode } from "./nodes/LayoutItemNode"; // adjust the import as needed
+import { $isLayoutContainerNode } from "./nodes/LayoutContainerNode";
 
 /**
  * Recursively climbs the tree from the given node to find a preceding empty LayoutItemNode.
@@ -40,6 +41,17 @@ function findEmptyLayoutItemBefore(node: LexicalNode | null): LayoutItemNode | n
   return null;
 }
 
+function findParentLayoutItem(node: LexicalNode | null): LayoutItemNode | null {
+  let current: LexicalNode | null = node;
+  while (current) {
+    if ($isLayoutItemNode(current)) {
+      return current as LayoutItemNode;
+    }
+    current = current.getParent();
+  }
+  return null;
+}
+
 const RemoveEmptyLayoutItemsOnBackspacePlugin: React.FC = () => {
   const [editor] = useLexicalComposerContext();
 
@@ -68,6 +80,38 @@ const RemoveEmptyLayoutItemsOnBackspacePlugin: React.FC = () => {
         if (layoutItem) {
           layoutItem.remove();
           return true; // handled
+        }
+
+        const currentLayoutItem = findParentLayoutItem(currentNode);
+        if (currentLayoutItem) {
+          const parent = currentLayoutItem.getParent();
+          const isEmpty =
+            currentLayoutItem.getTextContent().trim() === "" &&
+            currentLayoutItem.getChildren().every((child) => child.getTextContent().trim() === "");
+
+          if (isEmpty && $isLayoutContainerNode(parent)) {
+            const prevSibling = currentLayoutItem.getPreviousSibling();
+            const nextSibling = currentLayoutItem.getNextSibling();
+
+            currentLayoutItem.remove();
+
+            if ($isLayoutItemNode(prevSibling)) {
+              prevSibling.selectEnd();
+            } else if ($isLayoutItemNode(nextSibling)) {
+              nextSibling.selectStart();
+            } else if ($isLayoutContainerNode(parent)) {
+              const prevContainerSibling = parent.getPreviousSibling();
+              const nextContainerSibling = parent.getNextSibling();
+
+              if ($isElementNode(prevContainerSibling)) {
+                prevContainerSibling.selectEnd();
+              } else if ($isElementNode(nextContainerSibling)) {
+                nextContainerSibling.selectStart();
+              }
+            }
+
+            return true;
+          }
         }
 
         return false; // not handled, let default behavior occur

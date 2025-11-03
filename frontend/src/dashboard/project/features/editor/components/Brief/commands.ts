@@ -7,6 +7,7 @@ export const SET_FONT_FAMILY_COMMAND: LexicalCommand<string> = createCommand('SE
 export const SET_FONT_SIZE_COMMAND: LexicalCommand<string> = createCommand('SET_FONT_SIZE');
 export const OPEN_IMAGE_COMMAND: LexicalCommand<string> = createCommand('OPEN_IMAGE');
 export const OPEN_FIGMA_COMMAND: LexicalCommand<string> = createCommand('OPEN_FIGMA');
+export const OPEN_VECTOR_COMMAND: LexicalCommand<void> = createCommand('OPEN_VECTOR');
 export const TOGGLE_SPEECH_COMMAND: LexicalCommand<void> = createCommand('TOGGLE_SPEECH');
 
 

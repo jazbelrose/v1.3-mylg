@@ -52,13 +52,13 @@ import {
 } from "lucide-react";
 
 import { useDropdown } from "../contexts/DropdownContext";
-import ImagePlugin from "./ImagePlugin";
-import VectorPlugin from "./VectorPlugin";
-import FigmaPlugin from "./FigmaPlugin";
 import ColorPlugin from "./ColorPlugin";
 import FontPlugin from "./FontPlugin";
-import { LayoutPlugin } from "./LayoutPlugin";
-import SpeechToTextPlugin from "./SpeechToTextPlugin";
+import { OPEN_IMAGE_COMMAND, OPEN_FIGMA_COMMAND, OPEN_VECTOR_COMMAND } from "../commands";
+import { OPEN_LAYOUT_COMMAND } from "./LayoutCommands";
+import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
+import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
+import { SiFigma } from "react-icons/si";
 
 const LowPriority = 1 as const;
 
@@ -291,6 +291,26 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
     }
   };
 
+  const handleInsertImage = () => {
+    editor.dispatchCommand(OPEN_IMAGE_COMMAND, undefined);
+    closeDropdown();
+  };
+
+  const handleInsertVector = () => {
+    editor.dispatchCommand(OPEN_VECTOR_COMMAND, undefined);
+    closeDropdown();
+  };
+
+  const handleInsertFigma = () => {
+    editor.dispatchCommand(OPEN_FIGMA_COMMAND, undefined);
+    closeDropdown();
+  };
+
+  const handleInsertLayout = () => {
+    editor.dispatchCommand(OPEN_LAYOUT_COMMAND, undefined);
+    closeDropdown();
+  };
+
   return (
     <>
       <div className="toolbar" ref={toolbarRef} style={{ position: "relative" }}>
@@ -493,10 +513,22 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
             </button>
             {activeDropdown === insertDropdownId && (
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-                <div className="item"><ImagePlugin /><span className="text">Image</span></div>
-                <div className="item"><VectorPlugin /><span className="text">Vector</span></div>
-                <div className="item"><FigmaPlugin /><span className="text">Figma</span></div>
-                <div className="item"><LayoutPlugin /><span className="text">Layout</span></div>
+                <button type="button" className="item" onClick={handleInsertImage}>
+                  <FileImageOutlined style={{ fontSize: 16 }} />
+                  <span className="text">Image</span>
+                </button>
+                <button type="button" className="item" onClick={handleInsertVector}>
+                  <NodeIndexOutlined style={{ fontSize: 16 }} />
+                  <span className="text">Vector</span>
+                </button>
+                <button type="button" className="item" onClick={handleInsertFigma}>
+                  <SiFigma size={16} />
+                  <span className="text">Figma</span>
+                </button>
+                <button type="button" className="item" onClick={handleInsertLayout}>
+                  <LayoutOutlined style={{ fontSize: 16 }} />
+                  <span className="text">Layout</span>
+                </button>
               </div>
             )}
             <Divider />

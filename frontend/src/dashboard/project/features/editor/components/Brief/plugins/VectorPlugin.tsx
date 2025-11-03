@@ -1,9 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import ReactModal from "react-modal";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $insertNodes, $getSelection, $isRangeSelection } from "lexical";
+import { $insertNodes, $getSelection, $isRangeSelection, COMMAND_PRIORITY_EDITOR, type LexicalCommand } from "lexical";
 import { $createSvgNode } from "./nodes/SvgNode";
 import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
+import { OPEN_VECTOR_COMMAND } from "../commands";
 
 type Props = {
   /** Show the toolbar button that opens the SVG modal (default: true) */
@@ -27,6 +28,18 @@ export default function VectorPlugin({ showToolbarButton = true }: Props) {
     reader.onload = (e) => setSvgText(String(e.target?.result ?? ""));
     reader.readAsText(f);
   };
+
+  useEffect(() => {
+    const unregister = editor.registerCommand<void>(
+      OPEN_VECTOR_COMMAND as LexicalCommand<void>,
+      () => {
+        setIsOpen(true);
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR
+    );
+    return unregister;
+  }, [editor]);
 
   const onAddSvg = () => {
     const raw = svgText.trim();

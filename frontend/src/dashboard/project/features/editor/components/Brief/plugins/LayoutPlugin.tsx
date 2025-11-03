@@ -36,13 +36,17 @@ import {
   LayoutItemNode,
 } from "./nodes/LayoutItemNode";
 
-import { INSERT_LAYOUT_COMMAND, UPDATE_LAYOUT_COMMAND, getItemsCountFromTemplate } from "./LayoutCommands";
+import { INSERT_LAYOUT_COMMAND, OPEN_LAYOUT_COMMAND, UPDATE_LAYOUT_COMMAND, getItemsCountFromTemplate } from "./LayoutCommands";
 
 import "../lexical-editor.css";
 
 /* --------------------------------- Plugin ---------------------------------- */
 
-export function LayoutPlugin() {
+type LayoutPluginProps = {
+  showToolbarButton?: boolean;
+};
+
+export function LayoutPlugin({ showToolbarButton = true }: LayoutPluginProps) {
   const [editor] = useLexicalComposerContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -273,6 +277,19 @@ export function LayoutPlugin() {
     );
   }, [editor]);
 
+  useEffect(() => {
+    const unregisterOpenModal = editor.registerCommand(
+      OPEN_LAYOUT_COMMAND,
+      () => {
+        setIsModalOpen(true);
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR
+    );
+
+    return unregisterOpenModal;
+  }, [editor]);
+
   /* ------------------------------ Modal UI ------------------------------ */
 
   const handleInsertLayout = (template: string) => {
@@ -288,6 +305,62 @@ export function LayoutPlugin() {
     setIsModalOpen(false);
   };
 
+  const modal = (
+    <Modal
+      title="Insert Layout"
+      open={isModalOpen}
+      onCancel={handleCloseModal}
+      footer={null}
+      width={400}
+    >
+      <div
+        style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+        onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+      >
+        <Button
+          type="text"
+          onClick={() => handleInsertLayout("1fr 1fr")}
+          style={{ textAlign: 'left' }}
+        >
+          2 Columns (Equal Width)
+        </Button>
+        <Button
+          type="text"
+          onClick={() => handleInsertLayout("25% 75%")}
+          style={{ textAlign: 'left' }}
+        >
+          2 Columns (25% - 75%)
+        </Button>
+        <Button
+          type="text"
+          onClick={() => handleInsertLayout("1fr 1fr 1fr")}
+          style={{ textAlign: 'left' }}
+        >
+          3 Columns (Equal Width)
+        </Button>
+        <Button
+          type="text"
+          onClick={() => handleInsertLayout("25% 50% 25%")}
+          style={{ textAlign: 'left' }}
+        >
+          3 Columns (25% - 50% - 25%)
+        </Button>
+        <Button
+          type="text"
+          onClick={() => handleInsertLayout("1fr 1fr 1fr 1fr")}
+          style={{ textAlign: 'left' }}
+        >
+          4 Columns (Equal Width)
+        </Button>
+      </div>
+    </Modal>
+  );
+
+  if (!showToolbarButton) {
+    return modal;
+  }
+
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <button
@@ -300,55 +373,7 @@ export function LayoutPlugin() {
         <LayoutIcon />
       </button>
 
-      <Modal
-        title="Insert Layout"
-        open={isModalOpen}
-        onCancel={handleCloseModal}
-        footer={null}
-        width={400}
-      >
-        <div
-          style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-          onMouseDown={(event) => event.stopPropagation()}
-          onTouchStart={(event) => event.stopPropagation()}
-        >
-          <Button
-            type="text"
-            onClick={() => handleInsertLayout("1fr 1fr")}
-            style={{ textAlign: 'left' }}
-          >
-            2 Columns (Equal Width)
-          </Button>
-          <Button
-            type="text"
-            onClick={() => handleInsertLayout("25% 75%")}
-            style={{ textAlign: 'left' }}
-          >
-            2 Columns (25% - 75%)
-          </Button>
-          <Button
-            type="text"
-            onClick={() => handleInsertLayout("1fr 1fr 1fr")}
-            style={{ textAlign: 'left' }}
-          >
-            3 Columns (Equal Width)
-          </Button>
-          <Button
-            type="text"
-            onClick={() => handleInsertLayout("25% 50% 25%")}
-            style={{ textAlign: 'left' }}
-          >
-            3 Columns (25% - 50% - 25%)
-          </Button>
-          <Button
-            type="text"
-            onClick={() => handleInsertLayout("1fr 1fr 1fr 1fr")}
-            style={{ textAlign: 'left' }}
-          >
-            4 Columns (Equal Width)
-          </Button>
-        </div>
-      </Modal>
+      {modal}
     </div>
   );
 }

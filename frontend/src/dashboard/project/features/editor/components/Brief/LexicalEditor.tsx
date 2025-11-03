@@ -57,7 +57,9 @@ import ToolbarPlugin from "./plugins/ToolbarPlugin";
 import ColorPlugin from "./plugins/ColorPlugin";
 import FontPlugin from "./plugins/FontPlugin";
 import ImagePlugin from "./plugins/ImagePlugin";
+import VectorPlugin from "./plugins/VectorPlugin";
 import FigmaPlugin from "./plugins/FigmaPlugin";
+import { LayoutPlugin } from "./plugins/LayoutPlugin";
 import SpeechToTextPlugin from "./plugins/SpeechToTextPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
@@ -363,7 +365,9 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
               <ColorPlugin showToolbar={false} />
               <FontPlugin showToolbar={false} />
               <ImagePlugin showToolbarButton={false} />
+              <VectorPlugin showToolbarButton={false} />
               <FigmaPlugin showToolbarButton={false} />
+              <LayoutPlugin showToolbarButton={false} />
               
               <SpeechToTextPlugin showToolbarButton={false} />
               <FloatingToolbar editorRef={editorRef} />
