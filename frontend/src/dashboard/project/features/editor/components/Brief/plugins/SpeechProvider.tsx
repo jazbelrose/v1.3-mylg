@@ -118,6 +118,15 @@ export default function SpeechProvider({ children }: Props) {
     };
   }, [editor]);
 
+  useEffect(() => {
+    if (!navigator.permissions) return;
+
+    navigator.permissions.query({ name: 'microphone' as PermissionName }).then((status) => {
+      setMicStatus(status.state);
+      status.onchange = () => setMicStatus(status.state);
+    });
+  }, []);
+
   const toggleListening = useCallback(async () => {
     const recognition = recognitionRef.current;
     if (!recognition) {
@@ -133,6 +142,14 @@ export default function SpeechProvider({ children }: Props) {
       }
       setListening(false);
     } else {
+      // Check if permission is already denied
+      if (micStatus === 'denied') {
+        notify('error', "Microphone access is blocked. Please allow microphone permission in your browser settings.");
+        // Open site settings
+        window.open(`chrome://settings/content/siteDetails?site=${encodeURIComponent(location.origin)}`, '_blank');
+        return;
+      }
+
       // Check if getUserMedia is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         notify('error', "Your browser doesn't support microphone access. Please update your browser.");
@@ -155,7 +172,7 @@ export default function SpeechProvider({ children }: Props) {
         return;
       }
     }
-  }, [listening]);
+  }, [listening, micStatus]);
 
   return (
     <SpeechContext.Provider value={{ listening, toggleListening, micStatus }}>
