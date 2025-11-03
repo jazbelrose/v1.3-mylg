@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { LayoutOutlined as LayoutIcon } from "@ant-design/icons";
+import { Modal, Button } from "antd";
 
 
 import {
@@ -24,7 +25,6 @@ import {
   type ElementNode,
 } from "lexical";
 
-import { useDropdown } from "../contexts/DropdownContext";
 import {
   $createLayoutContainerNode,
   $isLayoutContainerNode,
@@ -44,11 +44,8 @@ import "../lexical-editor.css";
 
 export function LayoutPlugin() {
   const [editor] = useLexicalComposerContext();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Dropdown from surrounding editor UI
-  const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
-
-  const layoutDropdownId = "layout-dropdown";
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -276,19 +273,19 @@ export function LayoutPlugin() {
     );
   }, [editor]);
 
-  /* ------------------------------ Dropdown UI ------------------------------ */
+  /* ------------------------------ Modal UI ------------------------------ */
 
   const handleInsertLayout = (template: string) => {
     editor.dispatchCommand(INSERT_LAYOUT_COMMAND, template);
-    closeDropdown();
+    setIsModalOpen(false);
   };
 
-  const toggleDropdown = () => {
-    if (activeDropdown === layoutDropdownId) {
-      closeDropdown();
-    } else {
-      openDropdown(layoutDropdownId, buttonRef.current ?? undefined);
-    }
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
   };
 
   return (
@@ -297,51 +294,57 @@ export function LayoutPlugin() {
         ref={buttonRef}
         type="button"
         aria-label="Insert Layout"
-        onClick={toggleDropdown}
+        onClick={handleOpenModal}
         className="layout-toggle-button"
       >
         <LayoutIcon />
       </button>
 
-      {activeDropdown === layoutDropdownId && (
-        <div ref={dropdownRef as React.RefObject<HTMLDivElement>} className="layout-dropdown">
-          <button
-            type="button"
+      <Modal
+        title="Insert Layout"
+        open={isModalOpen}
+        onCancel={handleCloseModal}
+        footer={null}
+        width={400}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Button
+            type="text"
             onClick={() => handleInsertLayout("1fr 1fr")}
-            className="layout-dropdown-item"
+            style={{ textAlign: 'left' }}
           >
             2 Columns (Equal Width)
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            type="text"
             onClick={() => handleInsertLayout("25% 75%")}
-            className="layout-dropdown-item"
+            style={{ textAlign: 'left' }}
           >
             2 Columns (25% - 75%)
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            type="text"
             onClick={() => handleInsertLayout("1fr 1fr 1fr")}
-            className="layout-dropdown-item"
+            style={{ textAlign: 'left' }}
           >
             3 Columns (Equal Width)
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            type="text"
             onClick={() => handleInsertLayout("25% 50% 25%")}
-            className="layout-dropdown-item"
+            style={{ textAlign: 'left' }}
           >
             3 Columns (25% - 50% - 25%)
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            type="text"
             onClick={() => handleInsertLayout("1fr 1fr 1fr 1fr")}
-            className="layout-dropdown-item"
+            style={{ textAlign: 'left' }}
           >
             4 Columns (Equal Width)
-          </button>
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
