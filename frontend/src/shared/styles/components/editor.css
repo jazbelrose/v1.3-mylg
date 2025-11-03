@@ -61,6 +61,11 @@
   z-index: 1;
 }
 
+/* Base text styling for editor - allows inline styles to be applied */
+.editor-text {
+  color: inherit; /* Inherit color, allow inline font-family and font-size */
+}
+
 /* Text Formatting Styles */
 .editor-bold,
 .editor-text-bold {

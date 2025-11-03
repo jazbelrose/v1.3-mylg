@@ -290,6 +290,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
       theme: {
         paragraph: "editor-paragraph",
         text: {
+          base: "editor-text",
           bold: "editor-bold",
           italic: "editor-italic",
           underline: "editor-underline",
@@ -297,6 +298,9 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           code: "editor-code",
           color: "editor-text-color",
           backgroundColor: "editor-bg-color",
+        },
+        style: {
+          base: "",
         },
         quote: "editor-quote",
         heading: {

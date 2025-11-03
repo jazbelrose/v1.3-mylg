@@ -96,12 +96,16 @@ export default function FontPlugin({ showToolbar = true }: Props) {
     setFontFamily(family);
     editor.dispatchCommand(SET_FONT_FAMILY_COMMAND as LexicalCommand<FontFamily>, family);
     closeDropdown();
+    // Refocus editor to maintain selection
+    editor.focus();
   };
 
   const handleFontSizeItemClick = (size: FontSize) => {
     setFontSize(size);
     editor.dispatchCommand(SET_FONT_SIZE_COMMAND as LexicalCommand<FontSize>, size);
     closeDropdown();
+    // Refocus editor to maintain selection
+    editor.focus();
   };
 
   if (!showToolbar) return null;
