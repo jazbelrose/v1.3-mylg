@@ -5,10 +5,17 @@ import { uploadData } from "aws-amplify/storage";
 import { updateUserProfile } from "@/shared/utils/api";
 import type { UserLite } from "@/app/contexts/DataProvider";
 
+interface BrandingSnapshot {
+  brandLogoKey: string;
+  brandName: string;
+  brandTagline: string;
+}
+
 interface UseInvoiceBrandingOptions {
   isOpen: boolean;
   userData: UserLite | null | undefined;
   setUserData: (user: UserLite) => void;
+  initialBranding?: Partial<BrandingSnapshot> | null;
 }
 
 interface UseInvoiceBrandingResult {
@@ -33,6 +40,7 @@ export function useInvoiceBranding({
   isOpen,
   userData,
   setUserData,
+  initialBranding = null,
 }: UseInvoiceBrandingOptions): UseInvoiceBrandingResult {
   const [brandLogoKey, setBrandLogoKey] = useState("");
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
@@ -40,6 +48,11 @@ export function useInvoiceBranding({
   const [brandTagline, setBrandTagline] = useState("");
   const [showSaved, setShowSaved] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [baselineBranding, setBaselineBranding] = useState<BrandingSnapshot>({
+    brandLogoKey: "",
+    brandName: "",
+    brandTagline: "",
+  });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // keep ref exported? not needed currently but ensures component can attach if desired later.
@@ -60,32 +73,55 @@ export function useInvoiceBranding({
 
   useEffect(() => {
     if (!isOpen) return;
-    const { brandLogoKey: key, brandLogoUrl, brandName: name, brandTagline: tagline } = currentUserBranding;
-    let resolvedKey = key;
-    if (!resolvedKey && brandLogoUrl) {
-      resolvedKey = brandLogoUrl.startsWith("public/")
-        ? brandLogoUrl
-        : `public/${brandLogoUrl}`;
+    const initial = initialBranding ?? {};
+    const rawInitialKey =
+      typeof initial.brandLogoKey === "string"
+        ? initial.brandLogoKey
+        : initial.brandLogoKey === null
+        ? ""
+        : undefined;
+    const rawKey = rawInitialKey ?? currentUserBranding.brandLogoKey;
+
+    let resolvedKey = rawKey || "";
+    if (!resolvedKey && currentUserBranding.brandLogoUrl) {
+      resolvedKey = currentUserBranding.brandLogoUrl.startsWith("public/")
+        ? currentUserBranding.brandLogoUrl
+        : `public/${currentUserBranding.brandLogoUrl}`;
     }
+
+    const base: BrandingSnapshot = {
+      brandLogoKey: resolvedKey,
+      brandName:
+        typeof initial.brandName === "string"
+          ? initial.brandName
+          : currentUserBranding.brandName,
+      brandTagline:
+        typeof initial.brandTagline === "string"
+          ? initial.brandTagline
+          : currentUserBranding.brandTagline,
+    };
+
     setBrandLogoKey(resolvedKey);
-    setBrandName(name);
-    setBrandTagline(tagline);
+    setBrandName(base.brandName);
+    setBrandTagline(base.brandTagline);
     setLogoDataUrl(null);
     setShowSaved(false);
     setIsDirty(false);
-  }, [isOpen, currentUserBranding]);
+    setBaselineBranding(base);
+  }, [isOpen, currentUserBranding, initialBranding]);
 
   useEffect(() => {
+    const normalize = (value: string | null | undefined) => (value ?? "").trim();
     const dirty =
-      (brandLogoKey || "") !== (currentUserBranding.brandLogoKey || "") ||
-      (brandName || "") !== (currentUserBranding.brandName || "") ||
-      (brandTagline || "") !== (currentUserBranding.brandTagline || "");
+      normalize(brandLogoKey) !== normalize(baselineBranding.brandLogoKey) ||
+      normalize(brandName) !== normalize(baselineBranding.brandName) ||
+      normalize(brandTagline) !== normalize(baselineBranding.brandTagline);
     setIsDirty(dirty);
   }, [
     brandLogoKey,
     brandName,
     brandTagline,
-    currentUserBranding,
+    baselineBranding,
   ]);
 
   const handleLogoSelect: React.ChangeEventHandler<HTMLInputElement> = useCallback(

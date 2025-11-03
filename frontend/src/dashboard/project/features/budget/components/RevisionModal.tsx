@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -100,6 +100,18 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
     setPreviewItems(null);
     setInvoiceLoadingRevision(null);
   };
+
+  const formatSavedAt = useCallback((value?: string | null): string | null => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, []);
 
   const resetRenameState = () => {
     setRenaming(null);
@@ -324,6 +336,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                 const isActive = rev.revision === activeRevision;
                 const isClient = rev.clientRevisionId === rev.revision;
                 const hasInvoice = Boolean(rev.invoiceDetails);
+                const savedTimestamp = formatSavedAt(rev.invoiceDetails?.savedAt);
                 const isRenaming =
                   renaming &&
                   ((renaming.budgetItemId &&
@@ -432,9 +445,13 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                           className={
                             hasInvoice ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
                           }
+                          title={savedTimestamp ? `Saved ${savedTimestamp}` : undefined}
                         >
                           {hasInvoice ? "Invoice saved" : "No invoice saved"}
                         </span>
+                        {savedTimestamp && (
+                          <span className={styles.invoiceStatusMeta}>{`Saved ${savedTimestamp}`}</span>
+                        )}
                       </div>
 
                       {isAdmin && (

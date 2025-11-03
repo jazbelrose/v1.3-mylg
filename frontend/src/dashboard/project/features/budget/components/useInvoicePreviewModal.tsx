@@ -186,6 +186,18 @@ export function useInvoicePreviewModal({
     return null;
   }, [contextBudgetHeader, revision]);
 
+  const initialBranding = useMemo(
+    () =>
+      resolvedInvoiceDetails
+        ? {
+            brandLogoKey: resolvedInvoiceDetails.brandLogoKey ?? "",
+            brandName: resolvedInvoiceDetails.brandName ?? "",
+            brandTagline: resolvedInvoiceDetails.brandTagline ?? "",
+          }
+        : null,
+    [resolvedInvoiceDetails],
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     const base: OrganizationInfoFields = {
@@ -236,29 +248,14 @@ export function useInvoicePreviewModal({
     handleLogoSelect,
     handleLogoDrop,
     handleSaveHeader,
-    setBrandLogoKey,
     setBrandName,
     setBrandTagline,
   } = useInvoiceBranding({
     isOpen,
     userData: userData as UserLite | null | undefined,
     setUserData: updateUserData,
+    initialBranding,
   });
-
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!resolvedInvoiceDetails) return;
-
-    if ("brandLogoKey" in resolvedInvoiceDetails) {
-      setBrandLogoKey(resolvedInvoiceDetails.brandLogoKey ?? "");
-    }
-    if ("brandName" in resolvedInvoiceDetails) {
-      setBrandName(resolvedInvoiceDetails.brandName ?? "");
-    }
-    if ("brandTagline" in resolvedInvoiceDetails) {
-      setBrandTagline(resolvedInvoiceDetails.brandTagline ?? "");
-    }
-  }, [isOpen, resolvedInvoiceDetails, setBrandLogoKey, setBrandName, setBrandTagline]);
 
   const details = useInvoiceDetails({
     isOpen,
