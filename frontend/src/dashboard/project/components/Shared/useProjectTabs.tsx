@@ -32,6 +32,7 @@ export const useProjectTabs = (
   const showBudgetTab = isAdmin;
   const showCalendarTab = isAdmin || isDesigner;
   const showEditorTab = isAdmin || isDesigner;
+  const showSlidesTab = isAdmin || isDesigner;
 
   const hasProject = Boolean(projectId);
 
@@ -79,6 +80,18 @@ export const useProjectTabs = (
     [hasProject, projectId, projectTitle]
   );
 
+  const slidesPath = React.useMemo(
+    () =>
+      hasProject
+        ? getProjectDashboardPath(
+            projectId,
+            projectTitle ?? undefined,
+            "/slides"
+          )
+        : "/dashboard/projects/allprojects",
+    [hasProject, projectId, projectTitle]
+  );
+
   const tabs = React.useMemo<ProjectTabItem[]>(() => {
     const tabDefinitions = [
       {
@@ -109,6 +122,13 @@ export const useProjectTabs = (
         matches: (pathname: string) => pathname.startsWith(editorPath),
         visible: showEditorTab,
       },
+      {
+        key: "slides",
+        label: "Slides",
+        path: slidesPath,
+        matches: (pathname: string) => pathname.startsWith(slidesPath),
+        visible: showSlidesTab,
+      },
     ];
 
     return tabDefinitions.reduce<ProjectTabItem[]>((acc, tab) => {
@@ -130,9 +150,11 @@ export const useProjectTabs = (
     budgetPath,
     calendarPath,
     editorPath,
+    slidesPath,
     showBudgetTab,
     showCalendarTab,
     showEditorTab,
+    showSlidesTab,
   ]);
 
   const storageKey = React.useMemo(
