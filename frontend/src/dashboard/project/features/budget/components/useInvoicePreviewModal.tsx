@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import type { ChangeEventHandler, DragEventHandler } from "react";
+import { uploadData } from "aws-amplify/storage";
 import { toast } from "react-toastify";
 
 import useModalStack from "@/shared/utils/useModalStack";
@@ -251,6 +252,8 @@ export function useInvoicePreviewModal({
     handleLogoSelect: brandingHandleLogoSelect,
     handleLogoDrop: brandingHandleLogoDrop,
     handleSaveHeader,
+    setBrandLogoKey,
+    setLogoDataUrl,
     setBrandName,
     setBrandTagline,
   } = useInvoiceBranding({
@@ -508,10 +511,36 @@ export function useInvoicePreviewModal({
       email: organizationFields.email.trim(),
     };
 
-    const brandLogoDataUrl =
-      typeof logoDataUrl === "string" && logoDataUrl.startsWith("data:")
-        ? logoDataUrl
+    // Upload logo to S3 if it's a data URL
+    let finalBrandLogoKey = brandLogoKey;
+    let finalBrandLogoDataUrl: string | null = null;
+    
+    if (logoDataUrl && logoDataUrl.startsWith("data:") && userData?.userId) {
+      try {
+        const res = await fetch(logoDataUrl);
+        const blob = await res.blob();
+        const ext = blob.type.split("/").pop() || "png";
+        const file = new File([blob], `invoice-logo.${ext}`, { type: blob.type });
+        const filename = `invoiceBranding/${userData.userId}/${revisionBudgetItemId}/${file.name}`;
+        const uploadTask = uploadData({
+          key: filename,
+          data: file,
+          options: { accessLevel: "guest" },
+        });
+        await uploadTask.result;
+        finalBrandLogoKey = filename.startsWith("public/") ? filename : `public/${filename}`;
+        setBrandLogoKey(finalBrandLogoKey);
+        setLogoDataUrl(null); // Clear the data URL since we now have an S3 key
+      } catch (error) {
+        console.error("Failed to upload logo", error);
+        // Fall back to using data URL if upload fails
+        finalBrandLogoDataUrl = logoDataUrl;
+      }
+    } else {
+      finalBrandLogoDataUrl = logoDataUrl && logoDataUrl.startsWith("data:") 
+        ? logoDataUrl 
         : resolvedInvoiceDetails?.brandLogoDataUrl ?? null;
+    }
 
     const invoiceDetails: InvoiceDetailsPayload = {
       invoiceNumber: invoiceNumber.trim(),
@@ -524,8 +553,8 @@ export function useInvoicePreviewModal({
       taxAmount,
       subtotal,
       totalDue,
-      brandLogoKey: brandLogoKey ? brandLogoKey : null,
-      brandLogoDataUrl,
+      brandLogoKey: finalBrandLogoKey || null,
+      brandLogoDataUrl: finalBrandLogoDataUrl,
       brandName: brandName.trim(),
       brandTagline: brandTagline.trim(),
       organization,
@@ -582,6 +611,7 @@ export function useInvoicePreviewModal({
     groupValues,
     invoiceNumber,
     issueDate,
+    logoDataUrl,
     notes,
     onInvoiceSaved,
     organizationFields,
@@ -589,13 +619,16 @@ export function useInvoicePreviewModal({
     projectName,
     revision,
     resolvedInvoiceDetails,
+    setBrandLogoKey,
     setBudgetHeader,
     setInvoiceDirty,
+    setLogoDataUrl,
     subtotal,
     depositReceived,
     taxAmount,
     taxRate,
     totalDue,
+    userData?.userId,
   ]);
 
   const handleSaveClick = useCallback(() => {
