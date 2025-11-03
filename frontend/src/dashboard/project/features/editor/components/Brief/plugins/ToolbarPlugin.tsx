@@ -514,19 +514,19 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
             {activeDropdown === insertDropdownId && (
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                 <button type="button" className="item" onClick={handleInsertImage}>
-                  <FileImageOutlined style={{ fontSize: 16 }} />
+                  <FileImageOutlined style={{ fontSize: 16, marginRight: '18px' }} />
                   <span className="text">Image</span>
                 </button>
                 <button type="button" className="item" onClick={handleInsertVector}>
-                  <NodeIndexOutlined style={{ fontSize: 16 }} />
+                  <NodeIndexOutlined style={{ fontSize: 16, marginRight: '18px' }} />
                   <span className="text">Vector</span>
                 </button>
                 <button type="button" className="item" onClick={handleInsertFigma}>
-                  <SiFigma size={16} />
+                  <SiFigma size={16} style={{ marginRight: '18px' }} />
                   <span className="text">Figma</span>
                 </button>
                 <button type="button" className="item" onClick={handleInsertLayout}>
-                  <LayoutOutlined style={{ fontSize: 16 }} />
+                  <LayoutOutlined style={{ fontSize: 16, marginRight: '18px' }} />
                   <span className="text">Layout</span>
                 </button>
               </div>
