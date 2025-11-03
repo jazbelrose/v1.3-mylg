@@ -30,7 +30,7 @@
   overflow: hidden;
   justify-content: flex-start;
   align-items: stretch;
-  padding-bottom: 16px;
+  padding: 16px 0;
 }
 
 .main-content--welcome {
@@ -68,6 +68,7 @@
   background-color: var(--bg-color);
   margin: 0 auto;
   padding: 0;
+  padding-top: var(--space-4); /* Added padding above week widget welcome desktop */
 }
 
 .dashboard-wrapper.welcome-screen.no-vertical-center {
