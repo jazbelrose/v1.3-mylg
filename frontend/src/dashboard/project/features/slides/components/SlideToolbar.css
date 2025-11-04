@@ -7,11 +7,12 @@
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   padding: 12px 16px;
   background-color: white;
   border-bottom: 1px solid #ddd;
+  width: 100%;
 }
 
 .slide-toolbar .slide-actions {
@@ -24,7 +25,6 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-right: auto;
   font-size: 13px;
   color: #666;
   white-space: nowrap;
@@ -99,4 +99,148 @@
 
 .slide-toolbar button.toolbar-item.save:hover {
   background-color: #0056b3;
+}
+
+/* Text formatting section */
+.slide-toolbar .text-formatting {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* Toolbar items */
+.slide-toolbar .toolbar-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: all 0.15s;
+  min-height: 32px;
+}
+
+.slide-toolbar .toolbar-item:hover {
+  background-color: #f5f5f5;
+  border-color: #bbb;
+}
+
+.slide-toolbar .toolbar-item.active {
+  background-color: #e3f2fd;
+  border-color: #2196f3;
+  color: #1976d2;
+}
+
+.slide-toolbar .toolbar-item.spaced {
+  margin-right: 2px;
+}
+
+.slide-toolbar .toolbar-item.block-controls {
+  min-width: 80px;
+  justify-content: space-between;
+}
+
+.slide-toolbar .toolbar-item.code-language {
+  min-width: 100px;
+}
+
+/* Dividers */
+.slide-toolbar .divider {
+  width: 1px;
+  height: 20px;
+  background-color: #ddd;
+  margin: 0 8px;
+}
+
+/* Dropdown styles */
+.slide-toolbar .dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  margin-top: 4px;
+  min-width: 150px;
+}
+
+.slide-toolbar .dropdown .item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.slide-toolbar .dropdown .item:hover {
+  background-color: #f5f5f5;
+}
+
+.slide-toolbar .dropdown .item .active {
+  margin-left: auto;
+  color: #2196f3;
+  font-weight: 600;
+}
+
+.slide-toolbar .dropdown .item .icon {
+  margin-right: 8px;
+  font-weight: 600;
+  min-width: 20px;
+}
+
+.slide-toolbar .dropdown .item .text {
+  flex: 1;
+}
+
+/* Font and color sections */
+.slide-toolbar .font-section,
+.slide-toolbar .color-section {
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.slide-toolbar .font-section:last-child,
+.slide-toolbar .color-section:last-child {
+  border-bottom: none;
+}
+
+.slide-toolbar .font-section label,
+.slide-toolbar .color-section label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.slide-toolbar .font-section select {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+/* Chevron icons */
+.slide-toolbar .chevron-down {
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+.slide-toolbar .chevron-down.inside {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
 }
