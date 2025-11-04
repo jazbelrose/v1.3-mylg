@@ -81,6 +81,11 @@
   opacity: 0.5;
 }
 
+.slide-thumbnail.drag-over {
+  border-color: #4a90e2;
+  background: #3a3a3a;
+}
+
 .slide-thumbnail-number {
   position: absolute;
   top: 8px;

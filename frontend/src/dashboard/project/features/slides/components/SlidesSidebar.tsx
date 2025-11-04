@@ -22,6 +22,7 @@ export const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onReorderSlides,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -34,10 +35,21 @@ export const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
       return;
     }
 
+    // Only update the visual indicator, not the actual state
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      return;
+    }
+
     const newSlides = [...slides];
     const draggedSlide = newSlides[draggedIndex];
     newSlides.splice(draggedIndex, 1);
-    newSlides.splice(index, 0, draggedSlide);
+    newSlides.splice(dropIndex, 0, draggedSlide);
 
     // Update order property
     const reorderedSlides = newSlides.map((slide, idx) => ({
@@ -46,11 +58,11 @@ export const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
     }));
 
     onReorderSlides(reorderedSlides);
-    setDraggedIndex(index);
   };
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   return (
@@ -73,10 +85,13 @@ export const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
             key={slide.id}
             className={`slide-thumbnail ${
               slide.id === activeSlideId ? "active" : ""
-            } ${draggedIndex === index ? "dragging" : ""}`}
+            } ${draggedIndex === index ? "dragging" : ""} ${
+              dragOverIndex === index ? "drag-over" : ""
+            }`}
             draggable
             onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             onClick={() => onSlideSelect(slide.id)}
           >

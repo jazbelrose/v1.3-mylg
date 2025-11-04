@@ -1,10 +1,11 @@
 // Hook to manage slide persistence to backend
 import { useCallback, useRef } from "react";
 import { notify } from "@/shared/ui/ToastNotifications";
-import type { Slide } from "@/shared/utils/api";
+import type { Slide, Project } from "@/shared/utils/api";
 
 interface UseSlidePersistenceOptions {
   projectId: string;
+  updateProjectFields: (projectId: string, fields: Partial<Project>) => Promise<void>;
   onSlidesUpdate?: (slides: Slide[]) => void;
 }
 
@@ -14,7 +15,8 @@ const SAVE_DEBOUNCE_MS = 2000;
  * Hook to manage saving slides to the backend with debouncing
  */
 export function useSlidePersistence({
-  projectId, // Used for future API calls
+  projectId,
+  updateProjectFields,
   onSlidesUpdate,
 }: UseSlidePersistenceOptions) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -28,11 +30,10 @@ export function useSlidePersistence({
             : s
         );
 
-        // TODO: Replace with actual API call
-        // await updateProjectFields(projectId, { slides: updatedSlides });
-        console.log(`[Slides] Would save to project ${projectId}`);
+        // Save to backend
+        await updateProjectFields(projectId, { slides: updatedSlides });
         
-        console.log(`[Slides] Saved slide ${slideId}`);
+        console.log(`[Slides] Saved slide ${slideId} to project ${projectId}`);
         
         if (onSlidesUpdate) {
           onSlidesUpdate(updatedSlides);
@@ -46,7 +47,7 @@ export function useSlidePersistence({
         throw err;
       }
     },
-    [projectId, onSlidesUpdate]
+    [projectId, updateProjectFields, onSlidesUpdate]
   );
 
   const debouncedSave = useCallback(

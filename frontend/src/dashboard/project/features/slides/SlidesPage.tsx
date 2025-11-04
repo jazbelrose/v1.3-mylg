@@ -56,10 +56,12 @@ const SlidesPage: React.FC = () => {
       // Save initial slide to backend
       updateProjectFields(projectId, { slides: [initialSlide] });
     }
-  }, [projectId, activeProject, activeSlideId, fetchProjectDetails, updateProjectFields]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, activeProject, fetchProjectDetails, updateProjectFields]);
 
   const { debouncedSave } = useSlidePersistence({
     projectId: projectId || "",
+    updateProjectFields,
     onSlidesUpdate: (updatedSlides) => {
       setSlides(updatedSlides);
       setHasUnsavedChanges(false);
