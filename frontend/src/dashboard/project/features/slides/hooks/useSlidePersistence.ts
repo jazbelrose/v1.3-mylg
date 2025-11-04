@@ -14,7 +14,7 @@ const SAVE_DEBOUNCE_MS = 2000;
  * Hook to manage saving slides to the backend with debouncing
  */
 export function useSlidePersistence({
-  projectId,
+  projectId, // Used for future API calls
   onSlidesUpdate,
 }: UseSlidePersistenceOptions) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -30,6 +30,7 @@ export function useSlidePersistence({
 
         // TODO: Replace with actual API call
         // await updateProjectFields(projectId, { slides: updatedSlides });
+        console.log(`[Slides] Would save to project ${projectId}`);
         
         console.log(`[Slides] Saved slide ${slideId}`);
         

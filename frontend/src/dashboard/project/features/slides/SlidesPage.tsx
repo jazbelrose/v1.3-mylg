@@ -1,6 +1,6 @@
 // SlidesPage - main container for Google Slides-style interface
 import React, { useState, useCallback, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { SlidesSidebar } from "./components/SlidesSidebar";
@@ -15,7 +15,6 @@ import "./slides.css";
 
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { activeProject, updateProjectFields, fetchProjectDetails } = useData();
 
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -59,7 +58,7 @@ const SlidesPage: React.FC = () => {
     }
   }, [projectId, activeProject, activeSlideId, fetchProjectDetails, updateProjectFields]);
 
-  const { debouncedSave, saveImmediately } = useSlidePersistence({
+  const { debouncedSave } = useSlidePersistence({
     projectId: projectId || "",
     onSlidesUpdate: (updatedSlides) => {
       setSlides(updatedSlides);
@@ -260,7 +259,6 @@ const SlidesPage: React.FC = () => {
         <div className="slides-editor-container">
           <SlideEditor
             slide={activeSlide}
-            projectId={projectId}
             onSlideChange={handleSlideChange}
           />
         </div>

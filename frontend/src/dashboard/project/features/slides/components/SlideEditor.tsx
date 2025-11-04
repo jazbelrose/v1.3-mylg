@@ -5,7 +5,6 @@ import type { Slide } from "@/shared/utils/api";
 
 interface SlideEditorProps {
   slide: Slide;
-  projectId: string;
   onSlideChange: (slideId: string, content: string) => void;
 }
 
@@ -14,7 +13,6 @@ interface SlideEditorProps {
  */
 export const SlideEditor: React.FC<SlideEditorProps> = ({
   slide,
-  projectId,
   onSlideChange,
 }) => {
   const handleChange = useCallback(
