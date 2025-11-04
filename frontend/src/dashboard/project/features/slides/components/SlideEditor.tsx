@@ -50,7 +50,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         key={slide.id}
         docId={slideDocId}
         onChange={handleChange}
-        initialContent={slide.content ? JSON.parse(slide.content) : null}
+        // Pass the serialized JSON string (or null) to Lexical's collaboration plugin.
+        // The plugin expects either a JSON string it can parse, or an EditorState instance —
+        // passing a plain parsed object caused `editorState.isEmpty is not a function`.
+        initialContent={slide.content ?? null}
         onSave={handleSave}
       />
     </div>

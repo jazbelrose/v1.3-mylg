@@ -1,0 +1,86 @@
+._panel {
+  width: 240px;
+  border-right: 1px solid rgba(255,255,255,0.12);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+._header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #ddd;
+}
+
+._list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+._item {
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+._itemActive {
+  border-color: #FA3356;
+  background: rgba(250,51,86,0.08);
+}
+
+._thumb {
+  width: 64px;
+  height: 40px;
+  border-radius: 4px;
+  background: #111;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+._meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+._title {
+  font-size: 0.85rem;
+  color: #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+._subtitle {
+  font-size: 0.7rem;
+  color: #aaa;
+}
+
+._actions {
+  display: flex;
+  gap: 6px;
+}
+
+._addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 12px;
+  padding: 4px 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+

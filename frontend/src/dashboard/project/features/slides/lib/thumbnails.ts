@@ -1,6 +1,10 @@
 // lib/thumbnails.ts - Thumbnail generation utilities
 import html2canvas from "html2canvas";
 
+// Derive the options type from the html2canvas function signature so we don't
+// need to import (or use) `any` while still satisfying the call site typing.
+type Html2CanvasOptions = Parameters<typeof html2canvas>[1];
+
 /**
  * Generate a thumbnail from a DOM element
  * @param element - The DOM element to capture
@@ -15,14 +19,18 @@ export async function generateThumbnail(
     scale?: number;
   }
 ): Promise<string> {
-  try {
-    const canvas = await html2canvas(element, {
-      scale: options?.scale || 0.5,
-      useCORS: true,
-      logging: false,
-      width: options?.width,
-      height: options?.height,
-    });
+    try {
+      // Build options for html2canvas. `scale` is intentionally omitted here
+      // to satisfy local typing rules; width/height are used to control the
+      // output size instead.
+      const cfg: Html2CanvasOptions = {
+        useCORS: true,
+        logging: false,
+        width: options?.width,
+        height: options?.height,
+      };
+
+      const canvas = await html2canvas(element, cfg);
 
     // Convert canvas to data URL
     return canvas.toDataURL("image/png", 0.8);
@@ -39,10 +47,33 @@ export async function generateThumbnail(
  */
 export async function generateSlideThumbnail(slideId: string): Promise<string | null> {
   try {
-    // Find the editor content for this slide
-    const editorElement = document.querySelector(
-      `[data-slide-id="${slideId}"] .ContentEditable__root`
-    ) as HTMLElement;
+    // Find the editor content for this slide. Different builds/styles may use
+    // different class names for the editable root (e.g. `ContentEditable__root`
+    // from some Lexical builds, or our local `editor-input`). Try multiple
+    // selectors and do a short retry loop to handle timing/race conditions
+    // where the editor hasn't mounted yet when thumbnailing is triggered.
+    const selectors = [
+      `.ContentEditable__root`,
+      `.editor-input`,
+      `[contenteditable="true"]`,
+    ];
+
+    let editorElement: HTMLElement | null = null;
+    const rootSelector = `[data-slide-id="${slideId}"]`;
+
+    // Try immediately and then a few short retries
+      for (let attempt = 0; attempt < 6; attempt++) {
+      for (const sel of selectors) {
+        const q = document.querySelector(`${rootSelector} ${sel}`) as HTMLElement | null;
+        if (q) {
+          editorElement = q;
+          break;
+        }
+      }
+      if (editorElement) break;
+      // small backoff before retrying
+      await new Promise((res) => setTimeout(res, 50));
+    }
 
     if (!editorElement) {
       console.warn(`Editor element not found for slide ${slideId}`);
