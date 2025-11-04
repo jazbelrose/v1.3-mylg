@@ -80,7 +80,23 @@ export class ImageNode extends DecoratorNode {
 
   // Create a simple container element
   createDOM() {
-    return document.createElement("div");
+    const elem = document.createElement("span");
+    Object.assign(elem.style, {
+      position: "absolute",
+      width: "0px",
+      height: "0px",
+      lineHeight: "0",
+      pointerEvents: "none",
+    });
+    return elem;
+  }
+
+  isInline() {
+    return true;
+  }
+
+  getTextContent() {
+    return "";
   }
 
   // Update the DOM element when the node's properties change

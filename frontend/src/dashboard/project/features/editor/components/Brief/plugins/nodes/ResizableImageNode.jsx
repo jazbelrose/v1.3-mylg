@@ -92,7 +92,23 @@ export class ResizableImageNode extends DecoratorNode {
   }
 
   createDOM() {
-    return document.createElement("div");
+    const elem = document.createElement("span");
+    Object.assign(elem.style, {
+      position: "absolute",
+      width: "0px",
+      height: "0px",
+      lineHeight: "0",
+      pointerEvents: "none",
+    });
+    return elem;
+  }
+
+  isInline() {
+    return true;
+  }
+
+  getTextContent() {
+    return "";
   }
 
   updateDOM() {
@@ -441,25 +457,21 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
     }
   };
 
-  // Always use the "locked aspect ratio" container using the padding-top trick.
-  const paddingPercentage = width ? (height / width) * 100 : 50;
   return (
     <div
       ref={containerRef}
       style={{
-        display: "inline-block",
-        position: "relative",
+        position: "absolute",
         left: x,
         top: y,
-        width: width, // desired pixel width
-        maxWidth: "100%", // allow container to shrink on small screens
+        width,
+        height,
         transform: `rotate(${rotation}deg)`,
         transformOrigin: "center center",
         zIndex: isSelected ? 1000 : 1,
-        margin: "10px", // Add some margin to prevent overlap
       }}
     >
-      <div style={{ position: "relative", width: "100%", paddingTop: `${paddingPercentage}%` }}>
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {lockedBy && lockedBy !== userName && (
           <div className="locked-overlay" style={{ position: "absolute", top: 0, left: 0 }}>{lockedBy}</div>
         )}
