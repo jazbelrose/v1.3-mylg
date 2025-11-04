@@ -8,19 +8,44 @@ import { SlideEditor } from "./components/SlideEditor";
 import { SlideToolbar } from "./components/SlideToolbar";
 import { useSlidePersistence } from "./hooks/useSlidePersistence";
 import type { Slide } from "@/shared/utils/api";
+import type { Project } from "@/app/contexts/DataProvider";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { v4 as uuidv4 } from "uuid";
+import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
+import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
+import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
+import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import "./slides.css";
 
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const { activeProject, updateProjectFields, fetchProjectDetails } = useData();
+  const { activeProject, updateProjectFields, fetchProjectDetails, setProjects, setSelectedProjects, userId } = useData();
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Project theming
+  const coverImage = React.useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
+  const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
+
+  // Project status parsing
+  const parseStatusToNumber = (statusString: string | number | undefined | null): number => {
+    if (statusString === undefined || statusString === null) return 0;
+    const str = typeof statusString === "string" ? statusString : String(statusString);
+    const num = parseFloat(str.replace("%", ""));
+    return Number.isNaN(num) ? 0 : num;
+  };
+
+  // Project change handlers
+  const handleProjectDeleted = (deletedProjectId: string) => {
+    setProjects((prev: Project[]) => prev.filter((p) => p.projectId !== deletedProjectId));
+    setSelectedProjects((prev: string[]) => prev.filter((id) => id !== deletedProjectId));
+    // Navigate back to projects list
+    window.history.back();
+  };
 
   // Initialize slides from project
   useEffect(() => {
@@ -238,34 +263,50 @@ const SlidesPage: React.FC = () => {
   }
 
   return (
-    <div className="slides-page">
-      <SlidesSidebar
-        slides={slides}
-        activeSlideId={activeSlideId || ""}
-        onSlideSelect={handleSlideSelect}
-        onNewSlide={handleNewSlide}
-        onReorderSlides={handleReorderSlides}
-      />
-
-      <div className="slides-main">
-        <SlideToolbar
+    <ProjectPageLayout
+      projectId={projectId}
+      theme={projectPalette}
+      header={
+        <ProjectHeader
+          activeProject={activeProject}
+          parseStatusToNumber={parseStatusToNumber}
+          userId={userId || ""}
+          onProjectDeleted={handleProjectDeleted}
+          showWelcomeScreen={() => window.history.back()}
+          onOpenFiles={() => {}}
+          onOpenQuickLinks={() => {}}
+        />
+      }
+    >
+      <div className="slides-page">
+        <SlidesSidebar
+          slides={slides}
+          activeSlideId={activeSlideId || ""}
+          onSlideSelect={handleSlideSelect}
           onNewSlide={handleNewSlide}
-          onDuplicateSlide={handleDuplicateSlide}
-          onDeleteSlide={handleDeleteSlide}
-          onExport={handleExport}
-          isSaving={isSaving}
-          isSaved={!hasUnsavedChanges}
-          canDelete={slides.length > 1}
+          onReorderSlides={handleReorderSlides}
         />
 
-        <div className="slides-editor-container">
-          <SlideEditor
-            slide={activeSlide}
-            onSlideChange={handleSlideChange}
+        <div className="slides-main">
+          <SlideToolbar
+            onNewSlide={handleNewSlide}
+            onDuplicateSlide={handleDuplicateSlide}
+            onDeleteSlide={handleDeleteSlide}
+            onExport={handleExport}
+            isSaving={isSaving}
+            isSaved={!hasUnsavedChanges}
+            canDelete={slides.length > 1}
           />
+
+          <div className="slides-editor-container">
+            <SlideEditor
+              slide={activeSlide}
+              onSlideChange={handleSlideChange}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </ProjectPageLayout>
   );
 };
 
