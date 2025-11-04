@@ -70,6 +70,8 @@ type LexicalEditorProps = {
   registerToolbar?: (actions: unknown) => void;
   onPreview?: () => void;
   onSave?: () => void;
+  showDefaultToolbar?: boolean;
+  customToolbar?: React.ReactNode;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -86,6 +88,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   registerToolbar,
   onPreview,
   onSave,
+  showDefaultToolbar = true,
+  customToolbar,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -415,7 +419,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
               }}
             >
               <ToolbarActionsPlugin registerToolbar={registerToolbar} />
-              <ToolbarPlugin onPreview={onPreview} onSave={onSave} />
+              {customToolbar ? customToolbar : showDefaultToolbar && <ToolbarPlugin onPreview={onPreview} onSave={onSave} />}
               <ColorPlugin showToolbar={false} />
               <FontPlugin showToolbar={false} />
               <ImagePlugin showToolbarButton={false} />

@@ -1,6 +1,7 @@
 // components/SlideEditor.tsx - Editor for a single slide
 import React, { useCallback } from "react";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
+import SlideToolbar, { TextFormattingToolbar } from "./SlideToolbar";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 
@@ -13,6 +14,17 @@ interface SlideEditorProps {
   // the editor will constrain the visible editing area to this size (centered).
   width?: number;
   height?: number;
+  // Toolbar props
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  onExport?: () => void;
+  onMicToggle?: () => void;
+  onPreview?: () => void;
+  isSaving?: boolean;
+  isDirty?: boolean;
+  isMicActive?: boolean;
+  slideSizePreset?: "1280x720" | "1920x1080";
+  onChangeSlideSize?: (preset: "1280x720" | "1920x1080") => void;
 }
 
 const SlideEditor: React.FC<SlideEditorProps> = ({
@@ -22,6 +34,16 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onSaveSuccess,
   width,
   height,
+  onDuplicate,
+  onDelete,
+  onExport,
+  onMicToggle,
+  onPreview,
+  isSaving = false,
+  isDirty = false,
+  isMicActive = false,
+  slideSizePreset = "1280x720",
+  onChangeSlideSize,
 }) => {
   const { saveSlide, markDirty } = useSlidePersistence({
     projectId,
@@ -53,9 +75,23 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   return (
     <div
       className="slide-editor-outer"
-      style={{ height: "100%", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      style={{ height: "100%", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: 16 }}
       data-slide-id={slide.id}
     >
+      {/* Slide-specific Actions Toolbar */}
+      <SlideToolbar
+        onDuplicate={onDuplicate}
+        onDelete={onDelete}
+        onExport={onExport}
+        onMicToggle={onMicToggle}
+        onSave={handleSave}
+        isSaving={isSaving}
+        isDirty={isDirty}
+        isMicActive={isMicActive}
+        slideSizePreset={slideSizePreset}
+        onChangeSlideSize={onChangeSlideSize}
+      />
+
       {/* If width/height provided, constrain the visible canvas to those dimensions */}
       <div
         className="slide-canvas"
@@ -73,6 +109,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
           key={slide.id}
           docId={slideDocId}
           onChange={handleChange}
+          showDefaultToolbar={false}
+          customToolbar={<TextFormattingToolbar onPreview={onPreview} onSave={handleSave} />}
           // Pass the serialized JSON string (or null) to Lexical's collaboration plugin.
           // The plugin expects either a JSON string it can parse, or an EditorState instance —
           // passing a plain parsed object caused `editorState.isEmpty is not a function`.

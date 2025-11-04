@@ -1,0 +1,102 @@
+/* SlideToolbar.css - Toolbar styles for slide actions */
+
+.slide-toolbar {
+  position: sticky;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: white;
+  border-bottom: 1px solid #ddd;
+}
+
+.slide-toolbar .slide-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slide-toolbar .save-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.slide-toolbar .slide-size-selector {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.slide-toolbar .slide-size-selector label {
+  margin-right: 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+.slide-toolbar .slide-size-selector select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.slide-toolbar button.toolbar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.slide-toolbar button.toolbar-item:hover {
+  background-color: #f0f0f0;
+}
+
+.slide-toolbar button.toolbar-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.slide-toolbar button.toolbar-item.mic-active {
+  background-color: #ff5252;
+  color: white;
+  border-color: #ff5252;
+}
+
+.slide-toolbar button.toolbar-item.mic-active:hover {
+  background-color: #ff4444;
+}
+
+.slide-toolbar button.toolbar-item.delete {
+  color: #f44336;
+  border-color: #f44336;
+}
+
+.slide-toolbar button.toolbar-item.delete:hover {
+  background-color: #ffebee;
+}
+
+.slide-toolbar button.toolbar-item.save {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.slide-toolbar button.toolbar-item.save:hover {
+  background-color: #0056b3;
+}

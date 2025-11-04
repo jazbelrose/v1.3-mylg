@@ -10,7 +10,6 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
-import SlideToolbar from "./components/SlideToolbar";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
@@ -326,11 +325,6 @@ const SlidesPage: React.FC = () => {
     // or when leaving the editor (see `handleBack`).
   }, []);
 
-  const handleSave = useCallback(() => {
-    saveSlides(slides);
-    notify("success", "All slides saved");
-  }, [slides, saveSlides]);
-
   const handleExport = useCallback(() => {
     notify("info", "Export feature coming soon");
     // TODO: Implement PDF export with jsPDF
@@ -380,18 +374,6 @@ const SlidesPage: React.FC = () => {
 
         {/* Main Content */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Toolbar */}
-          <SlideToolbar
-            onDuplicate={handleDuplicateSlide}
-            onDelete={handleDeleteSlide}
-            onExport={handleExport}
-            onSave={handleSave}
-            isSaving={isSaving}
-            isDirty={isDirty}
-            slideSizePreset={slideSizePreset}
-            onChangeSlideSize={(preset: "1280x720" | "1920x1080") => setSlideSizePreset(preset)}
-          />
-
           {/* Editor */}
           <div style={{ flex: 1, overflow: "auto" }}>
             {activeSlide ? (
@@ -405,6 +387,13 @@ const SlidesPage: React.FC = () => {
                 onContentChange={(content) =>
                   handleContentChange(activeSlide.id, content)
                 }
+                onDuplicate={handleDuplicateSlide}
+                onDelete={handleDeleteSlide}
+                onExport={handleExport}
+                isSaving={isSaving}
+                isDirty={isDirty}
+                slideSizePreset={slideSizePreset}
+                onChangeSlideSize={(preset: "1280x720" | "1920x1080") => setSlideSizePreset(preset)}
               />
             ) : (
               <div

@@ -1,6 +1,13 @@
-// components/SlideToolbar.tsx - Toolbar with slide actions
+// components/SlideToolbar.tsx - Unified toolbar with slide actions and text formatting
 import React from "react";
 import { Copy, Trash2, Download, Mic, Save, Clock } from "lucide-react";
+import ToolbarPlugin from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarPlugin";
+import "./SlideToolbar.css";
+
+// Component that wraps ToolbarPlugin for use within LexicalComposer
+const TextFormattingToolbar: React.FC<{ onPreview?: () => void; onSave?: () => void }> = ({ onPreview, onSave }) => (
+  <ToolbarPlugin onPreview={onPreview} onSave={onSave} />
+);
 
 interface SlideToolbarProps {
   onDuplicate?: () => void;
@@ -8,6 +15,7 @@ interface SlideToolbarProps {
   onExport?: () => void;
   onMicToggle?: () => void;
   onSave?: () => void;
+  onPreview?: () => void;
   isSaving?: boolean;
   isDirty?: boolean;
   isMicActive?: boolean;
@@ -23,62 +31,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onExport,
   onMicToggle,
   onSave,
+  onPreview,
   isSaving = false,
   isDirty = false,
   isMicActive = false,
   slideSizePreset = "1280x720",
   onChangeSlideSize,
 }) => {
-  const buttonStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "8px 12px",
-    backgroundColor: "white",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#333",
-    transition: "all 0.2s",
-  };
-
-  const handleMouseOver = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.backgroundColor = "#f0f0f0";
-  };
-
-  const handleMouseOut = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.backgroundColor = "white";
-  };
 
   return (
-    <div
-      style={{
-        position: "sticky",
-        top: 0,
-        right: 0,
-        zIndex: 10,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: "8px",
-        padding: "12px 16px",
-        backgroundColor: "white",
-        borderBottom: "1px solid #ddd",
-      }}
-    >
+    <div className="slide-toolbar">
       {/* Save Status */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          marginRight: "auto",
-          fontSize: "13px",
-          color: "#666",
-        }}
-      >
+      <div className="save-status">
         {isSaving ? (
           <>
             <Clock size={16} />
@@ -99,18 +63,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       {onMicToggle && (
         <button
           onClick={onMicToggle}
-          style={{
-            ...buttonStyle,
-            backgroundColor: isMicActive ? "#ff5252" : "white",
-            color: isMicActive ? "white" : "#333",
-            borderColor: isMicActive ? "#ff5252" : "#ddd",
-          }}
-          onMouseOver={(e) => {
-            if (!isMicActive) handleMouseOver(e);
-          }}
-          onMouseOut={(e) => {
-            if (!isMicActive) handleMouseOut(e);
-          }}
+          className={`toolbar-item ${isMicActive ? "mic-active" : ""}`}
         >
           <Mic size={16} />
           {isMicActive ? "Stop" : "Mic"}
@@ -121,9 +74,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       {onDuplicate && (
         <button
           onClick={onDuplicate}
-          style={buttonStyle}
-          onMouseOver={handleMouseOver}
-          onMouseOut={handleMouseOut}
+          className="toolbar-item"
         >
           <Copy size={16} />
           Duplicate
@@ -134,17 +85,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       {onDelete && (
         <button
           onClick={onDelete}
-          style={{
-            ...buttonStyle,
-            color: "#f44336",
-            borderColor: "#f44336",
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = "#ffebee";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = "white";
-          }}
+          className="toolbar-item delete"
         >
           <Trash2 size={16} />
           Delete
@@ -155,9 +96,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       {onExport && (
         <button
           onClick={onExport}
-          style={buttonStyle}
-          onMouseOver={handleMouseOver}
-          onMouseOut={handleMouseOut}
+          className="toolbar-item"
         >
           <Download size={16} />
           Export
@@ -168,18 +107,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       {onSave && (
         <button
           onClick={onSave}
-          style={{
-            ...buttonStyle,
-            backgroundColor: "#007bff",
-            color: "white",
-            borderColor: "#007bff",
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = "#0056b3";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = "#007bff";
-          }}
+          className="toolbar-item save"
           disabled={isSaving}
         >
           <Save size={16} />
@@ -189,12 +117,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
       {/* Slide Size Preset */}
       {onChangeSlideSize && (
-        <div style={{ marginLeft: "8px", display: "flex", alignItems: "center" }}>
-          <label style={{ marginRight: "8px", fontSize: "13px", color: "#555" }}>Size</label>
+        <div className="slide-size-selector">
+          <label>Size</label>
           <select
             value={slideSizePreset}
             onChange={(e) => onChangeSlideSize(e.target.value as "1280x720" | "1920x1080")}
-            style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #ddd" }}
           >
             <option value="1280x720">1280 × 720 (16:9)</option>
             <option value="1920x1080">1920 × 1080 (16:9)</option>
@@ -205,4 +132,5 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   );
 };
 
+export { TextFormattingToolbar };
 export default SlideToolbar;
