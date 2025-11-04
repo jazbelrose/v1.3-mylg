@@ -32,6 +32,18 @@ const SlidesPage: React.FC = () => {
   const [isDirty, setIsDirty] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
+  const thumbTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper to add a cache-busting query param for immediate UI refresh
+  const makeUiThumbnail = (url: string) => `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+
+  // Helper to strip cache-bust query params before persisting to backend
+  const sanitizeThumbnailForPersist = (thumb?: string) => {
+    if (!thumb) return thumb;
+    const idx = thumb.indexOf("?t=");
+    if (idx === -1) return thumb;
+    return thumb.substring(0, idx);
+  };
 
   const parseStatusToNumber = (statusString: string | number | undefined | null): number => {
     if (statusString === undefined || statusString === null) return 0;
@@ -157,6 +169,10 @@ const SlidesPage: React.FC = () => {
   useEffect(() => {
     return () => {
       disconnectAllSlideProviders();
+      if (thumbTimeoutRef.current) {
+        clearTimeout(thumbTimeoutRef.current);
+        thumbTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -191,7 +207,37 @@ const SlidesPage: React.FC = () => {
         await updateProjectFields(projectId, {
           slides: slidesToSave,
         });
+        // Mark saved
         setIsDirty(false);
+
+        // After a successful save, generate a thumbnail for the active slide
+        try {
+          if (projectId && activeSlideId) {
+            const width = 1920;
+            const height = 1080;
+            // Generate and persist thumbnail; update local state and then persist
+            saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
+              setSlides((prev) => {
+                const updated = prev.map((s) =>
+                  s.id === activeSlideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s
+                );
+                // Persist the updated slides to backend (best-effort) without cache buster
+                const persisted = updated.map((s) => ({
+                  ...s,
+                  thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+                }));
+                updateProjectFields(projectId, { slides: persisted }).catch((e) =>
+                  console.warn("Failed to persist thumbnail after save:", e)
+                );
+                return updated;
+              });
+            }, { width, height }).catch((e) => {
+              console.warn('Failed to save thumbnail after save:', e);
+            });
+          }
+        } catch (err) {
+          console.warn('Thumbnail generation after save failed:', err);
+        }
       } catch (err) {
         console.error("Failed to save slides:", err);
         notify("error", "Failed to save slides");
@@ -199,7 +245,7 @@ const SlidesPage: React.FC = () => {
         setIsSaving(false);
       }
     },
-    [projectId, updateProjectFields]
+    [projectId, updateProjectFields, activeSlideId]
   );
 
   const handleNewSlide = useCallback(() => {
@@ -245,17 +291,24 @@ const SlidesPage: React.FC = () => {
         const width = 1920;
         const height = 1080;
         saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
-          setSlides((prev) =>
-            prev.map((slide) =>
-              slide.id === activeSlideId ? { ...slide, thumbnail: thumbnailUrl } : slide
-            )
-          );
+          setSlides((prev) => {
+            const updated = prev.map((slide) =>
+              slide.id === activeSlideId ? { ...slide, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : slide
+            );
+            // Persist updated thumbnails (best-effort) without cache buster
+            const persisted = updated.map((s) => ({
+              ...s,
+              thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+            }));
+            saveSlides(persisted);
+            return updated;
+          });
         }, { width, height }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
       }
 
       setActiveSlideId(slideId);
     },
-    [projectId, activeSlideId]
+    [projectId, activeSlideId, saveSlides]
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
@@ -317,11 +370,42 @@ const SlidesPage: React.FC = () => {
       )
     );
     setIsDirty(true);
-    // Thumbnails are intentionally NOT generated on every content change to
-    // avoid UI jank and excessive html2canvas calls. Thumbnails are created
-    // when the user navigates away from the slide (see `handleSlideSelect`)
-    // or when leaving the editor (see `handleBack`).
-  }, []);
+
+    // Debounced thumbnail generation (longer than auto-save) to refresh
+    // preview without causing jank during typing. This runs after a longer
+    // idle period (5s) and persists the thumbnail when generated.
+    try {
+      if (thumbTimeoutRef.current) {
+        clearTimeout(thumbTimeoutRef.current);
+        thumbTimeoutRef.current = null;
+      }
+
+      if (!projectId) return;
+
+      thumbTimeoutRef.current = setTimeout(async () => {
+        try {
+          const width = 1920;
+          const height = 1080;
+          await saveSlideThumb(projectId, slideId, (thumbnailUrl) => {
+            setSlides((prev) => {
+              const updated = prev.map((s) => (s.id === slideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s));
+              // Persist updated slides (best-effort) without cache buster
+              const persisted = updated.map((s) => ({
+                ...s,
+                thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+              }));
+              saveSlides(persisted);
+              return updated;
+            });
+          }, { width, height });
+        } catch (err) {
+          console.warn('Debounced thumbnail generation failed:', err);
+        }
+      }, 5000);
+    } catch (err) {
+      console.warn('handleContentChange thumbnail scheduling failed:', err);
+    }
+  }, [projectId, saveSlides]);
 
   // Debounced auto-save of slide content to backend when edits occur.
   useEffect(() => {

@@ -72,9 +72,9 @@ export async function generateAndUploadThumbnail(
 
     if (!blob) return null;
 
-    // Use consistent filename based on slideId (no random UUID)
-    // This ensures the same slide always generates the same filename
-    const filename = `slides/${projectId}/${slideId}.png`;
+    // Use consistent filename based on slideId with timestamp to avoid caching issues
+    // This ensures each save generates a unique filename
+    const filename = `slides/${projectId}/${slideId}-${Date.now()}.png`;
     const file = new File([blob], filename, { type: "image/png" });
 
     const key = await uploadFileToS3({
@@ -130,6 +130,14 @@ export async function generateSlideThumbnail(
     }
 
     if (!editorElement) {
+      // If we couldn't find the inner editor node, try to capture the
+      // whole slide container which should have `data-slide-id` applied.
+      const container = document.querySelector(rootSelector) as HTMLElement | null;
+      if (container) {
+        console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
+        return await generateAndUploadThumbnail(container, projectId, slideId);
+      }
+
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
     }
@@ -171,6 +179,13 @@ export async function generateSlideThumbnailWithSize(
     }
 
     if (!editorElement) {
+      // Fallback to container capture when inner editor missing
+      const container = document.querySelector(rootSelector) as HTMLElement | null;
+      if (container) {
+        console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
+        return await generateAndUploadThumbnail(container, projectId, slideId);
+      }
+
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
     }
