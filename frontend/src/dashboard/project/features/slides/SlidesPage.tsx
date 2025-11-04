@@ -61,24 +61,55 @@ const SlidesPage: React.FC = () => {
   useEffect(() => {
     if (!projectId) return;
 
-    if (!activeProject || activeProject.projectId !== projectId) {
+    if (!activeProject || activeProject.projectId !== projectId || !activeProject.slides) {
       fetchProjectDetails(projectId);
     }
   }, [projectId, activeProject, fetchProjectDetails]);
 
   useEffect(() => {
-    if (activeProject?.slides && Array.isArray(activeProject.slides) && activeProject.slides.length > 0) {
-      const sortedSlides = [...(activeProject.slides as Slide[])].sort(
+    if (!projectId) return;
+
+    const projectSlides = activeProject?.slides;
+    if (!Array.isArray(projectSlides)) {
+      return;
+    }
+
+    if (projectSlides.length > 0) {
+      const sortedSlides = [...(projectSlides as Slide[])].sort(
         (a, b) => (a.order || 0) - (b.order || 0)
       );
-      setSlides(sortedSlides);
-      
-      // Set first slide as active if none is selected
-      if (!activeSlideId && sortedSlides.length > 0) {
-        setActiveSlideId(sortedSlides[0].id);
+
+      setSlides((prevSlides) => {
+        const sameLength = prevSlides.length === sortedSlides.length;
+        const sameContent =
+          sameLength &&
+          prevSlides.every(
+            (slide, index) =>
+              JSON.stringify(slide) === JSON.stringify(sortedSlides[index])
+          );
+        return sameContent ? prevSlides : sortedSlides;
+      });
+
+      setActiveSlideId((current) => {
+        if (!current || !sortedSlides.some((slide) => slide.id === current)) {
+          return sortedSlides[0].id;
+        }
+        return current;
+      });
+      return;
+    }
+
+    setSlides((prevSlides) => {
+      if (prevSlides.length > 0) {
+        setActiveSlideId((current) => {
+          if (current && prevSlides.some((slide) => slide.id === current)) {
+            return current;
+          }
+          return prevSlides[0].id;
+        });
+        return prevSlides;
       }
-    } else {
-      // Create initial slide if none exist
+
       const initialSlide: Slide = {
         id: uuidv4(),
         title: "Slide 1",
@@ -103,10 +134,10 @@ const SlidesPage: React.FC = () => {
           },
         }),
       };
-      setSlides([initialSlide]);
       setActiveSlideId(initialSlide.id);
-    }
-  }, [activeProject?.slides, activeSlideId]);
+      return [initialSlide];
+    });
+  }, [projectId, activeProject?.slides]);
 
   // Cleanup Yjs connections on unmount
   useEffect(() => {

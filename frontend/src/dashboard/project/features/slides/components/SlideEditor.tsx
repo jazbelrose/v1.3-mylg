@@ -22,6 +22,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     slideId: slide.id,
     onSaveSuccess,
   });
+  const slideDocId = `${projectId}::slide::${slide.id}`;
 
   const handleChange = useCallback(
     (json: string) => {
@@ -46,6 +47,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       data-slide-id={slide.id}
     >
       <LexicalEditor
+        key={slide.id}
+        docId={slideDocId}
         onChange={handleChange}
         initialContent={slide.content ? JSON.parse(slide.content) : null}
         onSave={handleSave}

@@ -66,6 +66,7 @@ import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 type LexicalEditorProps = {
   onChange: (json: string) => void;
   initialContent?: unknown | null;
+  docId?: string;
   registerToolbar?: (actions: unknown) => void;
   onPreview?: () => void;
   onSave?: () => void;
@@ -81,6 +82,7 @@ interface ExtendedWebsocketProvider extends WebsocketProvider {
 const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onChange,
   initialContent,
+  docId,
   registerToolbar,
   onPreview,
   onSave,
@@ -129,9 +131,10 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
   const initialContentRef = useRef<unknown | null>(null);
   const hasScrolledToBottom = useRef<boolean>(false);
+  const lastDocIdRef = useRef<string | null>(null);
 
   // Memoize the project ID so it isn’t recalculated unnecessarily.
-  const projectId = useMemo<string>(() => {
+  const fallbackProjectId = useMemo<string>(() => {
     const ap = activeProject;
     if (ap && typeof ap === "object" && "projectId" in ap) {
       return (ap?.projectId as string) || "default-project";
@@ -139,27 +142,38 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
     return (ap as string) || "default-project";
   }, [activeProject]);
 
+  const resolvedDocId = useMemo<string>(() => {
+    const trimmedDocId = typeof docId === "string" ? docId.trim() : "";
+    return trimmedDocId.length > 0 ? trimmedDocId : fallbackProjectId;
+  }, [docId, fallbackProjectId]);
+
   // Lock initialContentRef.current after first assignment to prevent re-bootstrap
   useEffect(() => {
+    if (lastDocIdRef.current !== resolvedDocId) {
+      lastDocIdRef.current = resolvedDocId;
+      initialContentRef.current = initialContent ?? null;
+      return;
+    }
+
     if (initialContentRef.current === null && initialContent) {
       initialContentRef.current = initialContent;
     }
-  }, [initialContent]);
+  }, [initialContent, resolvedDocId]);
 
   useEffect(() => {
     const persistence = persistenceRef.current;
     if (persistence) {
-      console.log("[Yjs] Destroying IndexedDB persistence for project:", projectId);
+      console.log("[Yjs] Destroying IndexedDB persistence for doc:", resolvedDocId);
       persistence
         .destroy()
         .then(() => {
-          console.log("IndexedDB cleared for project:", projectId);
+          console.log("IndexedDB cleared for doc:", resolvedDocId);
         })
         .catch((err: unknown) => {
           console.error("Error clearing IndexedDB:", err);
         });
     }
-  }, [projectId]);
+  }, [resolvedDocId]);
 
   // Clean up provider only when the component unmounts
   useEffect(() => {
@@ -181,7 +195,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
 
   useEffect(() => {
     hasScrolledToBottom.current = false;
-  }, [projectId]);
+  }, [resolvedDocId]);
 
   // Only to trigger re-renders if you want; not otherwise used.
   // (Keep for parity with original; can be removed if truly unused.)
@@ -394,7 +408,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                 />
 
                 <CollaborationPlugin
-                  id={projectId}
+                  id={resolvedDocId}
                   providerFactory={getProvider}
                   initialEditorState={initialContentRef.current as never}
                   shouldBootstrap={true}

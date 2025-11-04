@@ -250,6 +250,7 @@ const EditorPage: React.FC = () => {
                     {activeProject?.description !== undefined ? (
                       <LexicalEditor
                         key={activeProject?.projectId ?? "default-project"}
+                        docId={`${activeProject?.projectId ?? "default-project"}::brief`}
                         initialContent={activeProject?.description ?? null}
                         onChange={handleBriefChange}
                         registerToolbar={() => {}}
