@@ -1,6 +1,7 @@
 // lib/thumbnails.ts - Thumbnail generation and upload utilities
 import html2canvas from "html2canvas";
 import { uploadData } from 'aws-amplify/storage';
+import { getFileUrl } from '@/shared/utils/api';
 
 /**
  * Get CDN URL for an S3 key
@@ -83,7 +84,12 @@ export async function generateAndUploadThumbnail(
       contentType: "image/png",
     });
 
-    return getCdnUrl(key);
+  // Normalize the returned URL using the shared helper so the runtime
+  // behavior matches how thumbnails are resolved on a full reload.
+  // Prefix with `public/` to match persisted keys used elsewhere in the app.
+  // Small delay helps avoid rare propagation timing issues with CDN/S3.
+  await new Promise((res) => setTimeout(res, 300));
+  return getFileUrl(`public/${key}`);
   } catch (error) {
     console.error("Failed to generate and upload thumbnail:", error);
     return null;
@@ -133,7 +139,7 @@ export async function generateSlideThumbnail(
       // If we couldn't find the inner editor node, try to capture the
       // whole slide container which should have `data-slide-id` applied.
       const container = document.querySelector(rootSelector) as HTMLElement | null;
-      if (container) {
+        if (container) {
         console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
         return await generateAndUploadThumbnail(container, projectId, slideId);
       }
@@ -142,7 +148,7 @@ export async function generateSlideThumbnail(
       return null;
     }
 
-    return await generateAndUploadThumbnail(editorElement, projectId, slideId);
+  return await generateAndUploadThumbnail(editorElement, projectId, slideId);
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
