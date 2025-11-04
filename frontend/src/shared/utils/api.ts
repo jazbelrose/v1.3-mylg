@@ -46,6 +46,16 @@ export interface QuickLink {
   [k: string]: unknown;
 }
 
+export interface Slide {
+  id: string;
+  title?: string;
+  thumbnail?: string;
+  content?: string; // Lexical JSON
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Project {
   projectId: string;
   title?: string;
@@ -67,6 +77,8 @@ export interface Project {
   clientEmail?: string;
   previewUrl?: string;
   quickLinks?: QuickLink[];
+  slidesMode?: boolean; // Feature flag for slides interface
+  slides?: Slide[]; // Array of slides for slides mode
   [key: string]: unknown;
 }
 
