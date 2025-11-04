@@ -8,9 +8,16 @@ import { uploadData } from 'aws-amplify/storage';
  */
 export function getCdnUrl(key: string): string {
   const cdnBase = import.meta.env.VITE_FILE_CDN || 'https://mylg-files-v12.s3.us-west-2.amazonaws.com';
-  // Remove 'public/' prefix if present since CDN base already includes it
-  const cleanKey = key.startsWith('public/') ? key.slice(7) : key;
-  return `${cdnBase}/${cleanKey}`;
+  // Ensure the key has the public/ prefix for public access
+  const publicKey = key.startsWith('public/') ? key : `public/${key}`;
+  
+  // Encode the key segments properly
+  const encodedKey = publicKey
+    .split('/')
+    .map((segment) => encodeURIComponent(segment).replace(/\+/g, '%20'))
+    .join('/');
+  
+  return `${cdnBase}/${encodedKey}`;
 }
 
 /**
