@@ -1,17 +1,20 @@
 // lib/thumbnails.ts - Thumbnail generation and upload utilities
 import html2canvas from "html2canvas";
 import { v4 as uuid } from "uuid";
+import { uploadData } from 'aws-amplify/storage';
 
 /**
  * Get CDN URL for an S3 key
  */
 export function getCdnUrl(key: string): string {
   const cdnBase = import.meta.env.VITE_FILE_CDN || 'https://mylg-files-v12.s3.us-west-2.amazonaws.com';
-  return `${cdnBase}/${key}`;
+  // Remove 'public/' prefix if present since CDN base already includes it
+  const cleanKey = key.startsWith('public/') ? key.slice(7) : key;
+  return `${cdnBase}/${cleanKey}`;
 }
 
 /**
- * Upload a file to S3 using presigned URL approach
+ * Upload a file to S3 using AWS Amplify Storage
  */
 async function uploadFileToS3({
   file,
@@ -22,41 +25,21 @@ async function uploadFileToS3({
   key: string;
   contentType: string;
 }): Promise<string> {
-  // Use the backend presigned URL endpoint
-  const API_BASE = import.meta.env.VITE_API_BASE || 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com';
-  const PRESIGN_URL = `${API_BASE}/projects/galleries/upload`;
-
-    // Get presigned URL from backend
-    const presignResp = await fetch(PRESIGN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add auth header if needed
-      },
-      body: JSON.stringify({
-        projectId: key.split('/')[2], // Extract projectId from key
-        fileName: key.split('/').pop(),
+  try {
+    await uploadData({
+      key,
+      data: file,
+      options: {
         contentType,
-        key, // Pass the custom key
-      }),
-    });  if (!presignResp.ok) {
-    throw new Error(`Failed to get presigned URL: ${presignResp.status}`);
+        accessLevel: 'public',
+      },
+    });
+
+    return key;
+  } catch (error) {
+    console.error('Failed to upload file to S3:', error);
+    throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-
-  const { uploadUrl } = await presignResp.json();
-
-  // Upload file using presigned URL
-  const uploadResp = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType },
-    body: file,
-  });
-
-  if (!uploadResp.ok) {
-    throw new Error(`Failed to upload file: ${uploadResp.status}`);
-  }
-
-  return key;
 }
 
 /**
