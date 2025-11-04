@@ -124,11 +124,36 @@ const mergeProjectWithFallback = (
     merged.thumbnails = fallback.thumbnails;
   }
 
+  // Prefer fallback slides when the fetched project lacks them or returns empty
+  // while the fallback has slides (helps when list endpoints omit slides).
+  const primarySlides = (primary as unknown as { slides?: unknown }).slides as unknown;
+  const fallbackSlides = (fallback as unknown as { slides?: unknown }).slides as unknown;
+  const primarySlidesArray = Array.isArray(primarySlides) ? (primarySlides as unknown[]) : undefined;
+  const fallbackSlidesArray = Array.isArray(fallbackSlides) ? (fallbackSlides as unknown[]) : undefined;
+  if (
+    (!primarySlidesArray || primarySlidesArray.length === 0) &&
+    fallbackSlidesArray &&
+    fallbackSlidesArray.length > 0
+  ) {
+    (merged as unknown as { slides?: unknown[] }).slides = fallbackSlidesArray;
+  } else if (primarySlidesArray) {
+    (merged as unknown as { slides?: unknown[] }).slides = primarySlidesArray;
+  }
+
   return merged;
 };
 
-const projectNeedsDetailHydration = (project: Project | null | undefined): project is Project =>
-  Boolean(project) && (project.description === undefined || project.customFolders === undefined);
+const projectNeedsDetailHydration = (
+  project: Project | null | undefined
+): project is Project => {
+  if (!project) return false;
+  const missingDescription = (project as Record<string, unknown>).description === undefined;
+  // Some data sets include customFolders; if missing we treat as needing hydration
+  const missingCustomFolders = (project as Record<string, unknown>).customFolders === undefined;
+  const slidesVal = (project as unknown as { slides?: unknown }).slides as unknown;
+  const missingSlides = !Array.isArray(slidesVal);
+  return missingDescription || missingCustomFolders || missingSlides;
+};
 
 const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const { userId } = useAuth();
@@ -419,12 +444,11 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
   // Single project details
   const fetchProjectDetails = useCallback<ProjectsValue["fetchProjectDetails"]>(
     async (projectId) => {
-      if (!projects || !Array.isArray(projects)) {
-        console.error("Projects data is not available yet.");
-        return false;
-      }
-
-      let project = projects.find((p) => p.projectId === projectId) || null;
+      // Try to use an in-memory project if available; otherwise proceed with
+      // network hydration without bailing early so deep links work reliably.
+      let project = Array.isArray(projects)
+        ? projects.find((p) => p.projectId === projectId) || null
+        : null;
 
       if (projectNeedsDetailHydration(project)) {
         try {

@@ -323,6 +323,16 @@ const SlidesPage: React.FC = () => {
     // or when leaving the editor (see `handleBack`).
   }, []);
 
+  // Debounced auto-save of slide content to backend when edits occur.
+  useEffect(() => {
+    if (!isDirty) return;
+    const t = setTimeout(() => {
+      // Persist the current slides array (including edited content)
+      saveSlides(slides);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [isDirty, slides, saveSlides]);
+
   const handleExport = useCallback(() => {
     notify("info", "Export feature coming soon");
     // TODO: Implement PDF export with jsPDF
