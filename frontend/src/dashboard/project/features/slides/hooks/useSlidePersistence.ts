@@ -25,23 +25,6 @@ export function useSlidePersistence({
   const contentRef = useRef<string>("");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-save after 2 seconds of inactivity
-  useEffect(() => {
-    if (isDirty && contentRef.current) {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      saveTimeoutRef.current = setTimeout(() => {
-        saveSlide(contentRef.current, false);
-      }, 2000);
-    }
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [isDirty, slideId, saveSlide]);
-
   const saveSlide = useCallback(
     async (content: string, showToast = true) => {
       if (!projectId || !slideId) {
@@ -79,6 +62,23 @@ export function useSlidePersistence({
     },
     [projectId, slideId, isSaving, onSaveSuccess]
   );
+
+  // Auto-save after 2 seconds of inactivity
+  useEffect(() => {
+    if (isDirty && contentRef.current) {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+        saveSlide(contentRef.current, false);
+      }, 2000);
+    }
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [isDirty, slideId, saveSlide]);
 
   const markDirty = useCallback(() => {
     setIsDirty(true);

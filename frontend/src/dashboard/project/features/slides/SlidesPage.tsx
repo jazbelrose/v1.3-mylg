@@ -1,10 +1,13 @@
 // SlidesPage.tsx - Main slides editor page
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { Slide } from "@/app/contexts/DataProvider";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
+import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
+import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
+import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlideToolbar from "./components/SlideToolbar";
@@ -12,19 +15,47 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
+import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const {
     activeProject,
     fetchProjectDetails,
     updateProjectFields,
+    userId,
   } = useData();
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const quickLinksRef = useRef<QuickLinksRef>(null);
+
+  const parseStatusToNumber = (statusString: string | number | undefined | null): number => {
+    if (statusString === undefined || statusString === null) return 0;
+    const str = typeof statusString === "string" ? statusString : String(statusString);
+    const num = parseFloat(str.replace("%", ""));
+    return Number.isNaN(num) ? 0 : num;
+  };
+
+  const handleActiveProjectChange = (updatedProject: any) => {
+    // setActiveProject is not available in useData, so we might need to handle this differently
+    // For now, just log
+    console.log("Active project change:", updatedProject);
+  };
+
+  const handleProjectDeleted = (deletedProjectId: string) => {
+    const title = activeProject?.title ?? "";
+    navigate(getProjectDashboardPath(deletedProjectId, title));
+  };
+
+  const handleBack = () => {
+    const title = activeProject?.title ?? "";
+    navigate(getProjectDashboardPath(projectId!, title));
+  };
 
   // Initialize slides from project data
   useEffect(() => {
@@ -36,8 +67,8 @@ const SlidesPage: React.FC = () => {
   }, [projectId, activeProject, fetchProjectDetails]);
 
   useEffect(() => {
-    if (activeProject?.slides && activeProject.slides.length > 0) {
-      const sortedSlides = [...activeProject.slides].sort(
+    if (activeProject?.slides && Array.isArray(activeProject.slides) && activeProject.slides.length > 0) {
+      const sortedSlides = [...(activeProject.slides as Slide[])].sort(
         (a, b) => (a.order || 0) - (b.order || 0)
       );
       setSlides(sortedSlides);
@@ -83,6 +114,26 @@ const SlidesPage: React.FC = () => {
       disconnectAllSlideProviders();
     };
   }, []);
+
+  const saveSlides = useCallback(
+    async (slidesToSave: Slide[]) => {
+      if (!projectId) return;
+
+      setIsSaving(true);
+      try {
+        await updateProjectFields(projectId, {
+          slides: slidesToSave,
+        });
+        setIsDirty(false);
+      } catch (err) {
+        console.error("Failed to save slides:", err);
+        notify("error", "Failed to save slides");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [projectId, updateProjectFields]
+  );
 
   const handleNewSlide = useCallback(() => {
     const newSlide: Slide = {
@@ -197,26 +248,6 @@ const SlidesPage: React.FC = () => {
     }
   }, [projectId]);
 
-  const saveSlides = useCallback(
-    async (slidesToSave: Slide[]) => {
-      if (!projectId) return;
-
-      setIsSaving(true);
-      try {
-        await updateProjectFields(projectId, {
-          slides: slidesToSave,
-        });
-        setIsDirty(false);
-      } catch (err) {
-        console.error("Failed to save slides:", err);
-        notify("error", "Failed to save slides");
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [projectId, updateProjectFields]
-  );
-
   const handleSave = useCallback(() => {
     saveSlides(slides);
     notify("success", "All slides saved");
@@ -234,8 +265,30 @@ const SlidesPage: React.FC = () => {
   }
 
   return (
-    <ProjectPageLayout>
-      <ProjectHeader />
+    <ProjectPageLayout
+      projectId={projectId}
+      header={
+        <ProjectHeader
+          activeProject={activeProject}
+          parseStatusToNumber={parseStatusToNumber}
+          userId={userId}
+          onProjectDeleted={handleProjectDeleted}
+          showWelcomeScreen={handleBack}
+          onActiveProjectChange={handleActiveProjectChange}
+          onOpenFiles={() => setFilesOpen(true)}
+          onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
+        />
+      }
+    >
+      {filesOpen && (
+        <FileManagerComponent
+          isOpen={filesOpen}
+          onRequestClose={() => setFilesOpen(false)}
+          showTrigger={false}
+          folder="uploads"
+        />
+      )}
+      <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div style={{ display: "flex", height: "calc(100vh - 64px)" }}>
         {/* Sidebar */}
