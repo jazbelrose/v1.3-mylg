@@ -105,8 +105,6 @@ interface SlideToolbarProps {
   isSaving?: boolean;
   isDirty?: boolean;
   isMicActive?: boolean;
-  slideSizePreset?: "1280x720" | "1920x1080";
-  onChangeSlideSize?: (preset: "1280x720" | "1920x1080") => void;
 
   // Zoom controls
   zoom?: number;
@@ -164,8 +162,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   isSaving = false,
   isDirty = false,
   isMicActive = false,
-  slideSizePreset = "1280x720",
-  onChangeSlideSize,
 
   // Zoom controls
   zoom = 100,
@@ -392,20 +388,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             <Save size={16} />
             Save
           </button>
-        )}
-
-        {/* Slide Size Preset */}
-        {onChangeSlideSize && (
-          <div className="slide-size-selector">
-            <label>Size</label>
-            <select
-              value={slideSizePreset}
-              onChange={(e) => onChangeSlideSize(e.target.value as "1280x720" | "1920x1080")}
-            >
-              <option value="1280x720">1280 × 720 (16:9)</option>
-              <option value="1920x1080">1920 × 1080 (16:9)</option>
-            </select>
-          </div>
         )}
 
         <Divider />

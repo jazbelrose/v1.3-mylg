@@ -30,24 +30,6 @@
   white-space: nowrap;
 }
 
-.slide-toolbar .slide-size-selector {
-  margin-left: 8px;
-  display: flex;
-  align-items: center;
-}
-
-.slide-toolbar .slide-size-selector label {
-  margin-right: 8px;
-  font-size: 13px;
-  color: #555;
-}
-
-.slide-toolbar .slide-size-selector select {
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-}
-
 .slide-toolbar .zoom-controls {
   display: flex;
   align-items: center;

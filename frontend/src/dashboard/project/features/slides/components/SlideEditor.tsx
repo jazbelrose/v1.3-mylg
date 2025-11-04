@@ -69,8 +69,6 @@ const EditorWithToolbar: React.FC<{
   isSaving = false,
   isDirty = false,
   isMicActive = false,
-  slideSizePreset = "1280x720",
-  onChangeSlideSize,
 }) => {
   const [editor] = useLexicalComposerContext();
   const [zoom, setZoom] = useState(100); // Default 100% zoom
@@ -243,8 +241,6 @@ const EditorWithToolbar: React.FC<{
         isSaving={isSaving}
         isDirty={isDirty}
         isMicActive={isMicActive}
-        slideSizePreset={slideSizePreset}
-        onChangeSlideSize={onChangeSlideSize}
 
         // Zoom controls
         zoom={zoom}
@@ -347,8 +343,6 @@ interface SlideEditorProps {
   isSaving?: boolean;
   isDirty?: boolean;
   isMicActive?: boolean;
-  slideSizePreset?: "1280x720" | "1920x1080";
-  onChangeSlideSize?: (preset: "1280x720" | "1920x1080") => void;
 }
 
 const SlideEditor: React.FC<SlideEditorProps> = (props) => {
