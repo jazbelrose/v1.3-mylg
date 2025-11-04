@@ -19,6 +19,9 @@ import {
   Download,
   Mic,
   Clock,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -105,6 +108,12 @@ interface SlideToolbarProps {
   slideSizePreset?: "1280x720" | "1920x1080";
   onChangeSlideSize?: (preset: "1280x720" | "1920x1080") => void;
 
+  // Zoom controls
+  zoom?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetZoom?: () => void;
+
   // Text formatting commands
   onUndo?: () => void;
   onRedo?: () => void;
@@ -157,6 +166,12 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   isMicActive = false,
   slideSizePreset = "1280x720",
   onChangeSlideSize,
+
+  // Zoom controls
+  zoom = 100,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
 
   // Text formatting commands
   onUndo,
@@ -392,6 +407,40 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </select>
           </div>
         )}
+
+        <Divider />
+
+        {/* Zoom Controls */}
+        <div className="zoom-controls">
+          <button
+            type="button"
+            onClick={onZoomOut}
+            className="toolbar-item"
+            aria-label="Zoom Out"
+            disabled={zoom <= 25}
+          >
+            <ZoomOut size={16} />
+          </button>
+          <span className="zoom-display">{zoom}%</span>
+          <button
+            type="button"
+            onClick={onZoomIn}
+            className="toolbar-item"
+            aria-label="Zoom In"
+            disabled={zoom >= 200}
+          >
+            <ZoomIn size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onResetZoom}
+            className="toolbar-item"
+            aria-label="Reset Zoom"
+            disabled={zoom === 100}
+          >
+            <RotateCcw size={16} />
+          </button>
+        </div>
 
         <Divider />
       </div>

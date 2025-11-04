@@ -56,8 +56,6 @@ const EditorWithToolbar: React.FC<{
   isMicActive?: boolean;
   slideSizePreset?: "1280x720" | "1920x1080";
   onChangeSlideSize?: (preset: "1280x720" | "1920x1080") => void;
-  width?: number;
-  height?: number;
 }> = ({
   projectId,
   slide,
@@ -73,10 +71,9 @@ const EditorWithToolbar: React.FC<{
   isMicActive = false,
   slideSizePreset = "1280x720",
   onChangeSlideSize,
-  width,
-  height,
 }) => {
   const [editor] = useLexicalComposerContext();
+  const [zoom, setZoom] = useState(100); // Default 100% zoom
   const { saveSlide, markDirty } = useSlidePersistence({
     projectId,
     slideId: slide.id,
@@ -249,6 +246,12 @@ const EditorWithToolbar: React.FC<{
         slideSizePreset={slideSizePreset}
         onChangeSlideSize={onChangeSlideSize}
 
+        // Zoom controls
+        zoom={zoom}
+        onZoomIn={() => setZoom(prev => Math.min(prev + 25, 200))}
+        onZoomOut={() => setZoom(prev => Math.max(prev - 25, 25))}
+        onResetZoom={() => setZoom(100)}
+
         // Text formatting commands
         onUndo={() => dispatchCommand(UNDO_COMMAND)}
         onRedo={() => dispatchCommand(REDO_COMMAND)}
@@ -291,25 +294,38 @@ const EditorWithToolbar: React.FC<{
 
       {/* Lexical Editor without toolbar */}
       <div
-        className="slide-canvas"
+        className="editor-stage"
         style={{
-          width: width ? `${width}px` : "100%",
-          height: height ? `${height}px` : "calc(100% - 32px)",
-          maxWidth: "100%",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-          borderRadius: 6,
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#1a1a1a", // Dark workspace background
           overflow: "hidden",
-          background: "white",
         }}
       >
-        <LexicalEditor
-          key={slide.id}
-          docId={`${projectId}::slide::${slide.id}`}
-          onChange={handleChange}
-          showDefaultToolbar={false}
-          initialContent={slide.content ?? null}
-          onSave={handleSave}
-        />
+        <div
+          className="slide-board"
+          style={{
+            width: "1920px",
+            height: "1080px",
+            background: "white",
+            borderRadius: "6px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+            overflow: "hidden",
+            transformOrigin: "center center",
+            transform: `scale(${zoom / 100})`,
+          }}
+        >
+          <LexicalEditor
+            key={slide.id}
+            docId={`${projectId}::slide::${slide.id}`}
+            onChange={handleChange}
+            showDefaultToolbar={false}
+            initialContent={slide.content ?? null}
+            onSave={handleSave}
+          />
+        </div>
       </div>
     </div>
   );
