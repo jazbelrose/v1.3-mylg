@@ -31,6 +31,8 @@ const SlidesPage: React.FC = () => {
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  // Slide size preset: default to 1280x720 (16:9). Other supported preset: 1920x1080
+  const [slideSizePreset, setSlideSizePreset] = useState<"1280x720" | "1920x1080">("1280x720");
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
 
@@ -59,7 +61,9 @@ const SlidesPage: React.FC = () => {
     if (projectId && activeSlideId) {
       // Best-effort: generate thumbnail and then navigate. Do not block UI
       // longer than necessary; thumbnail save failures are non-fatal.
-      saveSlideThumb(projectId, activeSlideId)
+      const width = slideSizePreset === "1920x1080" ? 1920 : 1280;
+      const height = slideSizePreset === "1920x1080" ? 1080 : 720;
+      saveSlideThumb(projectId, activeSlideId, undefined, { width, height })
         .catch((e) => console.warn("Failed to save thumbnail on exit:", e))
         .finally(() => {
           navigate(getProjectDashboardPath(projectId!, title));
@@ -168,7 +172,9 @@ const SlidesPage: React.FC = () => {
       if (projectId && activeSlideId) {
         try {
           // Fire-and-forget; browsers may not allow async work on unload
-          saveSlideThumb(projectId, activeSlideId).catch(() => {});
+          const width = slideSizePreset === "1920x1080" ? 1920 : 1280;
+          const height = slideSizePreset === "1920x1080" ? 1080 : 720;
+          saveSlideThumb(projectId, activeSlideId, undefined, { width, height }).catch(() => {});
         } catch {
           // ignore
         }
@@ -177,7 +183,7 @@ const SlidesPage: React.FC = () => {
 
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [projectId, activeSlideId]);
+  }, [projectId, activeSlideId, slideSizePreset]);
 
   const saveSlides = useCallback(
     async (slidesToSave: Slide[]) => {
@@ -239,18 +245,20 @@ const SlidesPage: React.FC = () => {
       // When switching away from the current slide, generate a thumbnail for
       // the slide being left. Fire-and-forget so navigation remains snappy.
       if (projectId && activeSlideId && activeSlideId !== slideId) {
+        const width = slideSizePreset === "1920x1080" ? 1920 : 1280;
+        const height = slideSizePreset === "1920x1080" ? 1080 : 720;
         saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
           setSlides((prev) =>
             prev.map((slide) =>
               slide.id === activeSlideId ? { ...slide, thumbnail: thumbnailUrl } : slide
             )
           );
-        }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
+        }, { width, height }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
       }
 
       setActiveSlideId(slideId);
     },
-    [projectId, activeSlideId]
+    [projectId, activeSlideId, slideSizePreset]
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
@@ -380,6 +388,8 @@ const SlidesPage: React.FC = () => {
             onSave={handleSave}
             isSaving={isSaving}
             isDirty={isDirty}
+            slideSizePreset={slideSizePreset}
+            onChangeSlideSize={(preset: "1280x720" | "1920x1080") => setSlideSizePreset(preset)}
           />
 
           {/* Editor */}
@@ -388,6 +398,10 @@ const SlidesPage: React.FC = () => {
               <SlideEditor
                 projectId={projectId}
                 slide={activeSlide}
+                // Provide the numeric width/height for the editor canvas so the
+                // editor can constrain its visible canvas to the chosen preset.
+                width={slideSizePreset === "1920x1080" ? 1920 : 1280}
+                height={slideSizePreset === "1920x1080" ? 1080 : 720}
                 onContentChange={(content) =>
                   handleContentChange(activeSlide.id, content)
                 }

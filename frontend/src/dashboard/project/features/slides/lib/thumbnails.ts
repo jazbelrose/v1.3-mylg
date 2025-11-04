@@ -1,9 +1,8 @@
 // lib/thumbnails.ts - Thumbnail generation utilities
 import html2canvas from "html2canvas";
 
-// Derive the options type from the html2canvas function signature so we don't
-// need to import (or use) `any` while still satisfying the call site typing.
-type Html2CanvasOptions = Parameters<typeof html2canvas>[1];
+// NOTE: we avoid importing/depending on the html2canvas option type here to
+// keep this module resilient to differing html2canvas versions.
 
 /**
  * Generate a thumbnail from a DOM element
@@ -23,14 +22,15 @@ export async function generateThumbnail(
       // Build options for html2canvas. `scale` is intentionally omitted here
       // to satisfy local typing rules; width/height are used to control the
       // output size instead.
-      const cfg: Html2CanvasOptions = {
+      const cfg = {
         useCORS: true,
         logging: false,
         width: options?.width,
         height: options?.height,
+    // Keep to width/height only; let html2canvas choose an appropriate scale.
       };
 
-      const canvas = await html2canvas(element, cfg);
+  const canvas = await html2canvas(element, cfg as unknown as Parameters<typeof html2canvas>[1]);
 
     // Convert canvas to data URL
     return canvas.toDataURL("image/png", 0.8);
@@ -80,11 +80,60 @@ export async function generateSlideThumbnail(slideId: string): Promise<string | 
       return null;
     }
 
+    // Default to a 16:9 capture at 1280x720 unless callers provide a different
+    // size by calling `generateSlideThumbnailWithSize` or `saveSlideThumb`.
+    const defaultWidth = 1280;
+    const defaultHeight = 720;
+
     return await generateThumbnail(editorElement, {
-      width: 240,
-      height: 180,
-      scale: 0.5,
+      width: defaultWidth,
+      height: defaultHeight,
+      scale: 1,
     });
+  } catch (error) {
+    console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Generate a slide thumbnail using explicit dimensions (useful when caller
+ * wants a different preset like 1920x1080 or scaled thumbnails).
+ */
+export async function generateSlideThumbnailWithSize(
+  slideId: string,
+  width: number,
+  height: number,
+  scale = 1
+): Promise<string | null> {
+  try {
+    const selectors = [
+      `.ContentEditable__root`,
+      `.editor-input`,
+      `[contenteditable="true"]`,
+    ];
+
+    let editorElement: HTMLElement | null = null;
+    const rootSelector = `[data-slide-id="${slideId}"]`;
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      for (const sel of selectors) {
+        const q = document.querySelector(`${rootSelector} ${sel}`) as HTMLElement | null;
+        if (q) {
+          editorElement = q;
+          break;
+        }
+      }
+      if (editorElement) break;
+      await new Promise((res) => setTimeout(res, 50));
+    }
+
+    if (!editorElement) {
+      console.warn(`Editor element not found for slide ${slideId}`);
+      return null;
+    }
+
+    return await generateThumbnail(editorElement, { width, height, scale });
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
@@ -127,10 +176,16 @@ export async function uploadThumbnail(
 export async function saveSlideThumb(
   projectId: string,
   slideId: string,
-  onSuccess?: (thumbnailUrl: string) => void
+  onSuccess?: (thumbnailUrl: string) => void,
+  options?: { width?: number; height?: number; scale?: number }
 ): Promise<void> {
   try {
-    const dataUrl = await generateSlideThumbnail(slideId);
+    let dataUrl: string | null;
+    if (options?.width && options?.height) {
+      dataUrl = await generateSlideThumbnailWithSize(slideId, options.width, options.height, options.scale ?? 1);
+    } else {
+      dataUrl = await generateSlideThumbnail(slideId);
+    }
     if (!dataUrl) {
       console.warn("No thumbnail generated");
       return;

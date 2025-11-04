@@ -393,10 +393,12 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
     <div
       ref={editorRef}
       style={{
-        maxWidth: "1920px",
+        // Allow the parent (e.g. SlideEditor) to control the visible canvas
+        // size. Use full width/height of the container instead of viewport
+        // fixed sizes so the editor can be constrained by wrappers.
+        maxWidth: "100%",
         width: "100%",
-        height: "100vh",
-        minHeight: "800px",
+        height: "100%",
       }}
     >
       <LexicalComposer initialConfig={initialConfig}>

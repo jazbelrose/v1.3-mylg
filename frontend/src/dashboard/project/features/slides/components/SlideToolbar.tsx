@@ -11,6 +11,10 @@ interface SlideToolbarProps {
   isSaving?: boolean;
   isDirty?: boolean;
   isMicActive?: boolean;
+  // Current slide size preset (e.g. "1280x720")
+  slideSizePreset?: "1280x720" | "1920x1080";
+  // Handler to change the slide size preset
+  onChangeSlideSize?: (preset: "1280x720" | "1920x1080") => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -22,6 +26,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   isSaving = false,
   isDirty = false,
   isMicActive = false,
+  slideSizePreset = "1280x720",
+  onChangeSlideSize,
 }) => {
   const buttonStyle: React.CSSProperties = {
     display: "flex",
@@ -179,6 +185,21 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           <Save size={16} />
           Save
         </button>
+      )}
+
+      {/* Slide Size Preset */}
+      {onChangeSlideSize && (
+        <div style={{ marginLeft: "8px", display: "flex", alignItems: "center" }}>
+          <label style={{ marginRight: "8px", fontSize: "13px", color: "#555" }}>Size</label>
+          <select
+            value={slideSizePreset}
+            onChange={(e) => onChangeSlideSize(e.target.value as "1280x720" | "1920x1080")}
+            style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #ddd" }}
+          >
+            <option value="1280x720">1280 × 720 (16:9)</option>
+            <option value="1920x1080">1920 × 1080 (16:9)</option>
+          </select>
+        </div>
       )}
     </div>
   );
