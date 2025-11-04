@@ -364,13 +364,15 @@ const SlidesPage: React.FC = () => {
       
       <div style={{ display: "flex", height: "calc(100vh - 64px)" }}>
         {/* Sidebar */}
-        <SlidesSidebar
-          slides={slides}
-          activeSlideId={activeSlideId}
-          onSlideSelect={handleSlideSelect}
-          onNewSlide={handleNewSlide}
-          onReorderSlides={handleReorderSlides}
-        />
+        <div style={{ flexShrink: 0 }}>
+          <SlidesSidebar
+            slides={slides}
+            activeSlideId={activeSlideId}
+            onSlideSelect={handleSlideSelect}
+            onNewSlide={handleNewSlide}
+            onReorderSlides={handleReorderSlides}
+          />
+        </div>
 
         {/* Main Content */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
