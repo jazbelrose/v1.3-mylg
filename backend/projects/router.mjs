@@ -1013,23 +1013,32 @@ const deleteGalleryFilesBySlug = async (e, C, { projectId, gallerySlug }) => {
 // Body: { projectId, fileName, contentType, galleryName?, gallerySlug?, galleryPassword?, passwordEnabled?, passwordTimeout? }
 const createGalleryUpload = async (e, C) => {
   const b = B(e);
-  const { projectId, fileName, contentType, galleryName, gallerySlug, galleryPassword, passwordEnabled, passwordTimeout } = b;
+  const { projectId, fileName, contentType, galleryName, gallerySlug, galleryPassword, passwordEnabled, passwordTimeout, key: customKey } = b;
   
   if (!projectId || !fileName || !contentType) {
     return json(400, C, { error: "projectId, fileName, and contentType are required" });
   }
 
   // Validate file type
-  const allowedTypes = ['application/pdf', 'image/svg+xml', 'text/xml'];
+  const allowedTypes = ['application/pdf', 'image/svg+xml', 'image/png', 'text/xml'];
   if (!allowedTypes.includes(contentType) && !contentType.startsWith('image/svg')) {
-    return json(400, C, { error: "Only PDF and SVG files are supported" });
+    return json(400, C, { error: "Only PDF, SVG, and PNG files are supported" });
   }
 
   // Generate unique file key
-  const fileExtension = contentType === 'application/pdf' ? 'pdf' : 'svg';
-  const timestamp = Date.now();
-  const fileId = uuidv4();
-  const key = `uploads/${projectId}/${timestamp}_${fileId}.${fileExtension}`;
+  const key = customKey || (() => {
+    let fileExtension;
+    if (contentType === 'application/pdf') {
+      fileExtension = 'pdf';
+    } else if (contentType === 'image/png') {
+      fileExtension = 'png';
+    } else {
+      fileExtension = 'svg';
+    }
+    const timestamp = Date.now();
+    const fileId = uuidv4();
+    return `uploads/${projectId}/${timestamp}_${fileId}.${fileExtension}`;
+  })();
 
   // Create metadata for the S3 object
   const metadata = {

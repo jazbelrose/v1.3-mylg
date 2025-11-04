@@ -1,51 +1,114 @@
-// lib/thumbnails.ts - Thumbnail generation utilities
+// lib/thumbnails.ts - Thumbnail generation and upload utilities
 import html2canvas from "html2canvas";
-
-// NOTE: we avoid importing/depending on the html2canvas option type here to
-// keep this module resilient to differing html2canvas versions.
+import { v4 as uuid } from "uuid";
 
 /**
- * Generate a thumbnail from a DOM element
- * @param element - The DOM element to capture
- * @param options - Optional html2canvas options
- * @returns Data URL of the thumbnail image
+ * Get CDN URL for an S3 key
  */
-export async function generateThumbnail(
-  element: HTMLElement,
-  options?: {
-    width?: number;
-    height?: number;
-    scale?: number;
+export function getCdnUrl(key: string): string {
+  const cdnBase = import.meta.env.VITE_FILE_CDN || 'https://mylg-files-v12.s3.us-west-2.amazonaws.com';
+  return `${cdnBase}/${key}`;
+}
+
+/**
+ * Upload a file to S3 using presigned URL approach
+ */
+async function uploadFileToS3({
+  file,
+  key,
+  contentType,
+}: {
+  file: File;
+  key: string;
+  contentType: string;
+}): Promise<string> {
+  // Use the backend presigned URL endpoint
+  const API_BASE = import.meta.env.VITE_API_BASE || 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com';
+  const PRESIGN_URL = `${API_BASE}/projects/galleries/upload`;
+
+    // Get presigned URL from backend
+    const presignResp = await fetch(PRESIGN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Add auth header if needed
+      },
+      body: JSON.stringify({
+        projectId: key.split('/')[2], // Extract projectId from key
+        fileName: key.split('/').pop(),
+        contentType,
+        key, // Pass the custom key
+      }),
+    });  if (!presignResp.ok) {
+    throw new Error(`Failed to get presigned URL: ${presignResp.status}`);
   }
-): Promise<string> {
-    try {
-      // Build options for html2canvas. `scale` is intentionally omitted here
-      // to satisfy local typing rules; width/height are used to control the
-      // output size instead.
-      const cfg = {
-        useCORS: true,
-        logging: false,
-        width: options?.width,
-        height: options?.height,
-    // Keep to width/height only; let html2canvas choose an appropriate scale.
-      };
 
-  const canvas = await html2canvas(element, cfg as unknown as Parameters<typeof html2canvas>[1]);
+  const { uploadUrl } = await presignResp.json();
 
-    // Convert canvas to data URL
-    return canvas.toDataURL("image/png", 0.8);
+  // Upload file using presigned URL
+  const uploadResp = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: file,
+  });
+
+  if (!uploadResp.ok) {
+    throw new Error(`Failed to upload file: ${uploadResp.status}`);
+  }
+
+  return key;
+}
+
+/**
+ * Generate and upload thumbnail for a DOM element
+ * @param element - The DOM element to capture
+ * @param projectId - The project ID
+ * @param slideId - The slide ID
+ * @returns Public S3 URL of the uploaded thumbnail
+ */
+export async function generateAndUploadThumbnail(
+  element: HTMLElement,
+  projectId: string,
+  slideId: string
+): Promise<string | null> {
+  try {
+    const canvas = await html2canvas(element, {
+      background: "#fff",
+      useCORS: true,
+    });
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob((blob) => resolve(blob), "image/png", 0.92)
+    );
+
+    if (!blob) return null;
+
+    const filename = `slides/${projectId}/${slideId}-${uuid()}.png`;
+    const file = new File([blob], filename, { type: "image/png" });
+
+    const key = await uploadFileToS3({
+      file,
+      key: filename,
+      contentType: "image/png",
+    });
+
+    return getCdnUrl(key);
   } catch (error) {
-    console.error("Failed to generate thumbnail:", error);
-    throw error;
+    console.error("Failed to generate and upload thumbnail:", error);
+    return null;
   }
 }
 
 /**
- * Generate thumbnail from slide content
+ * Generate thumbnail from slide content and upload to S3
  * @param slideId - The slide ID to capture
- * @returns Data URL of the thumbnail image
+ * @param projectId - The project ID
+ * @returns Public S3 URL of the uploaded thumbnail
  */
-export async function generateSlideThumbnail(slideId: string): Promise<string | null> {
+export async function generateSlideThumbnail(
+  slideId: string,
+  projectId: string
+): Promise<string | null> {
   try {
     // Find the editor content for this slide. Different builds/styles may use
     // different class names for the editable root (e.g. `ContentEditable__root`
@@ -62,7 +125,7 @@ export async function generateSlideThumbnail(slideId: string): Promise<string | 
     const rootSelector = `[data-slide-id="${slideId}"]`;
 
     // Try immediately and then a few short retries
-      for (let attempt = 0; attempt < 6; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
       for (const sel of selectors) {
         const q = document.querySelector(`${rootSelector} ${sel}`) as HTMLElement | null;
         if (q) {
@@ -80,16 +143,7 @@ export async function generateSlideThumbnail(slideId: string): Promise<string | 
       return null;
     }
 
-    // Default to a 16:9 capture at 1280x720 unless callers provide a different
-    // size by calling `generateSlideThumbnailWithSize` or `saveSlideThumb`.
-    const defaultWidth = 1280;
-    const defaultHeight = 720;
-
-    return await generateThumbnail(editorElement, {
-      width: defaultWidth,
-      height: defaultHeight,
-      scale: 1,
-    });
+    return await generateAndUploadThumbnail(editorElement, projectId, slideId);
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
@@ -97,14 +151,11 @@ export async function generateSlideThumbnail(slideId: string): Promise<string | 
 }
 
 /**
- * Generate a slide thumbnail using explicit dimensions (useful when caller
- * wants a different preset like 1920x1080 or scaled thumbnails).
+ * Generate a slide thumbnail using explicit dimensions and upload to S3
  */
 export async function generateSlideThumbnailWithSize(
   slideId: string,
-  width: number,
-  height: number,
-  scale = 1
+  projectId: string
 ): Promise<string | null> {
   try {
     const selectors = [
@@ -133,37 +184,10 @@ export async function generateSlideThumbnailWithSize(
       return null;
     }
 
-    return await generateThumbnail(editorElement, { width, height, scale });
+    return await generateAndUploadThumbnail(editorElement, projectId, slideId);
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
-  }
-}
-
-/**
- * Upload thumbnail to backend
- * @param projectId - The project ID
- * @param slideId - The slide ID
- * @param dataUrl - The thumbnail data URL
- * @returns URL of the uploaded thumbnail
- */
-export async function uploadThumbnail(
-  projectId: string,
-  slideId: string,
-  dataUrl: string
-): Promise<string> {
-  try {
-    // TODO: Replace with actual S3 upload endpoint
-    // For now, return the data URL
-    // When implementing S3 upload:
-    // const blob = await (await fetch(dataUrl)).blob();
-    // const uploadedUrl = await uploadToS3(blob, projectId, slideId);
-    console.log(`[Slides] Would upload thumbnail for slide ${slideId} in project ${projectId}`);
-    
-    return dataUrl;
-  } catch (error) {
-    console.error("Failed to upload thumbnail:", error);
-    throw error;
   }
 }
 
@@ -180,18 +204,17 @@ export async function saveSlideThumb(
   options?: { width?: number; height?: number; scale?: number }
 ): Promise<void> {
   try {
-    let dataUrl: string | null;
+    let thumbnailUrl: string | null;
     if (options?.width && options?.height) {
-      dataUrl = await generateSlideThumbnailWithSize(slideId, options.width, options.height, options.scale ?? 1);
+      thumbnailUrl = await generateSlideThumbnailWithSize(slideId, projectId);
     } else {
-      dataUrl = await generateSlideThumbnail(slideId);
+      thumbnailUrl = await generateSlideThumbnail(slideId, projectId);
     }
-    if (!dataUrl) {
+    if (!thumbnailUrl) {
       console.warn("No thumbnail generated");
       return;
     }
 
-    const thumbnailUrl = await uploadThumbnail(projectId, slideId, dataUrl);
     onSuccess?.(thumbnailUrl);
   } catch (error) {
     console.error("Failed to save slide thumbnail:", error);
