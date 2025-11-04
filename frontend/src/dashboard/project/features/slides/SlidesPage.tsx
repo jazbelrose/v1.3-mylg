@@ -32,7 +32,6 @@ const SlidesPage: React.FC = () => {
   const [isDirty, setIsDirty] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
-  const thumbTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dirtyThumbRef = useRef<boolean>(false);
 
   // Helper to add a cache-busting query param for immediate UI refresh
@@ -170,10 +169,6 @@ const SlidesPage: React.FC = () => {
   useEffect(() => {
     return () => {
       disconnectAllSlideProviders();
-      if (thumbTimeoutRef.current) {
-        clearTimeout(thumbTimeoutRef.current);
-        thumbTimeoutRef.current = null;
-      }
     };
   }, []);
 
@@ -369,38 +364,16 @@ const SlidesPage: React.FC = () => {
       )
     );
     setIsDirty(true);
-
-    // Debounced thumbnail generation (longer than auto-save) to refresh
-    // preview without causing jank during typing. This runs after a longer
-    // idle period (5s) and persists the thumbnail when generated.
+    // Mark that a thumbnail will need updating — autosave will persist it.
+    // We intentionally don't schedule a fixed timer here; thumbnail
+    // generation/persistence is handled on autosave completion or on
+    // slide-switch to avoid duplicate saves and timing races.
     try {
-      if (thumbTimeoutRef.current) {
-        clearTimeout(thumbTimeoutRef.current);
-        thumbTimeoutRef.current = null;
-      }
-
-      if (!projectId) return;
-
-      thumbTimeoutRef.current = setTimeout(async () => {
-        try {
-          const width = 1920;
-          const height = 1080;
-          await saveSlideThumb(projectId, slideId, (thumbnailUrl) => {
-            setSlides((prev) => {
-              const updated = prev.map((s) => (s.id === slideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s));
-              // Mark that a thumbnail changed and needs persistence by the autosave
-              dirtyThumbRef.current = true;
-              return updated;
-            });
-          }, { width, height });
-        } catch (err) {
-          console.warn('Debounced thumbnail generation failed:', err);
-        }
-      }, 5000);
+      dirtyThumbRef.current = true;
     } catch (err) {
-      console.warn('handleContentChange thumbnail scheduling failed:', err);
+      console.warn('Failed to mark thumbnail dirty:', err);
     }
-  }, [projectId, saveSlides]);
+  }, []);
 
   // Debounced auto-save of slide content to backend when edits occur.
   useEffect(() => {
