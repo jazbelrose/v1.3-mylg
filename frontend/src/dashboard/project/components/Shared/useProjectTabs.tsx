@@ -79,6 +79,18 @@ export const useProjectTabs = (
     [hasProject, projectId, projectTitle]
   );
 
+  const slidesPath = React.useMemo(
+    () =>
+      hasProject
+        ? getProjectDashboardPath(
+            projectId,
+            projectTitle ?? undefined,
+            "/slides"
+          )
+        : "/dashboard/projects/allprojects",
+    [hasProject, projectId, projectTitle]
+  );
+
   const tabs = React.useMemo<ProjectTabItem[]>(() => {
     const tabDefinitions = [
       {
@@ -109,6 +121,13 @@ export const useProjectTabs = (
         matches: (pathname: string) => pathname.startsWith(editorPath),
         visible: showEditorTab,
       },
+      {
+        key: "slides",
+        label: "Slides",
+        path: slidesPath,
+        matches: (pathname: string) => pathname.startsWith(slidesPath),
+        visible: showEditorTab, // Same permissions as editor
+      },
     ];
 
     return tabDefinitions.reduce<ProjectTabItem[]>((acc, tab) => {
@@ -130,6 +149,7 @@ export const useProjectTabs = (
     budgetPath,
     calendarPath,
     editorPath,
+    slidesPath,
     showBudgetTab,
     showCalendarTab,
     showEditorTab,
