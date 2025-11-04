@@ -26,11 +26,15 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const handleChange = useCallback(
     (json: string) => {
-      markDirty();
+      // Pass latest content to persistence so the debounced saver persists
+      // the most recent edits instead of triggering immediate saves.
+      markDirty(json);
       onContentChange?.(json);
-      saveSlide(json, false); // Auto-save without toast
+      // Intentionally do NOT call saveSlide here to avoid saving on every
+      // keystroke. useSlidePersistence will auto-save after a short debounce
+      // using the content supplied to markDirty.
     },
-    [markDirty, onContentChange, saveSlide]
+    [markDirty, onContentChange]
   );
 
   const handleSave = useCallback(() => {

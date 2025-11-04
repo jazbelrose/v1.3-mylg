@@ -54,6 +54,19 @@ const SlidesPage: React.FC = () => {
 
   const handleBack = () => {
     const title = activeProject?.title ?? "";
+
+    // Generate thumbnail for the current active slide before navigating back.
+    if (projectId && activeSlideId) {
+      // Best-effort: generate thumbnail and then navigate. Do not block UI
+      // longer than necessary; thumbnail save failures are non-fatal.
+      saveSlideThumb(projectId, activeSlideId)
+        .catch((e) => console.warn("Failed to save thumbnail on exit:", e))
+        .finally(() => {
+          navigate(getProjectDashboardPath(projectId!, title));
+        });
+      return;
+    }
+
     navigate(getProjectDashboardPath(projectId!, title));
   };
 
@@ -146,6 +159,26 @@ const SlidesPage: React.FC = () => {
     };
   }, []);
 
+  // Best-effort save thumbnail when the user closes the tab or reloads.
+  // This is a best-effort handler and should not block unload; it's here to
+  // capture thumbnails when the page is exited instead of generating them on
+  // every keystroke.
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (projectId && activeSlideId) {
+        try {
+          // Fire-and-forget; browsers may not allow async work on unload
+          saveSlideThumb(projectId, activeSlideId).catch(() => {});
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [projectId, activeSlideId]);
+
   const saveSlides = useCallback(
     async (slidesToSave: Slide[]) => {
       if (!projectId) return;
@@ -201,9 +234,24 @@ const SlidesPage: React.FC = () => {
     saveSlides(updatedSlides);
   }, [slides, saveSlides]);
 
-  const handleSlideSelect = useCallback((slideId: string) => {
-    setActiveSlideId(slideId);
-  }, []);
+  const handleSlideSelect = useCallback(
+    (slideId: string) => {
+      // When switching away from the current slide, generate a thumbnail for
+      // the slide being left. Fire-and-forget so navigation remains snappy.
+      if (projectId && activeSlideId && activeSlideId !== slideId) {
+        saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
+          setSlides((prev) =>
+            prev.map((slide) =>
+              slide.id === activeSlideId ? { ...slide, thumbnail: thumbnailUrl } : slide
+            )
+          );
+        }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
+      }
+
+      setActiveSlideId(slideId);
+    },
+    [projectId, activeSlideId]
+  );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
     setSlides(reorderedSlides);
@@ -264,20 +312,11 @@ const SlidesPage: React.FC = () => {
       )
     );
     setIsDirty(true);
-
-    // Generate thumbnail after content changes (debounced by saveSlideThumb)
-    if (projectId) {
-      setTimeout(() => {
-        saveSlideThumb(projectId, slideId, (thumbnailUrl) => {
-          setSlides((prev) =>
-            prev.map((slide) =>
-              slide.id === slideId ? { ...slide, thumbnail: thumbnailUrl } : slide
-            )
-          );
-        });
-      }, 3000); // Wait 3 seconds after content change
-    }
-  }, [projectId]);
+    // Thumbnails are intentionally NOT generated on every content change to
+    // avoid UI jank and excessive html2canvas calls. Thumbnails are created
+    // when the user navigates away from the slide (see `handleSlideSelect`)
+    // or when leaving the editor (see `handleBack`).
+  }, []);
 
   const handleSave = useCallback(() => {
     saveSlides(slides);

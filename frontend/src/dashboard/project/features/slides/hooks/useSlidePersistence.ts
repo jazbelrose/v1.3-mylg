@@ -12,7 +12,8 @@ interface UseSlidePersistenceReturn {
   isSaving: boolean;
   isDirty: boolean;
   saveSlide: (content: string, showToast?: boolean) => Promise<void>;
-  markDirty: () => void;
+  // Accept the latest content so debounced auto-save can persist the newest edits
+  markDirty: (content?: string) => void;
 }
 
 export function useSlidePersistence({
@@ -80,7 +81,10 @@ export function useSlidePersistence({
     };
   }, [isDirty, slideId, saveSlide]);
 
-  const markDirty = useCallback(() => {
+  const markDirty = useCallback((content?: string) => {
+    if (typeof content === "string") {
+      contentRef.current = content;
+    }
     setIsDirty(true);
   }, []);
 
