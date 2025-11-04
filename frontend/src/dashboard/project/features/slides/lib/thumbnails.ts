@@ -1,6 +1,5 @@
 // lib/thumbnails.ts - Thumbnail generation and upload utilities
 import html2canvas from "html2canvas";
-import { v4 as uuid } from "uuid";
 import { uploadData } from 'aws-amplify/storage';
 
 /**
@@ -73,7 +72,9 @@ export async function generateAndUploadThumbnail(
 
     if (!blob) return null;
 
-    const filename = `slides/${projectId}/${slideId}-${uuid()}.png`;
+    // Use consistent filename based on slideId (no random UUID)
+    // This ensures the same slide always generates the same filename
+    const filename = `slides/${projectId}/${slideId}.png`;
     const file = new File([blob], filename, { type: "image/png" });
 
     const key = await uploadFileToS3({
