@@ -139,12 +139,66 @@ function buildDirectoryUpdate(projectId, obj) {
 }
 
 async function updateProjectDirectory(projectId, fields) {
-  const upd = buildDirectoryUpdate(projectId, fields);
-  if (!upd) return;
+  // No-op when no fields to write
+  if (!fields || Object.keys(fields).length === 0) return;
+
+  // Step 1: Ensure both `projects` and `projects.<projectId>` are maps.
+  // We do this in two conditional updates so we never write overlapping paths
+  // in the same UpdateExpression and so legacy/bad data (non-map) is corrected.
+  try {
+    await ddb.update({
+      TableName: PROJECT_DIRECTORY_TABLE,
+      Key: { directoryId: "1" },
+      UpdateExpression: "SET #projects = :empty",
+      ConditionExpression: "attribute_not_exists(#projects) OR NOT attribute_type(#projects, :m)",
+      ExpressionAttributeNames: { "#projects": "projects" },
+      ExpressionAttributeValues: { ":empty": {}, ":m": "M" },
+    });
+  } catch (err) {
+    // Ignore conditional check failures (means #projects already exists and is a map)
+    if (!String(err?.message).includes("ConditionalCheckFailed")) throw err;
+  }
+
+  try {
+    await ddb.update({
+      TableName: PROJECT_DIRECTORY_TABLE,
+      Key: { directoryId: "1" },
+      UpdateExpression: "SET #projects.#pid = :empty",
+      ConditionExpression: "attribute_not_exists(#projects.#pid) OR NOT attribute_type(#projects.#pid, :m)",
+      ExpressionAttributeNames: { "#projects": "projects", "#pid": projectId },
+      ExpressionAttributeValues: { ":empty": {}, ":m": "M" },
+    });
+  } catch (err) {
+    if (!String(err?.message).includes("ConditionalCheckFailed")) throw err;
+  }
+
+  // Step 2: Now write the actual child fields (no overlapping paths anymore)
+  const Names = { "#projects": "projects", "#pid": projectId, "#lastUpdated": "lastUpdated" };
+  const Values = { ":now": nowISO() };
+  const sets = ["#lastUpdated = :now"];
+
+  // Use stable, sanitized tokens per field name to avoid invalid placeholder chars
+  for (const [k, v] of Object.entries(fields)) {
+    if (v === undefined) continue;
+    const safe = String(k).replace(/[^A-Za-z0-9_]/g, "_");
+    const nk = `#f_${safe}`;
+    const vk = `:v_${safe}`;
+    Names[nk] = k;
+    Values[vk] = v;
+    if (k === "dateCreated") {
+      // write-once
+      sets.push(`#projects.#pid.${nk} = if_not_exists(#projects.#pid.${nk}, ${vk})`);
+    } else {
+      sets.push(`#projects.#pid.${nk} = ${vk}`);
+    }
+  }
+
   await ddb.update({
     TableName: PROJECT_DIRECTORY_TABLE,
     Key: { directoryId: "1" },
-    ...upd,
+    UpdateExpression: "SET " + sets.join(", "),
+    ExpressionAttributeNames: Names,
+    ExpressionAttributeValues: Values,
   });
 }
 

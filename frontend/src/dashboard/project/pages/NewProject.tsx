@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { uploadData } from "aws-amplify/storage";
 import { Helmet, HelmetProvider } from "react-helmet-async";
+import { v4 as uuidv4 } from "uuid";
 import ProjectName from "@/dashboard/NewProject/components/NewProjectName";
 import NewProjectBudget from "@/dashboard/NewProject/components/NewProjectBudget";
 import NewProjectFinishline from "@/dashboard/NewProject/components/NewProjectFinishLine";
@@ -29,6 +30,7 @@ type LatLng = { lat: number; lng: number };
 type UploadedFile = { fileName: string; url: string };
 
 type NewProjectItem = {
+  projectId?: string; // Optional for creation (generated client-side)
   title: string;
   date: string;
   dateCreated: string;
@@ -116,6 +118,7 @@ const NewProject: React.FC = () => {
     return {
       TableName: "Projects",
       Item: {
+        projectId: uuidv4(), // Generate client-side for idempotency
         title: projectName,
         date: formattedDate,
         dateCreated: formattedDate,
