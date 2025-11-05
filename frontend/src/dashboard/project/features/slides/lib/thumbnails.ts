@@ -12,11 +12,13 @@ const STORE_NAME = 'thumbnails';
 // Cache management constants
 const MAX_CACHE_ENTRIES = 200; // Maximum number of cached thumbnails per project
 const MAX_CACHE_SIZE_MB = 150; // Maximum cache size in MB
-const CACHE_KEY_PREFIX = 'slides-cache-meta';
 
 // Cache key format: slides:<projectId>:<slideId>:<contentHash>
 const makeCacheKey = (projectId: string, slideId: string, contentHash: string) =>
   `slides:${projectId}:${slideId}:${contentHash}`;
+
+const warmInflightKeys = new Set<string>();
+const inflightRenderMap = new Map<string, Promise<Blob | null>>();
 
 // Cache metadata interface
 interface CacheEntry {
@@ -152,7 +154,7 @@ function getDB(): Promise<IDBDatabase> {
 }
 
 // Generate SHA-1 hash of content for deterministic caching
-async function hashContent(content: string): Promise<string> {
+export async function hashContent(content: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
   const hashBuffer = await crypto.subtle.digest('SHA-1', data);
@@ -336,18 +338,31 @@ export async function getOrRenderThumb({
     if (cachedBlob) {
       return toObjectURL(cachedBlob);
     }
-    
-    // Render new thumbnail
-    const blob = await renderThumbnailOffscreen(slideId, content, width, height);
-    if (!blob) {
-      return null;
+
+    // Avoid duplicate renders for the same cache key
+    let renderPromise = inflightRenderMap.get(cacheKey);
+    if (!renderPromise) {
+      renderPromise = (async () => {
+        const blob = await renderThumbnailOffscreen(slideId, content, width, height);
+        if (!blob) {
+          return null;
+        }
+
+        await writeBlob(cacheKey, blob);
+        return blob;
+      })();
+      inflightRenderMap.set(cacheKey, renderPromise);
     }
-    
-    // Cache the blob
-    await writeBlob(cacheKey, blob);
-    
-    // Return object URL
-    return toObjectURL(blob);
+
+    try {
+      const blob = await renderPromise;
+      if (!blob) {
+        return null;
+      }
+      return toObjectURL(blob);
+    } finally {
+      inflightRenderMap.delete(cacheKey);
+    }
   } catch (error) {
     console.error('Failed to get or render thumbnail:', error);
     return null;
@@ -399,19 +414,38 @@ export async function warmThumbsForVisibleRange(
   if (!isUiThumbsEnabled()) return;
   
   const visibleSlides = slides.slice(Math.max(0, visibleStart - 2), visibleEnd + 2);
-  
-  // Warm in parallel but don't wait
-  visibleSlides.forEach(slide => {
-    if (slide.content) {
-      getOrRenderThumb({
-        projectId,
-        slideId: slide.id,
-        content: slide.content
-      }).catch(error => {
+
+  const tasks = visibleSlides
+    .filter((slide) => typeof slide.content === 'string' && slide.content.length > 0)
+    .map(async (slide) => {
+      const content = slide.content as string;
+      const hash = await hashContent(content);
+      const cacheKey = makeCacheKey(projectId, slide.id, hash);
+
+      if (warmInflightKeys.has(cacheKey)) {
+        return;
+      }
+
+      warmInflightKeys.add(cacheKey);
+      try {
+        const url = await getOrRenderThumb({
+          projectId,
+          slideId: slide.id,
+          content,
+        });
+
+        if (url) {
+          // We only needed to ensure the blob is cached, so revoke immediately
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
         console.warn(`Failed to warm thumbnail for slide ${slide.id}:`, error);
-      });
-    }
-  });
+      } finally {
+        warmInflightKeys.delete(cacheKey);
+      }
+    });
+
+  await Promise.allSettled(tasks);
 }
 
 /**

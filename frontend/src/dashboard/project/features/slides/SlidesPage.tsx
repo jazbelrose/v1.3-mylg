@@ -38,6 +38,7 @@ const SlidesPage: React.FC = () => {
   const [filesOpen, setFilesOpen] = useState(false);
   const [zoom, setZoom] = useState(100);
   const quickLinksRef = useRef<QuickLinksRef>(null);
+  const uiThumbsEnabled = isUiThumbsEnabled();
   // Flag indicating a thumbnail changed and needs persistence.
   // Note: thumbnails are intentionally *not* regenerated on every keystroke.
   // We mark the thumbnail as dirty and generate/persist it once after the autosave/save
@@ -62,7 +63,7 @@ const SlidesPage: React.FC = () => {
     return Number.isNaN(num) ? 0 : num;
   };
 
-  const handleActiveProjectChange = (updatedProject: any) => {
+  const handleActiveProjectChange = (updatedProject: unknown) => {
     // setActiveProject is not available in useData, so we might need to handle this differently
     // For now, just log
     console.log("Active project change:", updatedProject);
@@ -78,7 +79,7 @@ const SlidesPage: React.FC = () => {
 
     // Generate thumbnail for the current active slide before navigating back.
     // Only do this when using server thumbnails (not UI-only thumbs)
-    if (projectId && activeSlideId && !isUiThumbsEnabled()) {
+  if (projectId && activeSlideId && !uiThumbsEnabled) {
       // Best-effort: generate thumbnail and then navigate. Do not block UI
       // longer than necessary; thumbnail save failures are non-fatal.
       const width = 1920;
@@ -119,7 +120,9 @@ const SlidesPage: React.FC = () => {
       // Transform thumbnails to display URLs with cache-busting
       const slidesWithDisplayThumbnails = sortedSlides.map(slide => ({
         ...slide,
-        thumbnail: slide.thumbnail ? makeUiThumbnail(slide.thumbnail) : slide.thumbnail
+        thumbnail: (!uiThumbsEnabled && slide.thumbnail)
+          ? makeUiThumbnail(slide.thumbnail)
+          : slide.thumbnail,
       }));
 
       setSlides((prevSlides) => {
@@ -180,7 +183,7 @@ const SlidesPage: React.FC = () => {
       setActiveSlideId(initialSlide.id);
       return [initialSlide];
     });
-  }, [projectId, activeProject?.slides]);
+  }, [projectId, activeProject?.slides, uiThumbsEnabled]);
 
   // Cleanup Yjs connections on unmount
   useEffect(() => {
@@ -195,7 +198,7 @@ const SlidesPage: React.FC = () => {
   // every keystroke.
   useEffect(() => {
     const onBeforeUnload = () => {
-      if (projectId && activeSlideId && !isUiThumbsEnabled()) {
+      if (projectId && activeSlideId && !uiThumbsEnabled) {
         try {
           // Fire-and-forget; browsers may not allow async work on unload
           const width = 1920;
@@ -209,7 +212,7 @@ const SlidesPage: React.FC = () => {
 
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [projectId, activeSlideId]);
+  }, [projectId, activeSlideId, uiThumbsEnabled]);
 
   const saveSlides = useCallback(
     async (slidesToSave: Slide[], options?: { skipThumbnail?: boolean }) => {
@@ -238,7 +241,7 @@ const SlidesPage: React.FC = () => {
 
         // Only run post-save thumbnail generation when caller hasn't opted out
         // and UI-only thumbnails are not enabled
-        if (!options?.skipThumbnail && !isUiThumbsEnabled()) {
+  if (!options?.skipThumbnail && !uiThumbsEnabled) {
           try {
             if (projectId && activeSlideId) {
               const width = 1920;
@@ -286,7 +289,7 @@ const SlidesPage: React.FC = () => {
         setIsSaving(false);
       }
     },
-    [projectId, updateProjectFields, activeSlideId, ws, userId, userName]
+  [projectId, updateProjectFields, activeSlideId, ws, userId, userName, uiThumbsEnabled]
   );
 
   const handleNewSlide = useCallback(() => {
@@ -328,7 +331,7 @@ const SlidesPage: React.FC = () => {
     (slideId: string) => {
       // When switching away from the current slide, generate a thumbnail for
       // the slide being left. Fire-and-forget so navigation remains snappy.
-      if (projectId && activeSlideId && activeSlideId !== slideId) {
+    if (projectId && activeSlideId && activeSlideId !== slideId && !uiThumbsEnabled) {
         const width = 1920;
         const height = 1080;
         saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
@@ -345,7 +348,7 @@ const SlidesPage: React.FC = () => {
 
       setActiveSlideId(slideId);
     },
-    [projectId, activeSlideId]
+  [projectId, activeSlideId, uiThumbsEnabled]
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
@@ -411,12 +414,14 @@ const SlidesPage: React.FC = () => {
     // We intentionally don't schedule a fixed timer here; thumbnail
     // generation/persistence is handled on autosave completion or on
     // slide-switch to avoid duplicate saves and timing races.
-    try {
-      dirtyThumbRef.current = true;
-    } catch (err) {
-      console.warn('Failed to mark thumbnail dirty:', err);
+    if (!uiThumbsEnabled) {
+      try {
+        dirtyThumbRef.current = true;
+      } catch (err) {
+        console.warn('Failed to mark thumbnail dirty:', err);
+      }
     }
-  }, []);
+  }, [uiThumbsEnabled]);
 
   // Debounced auto-save of slide content to backend when edits occur.
   useEffect(() => {
@@ -432,7 +437,7 @@ const SlidesPage: React.FC = () => {
 
           // If a thumbnail was generated/changed during this edit window,
           // persist that change once now.
-          if (dirtyThumbRef.current && projectId && activeSlideId) {
+          if (!uiThumbsEnabled && dirtyThumbRef.current && projectId && activeSlideId) {
             try {
               const width = 1920;
               const height = 1080;
@@ -466,7 +471,7 @@ const SlidesPage: React.FC = () => {
     }, 1500);
 
     return () => clearTimeout(t);
-  }, [isDirty, slides, saveSlides, projectId, activeSlideId, updateProjectFields]);
+  }, [isDirty, slides, saveSlides, projectId, activeSlideId, updateProjectFields, uiThumbsEnabled]);
 
   const handleExport = useCallback(() => {
     notify("info", "Export feature coming soon");
