@@ -217,16 +217,17 @@ const BudgetPageContent = () => {
         isHeader: true,
       };
 
-      const newHeader = await createBudgetItem(activeProject.projectId, budgetId, headerFields);
+  const newHeader = await createBudgetItem(activeProject.projectId, budgetId, headerFields);
 
       // Update local context/state so UI can reflect new header immediately
-      setBudgetHeader(newHeader as any);
-      setBudgetItems([]);
+  setBudgetHeader(newHeader as unknown as Record<string, unknown>);
+  setBudgetItems([]);
       computeGroupsAndClients([], newHeader);
 
       const revs = await fetchBudgetHeaders(activeProject.projectId);
       setRevisions(revs);
       emitBudgetUpdate();
+  return newHeader as unknown as Record<string, unknown>;
     } catch (err) {
       console.error('Error creating initial budget header', err);
     }

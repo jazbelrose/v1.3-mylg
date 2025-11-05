@@ -127,7 +127,7 @@ interface BudgetHeaderProps {
   budgetItems?: BudgetItem[];
   onBallparkChange?: (val: number) => void;
   onOpenRevisionModal: () => void;
-  onCreateBudget?: () => Promise<void> | void;
+  onCreateBudget?: () => Promise<Record<string, unknown> | null> | void;
   initialMetric?: MetricTitle;
 }
 
@@ -578,21 +578,43 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const finalMetricIcon = finalMetric?.icon ?? faFileInvoiceDollar;
 
   const handleBallparkSave = async (val: number) => {
-    if (!activeProject?.projectId || !budgetHeader) {
+    if (!activeProject?.projectId) {
       setBallparkModalOpen(false);
       return;
     }
+
+    // If there's no header, attempt to create one via the provided callback
+    let header: Record<string, unknown> | null = budgetHeader as unknown as Record<string, unknown> | null;
+    if (!header) {
+      if (typeof onCreateBudget === "function") {
+        try {
+          // Allow the creator to return the created header so we can continue
+          // and set the ballpark value in one flow.
+          const created = await (onCreateBudget as () => Promise<Record<string, unknown> | null>)();
+          if (created && typeof created === "object") {
+            header = created as Record<string, unknown>;
+          }
+        } catch (err) {
+          console.error("Error creating budget header before saving ballpark", err);
+        }
+      }
+    }
+
+    if (!header) {
+      // Nothing we can do — close modal and bail
+      setBallparkModalOpen(false);
+      return;
+    }
+
     try {
-      const headerId = String(budgetHeader?.budgetItemId || "");
-      const revision = Number(budgetHeader?.revision ?? 1);
+      const headerId = String(header?.budgetItemId || "");
+      const revision = Number(header?.revision ?? 1);
       await updateBudgetItem(activeProject.projectId, headerId, {
         headerBallPark: val,
         revision,
       });
       onBallparkChange?.(val);
     } catch (err) {
-      // keep quiet but log
-       
       console.error("Error updating ballpark", err);
     }
     setBallparkModalOpen(false);
