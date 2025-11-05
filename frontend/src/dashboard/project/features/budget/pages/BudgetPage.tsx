@@ -199,6 +199,39 @@ const BudgetPageContent = () => {
     }
   };
 
+  const handleCreateInitialBudget = async () => {
+    if (!activeProject?.projectId) return;
+    try {
+      // Create a budgetId for the project - follow existing preview naming convention
+      const budgetId = `budget-${activeProject.projectId}`;
+
+      const headerFields = {
+        projectId: activeProject.projectId,
+        projectTitle: activeProject.title || undefined,
+        revision: 1,
+        headerBallPark: 0,
+        headerBudgetedTotalCost: 0,
+        headerActualTotalCost: 0,
+        headerFinalTotalCost: 0,
+        headerEffectiveMarkup: 0,
+        isHeader: true,
+      };
+
+      const newHeader = await createBudgetItem(activeProject.projectId, budgetId, headerFields);
+
+      // Update local context/state so UI can reflect new header immediately
+      setBudgetHeader(newHeader as any);
+      setBudgetItems([]);
+      computeGroupsAndClients([], newHeader);
+
+      const revs = await fetchBudgetHeaders(activeProject.projectId);
+      setRevisions(revs);
+      emitBudgetUpdate();
+    } catch (err) {
+      console.error('Error creating initial budget header', err);
+    }
+  };
+
   const eventsByLineItem = useMemo(() => {
     const map: Record<string, TimelineEvent[]> = {};
     const events = (activeProject as Project)?.timelineEvents;
@@ -697,6 +730,7 @@ const BudgetPageContent = () => {
                                 }
                                 onOpenRevisionModal={() => stateManager.setRevisionModalOpen(true)}
                                 onBallparkChange={handleBallparkChange}
+                                onCreateBudget={handleCreateInitialBudget}
                               />
                               <div style={{ padding: "0" }}>
                                 <div>
