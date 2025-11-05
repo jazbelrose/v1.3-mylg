@@ -15,6 +15,7 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
+import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 const SlidesPage: React.FC = () => {
@@ -76,7 +77,8 @@ const SlidesPage: React.FC = () => {
     const title = activeProject?.title ?? "";
 
     // Generate thumbnail for the current active slide before navigating back.
-    if (projectId && activeSlideId) {
+    // Only do this when using server thumbnails (not UI-only thumbs)
+    if (projectId && activeSlideId && !isUiThumbsEnabled()) {
       // Best-effort: generate thumbnail and then navigate. Do not block UI
       // longer than necessary; thumbnail save failures are non-fatal.
       const width = 1920;
@@ -193,7 +195,7 @@ const SlidesPage: React.FC = () => {
   // every keystroke.
   useEffect(() => {
     const onBeforeUnload = () => {
-      if (projectId && activeSlideId) {
+      if (projectId && activeSlideId && !isUiThumbsEnabled()) {
         try {
           // Fire-and-forget; browsers may not allow async work on unload
           const width = 1920;
@@ -235,7 +237,8 @@ const SlidesPage: React.FC = () => {
         setIsDirty(false);
 
         // Only run post-save thumbnail generation when caller hasn't opted out
-        if (!options?.skipThumbnail) {
+        // and UI-only thumbnails are not enabled
+        if (!options?.skipThumbnail && !isUiThumbsEnabled()) {
           try {
             if (projectId && activeSlideId) {
               const width = 1920;
@@ -525,6 +528,7 @@ const SlidesPage: React.FC = () => {
             onSlideSelect={handleSlideSelect}
             onNewSlide={handleNewSlide}
             onReorderSlides={handleReorderSlides}
+            projectId={projectId || ""}
           />
         </div>
 

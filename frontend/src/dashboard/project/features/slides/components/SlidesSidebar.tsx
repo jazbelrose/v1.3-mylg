@@ -1,7 +1,79 @@
 // components/SlidesSidebar.tsx - Sidebar with slide thumbnails
-import React from "react";
+import React, { useEffect } from "react";
 import { Plus, GripVertical } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
+import { useThumbnail } from "../hooks/useThumbnail";
+import { isUiThumbsEnabled } from "../lib/featureFlags";
+import { warmThumbsForVisibleRange } from "../lib/thumbnails";
+
+interface SlideThumbnailProps {
+  slide: Slide;
+  projectId: string;
+}
+
+const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => {
+  const { thumbnailUrl, isLoading, error } = useThumbnail({
+    projectId,
+    slideId: slide.id,
+    content: slide.content,
+  });
+
+  // Use local thumbnail if enabled and available, otherwise fall back to server thumbnail
+  const displayUrl = isUiThumbsEnabled() ? thumbnailUrl : slide.thumbnail;
+
+  // Show fallback content if there's an error or no thumbnail available
+  const showFallback = error || (!displayUrl && !isLoading);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "120px",
+        backgroundColor: "#f9f9f9",
+        border: "1px solid #e0e0e0",
+        borderRadius: "4px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        backgroundImage: displayUrl ? `url(${displayUrl})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {isLoading && isUiThumbsEnabled() && (
+        <span style={{ fontSize: "12px", color: "#999" }}>Loading...</span>
+      )}
+      {showFallback && (
+        <div style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          alignItems: "center",
+          gap: "4px",
+          textAlign: "center",
+          padding: "8px"
+        }}>
+          <div style={{ 
+            fontSize: "16px", 
+            color: "#666",
+            fontWeight: "bold"
+          }}>
+            {slide.title || `Slide ${slide.order || 0}`}
+          </div>
+          <div style={{ 
+            fontSize: "10px", 
+            color: "#999",
+            maxWidth: "100%",
+            overflow: "hidden",
+            textOverflow: "ellipsis"
+          }}>
+            {error ? "Preview unavailable" : "No preview"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface SlidesSidebarProps {
   slides: Slide[];
@@ -9,6 +81,7 @@ interface SlidesSidebarProps {
   onSlideSelect: (slideId: string) => void;
   onNewSlide: () => void;
   onReorderSlides?: (slides: Slide[]) => void;
+  projectId: string;
 }
 
 const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
@@ -17,7 +90,14 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onSlideSelect,
   onNewSlide,
   onReorderSlides,
+  projectId,
 }) => {
+  // Warm thumbnails for visible slides and nearby slides for performance
+  useEffect(() => {
+    if (isUiThumbsEnabled() && slides.length > 0) {
+      warmThumbsForVisibleRange(projectId, slides, 0, slides.length);
+    }
+  }, [slides, projectId]);
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(index));
@@ -138,26 +218,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
             </div>
 
             {/* Thumbnail */}
-            <div
-              style={{
-                width: "100%",
-                height: "120px",
-                backgroundColor: "#f9f9f9",
-                border: "1px solid #e0e0e0",
-                borderRadius: "4px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                backgroundImage: slide.thumbnail ? `url(${slide.thumbnail})` : undefined,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            >
-              {!slide.thumbnail && (
-                <span style={{ fontSize: "12px", color: "#999" }}>No preview</span>
-              )}
-            </div>
+            <SlideThumbnail slide={slide} projectId={projectId} />
 
             {/* Slide Title */}
             {slide.title && (

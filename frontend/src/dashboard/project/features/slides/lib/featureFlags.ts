@@ -23,6 +23,30 @@ export function isSlidesMode(projectId?: string): boolean {
 }
 
 /**
+ * Check if UI-only thumbnails are enabled (no backend persistence)
+ * When true, thumbnails are rendered locally and cached in IndexedDB
+ */
+export function isUiThumbsEnabled(): boolean {
+  // Check environment variable first
+  if (import.meta.env.VITE_USE_UI_THUMBS === 'true') {
+    return true;
+  }
+  
+  // Fallback to localStorage for testing
+  try {
+    const stored = localStorage.getItem('useUiThumbs');
+    if (stored !== null) {
+      return stored === "true";
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+  
+  // Default: false (use server thumbnails)
+  return false;
+}
+
+/**
  * Enable slides mode for a project
  */
 export function enableSlidesMode(projectId: string): void {
