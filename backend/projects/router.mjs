@@ -112,13 +112,8 @@ function buildUpdate(obj) {
 
 function buildDirectoryUpdate(projectId, obj) {
   const Names  = { "#projects": "projects", "#projectId": projectId, "#lastUpdated": "lastUpdated" };
-  const Values = { ":now": nowISO(), ":emptyMap": {} };
-  const sets = [
-    // 1) ensure top-level map exists
-    "#projects = if_not_exists(#projects, :emptyMap)",
-    // 2) touch lastUpdated
-    "#lastUpdated = :now",
-  ];
+  const Values = { ":now": nowISO() };
+  const sets = ["#lastUpdated = :now"];
 
   let i = 0;
   for (const [k, v] of Object.entries(obj)) {
@@ -127,12 +122,12 @@ function buildDirectoryUpdate(projectId, obj) {
     const vk = `:v${i}`;
     Names[nk]  = k;
     Values[vk] = v;
-    // Keep dateCreated immutable once set; everything else just write
-    if (k === "dateCreated") {
-      sets.push(`#projects.#projectId.${nk} = if_not_exists(#projects.#projectId.${nk}, ${vk})`);
-    } else {
-      sets.push(`#projects.#projectId.${nk} = ${vk}`);
-    }
+    // Keep dateCreated immutable; other fields just set
+    sets.push(
+      k === "dateCreated"
+        ? `#projects.#projectId.${nk} = if_not_exists(#projects.#projectId.${nk}, ${vk})`
+        : `#projects.#projectId.${nk} = ${vk}`
+    );
     i++;
   }
 
