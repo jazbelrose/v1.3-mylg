@@ -14,6 +14,8 @@ export interface TaskLocation {
   lng: number | string;
 }
 
+import type { TaskNoteAttachment } from "@/shared/utils/api";
+
 export interface ApiTask {
   taskId?: string;
   id?: string;
@@ -25,12 +27,15 @@ export interface ApiTask {
   budgetItemId?: string | null;
   status?: Status;
   assigneeId?: string;
+  assigneeIds?: string[] | null;
+  assigneeTokens?: string[] | null;
   assignedTo?: string;
   dueDate?: string;
   priority?: string;
   eventId?: string;
   location?: TaskLocation;
   address?: string;
+  noteAttachments?: TaskNoteAttachment[] | null;
 }
 
 export interface Task {
@@ -39,7 +44,9 @@ export interface Task {
   projectId: string;
   name: string;
   assigneeId?: string;
-  assignedTo?: string;
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
+  assignedTo?: string | string[];
   dueDate?: string;
   priority?: string;
   budgetItemId?: string;
@@ -53,6 +60,7 @@ export interface Task {
   createdByName?: string;
   createdByUsername?: string;
   createdByEmail?: string;
+  noteAttachments?: TaskNoteAttachment[];
 }
 
 export interface NominatimSuggestion {
