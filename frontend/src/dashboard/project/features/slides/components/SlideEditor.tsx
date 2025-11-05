@@ -1,40 +1,10 @@
 // components/SlideEditor.tsx - Editor for a single slide
 import React, { useCallback, useEffect, useState } from "react";
-import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import SlideToolbar from "./SlideToolbar";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import {
-  FORMAT_TEXT_COMMAND,
-  FORMAT_ELEMENT_COMMAND,
-  $getSelection,
-  $isRangeSelection,
-  CAN_REDO_COMMAND,
-  CAN_UNDO_COMMAND,
-  REDO_COMMAND,
-  UNDO_COMMAND,
-  SELECTION_CHANGE_COMMAND,
-  $createParagraphNode,
-  type LexicalCommand,
-} from "lexical";
-import { $getNearestNodeOfType } from "@lexical/utils";
-import { $isListNode, ListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, REMOVE_LIST_COMMAND } from "@lexical/list";
-import { $isHeadingNode, $createHeadingNode, $createQuoteNode, type HeadingTagType } from "@lexical/rich-text";
-import { $isCodeNode, $createCodeNode, getDefaultCodeLanguage } from "@lexical/code";
-import { $setBlocksType } from "@lexical/selection";
-import {
-  OPEN_IMAGE_COMMAND,
-  OPEN_FIGMA_COMMAND,
-  OPEN_VECTOR_COMMAND,
-  SET_TEXT_COLOR_COMMAND,
-  SET_BG_COLOR_COMMAND,
-  SET_FONT_FAMILY_COMMAND,
-  SET_FONT_SIZE_COMMAND,
-} from "@/dashboard/project/features/editor/components/Brief/commands";
-import { OPEN_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
-import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 
 type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
 type FontFamily = "Helvetica Special" | "Helvetica Black" | "Helvetica Light" | "Helvetica Neue" | "Helvetica Medium" | "mylg-serif";
@@ -345,22 +315,106 @@ interface SlideEditorProps {
   isMicActive?: boolean;
 }
 
-const SlideEditor: React.FC<SlideEditorProps> = (props) => {
+const SlideEditor: React.FC<SlideEditorProps> = ({
+  projectId,
+  slide,
+  onContentChange,
+  onSaveSuccess,
+  onDuplicate,
+  onDelete,
+  onExport,
+  isSaving = false,
+  isDirty = false,
+}) => {
   // Lexical configuration
-  const initialConfig = {
-    namespace: "SlideEditor",
-    theme: {
-      // Add your theme here
+  const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
+
+  const { saveSlide, markDirty } = useSlidePersistence({
+    projectId,
+    slideId: slide.id,
+    onSaveSuccess,
+  });
+
+  const handleChange = useCallback(
+    (json: string) => {
+      markDirty(json);
+      onContentChange?.(json);
     },
-    onError: (error: Error) => {
-      console.error(error);
-    },
-  };
+    [markDirty, onContentChange]
+  );
+
+  const handleSave = useCallback(() => {
+    if (slide.content) {
+      saveSlide(slide.content, true);
+    }
+  }, [saveSlide, slide.content]);
+
+  const handleRegisterToolbar = useCallback((actions: ToolbarActions) => {
+    setToolbarActions(actions);
+  }, []);
+
+  const customToolbar = toolbarActions ? (
+    <SlideToolbar
+      onDuplicate={onDuplicate}
+      onDelete={onDelete}
+      onExport={onExport}
+      isSaving={isSaving}
+      isDirty={isDirty}
+      // Map toolbar actions to individual props
+      onUndo={toolbarActions.onUndo}
+      onRedo={toolbarActions.onRedo}
+      onFormatBold={toolbarActions.onBold}
+      onFormatItalic={toolbarActions.onItalic}
+      onFormatUnderline={toolbarActions.onUnderline}
+      onFormatStrikethrough={toolbarActions.onStrikethrough}
+      onFormatCode={toolbarActions.onCode}
+      onSetBlockType={(type) => {
+        switch (type) {
+          case "h1": toolbarActions.onHeading1(); break;
+          case "h2": toolbarActions.onHeading2(); break;
+          case "quote": toolbarActions.onQuote(); break;
+          case "ul": toolbarActions.onUnorderedList(); break;
+          case "ol": toolbarActions.onOrderedList(); break;
+          default: toolbarActions.onParagraph(); break;
+        }
+      }}
+      onAlignLeft={toolbarActions.onAlignLeft}
+      onAlignCenter={toolbarActions.onAlignCenter}
+      onAlignRight={toolbarActions.onAlignRight}
+      onAlignJustify={toolbarActions.onAlignJustify}
+      onSetFontFamily={toolbarActions.onFontChange}
+      onSetFontSize={toolbarActions.onFontSizeChange}
+      onSetTextColor={toolbarActions.onFontColorChange}
+      onSetBgColor={toolbarActions.onBgColorChange}
+      onInsertImage={toolbarActions.onAddImage}
+      onInsertFigma={toolbarActions.onFigma}
+      onInsertLayout={toolbarActions.onInsertLayout}
+    />
+  ) : null;
 
   return (
-    <LexicalComposer initialConfig={initialConfig}>
-      <EditorWithToolbar {...props} />
-    </LexicalComposer>
+    <div
+      className="slide-editor-container"
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: "#1a1a1a",
+        overflow: "hidden",
+      }}
+    >
+      <LexicalEditor
+        key={slide.id}
+        docId={`${projectId}::slide::${slide.id}`}
+        onChange={handleChange}
+        showDefaultToolbar={false}
+        initialContent={slide.content ?? null}
+        onSave={handleSave}
+        registerToolbar={handleRegisterToolbar}
+        customToolbar={customToolbar}
+      />
+    </div>
   );
 };
 
