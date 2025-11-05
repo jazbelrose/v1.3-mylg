@@ -578,42 +578,27 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const finalMetricIcon = finalMetric?.icon ?? faFileInvoiceDollar;
 
   const handleBallparkSave = async (val: number) => {
+    // If the header doesn't exist yet, delegate up — parent will create it once
+    if (!budgetHeader) {
+      onBallparkChange?.(val);
+      setBallparkModalOpen(false);
+      return;
+    }
+
+    // Header exists: update it here (unchanged behavior)
     if (!activeProject?.projectId) {
       setBallparkModalOpen(false);
       return;
     }
 
-    // If there's no header, attempt to create one via the provided callback
-    let header: Record<string, unknown> | null = budgetHeader as unknown as Record<string, unknown> | null;
-    if (!header) {
-      if (typeof onCreateBudget === "function") {
-        try {
-          // Allow the creator to return the created header so we can continue
-          // and set the ballpark value in one flow.
-          const created = await (onCreateBudget as () => Promise<Record<string, unknown> | null>)();
-          if (created && typeof created === "object") {
-            header = created as Record<string, unknown>;
-          }
-        } catch (err) {
-          console.error("Error creating budget header before saving ballpark", err);
-        }
-      }
-    }
-
-    if (!header) {
-      // Nothing we can do — close modal and bail
-      setBallparkModalOpen(false);
-      return;
-    }
-
     try {
-      const headerId = String(header?.budgetItemId || "");
-      const revision = Number(header?.revision ?? 1);
+      const headerId = String(budgetHeader.budgetItemId || "");
+      const revision = Number(budgetHeader.revision ?? 1);
       await updateBudgetItem(activeProject.projectId, headerId, {
         headerBallPark: val,
         revision,
       });
-      onBallparkChange?.(val);
+      onBallparkChange?.(val); // keep parent in sync
     } catch (err) {
       console.error("Error updating ballpark", err);
     }

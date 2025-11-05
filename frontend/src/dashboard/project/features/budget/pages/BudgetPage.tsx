@@ -183,23 +183,45 @@ const BudgetPageContent = () => {
     navigate("/dashboard/projects/allprojects");
   };
 
-  const handleBallparkChange = async (val) => {
-    if (!activeProject?.projectId || !budgetHeader) return;
+  const isCreatingHeaderRef = useRef(false);
+
+  const handleBallparkChange = async (val: number) => {
+    if (!activeProject?.projectId) return;
+
     try {
-      const headerId = String((budgetHeader as Record<string, unknown>)?.budgetItemId || "");
-      const revision = Number((budgetHeader as Record<string, unknown>)?.revision ?? 1);
+      // If no header yet, create one once (guard against double taps)
+      let header = budgetHeader;
+      if (!header && !isCreatingHeaderRef.current) {
+        isCreatingHeaderRef.current = true;
+        header = await handleCreateInitialBudget(val);
+        isCreatingHeaderRef.current = false;
+
+        // Local optimistic state already set by handleCreateInitialBudget,
+        // so we can stop here or continue to ensure the latest val is saved.
+        return;
+      }
+      if (!header) return; // safety
+
+      const headerId = String((header as Record<string, unknown>)?.budgetItemId || "");
+      const revision = Number((header as Record<string, unknown>)?.revision ?? 1);
+
+      // Persist new ballpark
       await updateBudgetItem(activeProject.projectId, headerId, {
         headerBallPark: val,
         revision,
       });
+
+      // Optimistic local update
+      setBudgetHeader(prev => prev ? { ...prev, headerBallPark: val } : prev);
+
       emitBudgetUpdate();
-      // Note: setBudgetHeader will be handled by the BudgetDataProvider
     } catch (err) {
       console.error('Error updating ballpark', err);
+      isCreatingHeaderRef.current = false;
     }
   };
 
-  const handleCreateInitialBudget = async () => {
+  const handleCreateInitialBudget = async (initialBallpark = 0) => {
     if (!activeProject?.projectId) return;
     try {
       // Create a budgetId for the project - follow existing preview naming convention
@@ -209,7 +231,7 @@ const BudgetPageContent = () => {
         projectId: activeProject.projectId,
         projectTitle: activeProject.title || undefined,
         revision: 1,
-        headerBallPark: 0,
+        headerBallPark: initialBallpark,
         headerBudgetedTotalCost: 0,
         headerActualTotalCost: 0,
         headerFinalTotalCost: 0,
