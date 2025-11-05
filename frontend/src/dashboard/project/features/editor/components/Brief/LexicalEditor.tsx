@@ -152,6 +152,10 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   }, [docId, fallbackProjectId]);
 
   // Lock initialContentRef.current after first assignment to prevent re-bootstrap
+  // We intentionally lock the initial content per `resolvedDocId` (docId) so that
+  // the editor/Collaboration provider isn't churned when parent props re-render or change.
+  // This avoids repeatedly disconnecting/creating providers or re-injecting server
+  // content when the component receives new props for the same docId.
   useEffect(() => {
     if (lastDocIdRef.current !== resolvedDocId) {
       lastDocIdRef.current = resolvedDocId;

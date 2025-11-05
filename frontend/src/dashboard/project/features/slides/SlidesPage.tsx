@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
+import { useSocket } from "@/app/contexts/useSocket";
 import { Slide } from "@/app/contexts/DataProvider";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
@@ -24,7 +25,10 @@ const SlidesPage: React.FC = () => {
     fetchProjectDetails,
     updateProjectFields,
     userId,
+    userName,
   } = useData();
+
+  const { ws } = useSocket();
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
@@ -32,6 +36,10 @@ const SlidesPage: React.FC = () => {
   const [isDirty, setIsDirty] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
+  // Flag indicating a thumbnail changed and needs persistence.
+  // Note: thumbnails are intentionally *not* regenerated on every keystroke.
+  // We mark the thumbnail as dirty and generate/persist it once after the autosave/save
+  // window (debounced) to avoid excessive thumbnail churn.
   const dirtyThumbRef = useRef<boolean>(false);
 
   // Helper to add a cache-busting query param for immediate UI refresh
@@ -203,6 +211,19 @@ const SlidesPage: React.FC = () => {
         await updateProjectFields(projectId, {
           slides: slidesToSave,
         });
+
+        // Broadcast the update to other users
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            action: "projectUpdated",
+            projectId,
+            fields: { slides: slidesToSave },
+            conversationId: `project#${projectId}`,
+            username: userName || "Someone",
+            senderId: userId,
+          }));
+        }
+
         // Mark saved
         setIsDirty(false);
 
@@ -223,7 +244,16 @@ const SlidesPage: React.FC = () => {
                     ...s,
                     thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
                   }));
-                  updateProjectFields(projectId, { slides: persisted }).catch((e) =>
+                  updateProjectFields(projectId, { slides: persisted }).then(() => {
+                    // Broadcast the thumbnail update to other users
+                    ws.send(JSON.stringify({
+                      action: "projectUpdated",
+                      fields: { slides: persisted },
+                      conversationId: `project#${projectId}`,
+                      username: userName || "Someone",
+                      senderId: userId,
+                    }));
+                  }).catch((e) =>
                     console.warn("Failed to persist thumbnail after save:", e)
                   );
                   return updated;
@@ -243,7 +273,7 @@ const SlidesPage: React.FC = () => {
         setIsSaving(false);
       }
     },
-    [projectId, updateProjectFields, activeSlideId]
+    [projectId, updateProjectFields, activeSlideId, ws, userId, userName]
   );
 
   const handleNewSlide = useCallback(() => {
@@ -302,7 +332,7 @@ const SlidesPage: React.FC = () => {
 
       setActiveSlideId(slideId);
     },
-    [projectId, activeSlideId, saveSlides]
+    [projectId, activeSlideId]
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
