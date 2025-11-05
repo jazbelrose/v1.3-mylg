@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { uploadData } from "aws-amplify/storage";
 import { Helmet, HelmetProvider } from "react-helmet-async";
-import { v4 as uuidv4 } from "uuid";
 import ProjectName from "@/dashboard/NewProject/components/NewProjectName";
 import NewProjectBudget from "@/dashboard/NewProject/components/NewProjectBudget";
 import NewProjectFinishline from "@/dashboard/NewProject/components/NewProjectFinishLine";
@@ -56,9 +55,29 @@ type NewProjectItem = {
   uploads: UploadedFile[];
 };
 
-type PutProjectPayload = {
-  TableName: "Projects";
-  Item: NewProjectItem;
+type CreateProjectPayload = {
+  title: string;
+  date: string;
+  dateCreated: string;
+  milestone: string;
+  finishline: string;
+  description: string;
+  location: LatLng;
+  address: string;
+  budget: { date: string; total: number };
+  contact: { contact: string; name: string; phone: string };
+  galleries: unknown[];
+  invoiceDate: string;
+  invoices: unknown[];
+  slug: string;
+  status: string;
+  tags: string[];
+  team: Array<{ userId: string }>;
+  revisionHistory: unknown[];
+  thumbnails: string[];
+  downloads: string[];
+  color: string;
+  uploads: UploadedFile[];
 };
 
 type CreateProjectResponse = { projectId: string };
@@ -97,7 +116,7 @@ const NewProject: React.FC = () => {
   const [validationMessage, setValidationMessage] = useState<string>("");
 
   // Collect the payload for initial creation
-  const collectFormData = (): PutProjectPayload => {
+  const collectFormData = (): CreateProjectPayload => {
     const currentDate = new Date();
     const formattedDate = `${currentDate.getFullYear()}-${String(
       currentDate.getMonth() + 1
@@ -117,39 +136,35 @@ const NewProject: React.FC = () => {
     ];
 
     return {
-      TableName: "Projects",
-      Item: {
-        projectId: uuidv4(), // Generate client-side for idempotency
-        title: projectName,
+      title: projectName,
+      date: formattedDate,
+      dateCreated: formattedDate,
+      milestone: "10",
+      finishline: finishline || formattedDate,
+      description,
+      location,
+      address,
+      budget: {
         date: formattedDate,
-        dateCreated: formattedDate,
-        milestone: "10",
-        finishline: finishline || formattedDate,
-        description,
-        location,
-        address,
-        budget: {
-          date: formattedDate,
-          total: parseBudget(budget),
-        },
-        contact: {
-          contact: "N/A",
-          name: "N/A",
-          phone: "N/A",
-        },
-        galleries: [],
-        invoiceDate: formattedDate,
-        invoices: [],
-        slug: "project-slug", // you might prefer slugify(projectName)
-        status: "10%",
-        tags: [],
-        team,
-        revisionHistory: [],
-        thumbnails: [],
-        downloads: [],
-        color: "#FA3356",
-        uploads: [],
+        total: parseBudget(budget),
       },
+      contact: {
+        contact: "N/A",
+        name: "N/A",
+        phone: "N/A",
+      },
+      galleries: [],
+      invoiceDate: formattedDate,
+      invoices: [],
+      slug: "project-slug", // you might prefer slugify(projectName)
+      status: "10%",
+      tags: [],
+      team,
+      revisionHistory: [],
+      thumbnails: [],
+      downloads: [],
+      color: "#FA3356",
+      uploads: [],
     };
   };
 
@@ -218,7 +233,7 @@ const NewProject: React.FC = () => {
       const data = await apiFetch<CreateProjectResponse>(POST_PROJECTS_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(initialProjectData.Item),
+        body: JSON.stringify(initialProjectData),
       });
       const realProjectId = data.projectId;
 
@@ -243,7 +258,7 @@ const NewProject: React.FC = () => {
       // Since apiFetch throws on error, success means we got here
 
       const newProject: NewProjectItem & { projectId: string } = {
-        ...initialProjectData.Item,
+        ...initialProjectData,
         projectId: realProjectId,
         uploads: uploadedFileUrls,
       };
