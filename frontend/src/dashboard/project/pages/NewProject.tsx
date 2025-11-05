@@ -214,7 +214,7 @@ const NewProject: React.FC = () => {
       const data = await apiFetch<CreateProjectResponse>(POST_PROJECTS_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(initialProjectData),
+        body: JSON.stringify(initialProjectData.Item),
       });
       const realProjectId = data.projectId;
 
@@ -236,9 +236,9 @@ const NewProject: React.FC = () => {
       // Update project with uploads
       const updateData = { uploads: uploadedFileUrls };
       await apiFetch<{ success?: boolean }>(
-        `${POST_PROJECTS_URL}?TableName=Projects&projectId=${realProjectId}`,
+        `${POST_PROJECTS_URL}/${realProjectId}`,
         {
-          method: "PUT",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updateData),
         }
