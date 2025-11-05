@@ -46,6 +46,17 @@
   gap: 0;
 }
 
+/* Slides page full width */
+.slides-full-width {
+  width: calc(100% + 24px);
+  height: 100%;
+  margin-left: -12px;
+}
+
+.dashboard-main:has(.slides-full-width) {
+  padding: 0;
+}
+
 .dashboard-wrapper {
   position: relative;
   display: flex;

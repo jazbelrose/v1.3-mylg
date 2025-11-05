@@ -503,6 +503,7 @@ const SlidesPage: React.FC = () => {
           onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
         />
       }
+      mainClassName="slides-full-width-main"
     >
       {filesOpen && (
         <FileManagerComponent
@@ -514,6 +515,7 @@ const SlidesPage: React.FC = () => {
       )}
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
+      <div className="slides-full-width">
   <div style={{ display: "flex", height: "100%", width: "100%", minWidth: 0 }}>
         {/* Sidebar */}
         <div style={{ flexShrink: 0 }}>
@@ -567,6 +569,7 @@ const SlidesPage: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
       </div>
     </ProjectPageLayout>
   );

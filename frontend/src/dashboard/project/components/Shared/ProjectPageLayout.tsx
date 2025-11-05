@@ -12,6 +12,7 @@ type ProjectPageLayoutProps = {
   header: React.ReactNode;
   children: React.ReactNode;
   theme?: ProjectAccentPalette;
+  mainClassName?: string;
 };
 
 // Minimal prop typings for local components (adjust if your real components differ)
@@ -48,6 +49,7 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
   header,
   children,
   theme,
+  mainClassName,
 }) => {
   const projectHeaderRef = React.useRef<HTMLDivElement | null>(null);
   const layoutRef = React.useRef<HTMLDivElement | null>(null);
@@ -396,7 +398,7 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
             onToggleCollapse={handleToggleNavigationCollapse}
           />
         </aside>
-        <main className="dashboard-main">{mainContent}</main>
+        <main className={`dashboard-main${mainClassName ? ` ${mainClassName}` : ""}`}>{mainContent}</main>
       </div>
     );
   }
