@@ -1012,8 +1012,11 @@ i.bg-color::before {
   color: inherit !important;
   outline: none;
   border: none;
-  min-height: 100vh;
+  min-height: 100%;
   padding: 20px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
 .editor-input:focus {

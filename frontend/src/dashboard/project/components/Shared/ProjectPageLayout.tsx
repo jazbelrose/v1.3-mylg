@@ -247,6 +247,9 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
       height: isMobile ? undefined : contentHeight,
       minHeight: isMobile ? contentHeight : 0,
       flexDirection: isMobile ? "column" : "row",
+      // Keep overflow hidden on desktop so transformed child elements
+      // (like scaled editors) cannot visually spill outside the layout
+      // and will be clipped beneath the sticky header.
       overflow: isMobile ? "visible" : "hidden",
     }),
     [contentHeight, isMobile]
@@ -258,6 +261,8 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
       minWidth: 0,
       minHeight: 0,
       overflowY: isMobile ? "visible" : "auto",
+      // Hide horizontal overflow to prevent child transforms from
+      // extending past the header/layout bounds.
       overflowX: "hidden",
     }),
     [isMobile]

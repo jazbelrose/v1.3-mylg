@@ -514,7 +514,7 @@ const SlidesPage: React.FC = () => {
       )}
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
-      <div style={{ display: "flex", height: "calc(100vh - 64px)" }}>
+      <div style={{ display: "flex", height: "100%", width: "100%" }}>
         {/* Sidebar */}
         <div style={{ flexShrink: 0 }}>
           <SlidesSidebar
