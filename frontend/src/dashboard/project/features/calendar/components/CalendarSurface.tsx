@@ -20,7 +20,11 @@ import {
   type SnapIndex,
   isSameDay as isSameDayTask,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
-import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
+import {
+  formatAssigneeDisplay,
+  parseAssigneeTokens,
+  tokensToUserIds,
+} from "@/dashboard/project/components/Tasks/utils";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
@@ -29,7 +33,12 @@ import CreateCalendarItemModal, {
   type CreateEventRequest,
 } from "../CreateCalendarItemModal";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
-import { updateTask, type Task as ApiTask, type TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import {
+  updateTask,
+  type Task as ApiTask,
+  type TaskNoteAttachment,
+  type TimelineEvent as ApiTimelineEvent,
+} from "@/shared/utils/api";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
 import DayGrid from "./DayGrid";
@@ -39,8 +48,78 @@ import MiniCalendar, { type MiniCalendarActivityItem } from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
 import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay, formatTimeLabel } from "../utils";
-
 import "../calendar-preview.css";
+
+const mergeAssigneeTokens = (
+  ...values: Array<string | string[] | null | undefined>
+): string[] => {
+  const dedupe = new Set<string>();
+  values.forEach((value) => {
+    parseAssigneeTokens(value ?? null).forEach((token) => dedupe.add(token));
+  });
+  return Array.from(dedupe);
+};
+
+const mergeAssigneeIds = (...sources: Array<unknown>): string[] => {
+  const dedupe = new Set<string>();
+  sources.forEach((source) => {
+    if (Array.isArray(source)) {
+      source.forEach((entry) => {
+        if (typeof entry === "string") {
+          const trimmed = entry.trim();
+          if (trimmed) {
+            dedupe.add(trimmed);
+          }
+        }
+      });
+    } else if (typeof source === "string") {
+      const trimmed = source.trim();
+      if (trimmed) {
+        dedupe.add(trimmed);
+      }
+    }
+  });
+  return Array.from(dedupe);
+};
+
+const collectNoteAttachments = (...sources: Array<unknown>): TaskNoteAttachment[] => {
+  const seen = new Set<string>();
+  const attachments: TaskNoteAttachment[] = [];
+
+  sources.forEach((source) => {
+    if (!Array.isArray(source)) return;
+
+    source.forEach((item) => {
+      if (!item || typeof item !== "object") {
+        return;
+      }
+
+      const candidate = item as Partial<TaskNoteAttachment>;
+      if (typeof candidate.fileName !== "string") {
+        return;
+      }
+
+      const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+      const fallbackKey = `${candidate.fileName.trim()}::${candidate.url ?? candidate.dataUrl ?? ""}`;
+      const key = rawId || fallbackKey;
+      if (!key || seen.has(key)) {
+        return;
+      }
+
+      seen.add(key);
+      attachments.push({
+        id: rawId || key,
+        fileName: candidate.fileName,
+        ...(typeof candidate.mimeType === "string" ? { mimeType: candidate.mimeType } : {}),
+        ...(typeof candidate.dataUrl === "string" ? { dataUrl: candidate.dataUrl } : {}),
+        ...(typeof candidate.url === "string" ? { url: candidate.url } : {}),
+        ...(typeof candidate.uploadedAt === "string" ? { uploadedAt: candidate.uploadedAt } : {}),
+      });
+    });
+  });
+
+  return attachments;
+};
 
 export type CalendarSurfaceProps = {
   events: CalendarEvent[];
@@ -240,34 +319,40 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     }
 
     return tasks.filter((task) => {
-      const matches = (value?: string | null) =>
+      const matchesString = (value?: string | null) =>
         typeof value === "string" && value.toLowerCase().includes(normalizedSearchTerm);
+      const matchesTokens = (value?: string | string[] | null) => {
+        if (Array.isArray(value)) {
+          return value.some((entry) => matchesString(entry));
+        }
+        return matchesString(value ?? undefined);
+      };
 
-      if (matches(task.title) || matches(task.description)) {
+      if (matchesString(task.title) || matchesString(task.description)) {
         return true;
       }
 
-      if (matches(typeof task.status === "string" ? task.status : undefined)) {
+      if (matchesString(typeof task.status === "string" ? task.status : undefined)) {
         return true;
       }
 
-      if (matches(task.assignedTo)) {
+      if (matchesTokens(task.assignedTo)) {
         return true;
       }
 
       const formattedAssignee = formatAssigneeDisplay(task.assignedTo);
-      if (matches(formattedAssignee)) {
+      if (matchesString(formattedAssignee)) {
         return true;
       }
 
       const quickTask = quickTaskById.get(task.id);
       if (quickTask) {
-        if (matches(quickTask.title) || matches(quickTask.description)) {
+        if (matchesString(quickTask.title) || matchesString(quickTask.description)) {
           return true;
         }
 
         const displayAssignee = formatAssigneeDisplay(quickTask.assignedTo ?? task.assignedTo);
-        if (matches(displayAssignee)) {
+        if (matchesString(displayAssignee)) {
           return true;
         }
 
@@ -279,7 +364,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           (raw as { createdByEmail?: string }).createdByEmail,
         ];
 
-        if (rawFields.some((value) => matches(typeof value === "string" ? value : undefined))) {
+        if (rawFields.some((value) => matchesString(typeof value === "string" ? value : undefined))) {
           return true;
         }
       }
@@ -293,7 +378,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         (source as { title?: string }).title,
         (source as { location?: string }).location,
       ];
-      return sourceFields.some((value) => matches(typeof value === "string" ? value : undefined));
+      return sourceFields.some((value) => matchesString(typeof value === "string" ? value : undefined));
     });
   }, [tasks, normalizedSearchTerm, quickTaskById]);
 
@@ -675,6 +760,29 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
         undefined;
 
+      const tokens = mergeAssigneeTokens(
+        quickTask?.assigneeTokens ?? null,
+        quickTask?.assignedTo ?? null,
+        (quickTask?.raw as { assigneeTokens?: string[] | string | null })?.assigneeTokens ?? null,
+        (quickTask?.raw as { assignedTo?: string | string[] | null })?.assignedTo ?? null,
+        (quickTask?.raw as { assigneeId?: string | null })?.assigneeId ?? null,
+        sourceTask?.assigneeTokens ?? null,
+        (sourceTask as { assignedTo?: string | string[] | null })?.assignedTo ?? null,
+        sourceTask?.assigneeId ?? null,
+      );
+      const derivedIdsFromTokens = tokensToUserIds(tokens);
+      const assigneeIds = mergeAssigneeIds(
+        quickTask?.assigneeIds ?? null,
+        (quickTask?.raw as { assigneeIds?: string[] | null })?.assigneeIds ?? null,
+        sourceTask?.assigneeIds ?? null,
+        derivedIdsFromTokens,
+      );
+      const noteAttachments = collectNoteAttachments(
+        quickTask?.noteAttachments ?? null,
+        (quickTask?.raw as { noteAttachments?: unknown })?.noteAttachments ?? null,
+        (sourceTask as { noteAttachments?: unknown })?.noteAttachments ?? null,
+      );
+
       const payload: QuickCreateTaskModalTask = {
         id: taskId,
         taskId,
@@ -693,8 +801,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           (sourceTask?.status as string | undefined) ??
           (quickTask?.status as string | undefined) ??
           "todo",
-        assigneeId:
-          sourceTask?.assigneeId ?? quickTask?.assignedTo ?? null,
+        assigneeId: assigneeIds[0] ?? null,
+        assigneeIds: assigneeIds.length ? assigneeIds : undefined,
+        assigneeTokens: tokens.length ? tokens : undefined,
         address:
           (sourceTask as { address?: string | null })?.address ??
           quickTask?.address ??
@@ -703,6 +812,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           (sourceTask as { location?: QuickCreateTaskModalTask["location"] })?.location ??
           quickTask?.location ??
           null,
+        noteAttachments: noteAttachments.length ? noteAttachments : undefined,
       };
 
       setQuickTaskDraft(overrides ? { ...payload, ...overrides } : payload);
@@ -770,8 +880,39 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           payload.description = normalizedTask.description;
         }
 
-        if (normalizedTask.assignedTo) {
-          payload.assigneeId = normalizedTask.assignedTo;
+        const rawTask = normalizedTask.raw as {
+          assigneeTokens?: string[] | string | null;
+          assignedTo?: string | string[] | null;
+          assigneeId?: string | null;
+          assigneeIds?: string[] | null;
+        };
+        const markTokens = mergeAssigneeTokens(
+          normalizedTask.assigneeTokens ?? null,
+          normalizedTask.assignedTo ?? null,
+          rawTask?.assigneeTokens ?? null,
+          rawTask?.assignedTo ?? null,
+          rawTask?.assigneeId ?? null,
+          sourceTask?.assigneeTokens ?? null,
+          (sourceTask as { assignedTo?: string | string[] | null })?.assignedTo ?? null,
+          sourceTask?.assigneeId ?? null,
+        );
+        const markIdsFromTokens = tokensToUserIds(markTokens);
+        const markAssigneeIds = mergeAssigneeIds(
+          normalizedTask.assigneeIds ?? null,
+          rawTask?.assigneeIds ?? null,
+          sourceTask?.assigneeIds ?? null,
+          markIdsFromTokens,
+        );
+
+        if (markTokens.length) {
+          payload.assigneeTokens = markTokens;
+        }
+
+        if (markAssigneeIds.length) {
+          payload.assigneeIds = markAssigneeIds;
+          payload.assigneeId = markAssigneeIds[0];
+        } else if (markTokens.length) {
+          payload.assigneeId = markTokens[0];
         }
 
         if (dueDateIso) {

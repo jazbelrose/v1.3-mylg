@@ -195,6 +195,36 @@
   appearance: none;
 }
 
+.multiSelect {
+  min-height: 96px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.clearSelectionButton {
+  align-self: flex-start;
+  margin-top: -4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.clearSelectionButton:hover:not(:disabled) {
+  background: rgba(250, 51, 86, 0.12);
+  border-color: rgba(250, 51, 86, 0.4);
+  color: #ff5f7a;
+}
+
+.clearSelectionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .selectInput:focus,
 .textInput:focus,
 .textarea:focus {
@@ -207,6 +237,23 @@
   min-height: 112px;
   resize: none;
   overflow: hidden;
+}
+
+.fileInput {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(24, 26, 29, 0.6);
+  color: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.fileInput:hover:not(:disabled),
+.fileInput:focus {
+  border-color: rgba(250, 51, 86, 0.45);
+  background: rgba(24, 26, 29, 0.8);
+  outline: none;
 }
 
 .locationInputWrapper {
@@ -405,6 +452,76 @@
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
   animation: spinner-rotate 0.9s linear infinite;
+}
+
+.attachmentList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachmentItem {
+  background: rgba(24, 26, 29, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.attachmentPreview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: rgba(12, 12, 14, 0.9);
+}
+
+.attachmentPlaceholder {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  font-size: 1.75rem;
+  background: rgba(12, 12, 14, 0.9);
+}
+
+.attachmentDetails {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.attachmentName {
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.82));
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.removeAttachmentButton {
+  border: none;
+  background: none;
+  color: #ff7d95;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.removeAttachmentButton:hover:not(:disabled) {
+  color: #ff516f;
+}
+
+.removeAttachmentButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @keyframes spinner-rotate {
