@@ -110,6 +110,112 @@ function buildUpdate(obj) {
   };
 }
 
+function toStringArray(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => toStringArray(entry));
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,;]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function extractUserId(token) {
+  if (typeof token !== "string") return null;
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("__")) {
+    const parts = trimmed.split("__");
+    const last = parts[parts.length - 1]?.trim();
+    if (last) return last;
+  }
+  return trimmed;
+}
+
+function normalizeAssignees(source) {
+  const tokenCandidates = [
+    ...toStringArray(source.assigneeTokens),
+    ...toStringArray(source.assignedTo),
+    ...toStringArray(source.assigneeId),
+  ];
+  const idCandidates = [
+    ...toStringArray(source.assigneeIds),
+    ...tokenCandidates.map(extractUserId).filter(Boolean),
+  ];
+
+  const tokens = Array.from(
+    new Set(
+      tokenCandidates
+        .map((token) => token.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const ids = Array.from(
+    new Set(
+      idCandidates
+        .map((token) => token.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  return { tokens, ids };
+}
+
+function sanitizeNoteAttachments(raw, timestamp = nowISO()) {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) return [];
+
+  const sanitized = raw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const fileName = typeof entry.fileName === "string" ? entry.fileName.trim() : "";
+      const dataUrl = typeof entry.dataUrl === "string" ? entry.dataUrl.trim() : "";
+      const url = typeof entry.url === "string" ? entry.url.trim() : "";
+      const mimeTypeRaw = typeof entry.mimeType === "string" ? entry.mimeType.trim() : "";
+      if (!fileName) return null;
+      if (!dataUrl && !url) return null;
+
+      const inferredMime = (() => {
+        if (mimeTypeRaw) return mimeTypeRaw;
+        if (dataUrl.startsWith("data:")) {
+          const mimeSection = dataUrl.slice(5, dataUrl.indexOf(";") > 0 ? dataUrl.indexOf(";") : undefined);
+          return mimeSection || "";
+        }
+        return "";
+      })();
+
+      const isImage =
+        inferredMime.startsWith("image/") ||
+        (!inferredMime && (dataUrl.startsWith("data:image/") || url.toLowerCase().match(/\.(png|jpe?g|gif|webp|avif|svg)(?:\?|$)/)));
+      if (!isImage) return null;
+
+      const id =
+        typeof entry.id === "string" && entry.id.trim()
+          ? entry.id.trim()
+          : `ATT-${uuidv4()}`;
+
+      return {
+        id,
+        fileName,
+        mimeType: inferredMime || (dataUrl.startsWith("data:image/") ? dataUrl.slice(5, dataUrl.indexOf(";") > 0 ? dataUrl.indexOf(";") : undefined) : "image"),
+        dataUrl: dataUrl || undefined,
+        url: url || undefined,
+        uploadedAt:
+          typeof entry.uploadedAt === "string" && entry.uploadedAt.trim()
+            ? entry.uploadedAt.trim()
+            : timestamp,
+      };
+    })
+    .filter(Boolean);
+
+  return sanitized;
+}
+
 function buildDirectoryUpdate(projectId, obj) {
   const Names  = { "#projects": "projects", "#projectId": projectId, "#lastUpdated": "lastUpdated" };
   const Values = { ":now": nowISO() };
@@ -637,6 +743,8 @@ const createTask = async (e, C, { projectId }) => {
   const b = B(e);
   const { userId, username, displayName, email } = getUserFromEvent(e);
   const body = { ...(b || {}) };
+  const assigneeData = normalizeAssignees(body);
+  const sanitizedAttachments = sanitizeNoteAttachments(body.noteAttachments);
   delete body.createdAt;
   delete body.updatedAt;
   delete body.statusDueDateTaskId;
@@ -645,6 +753,11 @@ const createTask = async (e, C, { projectId }) => {
   delete body.createdByName;
   delete body.createdByUsername;
   delete body.createdByEmail;
+  delete body.assigneeId;
+  delete body.assigneeIds;
+  delete body.assigneeTokens;
+  delete body.assignedTo;
+  delete body.noteAttachments;
   const taskId = b.taskId || `T-${uuidv4()}`;
   const ts = nowISO();
   const item = {
@@ -667,6 +780,17 @@ const createTask = async (e, C, { projectId }) => {
   if (email) item.createdByEmail = email;
   const dueDate = item.dueAt ? String(item.dueAt).slice(0, 10) : "";
   item.statusDueDateTaskId = `${item.status}#${dueDate}#${taskId}`;
+  if (assigneeData.ids.length) {
+    item.assigneeIds = assigneeData.ids;
+    item.assigneeId = assigneeData.ids[0];
+  }
+  if (assigneeData.tokens.length) {
+    item.assigneeTokens = assigneeData.tokens;
+    item.assignedTo = assigneeData.tokens.join(", ");
+  }
+  if (Array.isArray(sanitizedAttachments) && sanitizedAttachments.length > 0) {
+    item.noteAttachments = sanitizedAttachments;
+  }
   await ddb.put({
     TableName: TASKS_TABLE,
     Item: item,
@@ -691,6 +815,18 @@ const patchTask = async (e, C, { projectId, taskId }) => {
     delete b.createdByEmail;
     delete b.statusDueDateTaskId;
     delete b.updatedAt;
+  }
+  const assigneeFields = ["assigneeIds", "assigneeId", "assigneeTokens", "assignedTo"];
+  const shouldNormalizeAssignees = assigneeFields.some((field) => Object.prototype.hasOwnProperty.call(b || {}, field));
+  if (shouldNormalizeAssignees && b) {
+    const assigneeData = normalizeAssignees(b);
+    b.assigneeIds = assigneeData.ids;
+    b.assigneeId = assigneeData.ids[0] || null;
+    b.assigneeTokens = assigneeData.tokens;
+    b.assignedTo = assigneeData.tokens.length ? assigneeData.tokens.join(", ") : null;
+  }
+  if (b && Object.prototype.hasOwnProperty.call(b, "noteAttachments")) {
+    b.noteAttachments = sanitizeNoteAttachments(b.noteAttachments);
   }
   if (b.status !== undefined || b.dueAt !== undefined) {
     const curr = await ddb.get({

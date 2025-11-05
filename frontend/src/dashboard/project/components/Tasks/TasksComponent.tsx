@@ -42,7 +42,12 @@ import {
   type SnapIndex,
   type TaskStatusContext,
 } from "./components/quickTaskUtils";
-import { buildDirectionsLinks, formatAssigneeDisplay } from "./utils";
+import {
+  buildDirectionsLinks,
+  formatAssigneeDisplay,
+  parseAssigneeTokens,
+  tokensToUserIds,
+} from "./utils";
 
 type StatTone = "ok" | "warn" | "soon";
 
@@ -273,6 +278,12 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
   const toModalTask = useCallback(
     (task: QuickTask): QuickCreateTaskModalTask => {
       const resolvedProjectId = task.projectId || projectId || "";
+      const tokens = Array.isArray(task.assignedTo)
+        ? parseAssigneeTokens(task.assignedTo)
+        : parseAssigneeTokens(task.assignedTo ?? null);
+      const modalAssigneeIds = task.assigneeIds?.length
+        ? task.assigneeIds
+        : tokensToUserIds(tokens);
       return {
         id: task.id,
         taskId: task.id,
@@ -282,9 +293,12 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
         description: task.description ?? undefined,
         dueDate: task.dueDateInput ?? (task.dueDate ? task.dueDate.toISOString() : null),
         status: task.status,
-        assigneeId: task.assignedTo ?? undefined,
+        assigneeId: modalAssigneeIds[0] ?? undefined,
+        assigneeIds: modalAssigneeIds.length ? modalAssigneeIds : undefined,
+        assigneeTokens: tokens.length ? tokens : undefined,
         address: task.address ?? undefined,
         location: (task.location ?? task.raw?.location) as QuickCreateTaskModalTask["location"],
+        noteAttachments: task.noteAttachments ?? undefined,
       };
     },
     [projectId, projectName],
@@ -519,8 +533,22 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
           payload.description = task.description;
         }
 
-        if (task.assignedTo) {
-          payload.assigneeId = task.assignedTo;
+        const assigneeTokens = Array.isArray(task.assignedTo)
+          ? parseAssigneeTokens(task.assignedTo)
+          : parseAssigneeTokens(task.assignedTo ?? null);
+        const assigneeIds = task.assigneeIds?.length
+          ? task.assigneeIds
+          : tokensToUserIds(assigneeTokens);
+
+        if (assigneeIds.length) {
+          payload.assigneeIds = assigneeIds;
+          payload.assigneeId = assigneeIds[0];
+        } else if (assigneeTokens.length) {
+          payload.assigneeId = assigneeTokens[0];
+        }
+
+        if (assigneeTokens.length) {
+          payload.assigneeTokens = assigneeTokens;
         }
 
         if (dueDateIso) {

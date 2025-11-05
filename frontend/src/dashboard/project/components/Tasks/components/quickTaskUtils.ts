@@ -1,5 +1,5 @@
 import type { Status } from "../types";
-import { parseDueDate, parseLocation } from "../utils";
+import { parseAssigneeTokens, parseDueDate, parseLocation, tokensToUserIds } from "../utils";
 import type { QuickTask, RawTask, TaskMapMarker, TaskStats } from "./taskTypes";
 
 export type { QuickTask, RawTask, TaskMapMarker, TaskStats };
@@ -217,6 +217,20 @@ export function normalizeTask(raw: RawTask): QuickTask | null {
 
   const dueSource = raw.dueAt ?? raw.due_at ?? raw.dueDate ?? raw.due_date ?? raw.due;
   const dueDate = parseDueDate(dueSource);
+  const assigneeTokens = parseAssigneeTokens(
+    Array.isArray(raw.assigneeTokens)
+      ? raw.assigneeTokens
+      : (raw.assignedTo as string | string[] | null) ?? raw.assigneeId ?? null,
+  );
+  const assigneeIds = Array.isArray(raw.assigneeIds)
+    ? raw.assigneeIds.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    : tokensToUserIds(assigneeTokens);
+  const noteAttachments = Array.isArray(raw.noteAttachments)
+    ? raw.noteAttachments.filter(
+        (attachment): attachment is NonNullable<QuickTask["noteAttachments"]>[number] =>
+          Boolean(attachment && typeof attachment === "object" && typeof attachment.fileName === "string"),
+      )
+    : undefined;
 
   return {
     id,
@@ -227,12 +241,18 @@ export function normalizeTask(raw: RawTask): QuickTask | null {
     dueDateInput: toDateInputString(dueSource),
     address: typeof raw.address === "string" ? raw.address : undefined,
     location: parseLocation(raw.location),
-    assignedTo:
-      typeof raw.assigneeId === "string"
-        ? raw.assigneeId
+    assignedTo: assigneeTokens.length
+      ? assigneeTokens
+      : Array.isArray(raw.assignedTo)
+        ? raw.assignedTo
         : typeof raw.assignedTo === "string"
           ? raw.assignedTo
-          : undefined,
+          : typeof raw.assigneeId === "string"
+            ? raw.assigneeId
+            : undefined,
+    assigneeIds: assigneeIds.length ? assigneeIds : undefined,
+    assigneeTokens: assigneeTokens.length ? assigneeTokens : undefined,
+    noteAttachments: noteAttachments && noteAttachments.length ? noteAttachments : undefined,
     projectId: typeof raw.projectId === "string" ? raw.projectId : undefined,
     raw,
   };

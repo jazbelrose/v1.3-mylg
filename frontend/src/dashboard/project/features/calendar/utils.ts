@@ -1,4 +1,5 @@
-import type { Task as ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import type { Task as ApiTask, TaskNoteAttachment, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import { parseAssigneeTokens, tokensToUserIds } from "@/dashboard/project/components/Tasks/utils";
 
 export type CalendarCategory = "Work" | "Education" | "Personal";
 
@@ -26,7 +27,10 @@ export type CalendarTask = {
   time?: string;
   description?: string;
   status?: ApiTask["status"];
-  assignedTo?: string;
+  assignedTo?: string | string[];
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
+  noteAttachments?: TaskNoteAttachment[];
   source: ApiTask;
 };
 
@@ -404,12 +408,14 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
   const dueSource = task.dueDate ?? undefined;
   let due: string | undefined;
   let time: string | undefined;
-  const rawAssignedTo =
-    typeof task.assigneeId === "string"
-      ? task.assigneeId
-      : typeof (task as { assignedTo?: string }).assignedTo === "string"
-        ? (task as { assignedTo?: string }).assignedTo
-        : undefined;
+  const assigneeTokens = parseAssigneeTokens(
+    Array.isArray(task.assigneeTokens)
+      ? task.assigneeTokens
+      : (task.assignedTo as string | string[] | null) ?? task.assigneeId ?? null,
+  );
+  const assigneeIds = Array.isArray(task.assigneeIds)
+    ? task.assigneeIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    : tokensToUserIds(assigneeTokens);
 
   if (dueSource) {
     const match = dueSource.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))/);
@@ -434,7 +440,26 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
     done: task.status === "done",
     description: task.description ?? undefined,
     status: task.status,
-    assignedTo: rawAssignedTo,
+    assignedTo: assigneeTokens.length
+      ? assigneeTokens
+      : Array.isArray(task.assignedTo)
+        ? task.assignedTo
+        : typeof task.assignedTo === "string"
+          ? task.assignedTo
+          : task.assigneeId,
+    assigneeIds: assigneeIds.length ? assigneeIds : undefined,
+    assigneeTokens: assigneeTokens.length ? assigneeTokens : undefined,
+    noteAttachments: Array.isArray(task.noteAttachments)
+      ? task.noteAttachments.filter(
+          (attachment): attachment is TaskNoteAttachment =>
+            Boolean(
+              attachment &&
+                typeof attachment === "object" &&
+                typeof attachment.fileName === "string" &&
+                (typeof attachment.dataUrl === "string" || typeof attachment.url === "string"),
+            ),
+        )
+      : undefined,
     source: task,
   };
 };
