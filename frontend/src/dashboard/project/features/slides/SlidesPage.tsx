@@ -35,6 +35,7 @@ const SlidesPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
+  const [zoom, setZoom] = useState(100);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   // Flag indicating a thumbnail changed and needs persistence.
   // Note: thumbnails are intentionally *not* regenerated on every keystroke.
@@ -469,6 +470,18 @@ const SlidesPage: React.FC = () => {
     // TODO: Implement PDF export with jsPDF
   }, []);
 
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(prev + 25, 200));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(prev - 25, 25));
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    setZoom(100);
+  }, []);
+
   const activeSlide = slides.find((s) => s.id === activeSlideId);
 
   if (!projectId) {
@@ -533,6 +546,11 @@ const SlidesPage: React.FC = () => {
                 onExport={handleExport}
                 isSaving={isSaving}
                 isDirty={isDirty}
+                // Zoom controls (local to user, not saved or broadcasted)
+                zoom={zoom}
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetZoom={handleResetZoom}
               />
             ) : (
               <div

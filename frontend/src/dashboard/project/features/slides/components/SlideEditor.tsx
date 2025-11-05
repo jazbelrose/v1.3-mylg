@@ -1,10 +1,11 @@
 // components/SlideEditor.tsx - Editor for a single slide
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import SlideToolbar from "./SlideToolbar";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
+import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 
 type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
 type FontFamily = "Helvetica Special" | "Helvetica Black" | "Helvetica Light" | "Helvetica Neue" | "Helvetica Medium" | "mylg-serif";
@@ -23,6 +24,11 @@ interface SlideEditorProps {
   onExport?: () => void;
   isSaving?: boolean;
   isDirty?: boolean;
+  // Zoom props
+  zoom?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetZoom?: () => void;
 }
 
 const SlideEditor: React.FC<SlideEditorProps> = ({
@@ -30,11 +36,17 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   slide,
   onContentChange,
   onSaveSuccess,
+  width = 1920,
+  height = 1080,
   onDuplicate,
   onDelete,
   onExport,
   isSaving = false,
   isDirty = false,
+  zoom = 100,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
 
@@ -62,6 +74,34 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     setToolbarActions(actions);
   }, []);
 
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+      
+      if (isCtrlOrCmd) {
+        switch (event.key) {
+          case '=':
+          case '+':
+            event.preventDefault();
+            onZoomIn?.();
+            break;
+          case '-':
+            event.preventDefault();
+            onZoomOut?.();
+            break;
+          case '0':
+            event.preventDefault();
+            onResetZoom?.();
+            break;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onZoomIn, onZoomOut, onResetZoom]);
+
   const customToolbar = toolbarActions ? (
     <SlideToolbar
       onDuplicate={onDuplicate}
@@ -69,6 +109,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onExport={onExport}
       isSaving={isSaving}
       isDirty={isDirty}
+      // Zoom controls
+      zoom={zoom}
+      onZoomIn={onZoomIn}
+      onZoomOut={onZoomOut}
+      onResetZoom={onResetZoom}
       // Map toolbar actions to individual props
       onUndo={toolbarActions.onUndo}
       onRedo={toolbarActions.onRedo}
@@ -114,16 +159,33 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         overflow: "hidden",
       }}
     >
-      <LexicalEditor
-        key={slide.id}
-        docId={`${projectId}::slide::${slide.id}`}
-        onChange={handleChange}
-        showDefaultToolbar={false}
-        initialContent={slide.content ?? null}
-        onSave={handleSave}
-        registerToolbar={handleRegisterToolbar}
-        customToolbar={customToolbar}
-      />
+      {/* Toolbar - unscaled */}
+      <DropdownProvider>
+        {customToolbar}
+      </DropdownProvider>
+
+      {/* Editor content - scaled */}
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          transform: `scale(${zoom / 100})`,
+          transformOrigin: "top left",
+          width: `${100 / (zoom / 100)}%`,
+          height: `${100 / (zoom / 100)}%`,
+        }}
+      >
+        <LexicalEditor
+          key={slide.id}
+          docId={`${projectId}::slide::${slide.id}`}
+          onChange={handleChange}
+          showDefaultToolbar={false}
+          initialContent={slide.content ?? null}
+          onSave={handleSave}
+          registerToolbar={handleRegisterToolbar}
+          customToolbar={null} // Toolbar is now rendered outside
+        />
+      </div>
     </div>
   );
 };
