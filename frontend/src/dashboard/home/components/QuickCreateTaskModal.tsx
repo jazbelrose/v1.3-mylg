@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { Task } from "@/shared/utils/api";
+import type { Task, TaskNoteAttachment } from "@/shared/utils/api";
 import { NOMINATIM_SEARCH_URL, apiFetch, createTask, deleteTask, updateTask } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 
@@ -23,6 +23,91 @@ type Coordinates = {
 };
 
 type TaskStatus = "todo" | "in_progress" | "done";
+
+function toTokenArray(value?: string | string[] | null): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => toTokenArray(entry)).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,;]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function extractUserIdFromToken(token: string): string | null {
+  if (!token) return null;
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("__")) {
+    const parts = trimmed.split("__");
+    const last = parts[parts.length - 1]?.trim();
+    if (last) return last;
+  }
+  return trimmed;
+}
+
+function parseAssigneeTokensInput(value?: string | string[] | null): string[] {
+  const tokens = toTokenArray(value);
+  return Array.from(new Set(tokens.map((token) => token.trim()).filter(Boolean)));
+}
+
+function tokensToAssigneeIds(tokens: string[]): string[] {
+  const ids = tokens
+    .map((token) => extractUserIdFromToken(token))
+    .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+    .map((id) => id.trim());
+  return Array.from(new Set(ids));
+}
+
+function generateAttachmentId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sanitizeIncomingAttachments(
+  attachments: TaskNoteAttachment[] | null | undefined,
+): TaskNoteAttachment[] {
+  if (!Array.isArray(attachments)) return [];
+  return attachments
+    .map((attachment) => {
+      if (!attachment || typeof attachment !== "object") return null;
+      const fileName =
+        typeof attachment.fileName === "string" && attachment.fileName.trim()
+          ? attachment.fileName.trim()
+          : "Attachment";
+      const mimeType = typeof attachment.mimeType === "string" ? attachment.mimeType : undefined;
+      const dataUrl =
+        typeof attachment.dataUrl === "string" && attachment.dataUrl.trim()
+          ? attachment.dataUrl.trim()
+          : undefined;
+      const url =
+        typeof attachment.url === "string" && attachment.url.trim()
+          ? attachment.url.trim()
+          : undefined;
+      if (!dataUrl && !url) return null;
+      return {
+        id:
+          typeof attachment.id === "string" && attachment.id.trim()
+            ? attachment.id.trim()
+            : generateAttachmentId(),
+        fileName,
+        mimeType,
+        dataUrl,
+        url,
+        uploadedAt:
+          typeof attachment.uploadedAt === "string" && attachment.uploadedAt.trim()
+            ? attachment.uploadedAt.trim()
+            : undefined,
+      } satisfies TaskNoteAttachment;
+    })
+    .filter(Boolean);
+}
 
 function toInputDate(date: Date): string {
   const year = date.getFullYear();
@@ -168,7 +253,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
-  const [assigneeId, setAssigneeId] = useState<string>("");
+  const [assigneeTokens, setAssigneeTokens] = useState<string[]>([]);
+  const [noteAttachments, setNoteAttachments] = useState<TaskNoteAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -189,19 +275,21 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
   const lastAppliedTaskRef = useRef<string | null>(null);
   const successMessageRef = useRef<string | null>(null);
-  const descriptionId = useId();
-  const projectFieldId = useId();
-  const assigneeFieldId = useId();
-  const taskNameFieldId = useId();
-  const titleCounterId = useId();
-  const titleErrorId = useId();
-  const projectErrorId = useId();
-  const locationFieldId = useId();
-  const dueDateFieldId = useId();
-  const notesFieldId = useId();
-  const feedbackRegionId = useId();
-  const locationHintId = useId();
-  const statusFieldId = useId();
+  const baseId = useId();
+  const descriptionId = `${baseId}-description`;
+  const projectFieldId = `${baseId}-project`;
+  const assigneeFieldId = `${baseId}-assignee`;
+  const taskNameFieldId = `${baseId}-task-name`;
+  const titleCounterId = `${baseId}-title-counter`;
+  const titleErrorId = `${baseId}-title-error`;
+  const projectErrorId = `${baseId}-project-error`;
+  const locationFieldId = `${baseId}-location`;
+  const dueDateFieldId = `${baseId}-due-date`;
+  const notesFieldId = `${baseId}-notes`;
+  const attachmentsFieldId = `${baseId}-attachments`;
+  const feedbackRegionId = `${baseId}-feedback`;
+  const locationHintId = `${baseId}-location-hint`;
+  const statusFieldId = `${baseId}-status`;
 
   const projectOptions = useMemo(() => projects ?? [], [projects]);
   const hasProjects = projectOptions.length > 0;
@@ -240,7 +328,15 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   }, [userData?.collaborators, userData?.userId]);
 
   const collaboratorOptions = useMemo(() => {
-    if (!collaboratorIds.length) return [] as { value: string; label: string }[];
+    if (!collaboratorIds.length) {
+      const fallbackOptions = assigneeTokens.map((token) => {
+        const trimmed = token.trim();
+        const [namePart] = trimmed.includes("__") ? trimmed.split("__") : [trimmed];
+        const label = namePart.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim() || trimmed;
+        return { value: trimmed, label };
+      });
+      return fallbackOptions;
+    }
 
     const findCollaborator = (rawId: string) => {
       const trimmedId = rawId.trim();
@@ -302,10 +398,18 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
     });
 
+    assigneeTokens.forEach((token) => {
+      const trimmed = token.trim();
+      if (!trimmed || dedupeMap.has(trimmed)) return;
+      const [namePart] = trimmed.includes("__") ? trimmed.split("__") : [trimmed];
+      const label = namePart.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim() || trimmed;
+      dedupeMap.set(trimmed, { value: trimmed, label });
+    });
+
     return Array.from(dedupeMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
-  }, [allUsers, collaboratorIds]);
+  }, [allUsers, assigneeTokens, collaboratorIds]);
 
   const hasCollaborators = collaboratorOptions.length > 0;
   const effectiveProjectId = useMemo(() => {
@@ -368,7 +472,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setAddressSearch("");
     setAddressSuggestions([]);
     setSelectedLocation(null);
-    setAssigneeId("");
+    setAssigneeTokens([]);
+    setNoteAttachments([]);
     setSubmitting(false);
     setDeleting(false);
     setErrorMessage(null);
@@ -398,10 +503,25 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
       setStatus(normalizeStatus(taskData.status));
-      setAssigneeId(typeof taskData.assigneeId === "string" ? taskData.assigneeId : "");
+      const providedTokens = Array.isArray(taskData.assigneeTokens)
+        ? taskData.assigneeTokens.filter(
+            (token): token is string => typeof token === "string" && token.trim().length > 0,
+          )
+        : [];
+      if (providedTokens.length) {
+        setAssigneeTokens(providedTokens);
+      } else {
+        const fallbackTokens = parseAssigneeTokensInput(
+          Array.isArray(taskData.assigneeIds) && taskData.assigneeIds.length
+            ? taskData.assigneeIds
+            : taskData.assigneeId ?? null,
+        );
+        setAssigneeTokens(fallbackTokens);
+      }
       setAddressSearch(typeof taskData.address === "string" ? taskData.address : "");
       setAddressSuggestions([]);
       setSelectedLocation(normalizeLocation(taskData.location));
+      setNoteAttachments(sanitizeIncomingAttachments(taskData.noteAttachments));
       if (!preserveFeedback) {
         setSuccessMessage(null);
         setErrorMessage(null);
@@ -618,9 +738,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   }, [effectiveProjectId]);
 
-  if (!open || typeof document === "undefined") {
-    return null;
-  }
 
   const descriptionCopy = activeProjectId
     ? `Launch work for ${resolvedActiveProjectName || "this project"}.`
@@ -737,7 +854,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   };
 
   const handleAssigneeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setAssigneeId(event.target.value);
+    const values = Array.from(event.target.selectedOptions)
+      .map((option) => option.value)
+      .filter((value) => typeof value === "string" && value.trim().length > 0);
+    setAssigneeTokens(values);
     setSuccessMessage(null);
     setErrorMessage(null);
   };
@@ -759,6 +879,62 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
   };
+
+  const handleAttachmentInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files ? Array.from(event.target.files) : [];
+    if (!fileList.length) return;
+
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    const created: TaskNoteAttachment[] = [];
+
+    for (const file of fileList) {
+      if (file.type && !file.type.startsWith("image/")) {
+        setErrorMessage("Only image files can be attached to notes.");
+        continue;
+      }
+
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === "string" && result.startsWith("data:image/")) {
+              resolve(result);
+            } else {
+              reject(new Error("Unsupported file type"));
+            }
+          };
+          reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+
+        created.push({
+          id: generateAttachmentId(),
+          fileName: file.name || "Attachment",
+          mimeType: file.type || undefined,
+          dataUrl,
+          uploadedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Failed to add attachment", error);
+        setErrorMessage("We couldn't add one of the images. Please try again.");
+      }
+    }
+
+    if (created.length) {
+      setNoteAttachments((prev) => [...prev, ...created]);
+    }
+
+    event.target.value = "";
+  };
+
+  const handleRemoveAttachment = useCallback((attachmentId: string) => {
+    setNoteAttachments((prev) => prev.filter((attachment) => attachment.id !== attachmentId));
+    setSuccessMessage(null);
+    setErrorMessage(null);
+  }, []);
 
   const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setStatus(event.target.value as TaskStatus);
@@ -807,10 +983,28 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         ...(locationPayload ? { location: locationPayload } : {}),
       };
 
-      if (assigneeId) {
-        payload.assigneeId = assigneeId;
+      const trimmedAssigneeTokens = assigneeTokens.map((token) => token.trim()).filter(Boolean);
+      const derivedAssigneeIds = tokensToAssigneeIds(trimmedAssigneeTokens);
+
+      if (trimmedAssigneeTokens.length) {
+        payload.assigneeTokens = trimmedAssigneeTokens;
+      }
+
+      if (derivedAssigneeIds.length) {
+        payload.assigneeIds = derivedAssigneeIds;
+        payload.assigneeId = derivedAssigneeIds[0];
+      } else if (trimmedAssigneeTokens.length) {
+        payload.assigneeId = trimmedAssigneeTokens[0];
       } else if (isEditing) {
         payload.assigneeId = "";
+        payload.assigneeIds = [];
+        payload.assigneeTokens = [];
+      }
+
+      if (noteAttachments.length) {
+        payload.noteAttachments = noteAttachments;
+      } else if (isEditing) {
+        payload.noteAttachments = [];
       }
 
       if (isEditing && taskId) {
@@ -826,7 +1020,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setAddressSearch("");
         setAddressSuggestions([]);
         setSelectedLocation(null);
-        setAssigneeId("");
+        setAssigneeTokens([]);
+        setNoteAttachments([]);
         setStatus("todo");
         setTitleError(null);
         setProjectError(null);
@@ -869,6 +1064,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setDeleting(false);
     }
   };
+
+  if (!open) {
+    return null;
+  }
 
   return createPortal(
     <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
@@ -958,27 +1157,38 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
             <div className={styles.fieldGroup}>
               <div className={styles.fieldHeader}>
                 <label className={styles.fieldLabel} htmlFor={assigneeFieldId}>
-                  <span className={styles.fieldLabelText}>Assign to</span>
+                  <span className={styles.fieldLabelText}>Assignees</span>
                 </label>
                 <span className={styles.fieldOptional}>Optional</span>
               </div>
               <select
                 id={assigneeFieldId}
-                aria-label="Assign task"
-                className={styles.selectInput}
-                value={assigneeId}
+                aria-label="Assign task to teammates"
+                className={`${styles.selectInput} ${styles.multiSelect}`}
+                multiple
+                value={assigneeTokens}
                 onChange={handleAssigneeChange}
-                disabled={isBusy}
+                disabled={isBusy || (!collaboratorOptions.length && !assigneeTokens.length)}
               >
-                <option value="">Unassigned</option>
                 {collaboratorOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
+              <p className={styles.fieldMeta}>Hold ⌘ (Mac) or Ctrl (Windows) to select multiple teammates.</p>
+              {assigneeTokens.length ? (
+                <button
+                  type="button"
+                  className={styles.clearSelectionButton}
+                  onClick={() => setAssigneeTokens([])}
+                  disabled={isBusy}
+                >
+                  Clear selection
+                </button>
+              ) : null}
             </div>
-            {!hasCollaborators ? (
+            {!hasCollaborators && collaboratorOptions.length === 0 ? (
               <p className={styles.helperText}>Invite collaborators to assign tasks.</p>
             ) : null}
             <div className={styles.fieldGroup}>
@@ -1116,6 +1326,60 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 rows={4}
                 ref={notesRef}
               />
+            </div>
+            <div className={styles.fieldGroup}>
+              <div className={styles.fieldHeader}>
+                <label className={styles.fieldLabel} htmlFor={attachmentsFieldId}>
+                  <span className={styles.fieldLabelText}>Pictures</span>
+                </label>
+                <span className={styles.fieldOptional}>Optional</span>
+              </div>
+              <input
+                id={attachmentsFieldId}
+                className={styles.fileInput}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleAttachmentInputChange}
+                disabled={isBusy}
+              />
+              {noteAttachments.length ? (
+                <ul className={styles.attachmentList} aria-label="Attached images">
+                  {noteAttachments.map((attachment) => {
+                    const preview = attachment.dataUrl || attachment.url || "";
+                    return (
+                      <li key={attachment.id} className={styles.attachmentItem}>
+                        {preview ? (
+                          <img
+                            src={preview}
+                            alt={attachment.fileName}
+                            className={styles.attachmentPreview}
+                          />
+                        ) : (
+                          <span className={styles.attachmentPlaceholder} aria-hidden="true">
+                            📎
+                          </span>
+                        )}
+                        <div className={styles.attachmentDetails}>
+                          <span className={styles.attachmentName}>{attachment.fileName}</span>
+                          <button
+                            type="button"
+                            className={styles.removeAttachmentButton}
+                            onClick={() => handleRemoveAttachment(attachment.id)}
+                            disabled={isBusy}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className={styles.helperText}>
+                  Upload photos or sketches to give extra context to your notes.
+                </p>
+              )}
             </div>
             <div id={feedbackRegionId} className={styles.feedbackRegion} aria-live="polite">
               {errorMessage ? (
