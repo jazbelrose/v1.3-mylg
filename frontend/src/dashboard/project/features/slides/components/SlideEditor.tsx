@@ -104,6 +104,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   return (
     <div
       className="slide-editor-container"
+      data-slide-id={slide.id}
       style={{
         width: "100%",
         height: "100%",

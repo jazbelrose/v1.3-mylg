@@ -113,15 +113,21 @@ const SlidesPage: React.FC = () => {
         (a, b) => (a.order || 0) - (b.order || 0)
       );
 
+      // Transform thumbnails to display URLs with cache-busting
+      const slidesWithDisplayThumbnails = sortedSlides.map(slide => ({
+        ...slide,
+        thumbnail: slide.thumbnail ? makeUiThumbnail(slide.thumbnail) : slide.thumbnail
+      }));
+
       setSlides((prevSlides) => {
-        const sameLength = prevSlides.length === sortedSlides.length;
+        const sameLength = prevSlides.length === slidesWithDisplayThumbnails.length;
         const sameContent =
           sameLength &&
           prevSlides.every(
             (slide, index) =>
-              JSON.stringify(slide) === JSON.stringify(sortedSlides[index])
+              JSON.stringify(slide) === JSON.stringify(slidesWithDisplayThumbnails[index])
           );
-        return sameContent ? prevSlides : sortedSlides;
+        return sameContent ? prevSlides : slidesWithDisplayThumbnails;
       });
 
       setActiveSlideId((current) => {
@@ -233,34 +239,37 @@ const SlidesPage: React.FC = () => {
             if (projectId && activeSlideId) {
               const width = 1920;
               const height = 1080;
-              // Generate and persist thumbnail; update local state and then persist
-              saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
-                setSlides((prev) => {
-                  const updated = prev.map((s) =>
-                    s.id === activeSlideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s
-                  );
-                  // Persist the updated slides to backend (best-effort) without cache buster
-                  const persisted = updated.map((s) => ({
-                    ...s,
-                    thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
-                  }));
-                  updateProjectFields(projectId, { slides: persisted }).then(() => {
-                    // Broadcast the thumbnail update to other users
-                    ws.send(JSON.stringify({
-                      action: "projectUpdated",
-                      fields: { slides: persisted },
-                      conversationId: `project#${projectId}`,
-                      username: userName || "Someone",
-                      senderId: userId,
+              // Small delay to ensure DOM is updated before capturing thumbnail
+              setTimeout(() => {
+                // Generate and persist thumbnail; update local state and then persist
+                saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
+                  setSlides((prev) => {
+                    const updated = prev.map((s) =>
+                      s.id === activeSlideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s
+                    );
+                    // Persist the updated slides to backend (best-effort) without cache buster
+                    const persisted = updated.map((s) => ({
+                      ...s,
+                      thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
                     }));
-                  }).catch((e) =>
-                    console.warn("Failed to persist thumbnail after save:", e)
-                  );
-                  return updated;
+                    updateProjectFields(projectId, { slides: persisted }).then(() => {
+                      // Broadcast the thumbnail update to other users
+                      ws.send(JSON.stringify({
+                        action: "projectUpdated",
+                        fields: { slides: persisted },
+                        conversationId: `project#${projectId}`,
+                        username: userName || "Someone",
+                        senderId: userId,
+                      }));
+                    }).catch((e) =>
+                      console.warn("Failed to persist thumbnail after save:", e)
+                    );
+                    return updated;
+                  });
+                }, { width, height }).catch((e) => {
+                  console.warn('Failed to save thumbnail after save:', e);
                 });
-              }, { width, height }).catch((e) => {
-                console.warn('Failed to save thumbnail after save:', e);
-              });
+              }, 100);
             }
           } catch (err) {
             console.warn('Thumbnail generation after save failed:', err);
