@@ -1259,6 +1259,7 @@ const routes = [
   { m: "GET",    r: /^\/projects$/i,                                                            h: listProjects },
   { m: "POST",   r: /^\/projects$/i,                                                            h: createProject },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: getProject },
+  { m: "PUT",    r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: patchProject },
   { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: patchProject },
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: deleteProject },
 
