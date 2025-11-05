@@ -405,7 +405,9 @@ async function postProjectToUserId(event, C) {
   const b = B(event);
   const userId = Q(event).userId || b.userId;
   if (!userId) return json(400, C, { error: "userId required (query or body)" });
-  if (!b.projectId) return json(400, C, { error: "projectId required (body)" });
+  // Support both 'projectId' and 'newProjectId' for backward compatibility
+  const projectId = b.projectId || b.newProjectId;
+  if (!projectId) return json(400, C, { error: "projectId or newProjectId required (body)" });
 
   const current = await ddb.get({
     TableName: USER_PROFILES_TABLE,
@@ -413,7 +415,7 @@ async function postProjectToUserId(event, C) {
     ProjectionExpression: "projects",
   });
   const existing = Array.isArray(current.Item?.projects) ? current.Item.projects : [];
-  if (!existing.includes(b.projectId)) existing.push(b.projectId);
+  if (!existing.includes(projectId)) existing.push(projectId);
 
   const r = await ddb.update({
     TableName: USER_PROFILES_TABLE,
@@ -424,7 +426,7 @@ async function postProjectToUserId(event, C) {
     ReturnValues: "ALL_NEW",
   });
 
-  return json(200, C, { userId, projectId: b.projectId, projects: r.Attributes.projects || [] });
+  return json(200, C, { userId, projectId, projects: r.Attributes.projects || [] });
 }
 
 /* ---------- routes ---------- */
@@ -458,6 +460,7 @@ const routes = [
 
   // project link
   { M: "POST",   R: /^\/postProjectToUserId$/i,                                 H: postProjectToUserId },
+  { M: "PUT",    R: /^\/postProjectToUserId$/i,                                 H: postProjectToUserId },
 ];
 
 /* ---------- entry ---------- */

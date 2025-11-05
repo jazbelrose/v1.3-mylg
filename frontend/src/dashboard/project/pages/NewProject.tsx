@@ -19,6 +19,7 @@ import {
   POST_PROJECT_TO_USER_URL,
   S3_PUBLIC_BASE,
   apiFetch,
+  updateProjectFields,
 } from "@/shared/utils/api";
 import styles from "../../../NewProject/styles/new-project.module.css";
 
@@ -227,7 +228,7 @@ const NewProject: React.FC = () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newProjectId: realProjectId }),
+          body: JSON.stringify({ projectId: realProjectId }),
         }
       );
       // Since apiFetch throws on error, success means we got here
@@ -238,14 +239,7 @@ const NewProject: React.FC = () => {
 
       // Update project with uploads
       const updateData = { uploads: uploadedFileUrls };
-      await apiFetch<{ success?: boolean }>(
-        `${POST_PROJECTS_URL}/${realProjectId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        }
-      );
+      await updateProjectFields(realProjectId, updateData);
       // Since apiFetch throws on error, success means we got here
 
       const newProject: NewProjectItem & { projectId: string } = {

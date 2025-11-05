@@ -248,7 +248,7 @@ export default function AdminUserManagement() {
             apiFetch(`${POST_PROJECT_TO_USER_URL}?userId=${userId}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ newProjectId: projectId }),
+              body: JSON.stringify({ projectId }),
             })
           ),
           ...toRemove.map((projectId) =>

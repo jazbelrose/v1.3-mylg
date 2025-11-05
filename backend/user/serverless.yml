@@ -164,6 +164,11 @@ functions:
           authorizer:
             name: jwtAuthorizer
       - httpApi:
+          path: /postProjectToUserId
+          method: PUT
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
           path: /user/health
           method: GET
           authorizer:
