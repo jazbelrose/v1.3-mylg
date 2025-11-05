@@ -352,7 +352,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             className="toolbar-item"
           >
             <Copy size={16} />
-            Duplicate
+            
           </button>
         )}
 
@@ -363,7 +363,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             className="toolbar-item delete"
           >
             <Trash2 size={16} />
-            Delete
+            
           </button>
         )}
 
@@ -374,7 +374,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             className="toolbar-item"
           >
             <Download size={16} />
-            Export
+            
           </button>
         )}
 
