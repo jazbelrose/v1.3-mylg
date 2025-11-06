@@ -231,9 +231,83 @@ const listNotifications = async (e, C) => {
   return json(200, C, { userId, notifications: r.Items || [] });
 };
 
+const batchDeleteNotifications = async (e, C) => {
+  const userId = Q(e).userId;
+  const { notificationIds } = B(e);
+  if (!userId) return json(400, C, { error: "userId required" });
+  if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
+    return json(400, C, { error: "notificationIds array required" });
+  }
 
+  // Filter notifications to ensure they belong to the user
+  const keys = notificationIds.map(id => ({ userId, notificationId: id }));
 
+  try {
+    // Use batchWrite to delete multiple items
+    const deleteRequests = keys.map(key => ({
+      DeleteRequest: { Key: key }
+    }));
 
+    await ddb.batchWrite({
+      RequestItems: {
+        [NOTIFICATIONS_TABLE]: deleteRequests
+      }
+    });
+
+    return json(200, C, { success: true, deletedCount: notificationIds.length });
+  } catch (err) {
+    console.error("❌ Failed to batch delete notifications", { err, userId, notificationIds });
+    return json(500, C, { error: "Failed to delete notifications" });
+  }
+};
+
+const batchReadNotifications = async (e, C) => {
+  const userId = Q(e).userId;
+  const { notificationIds } = B(e);
+  if (!userId) return json(400, C, { error: "userId required" });
+  if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
+    return json(400, C, { error: "notificationIds array required" });
+  }
+
+  // Filter notifications to ensure they belong to the user
+  const keys = notificationIds.map(id => ({ userId, notificationId: id }));
+
+  try {
+    // Use batchGet to retrieve multiple items
+    const result = await ddb.batchGet({
+      RequestItems: {
+        [NOTIFICATIONS_TABLE]: {
+          Keys: keys
+        }
+      }
+    });
+
+    const notifications = result.Responses?.[NOTIFICATIONS_TABLE] || [];
+
+    // Update read status for each notification
+    const updateRequests = notifications.map(item => ({
+      PutRequest: {
+        Item: {
+          ...item,
+          readAt: new Date().toISOString()
+        }
+      }
+    }));
+
+    if (updateRequests.length > 0) {
+      await ddb.batchWrite({
+        RequestItems: {
+          [NOTIFICATIONS_TABLE]: updateRequests
+        }
+      });
+    }
+
+    return json(200, C, { success: true, notifications, updatedCount: notifications.length });
+  } catch (err) {
+    console.error("❌ Failed to batch read notifications", { err, userId, notificationIds });
+    return json(500, C, { error: "Failed to read notifications" });
+  }
+};
 
 
 
@@ -258,6 +332,8 @@ const routes = [
 
   // notifications (v1.2)
   { m: "GET", r: /^\/messages\/notifications$/i, h: listNotifications },
+  { m: "POST", r: /^\/messages\/notifications\/batch-delete$/i, h: batchDeleteNotifications },
+  { m: "POST", r: /^\/messages\/notifications\/batch-read$/i, h: batchReadNotifications },
 
   // v1.1 compat aliases (keep them working, but prefixed)
   { m: "GET", r: /^\/messages\/getDirectMessages$/i, h: listConversationMessages },

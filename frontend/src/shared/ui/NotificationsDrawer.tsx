@@ -49,11 +49,13 @@ const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   pinned,
   onTogglePin,
 }) => {
-  const reduceMotion = useReducedMotion();
+    const reduceMotion = useReducedMotion();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'notifications' | 'inbox'>('notifications');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { notifications } = useNotifications();
+  const { notifications, removeNotifications } = useNotifications();
   const { emitNotificationRead } = useNotificationSocket();
   const {
     projects,
@@ -86,10 +88,41 @@ const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
     [inbox]
   );
 
-  const unreadNotificationsCount = normalized.filter((n) => !n.read).length;
+    const unreadNotificationsCount = normalized.filter((n) => !n.read).length;
   const unreadThreadsCount = sortedInbox.filter((thread) => !thread.read).length;
 
-  useEffect(() => {
+  const toggleSelectMode = () => {
+    setSelectMode(prev => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const set = new Set(prev);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      return set;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredNotifications.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredNotifications.map(n => n['timestamp#uuid'])));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    const ids = Array.from(selectedIds);
+    removeNotifications(ids);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  };
+
+    useEffect(() => {
     if (!open) return;
     setActiveTab((prev) => {
       if (prev === 'notifications' && normalized.length > 0) return prev;
@@ -99,6 +132,12 @@ const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
       return prev;
     });
   }, [open, normalized.length, sortedInbox.length]);
+
+  // Reset select mode when changing tabs or search
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [activeTab, search]);
 
   const searchTerm = search.trim().toLowerCase();
 
@@ -258,21 +297,67 @@ const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
             aria-modal={!pinned}
             aria-label="Notifications"
           >
-            <div className="drawer-header">
+                        <div className="drawer-header">
               <div className="drawer-top-bar">
-                {activeTab === 'notifications' && unreadNotificationsCount > 0 && (
-                  <button
-                    type="button"
-                    className="drawer-mark-all-read-btn"
-                    onClick={() =>
-                      normalized.forEach(
-                        (n) => !n.read && emitNotificationRead(n['timestamp#uuid'])
-                      )
-                    }
-                    aria-label="Mark all notifications as read"
-                  >
-                    <Check size={16} />
-                  </button>
+                {activeTab === 'notifications' && (
+                  selectMode ? (
+                    <>
+                      <button
+                        type="button"
+                        className="drawer-delete-selected-btn"
+                        disabled={selectedIds.size === 0}
+                        onClick={handleDeleteSelected}
+                        aria-label="Delete selected notifications"
+                      >
+                        Delete ({selectedIds.size})
+                      </button>
+                      {filteredNotifications.length > 0 && (
+                        <button
+                          type="button"
+                          className="drawer-select-all-btn"
+                          onClick={handleSelectAll}
+                          aria-label={selectedIds.size === filteredNotifications.length ? 'Deselect all' : 'Select all'}
+                        >
+                          {selectedIds.size === filteredNotifications.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="drawer-cancel-select-btn"
+                        onClick={toggleSelectMode}
+                        aria-label="Cancel selection"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {unreadNotificationsCount > 0 && (
+                        <button
+                          type="button"
+                          className="drawer-mark-all-read-btn"
+                          onClick={() =>
+                            normalized.forEach(
+                              (n) => !n.read && emitNotificationRead(n['timestamp#uuid'])
+                            )
+                          }
+                          aria-label="Mark all notifications as read"
+                        >
+                          <Check size={16} />
+                        </button>
+                      )}
+                      {filteredNotifications.length > 0 && (
+                        <button
+                          type="button"
+                          className="drawer-select-mode-btn"
+                          onClick={toggleSelectMode}
+                          aria-label="Enter selection mode"
+                        >
+                          Select
+                        </button>
+                      )}
+                    </>
+                  )
                 )}
                 <button
                   type="button"
@@ -343,10 +428,13 @@ const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
                 />
               </div>
             </div>
-            <div className="drawer-content">
+                        <div className="drawer-content">
               {activeTab === 'notifications' ? (
                 <NotificationList
                   notifications={filteredNotifications}
+                  selectMode={selectMode}
+                  selectedIds={selectedIds}
+                  toggleSelected={toggleSelected}
                   onNotificationClick={handleItemClick}
                   onNavigateToProject={handleNavigateToProject}
                 />

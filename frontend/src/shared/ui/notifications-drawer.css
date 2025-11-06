@@ -53,30 +53,68 @@
 .drawer-top-bar {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   padding: 8px 12px 4px;
+  flex-wrap: wrap;
 }
 
 .drawer-mark-all-read-btn,
+.drawer-select-mode-btn,
+.drawer-delete-selected-btn,
+.drawer-select-all-btn,
+.drawer-cancel-select-btn,
 .pin-button,
 .close-btn {
   background: none;
   border: none;
   color: #fff;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: 6px 10px;
   border-radius: 6px;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.drawer-mark-all-read-btn,
+.pin-button,
+.close-btn {
+  font-size: 16px;
+  padding: 4px;
 }
 
 .drawer-mark-all-read-btn:hover,
+.drawer-select-mode-btn:hover,
+.drawer-select-all-btn:hover,
+.drawer-cancel-select-btn:hover,
 .pin-button:hover,
 .close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drawer-delete-selected-btn {
+  background: #FA3356;
+  color: #fff;
+  font-weight: 500;
+}
+
+.drawer-delete-selected-btn:hover:not(:disabled) {
+  background: #e12a4a;
+}
+
+.drawer-delete-selected-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drawer-select-mode-btn,
+.drawer-select-all-btn,
+.drawer-cancel-select-btn {
   background: rgba(255, 255, 255, 0.08);
 }
 
