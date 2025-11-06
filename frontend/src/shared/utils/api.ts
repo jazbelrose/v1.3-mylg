@@ -891,12 +891,35 @@ export async function deleteGalleryFiles(projectId: string, galleryId?: string, 
 // Notifications
 // ───────────────────────────────────────────────────────────────────────────────
 
-export async function getNotifications(userId: string): Promise<NotificationItem[]> {
+export async function fetchNotifications(userId: string): Promise<NotificationItem[]> {
   if (!userId) return [];
   const url = `${NOTIFICATIONS_URL}?userId=${encodeURIComponent(userId)}`;
-  console.log('📡 Fetching URL:', url);
-  const data = await apiFetch<MaybeItems<NotificationItem>>(url);
-  return extractItems<NotificationItem>(data);
+  const data = await apiFetch<{ notifications?: NotificationItem[] }>(url);
+  return data.notifications || [];
+}
+
+export async function batchDeleteNotifications(userId: string, notificationIds: string[]): Promise<{ success: boolean; deletedCount: number }> {
+  if (!userId || !Array.isArray(notificationIds) || notificationIds.length === 0) {
+    throw new Error('userId and notificationIds array are required');
+  }
+  const url = `${NOTIFICATIONS_URL}/batch-delete?userId=${encodeURIComponent(userId)}`;
+  return apiFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notificationIds }),
+  });
+}
+
+export async function batchReadNotifications(userId: string, notificationIds: string[]): Promise<{ success: boolean; notifications: NotificationItem[]; updatedCount: number }> {
+  if (!userId || !Array.isArray(notificationIds) || notificationIds.length === 0) {
+    throw new Error('userId and notificationIds array are required');
+  }
+  const url = `${NOTIFICATIONS_URL}/batch-read?userId=${encodeURIComponent(userId)}`;
+  return apiFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notificationIds }),
+  });
 }
 
 export async function markNotificationRead(userId: string, timestampUuid: string): Promise<{ ok: true }> {

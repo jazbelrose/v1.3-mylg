@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useUser } from './useUser';
-import { getNotifications, markNotificationRead as apiMarkNotificationRead, deleteNotification as apiDeleteNotification, NotificationItem } from '../../shared/utils/api';
+import { fetchNotifications, markNotificationRead as apiMarkNotificationRead, deleteNotification as apiDeleteNotification, NotificationItem } from '../../shared/utils/api';
 import { getWithTTL, setWithTTL, DEFAULT_TTL } from '../../shared/utils/storageWithTTL';
 import { mergeAndDedupeNotifications } from '../../shared/utils/notificationUtils';
 import type { NotificationContextType } from './NotificationContextValue';
@@ -40,10 +40,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         setNotifications((prev) => mergeAndDedupeNotifications(prev, items));
     }, []);
 
-    const fetchNotifications = useCallback(async (): Promise<void> => {
+    const fetchUserNotifications = useCallback(async (): Promise<void> => {
         if (!userId) return;
         try {
-            const items = await getNotifications(userId);
+            const items = await fetchNotifications(userId);
             setNotifications((prev) =>
               mergeAndDedupeNotifications(
                 prev,
@@ -60,8 +60,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
             setNotifications([]);
             return;
         }
-        fetchNotifications();
-    }, [userId, fetchNotifications]);
+        fetchUserNotifications();
+    }, [userId, fetchUserNotifications]);
 
     const markNotificationRead = useCallback(async (timestampUuid: string): Promise<void> => {
         if (!timestampUuid) return;
@@ -105,7 +105,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         notifications, 
         addNotification, 
         addNotifications, 
-        fetchNotifications, 
+        fetchNotifications: fetchUserNotifications, 
         markNotificationRead, 
         removeNotification, 
         removeNotifications 
