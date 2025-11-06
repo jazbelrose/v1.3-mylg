@@ -53,7 +53,7 @@ export function useSlides(projectId?: string) {
     } catch (err) {
       console.error("Failed to add slide", err);
     }
-  }, [projId, slides, updateProjectFields]);
+  }, [projId, slides, updateProjectFields, ws]);
 
   const deleteSlide = useCallback(async (slideId: string) => {
     if (!projId) return;
