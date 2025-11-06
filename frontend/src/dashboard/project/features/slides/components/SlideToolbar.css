@@ -2,7 +2,7 @@
 
 .slide-toolbar {
   position: sticky;
-  top: calc(var(--topbar-h, 64px) + 16px);
+  
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
