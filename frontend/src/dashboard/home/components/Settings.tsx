@@ -11,6 +11,19 @@ import UserProfilePicture from "@/shared/ui/UserProfilePicture";
 import { HelpCircle } from "lucide-react";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
 
+// --- Client-side helper to mirror typical Cognito password policy ---
+// Keep outside the component so it isn't recreated on each render and is easy to unit test.
+export const validatePasswordAgainstTypicalCognitoPolicy = (pwd: string) => {
+  const missing: string[] = [];
+  if (pwd.length < 8) missing.push("at least 8 characters");
+  if (!/[0-9]/.test(pwd)) missing.push("a number");
+  if (!/[a-z]/.test(pwd)) missing.push("a lowercase letter");
+  if (!/[A-Z]/.test(pwd)) missing.push("an uppercase letter");
+  // If your pool requires symbols, un-comment the next line:
+  // if (!/[^A-Za-z0-9]/.test(pwd)) missing.push("a special character");
+  return missing;
+};
+
 type RoleKey = "admin" | "designer" | "builder" | "vendor" | "client" | "";
 
 interface UserData extends Record<string, unknown> {
@@ -204,33 +217,50 @@ const Settings: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
 
-    let passwordChangeError = false;
-
-    // Password change flow if fields provided
-    if (oldPassword && newPassword && confirmNewPassword) {
+    // --- Password change flow (client validation + precise errors) ---
+    if (oldPassword || newPassword || confirmNewPassword) {
+      // If any field is typed, require all three
+      if (!oldPassword || !newPassword || !confirmNewPassword) {
+        setPasswordChangeStatus("Please fill old, new, and confirmation fields.");
+        setIsSaving(false);
+        return;
+      }
       if (newPassword !== confirmNewPassword) {
         setPasswordChangeStatus("New passwords do not match.");
-        passwordChangeError = true;
-      } else {
-        try {
-          await updatePassword({
-            oldPassword,
-            newPassword,
-          });
-          setPasswordChangeStatus("Password successfully changed.");
-        } catch (error) {
-           
-          console.error("Error changing password:", error);
-          setPasswordChangeStatus("Failed to change password. Please try again.");
-          toast.error("Failed to change password");
-          passwordChangeError = true;
-        }
+        setIsSaving(false);
+        return;
       }
-    }
-
-    if (passwordChangeError) {
-      setIsSaving(false);
-      return;
+      const missing = validatePasswordAgainstTypicalCognitoPolicy(newPassword);
+      if (missing.length) {
+        setPasswordChangeStatus(`Password needs ${missing.join(", ")}.`);
+        setIsSaving(false);
+        return;
+      }
+      try {
+        await updatePassword({ oldPassword, newPassword });
+        setPasswordChangeStatus("Password successfully changed.");
+      } catch (err: any) {
+        let msg = err?.message || "Failed to change password.";
+        switch (err?.name) {
+          case "InvalidPasswordException":
+            // e.g. "Password did not conform with policy: Password must have numeric characters"
+            msg = err.message;
+            break;
+          case "NotAuthorizedException":
+            msg = "Old password is incorrect.";
+            break;
+          case "LimitExceededException":
+            msg = "Too many attempts. Please wait a minute and try again.";
+            break;
+          default:
+            // keep default
+            break;
+        }
+        setPasswordChangeStatus(msg);
+        toast.error(msg);
+        setIsSaving(false);
+        return;
+      }
     }
 
     try {
@@ -390,6 +420,8 @@ const Settings: React.FC = () => {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="New Password"
+                    autoComplete="new-password"
+                    minLength={8}
                   />
                   <input
                     type="password"
@@ -398,7 +430,9 @@ const Settings: React.FC = () => {
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     placeholder="Confirm New Password"
                   />
-                  {passwordChangeStatus && <div>{passwordChangeStatus}</div>}
+                  {passwordChangeStatus && (
+                    <div className="form-hint error-or-success">{passwordChangeStatus}</div>
+                  )}
                 </div>
               )}
             </div>
