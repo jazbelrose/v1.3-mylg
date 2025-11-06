@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { Task, TaskNoteAttachment } from "@/shared/utils/api";
+import type { Task } from "@/shared/utils/api";
 import { NOMINATIM_SEARCH_URL, apiFetch, createTask, deleteTask, updateTask } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 
 import styles from "./QuickCreateTaskModal.module.css";
-import type { QuickCreateTaskModalTask, QuickCreateTaskLocation } from "./QuickCreateTaskModal.types";
+import type { QuickCreateTaskModalTask, QuickCreateTaskLocation, TaskNoteAttachment } from "./QuickCreateTaskModal.types";
 
 export type { QuickCreateTaskModalTask } from "./QuickCreateTaskModal.types";
 
@@ -1161,32 +1161,39 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 </label>
                 <span className={styles.fieldOptional}>Optional</span>
               </div>
-              <select
-                id={assigneeFieldId}
-                aria-label="Assign task to teammates"
-                className={`${styles.selectInput} ${styles.multiSelect}`}
-                multiple
-                value={assigneeTokens}
-                onChange={handleAssigneeChange}
-                disabled={isBusy || (!collaboratorOptions.length && !assigneeTokens.length)}
-              >
-                {collaboratorOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className={styles.fieldMeta}>Hold ⌘ (Mac) or Ctrl (Windows) to select multiple teammates.</p>
-              {assigneeTokens.length ? (
-                <button
-                  type="button"
-                  className={styles.clearSelectionButton}
-                  onClick={() => setAssigneeTokens([])}
-                  disabled={isBusy}
+              <div className={styles.collaboratorsInputWrapper}>
+                <select
+                  id={assigneeFieldId}
+                  aria-label="Assign task to teammates"
+                  className={`${styles.selectInput} ${styles.multiSelect}`}
+                  multiple
+                  value={assigneeTokens}
+                  onChange={handleAssigneeChange}
+                  disabled={isBusy || (!collaboratorOptions.length && !assigneeTokens.length)}
                 >
-                  Clear selection
-                </button>
-              ) : null}
+                  {collaboratorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {assigneeTokens.length > 0 && (
+                  <div className={styles.selectedCollaborators}>
+                    <span className={styles.selectedCount}>
+                      {assigneeTokens.length} selected
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.clearSelectionButton}
+                      onClick={() => setAssigneeTokens([])}
+                      disabled={isBusy}
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className={styles.fieldMeta}>Hold ⌘ (Mac) or Ctrl (Windows) to select multiple teammates.</p>
             </div>
             {!hasCollaborators && collaboratorOptions.length === 0 ? (
               <p className={styles.helperText}>Invite collaborators to assign tasks.</p>
@@ -1326,60 +1333,60 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 rows={4}
                 ref={notesRef}
               />
-            </div>
-            <div className={styles.fieldGroup}>
-              <div className={styles.fieldHeader}>
-                <label className={styles.fieldLabel} htmlFor={attachmentsFieldId}>
-                  <span className={styles.fieldLabelText}>Pictures</span>
-                </label>
-                <span className={styles.fieldOptional}>Optional</span>
-              </div>
-              <input
-                id={attachmentsFieldId}
-                className={styles.fileInput}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleAttachmentInputChange}
-                disabled={isBusy}
-              />
-              {noteAttachments.length ? (
-                <ul className={styles.attachmentList} aria-label="Attached images">
-                  {noteAttachments.map((attachment) => {
-                    const preview = attachment.dataUrl || attachment.url || "";
-                    return (
-                      <li key={attachment.id} className={styles.attachmentItem}>
-                        {preview ? (
-                          <img
-                            src={preview}
-                            alt={attachment.fileName}
-                            className={styles.attachmentPreview}
-                          />
-                        ) : (
-                          <span className={styles.attachmentPlaceholder} aria-hidden="true">
-                            📎
-                          </span>
-                        )}
-                        <div className={styles.attachmentDetails}>
-                          <span className={styles.attachmentName}>{attachment.fileName}</span>
-                          <button
-                            type="button"
-                            className={styles.removeAttachmentButton}
-                            onClick={() => handleRemoveAttachment(attachment.id)}
-                            disabled={isBusy}
-                          >
-                            Remove
-                          </button>
+              
+              {/* File upload integrated into Notes section */}
+              <div className={styles.notesAttachmentSection}>
+                <div className={styles.attachmentInputWrapper}>
+                  <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
+                    <span className={styles.attachmentIcon}>📎</span>
+                    <span>Add files</span>
+                  </label>
+                  <input
+                    id={attachmentsFieldId}
+                    className={styles.fileInput}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleAttachmentInputChange}
+                    disabled={isBusy}
+                  />
+                </div>
+                
+                {noteAttachments.length > 0 && (
+                  <div className={styles.attachmentList} aria-label="Attached images">
+                    {noteAttachments.map((attachment) => {
+                      const preview = attachment.dataUrl || attachment.url || "";
+                      return (
+                        <div key={attachment.id} className={styles.attachmentItem}>
+                          {preview ? (
+                            <img
+                              src={preview}
+                              alt={attachment.fileName}
+                              className={styles.attachmentPreview}
+                            />
+                          ) : (
+                            <span className={styles.attachmentPlaceholder} aria-hidden="true">
+                              📎
+                            </span>
+                          )}
+                          <div className={styles.attachmentDetails}>
+                            <span className={styles.attachmentName}>{attachment.fileName}</span>
+                            <button
+                              type="button"
+                              className={styles.removeAttachmentButton}
+                              onClick={() => handleRemoveAttachment(attachment.id)}
+                              disabled={isBusy}
+                              aria-label={`Remove ${attachment.fileName}`}
+                            >
+                              ×
+                            </button>
+                          </div>
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className={styles.helperText}>
-                  Upload photos or sketches to give extra context to your notes.
-                </p>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div id={feedbackRegionId} className={styles.feedbackRegion} aria-live="polite">
               {errorMessage ? (

@@ -78,7 +78,19 @@ export interface Task extends JsonRecord {
   budgetItemId?: string | null;
   status?: 'todo' | 'in_progress' | 'done';
   assigneeId?: string;
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
   dueDate?: string; // ISO
+  address?: string;
+  location?: { lat: number; lng: number };
+  noteAttachments?: Array<{
+    id: string;
+    fileName: string;
+    mimeType?: string;
+    dataUrl?: string;
+    url?: string;
+    uploadedAt?: string;
+  }>;
   createdBy?: string;
   createdById?: string;
   createdByName?: string;

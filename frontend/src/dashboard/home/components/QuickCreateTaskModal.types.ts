@@ -4,6 +4,15 @@ export type QuickCreateTaskLocation =
   | null
   | undefined;
 
+export type TaskNoteAttachment = {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  dataUrl?: string;
+  url?: string;
+  uploadedAt?: string;
+};
+
 export type QuickCreateTaskModalTask = {
   id?: string | null;
   taskId?: string | null;
@@ -14,6 +23,9 @@ export type QuickCreateTaskModalTask = {
   dueDate?: string | number | Date | null;
   status?: string | null;
   assigneeId?: string | null;
+  assigneeIds?: string[] | null;
+  assigneeTokens?: string[] | null;
   address?: string | null;
   location?: QuickCreateTaskLocation;
+  noteAttachments?: TaskNoteAttachment[] | null;
 };
