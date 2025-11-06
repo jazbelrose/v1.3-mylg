@@ -162,20 +162,32 @@ async function batchDeleteNotifications(event, CORS) {
   }
 
   for (const batch of batches) {
-    const deleteRequests = batch.map(id => ({
+    let pending = batch.map(id => ({
       DeleteRequest: { Key: { userId, 'timestamp#uuid': id } }
     }));
-    try {
-      const result = await ddb.send(new BatchWriteCommand({
-        RequestItems: { [NOTIFICATIONS_TABLE]: deleteRequests }
-      }));
-      deletedCount += batch.length - (result.UnprocessedItems?.[NOTIFICATIONS_TABLE]?.length || 0);
-      if (result.UnprocessedItems?.[NOTIFICATIONS_TABLE]?.length) {
-        errors.push({ batch, unprocessed: result.UnprocessedItems[NOTIFICATIONS_TABLE] });
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (pending.length && attempts < maxAttempts) {
+      try {
+        const result = await ddb.send(new BatchWriteCommand({
+          RequestItems: { [NOTIFICATIONS_TABLE]: pending }
+        }));
+        deletedCount += pending.length - (result.UnprocessedItems?.[NOTIFICATIONS_TABLE]?.length || 0);
+        pending = result.UnprocessedItems?.[NOTIFICATIONS_TABLE] || [];
+        if (pending.length) {
+          await new Promise(res => setTimeout(res, 50 * Math.pow(2, attempts))); // Exponential backoff: 50ms, 100ms, 200ms...
+          attempts++;
+        }
+      } catch (error) {
+        console.error('Error in batch delete attempt:', error);
+        errors.push({ batch, error: error.message });
+        break; // Stop retrying on error
       }
-    } catch (error) {
-      console.error('Error in batch delete:', error);
-      errors.push({ batch, error: error.message });
+    }
+
+    if (pending.length) {
+      errors.push({ batch, unprocessed: pending });
     }
   }
 
