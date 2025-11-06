@@ -89,13 +89,37 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         }
     }, [userId]);
 
-    const removeNotifications = useCallback(async (ids: string[] = []): Promise<void> => {
+        const removeNotifications = useCallback(async (ids: string[] = []): Promise<void> => {
         if (!Array.isArray(ids) || ids.length === 0) return;
+        
+        // Optimistically remove from UI first
         setNotifications((prev) => 
             prev.filter((n) => !ids.includes(n["timestamp#uuid"]))
         );
+        
+        // Delete sequentially with delay to avoid rate limiting
+        // Rate limit: 30 requests per 60 seconds = 1 request per 2 seconds
+        // Process 3 at a time with 7 second delay between batches to be safe
+        const batchSize = 3;
+        const batchDelay = 7000; // 7 seconds
+        
         try {
-            await Promise.all(ids.map((id) => apiDeleteNotification(userId, id)));
+            for (let i = 0; i < ids.length; i += batchSize) {
+                const batch = ids.slice(i, i + batchSize);
+                await Promise.all(
+                    batch.map((id) => 
+                        apiDeleteNotification(userId, id).catch((err) => {
+                            console.warn(`Failed to delete notification ${id}:`, err);
+                            return null;
+                        })
+                    )
+                );
+                
+                // Add delay between batches (except for the last batch)
+                if (i + batchSize < ids.length) {
+                    await new Promise(resolve => setTimeout(resolve, batchDelay));
+                }
+            }
         } catch (err) {
             console.error('Error deleting notifications:', err);
         }
