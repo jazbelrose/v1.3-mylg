@@ -1,7 +1,7 @@
 // backend/users/router.mjs
 import { corsHeadersFromEvent, preflightFromEvent, json } from "/opt/nodejs/utils/cors.mjs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocument, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 
 /* ---------- ENV ---------- */
@@ -29,13 +29,31 @@ const lowerEmail = (s) => (s || "").toLowerCase().trim();
 const pendingKeyForEmail = (email) => `PENDING#${lowerEmail(email)}`;
 
 // Handle /user/{proxy} routes
-async function handleUserProxy(event, CORS, { proxy }) {
+async function handleUserProxy(event, CORS, matchGroups) {
+  // Extract the raw captured proxy (may contain percent-encoded chars)
+  const rawProxy = matchGroups?.proxy || "";
+  if (!rawProxy) return json(404, CORS, { error: `Not found` });
+
+  // Decode once to support percent-encoded slashes or ids. Return 400 on bad encoding.
+  let proxy;
+  try {
+    proxy = decodeURIComponent(rawProxy);
+  } catch (err) {
+    console.error('Bad proxy encoding:', rawProxy, err);
+    return json(400, CORS, { error: 'Bad proxy path' });
+  }
+
+  // Route known proxy paths (keep explicit checks to avoid accidental catch-all behavior)
   if (proxy === 'notifications') {
     const method = M(event);
     if (method === 'GET') return await getUserNotifications(event, CORS);
     if (method === 'PATCH') return await patchNotification(event, CORS);
     if (method === 'DELETE') return await deleteNotification(event, CORS);
+  } else if (proxy === 'notifications/batch-delete') {
+    const method = M(event);
+    if (method === 'POST') return await batchDeleteNotifications(event, CORS);
   }
+
   // For other unknown user endpoints
   return json(404, CORS, { error: `Unknown user endpoint: /user/${proxy}` });
 }
@@ -122,6 +140,46 @@ async function deleteNotification(event, CORS) {
     console.error('Error deleting notification:', error);
     return json(500, CORS, { error: 'Failed to delete notification', details: error.message });
   }
+}
+
+async function batchDeleteNotifications(event, CORS) {
+  const q = Q(event);
+  const userId = q.userId;
+  if (!userId) {
+    return json(400, CORS, { error: 'userId required' });
+  }
+  const body = B(event);
+  const notificationIds = body.notificationIds;
+  if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
+    return json(400, CORS, { error: 'notificationIds array required' });
+  }
+
+  let deletedCount = 0;
+  const errors = [];
+  const batches = [];
+  for (let i = 0; i < notificationIds.length; i += 25) {
+    batches.push(notificationIds.slice(i, i + 25));
+  }
+
+  for (const batch of batches) {
+    const deleteRequests = batch.map(id => ({
+      DeleteRequest: { Key: { userId, 'timestamp#uuid': id } }
+    }));
+    try {
+      const result = await ddb.send(new BatchWriteCommand({
+        RequestItems: { [NOTIFICATIONS_TABLE]: deleteRequests }
+      }));
+      deletedCount += batch.length - (result.UnprocessedItems?.[NOTIFICATIONS_TABLE]?.length || 0);
+      if (result.UnprocessedItems?.[NOTIFICATIONS_TABLE]?.length) {
+        errors.push({ batch, unprocessed: result.UnprocessedItems[NOTIFICATIONS_TABLE] });
+      }
+    } catch (error) {
+      console.error('Error in batch delete:', error);
+      errors.push({ batch, error: error.message });
+    }
+  }
+
+  return json(200, CORS, { success: errors.length === 0, deletedCount, errors });
 }
 
 function buildUpdate(obj) {
@@ -439,9 +497,10 @@ async function postProjectToUserId(event, C) {
 /* ---------- routes ---------- */
 const routes = [
   { M: "GET",    R: /^\/user\/health$/i,                                        H: health },
-  { M: "GET",    R: /^\/user\/(?<proxy>[^/]+)$/i,                               H: handleUserProxy },
-  { M: "PATCH",  R: /^\/user\/(?<proxy>[^/]+)$/i,                               H: handleUserProxy },
-  { M: "DELETE", R: /^\/user\/(?<proxy>[^/]+)$/i,                               H: handleUserProxy },
+  { M: "GET",    R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
+  { M: "PATCH",  R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
+  { M: "DELETE", R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
+  { M: "POST",   R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
 
   // user profiles
   { M: "GET",    R: /^\/userProfiles\/(?<userId>[^/]+)$/i,                      H: getUserProfile },

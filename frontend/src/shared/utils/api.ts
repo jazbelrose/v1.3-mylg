@@ -915,7 +915,7 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
   return allNotifications;
 }
 
-export async function batchDeleteNotifications(userId: string, notificationIds: string[]): Promise<{ success: boolean; deletedCount: number }> {
+export async function batchDeleteNotifications(userId: string, notificationIds: string[]): Promise<{ success: boolean; deletedCount: number; errors?: unknown[] }> {
   if (!userId || !Array.isArray(notificationIds) || notificationIds.length === 0) {
     throw new Error('userId and notificationIds array are required');
   }
