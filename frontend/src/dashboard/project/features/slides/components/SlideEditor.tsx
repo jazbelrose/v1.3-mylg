@@ -6,6 +6,7 @@ import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import "./SlideEditor.css";
 
 type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
 type FontFamily = "Helvetica Special" | "Helvetica Black" | "Helvetica Light" | "Helvetica Neue" | "Helvetica Medium" | "mylg-serif";
@@ -122,7 +123,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onFormatUnderline={toolbarActions.onUnderline}
       onFormatStrikethrough={toolbarActions.onStrikethrough}
       onFormatCode={toolbarActions.onCode}
-      onSetBlockType={(type) => {
+      onSetBlockType={(type: BlockType) => {
         switch (type) {
           case "h1": toolbarActions.onHeading1(); break;
           case "h2": toolbarActions.onHeading2(); break;
@@ -136,8 +137,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onAlignCenter={toolbarActions.onAlignCenter}
       onAlignRight={toolbarActions.onAlignRight}
       onAlignJustify={toolbarActions.onAlignJustify}
-      onSetFontFamily={toolbarActions.onFontChange}
-      onSetFontSize={toolbarActions.onFontSizeChange}
+      onSetFontFamily={(font: FontFamily) => toolbarActions.onFontChange(font)}
+      onSetFontSize={(size: FontSize) => toolbarActions.onFontSizeChange(size)}
       onSetTextColor={toolbarActions.onFontColorChange}
       onSetBgColor={toolbarActions.onBgColorChange}
       onInsertImage={toolbarActions.onAddImage}
@@ -148,43 +149,34 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   return (
     <div
-      className="slide-editor-container"
+      className="slide-editor"
       data-slide-id={slide.id}
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        background: "#1a1a1a",
-        overflow: "hidden",
-      }}
+      data-canvas-width={width}
+      data-canvas-height={height}
     >
-      {/* Toolbar - unscaled */}
-      <DropdownProvider>
-        {customToolbar}
-      </DropdownProvider>
+      <DropdownProvider>{customToolbar}</DropdownProvider>
 
-      {/* Editor content - scaled */}
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          transform: `scale(${zoom / 100})`,
-          transformOrigin: "top left",
-          width: `${100 / (zoom / 100)}%`,
-          height: `${100 / (zoom / 100)}%`,
-        }}
-      >
-        <LexicalEditor
-          key={slide.id}
-          docId={`${projectId}::slide::${slide.id}`}
-          onChange={handleChange}
-          showDefaultToolbar={false}
-          initialContent={slide.content ?? null}
-          onSave={handleSave}
-          registerToolbar={handleRegisterToolbar}
-          customToolbar={null} // Toolbar is now rendered outside
-        />
+      <div className="slide-editor__canvas">
+        <div
+          className="slide-editor__canvas-inner"
+          style={{
+            transform: `scale(${zoom / 100})`,
+            transformOrigin: "top left",
+            width: `${100 / (zoom / 100)}%`,
+            height: `${100 / (zoom / 100)}%`,
+          }}
+        >
+          <LexicalEditor
+            key={slide.id}
+            docId={`${projectId}::slide::${slide.id}`}
+            onChange={handleChange}
+            showDefaultToolbar={false}
+            initialContent={slide.content ?? null}
+            onSave={handleSave}
+            registerToolbar={handleRegisterToolbar}
+            customToolbar={null}
+          />
+        </div>
       </div>
     </div>
   );

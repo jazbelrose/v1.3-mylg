@@ -165,7 +165,7 @@ export async function uploadThumbnail(
     const filename = `slides/${projectId}/${slideId}-${uuidv4()}.png`;
 
     // Upload to S3
-    const result = await uploadData({
+    await uploadData({
       key: filename,
       data: blob,
       options: {

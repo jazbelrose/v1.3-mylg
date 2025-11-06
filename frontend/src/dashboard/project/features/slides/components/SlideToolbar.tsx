@@ -30,7 +30,6 @@ import { SiFigma } from "react-icons/si";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import ColorPicker from "@/shared/ui/ColorPicker";
 import "./SlideToolbar.css";
-import "./SlideToolbar.css";
 
 type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
 
@@ -289,7 +288,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   };
 
   return (
-    <div className="slide-toolbar" ref={toolbarRef} style={{ position: "relative", width: "100%" }}>
+    <div className="slide-toolbar" ref={toolbarRef}>
       {/* Slide Actions Section */}
       <div className="slide-actions">
         {/* Save Status */}
@@ -297,16 +296,12 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           {isSaving ? (
             <>
               <Clock size={16} />
-              <span>Saving...</span>
+              <span className="save-status__text">Saving…</span>
             </>
           ) : isDirty ? (
-            <>
-              <span style={{ color: "#ff9800" }}>Unsaved changes</span>
-            </>
+            <span className="save-status__text save-status__text--dirty">Unsaved changes</span>
           ) : (
-            <>
-              <span style={{ color: "#4caf50" }}>All changes saved</span>
-            </>
+            <span className="save-status__text save-status__text--clean">All changes saved</span>
           )}
         </div>
 
@@ -675,20 +670,20 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
             {activeDropdown === insertDropdownId && (
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-                <button type="button" className="item" onClick={handleInsertImage}>
-                  <FileImageOutlined style={{ fontSize: 16, marginRight: '18px' }} />
+            <button type="button" className="item" onClick={handleInsertImage}>
+                  <FileImageOutlined className="dropdown-icon" />
                   <span className="text">Image</span>
                 </button>
                 <button type="button" className="item" onClick={handleInsertVector}>
-                  <NodeIndexOutlined style={{ fontSize: 16, marginRight: '18px' }} />
+                  <NodeIndexOutlined className="dropdown-icon" />
                   <span className="text">Vector</span>
                 </button>
                 <button type="button" className="item" onClick={handleInsertFigma}>
-                  <SiFigma size={16} style={{ marginRight: '18px' }} />
+                  <SiFigma className="dropdown-icon" size={16} />
                   <span className="text">Figma</span>
                 </button>
                 <button type="button" className="item" onClick={handleInsertLayout}>
-                  <LayoutOutlined style={{ fontSize: 16, marginRight: '18px' }} />
+                  <LayoutOutlined className="dropdown-icon" />
                   <span className="text">Layout</span>
                 </button>
               </div>

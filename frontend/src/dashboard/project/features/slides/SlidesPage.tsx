@@ -17,6 +17,7 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
+import "./slides.css";
 
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -523,10 +524,8 @@ const SlidesPage: React.FC = () => {
       )}
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
-      <div className="slides-full-width">
-  <div style={{ display: "flex", height: "100%", width: "100%", minWidth: 0 }}>
-        {/* Sidebar */}
-        <div style={{ flexShrink: 0 }}>
+      <div className="slides-shell">
+        <div className="slides-workspace">
           <SlidesSidebar
             slides={slides}
             activeSlideId={activeSlideId}
@@ -535,50 +534,34 @@ const SlidesPage: React.FC = () => {
             onReorderSlides={handleReorderSlides}
             projectId={projectId || ""}
           />
-        </div>
 
-        {/* Main Content */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Editor */}
-          <div style={{ flex: 1, overflow: "auto" }}>
-            {activeSlide ? (
-              <SlideEditor
-                projectId={projectId}
-                slide={activeSlide}
-                // Provide the numeric width/height for the editor canvas so the
-                // editor can constrain its visible canvas to the chosen preset.
-                width={1920}
-                height={1080}
-                onContentChange={(content) =>
-                  handleContentChange(activeSlide.id, content)
-                }
-                onDuplicate={handleDuplicateSlide}
-                onDelete={handleDeleteSlide}
-                onExport={handleExport}
-                isSaving={isSaving}
-                isDirty={isDirty}
-                // Zoom controls (local to user, not saved or broadcasted)
-                zoom={zoom}
-                onZoomIn={handleZoomIn}
-                onZoomOut={handleZoomOut}
-                onResetZoom={handleResetZoom}
-              />
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "100%",
-                  color: "#999",
-                }}
-              >
-                No slide selected
-              </div>
-            )}
-          </div>
+          <section className="slides-main" aria-live="polite">
+            <div className="slides-main__content">
+              {activeSlide ? (
+                <SlideEditor
+                  projectId={projectId}
+                  slide={activeSlide}
+                  width={1920}
+                  height={1080}
+                  onContentChange={(content) =>
+                    handleContentChange(activeSlide.id, content)
+                  }
+                  onDuplicate={handleDuplicateSlide}
+                  onDelete={handleDeleteSlide}
+                  onExport={handleExport}
+                  isSaving={isSaving}
+                  isDirty={isDirty}
+                  zoom={zoom}
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onResetZoom={handleResetZoom}
+                />
+              ) : (
+                <div className="slides-main__empty">No slide selected</div>
+              )}
+            </div>
+          </section>
         </div>
-      </div>
       </div>
     </ProjectPageLayout>
   );

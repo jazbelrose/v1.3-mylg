@@ -48,12 +48,12 @@
 
 /* Slides page full width */
 .slides-full-width {
-  width: calc(100% + 24px);
+  width: 100%;
   height: 100%;
-  margin-left: -12px;
+  margin: 0;
 }
 
-.dashboard-main:has(.slides-full-width) {
+.dashboard-main:has(.slides-shell) {
   padding: 0;
 }
 
