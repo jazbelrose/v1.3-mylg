@@ -707,10 +707,10 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
               }}
               disabled={loading}
             >
-              <MapPin aria-hidden="true" size={14} />
-              {`Open map view (${projectName ?? "Project tasks"})`}
+              
+              Project tasks
             </Button>
-            <Button variant="outline" onClick={handleOpenDrawer} disabled={loading}>
+            <Button variant="outline" onClick={handleOpenDrawer} disabled={loading}> <MapPin aria-hidden="true" size={14} />
               Open map view
             </Button>
           </div>
