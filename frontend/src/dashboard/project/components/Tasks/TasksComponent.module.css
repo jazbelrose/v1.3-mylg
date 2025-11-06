@@ -413,6 +413,22 @@
   gap: 0.35rem;
 }
 
+.projectTasksPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.projectTasksPill:active {
+  transform: translateY(1px);
+}
+
 .empty,
 .error,
 .loading {

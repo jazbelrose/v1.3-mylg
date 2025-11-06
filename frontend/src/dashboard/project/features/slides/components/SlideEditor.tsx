@@ -147,6 +147,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     />
   ) : null;
 
+  const scale = zoom / 100;
+  const scaledWidth = width * scale;
+  const scaledHeight = height * scale;
+
   return (
     <div
       className="slide-editor"
@@ -158,24 +162,32 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
       <div className="slide-editor__canvas">
         <div
-          className="slide-editor__canvas-inner"
+          className="slide-editor__canvas-scaler"
           style={{
-            transform: `scale(${zoom / 100})`,
-            transformOrigin: "top left",
-            width: `${100 / (zoom / 100)}%`,
-            height: `${100 / (zoom / 100)}%`,
+            width: `${scaledWidth}px`,
+            height: `${scaledHeight}px`,
           }}
         >
-          <LexicalEditor
-            key={slide.id}
-            docId={`${projectId}::slide::${slide.id}`}
-            onChange={handleChange}
-            showDefaultToolbar={false}
-            initialContent={slide.content ?? null}
-            onSave={handleSave}
-            registerToolbar={handleRegisterToolbar}
-            customToolbar={null}
-          />
+          <div
+            className="slide-editor__canvas-inner"
+            style={{
+              width: `${width}px`,
+              height: `${height}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: "center center",
+            }}
+          >
+            <LexicalEditor
+              key={slide.id}
+              docId={`${projectId}::slide::${slide.id}`}
+              onChange={handleChange}
+              showDefaultToolbar={false}
+              initialContent={slide.content ?? null}
+              onSave={handleSave}
+              registerToolbar={handleRegisterToolbar}
+              customToolbar={null}
+            />
+          </div>
         </div>
       </div>
     </div>

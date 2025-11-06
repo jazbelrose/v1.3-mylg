@@ -17,7 +17,61 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
+import { getFileUrl } from "@/shared/utils/api";
 import "./slides.css";
+
+const MAX_THUMBNAIL_ATTEMPTS = 5;
+
+async function waitForThumbnailReady(url: string, maxAttempts = MAX_THUMBNAIL_ATTEMPTS): Promise<string> {
+  if (!url) {
+    return url;
+  }
+
+  if (typeof window === "undefined" || typeof Image === "undefined") {
+    return url;
+  }
+
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const attemptUrl =
+      attempt === 0
+        ? url
+        : `${url}${url.includes("?") ? "&" : "?"}cache=${Date.now()}-${attempt}`;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+
+        const cleanup = () => {
+          img.onload = null;
+          img.onerror = null;
+        };
+
+        img.onload = () => {
+          cleanup();
+          resolve();
+        };
+
+        img.onerror = () => {
+          cleanup();
+          reject(new Error(`Failed to load thumbnail: ${attemptUrl}`));
+        };
+
+        img.src = attemptUrl;
+      });
+
+      return attemptUrl;
+    } catch (error) {
+      lastError = error;
+      const delay = Math.min(1500, 250 * Math.pow(2, attempt));
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError ?? new Error("Thumbnail did not become ready");
+}
 
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -47,15 +101,22 @@ const SlidesPage: React.FC = () => {
   const dirtyThumbRef = useRef<boolean>(false);
 
   // Helper to add a cache-busting query param for immediate UI refresh
-  const makeUiThumbnail = (url: string) => `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  const makeUiThumbnail = useCallback((url: string) => {
+    if (!url) {
+      return url;
+    }
+
+    const resolved = getFileUrl(url);
+    return `${resolved}${resolved.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  }, []);
 
   // Helper to strip cache-bust query params before persisting to backend
-  const sanitizeThumbnailForPersist = (thumb?: string) => {
+  const sanitizeThumbnailForPersist = useCallback((thumb?: string) => {
     if (!thumb) return thumb;
-    const idx = thumb.indexOf("?t=");
+    const idx = thumb.indexOf("?");
     if (idx === -1) return thumb;
     return thumb.substring(0, idx);
-  };
+  }, []);
 
   const parseStatusToNumber = (statusString: string | number | undefined | null): number => {
     if (statusString === undefined || statusString === null) return 0;
@@ -251,29 +312,45 @@ const SlidesPage: React.FC = () => {
               setTimeout(() => {
                 // Generate and persist thumbnail; update local state and then persist
                 saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
-                  setSlides((prev) => {
-                    const updated = prev.map((s) =>
-                      s.id === activeSlideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s
-                    );
-                    // Persist the updated slides to backend (best-effort) without cache buster
-                    const persisted = updated.map((s) => ({
-                      ...s,
-                      thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
-                    }));
-                    updateProjectFields(projectId, { slides: persisted }).then(() => {
-                      // Broadcast the thumbnail update to other users
-                      ws.send(JSON.stringify({
-                        action: "projectUpdated",
-                        fields: { slides: persisted },
-                        conversationId: `project#${projectId}`,
-                        username: userName || "Someone",
-                        senderId: userId,
-                      }));
-                    }).catch((e) =>
-                      console.warn("Failed to persist thumbnail after save:", e)
-                    );
-                    return updated;
-                  });
+                  if (!thumbnailUrl) {
+                    return;
+                  }
+
+                  void waitForThumbnailReady(thumbnailUrl)
+                    .then((readyUrl) => {
+                      setSlides((prev) => {
+                        const updated = prev.map((s) =>
+                          s.id === activeSlideId
+                            ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                            : s
+                        );
+                        // Persist the updated slides to backend (best-effort) without cache buster
+                        const persisted = updated.map((s) => ({
+                          ...s,
+                          thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+                        }));
+                        updateProjectFields(projectId, { slides: persisted })
+                          .then(() => {
+                            // Broadcast the thumbnail update to other users
+                            ws.send(
+                              JSON.stringify({
+                                action: "projectUpdated",
+                                fields: { slides: persisted },
+                                conversationId: `project#${projectId}`,
+                                username: userName || "Someone",
+                                senderId: userId,
+                              })
+                            );
+                          })
+                          .catch((e) =>
+                            console.warn("Failed to persist thumbnail after save:", e)
+                          );
+                        return updated;
+                      });
+                    })
+                    .catch((error) => {
+                      console.warn("Thumbnail not ready after save:", error);
+                    });
                 }, { width, height }).catch((e) => {
                   console.warn('Failed to save thumbnail after save:', e);
                 });
@@ -290,7 +367,17 @@ const SlidesPage: React.FC = () => {
         setIsSaving(false);
       }
     },
-  [projectId, updateProjectFields, activeSlideId, ws, userId, userName, uiThumbsEnabled]
+  [
+    projectId,
+    updateProjectFields,
+    activeSlideId,
+    ws,
+    userId,
+    userName,
+    uiThumbsEnabled,
+    makeUiThumbnail,
+    sanitizeThumbnailForPersist,
+  ]
   );
 
   const handleNewSlide = useCallback(() => {
@@ -336,20 +423,31 @@ const SlidesPage: React.FC = () => {
         const width = 1920;
         const height = 1080;
         saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
-          setSlides((prev) => {
-            const updated = prev.map((slide) =>
-              slide.id === activeSlideId ? { ...slide, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : slide
-            );
-            // Mark that a thumbnail changed and needs persistence by the autosave
-            dirtyThumbRef.current = true;
-            return updated;
-          });
+          if (!thumbnailUrl) {
+            return;
+          }
+
+          void waitForThumbnailReady(thumbnailUrl)
+            .then((readyUrl) => {
+              setSlides((prev) => {
+                const updated = prev.map((slide) =>
+                  slide.id === activeSlideId
+                    ? { ...slide, thumbnail: makeUiThumbnail(readyUrl) }
+                    : slide
+                );
+                return updated;
+              });
+              dirtyThumbRef.current = true;
+            })
+            .catch((error) => {
+              console.warn("Thumbnail not ready when switching slides:", error);
+            });
         }, { width, height }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
       }
 
       setActiveSlideId(slideId);
     },
-  [projectId, activeSlideId, uiThumbsEnabled]
+  [projectId, activeSlideId, uiThumbsEnabled, makeUiThumbnail]
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
@@ -444,21 +542,40 @@ const SlidesPage: React.FC = () => {
               const height = 1080;
               // Generate a thumbnail for the active slide and persist the slide
               // update with the new thumbnail URL once.
+              let thumbnailUpdatePromise: Promise<void> | null = null;
+
               await saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
-                setSlides((prev) => {
-                  const updated = prev.map((s) =>
-                    s.id === activeSlideId ? { ...s, thumbnail: makeUiThumbnail(thumbnailUrl || "") } : s
-                  );
-                  const persisted = updated.map((s) => ({
-                    ...s,
-                    thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
-                  }));
-                  updateProjectFields(projectId, { slides: persisted }).catch((e) =>
-                    console.warn('Failed to persist thumbnail after autosave:', e)
-                  );
-                  return updated;
-                });
+                if (!thumbnailUrl) {
+                  thumbnailUpdatePromise = null;
+                  return;
+                }
+
+                thumbnailUpdatePromise = waitForThumbnailReady(thumbnailUrl)
+                  .then((readyUrl) => {
+                    setSlides((prev) => {
+                      const updated = prev.map((s) =>
+                        s.id === activeSlideId
+                          ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                          : s
+                      );
+                      const persisted = updated.map((s) => ({
+                        ...s,
+                        thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+                      }));
+                      updateProjectFields(projectId, { slides: persisted }).catch((e) =>
+                        console.warn('Failed to persist thumbnail after autosave:', e)
+                      );
+                      return updated;
+                    });
+                  })
+                  .catch((error) => {
+                    console.warn('Thumbnail not ready during autosave:', error);
+                  });
               }, { width, height });
+
+              if (thumbnailUpdatePromise) {
+                await thumbnailUpdatePromise;
+              }
             } catch (err) {
               console.warn('Autosave thumbnail persist failed:', err);
             } finally {
@@ -472,7 +589,17 @@ const SlidesPage: React.FC = () => {
     }, 1500);
 
     return () => clearTimeout(t);
-  }, [isDirty, slides, saveSlides, projectId, activeSlideId, updateProjectFields, uiThumbsEnabled]);
+  }, [
+    isDirty,
+    slides,
+    saveSlides,
+    projectId,
+    activeSlideId,
+    updateProjectFields,
+    uiThumbsEnabled,
+    makeUiThumbnail,
+    sanitizeThumbnailForPersist,
+  ]);
 
   const handleExport = useCallback(() => {
     notify("info", "Export feature coming soon");
