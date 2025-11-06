@@ -44,8 +44,10 @@ async function handleUserProxy(event, CORS, { proxy }) {
 async function getUserNotifications(event, CORS) {
   const q = Q(event);
   const userId = q.userId;
+  const limit = Math.min(parseInt(q.limit || "100", 10), 500);
+  const lastKey = q.lastKey ? JSON.parse(decodeURIComponent(q.lastKey)) : undefined;
   
-  console.log("getUserNotifications called with userId:", userId);
+  console.log("getUserNotifications called with userId:", userId, "limit:", limit, "lastKey:", lastKey);
   console.log("NOTIFICATIONS_TABLE:", NOTIFICATIONS_TABLE);
   
   if (!userId) {
@@ -53,14 +55,18 @@ async function getUserNotifications(event, CORS) {
   }
 
   try {
-    // Query notifications for the user
-    const r = await ddb.query({
+    const params = {
       TableName: NOTIFICATIONS_TABLE,
       KeyConditionExpression: "userId = :u",
       ExpressionAttributeValues: { ":u": userId },
       ScanIndexForward: false, // Most recent first
-      Limit: Math.min(parseInt(q.limit || "100", 10), 500),
-    });
+      Limit: limit,
+    };
+    if (lastKey) {
+      params.ExclusiveStartKey = lastKey;
+    }
+    
+    const r = await ddb.query(params);
 
     console.log("Query result:", r);
     
@@ -68,6 +74,7 @@ async function getUserNotifications(event, CORS) {
       userId, 
       notifications: r.Items || [],
       count: r.Items?.length || 0,
+      lastEvaluatedKey: r.LastEvaluatedKey ? encodeURIComponent(JSON.stringify(r.LastEvaluatedKey)) : null,
       version: "updated"
     });
   } catch (error) {

@@ -893,9 +893,26 @@ export async function deleteGalleryFiles(projectId: string, galleryId?: string, 
 
 export async function fetchNotifications(userId: string): Promise<NotificationItem[]> {
   if (!userId) return [];
-  const url = `${NOTIFICATIONS_URL}?userId=${encodeURIComponent(userId)}`;
-  const data = await apiFetch<{ notifications?: NotificationItem[] }>(url);
-  return data.notifications || [];
+  
+  const allNotifications: NotificationItem[] = [];
+  let lastEvaluatedKey: string | null = null;
+  const limit = 500; // Fetch in batches of 500 to minimize requests
+  
+  do {
+    const params = new URLSearchParams({ userId, limit: limit.toString() });
+    if (lastEvaluatedKey) {
+      params.append('lastKey', lastEvaluatedKey);
+    }
+    const url = `${NOTIFICATIONS_URL}?${params.toString()}`;
+    const data = await apiFetch<{ notifications?: NotificationItem[]; lastEvaluatedKey?: string | null }>(url);
+    
+    if (data.notifications) {
+      allNotifications.push(...data.notifications);
+    }
+    lastEvaluatedKey = data.lastEvaluatedKey || null;
+  } while (lastEvaluatedKey);
+  
+  return allNotifications;
 }
 
 export async function batchDeleteNotifications(userId: string, notificationIds: string[]): Promise<{ success: boolean; deletedCount: number }> {
