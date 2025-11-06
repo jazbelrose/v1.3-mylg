@@ -29,7 +29,21 @@ const lowerEmail = (s) => (s || "").toLowerCase().trim();
 const pendingKeyForEmail = (email) => `PENDING#${lowerEmail(email)}`;
 
 // Handle /user/{proxy} routes
-async function handleUserProxy(event, CORS, { proxy }) {
+async function handleUserProxy(event, CORS, matchGroups) {
+  // Extract the raw captured proxy (may contain percent-encoded chars)
+  const rawProxy = matchGroups?.proxy || "";
+  if (!rawProxy) return json(404, CORS, { error: `Not found` });
+
+  // Decode once to support percent-encoded slashes or ids. Return 400 on bad encoding.
+  let proxy;
+  try {
+    proxy = decodeURIComponent(rawProxy);
+  } catch (err) {
+    console.error('Bad proxy encoding:', rawProxy, err);
+    return json(400, CORS, { error: 'Bad proxy path' });
+  }
+
+  // Route known proxy paths (keep explicit checks to avoid accidental catch-all behavior)
   if (proxy === 'notifications') {
     const method = M(event);
     if (method === 'GET') return await getUserNotifications(event, CORS);
@@ -39,6 +53,7 @@ async function handleUserProxy(event, CORS, { proxy }) {
     const method = M(event);
     if (method === 'POST') return await batchDeleteNotifications(event, CORS);
   }
+
   // For other unknown user endpoints
   return json(404, CORS, { error: `Unknown user endpoint: /user/${proxy}` });
 }
@@ -482,9 +497,10 @@ async function postProjectToUserId(event, C) {
 /* ---------- routes ---------- */
 const routes = [
   { M: "GET",    R: /^\/user\/health$/i,                                        H: health },
-  { M: "GET",    R: /^\/user\/(?<proxy>[^/]+)$/i,                               H: handleUserProxy },
-  { M: "PATCH",  R: /^\/user\/(?<proxy>[^/]+)$/i,                               H: handleUserProxy },
-  { M: "DELETE", R: /^\/user\/(?<proxy>[^/]+)$/i,                               H: handleUserProxy },
+  { M: "GET",    R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
+  { M: "PATCH",  R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
+  { M: "DELETE", R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
+  { M: "POST",   R: /^\/user\/(?<proxy>.+)$/i,                               H: handleUserProxy },
 
   // user profiles
   { M: "GET",    R: /^\/userProfiles\/(?<userId>[^/]+)$/i,                      H: getUserProfile },
