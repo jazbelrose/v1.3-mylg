@@ -291,7 +291,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         (source as { address?: string }).address,
         (source as { name?: string }).name,
         (source as { title?: string }).title,
-        (source as { location?: string }).location,
+  (typeof (source as any).location === "string" ? (source as any).location : undefined),
       ];
       return sourceFields.some((value) => matches(typeof value === "string" ? value : undefined));
     });

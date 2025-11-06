@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui";
 import { fetchTasks, updateTask, type Task as ApiTaskPayload } from "@/shared/utils/api";
@@ -209,6 +210,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
   projectName,
   projectColor,
 }) => {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<QuickTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -689,6 +691,24 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
             >
               <Plus aria-hidden="true" size={16} />
               New task
+            </Button>
+            {/* Pill: open Tasks page filtered to this project */}
+            <Button
+              variant="outline"
+              size="sm"
+              className={styles.projectTasksPill}
+              onClick={() => {
+                // Navigate to the global tasks drawer and pass current projectId in state
+                if (!projectId) {
+                  navigate("/dashboard/tasks");
+                  return;
+                }
+                navigate("/dashboard/tasks", { state: { projectId } });
+              }}
+              disabled={loading}
+            >
+              <MapPin aria-hidden="true" size={14} />
+              {`Open map view (${projectName ?? "Project tasks"})`}
             </Button>
             <Button variant="outline" onClick={handleOpenDrawer} disabled={loading}>
               Open map view

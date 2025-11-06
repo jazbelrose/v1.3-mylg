@@ -96,7 +96,7 @@ const TasksListPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const locationState = (location.state as { from?: string } | undefined) ?? undefined;
+  const locationState = (location.state as { from?: string; projectId?: string } | undefined) ?? undefined;
   const returnTo = locationState?.from;
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
 
@@ -223,6 +223,8 @@ const TasksListPage: React.FC = () => {
     return { overdueTasks: overdue, dueSoonTasks: dueSoon, upcomingTasks: upcoming };
   }, [openTasks]);
 
+  
+
   const dueSoonGroups = useMemo(() => {
     const map = new Map<string, { label: string; tasks: TasksOverviewListItem[] }>();
 
@@ -238,14 +240,32 @@ const TasksListPage: React.FC = () => {
     return Array.from(map.values());
   }, [dueSoonTasks]);
 
-  const hasAnyTask =
-    overdueTasks.length > 0 ||
-    dueSoonTasks.length > 0 ||
-    upcomingTasks.length > 0 ||
-    undatedTasks.length > 0 ||
-    completedThisWeek.length > 0;
+  // Optional project filter: if the caller passed a projectId in location.state, show only that project's tasks
+  const projectFilterId = (location.state as { projectId?: string } | undefined)?.projectId ?? undefined;
+  const projectFilterName = projectOptions.find((p) => p.id === projectFilterId)?.name;
 
-  const introMessage = projectOptions.length
+  const filteredOverdue = projectFilterId ? overdueTasks.filter((t) => t.projectId === projectFilterId) : overdueTasks;
+  const filteredDueSoonGroups = projectFilterId
+    ? dueSoonGroups
+        .map((g) => ({ ...g, tasks: g.tasks.filter((t) => t.projectId === projectFilterId) }))
+        .filter((g) => g.tasks.length > 0)
+    : dueSoonGroups;
+  const filteredUpcoming = projectFilterId ? upcomingTasks.filter((t) => t.projectId === projectFilterId) : upcomingTasks;
+  const filteredUndated = projectFilterId ? undatedTasks.filter((t) => t.projectId === projectFilterId) : undatedTasks;
+  const filteredCompletedThisWeek = projectFilterId
+    ? completedThisWeek.filter((t) => t.projectId === projectFilterId)
+    : completedThisWeek;
+
+  const hasAnyTask =
+    filteredOverdue.length > 0 ||
+    filteredDueSoonGroups.length > 0 ||
+    filteredUpcoming.length > 0 ||
+    filteredUndated.length > 0 ||
+    filteredCompletedThisWeek.length > 0;
+
+  const introMessage = projectFilterId
+    ? `Viewing tasks for ${projectFilterName ?? "this project"}. Review and kick off the next task.`
+    : projectOptions.length
     ? "Review everything on your radar and kick off the next task for whichever project needs attention."
     : "Review everything on your radar and add tasks whenever you have a project to assign them to.";
 
@@ -330,7 +350,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Tasks that slipped past their due date.</p>
                   </div>
                   <TaskList
-                    tasks={overdueTasks}
+                    tasks={filteredOverdue}
                     emptyLabel="No overdue tasks. Nice work keeping things on track!"
                     onStart={(task) => navigateToProject(task.projectId)}
                     onSelect={handleTaskEdit}
@@ -345,8 +365,8 @@ const TasksListPage: React.FC = () => {
                     </h2>
                     <p className={styles.sectionCaption}>Everything scheduled between now and the end of the week.</p>
                   </div>
-                  {dueSoonGroups.length ? (
-                    dueSoonGroups.map((group) => (
+                  {filteredDueSoonGroups.length ? (
+                    filteredDueSoonGroups.map((group) => (
                       <div key={group.label} className={styles.group}>
                         <h3 className={styles.groupTitle}>{group.label}</h3>
                         <TaskList
@@ -371,7 +391,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Preview what's planned beyond this week.</p>
                   </div>
                   <TaskList
-                    tasks={upcomingTasks}
+                    tasks={filteredUpcoming}
                     emptyLabel="No future tasks yet. When you plan ahead they'll show up here."
                     onStart={(task) => navigateToProject(task.projectId)}
                     onSelect={handleTaskEdit}
@@ -387,7 +407,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Ideas or tasks to tackle when you're ready.</p>
                   </div>
                   <TaskList
-                    tasks={undatedTasks}
+                    tasks={filteredUndated}
                     emptyLabel="Nothing in your backlog without a due date."
                     onStart={(task) => navigateToProject(task.projectId)}
                     onSelect={handleTaskEdit}
@@ -403,7 +423,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Recently wrapped up items within the current week.</p>
                   </div>
                   <TaskList
-                    tasks={completedThisWeek}
+                    tasks={filteredCompletedThisWeek}
                     emptyLabel="No completed tasks this week yet."
                     showCompleted
                     onSelect={handleTaskEdit}
