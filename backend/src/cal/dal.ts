@@ -56,7 +56,15 @@ export interface TaskRecord {
   dueAt?: string;
   startAt?: string;
   endAt?: string;
-  status: 'open' | 'done' | 'cancelled';
+  status:
+    | 'todo'
+    | 'in_progress'
+    | 'in_review'
+    | 'needs_changes'
+    | 'done'
+    | 'archived'
+    | 'open'
+    | 'cancelled';
   updatedAt?: string;
 }
 
@@ -169,7 +177,11 @@ export async function listProjectTasks(
   } while (lastEvaluatedKey && items.length < MAX_ITEMS);
 
   return items.filter((task) => {
-    if (task.status === 'done' || task.status === 'cancelled') {
+    if (
+      task.status === 'done' ||
+      task.status === 'cancelled' ||
+      task.status === 'archived'
+    ) {
       return false;
     }
     const due = task.dueAt ? Date.parse(task.dueAt) : undefined;

@@ -6,6 +6,17 @@ import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/c
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
+import {
+  buildStatusSortKey,
+  normalizeStatus as normalizeTaskStatus,
+  updateTaskStatus as dalUpdateTaskStatus,
+  setArchive as dalSetArchive,
+  requestReview as dalRequestReview,
+  approveTask as dalApproveTask,
+  requestChanges as dalRequestChanges,
+  updateTaskFields as dalUpdateTaskFields,
+  getTaskById as dalGetTaskById,
+} from "./tasksDal.mjs";
 
 /* ------------ ENV ------------ */
 const REGION = process.env.AWS_REGION || "us-west-2";
@@ -62,6 +73,20 @@ function getUserFromEvent(e) {
   const rawUserId = claims["custom:userId"] || claims.sub;
   const userId = typeof rawUserId === "string" && rawUserId.trim() ? rawUserId.trim() : null;
 
+  const groupsClaim = claims["cognito:groups"] || claims.groups;
+  const groupList = Array.isArray(groupsClaim)
+    ? groupsClaim
+    : typeof groupsClaim === "string"
+      ? groupsClaim
+          .split(/[,\s]+/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+      : [];
+  const roleCandidates = [claims.role, claims["custom:role"]];
+  const isAdmin =
+    groupList.some((group) => group.toLowerCase() === "admin") ||
+    roleCandidates.some((role) => typeof role === "string" && role.toLowerCase() === "admin");
+
   const usernameCandidates = [
     claims["cognito:username"],
     claims.preferred_username,
@@ -87,6 +112,7 @@ function getUserFromEvent(e) {
     username,
     displayName,
     email,
+    isAdmin,
   };
 }
 
@@ -623,6 +649,40 @@ const removeTeam = async (_e, C, { projectId, userId }) => {
   return json(200, C, { projectId, removedUserId: userId, team, teamUserIds });
 };
 
+function addIdCandidate(set, value) {
+  if (typeof value !== "string") return;
+  const trimmed = value.trim();
+  if (trimmed) set.add(trimmed);
+}
+
+function getTaskAssigneeIds(task) {
+  const ids = new Set();
+  if (!task || typeof task !== "object") return ids;
+  addIdCandidate(ids, task.assigneeId);
+  addIdCandidate(ids, task.assignedTo);
+  if (Array.isArray(task.assigneeIds)) {
+    task.assigneeIds.forEach((id) => addIdCandidate(ids, id));
+  }
+  if (Array.isArray(task.assignees)) {
+    task.assignees.forEach((assignee) => {
+      if (!assignee) return;
+      if (typeof assignee === "string") {
+        addIdCandidate(ids, assignee);
+        return;
+      }
+      addIdCandidate(ids, assignee.userId);
+      addIdCandidate(ids, assignee.id);
+    });
+  }
+  return ids;
+}
+
+function isTaskCreator(task, userId) {
+  if (!userId) return false;
+  const candidateIds = [task?.createdById, task?.createdBy];
+  return candidateIds.some((value) => typeof value === "string" && value.trim() === userId);
+}
+
 /* ---------- Tasks (PK=projectId, SK=taskId) ---------- */
 const listTasks = async (_e, C, { projectId }) => {
   const r = await ddb.query({
@@ -655,7 +715,7 @@ const createTask = async (e, C, { projectId }) => {
     updatedAt: ts,
   };
   item.title = typeof item.title === "string" ? item.title : "";
-  item.status = typeof item.status === "string" && item.status ? item.status : "todo";
+  item.status = normalizeTaskStatus(item.status);
   item.projectId = projectId;
   item.taskId = taskId;
   if (userId) {
@@ -665,8 +725,21 @@ const createTask = async (e, C, { projectId }) => {
   if (displayName) item.createdByName = displayName;
   if (username) item.createdByUsername = username;
   if (email) item.createdByEmail = email;
-  const dueDate = item.dueAt ? String(item.dueAt).slice(0, 10) : "";
-  item.statusDueDateTaskId = `${item.status}#${dueDate}#${taskId}`;
+  if (!item.reviewerId && item.createdById) {
+    item.reviewerId = item.createdById;
+  }
+  item.archived = false;
+  if (item.status === "done") {
+    item.completedAt = item.completedAt || ts;
+  } else if (item.completedAt !== undefined) {
+    item.completedAt = null;
+  }
+  if (item.reviewNote == null) {
+    item.reviewNote = "";
+  }
+  const statusSortKey = buildStatusSortKey(item.status, item.dueAt, taskId);
+  item.statusSortKey = statusSortKey;
+  item.statusDueDateTaskId = statusSortKey.replace("##", "#").replace("##", "#");
   await ddb.put({
     TableName: TASKS_TABLE,
     Item: item,
@@ -681,43 +754,313 @@ const getTask = async (_e, C, { projectId, taskId }) => {
 };
 
 const patchTask = async (e, C, { projectId, taskId }) => {
-  const b = B(e);
-  if (b && typeof b === "object") {
-    delete b.createdAt;
-    delete b.createdBy;
-    delete b.createdById;
-    delete b.createdByName;
-    delete b.createdByUsername;
-    delete b.createdByEmail;
-    delete b.statusDueDateTaskId;
-    delete b.updatedAt;
+  const body = B(e);
+  if (!body || typeof body !== "object") {
+    return json(400, C, { error: "No fields to update" });
   }
-  if (b.status !== undefined || b.dueAt !== undefined) {
-    const curr = await ddb.get({
-      TableName: TASKS_TABLE,
-      Key: { projectId, taskId },
-      ProjectionExpression: "#status, dueAt",
-      ExpressionAttributeNames: { "#status": "status" },
+
+  const updates = { ...body };
+  delete updates.createdAt;
+  delete updates.createdBy;
+  delete updates.createdById;
+  delete updates.createdByName;
+  delete updates.createdByUsername;
+  delete updates.createdByEmail;
+  delete updates.statusDueDateTaskId;
+  delete updates.statusSortKey;
+  delete updates.updatedAt;
+  delete updates.completedAt;
+  delete updates.reviewRequestedAt;
+  delete updates.reviewedAt;
+  delete updates.reviewNote;
+  delete updates.needsChangesNote;
+  delete updates.archived;
+  delete updates.archivedAt;
+  delete updates.archivedById;
+
+  const statusValue = updates.status;
+  if (statusValue !== undefined) {
+    delete updates.status;
+  }
+
+  const now = nowISO();
+  const { userId, isAdmin } = getUserFromEvent(e);
+
+  if (statusValue !== undefined) {
+    const nextStatus = normalizeTaskStatus(statusValue);
+    const current = await dalGetTaskById({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
     });
-    const newStatus = b.status ?? curr.Item?.status ?? "todo";
-    const newDueAt = b.dueAt ?? curr.Item?.dueAt;
-    const dueDate = newDueAt ? String(newDueAt).slice(0, 10) : "";
-    b.statusDueDateTaskId = `${newStatus}#${dueDate}#${taskId}`;
+    if (!current) {
+      return json(404, C, { error: "Task not found" });
+    }
+
+    const currentStatus = normalizeTaskStatus(current.status);
+    if (nextStatus !== currentStatus) {
+      const restrictedTargets = new Set(["in_review", "needs_changes", "done", "archived"]);
+      if (restrictedTargets.has(nextStatus)) {
+        return json(400, C, { error: "Status transition requires a dedicated endpoint" });
+      }
+
+      if (nextStatus !== "in_progress") {
+        return json(400, C, { error: "Unsupported status transition" });
+      }
+
+      if (!new Set(["todo", "needs_changes", "in_progress"]).has(currentStatus)) {
+        return json(400, C, { error: "Invalid status transition" });
+      }
+
+      const actorId = userId || null;
+      const assignees = getTaskAssigneeIds(current);
+      const canProgress =
+        isAdmin ||
+        (actorId && (assignees.has(actorId) || isTaskCreator(current, actorId)));
+      if (!canProgress) {
+        return json(403, C, { error: "Not authorized to update task status" });
+      }
+    }
+
+    const hasAdditional = Object.keys(updates).length > 0;
+    const options = {
+      additionalUpdates: hasAdditional ? updates : undefined,
+      dueAt: updates.dueAt,
+    };
+    if (options.dueAt === undefined) {
+      delete options.dueAt;
+    }
+    if (hasAdditional || options.dueAt !== undefined) {
+      options.force = true;
+    }
+    const updated = await dalUpdateTaskStatus({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      nextStatus,
+      actorId: userId || null,
+      now,
+      options,
+    });
+    return json(200, C, updated);
   }
-  const upd = buildUpdate({ ...b, updatedAt: nowISO() });
-  if (!upd) return json(400, C, { error: "No fields to update" });
-  const r = await ddb.update({
-    TableName: TASKS_TABLE,
-    Key: { projectId, taskId },
-    ...upd,
-    ReturnValues: "ALL_NEW",
-  });
-  return json(200, C, r.Attributes);
+
+  if (Object.keys(updates).length) {
+    const updated = await dalUpdateTaskFields({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      fields: updates,
+      now,
+    });
+    return json(200, C, updated);
+  }
+
+  return json(400, C, { error: "No fields to update" });
 };
 
 const deleteTask = async (_e, C, { projectId, taskId }) => {
   await ddb.delete({ TableName: TASKS_TABLE, Key: { projectId, taskId } });
   return json(204, C, "");
+};
+
+const requestTaskReview = async (e, C, { projectId, taskId }) => {
+  const body = B(e) || {};
+  const { userId, isAdmin } = getUserFromEvent(e);
+  if (!userId && !isAdmin) {
+    return json(403, C, { error: "Authentication required" });
+  }
+
+  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
+  if (!task) {
+    return json(404, C, { error: "Task not found" });
+  }
+
+  const assigneeIds = getTaskAssigneeIds(task);
+  const actorId = userId || null;
+  const canSubmit =
+    isAdmin ||
+    (actorId && (assigneeIds.has(actorId) || isTaskCreator(task, actorId)));
+
+  if (!canSubmit) {
+    return json(403, C, { error: "Not authorized to submit review" });
+  }
+
+  const reviewerCandidate =
+    typeof body.reviewerId === "string" && body.reviewerId.trim()
+      ? body.reviewerId.trim()
+      : task.reviewerId || task.createdById || task.createdBy || actorId;
+
+  const note = typeof body.note === "string" ? body.note : undefined;
+
+  const updated = await dalRequestReview({
+    ddb,
+    tableName: TASKS_TABLE,
+    projectId,
+    taskId,
+    reviewerId: reviewerCandidate || null,
+    note,
+    actorId,
+    now: nowISO(),
+  });
+
+  return json(200, C, updated);
+};
+
+const approveTaskReview = async (e, C, { projectId, taskId }) => {
+  const body = B(e) || {};
+  const { userId, isAdmin } = getUserFromEvent(e);
+  if (!userId && !isAdmin) {
+    return json(403, C, { error: "Authentication required" });
+  }
+
+  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
+  if (!task) {
+    return json(404, C, { error: "Task not found" });
+  }
+
+  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
+  const actorId = userId || null;
+  const isReviewer = reviewerId && actorId && reviewerId === actorId;
+  const canApprove = isAdmin || isReviewer;
+
+  if (!canApprove) {
+    return json(403, C, { error: "Not authorized to approve" });
+  }
+
+  const status = normalizeTaskStatus(task.status);
+  if (status !== "in_review" && !isAdmin) {
+    return json(409, C, { error: "Task is not ready for approval" });
+  }
+
+  const note = typeof body.note === "string" ? body.note : undefined;
+
+  const updated = await dalApproveTask({
+    ddb,
+    tableName: TASKS_TABLE,
+    projectId,
+    taskId,
+    note,
+    actorId,
+    now: nowISO(),
+  });
+
+  return json(200, C, updated);
+};
+
+const requestTaskChanges = async (e, C, { projectId, taskId }) => {
+  const body = B(e) || {};
+  const { userId, isAdmin } = getUserFromEvent(e);
+  if (!userId && !isAdmin) {
+    return json(403, C, { error: "Authentication required" });
+  }
+
+  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
+  if (!task) {
+    return json(404, C, { error: "Task not found" });
+  }
+
+  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
+  const actorId = userId || null;
+  const isReviewer = reviewerId && actorId && reviewerId === actorId;
+  const canRequest = isAdmin || isReviewer;
+
+  if (!canRequest) {
+    return json(403, C, { error: "Not authorized to request changes" });
+  }
+
+  const status = normalizeTaskStatus(task.status);
+  if (status !== "in_review" && !isAdmin) {
+    return json(409, C, { error: "Task is not under review" });
+  }
+
+  const noteRaw = typeof body.note === "string" ? body.note.trim() : "";
+  if (!noteRaw) {
+    return json(400, C, { error: "A note is required when requesting changes" });
+  }
+
+  const updated = await dalRequestChanges({
+    ddb,
+    tableName: TASKS_TABLE,
+    projectId,
+    taskId,
+    note: noteRaw,
+    actorId,
+    now: nowISO(),
+  });
+
+  return json(200, C, updated);
+};
+
+const archiveTask = async (e, C, { projectId, taskId }) => {
+  const { userId, isAdmin } = getUserFromEvent(e);
+  if (!userId && !isAdmin) {
+    return json(403, C, { error: "Authentication required" });
+  }
+
+  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
+  if (!task) {
+    return json(404, C, { error: "Task not found" });
+  }
+
+  const actorId = userId || null;
+  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
+  const canArchive =
+    isAdmin ||
+    (actorId && (isTaskCreator(task, actorId) || (reviewerId && reviewerId === actorId)));
+
+  if (!canArchive) {
+    return json(403, C, { error: "Not authorized to archive" });
+  }
+
+  const updated = await dalSetArchive({
+    ddb,
+    tableName: TASKS_TABLE,
+    projectId,
+    taskId,
+    archived: true,
+    actorId,
+    now: nowISO(),
+  });
+
+  return json(200, C, updated);
+};
+
+const unarchiveTask = async (e, C, { projectId, taskId }) => {
+  const { userId, isAdmin } = getUserFromEvent(e);
+  if (!userId && !isAdmin) {
+    return json(403, C, { error: "Authentication required" });
+  }
+
+  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
+  if (!task) {
+    return json(404, C, { error: "Task not found" });
+  }
+
+  const actorId = userId || null;
+  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
+  const canUnarchive =
+    isAdmin ||
+    (actorId && (isTaskCreator(task, actorId) || (reviewerId && reviewerId === actorId)));
+
+  if (!canUnarchive) {
+    return json(403, C, { error: "Not authorized to unarchive" });
+  }
+
+  const updated = await dalSetArchive({
+    ddb,
+    tableName: TASKS_TABLE,
+    projectId,
+    taskId,
+    archived: false,
+    actorId,
+    now: nowISO(),
+  });
+
+  return json(200, C, updated);
 };
 
 /* ---------- Events (unified timeline/schedule) ---------- */
@@ -1272,6 +1615,11 @@ const routes = [
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/tasks$/i,                                h: listTasks },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks$/i,                                h: createTask },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: getTask },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request$/i, h: requestTaskReview },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/approve$/i, h: approveTaskReview },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request_changes$/i, h: requestTaskChanges },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/archive$/i,    h: archiveTask },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/unarchive$/i,  h: unarchiveTask },
   { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: patchTask },
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: deleteTask },
 
