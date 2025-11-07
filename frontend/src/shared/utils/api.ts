@@ -289,6 +289,26 @@ export function fileUrlsToKeys(urls: string[]): string[] {
   });
 }
 
+export async function uploadFile(file: File): Promise<string> {
+  const { uploadData } = await import('aws-amplify/storage');
+  
+  // Generate a unique filename for task attachments
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).slice(2, 8);
+  const fileExtension = file.name.split('.').pop() || 'bin';
+  const filename = `public/uploads/tasks/${timestamp}_${randomId}.${fileExtension}`;
+  
+  const uploadTask = uploadData({
+    key: filename,
+    data: file,
+    options: { accessLevel: 'guest' },
+  });
+  
+  await uploadTask.result;
+  
+  return getFileUrl(filename);
+}
+
 export const S3_PUBLIC_BASE = `${FILE_CDN || `https://${FILE_BUCKET}.s3.${FILE_REGION}.amazonaws.com`}/`;
 
 const BASE_ENDPOINTS = {

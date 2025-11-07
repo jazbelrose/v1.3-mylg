@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { createPortal } from "react-dom";
 
 import type { Task } from "@/shared/utils/api";
-import { NOMINATIM_SEARCH_URL, apiFetch, createTask, deleteTask, updateTask } from "@/shared/utils/api";
+import { NOMINATIM_SEARCH_URL, apiFetch, createTask, deleteTask, updateTask, uploadFile } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 
 import styles from "./QuickCreateTaskModal.module.css";
@@ -68,15 +68,14 @@ function sanitizeIncomingAttachments(
           ? attachment.fileName.trim()
           : "Attachment";
       const mimeType = typeof attachment.mimeType === "string" ? attachment.mimeType : undefined;
-      const dataUrl =
-        typeof attachment.dataUrl === "string" && attachment.dataUrl.trim()
+      // Prioritize url over dataUrl for S3-based storage
+      const url =
+        (typeof attachment.url === "string" && attachment.url.trim())
+          ? attachment.url.trim()
+          : (typeof attachment.dataUrl === "string" && attachment.dataUrl.trim())
           ? attachment.dataUrl.trim()
           : undefined;
-      const url =
-        typeof attachment.url === "string" && attachment.url.trim()
-          ? attachment.url.trim()
-          : undefined;
-      if (!dataUrl && !url) return null;
+      if (!url) return null;
       return {
         id:
           typeof attachment.id === "string" && attachment.id.trim()
@@ -84,8 +83,7 @@ function sanitizeIncomingAttachments(
             : generateAttachmentId(),
         fileName,
         mimeType,
-        dataUrl,
-        url,
+        url, // Use url instead of dataUrl
         uploadedAt:
           typeof attachment.uploadedAt === "string" && attachment.uploadedAt.trim()
             ? attachment.uploadedAt.trim()
@@ -948,30 +946,18 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
 
       try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result;
-            if (typeof result === "string" && result.startsWith("data:image/")) {
-              resolve(result);
-            } else {
-              reject(new Error("Unsupported file type"));
-            }
-          };
-          reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-          reader.readAsDataURL(file);
-        });
-
+        // Upload to S3 and get CloudFront URL
+        const uploadedUrl = await uploadFile(file);
         created.push({
           id: generateAttachmentId(),
           fileName: file.name || "Attachment",
           mimeType: file.type || undefined,
-          dataUrl,
+          url: uploadedUrl, // Store URL instead of dataUrl
           uploadedAt: new Date().toISOString(),
         });
       } catch (error) {
-        console.error("Failed to add attachment", error);
-        setErrorMessage("We couldn't add one of the images. Please try again.");
+        console.error("Failed to upload attachment", error);
+        setErrorMessage("We couldn't upload one of the images. Please try again.");
       }
     }
 
@@ -1004,30 +990,18 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
 
       try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result;
-            if (typeof result === "string" && result.startsWith("data:image/")) {
-              resolve(result);
-            } else {
-              reject(new Error("Unsupported file type"));
-            }
-          };
-          reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-          reader.readAsDataURL(file);
-        });
-
+        // Upload to S3 and get CloudFront URL
+        const uploadedUrl = await uploadFile(file);
         created.push({
           id: generateAttachmentId(),
           fileName: file.name || "Attachment",
           mimeType: file.type || undefined,
-          dataUrl,
+          url: uploadedUrl, // Store URL instead of dataUrl
           uploadedAt: new Date().toISOString(),
         });
       } catch (error) {
-        console.error("Failed to add attachment", error);
-        setErrorMessage("We couldn't add one of the images. Please try again.");
+        console.error("Failed to upload attachment", error);
+        setErrorMessage("We couldn't upload one of the images. Please try again.");
       }
     }
 
@@ -1476,7 +1450,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <div className={styles.attachmentChips}>
                   {noteAttachments.map((attachment) => (
                     <div key={attachment.id} className={styles.attachmentChip}>
-                      <img src={attachment.dataUrl || attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
+                      <img src={attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
                       <span>{attachment.fileName}</span>
                       <button onClick={() => handleRemoveAttachment(attachment.id)}>×</button>
                     </div>

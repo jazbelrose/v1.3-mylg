@@ -8,8 +8,7 @@ export type TaskNoteAttachment = {
   id: string;
   fileName: string;
   mimeType?: string;
-  dataUrl?: string;
-  url?: string;
+  url: string;
   uploadedAt?: string;
 };
 
