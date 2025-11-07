@@ -8,6 +8,8 @@
 - Prefer **small, composable PRs**. Don’t sprawl.
 - When code spans multiple files, produce **path‑scoped diffs** and note any **migration** steps.
 
+## Always start by creating a to-do list:
+
 ## High‑Signal Architecture Map (use these terms)
 **Stack**: React 18 + TypeScript + Vite (frontend); AWS Serverless (Lambda, API Gateway, DynamoDB, S3, Cognito); WebSocket + **Yjs** for real‑time.
 
