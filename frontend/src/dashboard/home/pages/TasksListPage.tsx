@@ -370,7 +370,7 @@ const TasksListPage: React.FC = () => {
                   <TaskList
                     tasks={filteredOverdue}
                     emptyLabel="No overdue tasks. Nice work keeping things on track!"
-                    onStart={(task) => navigateToProject(task.projectId)}
+                    {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
                     onSelect={handleTaskEdit}
                     onMarkDone={handleMarkDone}
                   />
@@ -391,7 +391,7 @@ const TasksListPage: React.FC = () => {
                         <TaskList
                           tasks={group.tasks}
                           emptyLabel="All set for this day."
-                          onStart={(task) => navigateToProject(task.projectId)}
+                          {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
                           onSelect={handleTaskEdit}
                           onMarkDone={handleMarkDone}
                         />
@@ -413,7 +413,7 @@ const TasksListPage: React.FC = () => {
                   <TaskList
                     tasks={filteredUpcoming}
                     emptyLabel="No future tasks yet. When you plan ahead they'll show up here."
-                    onStart={(task) => navigateToProject(task.projectId)}
+                    {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
                     onSelect={handleTaskEdit}
                     onMarkDone={handleMarkDone}
                   />
@@ -430,7 +430,7 @@ const TasksListPage: React.FC = () => {
                   <TaskList
                     tasks={filteredUndated}
                     emptyLabel="Nothing in your backlog without a due date."
-                    onStart={(task) => navigateToProject(task.projectId)}
+                    {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
                     onSelect={handleTaskEdit}
                     onMarkDone={handleMarkDone}
                   />
