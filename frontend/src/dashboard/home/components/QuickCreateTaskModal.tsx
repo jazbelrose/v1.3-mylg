@@ -24,6 +24,12 @@ type Coordinates = {
 
 type TaskStatus = "todo" | "in_progress" | "done";
 
+type AssigneeOption = {
+  value: string;
+  label: string;
+  avatar?: string;
+};
+
 function toTokenArray(value?: string | string[] | null): string[] {
   if (value == null) return [];
   if (Array.isArray(value)) {
@@ -264,6 +270,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
   const suggestionsListId = "quick-create-task-location-suggestions";
+  const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState("");
+  const [focusedAssigneeIndex, setFocusedAssigneeIndex] = useState(-1);
+  const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
+  const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const lastOffsetRef = useRef(0);
@@ -329,11 +340,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const collaboratorOptions = useMemo(() => {
     if (!collaboratorIds.length) {
-      const fallbackOptions = assigneeTokens.map((token) => {
+      const fallbackOptions: AssigneeOption[] = assigneeTokens.map((token) => {
         const trimmed = token.trim();
         const [namePart] = trimmed.includes("__") ? trimmed.split("__") : [trimmed];
         const label = namePart.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim() || trimmed;
-        return { value: trimmed, label };
+        return { value: trimmed, label, avatar: undefined };
       });
       return fallbackOptions;
     }
@@ -387,14 +398,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       return `${safeName}__${userId}`;
     };
 
-    const dedupeMap = new Map<string, { value: string; label: string }>();
+    const formatAvatar = (collaborator: (typeof allUsers)[number] | undefined) => {
+      return collaborator?.avatar || undefined; // Placeholder for avatar URL
+    };
+
+    const dedupeMap = new Map<string, AssigneeOption>();
 
     collaboratorIds.forEach((rawId) => {
       const collaborator = findCollaborator(rawId);
       const value = formatValue(collaborator, rawId);
       const label = formatLabel(collaborator, rawId);
+      const avatar = formatAvatar(collaborator);
       if (!dedupeMap.has(value)) {
-        dedupeMap.set(value, { value, label });
+        dedupeMap.set(value, { value, label, avatar: avatar as string | undefined });
       }
     });
 
@@ -403,13 +419,37 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       if (!trimmed || dedupeMap.has(trimmed)) return;
       const [namePart] = trimmed.includes("__") ? trimmed.split("__") : [trimmed];
       const label = namePart.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim() || trimmed;
-      dedupeMap.set(trimmed, { value: trimmed, label });
+      dedupeMap.set(trimmed, { value: trimmed, label, avatar: undefined });
     });
 
     return Array.from(dedupeMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
   }, [allUsers, assigneeTokens, collaboratorIds]);
+
+  // Filtered options based on search
+  const filteredAssigneeOptions = useMemo(() => {
+    const searchLower = assigneeSearch.toLowerCase();
+    return collaboratorOptions.filter(option =>
+      option.label.toLowerCase().includes(searchLower)
+    );
+  }, [collaboratorOptions, assigneeSearch]);
+
+  // Sorted options: selected first
+  const sortedAssigneeOptions = useMemo(() => {
+    const selected = filteredAssigneeOptions.filter(option => assigneeTokens.includes(option.value));
+    const unselected = filteredAssigneeOptions.filter(option => !assigneeTokens.includes(option.value));
+    return [...selected, ...unselected];
+  }, [filteredAssigneeOptions, assigneeTokens]);
+
+  // Compact summary for display
+  const assigneeSummary = useMemo(() => {
+    if (!assigneeTokens.length) return null;
+    const selectedOptions = collaboratorOptions.filter(option => assigneeTokens.includes(option.value));
+    const firstTwo = selectedOptions.slice(0, 2);
+    const remaining = selectedOptions.length - 2;
+    return { firstTwo, remaining };
+  }, [assigneeTokens, collaboratorOptions]);
 
   const hasCollaborators = collaboratorOptions.length > 0;
   const effectiveProjectId = useMemo(() => {
@@ -483,6 +523,47 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTaskId(null);
     setStatus("todo");
   }, []);
+
+  // New handlers for popover
+  const openAssigneePopover = useCallback(() => {
+    setAssigneePopoverOpen(true);
+    setAssigneeSearch("");
+    setFocusedAssigneeIndex(-1);
+    requestAnimationFrame(() => assigneeSearchRef.current?.focus());
+  }, []);
+
+  const closeAssigneePopover = useCallback(() => {
+    setAssigneePopoverOpen(false);
+    setAssigneeSearch("");
+    setFocusedAssigneeIndex(-1);
+  }, []);
+
+  const toggleAssignee = useCallback((value: string) => {
+    setAssigneeTokens(prev => 
+      prev.includes(value) 
+        ? prev.filter(v => v !== value) 
+        : [...prev, value]
+    );
+  }, []);
+
+  const handleAssigneeKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (!assigneePopoverOpen) return;
+    const { key } = event;
+    if (key === "Escape") {
+      closeAssigneePopover();
+    } else if (key === "ArrowDown") {
+      event.preventDefault();
+      setFocusedAssigneeIndex(prev => Math.min(prev + 1, sortedAssigneeOptions.length - 1));
+    } else if (key === "ArrowUp") {
+      event.preventDefault();
+      setFocusedAssigneeIndex(prev => Math.max(prev - 1, 0));
+    } else if (key === "Enter" || key === " ") {
+      event.preventDefault();
+      if (focusedAssigneeIndex >= 0) {
+        toggleAssignee(sortedAssigneeOptions[focusedAssigneeIndex].value);
+      }
+    }
+  }, [assigneePopoverOpen, closeAssigneePopover, focusedAssigneeIndex, sortedAssigneeOptions, toggleAssignee]);
 
   const applyTaskToForm = useCallback(
     (
@@ -930,6 +1011,60 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     event.target.value = "";
   };
 
+  // Add drag-and-drop for attachments
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(async (event: React.DragEvent) => {
+    event.preventDefault();
+    const files = Array.from(event.dataTransfer.files);
+    if (!files.length) return;
+
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    const created: TaskNoteAttachment[] = [];
+
+    for (const file of files) {
+      if (file.type && !file.type.startsWith("image/")) {
+        setErrorMessage("Only image files can be attached to notes.");
+        continue;
+      }
+
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === "string" && result.startsWith("data:image/")) {
+              resolve(result);
+            } else {
+              reject(new Error("Unsupported file type"));
+            }
+          };
+          reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+
+        created.push({
+          id: generateAttachmentId(),
+          fileName: file.name || "Attachment",
+          mimeType: file.type || undefined,
+          dataUrl,
+          uploadedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Failed to add attachment", error);
+        setErrorMessage("We couldn't add one of the images. Please try again.");
+      }
+    }
+
+    if (created.length) {
+      setNoteAttachments((prev) => [...prev, ...created]);
+    }
+  }, []);
+
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
     setNoteAttachments((prev) => prev.filter((attachment) => attachment.id !== attachmentId));
     setSuccessMessage(null);
@@ -1161,39 +1296,76 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 </label>
                 <span className={styles.fieldOptional}>Optional</span>
               </div>
-              <div className={styles.collaboratorsInputWrapper}>
-                <select
-                  id={assigneeFieldId}
-                  aria-label="Assign task to teammates"
-                  className={`${styles.selectInput} ${styles.multiSelect}`}
-                  multiple
-                  value={assigneeTokens}
-                  onChange={handleAssigneeChange}
-                  disabled={isBusy || (!collaboratorOptions.length && !assigneeTokens.length)}
-                >
-                  {collaboratorOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {assigneeTokens.length > 0 && (
-                  <div className={styles.selectedCollaborators}>
-                    <span className={styles.selectedCount}>
-                      {assigneeTokens.length} selected
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.clearSelectionButton}
-                      onClick={() => setAssigneeTokens([])}
-                      disabled={isBusy}
-                    >
-                      Clear all
-                    </button>
+              <div className={styles.assigneeSelector}>
+                {!assigneePopoverOpen ? (
+                  <button
+                    type="button"
+                    className={styles.assigneeTrigger}
+                    onClick={openAssigneePopover}
+                    disabled={isBusy}
+                    aria-expanded={false}
+                    aria-haspopup="listbox"
+                  >
+                    {assigneeSummary ? (
+                      <div className={styles.assigneeSummary}>
+                        {assigneeSummary.firstTwo.map(option => (
+                          <span key={option.value} className={styles.assigneeAvatar}>
+                            {option.avatar ? <img src={option.avatar} alt={option.label} /> : option.label[0]}
+                          </span>
+                        ))}
+                        <span>{assigneeSummary.firstTwo.map(o => o.label).join(", ")}</span>
+                        {assigneeSummary.remaining > 0 && <span>+{assigneeSummary.remaining}</span>}
+                      </div>
+                    ) : (
+                      <span>Select assignees</span>
+                    )}
+                  </button>
+                ) : (
+                  <div
+                    ref={assigneePopoverRef}
+                    className={styles.assigneePopover}
+                    role="listbox"
+                    onKeyDown={handleAssigneeKeyDown}
+                  >
+                    <div className={styles.assigneeSearchWrapper}>
+                      <input
+                        ref={assigneeSearchRef}
+                        type="text"
+                        className={styles.assigneeSearch}
+                        placeholder="Search assignees..."
+                        value={assigneeSearch}
+                        onChange={(e) => setAssigneeSearch(e.target.value)}
+                      />
+                      <button type="button" onClick={closeAssigneePopover}>✕</button>
+                    </div>
+                    <div className={styles.assigneeList}>
+                      {sortedAssigneeOptions.map((option, index) => (
+                        <div
+                          key={option.value}
+                          className={`${styles.assigneeOption} ${focusedAssigneeIndex === index ? styles.focused : ""}`}
+                          onClick={() => toggleAssignee(option.value)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={assigneeTokens.includes(option.value)}
+                            readOnly
+                          />
+                          <span className={styles.assigneeAvatar}>
+                            {option.avatar ? <img src={option.avatar} alt={option.label} /> : option.label[0]}
+                          </span>
+                          <span>{option.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={closeAssigneePopover} className={styles.doneButton}>Done</button>
                   </div>
                 )}
               </div>
-              <p className={styles.fieldMeta}>Hold ⌘ (Mac) or Ctrl (Windows) to select multiple teammates.</p>
+              {assigneeTokens.length > 0 && (
+                <div className={styles.selectedAssigneesTooltip} title={assigneeTokens.map(token => collaboratorOptions.find(o => o.value === token)?.label).join(", ")}>
+                  {/* Tooltip content */}
+                </div>
+              )}
             </div>
             {!hasCollaborators && collaboratorOptions.length === 0 ? (
               <p className={styles.helperText}>Invite collaborators to assign tasks.</p>
@@ -1332,60 +1504,34 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 disabled={isBusy}
                 rows={4}
                 ref={notesRef}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
               />
-              
-              {/* File upload integrated into Notes section */}
-              <div className={styles.notesAttachmentSection}>
-                <div className={styles.attachmentInputWrapper}>
-                  <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
-                    <span className={styles.attachmentIcon}>📎</span>
-                    <span>Add files</span>
-                  </label>
-                  <input
-                    id={attachmentsFieldId}
-                    className={styles.fileInput}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleAttachmentInputChange}
-                    disabled={isBusy}
-                  />
+              {noteAttachments.length > 0 && (
+                <div className={styles.attachmentChips}>
+                  {noteAttachments.map((attachment) => (
+                    <div key={attachment.id} className={styles.attachmentChip}>
+                      <img src={attachment.dataUrl || attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
+                      <span>{attachment.fileName}</span>
+                      <button onClick={() => handleRemoveAttachment(attachment.id)}>×</button>
+                    </div>
+                  ))}
                 </div>
-                
-                {noteAttachments.length > 0 && (
-                  <div className={styles.attachmentList} aria-label="Attached images">
-                    {noteAttachments.map((attachment) => {
-                      const preview = attachment.dataUrl || attachment.url || "";
-                      return (
-                        <div key={attachment.id} className={styles.attachmentItem}>
-                          {preview ? (
-                            <img
-                              src={preview}
-                              alt={attachment.fileName}
-                              className={styles.attachmentPreview}
-                            />
-                          ) : (
-                            <span className={styles.attachmentPlaceholder} aria-hidden="true">
-                              📎
-                            </span>
-                          )}
-                          <div className={styles.attachmentDetails}>
-                            <span className={styles.attachmentName}>{attachment.fileName}</span>
-                            <button
-                              type="button"
-                              className={styles.removeAttachmentButton}
-                              onClick={() => handleRemoveAttachment(attachment.id)}
-                              disabled={isBusy}
-                              aria-label={`Remove ${attachment.fileName}`}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              )}
+              <div className={styles.notesFooter}>
+                <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
+                  <span className={styles.attachmentIcon}>📎</span>
+                  <span>Add files</span>
+                </label>
+                <input
+                  id={attachmentsFieldId}
+                  className={styles.fileInput}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleAttachmentInputChange}
+                  disabled={isBusy}
+                />
               </div>
             </div>
             <div id={feedbackRegionId} className={styles.feedbackRegion} aria-live="polite">
