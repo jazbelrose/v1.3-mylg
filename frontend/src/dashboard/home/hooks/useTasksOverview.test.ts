@@ -63,9 +63,10 @@ describe("useTasksOverview", () => {
 
     await waitFor(() => {
       expect(result.current.completedThisWeek).toHaveLength(2);
+      expect(result.current.completedTasks).toHaveLength(2);
     });
 
-    const titles = result.current.completedThisWeek.map((task) => task.title);
+    const titles = result.current.completedTasks.map((task) => task.title);
     expect(titles).toContain("No due date task");
     expect(titles).toContain("Old due task");
     expect(result.current.stats.completed).toBe(2);

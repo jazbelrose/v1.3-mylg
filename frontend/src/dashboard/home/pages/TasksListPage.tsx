@@ -11,6 +11,10 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalTask,
 } from "../components/QuickCreateTaskModal";
 import { endOfWeek } from "@/dashboard/home/utils/dateUtils";
+import {
+  filterCompletedTasksByRange,
+  type CompletedRange,
+} from "./TasksListPage.utils";
 import styles from "./TasksListPage.module.css";
 
 const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
@@ -96,9 +100,17 @@ const TasksListPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const locationState = (location.state as { from?: string } | undefined) ?? undefined;
+  const locationState = (location.state as { from?: string; projectId?: string } | undefined) ?? undefined;
   const returnTo = locationState?.from;
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
+  const COMPLETED_RANGE_STORAGE_KEY = "tasks.drawer.completedRange";
+  const [completedRange, setCompletedRange] = useState<CompletedRange>(() => {
+    if (typeof window === "undefined") {
+      return "7d";
+    }
+    const stored = window.localStorage.getItem(COMPLETED_RANGE_STORAGE_KEY);
+    return stored === "30d" || stored === "all" ? stored : "7d";
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -155,7 +167,7 @@ const TasksListPage: React.FC = () => {
     stats,
     openTasks,
     undatedTasks,
-    completedThisWeek,
+    completedTasks,
     navigateToProject,
     refreshTasks,
     projectOptions,
@@ -223,6 +235,8 @@ const TasksListPage: React.FC = () => {
     return { overdueTasks: overdue, dueSoonTasks: dueSoon, upcomingTasks: upcoming };
   }, [openTasks]);
 
+  
+
   const dueSoonGroups = useMemo(() => {
     const map = new Map<string, { label: string; tasks: TasksOverviewListItem[] }>();
 
@@ -238,14 +252,44 @@ const TasksListPage: React.FC = () => {
     return Array.from(map.values());
   }, [dueSoonTasks]);
 
-  const hasAnyTask =
-    overdueTasks.length > 0 ||
-    dueSoonTasks.length > 0 ||
-    upcomingTasks.length > 0 ||
-    undatedTasks.length > 0 ||
-    completedThisWeek.length > 0;
+  // Optional project filter: if the caller passed a projectId in location.state, show only that project's tasks
+  const projectFilterId = (location.state as { projectId?: string } | undefined)?.projectId ?? undefined;
+  const projectFilterName = projectOptions.find((p) => p.id === projectFilterId)?.name;
 
-  const introMessage = projectOptions.length
+  const filteredOverdue = projectFilterId ? overdueTasks.filter((t) => t.projectId === projectFilterId) : overdueTasks;
+  const filteredDueSoonGroups = projectFilterId
+    ? dueSoonGroups
+        .map((g) => ({ ...g, tasks: g.tasks.filter((t) => t.projectId === projectFilterId) }))
+        .filter((g) => g.tasks.length > 0)
+    : dueSoonGroups;
+  const filteredUpcoming = projectFilterId ? upcomingTasks.filter((t) => t.projectId === projectFilterId) : upcomingTasks;
+  const filteredUndated = projectFilterId ? undatedTasks.filter((t) => t.projectId === projectFilterId) : undatedTasks;
+  const filteredCompletedByProject = projectFilterId
+    ? completedTasks.filter((t) => t.projectId === projectFilterId)
+    : completedTasks;
+
+  const filteredCompletedTasks = useMemo(
+    () => filterCompletedTasksByRange(filteredCompletedByProject, completedRange),
+    [filteredCompletedByProject, completedRange],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(COMPLETED_RANGE_STORAGE_KEY, completedRange);
+  }, [completedRange]);
+
+  const hasAnyTask =
+    filteredOverdue.length > 0 ||
+    filteredDueSoonGroups.length > 0 ||
+    filteredUpcoming.length > 0 ||
+    filteredUndated.length > 0 ||
+    filteredCompletedTasks.length > 0;
+
+  const introMessage = projectFilterId
+    ? `Viewing tasks for ${projectFilterName ?? "this project"}. Review and kick off the next task.`
+    : projectOptions.length
     ? "Review everything on your radar and kick off the next task for whichever project needs attention."
     : "Review everything on your radar and add tasks whenever you have a project to assign them to.";
 
@@ -298,8 +342,8 @@ const TasksListPage: React.FC = () => {
 
             <section className={styles.statsGrid} aria-label="Task summary">
               <div className={styles.statCard}>
-                <span className={styles.statLabel}>Completed this week</span>
-                <span className={styles.statValue}>{stats.completed}</span>
+                <span className={styles.statLabel}>Completed</span>
+                <span className={styles.statValue}>{filteredCompletedTasks.length}</span>
               </div>
               <div className={styles.statCard}>
                 <span className={styles.statLabel}>Due soon</span>
@@ -330,7 +374,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Tasks that slipped past their due date.</p>
                   </div>
                   <TaskList
-                    tasks={overdueTasks}
+                    tasks={filteredOverdue}
                     emptyLabel="No overdue tasks. Nice work keeping things on track!"
                     onStart={(task) => navigateToProject(task.projectId)}
                     onSelect={handleTaskEdit}
@@ -345,8 +389,8 @@ const TasksListPage: React.FC = () => {
                     </h2>
                     <p className={styles.sectionCaption}>Everything scheduled between now and the end of the week.</p>
                   </div>
-                  {dueSoonGroups.length ? (
-                    dueSoonGroups.map((group) => (
+                  {filteredDueSoonGroups.length ? (
+                    filteredDueSoonGroups.map((group) => (
                       <div key={group.label} className={styles.group}>
                         <h3 className={styles.groupTitle}>{group.label}</h3>
                         <TaskList
@@ -371,7 +415,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Preview what's planned beyond this week.</p>
                   </div>
                   <TaskList
-                    tasks={upcomingTasks}
+                    tasks={filteredUpcoming}
                     emptyLabel="No future tasks yet. When you plan ahead they'll show up here."
                     onStart={(task) => navigateToProject(task.projectId)}
                     onSelect={handleTaskEdit}
@@ -387,7 +431,7 @@ const TasksListPage: React.FC = () => {
                     <p className={styles.sectionCaption}>Ideas or tasks to tackle when you're ready.</p>
                   </div>
                   <TaskList
-                    tasks={undatedTasks}
+                    tasks={filteredUndated}
                     emptyLabel="Nothing in your backlog without a due date."
                     onStart={(task) => navigateToProject(task.projectId)}
                     onSelect={handleTaskEdit}
@@ -396,15 +440,51 @@ const TasksListPage: React.FC = () => {
 
                 <section className={`${styles.section} ${styles.sectionCompleted}`} aria-labelledby="tasks-completed-heading">
                   <span className={styles.sectionAccent} aria-hidden="true" />
-                  <div className={styles.sectionTitleRow}>
-                    <h2 id="tasks-completed-heading" className={styles.sectionTitle}>
-                      Completed this week
-                    </h2>
-                    <p className={styles.sectionCaption}>Recently wrapped up items within the current week.</p>
+                  <div className={`${styles.sectionTitleRow} ${styles.sectionTitleRowWithFilters}`}>
+                    <div className={styles.sectionTitleColumn}>
+                      <h2 id="tasks-completed-heading" className={styles.sectionTitle}>
+                        Completed
+                      </h2>
+                      <p className={styles.sectionCaption}>
+                        Review tasks you've wrapped up. Switch between the last 7 days, 30 days, or everything.
+                      </p>
+                    </div>
+                    <div className={styles.completedFilters} role="group" aria-label="Filter completed tasks">
+                      <button
+                        type="button"
+                        className={`${styles.completedFilter} ${completedRange === "7d" ? styles.completedFilterActive : ""}`}
+                        onClick={() => setCompletedRange("7d")}
+                        aria-pressed={completedRange === "7d"}
+                      >
+                        Last 7d
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.completedFilter} ${completedRange === "30d" ? styles.completedFilterActive : ""}`}
+                        onClick={() => setCompletedRange("30d")}
+                        aria-pressed={completedRange === "30d"}
+                      >
+                        Last 30d
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.completedFilter} ${completedRange === "all" ? styles.completedFilterActive : ""}`}
+                        onClick={() => setCompletedRange("all")}
+                        aria-pressed={completedRange === "all"}
+                      >
+                        All
+                      </button>
+                    </div>
                   </div>
                   <TaskList
-                    tasks={completedThisWeek}
-                    emptyLabel="No completed tasks this week yet."
+                    tasks={filteredCompletedTasks}
+                    emptyLabel={
+                      completedRange === "all"
+                        ? "No completed tasks yet."
+                        : completedRange === "30d"
+                          ? "No tasks completed in the last 30 days yet."
+                          : "No tasks completed in the last 7 days yet."
+                    }
                     showCompleted
                     onSelect={handleTaskEdit}
                   />

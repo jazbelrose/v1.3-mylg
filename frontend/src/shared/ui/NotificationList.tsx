@@ -16,10 +16,47 @@ export interface Notification {
   read?: boolean;
 }
 
+type SlideDigestPayload = {
+  slideIds?: string[];
+  added?: number;
+  deleted?: number;
+  renamed?: number;
+  updated?: number;
+};
+
+function formatSlideDigest(payload: SlideDigestPayload = {}): string {
+  const { slideIds, added = 0, deleted = 0, renamed = 0, updated = 0 } = payload;
+  const parts: string[] = [];
+  if (added) parts.push(`${added} added`);
+  if (renamed) parts.push(`${renamed} renamed`);
+  if (deleted) parts.push(`${deleted} deleted`);
+  if (updated) parts.push(`${updated} updated`);
+
+  const verbs = parts.length ? parts.join(', ') : 'updates';
+  const count = slideIds?.length ?? updated ?? 0;
+  const plural = count === 1 ? '' : 's';
+  return `Edited ${count} slide${plural} — ${verbs}.`;
+}
+
 export function formatNotification(msg: string): string {
+  if (msg === undefined || msg === null) {
+    return '';
+  }
+
+  let normalized = typeof msg === 'string' ? msg : String(msg);
+  normalized = normalized.trim();
+
+  if (!normalized.length) {
+    return '';
+  }
+
+  if (normalized === '[object Object]') {
+    return 'Updated slides.';
+  }
+
   try {
-    if (msg.startsWith('\uD83D\uDCE6 Parsed Payload: ')) {
-      const payload = JSON.parse(msg.replace('\uD83D\uDCE6 Parsed Payload: ', ''));
+    if (normalized.startsWith('\uD83D\uDCE6 Parsed Payload: ')) {
+      const payload = JSON.parse(normalized.replace('\uD83D\uDCE6 Parsed Payload: ', ''));
       if (payload.action === 'projectUpdated') {
         return `Project ${payload.projectId} was updated.`;
       }
@@ -27,10 +64,28 @@ export function formatNotification(msg: string): string {
         return `Timeline updated on project ${payload.projectId}.`;
       }
     }
-  } catch {
-    // fallback to raw message
+
+    if (normalized.startsWith('{') && normalized.endsWith('}')) {
+      const parsed = JSON.parse(normalized);
+      if (parsed) {
+        if (typeof parsed.text === 'string' && parsed.text.trim().length) {
+          return parsed.text;
+        }
+
+        if (parsed.type === 'slide_digest') {
+          return formatSlideDigest(parsed);
+        }
+
+        if (typeof parsed.title === 'string' && parsed.title.trim().length) {
+          return parsed.title;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('[notifications] Failed to format message payload', error);
   }
-  return msg;
+
+  return normalized;
 }
 
 function formatTimeAgo(dateString: string): string {

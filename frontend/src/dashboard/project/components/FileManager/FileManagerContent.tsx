@@ -27,7 +27,7 @@ interface FileManagerContentProps {
   onFileClick: (file: FileItem, index: number) => void;
   onSelectionChange: (url: string) => void;
   isSelected: (url: string) => boolean;
-  onDownloadSingle: (url: string) => void;
+  onDownloadSingle: (file: FileItem) => void;
   onDeleteSingle: (url: string) => void;
   canDelete: boolean;
   folderKey: string;
@@ -188,7 +188,7 @@ export const FileManagerContent = ({
                     <td>
                       <button
                         className={styles.iconButton}
-                        onClick={() => onDownloadSingle(file.url)}
+                        onClick={() => onDownloadSingle(file)}
                         aria-label="Download file"
                       >
                         <FontAwesomeIcon icon={faDownload} />

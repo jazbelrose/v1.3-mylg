@@ -15,6 +15,7 @@ import pLimit from "../../../../../shared/utils/pLimit";
 import type { Message } from "../../../../../app/contexts/DataProvider";
 import type { FileItem, Project } from "../../FileManager/FileManagerTypes";
 import { getFileKind } from "../../FileManager/FileManagerUtils";
+import { downloadViaAnchor } from "../../../../../shared/utils/download";
 
 interface UseFileTransfersParams {
   activeProject: Project;
@@ -390,7 +391,15 @@ export const useFileTransfers = ({
     [handleDelete, setSelectedItems]
   );
 
-  const handleDownloadSingle = useCallback((url: string) => initiateDownload(url), []);
+  const handleDownloadSingle = useCallback(async (file: FileItem) => {
+    try {
+      // Force blob for signed/cross-origin URLs for reliable download behavior
+      await downloadViaAnchor(file.url, file.fileName, { forceBlob: true });
+    } catch (err) {
+      console.error("Download failed", err);
+      notify("error", "Could not download file.");
+    }
+  }, []);
 
   useEffect(
     () => () => {

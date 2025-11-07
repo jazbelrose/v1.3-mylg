@@ -25,6 +25,10 @@ env:
   NOTIFICATIONS_TABLE: Notifications
   NOTIFICATIONS_BY_USER_INDEX: userId-index
 
+  # ---- Slide notifications digesting
+  SLIDE_DIGEST_WINDOW_SEC: 300
+  SLIDE_INACTIVITY_SEC: 60
+
   # ---- Projects / workflow
   PROJECTS_TABLE: Projects
   PROJECTS_VISIBILITY_INDEX: visibility-index

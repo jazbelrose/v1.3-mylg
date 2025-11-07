@@ -381,6 +381,7 @@ export function useTasksOverview() {
     openTasks,
     undatedTasks,
     completedThisWeek,
+    completedTasks,
   } = useMemo(() => {
     const now = new Date();
     const weekStart = startOfWeek(now);
@@ -390,6 +391,7 @@ export function useTasksOverview() {
     let completedCount = 0;
     let dueSoonCount = 0;
     let overdueCount = 0;
+    const doneTasks: NormalizedTask[] = [];
 
     const groupMap = new Map<
       string,
@@ -406,28 +408,29 @@ export function useTasksOverview() {
       const isDone = task.status === "done";
       const completionReference = task.completedAt ?? due;
 
-      if (
-        isDone &&
-        completionReference &&
-        completionReference >= weekStart &&
-        completionReference <= weekEnd
-      ) {
-        completedCount += 1;
+      if (isDone) {
+        doneTasks.push(task);
+        if (
+          completionReference &&
+          completionReference >= weekStart &&
+          completionReference <= weekEnd
+        ) {
+          completedCount += 1;
+        }
+        return;
       }
 
       if (!due) {
         return;
       }
 
-      if (!isDone) {
-        if (due < todayStart) {
-          overdueCount += 1;
-        } else if (due <= weekEnd) {
-          dueSoonCount += 1;
-        }
+      if (due < todayStart) {
+        overdueCount += 1;
+      } else if (due <= weekEnd) {
+        dueSoonCount += 1;
       }
 
-      if (!isDone && due >= weekStart && due <= weekEnd) {
+      if (due >= weekStart && due <= weekEnd) {
         const key = task.dueKey || `${due.getFullYear()}-${due.getMonth()}-${due.getDate()}`;
         let group = groupMap.get(key);
         if (!group) {
@@ -482,15 +485,8 @@ export function useTasksOverview() {
       .filter((task) => !task.dueDate && task.status !== "done")
       .map(toListItem);
 
-    const completedThisWeek = tasks
-      .filter((task) => {
-        if (task.status !== "done") {
-          return false;
-        }
-
-        const completedOn = task.completedAt ?? task.dueDate;
-        return Boolean(completedOn && completedOn >= weekStart && completedOn <= weekEnd);
-      })
+    const completedTasks = doneTasks
+      .slice()
       .sort((a, b) => {
         const aCompleted = a.completedAt ?? a.dueDate;
         const bCompleted = b.completedAt ?? b.dueDate;
@@ -501,6 +497,11 @@ export function useTasksOverview() {
       })
       .map(toListItem);
 
+    const completedThisWeek = completedTasks.filter((task) => {
+      const completedOn = task.completedAt ?? task.dueDate;
+      return Boolean(completedOn && completedOn >= weekStart && completedOn <= weekEnd);
+    });
+
     return {
       completed: completedCount,
       dueSoon: dueSoonCount,
@@ -510,6 +511,7 @@ export function useTasksOverview() {
       openTasks,
       undatedTasks,
       completedThisWeek,
+      completedTasks,
     };
   }, [tasks, toListItem]);
 
@@ -579,6 +581,7 @@ export function useTasksOverview() {
     openTasks,
     undatedTasks,
     completedThisWeek,
+    completedTasks,
     navigateToProject,
     refreshTasks,
     projectOptions,

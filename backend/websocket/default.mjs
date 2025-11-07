@@ -375,6 +375,31 @@ async function broadcastToUser(userId, payload) {
   }
 }
 
+function normalizeNotificationMessage(message) {
+  if (message === undefined || message === null) {
+    return "";
+  }
+
+  if (typeof message === "string") {
+    return message;
+  }
+
+  if (typeof message === "object") {
+    if (typeof message.text === "string" && message.text.trim().length) {
+      return message.text;
+    }
+
+    try {
+      return JSON.stringify(message);
+    } catch (err) {
+      console.warn("⚠️ Failed to stringify notification payload", err);
+      return String(message);
+    }
+  }
+
+  return String(message);
+}
+
 async function saveNotification(userId, message, dedupeId, timestamp, senderId, projectId) {
   console.log("🔔 [saveNotification] Called with userId:", userId);
 
@@ -382,6 +407,8 @@ async function saveNotification(userId, message, dedupeId, timestamp, senderId, 
     console.log("ℹ️ NOTIFICATIONS_TABLE not set; skipping saveNotification");
     return;
   }
+
+  const safeMessage = normalizeNotificationMessage(message);
 
   try {
     const existing = await dynamoDb.send(new QueryCommand({
@@ -404,7 +431,7 @@ async function saveNotification(userId, message, dedupeId, timestamp, senderId, 
       "timestamp#uuid": sortKeyValue,
       timestamp: ts,
       dedupeId,
-      message,
+      message: safeMessage,
       read: false,
       senderId,
       projectId,

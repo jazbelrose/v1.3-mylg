@@ -1,10 +1,11 @@
 // components/SlidesSidebar.tsx - Sidebar with slide thumbnails
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, GripVertical } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
+import "./SlidesSidebar.css";
 
 interface SlideThumbnailProps {
   slide: Slide;
@@ -12,7 +13,7 @@ interface SlideThumbnailProps {
 }
 
 const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => {
-  const { thumbnailUrl, isLoading, error } = useThumbnail({
+  const { thumbnailUrl, isLoading, error, invalidate } = useThumbnail({
     projectId,
     slideId: slide.id,
     content: slide.content,
@@ -26,19 +27,23 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
   const [activeVisible, setActiveVisible] = useState(false);
   const fadeTimeoutRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+  const attemptedSrcRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!resolvedSrc) {
       setPreviousSrc(null);
       setActiveSrc(null);
       setActiveVisible(false);
+      attemptedSrcRef.current = null;
       return;
     }
 
     if (resolvedSrc === activeSrc) {
+      attemptedSrcRef.current = null;
       return;
     }
 
+    attemptedSrcRef.current = null;
     setPreviousSrc(activeSrc);
     setActiveSrc(resolvedSrc);
   }, [resolvedSrc, activeSrc]);
@@ -88,118 +93,69 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
     };
   }, [activeVisible, activeSrc]);
 
-  useEffect(() => () => {
-    if (fadeTimeoutRef.current) {
-      window.clearTimeout(fadeTimeoutRef.current);
-      fadeTimeoutRef.current = null;
-    }
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (fadeTimeoutRef.current) {
+        window.clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
+      }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    },
+    []
+  );
 
-  const showFallback = (!!error || (!activeSrc && !previousSrc && !isLoading));
+  const showFallback = !!error || (!activeSrc && !previousSrc && !isLoading);
+
+  const handleImageError = useCallback(() => {
+    if (!uiThumbsEnabled || !resolvedSrc) {
+      return;
+    }
+
+    if (attemptedSrcRef.current === resolvedSrc) {
+      setActiveVisible(false);
+      setPreviousSrc(null);
+      setActiveSrc(null);
+      return;
+    }
+
+    attemptedSrcRef.current = resolvedSrc;
+    setActiveVisible(false);
+    setPreviousSrc(null);
+    setActiveSrc(null);
+    invalidate();
+  }, [invalidate, resolvedSrc, uiThumbsEnabled]);
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "120px",
-        backgroundColor: "#f9f9f9",
-        border: "1px solid #e0e0e0",
-        borderRadius: "4px",
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+    <div className="slides-sidebar__thumbnail" aria-busy={isLoading}>
       {previousSrc && (
         <img
           src={previousSrc}
           aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: activeVisible ? 0 : 1,
-            transition: "opacity 120ms ease-out",
-          }}
+          className={`slides-sidebar__thumbnail-image slides-sidebar__thumbnail-image--previous ${activeVisible ? "is-hidden" : "is-visible"}`}
         />
       )}
       {activeSrc && (
         <img
           src={activeSrc}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: activeVisible ? 1 : 0,
-            transition: "opacity 120ms ease-out",
-          }}
+          onError={handleImageError}
+          className={`slides-sidebar__thumbnail-image slides-sidebar__thumbnail-image--current ${activeVisible ? "is-visible" : "is-hidden"}`}
         />
       )}
       {showFallback && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            textAlign: "center",
-            padding: "8px",
-            position: "relative",
-            zIndex: 1,
-            width: "100%",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "16px",
-              color: "#666",
-              fontWeight: "bold",
-              maxWidth: "100%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
+        <div className="slides-sidebar__thumbnail-fallback">
+          <div className="slides-sidebar__thumbnail-title">
             {slide.title || `Slide ${slide.order || 0}`}
           </div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#999",
-              maxWidth: "100%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
+          <div className="slides-sidebar__thumbnail-subtitle">
             {error ? "Preview unavailable" : "No preview"}
           </div>
         </div>
       )}
       {isLoading && uiThumbsEnabled && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "8px",
-            right: "8px",
-            background: "rgba(255,255,255,0.8)",
-            borderRadius: "12px",
-            padding: "2px 8px",
-            fontSize: "10px",
-            color: "#555",
-          }}
-        >
-          Updating…
-        </div>
+        <div className="slides-sidebar__thumbnail-status">Updating…</div>
       )}
     </div>
   );
@@ -222,7 +178,6 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onReorderSlides,
   projectId,
 }) => {
-  // Warm thumbnails for visible slides and nearby slides for performance
   const uiThumbsEnabled = isUiThumbsEnabled();
 
   useEffect(() => {
@@ -234,6 +189,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
       console.warn("Failed to warm thumbnails:", err);
     });
   }, [slides, projectId, uiThumbsEnabled]);
+
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(index));
@@ -247,8 +203,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
     const dragIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
-    
-    if (dragIndex === dropIndex || !onReorderSlides) {
+
+    if (Number.isNaN(dragIndex) || dragIndex === dropIndex || !onReorderSlides) {
       return;
     }
 
@@ -256,9 +212,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
     const [draggedSlide] = newSlides.splice(dragIndex, 1);
     newSlides.splice(dropIndex, 0, draggedSlide);
 
-    // Update order property
-    const reorderedSlides = newSlides.map((slide, idx) => ({
-      ...slide,
+    const reorderedSlides = newSlides.map((slideItem, idx) => ({
+      ...slideItem,
       order: idx,
     }));
 
@@ -266,115 +221,55 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   };
 
   return (
-    <div
-      style={{
-        width: "240px",
-        height: "100%",
-        backgroundColor: "#f5f5f5",
-        borderRight: "1px solid #ddd",
-        display: "flex",
-        flexDirection: "column",
-        overflowY: "auto",
-        padding: "12px",
-      }}
-    >
-      {/* New Slide Button */}
-      <button
-        onClick={onNewSlide}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-          padding: "10px",
-          marginBottom: "12px",
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
-          fontWeight: "500",
-          fontSize: "14px",
-        }}
-        onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#0056b3")}
-        onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#007bff")}
-      >
+    <aside className="slides-sidebar">
+      <button type="button" onClick={onNewSlide} className="slides-sidebar__new">
         <Plus size={18} />
         New Slide
       </button>
 
-      {/* Slide Thumbnails */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        {slides.map((slide, index) => (
-          <div
-            key={slide.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, index)}
-            onClick={() => onSlideSelect(slide.id)}
-            style={{
-              position: "relative",
-              padding: "8px",
-              backgroundColor: activeSlideId === slide.id ? "#e3f2fd" : "white",
-              border: activeSlideId === slide.id ? "2px solid #007bff" : "1px solid #ddd",
-              borderRadius: "6px",
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              gap: "6px",
-              transition: "all 0.2s",
-            }}
-            onMouseOver={(e) => {
-              if (activeSlideId !== slide.id) {
-                e.currentTarget.style.backgroundColor = "#f0f0f0";
-              }
-            }}
-            onMouseOut={(e) => {
-              if (activeSlideId !== slide.id) {
-                e.currentTarget.style.backgroundColor = "white";
-              }
-            }}
-          >
-            {/* Drag Handle */}
+      <div className="slides-sidebar__list" role="list">
+        {slides.map((slide, index) => {
+          const isActive = activeSlideId === slide.id;
+
+          const handleKeySelect = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSlideSelect(slide.id);
+            }
+          };
+
+          return (
             <div
-              style={{
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-                cursor: "grab",
-              }}
+              key={slide.id}
+              role="listitem"
+              className={`slides-sidebar__item${isActive ? " is-active" : ""}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, index)}
+              onClick={() => onSlideSelect(slide.id)}
+              onKeyDown={handleKeySelect}
+              tabIndex={0}
             >
-              <GripVertical size={16} color="#999" />
-            </div>
-
-            {/* Slide Number */}
-            <div style={{ fontSize: "12px", fontWeight: "600", color: "#666" }}>
-              Slide {index + 1}
-            </div>
-
-            {/* Thumbnail */}
-            <SlideThumbnail slide={slide} projectId={projectId} />
-
-            {/* Slide Title */}
-            {slide.title && (
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#333",
-                  fontWeight: "500",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {slide.title}
+              <div className="slides-sidebar__item-header">
+                <span className="slides-sidebar__index">Slide {index + 1}</span>
+                <span className="slides-sidebar__drag-handle" aria-hidden>
+                  <GripVertical size={16} />
+                </span>
               </div>
-            )}
-          </div>
-        ))}
+
+              <SlideThumbnail slide={slide} projectId={projectId} />
+
+              {slide.title && (
+                <div className="slides-sidebar__title" title={slide.title}>
+                  {slide.title}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </aside>
   );
 };
 
