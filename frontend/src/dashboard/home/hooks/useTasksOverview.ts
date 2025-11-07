@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useData } from "@/app/contexts/useData";
 import type { Project } from "@/app/contexts/DataProvider";
-import { fetchTasks } from "@/shared/utils/api";
+import { fetchTasks, updateTask } from "@/shared/utils/api";
 import type { QuickCreateTaskLocation } from "../components/QuickCreateTaskModal.types";
 import { getColor } from "@/shared/utils/colorUtils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
@@ -554,6 +554,31 @@ export function useTasksOverview() {
     [tasksById, toListItem],
   );
 
+  const markTaskDone = useCallback(
+    async (taskId: string) => {
+      const task = tasksById.get(taskId);
+      if (!task) return;
+
+      try {
+        await updateTask({
+          projectId: task.projectId,
+          taskId: task.id,
+          title: task.title,
+          status: "done",
+        });
+        await refreshTasks();
+      } catch (error) {
+        console.error("Failed to mark task done", error);
+        try {
+          await refreshTasks();
+        } catch (refreshError) {
+          console.error("Failed to refresh tasks after mark done error", refreshError);
+        }
+      }
+    },
+    [tasksById, refreshTasks],
+  );
+
   const projectOptions: TasksOverviewProjectOption[] = useMemo(
     () =>
       projects
@@ -588,6 +613,7 @@ export function useTasksOverview() {
     primaryProjectId,
     primaryProjectName,
     getTaskById,
+    markTaskDone,
   };
 }
 
