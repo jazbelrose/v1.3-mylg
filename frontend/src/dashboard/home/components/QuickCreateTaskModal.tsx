@@ -44,29 +44,9 @@ function toTokenArray(value?: string | string[] | null): string[] {
   return [];
 }
 
-function extractUserIdFromToken(token: string): string | null {
-  if (!token) return null;
-  const trimmed = token.trim();
-  if (!trimmed) return null;
-  if (trimmed.includes("__")) {
-    const parts = trimmed.split("__");
-    const last = parts[parts.length - 1]?.trim();
-    if (last) return last;
-  }
-  return trimmed;
-}
-
 function parseAssigneeTokensInput(value?: string | string[] | null): string[] {
   const tokens = toTokenArray(value);
   return Array.from(new Set(tokens.map((token) => token.trim()).filter(Boolean)));
-}
-
-function tokensToAssigneeIds(tokens: string[]): string[] {
-  const ids = tokens
-    .map((token) => extractUserIdFromToken(token))
-    .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
-    .map((id) => id.trim());
-  return Array.from(new Set(ids));
 }
 
 function generateAttachmentId(): string {
@@ -934,15 +914,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setErrorMessage(null);
   };
 
-  const handleAssigneeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const values = Array.from(event.target.selectedOptions)
-      .map((option) => option.value)
-      .filter((value) => typeof value === "string" && value.trim().length > 0);
-    setAssigneeTokens(values);
-    setSuccessMessage(null);
-    setErrorMessage(null);
-  };
-
   const handleDueDateInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setDueDate(event.target.value);
     setSuccessMessage(null);
@@ -1119,16 +1090,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       };
 
       const trimmedAssigneeTokens = assigneeTokens.map((token) => token.trim()).filter(Boolean);
-      const derivedAssigneeIds = tokensToAssigneeIds(trimmedAssigneeTokens);
 
       if (trimmedAssigneeTokens.length) {
         payload.assigneeTokens = trimmedAssigneeTokens;
-      }
-
-      if (derivedAssigneeIds.length) {
-        payload.assigneeIds = derivedAssigneeIds;
-        payload.assigneeId = derivedAssigneeIds[0];
-      } else if (trimmedAssigneeTokens.length) {
+        payload.assigneeIds = trimmedAssigneeTokens;
         payload.assigneeId = trimmedAssigneeTokens[0];
       } else if (isEditing) {
         payload.assigneeId = "";
