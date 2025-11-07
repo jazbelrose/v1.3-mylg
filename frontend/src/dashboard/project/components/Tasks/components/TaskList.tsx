@@ -22,6 +22,7 @@ type TaskListProps = {
   isTaskMarking: (taskId: string) => boolean;
   formatDueLabel: (task: QuickTask) => string;
   taskListRef: React.RefObject<HTMLUListElement>;
+  canApproveTask?: (task: QuickTask) => boolean;
 };
 
 const BADGE_CLASS_BY_TONE: Record<TaskStatusTone, string> = {
@@ -40,6 +41,7 @@ const TaskList: React.FC<TaskListProps> = ({
   isTaskMarking,
   formatDueLabel,
   taskListRef,
+  canApproveTask,
 }) => {
   const statusContext = createTaskStatusContext();
 
@@ -141,7 +143,7 @@ const TaskList: React.FC<TaskListProps> = ({
                     "Marking…"
                   ) : (
                     <>
-                      <Check aria-hidden="true" size={16} /> Mark done
+                      <Check aria-hidden="true" size={16} /> {canApproveTask?.(task) ? "Done" : "Submit for review"}
                     </>
                   )}
                 </Button>

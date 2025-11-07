@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui";
-import { fetchTasks, updateTask, type Task as ApiTaskPayload } from "@/shared/utils/api";
+import { fetchTasks, updateTask, requestTaskReview, approveTask, type Task as ApiTaskPayload } from "@/shared/utils/api";
+import { useUser } from "@/app/contexts/useUser";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
@@ -85,6 +86,7 @@ type TaskListItemProps = {
   isMarking: boolean;
   formatDue: (task: QuickTask) => string;
   statusContext: TaskStatusContext;
+  canApprove: boolean;
 };
 
 const TaskListItem: React.FC<TaskListItemProps> = ({
@@ -96,6 +98,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
   isMarking,
   formatDue,
   statusContext,
+  canApprove,
 }) => {
   const { label: statusLabel, category } = getTaskStatusBadge(task.status, task.dueDate, statusContext);
   const baseStatusLabel = formatStatusLabel(task.status);
@@ -180,7 +183,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
                 onMarkDone(task.id);
               }}
             >
-              {isMarking ? "Marking…" : "Mark done"}
+              {isMarking ? "Marking…" : canApprove ? "Done" : "Submit for review"}
             </Button>
           ) : null}
           <Button
@@ -211,6 +214,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
   projectColor,
 }) => {
   const navigate = useNavigate();
+  const { userId, isAdmin } = useUser();
   const [tasks, setTasks] = useState<QuickTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -509,57 +513,96 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
       setTaskMarkingState(taskId, true);
 
       try {
-        const dueDateIso = resolveTaskDueDateIso(task);
-        const payload: ApiTaskPayload = {
-          projectId: resolvedProjectId,
-          taskId,
-          title: task.title,
-          status: "done",
-        };
+        const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
+        const isReviewer = reviewerId && userId && reviewerId === userId;
+        const canApprove = isAdmin || isReviewer;
 
-        if (task.description) {
-          payload.description = task.description;
+        let updatedTask: ApiTaskPayload;
+        if (canApprove) {
+          // User is reviewer or admin: approve the task
+          updatedTask = await approveTask(resolvedProjectId, taskId, { note: "" });
+        } else {
+          // User is assignee: request review
+          updatedTask = await requestTaskReview(resolvedProjectId, taskId, { note: "" });
         }
 
-        if (task.assignedTo) {
-          payload.assigneeId = task.assignedTo;
-        }
-
-        if (dueDateIso) {
-          payload.dueDate = dueDateIso;
-        }
-
-        const rawBudgetItemId = (task.raw as { budgetItemId?: string | null }).budgetItemId;
-        if (typeof rawBudgetItemId === "string") {
-          payload.budgetItemId = rawBudgetItemId;
-        } else if (rawBudgetItemId === null) {
-          payload.budgetItemId = null;
-        }
-
-        await updateTask(payload);
+        // Update local state with the returned task
         setTasks((currentTasks) =>
           currentTasks.map((currentTask) =>
             currentTask.id === taskId
               ? {
                   ...currentTask,
-                  status: "done",
-                  raw: { ...currentTask.raw, status: "done" },
+                  status: updatedTask.status || "done",
+                  raw: { ...currentTask.raw, ...updatedTask },
                 }
               : currentTask,
           ),
         );
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Failed to mark task done", error);
-        try {
-          await refreshTasks();
-        } catch (refreshError) {
-          console.error("Failed to refresh tasks after mark done error", refreshError);
+        // Fallback to old PATCH endpoint if new endpoints return 404
+        const apiError = error as { status?: number };
+        if (apiError?.status === 404) {
+          try {
+            const dueDateIso = resolveTaskDueDateIso(task);
+            const payload: ApiTaskPayload = {
+              projectId: resolvedProjectId,
+              taskId,
+              title: task.title,
+              status: "done",
+            };
+
+            if (task.description) {
+              payload.description = task.description;
+            }
+
+            if (task.assignedTo) {
+              payload.assigneeId = task.assignedTo;
+            }
+
+            if (dueDateIso) {
+              payload.dueDate = dueDateIso;
+            }
+
+            const rawBudgetItemId = (task.raw as { budgetItemId?: string | null }).budgetItemId;
+            if (typeof rawBudgetItemId === "string") {
+              payload.budgetItemId = rawBudgetItemId;
+            } else if (rawBudgetItemId === null) {
+              payload.budgetItemId = null;
+            }
+
+            await updateTask(payload);
+            setTasks((currentTasks) =>
+              currentTasks.map((currentTask) =>
+                currentTask.id === taskId
+                  ? {
+                      ...currentTask,
+                      status: "done",
+                      raw: { ...currentTask.raw, status: "done" },
+                    }
+                  : currentTask,
+              ),
+            );
+          } catch (fallbackError) {
+            console.error("Fallback updateTask also failed", fallbackError);
+            try {
+              await refreshTasks();
+            } catch (refreshError) {
+              console.error("Failed to refresh tasks after fallback error", refreshError);
+            }
+          }
+        } else {
+          try {
+            await refreshTasks();
+          } catch (refreshError) {
+            console.error("Failed to refresh tasks after mark done error", refreshError);
+          }
         }
       } finally {
         setTaskMarkingState(taskId, false);
       }
     },
-    [tasks, projectId, openTaskEditor, setTaskMarkingState, refreshTasks],
+    [tasks, projectId, openTaskEditor, setTaskMarkingState, refreshTasks, userId, isAdmin],
   );
 
   const handleMarkerClick = useCallback(
@@ -735,19 +778,25 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
             <div className={styles.loading}>Loading tasks…</div>
           ) : tasks.length ? (
             <ul className={styles.taskList}>
-              {drawerTasks.map((task) => (
-                <TaskListItem
-                  key={task.id}
-                  task={task}
-                  isActive={task.id === activeTaskId}
-                  onSelect={handleTaskSelect}
-                  onEdit={handleEditTask}
-                  onMarkDone={handleMarkTaskDone}
-                  isMarking={isTaskBeingMarked(task.id)}
-                  formatDue={formatDueLabel}
-                  statusContext={statusContext}
-                />
-              ))}
+              {drawerTasks.map((task) => {
+                const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
+                const isReviewer = reviewerId && userId && reviewerId === userId;
+                const canApprove = isAdmin || isReviewer;
+                return (
+                  <TaskListItem
+                    key={task.id}
+                    task={task}
+                    isActive={task.id === activeTaskId}
+                    onSelect={handleTaskSelect}
+                    onEdit={handleEditTask}
+                    onMarkDone={handleMarkTaskDone}
+                    isMarking={isTaskBeingMarked(task.id)}
+                    formatDue={formatDueLabel}
+                    statusContext={statusContext}
+                    canApprove={canApprove}
+                  />
+                );
+              })}
             </ul>
           ) : (
             <div className={styles.empty}>No tasks yet. Create one to get started.</div>
@@ -792,6 +841,11 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
         onTouchEnd={handleTouchEnd}
         sheetRef={sheetRef}
         taskListRef={drawerTaskListRef}
+        canApproveTask={(task) => {
+          const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
+          const isReviewer = reviewerId && userId && reviewerId === userId;
+          return isAdmin || isReviewer;
+        }}
       />
       <QuickCreateTaskModal
         open={quickCreateOpen}

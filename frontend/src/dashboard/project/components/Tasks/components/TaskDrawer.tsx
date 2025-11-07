@@ -46,6 +46,7 @@ type TaskDrawerProps = {
   onTouchEnd: () => void;
   sheetRef: React.RefObject<HTMLDivElement>;
   taskListRef: React.RefObject<HTMLUListElement>;
+  canApproveTask?: (task: QuickTask) => boolean;
 };
 
 const TaskDrawer: React.FC<TaskDrawerProps> = ({
@@ -83,6 +84,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({
   onTouchEnd,
   sheetRef,
   taskListRef,
+  canApproveTask,
 }) => {
   if (!open || typeof document === "undefined") {
     return null;
@@ -282,6 +284,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({
                 isTaskMarking={isTaskMarking}
                 formatDueLabel={formatDueLabel}
                 taskListRef={taskListRef}
+                canApproveTask={canApproveTask}
               />
             ) : (
               <div className={styles.empty}>No tasks yet. Create one to get started.</div>

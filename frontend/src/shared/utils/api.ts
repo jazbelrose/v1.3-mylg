@@ -750,6 +750,58 @@ export async function deleteTask({ projectId, taskId }: { projectId: string; tas
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
+// Task Status Transitions
+// ───────────────────────────────────────────────────────────────────────────────
+
+export async function requestTaskReview(projectId: string, taskId: string, body: { note?: string; reviewerId?: string } = {}): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for requestTaskReview');
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review/request`;
+  return apiFetch<Task>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function approveTask(projectId: string, taskId: string, body: { note?: string } = {}): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for approveTask');
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review/approve`;
+  return apiFetch<Task>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function requestTaskChanges(projectId: string, taskId: string, body: { note?: string } = {}): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for requestTaskChanges');
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review/request_changes`;
+  return apiFetch<Task>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function archiveTask(projectId: string, taskId: string): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for archiveTask');
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/archive`;
+  return apiFetch<Task>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export async function unarchiveTask(projectId: string, taskId: string): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for unarchiveTask');
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/unarchive`;
+  return apiFetch<Task>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
 // Events / Timeline
 // ───────────────────────────────────────────────────────────────────────────────
 
