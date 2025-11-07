@@ -1,5 +1,5 @@
 // components/SlideEditor.tsx - Editor for a single slide
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import SlideToolbar from "./SlideToolbar";
 import { Slide } from "@/app/contexts/DataProvider";
@@ -50,6 +50,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onResetZoom,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const [fitScale, setFitScale] = useState(1);
 
   const { saveSlide, markDirty } = useSlidePersistence({
     projectId,
@@ -75,11 +77,63 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     setToolbarActions(actions);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const calculateFitScale = () => {
+      const target = canvasRef.current;
+      if (!target) {
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const styles = window.getComputedStyle(target);
+      const paddingX =
+        parseFloat(styles.paddingLeft || "0") + parseFloat(styles.paddingRight || "0");
+      const paddingY =
+        parseFloat(styles.paddingTop || "0") + parseFloat(styles.paddingBottom || "0");
+
+      const availableWidth = rect.width - paddingX;
+      const availableHeight = rect.height - paddingY;
+
+      if (availableWidth <= 0 || availableHeight <= 0) {
+        setFitScale(1);
+        return;
+      }
+
+      const rawScale = Math.min(availableWidth / width, availableHeight / height);
+      const nextScale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
+      setFitScale(Math.min(1, nextScale));
+    };
+
+    calculateFitScale();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            calculateFitScale();
+          })
+        : null;
+
+    if (canvasRef.current && resizeObserver) {
+      resizeObserver.observe(canvasRef.current);
+    }
+
+    window.addEventListener("resize", calculateFitScale);
+
+    return () => {
+      window.removeEventListener("resize", calculateFitScale);
+      resizeObserver?.disconnect();
+    };
+  }, [width, height]);
+
   // Keyboard shortcuts for zoom
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
-      
+
       if (isCtrlOrCmd) {
         switch (event.key) {
           case '=':
@@ -148,8 +202,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   ) : null;
 
   const scale = zoom / 100;
-  const scaledWidth = width * scale;
-  const scaledHeight = height * scale;
+  const appliedScale = Math.max(scale * fitScale, 0.01);
+  const scaledWidth = width * appliedScale;
+  const scaledHeight = height * appliedScale;
 
   return (
     <div
@@ -160,7 +215,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     >
       <DropdownProvider>{customToolbar}</DropdownProvider>
 
-      <div className="slide-editor__canvas">
+      <div className="slide-editor__canvas" ref={canvasRef}>
         <div
           className="slide-editor__canvas-scaler"
           style={{
@@ -173,7 +228,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
             style={{
               width: `${width}px`,
               height: `${height}px`,
-              transform: `scale(${scale})`,
+              transform: `scale(${appliedScale})`,
               transformOrigin: "center center",
             }}
           >
