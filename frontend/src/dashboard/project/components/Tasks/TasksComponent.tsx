@@ -695,8 +695,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
             {/* Pill: open Tasks page filtered to this project */}
             <Button
               variant="outline"
-              size="sm"
-              className={styles.projectTasksPill}
               onClick={() => {
                 // Navigate to the global tasks drawer and pass current projectId in state
                 if (!projectId) {
@@ -710,8 +708,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
               
               Project tasks
             </Button>
-            <Button variant="outline" onClick={handleOpenDrawer} disabled={loading}> <MapPin aria-hidden="true" size={14} />
-              Open map view
+            <Button variant="outline" onClick={handleOpenDrawer} disabled={loading}> <MapPin aria-hidden="true" size={14} />{" "}Open map view
             </Button>
           </div>
         </header>
