@@ -277,6 +277,60 @@
   gap: 12px;
 }
 
+.sectionTitleRowWithFilters {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.sectionTitleColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+  flex: 1 1 auto;
+}
+
+.completedFilters {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  flex-wrap: wrap;
+}
+
+.completedFilter {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.completedFilter:hover,
+.completedFilter:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.completedFilterActive {
+  color: #0d1014;
+  background: #f6f7fb;
+  box-shadow: 0 6px 18px rgba(255, 255, 255, 0.18);
+}
+
 .sectionTitle {
   margin: 0;
   font-size: 1.2rem;
