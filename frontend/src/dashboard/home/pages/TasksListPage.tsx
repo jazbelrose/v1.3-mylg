@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, ChevronDown } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -75,6 +75,20 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, emptyLabel, onStart, showCom
                   {task.projectName && (displayDate || displayTimeLabel) ? " · " : ""}
                   {formatDateLabel(displayDate, displayTimeLabel)}
                 </span>
+                {(task.createdByName || task.assigneeName) && (
+                  <div className={styles.taskAssignmentRow}>
+                    {task.createdByName ? (
+                      <span className={styles.taskAssignmentItem}>
+                        Assigned by {task.createdByName}
+                      </span>
+                    ) : null}
+                    {task.assigneeName ? (
+                      <span className={styles.taskAssignmentItem}>
+                        Assigned to {task.assigneeName}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </button>
             <div className={styles.taskActions}>
@@ -259,8 +273,25 @@ const TasksListPage: React.FC = () => {
   }, [dueSoonTasks]);
 
   // Optional project filter: if the caller passed a projectId in location.state, show only that project's tasks
-  const projectFilterId = (location.state as { projectId?: string } | undefined)?.projectId ?? undefined;
-  const projectFilterName = projectOptions.find((p) => p.id === projectFilterId)?.name;
+  const initialProjectFilterId = (location.state as { projectId?: string } | undefined)?.projectId ?? undefined;
+  const [projectFilterId, setProjectFilterId] = useState(initialProjectFilterId);
+  const projectFilterName = projectFilterId
+    ? projectOptions.find((p) => p.id === projectFilterId)?.name ?? projectFilterId
+    : undefined;
+
+  useEffect(() => {
+    setProjectFilterId(initialProjectFilterId);
+  }, [initialProjectFilterId]);
+
+  const handleProjectFilterChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value;
+    setProjectFilterId(value || undefined);
+  }, []);
+
+  const projectFilterOptions = useMemo(
+    () => [{ id: "", name: "All projects" }, ...projectOptions],
+    [projectOptions],
+  );
 
   const filteredOverdue = projectFilterId ? overdueTasks.filter((t) => t.projectId === projectFilterId) : overdueTasks;
   const filteredDueSoonGroups = projectFilterId
@@ -322,16 +353,36 @@ const TasksListPage: React.FC = () => {
                 </h1>
                 <p className={styles.subtitle}>{introMessage}</p>
               </div>
-              <button
-                type="button"
-                className={styles.primaryAction}
-                onClick={openCreateModal}
-                disabled={!projectOptions.length}
-                aria-label="Create a task for any project"
-              >
-                <Plus size={18} strokeWidth={2.5} />
-                Create task
-              </button>
+              <div className={styles.headerActions}>
+                <div className={styles.filterGroup}>
+                  <label htmlFor="tasks-project-filter" className={styles.filterLabel}>
+                    Project
+                  </label>
+                  <select
+                    id="tasks-project-filter"
+                    className={styles.filterSelect}
+                    value={projectFilterId ?? ""}
+                    onChange={handleProjectFilterChange}
+                    disabled={!projectOptions.length}
+                  >
+                    {projectFilterOptions.map((project) => (
+                      <option key={project.id || "all"} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  className={styles.primaryAction}
+                  onClick={openCreateModal}
+                  disabled={!projectOptions.length}
+                  aria-label="Create a task for any project"
+                >
+                  <Plus size={18} strokeWidth={2.5} />
+                  Create task
+                </button>
+              </div>
             </header>
 
             <section className={styles.statsGrid} aria-label="Task summary">

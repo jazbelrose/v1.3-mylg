@@ -71,6 +71,8 @@ export type TasksOverviewListItem = {
   location?: QuickCreateTaskLocation;
   dueDateInput?: string | null;
   rawTask: RawTask & { projectId: string };
+  assigneeName?: string;
+  createdByName?: string;
 };
 
 export type TasksOverviewEvent = {
@@ -181,6 +183,37 @@ function normalizeTitle(value?: unknown): string {
   }
 
   return trimmed;
+}
+
+function getFirstNonEmptyString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
+function formatAssignmentLabel(value?: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const [candidate] = trimmed.split("__");
+  const normalized = candidate || trimmed;
+
+  if (normalized.includes("@")) {
+    return normalized;
+  }
+
+  const spaced = normalized
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+
+  return spaced || normalized;
 }
 
 function pickDue(raw: RawTask): { value: Date | null; key?: string; timeLabel?: string } {
@@ -348,6 +381,14 @@ export function useTasksOverview() {
             ? (raw as { assignedTo?: string }).assignedTo
             : undefined;
       const address = typeof raw.address === "string" ? raw.address : undefined;
+      const createdByName =
+        getFirstNonEmptyString(
+          raw.createdByName,
+          raw.createdByUsername,
+          raw.createdBy,
+          raw.createdByEmail,
+        ) ?? formatAssignmentLabel(raw.createdById);
+      const assigneeName = formatAssignmentLabel(assignee);
 
       return {
         id: task.id,
@@ -363,6 +404,8 @@ export function useTasksOverview() {
         completedTimeLabel: task.completedTimeLabel,
         description,
         assigneeId: assignee,
+        assigneeName,
+        createdByName,
         address,
         location: raw.location as QuickCreateTaskLocation,
         dueDateInput: toDateInputString(dueSource),
