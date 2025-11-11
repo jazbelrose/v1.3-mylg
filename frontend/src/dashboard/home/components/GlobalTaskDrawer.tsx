@@ -426,11 +426,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   </div>
                 </header>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
-                  <TaskSummary
-                    stats={stats}
-                    formatValue={formatStatValue}
-                    statusMessage={statusMessage}
-                  />
+                  <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={statusMessage} />
                   <p className={styles.desktopDrawerMapStatus}>{mapStatusMessage}</p>
                 </div>
               </>
@@ -452,31 +448,26 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                     }
                   }}
                 >
-                  <div className={styles.sheetHandle} aria-hidden="true">
+                  <div className={styles.sheetHandle}>
                     <span className={styles.sheetHandleBar} aria-hidden="true" />
                   </div>
-                  <header className={styles.sheetHeader}>
-                    <div className={styles.sheetTitleGroup}>
-                      <span className={styles.sheetTitle}>All tasks</span>
-                      <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
-                    </div>
-                  </header>
                 </div>
+                <header className={styles.sheetHeader}>
+                  <div className={styles.sheetTitleGroup}>
+                    <span className={styles.sheetTitle}>All tasks</span>
+                    <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
+                  </div>
+                </header>
                 <div className={styles.sheetSummary}>
-                  <TaskSummary
-                    stats={stats}
-                    formatValue={formatStatValue}
-                    statusMessage={statusMessage}
-                  />
-                  <p className={styles.desktopDrawerMapStatus}>{mapStatusMessage}</p>
+                  <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={statusMessage} />
                 </div>
               </>
             )}
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
                 <h3 className={styles.sectionHeading}>Task list</h3>
-                {loading && <div className={styles.emptyState}>Loading tasks...</div>}
-                {error && <div className={styles.emptyState}>Failed to load tasks</div>}
+                {loading && <div className={styles.loading}>Loading tasks...</div>}
+                {error && <div className={styles.error}>Failed to load tasks</div>}
                 {!loading && !error && openTasks.length === 0 && (
                   <div className={styles.emptyState}>No open tasks</div>
                 )}
@@ -484,26 +475,63 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   <ul ref={taskListRef} className={styles.taskList}>
                     {openTasks.map((task) => {
                       const isActive = task.id === activeTaskId;
+                      const listItemClassName = `${styles.taskItem}${isActive ? ` ${styles.taskItemActive}` : ""}`;
+                      const isOverdue = task.dueDate && task.dueDate < new Date() && task.status !== "done";
+                      const badgeClassName = isOverdue ? `${styles.statusBadge} ${styles.statusBadgeDanger}` : styles.statusBadge;
+                      
                       return (
                         <li
                           key={task.id}
                           data-task-id={task.id}
-                          className={`${styles.taskItem} ${isActive ? styles.taskItemActive : ""}`}
-                          onClick={() => handleTaskSelect(task.id)}
+                          className={listItemClassName}
                         >
-                          <div className={styles.taskMain}>
-                            <span
-                              className={styles.projectDot}
-                              style={{ backgroundColor: task.projectColor || "#fa3356" }}
-                              aria-hidden="true"
-                            />
-                            <div className={styles.taskContent}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className={styles.taskButton}
+                            onClick={() => handleTaskSelect(task.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                handleTaskSelect(task.id);
+                              }
+                            }}
+                          >
+                            <div className={styles.taskTitleRow}>
                               <span className={styles.taskTitle}>{task.title}</span>
-                              <div className={styles.taskMeta}>
-                                <span>{task.projectName}</span>
-                                <span className={styles.metaSeparator}>•</span>
-                                <span>{formatDueLabel(task)}</span>
-                              </div>
+                              {isOverdue && <span className={badgeClassName}>Overdue</span>}
+                            </div>
+                            <div className={styles.taskMeta}>
+                              <span className={styles.metaLine}>
+                                <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
+                              </span>
+                              {task.projectName && (
+                                <span className={styles.metaLine}>
+                                  <span
+                                    className={styles.projectDot}
+                                    style={{ backgroundColor: task.projectColor || "#fa3356" }}
+                                    aria-hidden="true"
+                                  />
+                                  {task.projectName}
+                                </span>
+                              )}
+                              {task.address ? (
+                                <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
+                                  <MapPin size={14} aria-hidden="true" />
+                                  <span className={styles.addressDetails}>
+                                    <span className={styles.addressText}>{task.address}</span>
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className={`${styles.metaLine} ${styles.metaLineMuted}`}>
+                                  <MapPin size={14} aria-hidden="true" /> No location
+                                </span>
+                              )}
+                              {task.assigneeName && (
+                                <span className={styles.metaLine}>
+                                  <User size={14} aria-hidden="true" /> {task.assigneeName}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </li>
