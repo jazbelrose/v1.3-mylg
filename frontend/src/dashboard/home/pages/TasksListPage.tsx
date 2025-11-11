@@ -311,7 +311,10 @@ const TasksListPage: React.FC = () => {
         tasks = overdueTasks;
         break;
       case "mine":
-        tasks = [...openTasks, ...undatedTasks].filter(t => t.assigneeId === userId);
+        // Include ALL tasks (active + completed) assigned to user
+        tasks = [...openTasks, ...undatedTasks, ...completedTasks].filter(
+          (t) => t.assigneeId === userId
+        );
         break;
       case "all":
       default:
