@@ -192,6 +192,7 @@ const TasksListPage: React.FC = () => {
     openTasks,
     undatedTasks,
     completedThisWeek,
+    completedTasks,
     navigateToProject,
     refreshTasks,
     projectOptions,
@@ -203,13 +204,13 @@ const TasksListPage: React.FC = () => {
   // Build assignee options from tasks
   const assigneeOptions = useMemo(() => {
     const assigneeMap = new Map<string, string>();
-    [...openTasks, ...undatedTasks, ...completedThisWeek].forEach((task) => {
+    [...openTasks, ...undatedTasks, ...completedTasks].forEach((task) => {
       if (task.assigneeId && task.assigneeName) {
         assigneeMap.set(task.assigneeId, task.assigneeName);
       }
     });
     return Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }));
-  }, [openTasks, undatedTasks, completedThisWeek]);
+  }, [openTasks, undatedTasks, completedTasks]);
 
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
     setSortField(field);
@@ -303,11 +304,8 @@ const TasksListPage: React.FC = () => {
         tasks = [...overdueTasks, ...dueSoonTasks, ...upcomingTasks];
         break;
       case "completed":
-        // All completed tasks, not just this week
-        const allCompleted = [...openTasks, ...undatedTasks, ...completedThisWeek].filter(
-          (task) => task.status === "done" || task.status === "completed"
-        );
-        tasks = allCompleted;
+        // All completed tasks
+        tasks = completedTasks;
         break;
       case "overdue":
         tasks = overdueTasks;
@@ -378,7 +376,7 @@ const TasksListPage: React.FC = () => {
     dueSoonTasks,
     upcomingTasks,
     undatedTasks,
-    completedThisWeek,
+    completedTasks,
     overdueTasks,
     openTasks,
     locationState,
