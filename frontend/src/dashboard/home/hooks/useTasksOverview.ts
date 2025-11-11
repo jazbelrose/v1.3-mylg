@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useData } from "@/app/contexts/useData";
-import type { Project } from "@/app/contexts/DataProvider";
+import type { Project, UserLite } from "@/app/contexts/DataProvider";
 import { fetchTasks, requestTaskReview } from "@/shared/utils/api";
 import type { QuickCreateTaskLocation } from "../components/QuickCreateTaskModal.types";
 import { getColor } from "@/shared/utils/colorUtils";
@@ -100,6 +100,23 @@ export type TasksOverviewProjectOption = {
   name: string;
   color?: string;
 };
+
+function normalizeUserId(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parts = trimmed.split("__").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : trimmed;
+}
+
+function findUserDisplayNameById(id: string | undefined, users: UserLite[]): string | undefined {
+  const normalizedId = normalizeUserId(id);
+  if (!normalizedId) return undefined;
+  const match = users.find((user) => user.userId === normalizedId);
+  if (!match) return undefined;
+  const name = `${match.firstName ?? ""} ${match.lastName ?? ""}`.trim();
+  return name || match.username || match.email || match.userId;
+}
 
 function parseDueDate(value?: unknown): Date | null {
   if (value == null || value === "") return null;
@@ -248,7 +265,10 @@ function pickCompletion(value: unknown): { value: Date | null; timeLabel?: strin
 }
 
 export function useTasksOverview() {
-  const { projects = [] } = useData() as { projects: Project[] };
+  const { projects = [], allUsers = [] } = useData() as {
+    projects: Project[];
+    allUsers: UserLite[];
+  };
   const navigate = useNavigate();
 
   const [tasks, setTasks] = useState<NormalizedTask[]>([]);
@@ -381,14 +401,19 @@ export function useTasksOverview() {
             ? (raw as { assignedTo?: string }).assignedTo
             : undefined;
       const address = typeof raw.address === "string" ? raw.address : undefined;
-      const createdByName =
+      const createdByCandidate =
         getFirstNonEmptyString(
           raw.createdByName,
           raw.createdByUsername,
           raw.createdBy,
           raw.createdByEmail,
-        ) ?? formatAssignmentLabel(raw.createdById);
-      const assigneeName = formatAssignmentLabel(assignee);
+        ) ?? undefined;
+      const createdByName =
+        findUserDisplayNameById(raw.createdById ?? createdByCandidate, allUsers) ??
+        (createdByCandidate ? formatAssignmentLabel(createdByCandidate) : undefined);
+      const assigneeName =
+        findUserDisplayNameById(assignee, allUsers) ??
+        (assignee ? formatAssignmentLabel(assignee) : undefined);
 
       return {
         id: task.id,
@@ -412,7 +437,7 @@ export function useTasksOverview() {
         rawTask: raw,
       };
     },
-    [],
+    [allUsers],
   );
 
   const {
