@@ -65,6 +65,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     error,
     stats,
     openTasks,
+    completedTasks,
     refreshTasks,
     projectOptions,
   } = useTasksOverview();
@@ -93,6 +94,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const initialScrollDoneRef = useRef(false);
   const touchStartY = useRef(0);
 
+  // Combine open and completed tasks for filtering
+  const allTasks = useMemo(() => [...openTasks, ...completedTasks], [openTasks, completedTasks]);
+
   // Filter/sort handlers
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
     setSortField(field);
@@ -106,29 +110,61 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   // Get unique users for filters
   const assignedByOptions = useMemo(() => {
     const uniqueUsers = new Map<string, { id: string; name: string }>();
-    openTasks.forEach((task) => {
+    allTasks.forEach((task) => {
       if (task.createdById && task.createdByName) {
         uniqueUsers.set(task.createdById, { id: task.createdById, name: task.createdByName });
       }
     });
     return Array.from(uniqueUsers.values());
-  }, [openTasks]);
+  }, [allTasks]);
 
   const assignedToOptions = useMemo(() => {
     const uniqueUsers = new Map<string, { id: string; name: string }>();
-    openTasks.forEach((task) => {
+    allTasks.forEach((task) => {
       if (task.assigneeId && task.assigneeName) {
         uniqueUsers.set(task.assigneeId, { id: task.assigneeId, name: task.assigneeName });
       }
     });
     return Array.from(uniqueUsers.values());
-  }, [openTasks]);
+  }, [allTasks]);
 
   // Apply filters and sorting
   const filteredTasks = useMemo(() => {
-    let filtered = [...openTasks];
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    let filtered: TasksOverviewListItem[] = [];
 
-    // Search filter
+    // Apply quick filter first (determines base list)
+    switch (activeFilter) {
+      case "due":
+        // All open tasks with due dates
+        filtered = allTasks.filter((task) => task.dueDate && task.status !== "done");
+        break;
+      case "completed":
+        // All completed tasks
+        filtered = allTasks.filter((task) => task.status === "done");
+        break;
+      case "overdue":
+        // Tasks past their due date (not completed)
+        filtered = allTasks.filter(
+          (task) => task.dueDate && task.dueDate < todayStart && task.status !== "done"
+        );
+        break;
+      case "mine":
+        // All tasks assigned to current user (including completed)
+        filtered = user?.userId 
+          ? allTasks.filter((task) => task.assigneeId === user.userId)
+          : allTasks;
+        break;
+      case "all":
+      default:
+        // All non-completed tasks
+        filtered = allTasks.filter((task) => task.status !== "done");
+        break;
+    }
+
+    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -137,18 +173,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
           task.projectName?.toLowerCase().includes(query) ||
           task.description?.toLowerCase().includes(query)
       );
-    }
-
-    // Quick filters
-    const now = new Date();
-    if (activeFilter === "due") {
-      filtered = filtered.filter((task) => task.dueDate && task.status !== "done");
-    } else if (activeFilter === "completed") {
-      filtered = filtered.filter((task) => task.status === "done");
-    } else if (activeFilter === "overdue") {
-      filtered = filtered.filter((task) => task.dueDate && task.dueDate < now && task.status !== "done");
-    } else if (activeFilter === "mine" && user?.userId) {
-      filtered = filtered.filter((task) => task.assigneeId === user.userId);
     }
 
     // Assigned by filter
@@ -186,7 +210,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     }
 
     return filtered;
-  }, [openTasks, searchQuery, activeFilter, assignedByFilter, assignedToFilter, sortField, sortOrder, user?.userId]);
+  }, [allTasks, searchQuery, activeFilter, assignedByFilter, assignedToFilter, sortField, sortOrder, user?.userId]);
 
   const tasksWithLocation = useMemo(() => {
     return filteredTasks
