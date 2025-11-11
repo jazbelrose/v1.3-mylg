@@ -79,12 +79,14 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, emptyLabel, onStart, showCom
                   <div className={styles.taskAssignmentRow}>
                     {task.createdByName ? (
                       <span className={styles.taskAssignmentItem}>
-                        Assigned by {task.createdByName}
+                        <span className={styles.taskAssignmentLabel}>Assigned by</span>
+                        <span className={styles.taskAssignmentValue}>{task.createdByName}</span>
                       </span>
                     ) : null}
                     {task.assigneeName ? (
                       <span className={styles.taskAssignmentItem}>
-                        Assigned to {task.assigneeName}
+                        <span className={styles.taskAssignmentLabel}>Assigned to</span>
+                        <span className={styles.taskAssignmentValue}>{task.assigneeName}</span>
                       </span>
                     ) : null}
                   </div>
