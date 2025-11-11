@@ -609,23 +609,25 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 </div>
               </>
             )}
-            <TaskMobileFilter
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              sortField={sortField}
-              sortOrder={sortOrder}
-              onSortChange={handleSortChange}
-              activeFilter={activeFilter}
-              onFilterChange={handleFilterChange}
-              assignedByFilter={assignedByFilter}
-              onAssignedByFilterChange={setAssignedByFilter}
-              assignedByOptions={assignedByOptions}
-              assignedToFilter={assignedToFilter}
-              onAssignedToFilterChange={setAssignedToFilter}
-              assignedToOptions={assignedToOptions}
-              statusFilter={null}
-              onStatusFilterChange={() => {}}
-            />
+            <div style={{ padding: '0 1.5rem', paddingTop: '1rem', paddingBottom: '0.75rem' }}>
+              <TaskMobileFilter
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSortChange={handleSortChange}
+                activeFilter={activeFilter}
+                onFilterChange={handleFilterChange}
+                assignedByFilter={assignedByFilter}
+                onAssignedByFilterChange={setAssignedByFilter}
+                assignedByOptions={assignedByOptions}
+                assignedToFilter={assignedToFilter}
+                onAssignedToFilterChange={setAssignedToFilter}
+                assignedToOptions={assignedToOptions}
+                statusFilter={null}
+                onStatusFilterChange={() => {}}
+              />
+            </div>
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
                 <h3 className={styles.sectionHeading}>Task list</h3>
