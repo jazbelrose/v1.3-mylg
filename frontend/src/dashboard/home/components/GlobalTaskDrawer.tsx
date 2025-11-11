@@ -8,7 +8,7 @@ import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksO
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 
-import styles from "./GlobalTaskDrawer.module.css";
+import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
 type TaskMapMarker = {
   id: string;
