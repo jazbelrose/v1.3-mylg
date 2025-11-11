@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, Clock, MapPin, Plus, User, X, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Calendar, ChevronDown, MapPin, Plus, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 import Map from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
+import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -425,23 +426,11 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   </div>
                 </header>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
-                  <div className={styles.summaryStats}>
-                    <div className={styles.statChip}>
-                      <CheckCircle2 size={18} />
-                      <span className={styles.statValue}>{formatStatValue(stats.completed)}</span>
-                      <span className={styles.statLabel}>Done</span>
-                    </div>
-                    <div className={styles.statChip}>
-                      <AlertTriangle size={18} />
-                      <span className={styles.statValue}>{formatStatValue(stats.overdue)}</span>
-                      <span className={styles.statLabel}>Overdue</span>
-                    </div>
-                    <div className={styles.statChip}>
-                      <Clock size={18} />
-                      <span className={styles.statValue}>{formatStatValue(stats.dueSoon)}</span>
-                      <span className={styles.statLabel}>Due soon</span>
-                    </div>
-                  </div>
+                  <TaskSummary
+                    stats={stats}
+                    formatValue={formatStatValue}
+                    statusMessage={statusMessage}
+                  />
                   <p className={styles.desktopDrawerMapStatus}>{mapStatusMessage}</p>
                 </div>
               </>
@@ -463,67 +452,66 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                     }
                   }}
                 >
-                  <div className={styles.sheetHandle} aria-hidden="true" />
-                </div>
-                <div className={styles.sheetHeader}>
-                  <span className={styles.sheetTitle}>All tasks</span>
-                  <span className={styles.sheetCount}>{statusMessage}</span>
+                  <div className={styles.sheetHandle} aria-hidden="true">
+                    <span className={styles.sheetHandleBar} aria-hidden="true" />
+                  </div>
+                  <header className={styles.sheetHeader}>
+                    <div className={styles.sheetTitleGroup}>
+                      <span className={styles.sheetTitle}>All tasks</span>
+                      <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
+                    </div>
+                  </header>
                 </div>
                 <div className={styles.sheetSummary}>
-                  <div className={styles.summaryStats}>
-                    <div className={styles.statChip}>
-                      <CheckCircle2 size={16} />
-                      <span>{formatStatValue(stats.completed)} done</span>
-                    </div>
-                    <div className={styles.statChip}>
-                      <AlertTriangle size={16} />
-                      <span>{formatStatValue(stats.overdue)} overdue</span>
-                    </div>
-                    <div className={styles.statChip}>
-                      <Clock size={16} />
-                      <span>{formatStatValue(stats.dueSoon)} due soon</span>
-                    </div>
-                  </div>
+                  <TaskSummary
+                    stats={stats}
+                    formatValue={formatStatValue}
+                    statusMessage={statusMessage}
+                  />
+                  <p className={styles.desktopDrawerMapStatus}>{mapStatusMessage}</p>
                 </div>
               </>
             )}
-            <div className={styles.sheetBody}>
-              {loading && <div className={styles.emptyState}>Loading tasks...</div>}
-              {error && <div className={styles.emptyState}>Failed to load tasks</div>}
-              {!loading && !error && openTasks.length === 0 && (
-                <div className={styles.emptyState}>No open tasks</div>
-              )}
-              {!loading && !error && openTasks.length > 0 && (
-                <ul ref={taskListRef} className={styles.taskList}>
-                  {openTasks.map((task) => {
-                    const isActive = task.id === activeTaskId;
-                    return (
-                      <li
-                        key={task.id}
-                        data-task-id={task.id}
-                        className={`${styles.taskItem} ${isActive ? styles.taskItemActive : ""}`}
-                        onClick={() => handleTaskSelect(task.id)}
-                      >
-                        <div className={styles.taskMain}>
-                          <span
-                            className={styles.projectDot}
-                            style={{ backgroundColor: task.projectColor || "#fa3356" }}
-                            aria-hidden="true"
-                          />
-                          <div className={styles.taskContent}>
-                            <span className={styles.taskTitle}>{task.title}</span>
-                            <div className={styles.taskMeta}>
-                              <span>{task.projectName}</span>
-                              <span className={styles.metaSeparator}>•</span>
-                              <span>{formatDueLabel(task)}</span>
+            <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
+              <section className={styles.sheetSection} aria-label="All tasks">
+                <h3 className={styles.sectionHeading}>Task list</h3>
+                {loading && <div className={styles.emptyState}>Loading tasks...</div>}
+                {error && <div className={styles.emptyState}>Failed to load tasks</div>}
+                {!loading && !error && openTasks.length === 0 && (
+                  <div className={styles.emptyState}>No open tasks</div>
+                )}
+                {!loading && !error && openTasks.length > 0 && (
+                  <ul ref={taskListRef} className={styles.taskList}>
+                    {openTasks.map((task) => {
+                      const isActive = task.id === activeTaskId;
+                      return (
+                        <li
+                          key={task.id}
+                          data-task-id={task.id}
+                          className={`${styles.taskItem} ${isActive ? styles.taskItemActive : ""}`}
+                          onClick={() => handleTaskSelect(task.id)}
+                        >
+                          <div className={styles.taskMain}>
+                            <span
+                              className={styles.projectDot}
+                              style={{ backgroundColor: task.projectColor || "#fa3356" }}
+                              aria-hidden="true"
+                            />
+                            <div className={styles.taskContent}>
+                              <span className={styles.taskTitle}>{task.title}</span>
+                              <div className={styles.taskMeta}>
+                                <span>{task.projectName}</span>
+                                <span className={styles.metaSeparator}>•</span>
+                                <span>{formatDueLabel(task)}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
             </div>
           </motion.div>
         </div>,
