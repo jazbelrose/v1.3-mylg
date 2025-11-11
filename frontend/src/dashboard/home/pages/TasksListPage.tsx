@@ -10,7 +10,9 @@ import {
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalTask,
 } from "../components/QuickCreateTaskModal";
-import { endOfWeek } from "@/dashboard/home/utils/dateUtils";
+import TaskMobileFilter, { type FilterOption } from "../components/TaskMobileFilter";
+import { endOfWeek, startOfWeek } from "@/dashboard/home/utils/dateUtils";
+import { useUser } from "@/app/contexts/useUser";
 import styles from "./TasksListPage.module.css";
 
 const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
@@ -122,9 +124,17 @@ const TasksListPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { userId } = useUser();
   const locationState = (location.state as { from?: string; projectId?: string } | undefined) ?? undefined;
   const returnTo = locationState?.from;
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
+  
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -189,6 +199,26 @@ const TasksListPage: React.FC = () => {
   } = useTasksOverview();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Build assignee options from tasks
+  const assigneeOptions = useMemo(() => {
+    const assigneeMap = new Map<string, string>();
+    [...openTasks, ...undatedTasks, ...completedThisWeek].forEach((task) => {
+      if (task.assigneeId && task.assigneeName) {
+        assigneeMap.set(task.assigneeId, task.assigneeName);
+      }
+    });
+    return Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [openTasks, undatedTasks, completedThisWeek]);
+
+  const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
+    setSortField(field);
+    setSortOrder(order);
+  }, []);
+
+  const handleFilterChange = useCallback((filter: FilterOption) => {
+    setActiveFilter(filter);
+  }, []);
 
   const toModalTask = useCallback(
     (task: TasksOverviewListItem): QuickCreateTaskModalTask => ({
@@ -257,6 +287,105 @@ const TasksListPage: React.FC = () => {
     return { overdueTasks: overdue, dueSoonTasks: dueSoon, upcomingTasks: upcoming };
   }, [openTasks]);
 
+  // Unified filtered and sorted task list
+  const filteredAndSortedTasks = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = startOfWeek(now);
+    const weekEnd = endOfWeek(now);
+
+    let tasks: TasksOverviewListItem[] = [];
+
+    // Apply filter
+    switch (activeFilter) {
+      case "due-week":
+        tasks = dueSoonTasks;
+        break;
+      case "coming-up":
+        tasks = upcomingTasks;
+        break;
+      case "no-due":
+        tasks = undatedTasks;
+        break;
+      case "completed":
+        tasks = completedThisWeek;
+        break;
+      case "overdue":
+        tasks = overdueTasks;
+        break;
+      case "mine":
+        tasks = [...openTasks, ...undatedTasks].filter(t => t.assigneeId === userId);
+        break;
+      case "all":
+      default:
+        tasks = [...openTasks, ...undatedTasks];
+        break;
+    }
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      tasks = tasks.filter(
+        (task) =>
+          task.title.toLowerCase().includes(query) ||
+          task.projectName?.toLowerCase().includes(query) ||
+          task.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply assignee filter
+    if (assigneeFilter) {
+      tasks = tasks.filter((task) => task.assigneeId === assigneeFilter);
+    }
+
+    // Apply project filter (from location state)
+    const projectFilterId = locationState?.projectId;
+    if (projectFilterId) {
+      tasks = tasks.filter((task) => task.projectId === projectFilterId);
+    }
+
+    // Apply sorting
+    if (sortField && sortOrder) {
+      tasks = [...tasks].sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortField) {
+          case "dueDate":
+            aValue = a.dueDate?.getTime() ?? Infinity;
+            bValue = b.dueDate?.getTime() ?? Infinity;
+            break;
+          case "title":
+            aValue = a.title.toLowerCase();
+            bValue = b.title.toLowerCase();
+            break;
+          default:
+            return 0;
+        }
+
+        if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return tasks;
+  }, [
+    activeFilter,
+    searchQuery,
+    assigneeFilter,
+    sortField,
+    sortOrder,
+    dueSoonTasks,
+    upcomingTasks,
+    undatedTasks,
+    completedThisWeek,
+    overdueTasks,
+    openTasks,
+    locationState,
+    userId,
+  ]);
+
   
 
   const dueSoonGroups = useMemo(() => {
@@ -280,30 +409,33 @@ const TasksListPage: React.FC = () => {
     ? projectOptions.find((p) => p.id === projectFilterId)?.name
     : undefined;
 
-  const filteredOverdue = projectFilterId ? overdueTasks.filter((t) => t.projectId === projectFilterId) : overdueTasks;
-  const filteredDueSoonGroups = projectFilterId
-    ? dueSoonGroups
-        .map((g) => ({ ...g, tasks: g.tasks.filter((t) => t.projectId === projectFilterId) }))
-        .filter((g) => g.tasks.length > 0)
-    : dueSoonGroups;
-  const filteredUpcoming = projectFilterId ? upcomingTasks.filter((t) => t.projectId === projectFilterId) : upcomingTasks;
-  const filteredUndated = projectFilterId ? undatedTasks.filter((t) => t.projectId === projectFilterId) : undatedTasks;
-  const filteredCompletedThisWeek = projectFilterId
-    ? completedThisWeek.filter((t) => t.projectId === projectFilterId)
-    : completedThisWeek;
-
-  const hasAnyTask =
-    filteredOverdue.length > 0 ||
-    filteredDueSoonGroups.length > 0 ||
-    filteredUpcoming.length > 0 ||
-    filteredUndated.length > 0 ||
-    filteredCompletedThisWeek.length > 0;
+  const showCompleted = activeFilter === "completed";
+  const hasAnyTask = filteredAndSortedTasks.length > 0;
 
   const introMessage = projectFilterId
     ? `Viewing tasks for ${projectFilterName ?? "this project"}. Review and kick off the next task.`
     : projectOptions.length
     ? "Review everything on your radar and kick off the next task for whichever project needs attention."
     : "Review everything on your radar and add tasks whenever you have a project to assign them to.";
+
+  const getFilterLabel = () => {
+    switch (activeFilter) {
+      case "due-week":
+        return "Due this week";
+      case "coming-up":
+        return "Coming up";
+      case "no-due":
+        return "No due date";
+      case "completed":
+        return "Completed this week";
+      case "overdue":
+        return "Overdue";
+      case "mine":
+        return "My tasks";
+      default:
+        return "All tasks";
+    }
+  };
 
   const titleId = "tasks-drawer-title";
 
@@ -367,106 +499,55 @@ const TasksListPage: React.FC = () => {
               </div>
             </section>
 
+            <TaskMobileFilter
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              sortField={sortField}
+              sortOrder={sortOrder}
+              onSortChange={handleSortChange}
+              activeFilter={activeFilter}
+              onFilterChange={handleFilterChange}
+              assigneeFilter={assigneeFilter}
+              onAssigneeFilterChange={setAssigneeFilter}
+              statusFilter={null}
+              onStatusFilterChange={() => {}}
+              assigneeOptions={assigneeOptions}
+            />
+
             {error ? (
               <div className={styles.emptyState}>We couldn't load tasks right now. Please try again later.</div>
             ) : loading ? (
               <div className={styles.emptyState}>Loading your tasks…</div>
             ) : !hasAnyTask ? (
               <div className={styles.emptyState}>
-                You don't have any active tasks. Add a task from a project to see it appear here.
+                {activeFilter !== "all" 
+                  ? `No tasks matching the filter "${getFilterLabel()}".`
+                  : "You don't have any active tasks. Add a task from a project to see it appear here."
+                }
               </div>
             ) : (
               <div className={styles.sections}>
-                <section className={`${styles.section} ${styles.sectionOverdue}`} aria-labelledby="tasks-overdue-heading">
+                <section className={styles.section} aria-labelledby="tasks-filtered-heading">
                   <span className={styles.sectionAccent} aria-hidden="true" />
                   <div className={styles.sectionTitleRow}>
-                    <h2 id="tasks-overdue-heading" className={styles.sectionTitle}>
-                      Overdue
+                    <h2 id="tasks-filtered-heading" className={styles.sectionTitle}>
+                      {getFilterLabel()}
                     </h2>
-                    <p className={styles.sectionCaption}>Tasks that slipped past their due date.</p>
+                    <p className={styles.sectionCaption}>
+                      {filteredAndSortedTasks.length === 1 
+                        ? "1 task" 
+                        : `${filteredAndSortedTasks.length} tasks`}
+                    </p>
                   </div>
                   <TaskList
-                    tasks={filteredOverdue}
-                    emptyLabel="No overdue tasks. Nice work keeping things on track!"
-                    {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
+                    tasks={filteredAndSortedTasks}
+                    emptyLabel={`No tasks matching current filters.`}
+                    showCompleted={showCompleted}
+                    {...(!projectFilterId && !showCompleted && { 
+                      onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) 
+                    })}
                     onSelect={handleTaskEdit}
-                    onMarkDone={handleMarkDone}
-                  />
-                </section>
-
-                <section className={`${styles.section} ${styles.sectionDueSoon}`} aria-labelledby="tasks-due-soon-heading">
-                  <span className={styles.sectionAccent} aria-hidden="true" />
-                  <div className={styles.sectionTitleRow}>
-                    <h2 id="tasks-due-soon-heading" className={styles.sectionTitle}>
-                      Due this week
-                    </h2>
-                    <p className={styles.sectionCaption}>Everything scheduled between now and the end of the week.</p>
-                  </div>
-                  {filteredDueSoonGroups.length ? (
-                    filteredDueSoonGroups.map((group) => (
-                      <div key={group.label} className={styles.group}>
-                        <h3 className={styles.groupTitle}>{group.label}</h3>
-                        <TaskList
-                          tasks={group.tasks}
-                          emptyLabel="All set for this day."
-                          {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
-                          onSelect={handleTaskEdit}
-                          onMarkDone={handleMarkDone}
-                        />
-                      </div>
-                    ))
-                  ) : (
-                    <div className={styles.sectionEmpty}>No tasks due for the rest of this week.</div>
-                  )}
-                </section>
-
-                <section className={`${styles.section} ${styles.sectionUpcoming}`} aria-labelledby="tasks-upcoming-heading">
-                  <span className={styles.sectionAccent} aria-hidden="true" />
-                  <div className={styles.sectionTitleRow}>
-                    <h2 id="tasks-upcoming-heading" className={styles.sectionTitle}>
-                      Coming up
-                    </h2>
-                    <p className={styles.sectionCaption}>Preview what's planned beyond this week.</p>
-                  </div>
-                  <TaskList
-                    tasks={filteredUpcoming}
-                    emptyLabel="No future tasks yet. When you plan ahead they'll show up here."
-                    {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
-                    onSelect={handleTaskEdit}
-                    onMarkDone={handleMarkDone}
-                  />
-                </section>
-
-                <section className={`${styles.section} ${styles.sectionUndated}`} aria-labelledby="tasks-undated-heading">
-                  <span className={styles.sectionAccent} aria-hidden="true" />
-                  <div className={styles.sectionTitleRow}>
-                    <h2 id="tasks-undated-heading" className={styles.sectionTitle}>
-                      No due date
-                    </h2>
-                    <p className={styles.sectionCaption}>Ideas or tasks to tackle when you're ready.</p>
-                  </div>
-                  <TaskList
-                    tasks={filteredUndated}
-                    emptyLabel="Nothing in your backlog without a due date."
-                    {...(!projectFilterId && { onStart: (task: TasksOverviewListItem) => navigateToProject(task.projectId) })}
-                    onSelect={handleTaskEdit}
-                    onMarkDone={handleMarkDone}
-                  />
-                </section>
-
-                <section className={`${styles.section} ${styles.sectionCompleted}`} aria-labelledby="tasks-completed-heading">
-                  <span className={styles.sectionAccent} aria-hidden="true" />
-                  <div className={styles.sectionTitleRow}>
-                    <h2 id="tasks-completed-heading" className={styles.sectionTitle}>
-                      Completed this week
-                    </h2>
-                    <p className={styles.sectionCaption}>Recently wrapped up items within the current week.</p>
-                  </div>
-                  <TaskList
-                    tasks={filteredCompletedThisWeek}
-                    emptyLabel="No completed tasks this week yet."
-                    showCompleted
-                    onSelect={handleTaskEdit}
+                    {...(!showCompleted && { onMarkDone: handleMarkDone })}
                   />
                 </section>
               </div>
