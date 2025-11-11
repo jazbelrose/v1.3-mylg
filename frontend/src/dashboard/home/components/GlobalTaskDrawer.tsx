@@ -8,7 +8,7 @@ import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksO
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
-import TaskMobileFilter, { type FilterOption } from "./TaskMobileFilter";
+import { type FilterOption } from "./TaskMobileFilter";
 import { useUser } from "@/app/contexts/useUser";
 import {
   createTaskStatusContext,
@@ -91,8 +91,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
-  const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
-  const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const taskListRef = useRef<HTMLUListElement>(null);
@@ -111,27 +109,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const handleFilterChange = useCallback((filter: FilterOption) => {
     setActiveFilter(filter);
   }, []);
-
-  // Get unique users for filters
-  const assignedByOptions = useMemo(() => {
-    const uniqueUsers = new Map<string, { id: string; name: string }>();
-    allTasks.forEach((task) => {
-      if (task.createdById && task.createdByName) {
-        uniqueUsers.set(task.createdById, { id: task.createdById, name: task.createdByName });
-      }
-    });
-    return Array.from(uniqueUsers.values());
-  }, [allTasks]);
-
-  const assignedToOptions = useMemo(() => {
-    const uniqueUsers = new Map<string, { id: string; name: string }>();
-    allTasks.forEach((task) => {
-      if (task.assigneeId && task.assigneeName) {
-        uniqueUsers.set(task.assigneeId, { id: task.assigneeId, name: task.assigneeName });
-      }
-    });
-    return Array.from(uniqueUsers.values());
-  }, [allTasks]);
 
   // Apply filters and sorting
   const filteredTasks = useMemo(() => {
@@ -182,16 +159,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       );
     }
 
-    // Assigned by filter
-    if (assignedByFilter) {
-      filtered = filtered.filter((task) => task.createdById === assignedByFilter);
-    }
-
-    // Assigned to filter
-    if (assignedToFilter) {
-      filtered = filtered.filter((task) => task.assigneeId === assignedToFilter);
-    }
-
     // Sorting
     if (sortField && sortOrder) {
       filtered.sort((a, b) => {
@@ -217,7 +184,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     }
 
     return filtered;
-  }, [allTasks, searchQuery, activeFilter, assignedByFilter, assignedToFilter, sortField, sortOrder, user?.userId]);
+  }, [allTasks, searchQuery, activeFilter, sortField, sortOrder, user?.userId]);
 
   const tasksWithLocation = useMemo(() => {
     return filteredTasks
@@ -609,24 +576,90 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 </div>
               </>
             )}
-            <div style={{ padding: '0 1.5rem', paddingTop: '1rem', paddingBottom: '0.75rem' }}>
-              <TaskMobileFilter
-                searchQuery={searchQuery}
-                onSearchQueryChange={setSearchQuery}
-                sortField={sortField}
-                sortOrder={sortOrder}
-                onSortChange={handleSortChange}
-                activeFilter={activeFilter}
-                onFilterChange={handleFilterChange}
-                assignedByFilter={assignedByFilter}
-                onAssignedByFilterChange={setAssignedByFilter}
-                assignedByOptions={assignedByOptions}
-                assignedToFilter={assignedToFilter}
-                onAssignedToFilterChange={setAssignedToFilter}
-                assignedToOptions={assignedToOptions}
-                statusFilter={null}
-                onStatusFilterChange={() => {}}
+            <div style={{ 
+              padding: '0 1.5rem', 
+              paddingTop: '1rem', 
+              paddingBottom: '0.75rem',
+              display: 'flex',
+              gap: '0.5rem',
+              flexWrap: 'wrap'
+            }}>
+              {/* Filter Dropdown */}
+              <select
+                value={activeFilter}
+                onChange={(e) => handleFilterChange(e.target.value as FilterOption)}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.92)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  flex: '1 1 auto',
+                  minWidth: '100px'
+                }}
+              >
+                <option value="all">All</option>
+                <option value="due">Due</option>
+                <option value="completed">Completed</option>
+                <option value="overdue">Overdue</option>
+                <option value="mine">Mine</option>
+              </select>
+
+              {/* Search Input */}
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.92)',
+                  fontSize: '0.875rem',
+                  outline: 'none',
+                  flex: '1 1 auto',
+                  minWidth: '150px'
+                }}
               />
+
+              {/* Sort Dropdown */}
+              <select
+                value={sortField && sortOrder ? `${sortField}-${sortOrder}` : 'default'}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'default') {
+                    handleSortChange(null, null);
+                  } else {
+                    const [field, order] = value.split('-');
+                    handleSortChange(field, order as 'asc' | 'desc');
+                  }
+                }}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.92)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  flex: '1 1 auto',
+                  minWidth: '120px'
+                }}
+              >
+                <option value="default">Default order</option>
+                <option value="dueDate-asc">Due Date (Earliest)</option>
+                <option value="dueDate-desc">Due Date (Latest)</option>
+                <option value="title-asc">Title (A→Z)</option>
+                <option value="title-desc">Title (Z→A)</option>
+              </select>
             </div>
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
