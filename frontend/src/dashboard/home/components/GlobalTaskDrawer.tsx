@@ -10,6 +10,11 @@ import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
 import TaskMobileFilter, { type FilterOption } from "./TaskMobileFilter";
 import { useUser } from "@/app/contexts/useUser";
+import {
+  createTaskStatusContext,
+  getTaskStatusBadge,
+  getTaskStatusTone,
+} from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -152,15 +157,17 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         );
         break;
       case "mine":
-        // All tasks assigned to current user (including completed)
+        // All tasks assigned to OR created by current user (including completed)
         filtered = user?.userId 
-          ? allTasks.filter((task) => task.assigneeId === user.userId)
+          ? allTasks.filter((task) => 
+              task.assigneeId === user.userId || task.createdById === user.userId
+            )
           : allTasks;
         break;
       case "all":
       default:
-        // All non-completed tasks
-        filtered = allTasks.filter((task) => task.status !== "done");
+        // All tasks (open + completed)
+        filtered = allTasks;
         break;
     }
 
@@ -391,6 +398,15 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     return task.timeLabel ? `${formatted} · ${task.timeLabel}` : formatted;
   }, []);
 
+  const statusContext = useMemo(() => createTaskStatusContext(), []);
+
+  const BADGE_CLASS_BY_TONE = {
+    success: "statusBadgeSuccess",
+    danger: "statusBadgeDanger",
+    warning: "statusBadgeWarning",
+    neutral: "statusBadgeNeutral",
+  } as const;
+
   const formatStatValue = (value: number): string | number => {
     if (error) return "—";
     if (loading) return "…";
@@ -593,28 +609,26 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 </div>
               </>
             )}
+            <TaskMobileFilter
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              sortField={sortField}
+              sortOrder={sortOrder}
+              onSortChange={handleSortChange}
+              activeFilter={activeFilter}
+              onFilterChange={handleFilterChange}
+              assignedByFilter={assignedByFilter}
+              onAssignedByFilterChange={setAssignedByFilter}
+              assignedByOptions={assignedByOptions}
+              assignedToFilter={assignedToFilter}
+              onAssignedToFilterChange={setAssignedToFilter}
+              assignedToOptions={assignedToOptions}
+              statusFilter={null}
+              onStatusFilterChange={() => {}}
+            />
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
-                <div className={styles.sectionHeader}>
-                  <h3 className={styles.sectionHeading}>Task list</h3>
-                  <TaskMobileFilter
-                    searchQuery={searchQuery}
-                    onSearchQueryChange={setSearchQuery}
-                    sortField={sortField}
-                    sortOrder={sortOrder}
-                    onSortChange={handleSortChange}
-                    activeFilter={activeFilter}
-                    onFilterChange={handleFilterChange}
-                    assignedByFilter={assignedByFilter}
-                    onAssignedByFilterChange={setAssignedByFilter}
-                    assignedByOptions={assignedByOptions}
-                    assignedToFilter={assignedToFilter}
-                    onAssignedToFilterChange={setAssignedToFilter}
-                    assignedToOptions={assignedToOptions}
-                    statusFilter={null}
-                    onStatusFilterChange={() => {}}
-                  />
-                </div>
+                <h3 className={styles.sectionHeading}>Task list</h3>
                 {loading && <div className={styles.loading}>Loading tasks...</div>}
                 {error && <div className={styles.error}>Failed to load tasks</div>}
                 {!loading && !error && filteredTasks.length === 0 && (
@@ -625,8 +639,17 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                     {filteredTasks.map((task) => {
                       const isActive = task.id === activeTaskId;
                       const listItemClassName = `${styles.taskItem}${isActive ? ` ${styles.taskItemActive}` : ""}`;
-                      const isOverdue = task.dueDate && task.dueDate < new Date() && task.status !== "done";
-                      const badgeClassName = isOverdue ? `${styles.statusBadge} ${styles.statusBadgeDanger}` : styles.statusBadge;
+                      
+                      // Get status badge
+                      const { category, label } = getTaskStatusBadge(
+                        task.status as "done" | "to_do" | "in_progress",
+                        task.dueDate,
+                        statusContext
+                      );
+                      const tone = getTaskStatusTone(category);
+                      const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
+                      const badgeToneClass = badgeClassKey ? styles[badgeClassKey] : undefined;
+                      const badgeClassName = [styles.statusBadge, badgeToneClass].filter(Boolean).join(" ");
                       
                       return (
                         <li
@@ -648,7 +671,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                           >
                             <div className={styles.taskTitleRow}>
                               <span className={styles.taskTitle}>{task.title}</span>
-                              {isOverdue && <span className={badgeClassName}>Overdue</span>}
+                              <span className={badgeClassName}>{label}</span>
                             </div>
                             <div className={styles.taskMeta}>
                               <span className={styles.metaLine}>
