@@ -44,11 +44,14 @@ interface TaskMobileFilterProps {
   onSortChange: (field: string | null, order: "asc" | "desc" | null) => void;
   activeFilter: FilterOption;
   onFilterChange: (filter: FilterOption) => void;
-  assigneeFilter: string | null;
-  onAssigneeFilterChange: (assigneeId: string | null) => void;
   statusFilter: string | null;
   onStatusFilterChange: (status: string | null) => void;
-  assigneeOptions?: Array<{ id: string; name: string }>;
+  assignedByFilter: string | null;
+  onAssignedByFilterChange: (filterValue: string | null) => void;
+  assignedByOptions?: Array<{ id: string; name: string }>;
+  assignedToFilter: string | null;
+  onAssignedToFilterChange: (filterValue: string | null) => void;
+  assignedToOptions?: Array<{ id: string; name: string }>;
 }
 
 const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
@@ -59,9 +62,12 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
   onSortChange,
   activeFilter,
   onFilterChange,
-  assigneeFilter,
-  onAssigneeFilterChange,
-  assigneeOptions = [],
+  assignedByFilter,
+  onAssignedByFilterChange,
+  assignedByOptions = [],
+  assignedToFilter,
+  onAssignedToFilterChange,
+  assignedToOptions = [],
 }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +107,8 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
     searchQuery.trim().length > 0 ||
     currentSortValue !== "default" ||
     activeFilter !== "all" ||
-    assigneeFilter !== null;
+    assignedByFilter !== null ||
+    assignedToFilter !== null;
 
   const filterButtonLabel = activeFilter !== "all" 
     ? FILTER_BUTTONS.find(f => f.value === activeFilter)?.label || "Filter"
@@ -181,28 +188,53 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
               </button>
             </div>
           </div>
-          {assigneeOptions.length > 0 && (
+          {(assignedByOptions.length > 0 || assignedToOptions.length > 0) && (
             <>
               <div className={styles.mobileFilterDivider} />
               <div className={styles.mobileFilterSection}>
-                <span className={styles.mobileFilterLabel}>Assignee</span>
-                <div className={`${desktopStyles.filterField} ${desktopStyles.filterSelect}`}>
-                  <User size={16} aria-hidden className={desktopStyles.filterFieldIcon} />
-                  <select
-                    className={desktopStyles.filterSelectControl}
-                    value={assigneeFilter || ""}
-                    onChange={(e) => onAssigneeFilterChange(e.target.value || null)}
-                    aria-label="Filter by assignee"
-                  >
-                    <option value="">All assignees</option>
-                    {assigneeOptions.map((assignee) => (
-                      <option key={assignee.id} value={assignee.id}>
-                        {assignee.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} aria-hidden className={desktopStyles.filterSelectChevron} />
-                </div>
+                <span className={styles.mobileFilterLabel}>Assignment</span>
+                {assignedByOptions.length > 0 && (
+                  <div className={`${desktopStyles.filterField} ${desktopStyles.filterSelect}`}>
+                    <User size={16} aria-hidden className={desktopStyles.filterFieldIcon} />
+                    <select
+                      className={desktopStyles.filterSelectControl}
+                      value={assignedByFilter || ""}
+                      onChange={(event) =>
+                        onAssignedByFilterChange(event.target.value || null)
+                      }
+                      aria-label="Filter tasks by creator"
+                    >
+                      <option value="">All assigned by</option>
+                      {assignedByOptions.map((creator) => (
+                        <option key={creator.id} value={creator.id}>
+                          {creator.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} aria-hidden className={desktopStyles.filterSelectChevron} />
+                  </div>
+                )}
+                {assignedToOptions.length > 0 && (
+                  <div className={`${desktopStyles.filterField} ${desktopStyles.filterSelect}`}>
+                    <User size={16} aria-hidden className={desktopStyles.filterFieldIcon} />
+                    <select
+                      className={desktopStyles.filterSelectControl}
+                      value={assignedToFilter || ""}
+                      onChange={(event) =>
+                        onAssignedToFilterChange(event.target.value || null)
+                      }
+                      aria-label="Filter tasks by assignee"
+                    >
+                      <option value="">All assigned to</option>
+                      {assignedToOptions.map((assignee) => (
+                        <option key={assignee.id} value={assignee.id}>
+                          {assignee.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} aria-hidden className={desktopStyles.filterSelectChevron} />
+                  </div>
+                )}
               </div>
             </>
           )}

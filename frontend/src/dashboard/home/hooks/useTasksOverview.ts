@@ -73,6 +73,7 @@ export type TasksOverviewListItem = {
   rawTask: RawTask & { projectId: string };
   assigneeName?: string;
   createdByName?: string;
+  createdById?: string;
 };
 
 export type TasksOverviewEvent = {
@@ -411,6 +412,8 @@ export function useTasksOverview() {
       const createdByName =
         findUserDisplayNameById(raw.createdById ?? createdByCandidate, allUsers) ??
         (createdByCandidate ? formatAssignmentLabel(createdByCandidate) : undefined);
+      const createdByIdCandidate = raw.createdById ?? createdByCandidate;
+      const createdById = normalizeUserId(createdByIdCandidate) ?? createdByIdCandidate;
       const assigneeName =
         findUserDisplayNameById(assignee, allUsers) ??
         (assignee ? formatAssignmentLabel(assignee) : undefined);
@@ -431,6 +434,7 @@ export function useTasksOverview() {
         assigneeId: assignee,
         assigneeName,
         createdByName,
+        createdById,
         address,
         location: raw.location as QuickCreateTaskLocation,
         dueDateInput: toDateInputString(dueSource),

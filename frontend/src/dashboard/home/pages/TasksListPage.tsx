@@ -134,7 +134,8 @@ const TasksListPage: React.FC = () => {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
-  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
+  const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -201,15 +202,31 @@ const TasksListPage: React.FC = () => {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Build assignee options from tasks
-  const assigneeOptions = useMemo(() => {
-    const assigneeMap = new Map<string, string>();
+  // Build assignment filter options from tasks
+  const { assignedByOptions, assignedToOptions } = useMemo(() => {
+    const assignedByMap = new Map<string, string>();
+    const assignedToMap = new Map<string, string>();
     [...openTasks, ...undatedTasks, ...completedTasks].forEach((task) => {
-      if (task.assigneeId && task.assigneeName) {
-        assigneeMap.set(task.assigneeId, task.assigneeName);
+      const assignedByValue = task.createdById ?? task.createdByName;
+      if (assignedByValue) {
+        const assignedByLabel = task.createdByName ?? assignedByValue;
+        assignedByMap.set(assignedByValue, assignedByLabel);
+      }
+
+      if (task.assigneeId) {
+        const assignedToLabel = task.assigneeName ?? task.assigneeId;
+        assignedToMap.set(task.assigneeId, assignedToLabel);
       }
     });
-    return Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }));
+
+    const assignedByOptions = Array.from(assignedByMap)
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const assignedToOptions = Array.from(assignedToMap)
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return { assignedByOptions, assignedToOptions };
   }, [openTasks, undatedTasks, completedTasks]);
 
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
@@ -333,9 +350,14 @@ const TasksListPage: React.FC = () => {
       );
     }
 
-    // Apply assignee filter
-    if (assigneeFilter) {
-      tasks = tasks.filter((task) => task.assigneeId === assigneeFilter);
+    // Apply assignment filters
+    if (assignedByFilter) {
+      tasks = tasks.filter(
+        (task) => (task.createdById ?? task.createdByName) === assignedByFilter,
+      );
+    }
+    if (assignedToFilter) {
+      tasks = tasks.filter((task) => task.assigneeId === assignedToFilter);
     }
 
     // Apply project filter (from location state)
@@ -373,7 +395,8 @@ const TasksListPage: React.FC = () => {
   }, [
     activeFilter,
     searchQuery,
-    assigneeFilter,
+    assignedByFilter,
+    assignedToFilter,
     sortField,
     sortOrder,
     dueSoonTasks,
@@ -503,11 +526,14 @@ const TasksListPage: React.FC = () => {
               onSortChange={handleSortChange}
               activeFilter={activeFilter}
               onFilterChange={handleFilterChange}
-              assigneeFilter={assigneeFilter}
-              onAssigneeFilterChange={setAssigneeFilter}
+              assignedByFilter={assignedByFilter}
+              onAssignedByFilterChange={setAssignedByFilter}
+              assignedByOptions={assignedByOptions}
+              assignedToFilter={assignedToFilter}
+              onAssignedToFilterChange={setAssignedToFilter}
+              assignedToOptions={assignedToOptions}
               statusFilter={null}
               onStatusFilterChange={() => {}}
-              assigneeOptions={assigneeOptions}
             />
 
             {error ? (
