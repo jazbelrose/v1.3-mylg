@@ -3,11 +3,13 @@ import { createPortal } from "react-dom";
 import { Calendar, ChevronDown, MapPin, Plus, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
-import Map from "@/shared/ui/Map";
+import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
+import TaskMobileFilter, { type FilterOption } from "./TaskMobileFilter";
+import { useUser } from "@/app/contexts/useUser";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -66,6 +68,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     refreshTasks,
     projectOptions,
   } = useTasksOverview();
+  const { user } = useUser();
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(getViewportHeight());
@@ -77,19 +80,122 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
 
+  // Filter and sort state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+  const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
+  const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
+
   const sheetRef = useRef<HTMLDivElement>(null);
   const taskListRef = useRef<HTMLUListElement>(null);
   const initialScrollDoneRef = useRef(false);
   const touchStartY = useRef(0);
 
+  // Filter/sort handlers
+  const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
+    setSortField(field);
+    setSortOrder(order);
+  }, []);
+
+  const handleFilterChange = useCallback((filter: FilterOption) => {
+    setActiveFilter(filter);
+  }, []);
+
+  // Get unique users for filters
+  const assignedByOptions = useMemo(() => {
+    const uniqueUsers = new Map<string, { id: string; name: string }>();
+    openTasks.forEach((task) => {
+      if (task.createdById && task.createdByName) {
+        uniqueUsers.set(task.createdById, { id: task.createdById, name: task.createdByName });
+      }
+    });
+    return Array.from(uniqueUsers.values());
+  }, [openTasks]);
+
+  const assignedToOptions = useMemo(() => {
+    const uniqueUsers = new Map<string, { id: string; name: string }>();
+    openTasks.forEach((task) => {
+      if (task.assigneeId && task.assigneeName) {
+        uniqueUsers.set(task.assigneeId, { id: task.assigneeId, name: task.assigneeName });
+      }
+    });
+    return Array.from(uniqueUsers.values());
+  }, [openTasks]);
+
+  // Apply filters and sorting
+  const filteredTasks = useMemo(() => {
+    let filtered = [...openTasks];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (task) =>
+          task.title.toLowerCase().includes(query) ||
+          task.projectName?.toLowerCase().includes(query) ||
+          task.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Quick filters
+    const now = new Date();
+    if (activeFilter === "due") {
+      filtered = filtered.filter((task) => task.dueDate && task.status !== "done");
+    } else if (activeFilter === "completed") {
+      filtered = filtered.filter((task) => task.status === "done");
+    } else if (activeFilter === "overdue") {
+      filtered = filtered.filter((task) => task.dueDate && task.dueDate < now && task.status !== "done");
+    } else if (activeFilter === "mine" && user?.userId) {
+      filtered = filtered.filter((task) => task.assigneeId === user.userId);
+    }
+
+    // Assigned by filter
+    if (assignedByFilter) {
+      filtered = filtered.filter((task) => task.createdById === assignedByFilter);
+    }
+
+    // Assigned to filter
+    if (assignedToFilter) {
+      filtered = filtered.filter((task) => task.assigneeId === assignedToFilter);
+    }
+
+    // Sorting
+    if (sortField && sortOrder) {
+      filtered.sort((a, b) => {
+        let aVal: string | number;
+        let bVal: string | number;
+
+        if (sortField === "dueDate") {
+          aVal = a.dueDate?.getTime() ?? Infinity;
+          bVal = b.dueDate?.getTime() ?? Infinity;
+        } else if (sortField === "title") {
+          aVal = a.title.toLowerCase();
+          bVal = b.title.toLowerCase();
+        } else {
+          return 0;
+        }
+
+        if (sortOrder === "asc") {
+          return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        } else {
+          return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+        }
+      });
+    }
+
+    return filtered;
+  }, [openTasks, searchQuery, activeFilter, assignedByFilter, assignedToFilter, sortField, sortOrder, user?.userId]);
+
   const tasksWithLocation = useMemo(() => {
-    return openTasks
+    return filteredTasks
       .map((task) => {
         const location = parseTaskLocation(task);
         return location ? { ...task, parsedLocation: location } : null;
       })
       .filter((task): task is TasksOverviewListItem & { parsedLocation: { lat: number; lng: number } } => task !== null);
-  }, [openTasks]);
+  }, [filteredTasks]);
 
   const mapLocation = tasksWithLocation[0]?.parsedLocation ?? DEFAULT_LOCATION;
   const mapAddress = tasksWithLocation[0]?.address || "Global tasks";
@@ -106,8 +212,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   }, [tasksWithLocation, activeTaskId]);
 
   const selectedTask = useMemo(
-    () => openTasks.find((task) => task.id === activeTaskId) ?? null,
-    [openTasks, activeTaskId],
+    () => filteredTasks.find((task) => task.id === activeTaskId) ?? null,
+    [filteredTasks, activeTaskId],
   );
 
   useEffect(() => {
@@ -130,12 +236,12 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
     if (tasksWithLocation.length) {
       setActiveTaskId(tasksWithLocation[0].id);
-    } else if (openTasks.length) {
-      setActiveTaskId(openTasks[0].id);
+    } else if (filteredTasks.length) {
+      setActiveTaskId(filteredTasks[0].id);
     } else {
       setActiveTaskId(null);
     }
-  }, [open, tasksWithLocation, openTasks]);
+  }, [open, tasksWithLocation, filteredTasks]);
 
   useEffect(() => {
     if (!open || !activeTaskId) {
@@ -271,8 +377,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     ? `${tasksWithLocation.length} ${tasksWithLocation.length === 1 ? "task" : "tasks"} on the map`
     : "Add locations to tasks to see them on the map";
 
-  const statusMessage = openTasks.length > 0
-    ? `${openTasks.length} ${openTasks.length === 1 ? "task" : "tasks"} in your list`
+  const statusMessage = filteredTasks.length > 0
+    ? `${filteredTasks.length} ${filteredTasks.length === 1 ? "task" : "tasks"} in your list`
     : "No tasks to show";
 
   if (!open || typeof document === "undefined") {
@@ -296,7 +402,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         <div className={overlayClassName} role="presentation">
           <div className={styles.mapLayer}>
             <div className={styles.mapCanvas}>
-              <Map
+              <MapComponent
                 location={mapLocation}
                 address={mapAddress}
                 scrollWheelZoom={true}
@@ -465,15 +571,34 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
             )}
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
-                <h3 className={styles.sectionHeading}>Task list</h3>
+                <div className={styles.sectionHeader}>
+                  <h3 className={styles.sectionHeading}>Task list</h3>
+                  <TaskMobileFilter
+                    searchQuery={searchQuery}
+                    onSearchQueryChange={setSearchQuery}
+                    sortField={sortField}
+                    sortOrder={sortOrder}
+                    onSortChange={handleSortChange}
+                    activeFilter={activeFilter}
+                    onFilterChange={handleFilterChange}
+                    assignedByFilter={assignedByFilter}
+                    onAssignedByFilterChange={setAssignedByFilter}
+                    assignedByOptions={assignedByOptions}
+                    assignedToFilter={assignedToFilter}
+                    onAssignedToFilterChange={setAssignedToFilter}
+                    assignedToOptions={assignedToOptions}
+                    statusFilter={null}
+                    onStatusFilterChange={() => {}}
+                  />
+                </div>
                 {loading && <div className={styles.loading}>Loading tasks...</div>}
                 {error && <div className={styles.error}>Failed to load tasks</div>}
-                {!loading && !error && openTasks.length === 0 && (
-                  <div className={styles.emptyState}>No open tasks</div>
+                {!loading && !error && filteredTasks.length === 0 && (
+                  <div className={styles.emptyState}>No tasks match your filters</div>
                 )}
-                {!loading && !error && openTasks.length > 0 && (
+                {!loading && !error && filteredTasks.length > 0 && (
                   <ul ref={taskListRef} className={styles.taskList}>
-                    {openTasks.map((task) => {
+                    {filteredTasks.map((task) => {
                       const isActive = task.id === activeTaskId;
                       const listItemClassName = `${styles.taskItem}${isActive ? ` ${styles.taskItemActive}` : ""}`;
                       const isOverdue = task.dueDate && task.dueDate < new Date() && task.status !== "done";
