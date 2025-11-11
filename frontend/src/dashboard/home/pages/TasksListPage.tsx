@@ -298,17 +298,16 @@ const TasksListPage: React.FC = () => {
 
     // Apply filter
     switch (activeFilter) {
-      case "due-week":
-        tasks = dueSoonTasks;
-        break;
-      case "coming-up":
-        tasks = upcomingTasks;
-        break;
-      case "no-due":
-        tasks = undatedTasks;
+      case "due":
+        // All tasks with due dates (not completed)
+        tasks = [...overdueTasks, ...dueSoonTasks, ...upcomingTasks];
         break;
       case "completed":
-        tasks = completedThisWeek;
+        // All completed tasks, not just this week
+        const allCompleted = [...openTasks, ...undatedTasks, ...completedThisWeek].filter(
+          (task) => task.status === "done" || task.status === "completed"
+        );
+        tasks = allCompleted;
         break;
       case "overdue":
         tasks = overdueTasks;
@@ -420,16 +419,12 @@ const TasksListPage: React.FC = () => {
 
   const getFilterLabel = () => {
     switch (activeFilter) {
-      case "due-week":
-        return "Due this week";
-      case "coming-up":
-        return "Coming up";
-      case "no-due":
-        return "No due date";
+      case "due":
+        return "Tasks with due dates";
       case "completed":
-        return "Completed this week";
+        return "Completed tasks";
       case "overdue":
-        return "Overdue";
+        return "Overdue tasks";
       case "mine":
         return "My tasks";
       default:

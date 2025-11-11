@@ -464,6 +464,27 @@
   border-radius: 16px;
   background: #111;
   backdrop-filter: blur(8px);
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mobileFilterPopover::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mobileFilterPopover::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+}
+
+.mobileFilterPopover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.mobileFilterPopover::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .mobileFilterDivider {
@@ -488,9 +509,9 @@
 
 .mobileFilterGroup {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
+  overflow-x: visible;
   padding-bottom: 4px;
 }
 

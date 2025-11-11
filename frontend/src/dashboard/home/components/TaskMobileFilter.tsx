@@ -5,7 +5,7 @@ import mobileStyles from "@/dashboard/home/components/projects-panel.module.css"
 import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import styles from "@/dashboard/project/features/budget/components/BudgetToolbar.module.css";
 
-type FilterOption = "due-week" | "coming-up" | "no-due" | "completed" | "overdue" | "mine" | "all";
+type FilterOption = "due" | "completed" | "overdue" | "mine" | "all";
 
 type SortOptionValue = "default" | "dueDate-asc" | "dueDate-desc" | "title-asc" | "title-desc";
 
@@ -30,15 +30,10 @@ interface FilterButtonConfig {
 }
 
 const FILTER_BUTTONS: FilterButtonConfig[] = [
-  { value: "due-week", label: "Due this week" },
-  { value: "coming-up", label: "Coming up" },
-  { value: "no-due", label: "No due date" },
+  { value: "due", label: "Due" },
   { value: "completed", label: "Completed" },
-];
-
-const QUICK_FILTERS: FilterButtonConfig[] = [
-  { value: "mine", label: "Mine" },
   { value: "overdue", label: "Overdue" },
+  { value: "mine", label: "Mine" },
 ];
 
 interface TaskMobileFilterProps {
@@ -109,9 +104,7 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
     assigneeFilter !== null;
 
   const filterButtonLabel = activeFilter !== "all" 
-    ? FILTER_BUTTONS.find(f => f.value === activeFilter)?.label || 
-      QUICK_FILTERS.find(f => f.value === activeFilter)?.label || 
-      "Filter"
+    ? FILTER_BUTTONS.find(f => f.value === activeFilter)?.label || "Filter"
     : "Filter";
 
   const handleSortChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -155,36 +148,9 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
             <div
               className={styles.mobileFilterGroup}
               role="group"
-              aria-label="Filter tasks by time period"
+              aria-label="Filter tasks"
             >
               {FILTER_BUTTONS.map((option) => {
-                const isActiveOption = option.value === activeFilter;
-                const className = isActiveOption
-                  ? `${styles.mobileFilterGroupButton} ${styles.mobileFilterGroupButtonActive}`
-                  : styles.mobileFilterGroupButton;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={className}
-                    onClick={() => onFilterChange(option.value)}
-                    aria-pressed={isActiveOption}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className={styles.mobileFilterDivider} />
-          <div className={styles.mobileFilterSection}>
-            <span className={styles.mobileFilterLabel}>Other filters</span>
-            <div
-              className={styles.mobileFilterGroup}
-              role="group"
-              aria-label="Additional task filters"
-            >
-              {QUICK_FILTERS.map((option) => {
                 const isActiveOption = option.value === activeFilter;
                 const className = isActiveOption
                   ? `${styles.mobileFilterGroupButton} ${styles.mobileFilterGroupButtonActive}`
@@ -211,7 +177,7 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
                 onClick={() => onFilterChange("all")}
                 aria-pressed={activeFilter === "all"}
               >
-                All tasks
+                All
               </button>
             </div>
           </div>
