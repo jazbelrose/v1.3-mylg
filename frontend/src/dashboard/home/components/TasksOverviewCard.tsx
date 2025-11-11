@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  MapPin,
   Plus,
 } from "lucide-react";
 
@@ -267,6 +268,17 @@ const TasksOverviewCard: React.FC<TasksOverviewCardProps> = ({ className }) => {
               <Plus aria-hidden="true" />
               New task
             </Button>
+            <Link
+              to="/dashboard/tasks"
+              className={cn(styles.secondaryAction, styles.actionButton)}
+              state={{ 
+                from: `${location.pathname}${location.search}`,
+                openMapView: true
+              }}
+            >
+              <MapPin aria-hidden="true" />
+              Open map view
+            </Link>
             <Link
               to="/dashboard/tasks"
               className={cn(styles.secondaryAction, styles.actionButton)}
