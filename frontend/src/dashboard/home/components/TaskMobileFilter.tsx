@@ -114,6 +114,34 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
     ? FILTER_BUTTONS.find(f => f.value === activeFilter)?.label || "Filter"
     : "Filter";
 
+  const defaultAssignmentTab: "assignedTo" | "assignedBy" =
+    assignedToOptions.length > 0
+      ? "assignedTo"
+      : assignedByOptions.length > 0
+        ? "assignedBy"
+        : "assignedTo";
+  const [activeAssignmentTab, setActiveAssignmentTab] = useState<"assignedTo" | "assignedBy">(
+    defaultAssignmentTab,
+  );
+
+  const assignmentConfig = useMemo(() => {
+    const isAssignedTo = activeAssignmentTab === "assignedTo";
+    const options = isAssignedTo ? assignedToOptions : assignedByOptions;
+    const value = isAssignedTo ? assignedToFilter : assignedByFilter;
+    const onChange = isAssignedTo ? onAssignedToFilterChange : onAssignedByFilterChange;
+    const placeholder = isAssignedTo ? "All assigned to" : "All assigned by";
+    const ariaLabel = isAssignedTo ? "Filter tasks by assignee" : "Filter tasks by creator";
+    return { isAssignedTo, options, value, onChange, placeholder, ariaLabel };
+  }, [
+    activeAssignmentTab,
+    assignedByFilter,
+    assignedByOptions,
+    assignedToFilter,
+    assignedToOptions,
+    onAssignedByFilterChange,
+    onAssignedToFilterChange,
+  ]);
+
   const handleSortChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextValue = event.target.value as SortOptionValue;
     const option = SORT_OPTIONS.find((opt) => opt.value === nextValue) ?? SORT_OPTIONS[0];
@@ -193,48 +221,51 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
               <div className={styles.mobileFilterDivider} />
               <div className={styles.mobileFilterSection}>
                 <span className={styles.mobileFilterLabel}>Assignment</span>
-                {assignedByOptions.length > 0 && (
-                  <div className={`${desktopStyles.filterField} ${desktopStyles.filterSelect}`}>
-                    <User size={16} aria-hidden className={desktopStyles.filterFieldIcon} />
-                    <select
-                      className={desktopStyles.filterSelectControl}
-                      value={assignedByFilter || ""}
-                      onChange={(event) =>
-                        onAssignedByFilterChange(event.target.value || null)
-                      }
-                      aria-label="Filter tasks by creator"
-                    >
-                      <option value="">All assigned by</option>
-                      {assignedByOptions.map((creator) => (
-                        <option key={creator.id} value={creator.id}>
-                          {creator.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} aria-hidden className={desktopStyles.filterSelectChevron} />
-                  </div>
-                )}
-                {assignedToOptions.length > 0 && (
-                  <div className={`${desktopStyles.filterField} ${desktopStyles.filterSelect}`}>
-                    <User size={16} aria-hidden className={desktopStyles.filterFieldIcon} />
-                    <select
-                      className={desktopStyles.filterSelectControl}
-                      value={assignedToFilter || ""}
-                      onChange={(event) =>
-                        onAssignedToFilterChange(event.target.value || null)
-                      }
-                      aria-label="Filter tasks by assignee"
-                    >
-                      <option value="">All assigned to</option>
-                      {assignedToOptions.map((assignee) => (
-                        <option key={assignee.id} value={assignee.id}>
-                          {assignee.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} aria-hidden className={desktopStyles.filterSelectChevron} />
-                  </div>
-                )}
+                <div className={styles.mobileFilterGroup}>
+                  <button
+                    type="button"
+                    className={
+                      activeAssignmentTab === "assignedTo"
+                        ? `${styles.mobileFilterGroupButton} ${styles.mobileFilterGroupButtonActive}`
+                        : styles.mobileFilterGroupButton
+                    }
+                    onClick={() => setActiveAssignmentTab("assignedTo")}
+                    disabled={assignedToOptions.length === 0}
+                  >
+                    Assigned to
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      activeAssignmentTab === "assignedBy"
+                        ? `${styles.mobileFilterGroupButton} ${styles.mobileFilterGroupButtonActive}`
+                        : styles.mobileFilterGroupButton
+                    }
+                    onClick={() => setActiveAssignmentTab("assignedBy")}
+                    disabled={assignedByOptions.length === 0}
+                  >
+                    Assigned by
+                  </button>
+                </div>
+                <div className={`${desktopStyles.filterField} ${desktopStyles.filterSelect}`}>
+                  <User size={16} aria-hidden className={desktopStyles.filterFieldIcon} />
+                  <select
+                    className={desktopStyles.filterSelectControl}
+                    value={assignmentConfig.value || ""}
+                    onChange={(event) =>
+                      assignmentConfig.onChange(event.target.value || null)
+                    }
+                    aria-label={assignmentConfig.ariaLabel}
+                  >
+                    <option value="">{assignmentConfig.placeholder}</option>
+                    {assignmentConfig.options.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} aria-hidden className={desktopStyles.filterSelectChevron} />
+                </div>
               </div>
             </>
           )}
