@@ -582,7 +582,7 @@
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(14px);
   pointer-events: auto;
-  z-index: 10002;
+  z-index: 10006;
 }
 
 .mapActiveTitle {
@@ -1161,7 +1161,7 @@
 
 @media (min-width: 1024px) {
   .desktopOverlay {
-    --drawer-width: clamp(380px, 34vw, 480px);
+    --drawer-width: clamp(600px, 34vw, 480px);
     background: #050607;
   }
 
@@ -1170,7 +1170,7 @@
     bottom: 0;
     left: 0;
     right: auto;
-    width: 600px;
+    width: var(--drawer-width);
     height: 100vh;
     margin: 0;
     max-height: none;
