@@ -874,7 +874,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                             <div className={styles.taskActions}>
                               <button
                                 type="button"
-                                className={`${styles.taskActionButton} ${styles.taskMapButton}`}
+                                className={`${styles.taskActionButton} ${styles.taskEditButton}`}
                                 onClick={() => handleTaskEdit(task)}
                               >
                                 <Pencil size={14} aria-hidden="true" />
