@@ -16,6 +16,7 @@ import {
   getTaskStatusTone,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
+import { notify } from "@/shared/ui/ToastNotifications";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -932,7 +933,10 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 projects={projectOptions}
                 onCreated={() => handleDetailsSaved()}
                 onUpdated={() => handleDetailsSaved()}
-                onDeleted={() => handleDetailsSaved()}
+                onDeleted={() => {
+                  notify('success', 'Task deleted successfully');
+                  handleDetailsSaved();
+                }}
                 task={detailsTask}
                 embedMode={true}
               />
@@ -948,7 +952,10 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
           projects={projectOptions}
           onCreated={() => refreshTasks()}
           onUpdated={() => refreshTasks()}
-          onDeleted={() => refreshTasks()}
+          onDeleted={() => {
+            notify('success', 'Task deleted successfully');
+            refreshTasks();
+          }}
           task={taskToEdit}
         />
       )}
