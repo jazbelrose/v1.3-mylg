@@ -14,7 +14,7 @@ import type {
   TaskNoteAttachment,
 } from "./QuickCreateTaskModal.types";
 
-export type { QuickCreateTaskModalTask } from "./QuickCreateTaskModal.types";
+export type { QuickCreateTaskModalTask, QuickCreateTaskModalEvent } from "./QuickCreateTaskModal.types";
 
 type NominatimSuggestion = {
   place_id: string | number;
@@ -74,13 +74,8 @@ function sanitizeIncomingAttachments(
           ? attachment.fileName.trim()
           : "Attachment";
       const mimeType = typeof attachment.mimeType === "string" ? attachment.mimeType : undefined;
-      // Prioritize url over dataUrl for S3-based storage
-      const url =
-        (typeof attachment.url === "string" && attachment.url.trim())
-          ? attachment.url.trim()
-          : (typeof attachment.dataUrl === "string" && attachment.dataUrl.trim())
-          ? attachment.dataUrl.trim()
-          : undefined;
+      // Use url for S3-based storage
+      const url = typeof attachment.url === "string" && attachment.url.trim() ? attachment.url.trim() : undefined;
       if (!url) return null;
       return {
         id:
