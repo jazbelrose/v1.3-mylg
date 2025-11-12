@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, MapPin, Plus, User, X } from "lucide-react";
+import { Calendar, ChevronDown, MapPin, Plus, Search, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 import MapComponent from "@/shared/ui/Map";
@@ -15,6 +15,7 @@ import {
   getTaskStatusBadge,
   getTaskStatusTone,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
+import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -25,6 +26,11 @@ type TaskMapMarker = {
   iconUrl: string;
   title: string;
   isActive: boolean;
+};
+
+type AssignedPersonOption = {
+  id: string;
+  name: string;
 };
 
 type GlobalTaskDrawerProps = {
@@ -91,6 +97,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+  const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
+  const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const taskListRef = useRef<HTMLUListElement>(null);
@@ -99,6 +107,35 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
   // Combine open and completed tasks for filtering
   const allTasks = useMemo(() => [...openTasks, ...completedTasks], [openTasks, completedTasks]);
+
+  const { assignedByOptions, assignedToOptions } = useMemo<{
+    assignedByOptions: AssignedPersonOption[];
+    assignedToOptions: AssignedPersonOption[];
+  }>(() => {
+    const assignedByMap = new Map<string, string>();
+    const assignedToMap = new Map<string, string>();
+
+    allTasks.forEach((task) => {
+      const assignedByValue = task.createdById ?? task.createdByName;
+      if (assignedByValue) {
+        assignedByMap.set(assignedByValue, task.createdByName ?? assignedByValue);
+      }
+
+      if (task.assigneeId) {
+        const assignedToLabel = task.assigneeName ?? task.assigneeId;
+        assignedToMap.set(task.assigneeId, assignedToLabel);
+      }
+    });
+
+    const assignedByOptions = Array.from(assignedByMap)
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const assignedToOptions = Array.from(assignedToMap)
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return { assignedByOptions, assignedToOptions };
+  }, [allTasks]);
 
   // Filter/sort handlers
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
@@ -159,6 +196,15 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       );
     }
 
+    if (assignedByFilter) {
+      filtered = filtered.filter(
+        (task) => (task.createdById ?? task.createdByName) === assignedByFilter,
+      );
+    }
+    if (assignedToFilter) {
+      filtered = filtered.filter((task) => task.assigneeId === assignedToFilter);
+    }
+
     // Sorting
     if (sortField && sortOrder) {
       filtered.sort((a, b) => {
@@ -184,7 +230,16 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     }
 
     return filtered;
-  }, [allTasks, searchQuery, activeFilter, sortField, sortOrder, user?.userId]);
+  }, [
+    allTasks,
+    searchQuery,
+    activeFilter,
+    sortField,
+    sortOrder,
+    user?.userId,
+    assignedByFilter,
+    assignedToFilter,
+  ]);
 
   const tasksWithLocation = useMemo(() => {
     return filteredTasks
@@ -576,90 +631,139 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 </div>
               </>
             )}
-            <div style={{ 
-              padding: '0 1.5rem', 
-              paddingTop: '1rem', 
-              paddingBottom: '0.75rem',
-              display: 'flex',
-              gap: '0.5rem',
-              flexWrap: 'wrap'
-            }}>
-              {/* Filter Dropdown */}
-              <select
-                value={activeFilter}
-                onChange={(e) => handleFilterChange(e.target.value as FilterOption)}
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  color: 'rgba(255, 255, 255, 0.92)',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  flex: '1 1 auto',
-                  minWidth: '100px'
-                }}
+            <div
+              style={{
+                padding: "0 1.5rem",
+                paddingTop: "1rem",
+                paddingBottom: "0.75rem",
+                display: "flex",
+                gap: "0.5rem",
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                style={{ width: "auto", flex: "1 1 140px", minWidth: "120px" }}
               >
-                <option value="all">All</option>
-                <option value="due">Due</option>
-                <option value="completed">Completed</option>
-                <option value="overdue">Overdue</option>
-                <option value="mine">Mine</option>
-              </select>
+                <select
+                  value={activeFilter}
+                  onChange={(e) => handleFilterChange(e.target.value as FilterOption)}
+                  className={desktopFilterStyles.filterSelectControl}
+                  aria-label="Quick task filter"
+                >
+                  <option value="all">All</option>
+                  <option value="due">Due</option>
+                  <option value="completed">Completed</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="mine">Mine</option>
+                </select>
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className={desktopFilterStyles.filterSelectChevron}
+                />
+              </div>
 
-              {/* Search Input */}
-              <input
-                type="text"
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  color: 'rgba(255, 255, 255, 0.92)',
-                  fontSize: '0.875rem',
-                  outline: 'none',
-                  flex: '1 1 auto',
-                  minWidth: '150px'
-                }}
-              />
+              {assignedByOptions.length > 0 && (
+                <div
+                  className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                  style={{ width: "auto", flex: "1 1 180px", minWidth: "140px" }}
+                >
+                  <select
+                    value={assignedByFilter ?? ""}
+                    onChange={(event) => setAssignedByFilter(event.target.value || null)}
+                    className={desktopFilterStyles.filterSelectControl}
+                    aria-label="Filter tasks by creator"
+                  >
+                    <option value="">All creators</option>
+                    {assignedByOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    aria-hidden="true"
+                    className={desktopFilterStyles.filterSelectChevron}
+                  />
+                </div>
+              )}
 
-              {/* Sort Dropdown */}
-              <select
-                value={sortField && sortOrder ? `${sortField}-${sortOrder}` : 'default'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === 'default') {
-                    handleSortChange(null, null);
-                  } else {
-                    const [field, order] = value.split('-');
-                    handleSortChange(field, order as 'asc' | 'desc');
-                  }
-                }}
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  color: 'rgba(255, 255, 255, 0.92)',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  flex: '1 1 auto',
-                  minWidth: '120px'
-                }}
+              {assignedToOptions.length > 0 && (
+                <div
+                  className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                  style={{ width: "auto", flex: "1 1 180px", minWidth: "140px" }}
+                >
+                  <select
+                    value={assignedToFilter ?? ""}
+                    onChange={(event) => setAssignedToFilter(event.target.value || null)}
+                    className={desktopFilterStyles.filterSelectControl}
+                    aria-label="Filter tasks by assignee"
+                  >
+                    <option value="">All assignees</option>
+                    {assignedToOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    aria-hidden="true"
+                    className={desktopFilterStyles.filterSelectChevron}
+                  />
+                </div>
+              )}
+
+              <div
+                className={desktopFilterStyles.filterField}
+                style={{ width: "auto", flex: "2 2 240px", minWidth: "200px" }}
               >
-                <option value="default">Default order</option>
-                <option value="dueDate-asc">Due Date (Earliest)</option>
-                <option value="dueDate-desc">Due Date (Latest)</option>
-                <option value="title-asc">Title (A→Z)</option>
-                <option value="title-desc">Title (Z→A)</option>
-              </select>
+                <Search
+                  size={16}
+                  aria-hidden="true"
+                  className={desktopFilterStyles.filterFieldIcon}
+                />
+                <input
+                  type="text"
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={desktopFilterStyles.filterInput}
+                />
+              </div>
+
+              <div
+                className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                style={{ width: "auto", flex: "1 1 160px", minWidth: "140px" }}
+              >
+                <select
+                  value={sortField && sortOrder ? `${sortField}-${sortOrder}` : "default"}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "default") {
+                      handleSortChange(null, null);
+                    } else {
+                      const [field, order] = value.split("-");
+                      handleSortChange(field, order as "asc" | "desc");
+                    }
+                  }}
+                  className={desktopFilterStyles.filterSelectControl}
+                  aria-label="Sort tasks"
+                >
+                  <option value="default">Default order</option>
+                  <option value="dueDate-asc">Due Date (Earliest)</option>
+                  <option value="dueDate-desc">Due Date (Latest)</option>
+                  <option value="title-asc">Title (A→Z)</option>
+                  <option value="title-desc">Title (Z→A)</option>
+                </select>
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className={desktopFilterStyles.filterSelectChevron}
+                />
+              </div>
             </div>
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
