@@ -500,7 +500,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
   const hasMapMarkers = mapMarkers.length > 0;
   const overlayClassName = isDesktop
-    ? `${styles.sheetOverlay} ${styles.desktopOverlay} ${detailsPanelOpen ? styles.withDetailsPanel : ""}`
+    ? `${styles.sheetOverlay} ${styles.desktopOverlay}`
     : styles.sheetOverlay;
   const sheetClassName = isDesktop ? `${styles.sheet} ${styles.desktopSheet}` : styles.sheet;
   const drawerInitial = isDesktop ? { x: "-100%" } : { y: viewportHeight };
