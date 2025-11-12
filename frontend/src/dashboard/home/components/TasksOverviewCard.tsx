@@ -341,7 +341,7 @@ const TasksOverviewCard: React.FC<TasksOverviewCardProps> = ({ className }) => {
         open={isCreateModalOpen}
         onClose={closeCreateModal}
         projects={projectOptions}
-        onCreated={refreshTasks}
+        onCreated={() => refreshTasks()}
         onUpdated={refreshTasks}
         onDeleted={refreshTasks}
         task={taskToEdit}

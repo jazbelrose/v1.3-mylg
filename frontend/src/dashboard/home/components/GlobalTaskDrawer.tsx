@@ -928,9 +928,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 open={true}
                 onClose={handleCloseDetailsPanel}
                 projects={projectOptions}
-                onCreated={handleDetailsSaved}
-                onUpdated={handleDetailsSaved}
-                onDeleted={handleDetailsSaved}
+                onCreated={() => handleDetailsSaved()}
+                onUpdated={() => handleDetailsSaved()}
+                onDeleted={() => handleDetailsSaved()}
                 task={detailsTask}
                 embedMode={true}
               />
@@ -944,9 +944,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
           open={quickCreateOpen}
           onClose={handleCloseQuickCreate}
           projects={projectOptions}
-          onCreated={refreshTasks}
-          onUpdated={refreshTasks}
-          onDeleted={refreshTasks}
+          onCreated={() => refreshTasks()}
+          onUpdated={() => refreshTasks()}
+          onDeleted={() => refreshTasks()}
           task={taskToEdit}
         />
       )}

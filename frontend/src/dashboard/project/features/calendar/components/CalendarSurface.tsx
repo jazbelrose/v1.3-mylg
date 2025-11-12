@@ -1175,7 +1175,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         open={isQuickTaskModalOpen}
         onClose={handleCloseQuickTaskModal}
         projects={taskProjects}
-        onCreated={handleRefreshTasks}
+        onCreated={() => handleRefreshTasks()}
         onUpdated={handleRefreshTasks}
         onDeleted={handleRefreshTasks}
         activeProjectId={activeProjectId ?? null}

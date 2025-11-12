@@ -587,9 +587,9 @@ const TasksListPage: React.FC = () => {
         open={isCreateModalOpen}
         onClose={closeCreateModal}
         projects={projectOptions}
-        onCreated={refreshTasks}
-        onUpdated={refreshTasks}
-        onDeleted={refreshTasks}
+        onCreated={() => refreshTasks()}
+        onUpdated={() => refreshTasks()}
+        onDeleted={() => refreshTasks()}
         task={taskToEdit}
       />
     </>

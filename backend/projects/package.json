@@ -10,6 +10,11 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "serverless-python-requirements": "^6.0.0"
+    "serverless-python-requirements": "^6.0.0",
+    "vitest": "^1.0.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

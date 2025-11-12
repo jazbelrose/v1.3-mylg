@@ -28,3 +28,9 @@ export type QuickCreateTaskModalTask = {
   location?: QuickCreateTaskLocation;
   noteAttachments?: TaskNoteAttachment[] | null;
 };
+
+export type QuickCreateTaskModalEventType = "create" | "update" | "delete";
+
+export type QuickCreateTaskModalEvent = {
+  type: QuickCreateTaskModalEventType;
+};

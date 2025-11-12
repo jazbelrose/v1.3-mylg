@@ -6,7 +6,13 @@ import { NOMINATIM_SEARCH_URL, apiFetch, createTask, deleteTask, updateTask, upl
 import { useUser } from "@/app/contexts/useUser";
 
 import styles from "./QuickCreateTaskModal.module.css";
-import type { QuickCreateTaskModalTask, QuickCreateTaskLocation, TaskNoteAttachment } from "./QuickCreateTaskModal.types";
+import type {
+  QuickCreateTaskModalEvent,
+  QuickCreateTaskModalEventType,
+  QuickCreateTaskModalTask,
+  QuickCreateTaskLocation,
+  TaskNoteAttachment,
+} from "./QuickCreateTaskModal.types";
 
 export type { QuickCreateTaskModalTask } from "./QuickCreateTaskModal.types";
 
@@ -207,7 +213,7 @@ export type QuickCreateTaskModalProps = {
   open: boolean;
   onClose: () => void;
   projects: QuickCreateTaskModalProject[];
-  onCreated: () => void;
+  onCreated: (event: QuickCreateTaskModalEvent) => void;
   activeProjectId?: string | null;
   activeProjectName?: string | null;
   scopedProjectId?: string | null;
@@ -433,6 +439,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const hasCollaborators = collaboratorOptions.length > 0;
   const effectiveProjectId = useMemo(() => {
+    // When editing a task, always use the task's original project ID
+    if (isEditing && projectId) {
+      return projectId;
+    }
+
     if (scopedProjectId) {
       return scopedProjectId;
     }
@@ -442,7 +453,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
 
     return projectOptions[0]?.id ?? "";
-  }, [projectId, projectOptions, scopedProjectId]);
+  }, [isEditing, projectId, projectOptions, scopedProjectId]);
   const trimmedTitle = title.trim();
   const titleRemaining = 120 - title.length;
   const showTitleCounter = titleRemaining <= 20;
@@ -1042,6 +1053,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSubmitting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    const eventType: QuickCreateTaskModalEventType = isEditing ? "update" : "create";
 
     let dueDateIso: string | undefined;
     if (dueDate) {
@@ -1106,7 +1118,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         });
       }
 
-      onCreated();
+      onCreated({ type: eventType });
     } catch (error) {
       console.error("Failed to save task", error);
       setErrorMessage(
@@ -1131,7 +1143,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     try {
       await deleteTask({ projectId: effectiveProjectId, taskId });
       onDeleted?.();
-      onCreated();
+      onCreated({ type: "delete" });
       onClose();
     } catch (error) {
       console.error("Failed to delete task", error);

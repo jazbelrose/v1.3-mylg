@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui";
 import { fetchTasks, updateTask, requestTaskReview, approveTask, type Task as ApiTaskPayload } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
+import { notify } from "@/shared/ui/ToastNotifications";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
@@ -512,10 +513,11 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
 
       setTaskMarkingState(taskId, true);
 
+      const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
+      const isReviewer = reviewerId && userId && reviewerId === userId;
+      const canApprove = isAdmin || isReviewer;
+
       try {
-        const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
-        const isReviewer = reviewerId && userId && reviewerId === userId;
-        const canApprove = isAdmin || isReviewer;
 
         let updatedTask: ApiTaskPayload;
         if (canApprove) {
@@ -538,11 +540,17 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
               : currentTask,
           ),
         );
+        
+        // Reset loading state and show success message
+        setTaskMarkingState(taskId, false);
+        notify("success", canApprove ? "Task marked as done!" : "Task submitted for review!");
       } catch (error: unknown) {
         console.error("Failed to mark task done", error);
-        // Fallback to old PATCH endpoint if new endpoints return 404
-        const apiError = error as { status?: number };
+        setTaskMarkingState(taskId, false); // Reset loading state
+        
+        const apiError = error as { status?: number; message?: string };
         if (apiError?.status === 404) {
+          // Fallback to old PATCH endpoint if new endpoints return 404
           try {
             const dueDateIso = resolveTaskDueDateIso(task);
             const payload: ApiTaskPayload = {
@@ -583,8 +591,10 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
                   : currentTask,
               ),
             );
+            notify("success", canApprove ? "Task marked as done!" : "Task submitted for review!");
           } catch (fallbackError) {
             console.error("Fallback updateTask also failed", fallbackError);
+            notify("error", "Failed to update task. Please try again.");
             try {
               await refreshTasks();
             } catch (refreshError) {
@@ -592,6 +602,15 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
             }
           }
         } else {
+          // Handle other API errors with user feedback
+          if (apiError?.status === 403) {
+            notify("error", "You don't have permission to perform this action.");
+          } else if (apiError?.status === 409) {
+            notify("error", "Task is not in the correct state for this action.");
+          } else {
+            notify("error", "Failed to update task. Please try again.");
+          }
+          
           try {
             await refreshTasks();
           } catch (refreshError) {
@@ -851,9 +870,9 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
         open={quickCreateOpen}
         onClose={handleCloseQuickCreate}
         projects={quickCreateProjects}
-        onCreated={refreshTasks}
-        onUpdated={refreshTasks}
-        onDeleted={refreshTasks}
+        onCreated={() => refreshTasks()}
+        onUpdated={() => refreshTasks()}
+        onDeleted={() => refreshTasks()}
         task={taskToEdit}
         activeProjectId={projectId}
         activeProjectName={projectName}
