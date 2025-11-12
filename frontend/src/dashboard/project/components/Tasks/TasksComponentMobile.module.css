@@ -887,6 +887,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.4rem;
   padding: 0 0.95rem 0.95rem;
   flex-wrap: nowrap;
@@ -921,6 +922,17 @@
 .taskActionButton svg {
   width: 14px;
   height: 14px;
+}
+
+.taskActionButton:not(:disabled):hover,
+.taskActionButton:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.taskActionButton:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
 }
 
 .taskMapButton {
