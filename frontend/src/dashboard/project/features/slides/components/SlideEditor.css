@@ -23,9 +23,10 @@
     0 24px 48px rgba(0, 0, 0, 0.55);
   overflow: auto;
   position: relative;
-  padding: 24px;
+  padding-block: 0px;
+  padding-inline: 24px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   box-sizing: border-box;
 }
@@ -74,6 +75,7 @@
 
 .slide-editor__canvas-inner .editor-container {
   height: 100% !important;
+  min-height: 0 !important;
 }
 
 .slide-editor__canvas-inner .content-container {
