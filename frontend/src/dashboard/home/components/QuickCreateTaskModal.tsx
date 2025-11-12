@@ -214,6 +214,7 @@ export type QuickCreateTaskModalProps = {
   task?: QuickCreateTaskModalTask | null;
   onUpdated?: () => void;
   onDeleted?: () => void;
+  embedMode?: boolean;
 };
 
 const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
@@ -227,6 +228,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   task,
   onUpdated,
   onDeleted,
+  embedMode = false,
 }) => {
   const { userData, allUsers } = useUser();
   const [projectId, setProjectId] = useState<string>("");
@@ -1143,19 +1145,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return null;
   }
 
-  return createPortal(
-    <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
-      <div
-        ref={modalRef}
-        className={`${styles.createModal} ${isDragging ? styles.createModalDragging : ""}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="quick-task-title"
-        aria-describedby={descriptionId}
-        tabIndex={-1}
-        onMouseDown={(event) => event.stopPropagation()}
-        style={swipeOffset ? { transform: `translateY(${swipeOffset}px)` } : undefined}
-      >
+  const modalContent = (
+    <div
+      ref={modalRef}
+      className={`${embedMode ? styles.embedModal : styles.createModal} ${isDragging ? styles.createModalDragging : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quick-task-title"
+      aria-describedby={descriptionId}
+      tabIndex={-1}
+      onMouseDown={embedMode ? undefined : (event) => event.stopPropagation()}
+      style={swipeOffset ? { transform: `translateY(${swipeOffset}px)` } : undefined}
+    >
+      {!embedMode && (
         <div 
           className={styles.grabZone}
           onTouchStart={handleTouchStart}
@@ -1165,6 +1167,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         >
           <div className={styles.grabHandle} />
         </div>
+      )}
         <form
           ref={formRef}
           className={styles.createForm}
@@ -1174,10 +1177,25 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         >
           <div className={styles.formBody} onClick={handleFormBodyClick}>
             <div className={styles.createHeader}>
-              <h2 id="quick-task-title">{modalTitle}</h2>
-              <p id={descriptionId} className={styles.createDescription}>
-                {modalDescription}
-              </p>
+              <div>
+                <h2 id="quick-task-title">{modalTitle}</h2>
+                <p id={descriptionId} className={styles.createDescription}>
+                  {modalDescription}
+                </p>
+              </div>
+              {embedMode && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={styles.embedCloseButton}
+                  aria-label="Close task details"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
             </div>
             {showProjectSelect ? (
               <div className={styles.fieldGroup}>
@@ -1504,6 +1522,15 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           </div>
         </form>
       </div>
+    );
+
+  if (embedMode) {
+    return modalContent;
+  }
+
+  return createPortal(
+    <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
+      {modalContent}
     </div>,
     document.body
   );

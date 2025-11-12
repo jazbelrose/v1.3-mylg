@@ -91,6 +91,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
+  const [detailsPanelOpen, setDetailsPanelOpen] = useState(false);
+  const [detailsTask, setDetailsTask] = useState<QuickCreateTaskModalTask | null>(null);
 
   // Filter and sort state
   const [searchQuery, setSearchQuery] = useState("");
@@ -422,22 +424,44 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
   const handleTaskEdit = useCallback(
     (task: TasksOverviewListItem) => {
-      setTaskToEdit(toModalTask(task));
-      setQuickCreateOpen(true);
-      setActiveTaskId(task.id);
+      const modalTask = toModalTask(task);
+      if (isDesktop) {
+        setDetailsTask(modalTask);
+        setDetailsPanelOpen(true);
+        setActiveTaskId(task.id);
+      } else {
+        setTaskToEdit(modalTask);
+        setQuickCreateOpen(true);
+        setActiveTaskId(task.id);
+      }
     },
-    [toModalTask],
+    [toModalTask, isDesktop],
   );
 
   const handleOpenQuickCreate = useCallback(() => {
-    setTaskToEdit(null);
-    setQuickCreateOpen(true);
-  }, []);
+    if (isDesktop) {
+      setDetailsTask(null);
+      setDetailsPanelOpen(true);
+    } else {
+      setTaskToEdit(null);
+      setQuickCreateOpen(true);
+    }
+  }, [isDesktop]);
 
   const handleCloseQuickCreate = useCallback(() => {
     setTaskToEdit(null);
     setQuickCreateOpen(false);
   }, []);
+
+  const handleCloseDetailsPanel = useCallback(() => {
+    setDetailsTask(null);
+    setDetailsPanelOpen(false);
+  }, []);
+
+  const handleDetailsSaved = useCallback(() => {
+    refreshTasks();
+    handleCloseDetailsPanel();
+  }, [refreshTasks, handleCloseDetailsPanel]);
 
   const formatDueLabel = useCallback((task: TasksOverviewListItem): string => {
     if (!task.dueDate) return "No due date";
@@ -475,7 +499,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
   const hasMapMarkers = mapMarkers.length > 0;
   const overlayClassName = isDesktop
-    ? `${styles.sheetOverlay} ${styles.desktopOverlay}`
+    ? `${styles.sheetOverlay} ${styles.desktopOverlay} ${detailsPanelOpen ? styles.withDetailsPanel : ""}`
     : styles.sheetOverlay;
   const sheetClassName = isDesktop ? `${styles.sheet} ${styles.desktopSheet}` : styles.sheet;
   const drawerInitial = isDesktop ? { x: "-100%" } : { y: viewportHeight };
@@ -889,18 +913,43 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
               </section>
             </div>
           </motion.div>
+          {isDesktop && detailsPanelOpen && (
+            <motion.div
+              className={styles.detailsPanel}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Task details"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.9 }}
+            >
+              <QuickCreateTaskModal
+                open={true}
+                onClose={handleCloseDetailsPanel}
+                projects={projectOptions}
+                onCreated={handleDetailsSaved}
+                onUpdated={handleDetailsSaved}
+                onDeleted={handleDetailsSaved}
+                task={detailsTask}
+                embedMode={true}
+              />
+            </motion.div>
+          )}
         </div>,
         document.body,
       )}
-      <QuickCreateTaskModal
-        open={quickCreateOpen}
-        onClose={handleCloseQuickCreate}
-        projects={projectOptions}
-        onCreated={refreshTasks}
-        onUpdated={refreshTasks}
-        onDeleted={refreshTasks}
-        task={taskToEdit}
-      />
+      {!isDesktop && (
+        <QuickCreateTaskModal
+          open={quickCreateOpen}
+          onClose={handleCloseQuickCreate}
+          projects={projectOptions}
+          onCreated={refreshTasks}
+          onUpdated={refreshTasks}
+          onDeleted={refreshTasks}
+          task={taskToEdit}
+        />
+      )}
     </>
   );
 };
