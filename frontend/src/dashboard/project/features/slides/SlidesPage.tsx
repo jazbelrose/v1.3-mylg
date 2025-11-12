@@ -99,6 +99,7 @@ const SlidesPage: React.FC = () => {
   // We mark the thumbnail as dirty and generate/persist it once after the autosave/save
   // window (debounced) to avoid excessive thumbnail churn.
   const dirtyThumbRef = useRef<boolean>(false);
+  const emptySlidesInitializedRef = useRef(false);
 
   // Helper to add a cache-busting query param for immediate UI refresh
   const makeUiThumbnail = useCallback((url: string) => {
@@ -171,10 +172,12 @@ const SlidesPage: React.FC = () => {
 
     const projectSlides = activeProject?.slides;
     if (!Array.isArray(projectSlides)) {
+      emptySlidesInitializedRef.current = false;
       return;
     }
 
     if (projectSlides.length > 0) {
+      emptySlidesInitializedRef.current = false;
       const sortedSlides = [...(projectSlides as Slide[])].sort(
         (a, b) => (a.order || 0) - (b.order || 0)
       );
@@ -206,6 +209,11 @@ const SlidesPage: React.FC = () => {
       });
       return;
     }
+
+    if (emptySlidesInitializedRef.current) {
+      return;
+    }
+    emptySlidesInitializedRef.current = true;
 
     setSlides((prevSlides) => {
       if (prevSlides.length > 0) {

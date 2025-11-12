@@ -319,6 +319,17 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
             }
           }
 
+          // Ensure all required fields exist to prevent infinite hydration loops
+          if ((merged as Record<string, unknown>).description === undefined) {
+            merged = { ...merged, description: '' };
+          }
+          if ((merged as Record<string, unknown>).customFolders === undefined) {
+            merged = { ...merged, customFolders: [] };
+          }
+          if (!Array.isArray((merged as unknown as { slides?: unknown }).slides)) {
+            merged = { ...merged, slides: [] } as Project;
+          }
+
           detailCacheRef.current.set(projectId, merged);
           return merged;
         } catch (err) {
@@ -364,6 +375,17 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
         if (detail) {
           hydrated = mergeProjectWithFallback(detail, hydrated);
         }
+      }
+
+      // Ensure all required fields exist to prevent infinite hydration loops
+      if ((hydrated as Record<string, unknown>).description === undefined) {
+        hydrated = { ...hydrated, description: '' };
+      }
+      if ((hydrated as Record<string, unknown>).customFolders === undefined) {
+        hydrated = { ...hydrated, customFolders: [] };
+      }
+      if (!Array.isArray((hydrated as unknown as { slides?: unknown }).slides)) {
+        hydrated = { ...hydrated, slides: [] } as Project;
       }
 
       try {
