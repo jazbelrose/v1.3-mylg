@@ -703,6 +703,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           (sourceTask as { location?: QuickCreateTaskModalTask["location"] })?.location ??
           quickTask?.location ??
           null,
+        reviewerId:
+          (sourceTask as { reviewerId?: string })?.reviewerId ??
+          quickTask?.raw?.reviewerId ??
+          null,
       };
 
       setQuickTaskDraft(overrides ? { ...payload, ...overrides } : payload);

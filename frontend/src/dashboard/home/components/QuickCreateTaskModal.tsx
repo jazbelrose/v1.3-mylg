@@ -2,7 +2,16 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { createPortal } from "react-dom";
 
 import type { Task } from "@/shared/utils/api";
-import { NOMINATIM_SEARCH_URL, apiFetch, createTask, deleteTask, updateTask, uploadFile } from "@/shared/utils/api";
+import {
+  NOMINATIM_SEARCH_URL,
+  apiFetch,
+  createTask,
+  deleteTask,
+  updateTask,
+  uploadFile,
+  approveTask,
+  requestTaskReview,
+} from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 
 import styles from "./QuickCreateTaskModal.module.css";
@@ -231,7 +240,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   onDeleted,
   embedMode = false,
 }) => {
-  const { userData, allUsers } = useUser();
+  const { userData, allUsers, userId, isAdmin } = useUser();
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -250,6 +259,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [projectError, setProjectError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
+  const initialStatusRef = useRef<TaskStatus>("todo");
+  const reviewerIdRef = useRef<string | undefined>(undefined);
   const suggestionsListId = "quick-create-task-location-suggestions";
   const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
   const [assigneeSearch, setAssigneeSearch] = useState("");
@@ -508,6 +519,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setProjectError(null);
     setTaskId(null);
     setStatus("todo");
+    initialStatusRef.current = "todo";
+    reviewerIdRef.current = undefined;
   }, []);
 
   // New handlers for popover
@@ -569,7 +582,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setTitle(typeof taskData.title === "string" ? taskData.title : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
-      setStatus(normalizeStatus(taskData.status));
+      const normalizedFormStatus = normalizeStatus(taskData.status);
+      setStatus(normalizedFormStatus);
+      initialStatusRef.current = normalizedFormStatus;
+      const reviewerIdValue =
+        typeof taskData.reviewerId === "string" && taskData.reviewerId.trim()
+          ? taskData.reviewerId.trim()
+          : undefined;
+      reviewerIdRef.current = reviewerIdValue;
       const providedTokens = Array.isArray(taskData.assigneeTokens)
         ? taskData.assigneeTokens.filter(
             (token): token is string => typeof token === "string" && token.trim().length > 0,
@@ -1049,6 +1069,12 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
     const eventType: QuickCreateTaskModalEventType = isEditing ? "update" : "create";
+    const originalStatus = initialStatusRef.current;
+    const shouldUseDedicatedStatusEndpoint =
+      isEditing && status === "done" && originalStatus !== "done";
+    const isReviewer =
+      Boolean(reviewerIdRef.current) && Boolean(userId) && reviewerIdRef.current === userId;
+    const canApprove = Boolean(isAdmin || isReviewer);
 
     let dueDateIso: string | undefined;
     if (dueDate) {
@@ -1091,9 +1117,33 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
 
       if (isEditing && taskId) {
-        await updateTask({ ...payload, taskId });
-        setSuccessMessage("Task updated. Changes saved.");
-        onUpdated?.();
+        if (shouldUseDedicatedStatusEndpoint) {
+          const patchPayload = { ...payload };
+          delete patchPayload.status;
+          await updateTask({ ...patchPayload, taskId });
+
+          if (!effectiveProjectId) {
+            throw new Error("A project must be selected to update this task.");
+          }
+
+          if (canApprove) {
+            await approveTask(effectiveProjectId, taskId, { note: "" });
+            setSuccessMessage("Task marked as done!");
+          } else {
+            await requestTaskReview(effectiveProjectId, taskId, {
+              note: "",
+              reviewerId: reviewerIdRef.current,
+            });
+            setSuccessMessage("Task submitted for review!");
+          }
+
+          initialStatusRef.current = status;
+          onUpdated?.();
+        } else {
+          await updateTask({ ...payload, taskId });
+          setSuccessMessage("Task updated. Changes saved.");
+          onUpdated?.();
+        }
       } else {
         await createTask(payload);
         setSuccessMessage("Task created. You'll see it in your lists shortly.");

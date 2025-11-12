@@ -292,6 +292,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
         assigneeId: task.assignedTo ?? undefined,
         address: task.address ?? undefined,
         location: (task.location ?? task.raw?.location) as QuickCreateTaskModalTask["location"],
+        reviewerId: (task.raw as { reviewerId?: string }).reviewerId ?? undefined,
       };
     },
     [projectId, projectName],

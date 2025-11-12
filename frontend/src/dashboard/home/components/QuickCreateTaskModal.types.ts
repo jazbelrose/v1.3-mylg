@@ -27,6 +27,7 @@ export type QuickCreateTaskModalTask = {
   address?: string | null;
   location?: QuickCreateTaskLocation;
   noteAttachments?: TaskNoteAttachment[] | null;
+  reviewerId?: string | null;
 };
 
 export type QuickCreateTaskModalEventType = "create" | "update" | "delete";

@@ -1170,7 +1170,7 @@
     bottom: 0;
     left: 0;
     right: auto;
-    width: var(--drawer-width);
+    width: 600px;
     height: 100vh;
     margin: 0;
     max-height: none;
