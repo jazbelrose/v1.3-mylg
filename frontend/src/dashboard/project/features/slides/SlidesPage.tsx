@@ -676,8 +676,6 @@ const SlidesPage: React.FC = () => {
                 <SlideEditor
                   projectId={projectId}
                   slide={activeSlide}
-                  width={1920}
-                  height={1080}
                   onContentChange={(content) =>
                     handleContentChange(activeSlide.id, content)
                   }

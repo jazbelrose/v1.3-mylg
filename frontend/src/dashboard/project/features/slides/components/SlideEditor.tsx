@@ -17,8 +17,6 @@ interface SlideEditorProps {
   slide: Slide;
   onContentChange?: (content: string) => void;
   onSaveSuccess?: () => void;
-  width?: number;
-  height?: number;
   // Toolbar props
   onDuplicate?: () => void;
   onDelete?: () => void;
@@ -32,13 +30,15 @@ interface SlideEditorProps {
   onResetZoom?: () => void;
 }
 
+// Fixed stage dimensions (16:9 aspect ratio) - never changes
+const STAGE_WIDTH = 1920;
+const STAGE_HEIGHT = 1080;
+
 const SlideEditor: React.FC<SlideEditorProps> = ({
   projectId,
   slide,
   onContentChange,
   onSaveSuccess,
-  width = 1920,
-  height = 1080,
   onDuplicate,
   onDelete,
   onExport,
@@ -103,7 +103,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         return;
       }
 
-      const rawScale = Math.min(availableWidth / width, availableHeight / height);
+      const rawScale = Math.min(availableWidth / STAGE_WIDTH, availableHeight / STAGE_HEIGHT);
       const nextScale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
       setFitScale(Math.min(1, nextScale));
     };
@@ -127,7 +127,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       window.removeEventListener("resize", calculateFitScale);
       resizeObserver?.disconnect();
     };
-  }, [width, height]);
+  }, []);
 
   // Keyboard shortcuts for zoom
   useEffect(() => {
@@ -203,15 +203,13 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const scale = zoom / 100;
   const appliedScale = Math.max(scale * fitScale, 0.01);
-  const scaledWidth = width * appliedScale;
-  const scaledHeight = height * appliedScale;
 
   return (
     <div
       className="slide-editor"
       data-slide-id={slide.id}
-      data-canvas-width={width}
-      data-canvas-height={height}
+      data-canvas-width={STAGE_WIDTH}
+      data-canvas-height={STAGE_HEIGHT}
     >
       <DropdownProvider>{customToolbar}</DropdownProvider>
 
@@ -219,17 +217,15 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         <div
           className="slide-editor__canvas-scaler"
           style={{
-            width: `${scaledWidth}px`,
-            height: `${scaledHeight}px`,
+            transform: `scale(${appliedScale})`,
+            transformOrigin: "center center",
           }}
         >
           <div
             className="slide-editor__canvas-inner"
             style={{
-              width: `${width}px`,
-              height: `${height}px`,
-              transform: `scale(${appliedScale})`,
-              transformOrigin: "center center",
+              width: `${STAGE_WIDTH}px`,
+              height: `${STAGE_HEIGHT}px`,
             }}
           >
             <LexicalEditor
