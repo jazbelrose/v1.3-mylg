@@ -1400,3 +1400,23 @@
     padding: 16px 20px max(20px, env(safe-area-inset-bottom) + 20px);
   }
 }
+
+.embedclosebutton {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.embedclosebutton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
