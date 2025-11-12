@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, MapPin, Plus, Search, User, X } from "lucide-react";
+import { Calendar, ChevronDown, MapPin, Pencil, Plus, Search, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 import MapComponent from "@/shared/ui/Map";
@@ -403,6 +403,32 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     setSnapIndex(1);
   }, []);
 
+  const toModalTask = useCallback(
+    (task: TasksOverviewListItem): QuickCreateTaskModalTask => ({
+      id: task.id,
+      taskId: task.taskId ?? task.id,
+      projectId: task.projectId,
+      projectName: task.projectName,
+      title: task.title,
+      description: task.description ?? undefined,
+      dueDate: task.dueDateInput ?? (task.dueDate ? task.dueDate.toISOString() : null),
+      status: task.status,
+      assigneeId: task.assigneeId ?? undefined,
+      address: task.address ?? undefined,
+      location: task.location as QuickCreateTaskModalTask["location"],
+    }),
+    [],
+  );
+
+  const handleTaskEdit = useCallback(
+    (task: TasksOverviewListItem) => {
+      setTaskToEdit(toModalTask(task));
+      setQuickCreateOpen(true);
+      setActiveTaskId(task.id);
+    },
+    [toModalTask],
+  );
+
   const handleOpenQuickCreate = useCallback(() => {
     setTaskToEdit(null);
     setQuickCreateOpen(true);
@@ -778,7 +804,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                     {filteredTasks.map((task) => {
                       const isActive = task.id === activeTaskId;
                       const listItemClassName = `${styles.taskItem}${isActive ? ` ${styles.taskItemActive}` : ""}`;
-                      
+
                       // Get status badge
                       const { category, label } = getTaskStatusBadge(
                         task.status as "done" | "to_do" | "in_progress",
@@ -789,62 +815,72 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                       const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
                       const badgeToneClass = badgeClassKey ? styles[badgeClassKey] : undefined;
                       const badgeClassName = [styles.statusBadge, badgeToneClass].filter(Boolean).join(" ");
-                      
+
                       return (
                         <li
                           key={task.id}
                           data-task-id={task.id}
                           className={listItemClassName}
                         >
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            className={styles.taskButton}
-                            onClick={() => handleTaskSelect(task.id)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                handleTaskSelect(task.id);
-                              }
-                            }}
-                          >
-                            <div className={styles.taskTitleRow}>
-                              <span className={styles.taskTitle}>{task.title}</span>
-                              <span className={badgeClassName}>{label}</span>
-                            </div>
-                            <div className={styles.taskMeta}>
-                              <span className={styles.metaLine}>
-                                <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
-                              </span>
-                              {task.projectName && (
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              className={styles.taskButton}
+                              onClick={() => handleTaskSelect(task.id)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  handleTaskSelect(task.id);
+                                }
+                              }}
+                            >
+                              <div className={styles.taskTitleRow}>
+                                <span className={styles.taskTitle}>{task.title}</span>
+                                <span className={badgeClassName}>{label}</span>
+                              </div>
+                              <div className={styles.taskMeta}>
                                 <span className={styles.metaLine}>
-                                  <span
-                                    className={styles.projectDot}
-                                    style={{ backgroundColor: task.projectColor || "#fa3356" }}
-                                    aria-hidden="true"
-                                  />
-                                  {task.projectName}
+                                  <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
                                 </span>
-                              )}
-                              {task.address ? (
-                                <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
-                                  <MapPin size={14} aria-hidden="true" />
-                                  <span className={styles.addressDetails}>
-                                    <span className={styles.addressText}>{task.address}</span>
+                                {task.projectName && (
+                                  <span className={styles.metaLine}>
+                                    <span
+                                      className={styles.projectDot}
+                                      style={{ backgroundColor: task.projectColor || "#fa3356" }}
+                                      aria-hidden="true"
+                                    />
+                                    {task.projectName}
                                   </span>
-                                </span>
-                              ) : (
-                                <span className={`${styles.metaLine} ${styles.metaLineMuted}`}>
-                                  <MapPin size={14} aria-hidden="true" /> No location
-                                </span>
-                              )}
-                              {task.assigneeName && (
-                                <span className={styles.metaLine}>
-                                  <User size={14} aria-hidden="true" /> {task.assigneeName}
-                                </span>
-                              )}
+                                )}
+                                {task.address ? (
+                                  <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
+                                    <MapPin size={14} aria-hidden="true" />
+                                    <span className={styles.addressDetails}>
+                                      <span className={styles.addressText}>{task.address}</span>
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className={`${styles.metaLine} ${styles.metaLineMuted}`}>
+                                    <MapPin size={14} aria-hidden="true" /> No location
+                                  </span>
+                                )}
+                                {task.assigneeName && (
+                                  <span className={styles.metaLine}>
+                                    <User size={14} aria-hidden="true" /> {task.assigneeName}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                            <div className={styles.taskActions}>
+                              <button
+                                type="button"
+                                className={`${styles.taskActionButton} ${styles.taskMapButton}`}
+                                onClick={() => handleTaskEdit(task)}
+                              >
+                                <Pencil size={14} aria-hidden="true" />
+                                Edit task
+                              </button>
+                            </div>
                         </li>
                       );
                     })}
