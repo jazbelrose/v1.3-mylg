@@ -128,11 +128,10 @@ const NewProject: React.FC = () => {
       { userId: "abe70c08-6743-44b5-99a9-f9638f606b1a" },
     ];
 
+    const normalizedUserId = userId?.trim();
     const team = [
-      ...defaultAdmins,
-      ...(userId && !defaultAdmins.find((a) => a.userId === userId)
-        ? [{ userId }]
-        : []),
+      ...(normalizedUserId ? [{ userId: normalizedUserId }] : []),
+      ...defaultAdmins.filter((admin) => admin.userId !== normalizedUserId),
     ];
 
     return {
