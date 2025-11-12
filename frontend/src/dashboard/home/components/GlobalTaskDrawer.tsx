@@ -624,7 +624,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 <header className={styles.desktopDrawerHeader}>
                   <button
                     type="button"
-                    className={styles.embedclosebutton}
+                    className={styles.embedCloseButton}
                     onClick={onClose}
                     aria-label="Close tasks drawer"
                   >
