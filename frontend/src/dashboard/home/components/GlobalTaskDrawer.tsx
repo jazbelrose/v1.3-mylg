@@ -893,57 +893,59 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                           onClick={() => handleTaskSelect(task.id)}
                         >
                           <div className={styles.taskHeader} style={{ padding: '12px' }}>
-                            <div className={styles.taskTitleRow} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                              {task.projectThumbnail ? (() => {
-                                const size = 24;
-                                const w = size, h = size;
-                                const r = Math.min(w, h) * 0.5;
-                                const k = 0.55 + 0.45;
-                                const squirclePath = getSquirclePath(w, h, r, k);
-                                return (
-                                  <svg
-                                    width={size}
-                                    height={size}
-                                    viewBox={`0 0 ${size} ${size}`}
-                                    style={{ flexShrink: 0 }}
-                                    aria-hidden="true"
-                                  >
-                                    <defs>
-                                      <clipPath id={`squircle-clip-${task.id}`}>
-                                        <path d={squirclePath} />
-                                      </clipPath>
-                                    </defs>
-                                    <image
-                                      href={task.projectThumbnail}
-                                      x="0"
-                                      y="0"
+                            <div className={styles.taskTitleRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                {task.projectThumbnail ? (() => {
+                                  const size = 24;
+                                  const w = size, h = size;
+                                  const r = Math.min(w, h) * 0.5;
+                                  const k = 0.55 + 0.45;
+                                  const squirclePath = getSquirclePath(w, h, r, k);
+                                  return (
+                                    <svg
                                       width={size}
                                       height={size}
-                                      clipPath={`url(#squircle-clip-${task.id})`}
+                                      viewBox={`0 0 ${size} ${size}`}
+                                      style={{ flexShrink: 0 }}
+                                      aria-hidden="true"
+                                    >
+                                      <defs>
+                                        <clipPath id={`squircle-clip-${task.id}`}>
+                                          <path d={squirclePath} />
+                                        </clipPath>
+                                      </defs>
+                                      <image
+                                        href={task.projectThumbnail}
+                                        x="0"
+                                        y="0"
+                                        width={size}
+                                        height={size}
+                                        clipPath={`url(#squircle-clip-${task.id})`}
+                                      />
+                                    </svg>
+                                  );
+                                })() : (
+                                  <div
+                                    style={{
+                                      width: '24px',
+                                      height: '24px',
+                                      flexShrink: 0,
+                                    }}
+                                    aria-hidden="true"
+                                  >
+                                    <SvgThumbnail
+                                      initial={task.projectName.charAt(0).toUpperCase()}
+                                      size={24}
                                     />
-                                  </svg>
-                                );
-                              })() : (
-                                <div
-                                  style={{
-                                    width: '24px',
-                                    height: '24px',
-                                    flexShrink: 0,
-                                  }}
-                                  aria-hidden="true"
+                                  </div>
+                                )}
+                                <span
+                                  className={styles.taskTitle}
+                                  style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}
                                 >
-                                  <SvgThumbnail
-                                    initial={task.projectName.charAt(0).toUpperCase()}
-                                    size={24}
-                                  />
-                                </div>
-                              )}
-                              <span
-                                className={styles.taskTitle}
-                                style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                              >
-                                {task.projectName || task.title}
-                              </span>
+                                  {task.projectName || task.title}
+                                </span>
+                              </div>
                               <span className={badgeClassName}>{label}</span>
                             </div>
                           </div>
