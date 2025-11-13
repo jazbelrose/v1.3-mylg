@@ -9,6 +9,7 @@ type TaskSummaryProps = {
   statusMessage: string;
   statRowClassName?: string;
   statusClassName?: string;
+  statusStyle?: React.CSSProperties;
 };
 
 const TaskSummary: React.FC<TaskSummaryProps> = ({
@@ -17,6 +18,7 @@ const TaskSummary: React.FC<TaskSummaryProps> = ({
   statusMessage,
   statRowClassName,
   statusClassName,
+  statusStyle,
 }) => (
   <>
     <div
@@ -36,7 +38,7 @@ const TaskSummary: React.FC<TaskSummaryProps> = ({
         <span className={styles.statLabel}>Due soon</span>
       </div>
     </div>
-    <p className={statusClassName ?? styles.status}>{statusMessage}</p>
+    <p className={statusClassName ?? styles.status} style={statusStyle}>{statusMessage}</p>
   </>
 );
 

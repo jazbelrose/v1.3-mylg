@@ -647,8 +647,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   </div>
                 </header>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
-                  <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={statusMessage} />
-                  <p className={styles.desktopDrawerMapStatus}>{mapStatusMessage}</p>
+                  <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={`${statusMessage} • ${mapStatusMessage}`} statusStyle={{ textAlign: 'center' }} />
                 </div>
               </>
             ) : (
