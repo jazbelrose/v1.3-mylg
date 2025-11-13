@@ -1253,6 +1253,35 @@
     background: rgba(255, 255, 255, 0.3);
   }
 
+  .primaryAction {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 51, 86, 0.6);
+    background: linear-gradient(135deg, rgba(250, 51, 86, 0.18), rgba(250, 51, 86, 0.32));
+    color: #fff;
+    padding: 0 16px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .primaryAction:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .primaryAction:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(250, 51, 86, 0.24);
+  }
+
   .desktopDrawerSummary {
     display: flex;
     flex-direction: column;

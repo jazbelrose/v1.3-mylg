@@ -639,11 +639,11 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   <div className={styles.desktopDrawerActions} style={{ gridRow: 2, gridColumn: 2 }}>
                     <button
                       type="button"
-                      className={`${styles.desktopDrawerButton} ${styles.desktopDrawerPrimaryButton}`}
+                      className={styles.primaryAction}
                       onClick={handleOpenQuickCreate}
                       disabled={loading || !projectOptions.length}
                     >
-                      <Plus size={16} strokeWidth={2.25} aria-hidden="true" /> New task
+                      <Plus size={18} strokeWidth={2.5} aria-hidden="true" /> New task
                     </button>
                   </div>
                 </header>
