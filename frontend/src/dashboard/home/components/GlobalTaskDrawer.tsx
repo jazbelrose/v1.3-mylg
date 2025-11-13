@@ -987,7 +987,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               </span>
                             )}
                           </div>
-                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px' }}>
+                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: task.address ? 'space-between' : 'flex-end', alignItems: 'center', padding: '12px' }}>
                             {task.address ? (() => {
                               const directions = buildDirectionsLinks(task.address);
                               return (
