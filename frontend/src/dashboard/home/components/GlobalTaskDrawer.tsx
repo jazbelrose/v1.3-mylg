@@ -17,6 +17,7 @@ import {
   getTaskStatusBadge,
   getTaskStatusTone,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
+import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { updateTask, getFileUrl } from "@/shared/utils/api";
@@ -986,7 +987,33 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               </span>
                             )}
                           </div>
-                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px' }}>
+                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px' }}>
+                            {task.address ? (() => {
+                              const directions = buildDirectionsLinks(task.address);
+                              return (
+                                <span className={styles.addressActions}>
+                                  <a
+                                    href={directions.appleMaps}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.addressLink}
+                                  >
+                                    Open in Maps
+                                  </a>
+                                  <span className={styles.addressLinkSeparator} aria-hidden="true">
+                                    •
+                                  </span>
+                                  <a
+                                    href={directions.googleMaps}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.addressLink}
+                                  >
+                                    Open in Google Maps
+                                  </a>
+                                </span>
+                              );
+                            })() : null}
                             <button
                               type="button"
                               className={styles.markDoneButton}
