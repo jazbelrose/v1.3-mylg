@@ -894,7 +894,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                         >
                           <div className={styles.taskHeader} style={{ padding: '12px' }}>
                             <div className={styles.taskTitleRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                                 {task.projectThumbnail ? (() => {
                                   const size = 24;
                                   const w = size, h = size;
