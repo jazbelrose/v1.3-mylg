@@ -946,7 +946,79 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                   {task.projectName || task.title}
                                 </span>
                               </div>
-                              <span className={badgeClassName}>{label}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                  {task.createdByName && (
+                                    <div
+                                      style={{
+                                        width: '20px',
+                                        height: '20px',
+                                        borderRadius: '50%',
+                                        border: '2px solid #fff',
+                                        background: '#000',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.625rem',
+                                        color: '#fff',
+                                        fontWeight: '600',
+                                        flexShrink: 0,
+                                        overflow: 'hidden',
+                                      }}
+                                      title={`Created by ${task.createdByName}`}
+                                    >
+                                      {task.createdByThumbnail ? (
+                                        <img
+                                          src={task.createdByThumbnail}
+                                          alt={task.createdByName}
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                          }}
+                                        />
+                                      ) : (
+                                        task.createdByName.charAt(0).toUpperCase()
+                                      )}
+                                    </div>
+                                  )}
+                                  {task.assigneeName && (
+                                    <div
+                                      style={{
+                                        width: '20px',
+                                        height: '20px',
+                                        borderRadius: '50%',
+                                        border: '2px solid #fff',
+                                        background: '#000',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.625rem',
+                                        color: '#fff',
+                                        fontWeight: '600',
+                                        flexShrink: 0,
+                                        overflow: 'hidden',
+                                      }}
+                                      title={`Assigned to ${task.assigneeName}`}
+                                    >
+                                      {task.assigneeThumbnail ? (
+                                        <img
+                                          src={task.assigneeThumbnail}
+                                          alt={task.assigneeName}
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                          }}
+                                        />
+                                      ) : (
+                                        task.assigneeName.charAt(0).toUpperCase()
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className={badgeClassName}>{label}</span>
+                              </div>
                             </div>
                           </div>
                           <div className={styles.taskMeta}>

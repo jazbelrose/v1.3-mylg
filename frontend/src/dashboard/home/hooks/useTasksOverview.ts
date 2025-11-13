@@ -77,6 +77,8 @@ export type TasksOverviewListItem = {
   assigneeName?: string;
   createdByName?: string;
   createdById?: string;
+  createdByThumbnail?: string;
+  assigneeThumbnail?: string;
 };
 
 export type TasksOverviewEvent = {
@@ -120,6 +122,14 @@ function findUserDisplayNameById(id: string | undefined, users: UserLite[]): str
   if (!match) return undefined;
   const name = `${match.firstName ?? ""} ${match.lastName ?? ""}`.trim();
   return name || match.username || match.email || match.userId;
+}
+
+function findUserThumbnailById(id: string | undefined, users: UserLite[]): string | undefined {
+  const normalizedId = normalizeUserId(id);
+  if (!normalizedId) return undefined;
+  const match = users.find((user) => user.userId === normalizedId);
+  if (!match) return undefined;
+  return match.thumbnail || match.thumbnailUrl;
 }
 
 function parseDueDate(value?: unknown): Date | null {
@@ -418,10 +428,12 @@ export function useTasksOverview() {
         findUserDisplayNameById(raw.createdById ?? createdByCandidate, allUsers) ??
         (createdByCandidate ? formatAssignmentLabel(createdByCandidate) : undefined);
       const createdByIdCandidate = raw.createdById ?? createdByCandidate;
-      const createdById = normalizeUserId(createdByIdCandidate) ?? createdByIdCandidate;
+      const createdById = typeof createdByIdCandidate === 'string' ? (normalizeUserId(createdByIdCandidate) ?? createdByIdCandidate) : createdByIdCandidate;
+      const createdByThumbnail = findUserThumbnailById(typeof createdByIdCandidate === 'string' ? createdByIdCandidate : undefined, allUsers);
       const assigneeName =
         findUserDisplayNameById(assignee, allUsers) ??
         (assignee ? formatAssignmentLabel(assignee) : undefined);
+      const assigneeThumbnail = findUserThumbnailById(assignee, allUsers);
 
       return {
         id: task.id,
@@ -440,7 +452,9 @@ export function useTasksOverview() {
         assigneeId: assignee,
         assigneeName,
         createdByName,
-        createdById,
+        createdById: typeof createdById === 'string' ? createdById : undefined,
+        createdByThumbnail,
+        assigneeThumbnail,
         address,
         location: raw.location as QuickCreateTaskLocation,
         dueDateInput: toDateInputString(dueSource),
