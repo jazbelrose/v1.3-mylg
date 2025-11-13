@@ -518,7 +518,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     : "Add locations to tasks to see them on the map";
 
   const statusMessage = filteredTasks.length > 0
-    ? `${filteredTasks.length} ${filteredTasks.length === 1 ? "task" : "tasks"} in your list`
+    ? `${filteredTasks.length} ${filteredTasks.length === 1 ? "task" : "tasks"} on your radar`
     : "No tasks to show";
 
   if (!open || typeof document === "undefined") {
@@ -965,7 +965,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                   handleProjectClick(task.projectId, task.projectName);
                                 }}
                               >
-                                {task.projectName}
+                               
                               </span>
                             )}
                             <span className={styles.metaLine} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '32ch', marginBottom: '4px' }}>
