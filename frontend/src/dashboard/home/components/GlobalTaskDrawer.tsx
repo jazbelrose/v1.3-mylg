@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Calendar, ChevronDown, MapPin, Pencil, Plus, Search, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
+import { useNavigate } from "react-router-dom";
+
 import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
@@ -82,6 +84,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     projectOptions,
   } = useTasksOverview();
   const { user } = useUser();
+
+  const navigate = useNavigate();
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(getViewportHeight());
@@ -545,7 +549,14 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                         style={{ backgroundColor: selectedTask.projectColor || "#fa3356" }}
                         aria-hidden="true"
                       />
-                      {selectedTask.projectName}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/projects/${selectedTask.projectId}`)}
+                        className={styles.projectNameButton}
+                        aria-label={`Go to project ${selectedTask.projectName}`}
+                      >
+                        {selectedTask.projectName}
+                      </button>
                     </span>
                   )}
                   {selectedTask.address && (
@@ -876,7 +887,14 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                       style={{ backgroundColor: task.projectColor || "#fa3356" }}
                                       aria-hidden="true"
                                     />
-                                    {task.projectName}
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/projects/${task.projectId}`)}
+                                      className={styles.projectNameButton}
+                                      aria-label={`Go to project ${task.projectName}`}
+                                    >
+                                      {task.projectName}
+                                    </button>
                                   </span>
                                 )}
                                 {task.address ? (

@@ -1458,3 +1458,16 @@
   outline: 2px solid var(--brand, #fa3356);
   outline-offset: 2px;
 }
+
+.projectNameButton {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.projectNameButton:hover {
+  text-decoration: underline;
+}
