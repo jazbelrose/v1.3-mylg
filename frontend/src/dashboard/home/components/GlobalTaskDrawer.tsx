@@ -929,14 +929,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                             )}
                           </div>
                           <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px' }}>
-                            <button
-                              type="button"
-                              className={styles.markDoneButton}
-                              onClick={() => handleMarkDone(task)}
-                              aria-label="Mark task as done"
-                            >
-                              Mark done
-                            </button>
                             <div className={styles.taskActions} style={{ display: 'flex', gap: '8px' }}>
                               <button
                                 type="button"
@@ -944,7 +936,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 onClick={() => handleTaskEdit(task)}
                               >
                                 <Pencil size={14} aria-hidden="true" />
-                                Edit task
+                               
                               </button>
                               <button
                                 type="button"
@@ -955,6 +947,14 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 <Trash size={14} aria-hidden="true" />
                               </button>
                             </div>
+                            <button
+                              type="button"
+                              className={styles.markDoneButton}
+                              onClick={() => handleMarkDone(task)}
+                              aria-label="Mark task as done"
+                            >
+                              Mark done
+                            </button>
                           </div>
                         </li>
                       );

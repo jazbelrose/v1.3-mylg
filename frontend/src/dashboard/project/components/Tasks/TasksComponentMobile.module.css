@@ -889,7 +889,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.4rem;
-  padding: 0 0.95rem 0.95rem;
+  
   flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -956,7 +956,7 @@
 
 .markDoneButton {
   border-radius: 999px;
-  padding: 9px 16px;
+  padding: 6px 12px;
   font-size: 0.9rem;
   font-weight: 600;
   background: rgba(98, 243, 158, 0.16);
