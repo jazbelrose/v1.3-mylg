@@ -911,19 +911,13 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                   style={{
                                     width: '24px',
                                     height: '24px',
-                                    borderRadius: '50%',
-                                    backgroundColor: task.projectColor || '#fa3356',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
                                     flexShrink: 0,
                                   }}
                                   aria-hidden="true"
                                 >
                                   <SvgThumbnail
                                     initial={task.projectName.charAt(0).toUpperCase()}
-                                    className={styles.svgThumbnail}
-                                    roundness={1.0}
+                                    size={24}
                                   />
                                 </div>
                               )}
