@@ -951,8 +951,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                   {task.createdByName && (
                                     <div
                                       style={{
-                                        width: '20px',
-                                        height: '20px',
+                                        width: '24px',
+                                        height: '24px',
                                         borderRadius: '50%',
                                         border: '2px solid #fff',
                                         background: '#000',
@@ -964,6 +964,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                         fontWeight: '600',
                                         flexShrink: 0,
                                         overflow: 'hidden',
+                                        zIndex: 2,
+                                        position: 'relative',
                                       }}
                                       title={`Created by ${task.createdByName}`}
                                     >
@@ -985,8 +987,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                   {task.assigneeName && (
                                     <div
                                       style={{
-                                        width: '20px',
-                                        height: '20px',
+                                        width: '24px',
+                                        height: '24px',
                                         borderRadius: '50%',
                                         border: '2px solid #fff',
                                         background: '#000',
@@ -998,6 +1000,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                         fontWeight: '600',
                                         flexShrink: 0,
                                         overflow: 'hidden',
+                                        marginLeft: '-12px',
+                                        zIndex: 1,
+                                        position: 'relative',
                                       }}
                                       title={`Assigned to ${task.assigneeName}`}
                                     >
