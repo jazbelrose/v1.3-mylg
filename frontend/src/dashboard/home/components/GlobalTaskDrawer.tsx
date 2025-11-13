@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
+import SvgThumbnail from "./SvgThumbnail";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
 import { type FilterOption } from "./TaskMobileFilter";
@@ -892,20 +893,40 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                         >
                           <div className={styles.taskHeader} style={{ padding: '12px' }}>
                             <div className={styles.taskTitleRow} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                              <span
-                                className={styles.projectThumbnail}
-                                style={{
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  backgroundColor: task.projectThumbnail ? 'transparent' : (task.projectColor || '#fa3356'),
-                                  backgroundImage: task.projectThumbnail ? `url(${task.projectThumbnail})` : undefined,
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                  flexShrink: 0,
-                                }}
-                                aria-hidden="true"
-                              />
+                              {task.projectThumbnail ? (
+                                <img
+                                  src={task.projectThumbnail}
+                                  alt=""
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                    flexShrink: 0,
+                                  }}
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    backgroundColor: task.projectColor || '#fa3356',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                  aria-hidden="true"
+                                >
+                                  <SvgThumbnail
+                                    initial={task.projectName.charAt(0).toUpperCase()}
+                                    className={styles.svgThumbnail}
+                                    roundness={1.0}
+                                  />
+                                </div>
+                              )}
                               <span
                                 className={styles.taskTitle}
                                 style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
