@@ -622,28 +622,31 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
           >
             {isDesktop ? (
               <>
-                <header className={styles.desktopDrawerHeader}>
+                <header className={styles.desktopDrawerHeader} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <button
                     type="button"
                     className={styles.embedCloseButton}
                     onClick={onClose}
                     aria-label="Close tasks drawer"
+                    style={{ alignSelf: 'flex-start' }}
                   >
                     <X size={16} strokeWidth={2.25} aria-hidden="true" />
                   </button>
-                  <div className={styles.sheetTitleGroup}>
-                    <span className={styles.sheetTitle}>All tasks</span>
-                    <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
-                  </div>
-                  <div className={styles.desktopDrawerActions}>
-                    <button
-                      type="button"
-                      className={`${styles.desktopDrawerButton} ${styles.desktopDrawerPrimaryButton}`}
-                      onClick={handleOpenQuickCreate}
-                      disabled={loading || !projectOptions.length}
-                    >
-                      <Plus size={16} strokeWidth={2.25} aria-hidden="true" /> New task
-                    </button>
+                  <div className={styles.desktopDrawerHeaderContent} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className={styles.sheetTitleGroup}>
+                      <span className={styles.sheetTitle}>All tasks</span>
+                      <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
+                    </div>
+                    <div className={styles.desktopDrawerActions}>
+                      <button
+                        type="button"
+                        className={`${styles.desktopDrawerButton} ${styles.desktopDrawerPrimaryButton}`}
+                        onClick={handleOpenQuickCreate}
+                        disabled={loading || !projectOptions.length}
+                      >
+                        <Plus size={16} strokeWidth={2.25} aria-hidden="true" /> New task
+                      </button>
+                    </div>
                   </div>
                 </header>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
