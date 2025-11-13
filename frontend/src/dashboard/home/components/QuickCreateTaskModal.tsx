@@ -683,6 +683,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     lastAppliedTaskRef.current = taskKey;
   }, [open, task, applyTaskToForm]);
 
+  // Reset form when opening in create mode (no task provided)
+  useEffect(() => {
+    if (open && !task) {
+      resetForm();
+      lastAppliedTaskRef.current = null;
+    }
+  }, [open, task, resetForm]);
+
   useEffect(() => {
     if (!open) return;
 
