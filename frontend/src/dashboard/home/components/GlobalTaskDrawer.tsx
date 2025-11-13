@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, MapPin, Pencil, Plus, Search, Trash, User, X } from "lucide-react";
+import { Calendar, ChevronDown, MapPin, Plus, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 import MapComponent from "@/shared/ui/Map";
@@ -18,7 +18,7 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
-import { updateTask, deleteTask, getFileUrl } from "@/shared/utils/api";
+import { updateTask, getFileUrl } from "@/shared/utils/api";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -455,17 +455,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     } catch (error) {
       console.error('Failed to mark task as done:', error);
       notify('error', 'Failed to mark task as done');
-    }
-  }, [refreshTasks]);
-
-  const handleDelete = useCallback(async (task: TasksOverviewListItem) => {
-    try {
-      await deleteTask({ projectId: task.projectId, taskId: task.taskId ?? task.id });
-      refreshTasks();
-      notify('success', 'Task deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      notify('error', 'Failed to delete task');
     }
   }, [refreshTasks]);
 
@@ -979,31 +968,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 <MapPin size={14} aria-hidden="true" /> No location
                               </span>
                             )}
-                            {task.assigneeName && (
-                              <span className={styles.metaLine}>
-                                <User size={14} aria-hidden="true" /> {task.assigneeName}
-                              </span>
-                            )}
                           </div>
-                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px' }}>
-                            <div className={styles.taskActions} style={{ display: 'flex', gap: '8px' }}>
-                              <button
-                                type="button"
-                                className={`${styles.taskActionButton} ${styles.taskEditButton}`}
-                                onClick={() => handleTaskEdit(task)}
-                              >
-                                <Pencil size={14} aria-hidden="true" />
-                               
-                              </button>
-                              <button
-                                type="button"
-                                className={`${styles.taskActionButton} ${styles.taskDeleteButton}`}
-                                onClick={() => handleDelete(task)}
-                                aria-label="Delete task"
-                              >
-                                <Trash size={14} aria-hidden="true" />
-                              </button>
-                            </div>
+                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px' }}>
                             <button
                               type="button"
                               className={styles.markDoneButton}

@@ -815,7 +815,7 @@
   gap: 0.9rem;
   border-radius: 20px;
   background: rgba(10, 11, 14, 0.88);
-  padding: 1.1rem 0 1.5rem;
+  
 }
 
 /* Provide spacing fallback for browsers that ignore flex gap */
@@ -1322,8 +1322,8 @@
 
   .desktopOverlay .sheetSection {
     background: rgba(12, 13, 16, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 1.2rem 1.25rem 1.4rem;
+    
+    
   }
 
   .desktopOverlay .mapGradient {
