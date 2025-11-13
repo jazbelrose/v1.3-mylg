@@ -948,7 +948,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                  {task.createdByName && (
+                                  {task.createdByName && task.createdById !== task.assigneeId && (
                                     <div
                                       style={{
                                         width: '24px',
@@ -1000,7 +1000,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                         fontWeight: '600',
                                         flexShrink: 0,
                                         overflow: 'hidden',
-                                        marginLeft: '-12px',
+                                        marginLeft: task.createdById === task.assigneeId ? '0' : '-12px',
                                         zIndex: 1,
                                         position: 'relative',
                                       }}
