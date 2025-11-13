@@ -967,6 +967,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 {task.projectName}
                               </span>
                             )}
+                            <span className={styles.metaLine} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '32ch', marginBottom: '4px' }}>
+                              {task.title}
+                            </span>
                             <span className={styles.metaLine}>
                               <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
                             </span>
