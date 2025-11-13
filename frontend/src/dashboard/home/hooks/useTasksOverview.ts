@@ -7,6 +7,7 @@ import { fetchTasks, requestTaskReview } from "@/shared/utils/api";
 import type { QuickCreateTaskLocation } from "../components/QuickCreateTaskModal.types";
 import { getColor } from "@/shared/utils/colorUtils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
+import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import pLimit from "@/shared/utils/pLimit";
 import { endOfWeek, startOfWeek } from "@/dashboard/home/utils/dateUtils";
 
@@ -47,6 +48,7 @@ type NormalizedTask = {
   projectId: string;
   projectName: string;
   projectColor: string;
+  projectThumbnail?: string;
   dueKey?: string;
   timeLabel?: string;
   completedTimeLabel?: string;
@@ -63,6 +65,7 @@ export type TasksOverviewListItem = {
   projectId: string;
   projectName: string;
   projectColor: string;
+  projectThumbnail?: string;
   timeLabel?: string;
   completedTimeLabel?: string;
   description?: string;
@@ -314,6 +317,7 @@ export function useTasksOverview() {
                     const { value: dueDate, key: dueKey, timeLabel } = pickDue(task);
                     const projectName = project.title || project.projectId;
                     const projectColor = project.color || getColor(project.projectId);
+                    const projectThumbnail = resolveProjectCoverUrl(project);
                     const id =
                       (task.taskId as string | undefined) ||
                       (task.id as string | undefined) ||
@@ -347,6 +351,7 @@ export function useTasksOverview() {
                       projectId: project.projectId,
                       projectName,
                       projectColor,
+                      projectThumbnail,
                       raw: rawWithProject,
                     } satisfies NormalizedTask;
                   });
@@ -428,6 +433,7 @@ export function useTasksOverview() {
         projectId: task.projectId,
         projectName: task.projectName,
         projectColor: task.projectColor,
+        projectThumbnail: task.projectThumbnail,
         timeLabel: task.timeLabel,
         completedTimeLabel: task.completedTimeLabel,
         description,

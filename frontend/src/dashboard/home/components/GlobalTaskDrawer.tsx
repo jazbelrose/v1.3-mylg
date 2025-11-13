@@ -893,6 +893,20 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                           <div className={styles.taskHeader} style={{ padding: '12px' }}>
                             <div className={styles.taskTitleRow} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                               <span
+                                className={styles.projectThumbnail}
+                                style={{
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '50%',
+                                  backgroundColor: task.projectThumbnail ? 'transparent' : (task.projectColor || '#fa3356'),
+                                  backgroundImage: task.projectThumbnail ? `url(${task.projectThumbnail})` : undefined,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  flexShrink: 0,
+                                }}
+                                aria-hidden="true"
+                              />
+                              <span
                                 className={styles.taskTitle}
                                 style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                               >
