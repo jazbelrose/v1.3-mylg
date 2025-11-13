@@ -251,7 +251,7 @@ const TasksListPage: React.FC = () => {
       assigneeId: task.assigneeId ?? undefined,
       address: task.address ?? undefined,
       location: task.location as QuickCreateTaskModalTask["location"],
-      reviewerId: task.rawTask?.reviewerId ?? undefined,
+      reviewerId: (task.rawTask as { reviewerId?: string }).reviewerId ?? undefined,
     }),
     [],
   );

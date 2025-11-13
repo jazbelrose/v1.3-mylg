@@ -405,6 +405,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       address: task.address ?? undefined,
       location: task.location as QuickCreateTaskModalTask["location"],
       reviewerId: (task.rawTask as { reviewerId?: string }).reviewerId ?? undefined,
+      createdById: task.createdById ?? undefined,
+      createdByName: task.createdByName ?? undefined,
+      createdByThumbnail: task.createdByThumbnail ?? undefined,
     }),
     [],
   );

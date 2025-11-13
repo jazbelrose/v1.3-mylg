@@ -141,6 +141,10 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
         address: task.address ?? undefined,
         location: (task.location ?? task.raw?.location) as QuickCreateTaskModalTask["location"],
         reviewerId: (task.raw as { reviewerId?: string }).reviewerId ?? undefined,
+        createdById: task.raw.createdById ?? undefined,
+        createdByName: task.raw.createdByName ?? undefined,
+        createdByUsername: task.raw.createdByUsername ?? undefined,
+        createdByEmail: task.raw.createdByEmail ?? undefined,
       };
     },
     [projectId, projectName],

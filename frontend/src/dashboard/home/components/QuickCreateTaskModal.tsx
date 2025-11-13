@@ -11,6 +11,7 @@ import {
   uploadFile,
   approveTask,
   requestTaskReview,
+  getFileUrl,
 } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 
@@ -261,6 +262,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [status, setStatus] = useState<TaskStatus>("todo");
   const initialStatusRef = useRef<TaskStatus>("todo");
   const reviewerIdRef = useRef<string | undefined>(undefined);
+  const [createdById, setCreatedById] = useState<string | null>(null);
+  const [createdByName, setCreatedByName] = useState<string | null>(null);
+  const [createdByUsername, setCreatedByUsername] = useState<string | null>(null);
+  const [createdByEmail, setCreatedByEmail] = useState<string | null>(null);
+  const [createdByThumbnail, setCreatedByThumbnail] = useState<string | null>(null);
   const suggestionsListId = "quick-create-task-location-suggestions";
   const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
   const [assigneeSearch, setAssigneeSearch] = useState("");
@@ -521,6 +527,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setStatus("todo");
     initialStatusRef.current = "todo";
     reviewerIdRef.current = undefined;
+    setCreatedById(null);
+    setCreatedByName(null);
+    setCreatedByUsername(null);
+    setCreatedByEmail(null);
+    setCreatedByThumbnail(null);
   }, []);
 
   // New handlers for popover
@@ -609,6 +620,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setAddressSuggestions([]);
       setSelectedLocation(normalizeLocation(taskData.location));
       setNoteAttachments(sanitizeIncomingAttachments(taskData.noteAttachments));
+      setCreatedById(typeof taskData.createdById === "string" ? taskData.createdById : null);
+      setCreatedByName(typeof taskData.createdByName === "string" ? taskData.createdByName : null);
+      setCreatedByUsername(typeof taskData.createdByUsername === "string" ? taskData.createdByUsername : null);
+      setCreatedByEmail(typeof taskData.createdByEmail === "string" ? taskData.createdByEmail : null);
+      setCreatedByThumbnail(typeof taskData.createdByThumbnail === "string" ? taskData.createdByThumbnail : null);
       if (!preserveFeedback) {
         setSuccessMessage(null);
         setErrorMessage(null);
@@ -1303,6 +1319,29 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <option value="done">Done</option>
               </select>
             </div>
+            {isEditing && (createdByName || createdById) ? (
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldHeader}>
+                  <span className={styles.fieldLabelText}>Created by</span>
+                </div>
+                <div className={styles.creatorDisplay}>
+                  {createdByThumbnail ? (
+                    <img
+                      src={getFileUrl(createdByThumbnail)}
+                      alt={createdByName || "Creator"}
+                      className={styles.creatorAvatar}
+                    />
+                  ) : (
+                    <div className={styles.creatorAvatar}>
+                      {(createdByName || createdByUsername || createdByEmail || createdById || "U")[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className={styles.creatorName}>
+                    {createdByName || createdByUsername || createdByEmail || createdById || "Unknown"}
+                  </span>
+                </div>
+              </div>
+            ) : null}
             <div className={styles.fieldGroup}>
               <div className={styles.fieldHeader}>
                 <label className={styles.fieldLabel} htmlFor={assigneeFieldId}>

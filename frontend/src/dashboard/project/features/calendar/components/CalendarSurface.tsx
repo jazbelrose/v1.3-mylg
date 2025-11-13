@@ -705,7 +705,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           null,
         reviewerId:
           (sourceTask as { reviewerId?: string })?.reviewerId ??
-          quickTask?.raw?.reviewerId ??
+          (quickTask?.raw as { reviewerId?: string })?.reviewerId ??
           null,
       };
 

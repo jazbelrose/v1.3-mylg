@@ -28,6 +28,11 @@ export type QuickCreateTaskModalTask = {
   location?: QuickCreateTaskLocation;
   noteAttachments?: TaskNoteAttachment[] | null;
   reviewerId?: string | null;
+  createdById?: string | null;
+  createdByName?: string | null;
+  createdByUsername?: string | null;
+  createdByEmail?: string | null;
+  createdByThumbnail?: string | null;
 };
 
 export type QuickCreateTaskModalEventType = "create" | "update" | "delete";

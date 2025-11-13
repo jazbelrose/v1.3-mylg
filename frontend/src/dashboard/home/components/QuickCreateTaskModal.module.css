@@ -831,6 +831,40 @@
   cursor: not-allowed;
 }
 
+/* Creator Display Styles */
+.creatorDisplay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.creatorAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(250, 51, 86, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary, #f6f7fb);
+  flex-shrink: 0;
+}
+
+.creatorAvatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.creatorName {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #a8aab0);
+  font-weight: 500;
+}
+
 /* Attachment Chips Styles */
 .attachmentChips {
   display: flex;
