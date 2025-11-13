@@ -78,12 +78,24 @@ export interface Task extends JsonRecord {
   budgetItemId?: string | null;
   status?: 'todo' | 'in_progress' | 'done';
   assigneeId?: string;
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
   dueDate?: string; // ISO
   createdBy?: string;
   createdById?: string;
   createdByName?: string;
   createdByUsername?: string;
   createdByEmail?: string;
+  noteAttachments?: TaskNoteAttachment[];
+}
+
+export interface TaskNoteAttachment extends JsonRecord {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  dataUrl?: string;
+  url?: string;
+  uploadedAt?: string;
 }
 
 export interface TimelineEvent extends JsonRecord {

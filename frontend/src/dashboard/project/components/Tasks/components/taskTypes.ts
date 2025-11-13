@@ -1,3 +1,5 @@
+import type { TaskNoteAttachment } from "@/shared/utils/api";
+
 import type { Status } from "../types";
 
 export type RawTask = {
@@ -14,6 +16,8 @@ export type RawTask = {
   due_date?: string | number | Date;
   due?: string | number | Date;
   assigneeId?: string;
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
   assignedTo?: string;
   location?: unknown;
   address?: string;
@@ -22,6 +26,7 @@ export type RawTask = {
   createdByName?: string;
   createdByUsername?: string;
   createdByEmail?: string;
+  noteAttachments?: TaskNoteAttachment[] | null;
   [key: string]: unknown;
 };
 
@@ -33,9 +38,12 @@ export type QuickTask = {
   dueDate: Date | null;
   address?: string;
   location?: { lat: number; lng: number } | null;
-  assignedTo?: string;
+  assignedTo?: string | string[];
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
   projectId?: string;
   dueDateInput?: string | null;
+  noteAttachments?: TaskNoteAttachment[];
   raw: RawTask;
 };
 

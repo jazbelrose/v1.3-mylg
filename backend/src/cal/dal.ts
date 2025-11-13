@@ -58,6 +58,18 @@ export interface TaskRecord {
   endAt?: string;
   status: 'open' | 'done' | 'cancelled';
   updatedAt?: string;
+  assigneeId?: string;
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
+  assignedTo?: string;
+  noteAttachments?: Array<{
+    id: string;
+    fileName: string;
+    mimeType?: string;
+    dataUrl?: string;
+    url?: string;
+    uploadedAt?: string;
+  }>;
 }
 
 export async function getCalendarTokenByHash(tokenHash: string): Promise<CalendarTokenRecord | null> {
