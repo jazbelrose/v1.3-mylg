@@ -3,14 +3,11 @@ import { createPortal } from "react-dom";
 import { Calendar, ChevronDown, MapPin, Pencil, Plus, Search, Trash, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
-import { useNavigate } from "react-router-dom";
-
 import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
 import SvgThumbnail from "./SvgThumbnail";
 import { getSquirclePath } from "@/shared/ui/squircle/getSquirclePath";
-import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
 import { type FilterOption } from "./TaskMobileFilter";
 import { useUser } from "@/app/contexts/useUser";
@@ -87,8 +84,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     projectOptions,
   } = useTasksOverview();
   const { user } = useUser();
-
-  const navigate = useNavigate();
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(getViewportHeight());
@@ -274,11 +269,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     }));
   }, [tasksWithLocation, activeTaskId]);
 
-  const selectedTask = useMemo(
-    () => filteredTasks.find((task) => task.id === activeTaskId) ?? null,
-    [filteredTasks, activeTaskId],
-  );
-
   useEffect(() => {
     if (!open) return;
     const update = () => setViewportHeight(getViewportHeight());
@@ -369,8 +359,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[snapIndex] : 0;
   const targetY = isDragging ? baseTargetY + currentDragY : baseTargetY;
 
-  const selectedTaskDirections = selectedTask?.address ? buildDirectionsLinks(selectedTask.address) : null;
-
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     touchStartY.current = event.touches[0].clientY;
   }, []);
@@ -403,16 +391,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     });
   }, []);
 
-  const handleTaskSelect = useCallback((taskId: string) => {
-    setActiveTaskId(taskId);
-    setSnapIndex((current) => (current === 0 ? 1 : current));
-  }, []);
-
-  const handleMarkerClick = useCallback((markerId: string) => {
-    setActiveTaskId(markerId);
-    setSnapIndex(1);
-  }, []);
-
   const toModalTask = useCallback(
     (task: TasksOverviewListItem): QuickCreateTaskModalTask => ({
       id: task.id,
@@ -426,7 +404,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       assigneeId: task.assigneeId ?? undefined,
       address: task.address ?? undefined,
       location: task.location as QuickCreateTaskModalTask["location"],
-      reviewerId: task.rawTask?.reviewerId ?? undefined,
+      reviewerId: (task.rawTask as { reviewerId?: string }).reviewerId ?? undefined,
     }),
     [],
   );
@@ -446,6 +424,20 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     },
     [toModalTask, isDesktop],
   );
+
+  const handleTaskSelect = useCallback((taskId: string) => {
+    const task = filteredTasks.find((t) => t.id === taskId);
+    if (task) {
+      handleTaskEdit(task);
+    }
+  }, [filteredTasks, handleTaskEdit]);
+
+  const handleMarkerClick = useCallback((markerId: string) => {
+    const task = filteredTasks.find((t) => t.id === markerId);
+    if (task) {
+      handleTaskEdit(task);
+    }
+  }, [filteredTasks, handleTaskEdit]);
 
   const handleMarkDone = useCallback(async (task: TasksOverviewListItem) => {
     try {
@@ -565,69 +557,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
             </div>
             <div className={styles.mapGradient} aria-hidden="true" />
             {!hasMapMarkers && <div className={styles.mapEmptyBanner}>{mapStatusMessage}</div>}
-            {selectedTask && (
-              <div className={styles.mapActiveCard}>
-                <span className={styles.mapActiveTitle}>{selectedTask.title}</span>
-                <div className={styles.mapActiveMeta}>
-                  <span className={styles.metaLine}>
-                    <Calendar size={14} aria-hidden="true" /> {formatDueLabel(selectedTask)}
-                  </span>
-                  {selectedTask.projectName && (
-                    <span className={styles.metaLine}>
-                      <span
-                        className={styles.projectDot}
-                        style={{ backgroundColor: selectedTask.projectColor || "#fa3356" }}
-                        aria-hidden="true"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/projects/${selectedTask.projectId}`)}
-                        className={styles.projectNameButton}
-                        aria-label={`Go to project ${selectedTask.projectName}`}
-                      >
-                        {selectedTask.projectName}
-                      </button>
-                    </span>
-                  )}
-                  {selectedTask.address && (
-                    <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
-                      <MapPin size={14} aria-hidden="true" />
-                      <span className={styles.addressDetails}>
-                        <span className={styles.addressText}>{selectedTask.address}</span>
-                        {selectedTaskDirections && (
-                          <span className={styles.addressActions}>
-                            <a
-                              href={selectedTaskDirections.appleMaps}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.addressLink}
-                            >
-                              Open in Maps
-                            </a>
-                            <span className={styles.addressLinkSeparator} aria-hidden="true">
-                              •
-                            </span>
-                            <a
-                              href={selectedTaskDirections.googleMaps}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={styles.addressLink}
-                            >
-                              Open in Google Maps
-                            </a>
-                          </span>
-                        )}
-                      </span>
-                    </span>
-                  )}
-                  {selectedTask.assigneeName && (
-                    <span className={styles.metaLine}>
-                      <User size={14} aria-hidden="true" /> Assigned to: {selectedTask.assigneeName}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
           {!isDesktop && (
             <>
