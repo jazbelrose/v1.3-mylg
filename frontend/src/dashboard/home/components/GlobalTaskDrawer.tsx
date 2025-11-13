@@ -896,7 +896,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 className={styles.taskTitle}
                                 style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                               >
-                                {task.title}
+                                {task.projectName || task.title}
                               </span>
                               <span className={badgeClassName}>{label}</span>
                             </div>
@@ -906,20 +906,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
                             </span>
                             {task.projectName && (
-                              <span className={styles.metaLine}>
-                                <span
-                                  className={styles.projectDot}
-                                  style={{ backgroundColor: task.projectColor || "#fa3356" }}
-                                  aria-hidden="true"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/projects/${task.projectId}`)}
-                                  className={styles.projectNameButton}
-                                  aria-label={`Go to project ${task.projectName}`}
-                                >
-                                  {task.projectName}
-                                </button>
+                              <span className={styles.metaLine} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {task.title}
                               </span>
                             )}
                             {task.address ? (
