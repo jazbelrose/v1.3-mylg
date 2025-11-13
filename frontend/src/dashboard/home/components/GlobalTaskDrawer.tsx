@@ -9,6 +9,7 @@ import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
 import SvgThumbnail from "./SvgThumbnail";
+import { getSquirclePath } from "@/shared/ui/squircle/getSquirclePath";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
 import { type FilterOption } from "./TaskMobileFilter";
@@ -893,20 +894,36 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                         >
                           <div className={styles.taskHeader} style={{ padding: '12px' }}>
                             <div className={styles.taskTitleRow} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                              {task.projectThumbnail ? (
-                                <img
-                                  src={task.projectThumbnail}
-                                  alt=""
-                                  style={{
-                                    width: '24px',
-                                    height: '24px',
-                                    borderRadius: '50%',
-                                    objectFit: 'cover',
-                                    flexShrink: 0,
-                                  }}
-                                  aria-hidden="true"
-                                />
-                              ) : (
+                              {task.projectThumbnail ? (() => {
+                                const size = 24;
+                                const w = size, h = size;
+                                const r = Math.min(w, h) * 0.5;
+                                const k = 0.55 + 0.45;
+                                const squirclePath = getSquirclePath(w, h, r, k);
+                                return (
+                                  <svg
+                                    width={size}
+                                    height={size}
+                                    viewBox={`0 0 ${size} ${size}`}
+                                    style={{ flexShrink: 0 }}
+                                    aria-hidden="true"
+                                  >
+                                    <defs>
+                                      <clipPath id={`squircle-clip-${task.id}`}>
+                                        <path d={squirclePath} />
+                                      </clipPath>
+                                    </defs>
+                                    <image
+                                      href={task.projectThumbnail}
+                                      x="0"
+                                      y="0"
+                                      width={size}
+                                      height={size}
+                                      clipPath={`url(#squircle-clip-${task.id})`}
+                                    />
+                                  </svg>
+                                );
+                              })() : (
                                 <div
                                   style={{
                                     width: '24px',
