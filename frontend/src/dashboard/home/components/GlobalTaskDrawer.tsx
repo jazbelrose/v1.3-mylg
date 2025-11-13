@@ -634,7 +634,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   </button>
                   <div className={styles.sheetTitleGroup} style={{ gridRow: 2, gridColumn: 1 }}>
                     <span className={styles.sheetTitle}>All tasks</span>
-                    <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
+                    <span className={styles.sheetSubtitle}>Review everything on your radar</span>
                   </div>
                   <div className={styles.desktopDrawerActions} style={{ gridRow: 2, gridColumn: 2 }}>
                     <button
