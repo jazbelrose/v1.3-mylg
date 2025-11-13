@@ -21,7 +21,7 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
-import { updateTask, deleteTask } from "@/shared/utils/api";
+import { updateTask, deleteTask, getFileUrl } from "@/shared/utils/api";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -969,7 +969,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                     >
                                       {task.createdByThumbnail ? (
                                         <img
-                                          src={task.createdByThumbnail}
+                                          src={getFileUrl(task.createdByThumbnail)}
                                           alt={task.createdByName}
                                           style={{
                                             width: '100%',
@@ -1003,7 +1003,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                     >
                                       {task.assigneeThumbnail ? (
                                         <img
-                                          src={task.assigneeThumbnail}
+                                          src={getFileUrl(task.assigneeThumbnail)}
                                           alt={task.assigneeName}
                                           style={{
                                             width: '100%',
