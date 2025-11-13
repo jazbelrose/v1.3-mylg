@@ -340,6 +340,7 @@
 }
 
 .taskMeta {
+  margin: 6px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;

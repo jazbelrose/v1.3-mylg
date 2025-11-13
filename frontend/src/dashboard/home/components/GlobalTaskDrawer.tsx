@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, MapPin, Pencil, Plus, Search, User, X } from "lucide-react";
+import { Calendar, ChevronDown, MapPin, Pencil, Plus, Search, Trash, User, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,7 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
+import { updateTask, deleteTask } from "@/shared/utils/api";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -444,6 +445,33 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     [toModalTask, isDesktop],
   );
 
+  const handleMarkDone = useCallback(async (task: TasksOverviewListItem) => {
+    try {
+      await updateTask({
+        projectId: task.projectId,
+        taskId: task.taskId ?? task.id,
+        title: task.title,
+        status: 'done'
+      });
+      refreshTasks();
+      notify('success', 'Task marked as done');
+    } catch (error) {
+      console.error('Failed to mark task as done:', error);
+      notify('error', 'Failed to mark task as done');
+    }
+  }, [refreshTasks]);
+
+  const handleDelete = useCallback(async (task: TasksOverviewListItem) => {
+    try {
+      await deleteTask({ projectId: task.projectId, taskId: task.taskId ?? task.id });
+      refreshTasks();
+      notify('success', 'Task deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      notify('error', 'Failed to delete task');
+    }
+  }, [refreshTasks]);
+
   const handleOpenQuickCreate = useCallback(() => {
     if (isDesktop) {
       setDetailsTask(null);
@@ -859,64 +887,70 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                           key={task.id}
                           data-task-id={task.id}
                           className={listItemClassName}
+                          style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                          onClick={() => handleTaskSelect(task.id)}
                         >
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              className={styles.taskButton}
-                              onClick={() => handleTaskSelect(task.id)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  handleTaskSelect(task.id);
-                                }
-                              }}
-                            >
-                              <div className={styles.taskTitleRow}>
-                                <span className={styles.taskTitle}>{task.title}</span>
-                                <span className={badgeClassName}>{label}</span>
-                              </div>
-                              <div className={styles.taskMeta}>
-                                <span className={styles.metaLine}>
-                                  <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
-                                </span>
-                                {task.projectName && (
-                                  <span className={styles.metaLine}>
-                                    <span
-                                      className={styles.projectDot}
-                                      style={{ backgroundColor: task.projectColor || "#fa3356" }}
-                                      aria-hidden="true"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => navigate(`/projects/${task.projectId}`)}
-                                      className={styles.projectNameButton}
-                                      aria-label={`Go to project ${task.projectName}`}
-                                    >
-                                      {task.projectName}
-                                    </button>
-                                  </span>
-                                )}
-                                {task.address ? (
-                                  <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
-                                    <MapPin size={14} aria-hidden="true" />
-                                    <span className={styles.addressDetails}>
-                                      <span className={styles.addressText}>{task.address}</span>
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className={`${styles.metaLine} ${styles.metaLineMuted}`}>
-                                    <MapPin size={14} aria-hidden="true" /> No location
-                                  </span>
-                                )}
-                                {task.assigneeName && (
-                                  <span className={styles.metaLine}>
-                                    <User size={14} aria-hidden="true" /> {task.assigneeName}
-                                  </span>
-                                )}
-                              </div>
+                          <div className={styles.taskHeader} style={{ padding: '12px' }}>
+                            <div className={styles.taskTitleRow} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span
+                                className={styles.taskTitle}
+                                style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              >
+                                {task.title}
+                              </span>
+                              <span className={badgeClassName}>{label}</span>
                             </div>
-                            <div className={styles.taskActions}>
+                          </div>
+                          <div className={styles.taskMeta}>
+                            <span className={styles.metaLine}>
+                              <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
+                            </span>
+                            {task.projectName && (
+                              <span className={styles.metaLine}>
+                                <span
+                                  className={styles.projectDot}
+                                  style={{ backgroundColor: task.projectColor || "#fa3356" }}
+                                  aria-hidden="true"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/projects/${task.projectId}`)}
+                                  className={styles.projectNameButton}
+                                  aria-label={`Go to project ${task.projectName}`}
+                                >
+                                  {task.projectName}
+                                </button>
+                              </span>
+                            )}
+                            {task.address ? (
+                              <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
+                                <MapPin size={14} aria-hidden="true" />
+                                <span className={styles.addressDetails}>
+                                  <span className={styles.addressText}>{task.address}</span>
+                                </span>
+                              </span>
+                            ) : (
+                              <span className={`${styles.metaLine} ${styles.metaLineMuted}`}>
+                                <MapPin size={14} aria-hidden="true" /> No location
+                              </span>
+                            )}
+                            {task.assigneeName && (
+                              <span className={styles.metaLine}>
+                                <User size={14} aria-hidden="true" /> {task.assigneeName}
+                              </span>
+                            )}
+                          </div>
+                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px' }}>
+                            <button
+                              type="button"
+                              className={styles.markDoneButton}
+                              onClick={() => handleMarkDone(task)}
+                              style={{ borderRadius: '9999px', padding: '4px 12px', fontSize: '12px', textTransform: 'uppercase' }}
+                              aria-label="Mark task as done"
+                            >
+                              Mark done
+                            </button>
+                            <div className={styles.taskActions} style={{ display: 'flex', gap: '8px' }}>
                               <button
                                 type="button"
                                 className={`${styles.taskActionButton} ${styles.taskEditButton}`}
@@ -925,7 +959,16 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 <Pencil size={14} aria-hidden="true" />
                                 Edit task
                               </button>
+                              <button
+                                type="button"
+                                className={`${styles.taskActionButton} ${styles.taskDeleteButton}`}
+                                onClick={() => handleDelete(task)}
+                                aria-label="Delete task"
+                              >
+                                <Trash size={14} aria-hidden="true" />
+                              </button>
                             </div>
+                          </div>
                         </li>
                       );
                     })}
