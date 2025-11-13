@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { Calendar, ChevronDown, MapPin, Plus, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
@@ -84,6 +85,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     projectOptions,
   } = useTasksOverview();
   const { user } = useUser();
+  const navigate = useNavigate();
 
   const [isDesktop, setIsDesktop] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(getViewportHeight());
@@ -483,6 +485,11 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     handleCloseDetailsPanel();
   }, [refreshTasks, handleCloseDetailsPanel]);
 
+  const handleProjectClick = useCallback((projectId: string, projectName: string) => {
+    const encodedName = encodeURIComponent(projectName);
+    navigate(`/dashboard/projects/${projectId}/${encodedName}`);
+  }, [navigate]);
+
   const formatDueLabel = useCallback((task: TasksOverviewListItem): string => {
     if (!task.dueDate) return "No due date";
     const formatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", weekday: "short" });
@@ -610,7 +617,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   </div>
                 </header>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
-                  <TaskSummary stats={stats} formatValue={formatStatValue}  statusStyle={{ textAlign: 'center' }} />
+                  <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={statusMessage} statusStyle={{ textAlign: 'center' }} />
                 </div>
               </>
             ) : (
@@ -949,8 +956,15 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                           </div>
                           <div className={styles.taskMeta}>
                             {task.projectName && (
-                              <span className={styles.metaLine} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
-                                {task.title}
+                              <span 
+                                className={styles.metaLine} 
+                                style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProjectClick(task.projectId, task.projectName);
+                                }}
+                              >
+                                {task.projectName}
                               </span>
                             )}
                             <span className={styles.metaLine}>
