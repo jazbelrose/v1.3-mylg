@@ -610,7 +610,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                   </div>
                 </header>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
-                  <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={`${statusMessage} • ${mapStatusMessage}`} statusStyle={{ textAlign: 'center' }} />
+                  <TaskSummary stats={stats} formatValue={formatStatValue}  statusStyle={{ textAlign: 'center' }} />
                 </div>
               </>
             ) : (
@@ -782,7 +782,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
             </div>
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
               <section className={styles.sheetSection} aria-label="All tasks">
-                <h3 className={styles.sectionHeading}>Task list</h3>
+                
                 {loading && <div className={styles.loading}>Loading tasks...</div>}
                 {error && <div className={styles.error}>Failed to load tasks</div>}
                 {!loading && !error && filteredTasks.length === 0 && (
@@ -948,14 +948,14 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                             </div>
                           </div>
                           <div className={styles.taskMeta}>
-                            <span className={styles.metaLine}>
-                              <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
-                            </span>
                             {task.projectName && (
                               <span className={styles.metaLine} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '4px' }}>
                                 {task.title}
                               </span>
                             )}
+                            <span className={styles.metaLine}>
+                              <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
+                            </span>
                             {task.address ? (
                               <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
                                 <MapPin size={14} aria-hidden="true" />
@@ -969,7 +969,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               </span>
                             )}
                           </div>
-                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px' }}>
+                          <div className={styles.taskFooter} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '12px' }}>
                             <button
                               type="button"
                               className={styles.markDoneButton}
