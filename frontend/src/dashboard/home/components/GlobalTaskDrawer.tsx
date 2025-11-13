@@ -822,7 +822,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                         >
                           <div className={styles.taskHeader} style={{ padding: '12px' }}>
                             <div className={styles.taskTitleRow} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', cursor: task.projectName ? 'pointer' : 'default' }} onClick={task.projectName ? (e) => { e.stopPropagation(); handleProjectClick(task.projectId, task.projectName!); } : undefined}>
                                 {task.projectThumbnail ? (() => {
                                   const size = 24;
                                   const w = size, h = size;
@@ -967,7 +967,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 {task.projectName}
                               </span>
                             )}
-                            <span className={styles.metaLine} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '32ch', marginBottom: '4px' }}>
+                            <span className={styles.metaLine} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '32ch', marginBottom: '4px' }}>
                               {task.title}
                             </span>
                             <span className={styles.metaLine}>
