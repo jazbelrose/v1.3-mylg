@@ -933,7 +933,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               type="button"
                               className={styles.markDoneButton}
                               onClick={() => handleMarkDone(task)}
-                              style={{ borderRadius: '9999px', padding: '4px 12px', fontSize: '12px', textTransform: 'uppercase' }}
                               aria-label="Mark task as done"
                             >
                               Mark done
