@@ -396,6 +396,32 @@
   margin-top: 20px;
 }
 
+.archiveToggleButton {
+  width: 100%;
+  border-radius: 14px;
+  min-height: 48px;
+  padding: 0 18px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: 1px solid rgba(123, 255, 220, 0.45);
+  background: rgba(123, 255, 220, 0.15);
+  color: #b4ffe7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.archiveToggleButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.archiveToggleButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .deleteButton {
   width: 100%;
   border-radius: 14px;

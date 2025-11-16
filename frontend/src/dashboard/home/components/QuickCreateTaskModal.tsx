@@ -7,11 +7,14 @@ import {
   apiFetch,
   createTask,
   deleteTask,
+  archiveTask,
+  unarchiveTask,
   updateTask,
   uploadFile,
   getFileUrl,
 } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
+import { notify } from "@/shared/ui/ToastNotifications";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -167,6 +170,14 @@ function parseCoordinate(value: unknown): number | null {
   return null;
 }
 
+function normalizeUserIdentifier(value?: string | null): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split("__").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : trimmed;
+}
+
 function normalizeStatus(value?: string | null): TaskStatus {
   if (!value) return "todo";
   const trimmed = value.toString().trim();
@@ -262,7 +273,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   onDeleted,
   embedMode = false,
 }) => {
-  const { userData, allUsers, userId } = useUser();
+  const { userData, allUsers, userId, isAdmin } = useUser();
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -275,12 +286,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [noteAttachments, setNoteAttachments] = useState<TaskNoteAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
+  const [reviewerId, setReviewerId] = useState<string | null>(null);
   const [createdById, setCreatedById] = useState<string | null>(null);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
   const [createdByUsername, setCreatedByUsername] = useState<string | null>(null);
@@ -527,7 +540,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const titleRemaining = 120 - title.length;
   const showTitleCounter = titleRemaining <= 20;
   const canSubmit = Boolean(effectiveProjectId && trimmedTitle);
-  const isBusy = submitting || deleting;
+  const isBusy = submitting || deleting || archiving;
 
   useEffect(() => {
     successMessageRef.current = successMessage;
@@ -687,6 +700,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setProjectError(null);
     setTaskId(null);
     setStatus("todo");
+    setArchiving(false);
+    setReviewerId(null);
     setCreatedById(null);
     setCreatedByName(null);
     setCreatedByUsername(null);
@@ -711,6 +726,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         (typeof taskData.id === "string" && taskData.id.trim()) ||
         null;
       setTaskId(nextTaskId);
+      setReviewerId(typeof taskData.reviewerId === "string" ? taskData.reviewerId : null);
       setTitle(typeof taskData.title === "string" ? taskData.title : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
@@ -979,6 +995,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     : descriptionCopy;
   const hasCustomStatusOption = !STATUS_SELECT_OPTIONS.some((option) => option.value === status);
   const isStatusLocked = READ_ONLY_STATUSES.includes(status);
+  const normalizedCurrentUserId = normalizeUserIdentifier(userId);
+  const normalizedReviewerId = normalizeUserIdentifier(reviewerId);
+  const isReviewer = Boolean(
+    normalizedReviewerId && normalizedCurrentUserId && normalizedReviewerId === normalizedCurrentUserId,
+  );
+  const canArchiveTask = Boolean(isEditing && status === "done" && (isAdmin || isReviewer));
+  const canUnarchiveTask = Boolean(isEditing && status === "archived" && (isAdmin || isReviewer));
   const taskNameDescribedBy = [
     showTitleCounter ? titleCounterId : null,
     titleError ? titleErrorId : null,
@@ -1312,6 +1335,37 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setErrorMessage("We couldn't delete that task. Please try again.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!taskId || !effectiveProjectId) {
+      setErrorMessage("We couldn't find that task or its project.");
+      return;
+    }
+
+    setArchiving(true);
+    try {
+      if (status === "archived") {
+        await unarchiveTask(effectiveProjectId, taskId);
+        const message = "Task unarchived and marked as completed.";
+        setSuccessMessage(message);
+        setErrorMessage(null);
+        notify("success", message);
+      } else {
+        await archiveTask(effectiveProjectId, taskId);
+        const message = "Task archived. You can find it under ‘Archived’ if needed.";
+        setSuccessMessage(message);
+        setErrorMessage(null);
+        notify("success", message);
+      }
+      await onUpdated?.();
+    } catch (error) {
+      console.error("Failed to update archive status", error);
+      setErrorMessage("We couldn't update the task. Please try again.");
+      notify("error", "Failed to update the task status.");
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -1792,6 +1846,16 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               ) : null}
             </div>
             <div className={styles.actionBar}>
+              {isEditing && (canArchiveTask || canUnarchiveTask) ? (
+                <button
+                  type="button"
+                  className={styles.archiveToggleButton}
+                  onClick={handleArchiveToggle}
+                  disabled={isBusy}
+                >
+                  {archiving ? "Working…" : canUnarchiveTask ? "Unarchive task" : "Archive task"}
+                </button>
+              ) : null}
               {isEditing ? (
                 <button
                   type="button"

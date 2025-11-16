@@ -6,6 +6,7 @@ import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.modu
 import styles from "@/dashboard/project/features/budget/components/BudgetToolbar.module.css";
 
 type FilterOption = "due" | "completed" | "overdue" | "mine" | "all";
+type StatusFilter = "active" | "all" | "archived";
 
 type SortOptionValue = "default" | "dueDate-asc" | "dueDate-desc" | "title-asc" | "title-desc";
 
@@ -44,8 +45,8 @@ interface TaskMobileFilterProps {
   onSortChange: (field: string | null, order: "asc" | "desc" | null) => void;
   activeFilter: FilterOption;
   onFilterChange: (filter: FilterOption) => void;
-  statusFilter: string | null;
-  onStatusFilterChange: (status: string | null) => void;
+  statusFilter: StatusFilter;
+  onStatusFilterChange: (status: StatusFilter) => void;
   assignedByFilter: string | null;
   onAssignedByFilterChange: (filterValue: string | null) => void;
   assignedByOptions?: Array<{ id: string; name: string }>;
@@ -62,6 +63,8 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
   onSortChange,
   activeFilter,
   onFilterChange,
+  statusFilter,
+  onStatusFilterChange,
   assignedByFilter,
   onAssignedByFilterChange,
   assignedByOptions = [],
@@ -107,6 +110,7 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
     searchQuery.trim().length > 0 ||
     currentSortValue !== "default" ||
     activeFilter !== "all" ||
+    statusFilter !== "active" ||
     assignedByFilter !== null ||
     assignedToFilter !== null;
 
@@ -214,6 +218,30 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
               >
                 All
               </button>
+            </div>
+          </div>
+          <div className={styles.mobileFilterSection}>
+            <span className={styles.mobileFilterLabel}>Status</span>
+            <div className={styles.mobileFilterGroup} role="group" aria-label="Filter by status">
+              {["active", "all", "archived"].map((option) => {
+                const typedOption = option as StatusFilter;
+                const isActiveStatus = statusFilter === typedOption;
+                return (
+                  <button
+                    key={typedOption}
+                    type="button"
+                    className={
+                      isActiveStatus
+                        ? `${styles.mobileFilterGroupButton} ${styles.mobileFilterGroupButtonActive}`
+                        : styles.mobileFilterGroupButton
+                    }
+                    onClick={() => onStatusFilterChange(typedOption)}
+                    aria-pressed={isActiveStatus}
+                  >
+                    {typedOption === "active" ? "Active" : typedOption === "all" ? "All" : "Archived"}
+                  </button>
+                );
+              })}
             </div>
           </div>
           {(assignedByOptions.length > 0 || assignedToOptions.length > 0) && (
