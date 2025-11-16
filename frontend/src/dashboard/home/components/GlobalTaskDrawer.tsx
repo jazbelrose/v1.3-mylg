@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, MapPin, Plus, Search, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronLeft, MapPin, Plus, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -481,6 +481,26 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     setDetailsPanelOpen(false);
   }, []);
 
+  // Keyboard handler for Esc key
+  useEffect(() => {
+    if (!open) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (detailsPanelOpen) {
+          // Close only the edit panel if open
+          handleCloseDetailsPanel();
+        } else {
+          // Close the entire task drawer if edit panel not open
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, detailsPanelOpen, handleCloseDetailsPanel, onClose]);
+
   const handleDetailsSaved = useCallback(() => {
     refreshTasks();
     handleCloseDetailsPanel();
@@ -529,7 +549,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const overlayClassName = isDesktop
     ? `${styles.sheetOverlay} ${styles.desktopOverlay}`
     : styles.sheetOverlay;
-  const sheetClassName = isDesktop ? `${styles.sheet} ${styles.desktopSheet}` : styles.sheet;
+  const sheetClassName = isDesktop 
+    ? `${styles.sheet} ${styles.desktopSheet} ${detailsPanelOpen ? styles.dimmed : ''}`
+    : styles.sheet;
   const drawerInitial = isDesktop ? { x: "-100%" } : { y: viewportHeight };
   const drawerAnimate = isDesktop ? { x: 0 } : { y: targetY };
   const drawerTransition = isDesktop
@@ -592,21 +614,18 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
           >
             {isDesktop ? (
               <>
-                <header className={styles.desktopDrawerHeader} style={{ display: 'grid', gridTemplateRows: 'auto auto', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center' }}>
+                <header className={styles.desktopDrawerHeader}>
                   <button
                     type="button"
-                    className={styles.embedCloseButton}
+                    className={styles.backButton}
                     onClick={onClose}
-                    aria-label="Close tasks drawer"
-                    style={{ gridRow: 1, gridColumn: '1 / -1', justifySelf: 'start' }}
+                    aria-label="Back to project"
+                    title="Back to project"
                   >
-                    <X size={16} strokeWidth={2.25} aria-hidden="true" />
+                    <ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" />
+                    <span className={styles.backButtonLabel}>Back to project</span>
                   </button>
-                  <div className={styles.sheetTitleGroup} style={{ gridRow: 2, gridColumn: 1 }}>
-                    <span className={styles.sheetTitle}>All tasks</span>
-                    <span className={styles.sheetSubtitle}>Review everything on your radar</span>
-                  </div>
-                  <div className={styles.desktopDrawerActions} style={{ gridRow: 2, gridColumn: 2 }}>
+                  <div className={styles.desktopDrawerActions}>
                     <button
                       type="button"
                       className={styles.primaryAction}
@@ -617,6 +636,10 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                     </button>
                   </div>
                 </header>
+                <div className={styles.sheetTitleGroup} style={{ padding: '0 1.75rem 1.25rem' }}>
+                  <span className={styles.sheetTitle}>All tasks</span>
+                  <span className={styles.sheetSubtitle}>Review everything on your radar</span>
+                </div>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
                   <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={statusMessage} statusStyle={{ textAlign: 'center' }} />
                 </div>
@@ -1033,7 +1056,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
           </motion.div>
           {isDesktop && detailsPanelOpen && (
             <motion.div
-              className={styles.detailsPanel}
+              className={`${styles.detailsPanel} ${styles.detailsPanelWithDim}`}
               role="dialog"
               aria-modal="true"
               aria-label="Task details"
@@ -1042,6 +1065,18 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.9 }}
             >
+              <div className={styles.detailsPanelHeader}>
+                <span className={styles.detailsPanelTitle}>Edit task</span>
+                <button
+                  type="button"
+                  className={styles.detailsPanelClose}
+                  onClick={handleCloseDetailsPanel}
+                  aria-label="Close edit"
+                  title="Close editing"
+                >
+                  <X size={16} strokeWidth={2.25} aria-hidden="true" />
+                </button>
+              </div>
               <QuickCreateTaskModal
                 open={true}
                 onClose={handleCloseDetailsPanel}
