@@ -79,6 +79,9 @@ export type TasksOverviewListItem = {
   createdById?: string;
   createdByThumbnail?: string;
   assigneeThumbnail?: string;
+  reviewerId?: string;
+  reviewerName?: string;
+  reviewNote?: string;
 };
 
 export type TasksOverviewEvent = {
@@ -428,12 +431,26 @@ export function useTasksOverview() {
         findUserDisplayNameById(raw.createdById ?? createdByCandidate, allUsers) ??
         (createdByCandidate ? formatAssignmentLabel(createdByCandidate) : undefined);
       const createdByIdCandidate = raw.createdById ?? createdByCandidate;
-      const createdById = typeof createdByIdCandidate === 'string' ? (normalizeUserId(createdByIdCandidate) ?? createdByIdCandidate) : createdByIdCandidate;
-      const createdByThumbnail = findUserThumbnailById(typeof createdByIdCandidate === 'string' ? createdByIdCandidate : undefined, allUsers);
+      const createdById =
+        typeof createdByIdCandidate === "string"
+          ? normalizeUserId(createdByIdCandidate) ?? createdByIdCandidate
+          : createdByIdCandidate;
+      const createdByThumbnail = findUserThumbnailById(
+        typeof createdByIdCandidate === "string" ? createdByIdCandidate : undefined,
+        allUsers,
+      );
       const assigneeName =
         findUserDisplayNameById(assignee, allUsers) ??
         (assignee ? formatAssignmentLabel(assignee) : undefined);
       const assigneeThumbnail = findUserThumbnailById(assignee, allUsers);
+      const reviewerIdCandidate = typeof raw.reviewerId === "string" ? raw.reviewerId : undefined;
+      const reviewerId = reviewerIdCandidate ? normalizeUserId(reviewerIdCandidate) ?? reviewerIdCandidate : undefined;
+      const reviewerName = reviewerIdCandidate
+        ? findUserDisplayNameById(reviewerIdCandidate, allUsers) ?? formatAssignmentLabel(reviewerIdCandidate)
+        : undefined;
+      const reviewNote = typeof (raw as { reviewNote?: unknown }).reviewNote === "string"
+        ? (raw as { reviewNote?: string }).reviewNote
+        : undefined;
 
       return {
         id: task.id,
@@ -459,6 +476,9 @@ export function useTasksOverview() {
         location: raw.location as QuickCreateTaskLocation,
         dueDateInput: toDateInputString(dueSource),
         rawTask: raw,
+        reviewerId,
+        reviewerName,
+        reviewNote,
       };
     },
     [allUsers],
@@ -474,6 +494,7 @@ export function useTasksOverview() {
     undatedTasks,
     completedThisWeek,
     completedTasks,
+    archivedTasks,
   } = useMemo(() => {
     const now = new Date();
     const weekStart = startOfWeek(now);
@@ -484,6 +505,7 @@ export function useTasksOverview() {
     let dueSoonCount = 0;
     let overdueCount = 0;
     const doneTasks: NormalizedTask[] = [];
+    const archivedTasks: NormalizedTask[] = [];
 
     const groupMap = new Map<
       string,
@@ -498,7 +520,13 @@ export function useTasksOverview() {
     tasks.forEach((task) => {
       const due = task.dueDate;
       const isDone = task.status === "done";
+      const isArchived = task.status === "archived";
       const completionReference = task.completedAt ?? due;
+
+      if (isArchived) {
+        archivedTasks.push(task);
+        return;
+      }
 
       if (isDone) {
         doneTasks.push(task);
@@ -589,6 +617,8 @@ export function useTasksOverview() {
       })
       .map(toListItem);
 
+    const archivedList = archivedTasks.map(toListItem);
+
     const completedThisWeek = completedTasks.filter((task) => {
       const completedOn = task.completedAt ?? task.dueDate;
       return Boolean(completedOn && completedOn >= weekStart && completedOn <= weekEnd);
@@ -604,6 +634,7 @@ export function useTasksOverview() {
       undatedTasks,
       completedThisWeek,
       completedTasks,
+      archivedTasks: archivedList,
     };
   }, [tasks, toListItem]);
 
@@ -694,6 +725,7 @@ export function useTasksOverview() {
     undatedTasks,
     completedThisWeek,
     completedTasks,
+    archivedTasks,
     navigateToProject,
     refreshTasks,
     projectOptions,
