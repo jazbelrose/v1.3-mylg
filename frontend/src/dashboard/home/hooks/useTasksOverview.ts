@@ -494,6 +494,7 @@ export function useTasksOverview() {
     undatedTasks,
     completedThisWeek,
     completedTasks,
+    archivedTasks,
   } = useMemo(() => {
     const now = new Date();
     const weekStart = startOfWeek(now);
