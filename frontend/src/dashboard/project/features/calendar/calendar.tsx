@@ -14,12 +14,14 @@ import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHea
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/SocketContext";
 import type { Project } from "@/app/contexts/DataProvider";
+import { notify } from "@/shared/ui/ToastNotifications";
 import {
   createEvent,
   fetchTasks,
   updateEvent,
-  updateTask,
   deleteEvent,
+  requestTaskReview,
+  approveTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
@@ -50,6 +52,7 @@ const CalendarPage: React.FC = () => {
     setProjects,
     setSelectedProjects,
     userId,
+    isAdmin,
   } = useData();
 
   const { ws } = useSocket();
@@ -62,7 +65,6 @@ const CalendarPage: React.FC = () => {
   const [timelineEvents, setTimelineEvents] = useState<ApiTimelineEvent[]>([]);
   const [projectTasks, setProjectTasks] = useState<ApiTask[]>([]);
   const tasksRef = useRef<ApiTask[]>([]);
-  const previousTasksSnapshot = useRef<ApiTask[] | null>(null);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const initializedDateForProject = useRef<string | null>(null);
@@ -661,41 +663,54 @@ const CalendarPage: React.FC = () => {
 
   const handleToggleTask = useCallback(
     async (taskId: string) => {
-      if (!projectId) return;
-      const previous = tasksRef.current;
-      const target = previous.find(
+      const existingTasks = tasksRef.current;
+      const target = existingTasks.find(
         (task) => task.taskId === taskId || (task as { id?: string }).id === taskId,
       );
       if (!target) return;
 
-      const nextStatus = target.status === "done" ? "todo" : "done";
-      const optimistic = previous.map((task) =>
-        task.taskId === target.taskId || (task as { id?: string }).id === taskId
-          ? ({ ...task, status: nextStatus } as ApiTask)
-          : task,
-      );
+      const resolvedProjectId = target.projectId ?? projectId;
+      if (!resolvedProjectId) return;
 
-      previousTasksSnapshot.current = previous;
-      tasksRef.current = optimistic;
-      setProjectTasks(optimistic);
+      const normalizedStatus =
+        typeof target.status === "string" ? target.status.trim().toLowerCase() : "";
+      const isAwaitingApproval = normalizedStatus === "in_review";
+      const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+
+      if (isComplete) {
+        notify("info", "That task is already complete.");
+        return;
+      }
+
+      if (isAwaitingApproval && !isAdmin) {
+        notify("error", "Only admins can approve tasks that are in review.");
+        return;
+      }
+
+      const resolvedTaskId = target.taskId ?? (target as { id?: string }).id ?? taskId;
 
       try {
-        await updateTask({
-          ...target,
-          projectId,
-          taskId: target.taskId,
-          status: nextStatus,
-        });
+        if (isAwaitingApproval) {
+          await approveTask(resolvedProjectId, resolvedTaskId, { note: "" });
+          notify("success", "Task marked as done!");
+        } else {
+          await requestTaskReview(resolvedProjectId, resolvedTaskId);
+          notify("success", "Task submitted for review!");
+        }
+        await refreshProjectTasks();
       } catch (error) {
-        console.error("Failed to toggle task", error);
-        const snapshot = previousTasksSnapshot.current;
-        if (snapshot) {
-          tasksRef.current = snapshot;
-          setProjectTasks(snapshot);
+        console.error("Failed to update calendar task status", error);
+        const apiError = error as { status?: number };
+        if (apiError?.status === 403) {
+          notify("error", "You don't have permission to perform this action.");
+        } else if (apiError?.status === 409) {
+          notify("error", "Task is not in the correct state for this action.");
+        } else {
+          notify("error", "Failed to update task. Please try again.");
         }
       }
     },
-    [projectId],
+    [projectId, isAdmin, refreshProjectTasks],
   );
 
   const refreshProjectTasks = useCallback(async () => {

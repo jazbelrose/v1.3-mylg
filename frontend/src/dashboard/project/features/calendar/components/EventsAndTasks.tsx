@@ -5,6 +5,7 @@ import type { CalendarEvent, CalendarTask } from "../utils";
 import { compareDateStrings, formatTimeLabel, parseIsoDate, fmt } from "../utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useUser } from "@/app/contexts/useUser";
 import {
   createTaskStatusContext,
   getTaskStatusBadge,
@@ -70,6 +71,7 @@ function EventsAndTasks({
   onTaskFilterChange,
   hideFilterControls = false,
 }: EventsAndTasksProps) {
+  const { isAdmin } = useUser();
   const isEventFilterControlled = eventFilterProp !== undefined;
   const isTaskFilterControlled = taskFilterProp !== undefined;
 
@@ -379,8 +381,13 @@ function EventsAndTasks({
                 Boolean(task.done) ||
                 normalizedStatus === "done" ||
                 normalizedStatus === "completed" ||
-                normalizedStatus === "complete";
-              const toggleLabel = isDone ? "Mark as not done" : "Mark as done";
+                normalizedStatus === "complete" ||
+                normalizedStatus === "archived";
+              const isAwaitingApproval = normalizedStatus === "in_review";
+              const canApprove = isAdmin && isAwaitingApproval;
+              const canSubmitForReview = !isAwaitingApproval && !isDone;
+              const showStatusAction = canApprove || canSubmitForReview;
+              const toggleLabel = canApprove ? "Approve task" : "Submit for review";
 
               return (
                 <li key={task.id} className="events-tasks__list-item">
@@ -430,17 +437,19 @@ function EventsAndTasks({
                             event.stopPropagation();
                           }}
                         >
-                          <button
-                            type="button"
-                            className="events-tasks__status-action"
-                            onClick={() => {
-                              setActiveTaskPopoverId(null);
-                              onToggleTask(task.id);
-                            }}
-                          >
-                            <CheckSquare size={14} aria-hidden />
-                            <span>{toggleLabel}</span>
-                          </button>
+                          {showStatusAction ? (
+                            <button
+                              type="button"
+                              className="events-tasks__status-action"
+                              onClick={() => {
+                                setActiveTaskPopoverId(null);
+                                onToggleTask(task.id);
+                              }}
+                            >
+                              <CheckSquare size={14} aria-hidden />
+                              <span>{toggleLabel}</span>
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             className="events-tasks__status-action"

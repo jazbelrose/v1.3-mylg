@@ -9,8 +9,6 @@ import {
   deleteTask,
   updateTask,
   uploadFile,
-  approveTask,
-  requestTaskReview,
   getFileUrl,
 } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
@@ -38,7 +36,20 @@ type Coordinates = {
   lng: number;
 };
 
-type TaskStatus = "todo" | "in_progress" | "done";
+type TaskStatus =
+  | "todo"
+  | "in_progress"
+  | "done"
+  | "in_review"
+  | "needs_changes"
+  | "archived";
+
+const PATCHABLE_STATUSES: readonly TaskStatus[] = ["todo", "in_progress"] as const;
+const READ_ONLY_STATUSES: readonly TaskStatus[] = ["done", "in_review", "archived"] as const;
+const STATUS_SELECT_OPTIONS: ReadonlyArray<{ value: TaskStatus; label: string }> = [
+  { value: "todo", label: "To do" },
+  { value: "in_progress", label: "In progress" },
+];
 
 type AssigneeOption = {
   value: string;
@@ -163,7 +174,17 @@ function normalizeStatus(value?: string | null): TaskStatus {
   const normalized = trimmed.toLowerCase().replace(/\s+/g, "_");
   if (normalized === "done") return "done";
   if (normalized === "in_progress" || normalized === "in-progress") return "in_progress";
+  if (normalized === "in_review" || normalized === "in-review") return "in_review";
+  if (normalized === "needs_changes" || normalized === "needs-changes") return "needs_changes";
+  if (normalized === "archived") return "archived";
   return "todo";
+}
+
+function formatStatusLabel(value?: string | null): string {
+  if (!value) return "To do";
+  const normalized = value.toString().trim().replace(/[_-]+/g, " ");
+  if (!normalized) return "To do";
+  return normalized.replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function normalizeLocation(location: QuickCreateTaskLocation): Coordinates | null {
@@ -241,7 +262,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   onDeleted,
   embedMode = false,
 }) => {
-  const { userData, allUsers, userId, isAdmin } = useUser();
+  const { userData, allUsers, userId } = useUser();
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -260,8 +281,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [projectError, setProjectError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
-  const initialStatusRef = useRef<TaskStatus>("todo");
-  const reviewerIdRef = useRef<string | undefined>(undefined);
   const [createdById, setCreatedById] = useState<string | null>(null);
   const [createdByName, setCreatedByName] = useState<string | null>(null);
   const [createdByUsername, setCreatedByUsername] = useState<string | null>(null);
@@ -668,8 +687,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setProjectError(null);
     setTaskId(null);
     setStatus("todo");
-    initialStatusRef.current = "todo";
-    reviewerIdRef.current = undefined;
     setCreatedById(null);
     setCreatedByName(null);
     setCreatedByUsername(null);
@@ -699,12 +716,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setDueDate(toDateInputString(taskData.dueDate));
       const normalizedFormStatus = normalizeStatus(taskData.status);
       setStatus(normalizedFormStatus);
-      initialStatusRef.current = normalizedFormStatus;
-      const reviewerIdValue =
-        typeof taskData.reviewerId === "string" && taskData.reviewerId.trim()
-          ? taskData.reviewerId.trim()
-          : undefined;
-      reviewerIdRef.current = reviewerIdValue;
       const providedTokens = Array.isArray(taskData.assigneeTokens)
         ? taskData.assigneeTokens.filter(
             (token): token is string => typeof token === "string" && token.trim().length > 0,
@@ -964,8 +975,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const isSubmitDisabled = isBusy || !canSubmit;
   const modalTitle = isEditing ? "Edit task" : "Create a task";
   const modalDescription = isEditing
-    ? "Update details, change the status, or mark this task as done."
+    ? "Update the basics or reassign work. Use the task view for reviews and approvals."
     : descriptionCopy;
+  const hasCustomStatusOption = !STATUS_SELECT_OPTIONS.some((option) => option.value === status);
+  const isStatusLocked = READ_ONLY_STATUSES.includes(status);
   const taskNameDescribedBy = [
     showTitleCounter ? titleCounterId : null,
     titleError ? titleErrorId : null,
@@ -1197,12 +1210,12 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
     const eventType: QuickCreateTaskModalEventType = isEditing ? "update" : "create";
-    const originalStatus = initialStatusRef.current;
-    const shouldUseDedicatedStatusEndpoint =
-      isEditing && status === "done" && originalStatus !== "done";
-    const isReviewer =
-      Boolean(reviewerIdRef.current) && Boolean(userId) && reviewerIdRef.current === userId;
-    const canApprove = Boolean(isAdmin || isReviewer);
+    const normalizedStatusForPayload = PATCHABLE_STATUSES.includes(status) ? status : undefined;
+    const statusForPayload = !isEditing
+      ? normalizedStatusForPayload === "in_progress"
+        ? normalizedStatusForPayload
+        : undefined
+      : normalizedStatusForPayload;
 
     let dueDateIso: string | undefined;
     if (dueDate) {
@@ -1221,7 +1234,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         title: trimmedTitle,
         description: description.trim() || undefined,
         dueDate: dueDateIso,
-        status,
+        ...(statusForPayload ? { status: statusForPayload } : {}),
         ...(trimmedAddress ? { address: trimmedAddress } : {}),
         ...(locationPayload ? { location: locationPayload } : {}),
       };
@@ -1245,33 +1258,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
 
       if (isEditing && taskId) {
-        if (shouldUseDedicatedStatusEndpoint) {
-          const patchPayload = { ...payload };
-          delete patchPayload.status;
-          await updateTask({ ...patchPayload, taskId });
-
-          if (!effectiveProjectId) {
-            throw new Error("A project must be selected to update this task.");
-          }
-
-          if (canApprove) {
-            await approveTask(effectiveProjectId, taskId, { note: "" });
-            setSuccessMessage("Task marked as done!");
-          } else {
-            await requestTaskReview(effectiveProjectId, taskId, {
-              note: "",
-              reviewerId: reviewerIdRef.current,
-            });
-            setSuccessMessage("Task submitted for review!");
-          }
-
-          initialStatusRef.current = status;
-          onUpdated?.();
-        } else {
-          await updateTask({ ...payload, taskId });
-          setSuccessMessage("Task updated. Changes saved.");
-          onUpdated?.();
-        }
+        await updateTask({ ...payload, taskId });
+        setSuccessMessage("Task updated. Changes saved.");
+        onUpdated?.();
       } else {
         await createTask(payload);
         setSuccessMessage("Task created. You'll see it in your lists shortly.");
@@ -1424,12 +1413,24 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 className={styles.selectInput}
                 value={status}
                 onChange={handleStatusChange}
-                disabled={isBusy}
+                disabled={isBusy || isStatusLocked}
               >
-                <option value="todo">To do</option>
-                <option value="in_progress">In progress</option>
-                <option value="done">Done</option>
+                {hasCustomStatusOption ? (
+                  <option value={status} disabled={isStatusLocked}>
+                    {formatStatusLabel(status)}
+                  </option>
+                ) : null}
+                {STATUS_SELECT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
+              {isStatusLocked ? (
+                <p className={styles.helperText}>
+                  Status changes to {formatStatusLabel(status)} happen in the task view.
+                </p>
+              ) : null}
             </div>
             {isEditing && (createdByName || createdById) ? (
               <div className={styles.fieldGroup}>

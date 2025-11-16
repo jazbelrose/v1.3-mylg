@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { fetchTasks, updateTask, requestTaskReview, approveTask, type Task as ApiTaskPayload } from "@/shared/utils/api";
+import { fetchTasks, requestTaskReview, approveTask } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 import QuickCreateTaskModal, {
@@ -46,7 +46,7 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
   projectName,
   projectColor,
 }) => {
-  const { userId, isAdmin } = useUser();
+  const { isAdmin } = useUser();
   const [tasks, setTasks] = useState<QuickTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -356,121 +356,71 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
       const resolvedProjectId = task?.projectId ?? (projectId ? projectId : null);
 
       if (!task || !resolvedProjectId) {
-        openTaskEditor(taskId, { status: "done" });
+        openTaskEditor(taskId);
         return;
       }
 
       setTaskMarkingState(taskId, true);
 
-      const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
-      const isReviewer = reviewerId && userId && reviewerId === userId;
-      const canApprove = isAdmin || isReviewer;
+      const normalizedStatus =
+        typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+      const isAwaitingApproval = normalizedStatus === "in_review";
+      const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+
+      if (isComplete) {
+        setTaskMarkingState(taskId, false);
+        notify("info", "That task is already complete.");
+        return;
+      }
+
+      if (isAwaitingApproval && !isAdmin) {
+        setTaskMarkingState(taskId, false);
+        notify("error", "Only admins can approve tasks that are in review.");
+        return;
+      }
 
       try {
+        const updatedTask = isAwaitingApproval
+          ? await approveTask(resolvedProjectId, taskId, { note: "" })
+          : await requestTaskReview(resolvedProjectId, taskId, { note: "" });
 
-        let updatedTask: ApiTaskPayload;
-        if (canApprove) {
-          // User is reviewer or admin: approve the task
-          updatedTask = await approveTask(resolvedProjectId, taskId, { note: "" });
-        } else {
-          // User is assignee: request review
-          updatedTask = await requestTaskReview(resolvedProjectId, taskId, { note: "" });
-        }
-
-        // Update local state with the returned task
         setTasks((currentTasks) =>
           currentTasks.map((currentTask) =>
             currentTask.id === taskId
               ? {
                   ...currentTask,
-                  status: updatedTask.status || "done",
+                  status: updatedTask.status || currentTask.status,
                   raw: { ...currentTask.raw, ...updatedTask },
                 }
               : currentTask,
           ),
         );
-        
-        // Reset loading state and show success message
+
         setTaskMarkingState(taskId, false);
-        notify("success", canApprove ? "Task marked as done!" : "Task submitted for review!");
+        notify("success", isAwaitingApproval ? "Task marked as done!" : "Task submitted for review!");
       } catch (error: unknown) {
         console.error("Failed to mark task done", error);
-        setTaskMarkingState(taskId, false); // Reset loading state
-        
         const apiError = error as { status?: number; message?: string };
-        if (apiError?.status === 404) {
-          // Fallback to old PATCH endpoint if new endpoints return 404
-          try {
-            const dueDateIso = resolveTaskDueDateIso(task);
-            const payload: ApiTaskPayload = {
-              projectId: resolvedProjectId,
-              taskId,
-              title: task.title,
-              status: "done",
-            };
+        setTaskMarkingState(taskId, false);
 
-            if (task.description) {
-              payload.description = task.description;
-            }
-
-            if (task.assignedTo) {
-              payload.assigneeId = task.assignedTo;
-            }
-
-            if (dueDateIso) {
-              payload.dueDate = dueDateIso;
-            }
-
-            const rawBudgetItemId = (task.raw as { budgetItemId?: string | null }).budgetItemId;
-            if (typeof rawBudgetItemId === "string") {
-              payload.budgetItemId = rawBudgetItemId;
-            } else if (rawBudgetItemId === null) {
-              payload.budgetItemId = null;
-            }
-
-            await updateTask(payload);
-            setTasks((currentTasks) =>
-              currentTasks.map((currentTask) =>
-                currentTask.id === taskId
-                  ? {
-                      ...currentTask,
-                      status: "done",
-                      raw: { ...currentTask.raw, status: "done" },
-                    }
-                  : currentTask,
-              ),
-            );
-            notify("success", canApprove ? "Task marked as done!" : "Task submitted for review!");
-          } catch (fallbackError) {
-            console.error("Fallback updateTask also failed", fallbackError);
-            notify("error", "Failed to update task. Please try again.");
-            try {
-              await refreshTasks();
-            } catch (refreshError) {
-              console.error("Failed to refresh tasks after fallback error", refreshError);
-            }
-          }
+        if (apiError?.status === 403) {
+          notify("error", "You don't have permission to perform this action.");
+        } else if (apiError?.status === 409) {
+          notify("error", "Task is not in the correct state for this action.");
         } else {
-          // Handle other API errors with user feedback
-          if (apiError?.status === 403) {
-            notify("error", "You don't have permission to perform this action.");
-          } else if (apiError?.status === 409) {
-            notify("error", "Task is not in the correct state for this action.");
-          } else {
-            notify("error", "Failed to update task. Please try again.");
-          }
-          
-          try {
-            await refreshTasks();
-          } catch (refreshError) {
-            console.error("Failed to refresh tasks after mark done error", refreshError);
-          }
+          notify("error", "Failed to update task. Please try again.");
+        }
+
+        try {
+          await refreshTasks();
+        } catch (refreshError) {
+          console.error("Failed to refresh tasks after mark done error", refreshError);
         }
       } finally {
         setTaskMarkingState(taskId, false);
       }
     },
-    [tasks, projectId, userId, isAdmin, openTaskEditor, refreshTasks, setTaskMarkingState],
+    [tasks, projectId, openTaskEditor, refreshTasks, setTaskMarkingState, isAdmin],
   );
 
   const handleMarkerClick = useCallback(
@@ -638,9 +588,12 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
         sheetRef={sheetRef}
         taskListRef={taskListRef}
         canApproveTask={(task) => {
-          const reviewerId = (task.raw as { reviewerId?: string }).reviewerId;
-          const isReviewer = reviewerId && userId && reviewerId === userId;
-          return isAdmin || isReviewer;
+          if (!isAdmin) {
+            return false;
+          }
+          const normalizedStatus =
+            typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+          return normalizedStatus === "in_review";
         }}
       />
       <QuickCreateTaskModal

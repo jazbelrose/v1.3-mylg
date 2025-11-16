@@ -10,6 +10,10 @@ The generic PATCH endpoint (`/projects/{projectId}/tasks/{taskId}`) has strict r
 - `done` ← Any status
 - `archived` ← Any status
 
+> **Reminder:** Do **not** use the generic PATCH endpoint to move a task into
+> `in_review`, `needs_changes`, `done`, or `archived`. Those transitions must go
+> through the dedicated review/archive endpoints defined below.
+
 ### Allowed Transitions (via PATCH)
 - `in_progress` ← `todo`, `needs_changes`, `in_progress`
 
