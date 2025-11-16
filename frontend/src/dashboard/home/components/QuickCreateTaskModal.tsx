@@ -514,6 +514,93 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     successMessageRef.current = successMessage;
   }, [successMessage]);
 
+  // Handlers for opening/closing the assignee popover must be
+  // declared before any effect that references them. We hoist
+  // these handlers above the click-outside effect to avoid a
+  // temporal-dead-zone (ReferenceError) when the effect runs.
+  const openAssigneePopover = useCallback(() => {
+    setAssigneePopoverOpen(true);
+    setAssigneeSearch("");
+    setFocusedAssigneeIndex(-1);
+    requestAnimationFrame(() => assigneeSearchRef.current?.focus());
+  }, []);
+
+  const closeAssigneePopover = useCallback(() => {
+    setAssigneePopoverOpen(false);
+    setAssigneeSearch("");
+    setFocusedAssigneeIndex(-1);
+  }, []);
+
+  const toggleAssignee = useCallback((value: string) => {
+    setAssigneeTokens((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  }, []);
+
+  const handleAssigneeFieldKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button")) {
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openAssigneePopover();
+      } else if (event.key === "ArrowDown" && !assigneePopoverOpen) {
+        event.preventDefault();
+        openAssigneePopover();
+      } else if (event.key === "Escape" && assigneePopoverOpen) {
+        event.preventDefault();
+        closeAssigneePopover();
+      }
+    },
+    [assigneePopoverOpen, closeAssigneePopover, openAssigneePopover]
+  );
+
+  const handleAssigneeFieldClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button")) {
+        return;
+      }
+      openAssigneePopover();
+    },
+    [openAssigneePopover]
+  );
+
+  const handleAssignToMe = useCallback(() => {
+    if (!currentUserAssigneeValue) return;
+    setAssigneeTokens((prev) =>
+      prev.includes(currentUserAssigneeValue) ? prev : [...prev, currentUserAssigneeValue]
+    );
+  }, [currentUserAssigneeValue]);
+
+  const handleClearAssignees = useCallback(() => {
+    setAssigneeTokens([]);
+  }, []);
+
+  const handleAssigneeKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (!assigneePopoverOpen) return;
+      const { key } = event;
+      if (key === "Escape") {
+        closeAssigneePopover();
+      } else if (key === "ArrowDown") {
+        event.preventDefault();
+        setFocusedAssigneeIndex((prev) => Math.min(prev + 1, sortedAssigneeOptions.length - 1));
+      } else if (key === "ArrowUp") {
+        event.preventDefault();
+        setFocusedAssigneeIndex((prev) => Math.max(prev - 1, 0));
+      } else if (key === "Enter" || key === " ") {
+        event.preventDefault();
+        if (focusedAssigneeIndex >= 0) {
+          toggleAssignee(sortedAssigneeOptions[focusedAssigneeIndex].value);
+        }
+      }
+    },
+    [assigneePopoverOpen, closeAssigneePopover, focusedAssigneeIndex, sortedAssigneeOptions, toggleAssignee]
+  );
+
   useEffect(() => {
     if (!assigneePopoverOpen) return;
 
@@ -590,86 +677,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setCreatedByThumbnail(null);
   }, []);
 
-  // New handlers for popover
-  const openAssigneePopover = useCallback(() => {
-    setAssigneePopoverOpen(true);
-    setAssigneeSearch("");
-    setFocusedAssigneeIndex(-1);
-    requestAnimationFrame(() => assigneeSearchRef.current?.focus());
-  }, []);
-
-  const closeAssigneePopover = useCallback(() => {
-    setAssigneePopoverOpen(false);
-    setAssigneeSearch("");
-    setFocusedAssigneeIndex(-1);
-  }, []);
-
-  const toggleAssignee = useCallback((value: string) => {
-    setAssigneeTokens(prev =>
-      prev.includes(value)
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  }, []);
-
-  const handleAssigneeFieldKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement;
-      if (target.closest("button")) {
-        return;
-      }
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openAssigneePopover();
-      } else if (event.key === "ArrowDown" && !assigneePopoverOpen) {
-        event.preventDefault();
-        openAssigneePopover();
-      } else if (event.key === "Escape" && assigneePopoverOpen) {
-        event.preventDefault();
-        closeAssigneePopover();
-      }
-    },
-    [assigneePopoverOpen, closeAssigneePopover, openAssigneePopover],
-  );
-
-  const handleAssigneeFieldClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement;
-      if (target.closest("button")) {
-        return;
-      }
-      openAssigneePopover();
-    },
-    [openAssigneePopover],
-  );
-
-  const handleAssignToMe = useCallback(() => {
-    if (!currentUserAssigneeValue) return;
-    setAssigneeTokens((prev) => (prev.includes(currentUserAssigneeValue) ? prev : [...prev, currentUserAssigneeValue]));
-  }, [currentUserAssigneeValue]);
-
-  const handleClearAssignees = useCallback(() => {
-    setAssigneeTokens([]);
-  }, []);
-
-  const handleAssigneeKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (!assigneePopoverOpen) return;
-    const { key } = event;
-    if (key === "Escape") {
-      closeAssigneePopover();
-    } else if (key === "ArrowDown") {
-      event.preventDefault();
-      setFocusedAssigneeIndex(prev => Math.min(prev + 1, sortedAssigneeOptions.length - 1));
-    } else if (key === "ArrowUp") {
-      event.preventDefault();
-      setFocusedAssigneeIndex(prev => Math.max(prev - 1, 0));
-    } else if (key === "Enter" || key === " ") {
-      event.preventDefault();
-      if (focusedAssigneeIndex >= 0) {
-        toggleAssignee(sortedAssigneeOptions[focusedAssigneeIndex].value);
-      }
-    }
-  }, [assigneePopoverOpen, closeAssigneePopover, focusedAssigneeIndex, sortedAssigneeOptions, toggleAssignee]);
+  
 
   const applyTaskToForm = useCallback(
     (
