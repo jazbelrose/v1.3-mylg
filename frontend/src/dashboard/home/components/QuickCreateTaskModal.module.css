@@ -680,102 +680,184 @@
   cursor: not-allowed;
 }
 
-/* Assignee Popover Styles */
+/* Assignee field */
 .assigneeSelector {
   position: relative;
 }
 
-.assigneeTrigger {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 12px;
+.assigneeLabelRow {
+  align-items: flex-start;
+}
+
+.assigneeLabelActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.assigneeCountBadge {
+  font-size: 0.85rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(24, 26, 29, 0.9);
-  color: var(--text-primary, #f6f7fb);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.assigneeQuickActions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.assigneeTrigger:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.2);
+.assigneeActionButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.assigneeTrigger:focus {
+.assigneeActionButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.assigneeField {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(24, 26, 29, 0.9);
+  min-height: 44px;
+  padding: 6px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.assigneeField:focus-visible {
   outline: none;
   border-color: var(--focus, rgba(250, 51, 86, 0.65));
   box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.2);
 }
 
-.assigneeTrigger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.assigneeFieldActive {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.assigneeSummary {
+.assigneeChips {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
 }
 
-.assigneeAvatar {
-  width: 24px;
-  height: 24px;
+.assigneeChip,
+.assigneeOverflowChip,
+.assigneeGhostChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #f6f7fb);
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.assigneeChipAvatar {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: rgba(250, 51, 86, 0.2);
-  display: flex;
+  background: rgba(255, 255, 255, 0.12);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-primary, #f6f7fb);
-  flex-shrink: 0;
+  overflow: hidden;
 }
 
-.assigneeAvatar img {
+.assigneeChipAvatar img,
+.assigneeOptionAvatar img {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
   object-fit: cover;
+  border-radius: 50%;
+}
+
+.assigneeChipLabel {
+  font-weight: 500;
+}
+
+.assigneeChipRemove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.assigneeGhostChip {
+  background: rgba(255, 255, 255, 0.02);
+  border-style: dashed;
+}
+
+.assigneeGhostChip,
+.assigneeOverflowChip,
+.assigneeChipRemove {
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.assigneeGhostChip:hover,
+.assigneeOverflowChip:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .assigneePopover {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   left: 0;
-  right: 0;
-  z-index: 1000;
-  margin-top: 4px;
-  border-radius: 12px;
+  width: 100%;
+  z-index: 20;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(24, 26, 29, 0.95);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  max-height: 300px;
-  overflow: hidden;
+  background: rgba(24, 26, 29, 0.98);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55);
+  max-height: 360px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.assigneePopoverHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .assigneeSearchWrapper {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  flex: 1;
 }
 
 .assigneeSearch {
-  flex: 1;
+  width: 100%;
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary, #f6f7fb);
-  font-size: 0.9rem;
 }
 
 .assigneeSearch:focus {
@@ -783,52 +865,69 @@
   border-color: var(--focus, rgba(250, 51, 86, 0.65));
 }
 
+.assigneePopoverMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assigneeSelectedCount {
+  font-size: 0.8rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.7));
+}
+
+.assigneeCloseButton {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #c8cad0);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .assigneeList {
   flex: 1;
   overflow-y: auto;
-  max-height: 200px;
 }
 
 .assigneeOption {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 10px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  color: inherit;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
-.assigneeOption:hover {
+.assigneeOption:hover,
+.assigneeOption.focused {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.assigneeOption.focused {
-  background: rgba(250, 51, 86, 0.1);
+.assigneeOptionSelected {
+  background: rgba(250, 51, 86, 0.15);
 }
 
 .assigneeOption input[type="checkbox"] {
+  pointer-events: none;
   margin: 0;
   width: 16px;
   height: 16px;
 }
 
-.doneButton {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(250, 51, 86, 0.1);
-  color: var(--text-primary, #f6f7fb);
+.assigneeOptionAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.doneButton:hover:not(:disabled) {
-  background: rgba(250, 51, 86, 0.2);
-}
-
-.doneButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Creator Display Styles */

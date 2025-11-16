@@ -272,6 +272,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [focusedAssigneeIndex, setFocusedAssigneeIndex] = useState(-1);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
+  const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
@@ -288,6 +289,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const descriptionId = `${baseId}-description`;
   const projectFieldId = `${baseId}-project`;
   const assigneeFieldId = `${baseId}-assignee`;
+  const assigneePopoverId = `${baseId}-assignee-popover`;
   const taskNameFieldId = `${baseId}-task-name`;
   const titleCounterId = `${baseId}-title-counter`;
   const titleErrorId = `${baseId}-title-error`;
@@ -440,14 +442,50 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return [...selected, ...unselected];
   }, [filteredAssigneeOptions, assigneeTokens]);
 
-  // Compact summary for display
-  const assigneeSummary = useMemo(() => {
-    if (!assigneeTokens.length) return null;
-    const selectedOptions = collaboratorOptions.filter(option => assigneeTokens.includes(option.value));
-    const firstTwo = selectedOptions.slice(0, 2);
-    const remaining = selectedOptions.length - 2;
-    return { firstTwo, remaining };
-  }, [assigneeTokens, collaboratorOptions]);
+  const selectedAssignees = useMemo(
+    () =>
+      assigneeTokens
+        .map((token) => collaboratorOptions.find((option) => option.value === token))
+        .filter((option): option is AssigneeOption => Boolean(option)),
+    [assigneeTokens, collaboratorOptions],
+  );
+
+  const visibleAssignees = selectedAssignees.slice(0, 3);
+  const remainingAssigneeCount = Math.max(0, selectedAssignees.length - visibleAssignees.length);
+
+  const currentUserAssigneeValue = useMemo(() => {
+    if (!userId) return undefined;
+    const normalizedId = userId.trim();
+    if (!normalizedId) return undefined;
+
+    const matchesCurrentUser = (value?: string | null) => {
+      if (!value) return false;
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+      if (trimmed === normalizedId) return true;
+      if (trimmed.endsWith(`__${normalizedId}`)) return true;
+      if (trimmed.includes("__")) {
+        const [, extracted] = trimmed.split("__");
+        if (extracted?.trim() === normalizedId) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const existingToken = assigneeTokens.find((token) => matchesCurrentUser(token));
+    if (existingToken) {
+      return existingToken;
+    }
+
+    return collaboratorOptions.find((option) => matchesCurrentUser(option.value))?.value;
+  }, [assigneeTokens, collaboratorOptions, userId]);
+
+  const isCurrentUserAssigned = Boolean(
+    currentUserAssigneeValue && assigneeTokens.includes(currentUserAssigneeValue),
+  );
+
+  const canAssignToSelf = Boolean(currentUserAssigneeValue && !isCurrentUserAssigned);
 
   const hasCollaborators = collaboratorOptions.length > 0;
   const effectiveProjectId = useMemo(() => {
@@ -475,6 +513,24 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   useEffect(() => {
     successMessageRef.current = successMessage;
   }, [successMessage]);
+
+  useEffect(() => {
+    if (!assigneePopoverOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        assigneePopoverRef.current?.contains(target) ||
+        assigneeFieldRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeAssigneePopover();
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [assigneePopoverOpen, closeAssigneePopover]);
 
   const sortSuggestionsByProximity = useCallback(
     (suggestions: NominatimSuggestion[], origin: Coordinates | null) => {
@@ -549,11 +605,51 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   }, []);
 
   const toggleAssignee = useCallback((value: string) => {
-    setAssigneeTokens(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value) 
+    setAssigneeTokens(prev =>
+      prev.includes(value)
+        ? prev.filter(v => v !== value)
         : [...prev, value]
     );
+  }, []);
+
+  const handleAssigneeFieldKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button")) {
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openAssigneePopover();
+      } else if (event.key === "ArrowDown" && !assigneePopoverOpen) {
+        event.preventDefault();
+        openAssigneePopover();
+      } else if (event.key === "Escape" && assigneePopoverOpen) {
+        event.preventDefault();
+        closeAssigneePopover();
+      }
+    },
+    [assigneePopoverOpen, closeAssigneePopover, openAssigneePopover],
+  );
+
+  const handleAssigneeFieldClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button")) {
+        return;
+      }
+      openAssigneePopover();
+    },
+    [openAssigneePopover],
+  );
+
+  const handleAssignToMe = useCallback(() => {
+    if (!currentUserAssigneeValue) return;
+    setAssigneeTokens((prev) => (prev.includes(currentUserAssigneeValue) ? prev : [...prev, currentUserAssigneeValue]));
+  }, [currentUserAssigneeValue]);
+
+  const handleClearAssignees = useCallback(() => {
+    setAssigneeTokens([]);
   }, []);
 
   const handleAssigneeKeyDown = useCallback((event: React.KeyboardEvent) => {
@@ -1351,82 +1447,165 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               </div>
             ) : null}
             <div className={styles.fieldGroup}>
-              <div className={styles.fieldHeader}>
-                <label className={styles.fieldLabel} htmlFor={assigneeFieldId}>
+              <div className={`${styles.fieldHeader} ${styles.assigneeLabelRow}`}>
+                <div className={styles.fieldLabel} id={`${assigneeFieldId}-label`}>
                   <span className={styles.fieldLabelText}>Assignees</span>
-                </label>
-                <span className={styles.fieldOptional}>Optional</span>
+                </div>
+                <div className={styles.assigneeLabelActions}>
+                  {assigneeTokens.length > 0 && (
+                    <span className={styles.assigneeCountBadge}>Assignees · {assigneeTokens.length}</span>
+                  )}
+                  {(canAssignToSelf || assigneeTokens.length > 0) && (
+                    <div className={styles.assigneeQuickActions}>
+                      {canAssignToSelf && (
+                        <button type="button" className={styles.assigneeActionButton} onClick={handleAssignToMe}>
+                          Assign to me
+                        </button>
+                      )}
+                      {assigneeTokens.length > 0 && (
+                        <button type="button" className={styles.assigneeActionButton} onClick={handleClearAssignees}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className={styles.assigneeSelector}>
-                {!assigneePopoverOpen ? (
-                  <button
-                    type="button"
-                    className={styles.assigneeTrigger}
-                    onClick={openAssigneePopover}
-                    disabled={isBusy}
-                    aria-expanded={false}
-                    aria-haspopup="listbox"
-                  >
-                    {assigneeSummary ? (
-                      <div className={styles.assigneeSummary}>
-                        {assigneeSummary.firstTwo.map(option => (
-                          <span key={option.value} className={styles.assigneeAvatar}>
-                            {option.avatar ? <img src={option.avatar} alt={option.label} /> : option.label[0]}
-                          </span>
-                        ))}
-                        <span>{assigneeSummary.firstTwo.map(o => o.label).join(", ")}</span>
-                        {assigneeSummary.remaining > 0 && <span>+{assigneeSummary.remaining}</span>}
+                <div
+                  ref={assigneeFieldRef}
+                  className={`${styles.assigneeField} ${assigneeTokens.length ? styles.assigneeFieldActive : ""}`}
+                  tabIndex={0}
+                  role="combobox"
+                  id={assigneeFieldId}
+                  aria-haspopup="listbox"
+                  aria-expanded={assigneePopoverOpen}
+                  aria-labelledby={`${assigneeFieldId}-label`}
+                  aria-controls={assigneePopoverOpen ? assigneePopoverId : undefined}
+                  aria-activedescendant={
+                    assigneePopoverOpen && focusedAssigneeIndex >= 0
+                      ? `${assigneePopoverId}-option-${focusedAssigneeIndex}`
+                      : undefined
+                  }
+                  onKeyDown={handleAssigneeFieldKeyDown}
+                  onClick={handleAssigneeFieldClick}
+                >
+                  <div className={styles.assigneeChips}>
+                    {visibleAssignees.map((assignee) => (
+                      <div key={assignee.value} className={styles.assigneeChip}>
+                        <span className={styles.assigneeChipAvatar}>
+                          {assignee.avatar ? (
+                            <img src={assignee.avatar} alt="" aria-hidden="true" />
+                          ) : (
+                            assignee.label.slice(0, 1)
+                          )}
+                        </span>
+                        <span className={styles.assigneeChipLabel}>{assignee.label}</span>
+                        <button
+                          type="button"
+                          className={styles.assigneeChipRemove}
+                          aria-label={`Remove ${assignee.label}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleAssignee(assignee.value);
+                          }}
+                        >
+                          ✕
+                        </button>
                       </div>
-                    ) : (
-                      <span>Select assignees</span>
+                    ))}
+                    {remainingAssigneeCount > 0 && (
+                      <button
+                        type="button"
+                        className={styles.assigneeOverflowChip}
+                        aria-label={`Show ${remainingAssigneeCount} more assignees`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAssigneePopover();
+                        }}
+                      >
+                        +{remainingAssigneeCount}
+                      </button>
                     )}
-                  </button>
-                ) : (
+                    <button
+                      type="button"
+                      className={styles.assigneeGhostChip}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openAssigneePopover();
+                      }}
+                    >
+                      {assigneeTokens.length ? "+ Add" : "+ Add assignee"}
+                    </button>
+                  </div>
+                </div>
+                {assigneePopoverOpen ? (
                   <div
                     ref={assigneePopoverRef}
                     className={styles.assigneePopover}
+                    id={assigneePopoverId}
                     role="listbox"
+                    aria-multiselectable="true"
                     onKeyDown={handleAssigneeKeyDown}
                   >
-                    <div className={styles.assigneeSearchWrapper}>
-                      <input
-                        ref={assigneeSearchRef}
-                        type="text"
-                        className={styles.assigneeSearch}
-                        placeholder="Search assignees..."
-                        value={assigneeSearch}
-                        onChange={(e) => setAssigneeSearch(e.target.value)}
-                      />
-                      <button type="button" onClick={closeAssigneePopover}>✕</button>
+                    <div className={styles.assigneePopoverHeader}>
+                      <div className={styles.assigneeSearchWrapper}>
+                        <input
+                          ref={assigneeSearchRef}
+                          type="text"
+                          className={styles.assigneeSearch}
+                          placeholder="Search people…"
+                          value={assigneeSearch}
+                          onChange={(e) => setAssigneeSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className={styles.assigneePopoverMeta}>
+                        {assigneeTokens.length > 0 && (
+                          <span className={styles.assigneeSelectedCount}>
+                            {assigneeTokens.length} selected
+                          </span>
+                        )}
+                        <button type="button" className={styles.assigneeCloseButton} onClick={closeAssigneePopover}>
+                          Close
+                        </button>
+                      </div>
                     </div>
                     <div className={styles.assigneeList}>
                       {sortedAssigneeOptions.map((option, index) => (
-                        <div
+                        <button
+                          type="button"
                           key={option.value}
-                          className={`${styles.assigneeOption} ${focusedAssigneeIndex === index ? styles.focused : ""}`}
+                          id={`${assigneePopoverId}-option-${index}`}
+                          role="option"
+                          aria-selected={assigneeTokens.includes(option.value)}
+                          className={`${styles.assigneeOption} ${
+                            assigneeTokens.includes(option.value) ? styles.assigneeOptionSelected : ""
+                          } ${focusedAssigneeIndex === index ? styles.focused : ""}`}
                           onClick={() => toggleAssignee(option.value)}
                         >
                           <input
                             type="checkbox"
                             checked={assigneeTokens.includes(option.value)}
                             readOnly
+                            tabIndex={-1}
                           />
-                          <span className={styles.assigneeAvatar}>
-                            {option.avatar ? <img src={option.avatar} alt={option.label} /> : option.label[0]}
+                          <span className={styles.assigneeOptionAvatar}>
+                            {option.avatar ? (
+                              <img src={option.avatar} alt="" aria-hidden="true" />
+                            ) : (
+                              option.label.slice(0, 1)
+                            )}
                           </span>
                           <span>{option.label}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
-                    <button type="button" onClick={closeAssigneePopover} className={styles.doneButton}>Done</button>
                   </div>
-                )}
+                ) : null}
               </div>
-              {assigneeTokens.length > 0 && (
-                <div className={styles.selectedAssigneesTooltip} title={assigneeTokens.map(token => collaboratorOptions.find(o => o.value === token)?.label).join(", ")}>
-                  {/* Tooltip content */}
-                </div>
-              )}
+              {assigneeTokens.length === 0 ? (
+                <p className={styles.helperText}>Assign someone so it doesn't fall through the cracks.</p>
+              ) : null}
             </div>
             {!hasCollaborators && collaboratorOptions.length === 0 ? (
               <p className={styles.helperText}>Invite collaborators to assign tasks.</p>
