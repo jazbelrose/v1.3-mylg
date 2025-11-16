@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import type { Project, UserLite } from "@/app/contexts/DataProvider";
 import { fetchTasks, requestTaskReview } from "@/shared/utils/api";
-import type { QuickCreateTaskLocation } from "../components/QuickCreateTaskModal.types";
+import type { QuickCreateTaskLocation, TaskNoteAttachment } from "../components/QuickCreateTaskModal.types";
 import { getColor } from "@/shared/utils/colorUtils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
@@ -79,6 +79,7 @@ export type TasksOverviewListItem = {
   createdById?: string;
   createdByThumbnail?: string;
   assigneeThumbnail?: string;
+  noteAttachments?: TaskNoteAttachment[] | null;
 };
 
 export type TasksOverviewEvent = {
@@ -435,6 +436,9 @@ export function useTasksOverview() {
         (assignee ? formatAssignmentLabel(assignee) : undefined);
       const assigneeThumbnail = findUserThumbnailById(assignee, allUsers);
 
+      // Extract noteAttachments if present
+      const noteAttachments = Array.isArray(raw.noteAttachments) ? raw.noteAttachments : null;
+
       return {
         id: task.id,
         taskId,
@@ -459,6 +463,7 @@ export function useTasksOverview() {
         location: raw.location as QuickCreateTaskLocation,
         dueDateInput: toDateInputString(dueSource),
         rawTask: raw,
+        noteAttachments,
       };
     },
     [allUsers],
