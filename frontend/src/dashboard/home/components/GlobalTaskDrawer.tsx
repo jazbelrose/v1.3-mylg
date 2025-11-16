@@ -1065,18 +1065,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.9 }}
             >
-              <div className={styles.detailsPanelHeader}>
-                <span className={styles.detailsPanelTitle}>Edit task</span>
-                <button
-                  type="button"
-                  className={styles.detailsPanelClose}
-                  onClick={handleCloseDetailsPanel}
-                  aria-label="Close edit"
-                  title="Close editing"
-                >
-                  <X size={16} strokeWidth={2.25} aria-hidden="true" />
-                </button>
-              </div>
+              
               <QuickCreateTaskModal
                 open={true}
                 onClose={handleCloseDetailsPanel}
