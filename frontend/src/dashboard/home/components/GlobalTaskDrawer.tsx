@@ -411,6 +411,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       createdById: task.createdById ?? undefined,
       createdByName: task.createdByName ?? undefined,
       createdByThumbnail: task.createdByThumbnail ?? undefined,
+      noteAttachments: task.noteAttachments ?? undefined,
     }),
     [],
   );
