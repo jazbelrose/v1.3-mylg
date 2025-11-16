@@ -661,6 +661,19 @@ const CalendarPage: React.FC = () => {
     ],
   );
 
+  const refreshProjectTasks = useCallback(async () => {
+    if (!projectId) return;
+
+    try {
+      const tasks = await fetchTasks(projectId);
+      tasksRef.current = tasks;
+      setProjectTasks(tasks);
+    } catch (error) {
+      console.error("Failed to refresh project tasks", error);
+    }
+  }, [projectId]);
+
+
   const handleToggleTask = useCallback(
     async (taskId: string) => {
       const existingTasks = tasksRef.current;
@@ -713,17 +726,7 @@ const CalendarPage: React.FC = () => {
     [projectId, isAdmin, refreshProjectTasks],
   );
 
-  const refreshProjectTasks = useCallback(async () => {
-    if (!projectId) return;
-
-    try {
-      const tasks = await fetchTasks(projectId);
-      tasksRef.current = tasks;
-      setProjectTasks(tasks);
-    } catch (error) {
-      console.error("Failed to refresh project tasks", error);
-    }
-  }, [projectId]);
+  // refreshProjectTasks moved above to avoid TDZ when used in handleToggleTask
 
   const parseStatusToNumber = useCallback((status?: string | number | null) => {
     if (status === undefined || status === null) return 0;
