@@ -10,7 +10,6 @@ import {
   formatDueDate as formatDrawerDueDate,
   getViewportHeight as getTaskViewportHeight,
   normalizeTask as normalizeQuickTask,
-  resolveTaskDueDateIso,
   sortTasksForDrawer,
   DEFAULT_LOCATION as TASKS_DEFAULT_LOCATION,
   DRAWER_SNAP_POINTS,
@@ -29,7 +28,14 @@ import CreateCalendarItemModal, {
   type CreateEventRequest,
 } from "../CreateCalendarItemModal";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
-import { updateTask, type Task as ApiTask, type TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import {
+  requestTaskReview,
+  approveTask,
+  type Task as ApiTask,
+  type TimelineEvent as ApiTimelineEvent,
+} from "@/shared/utils/api";
+import { notify } from "@/shared/ui/ToastNotifications";
+import { useUser } from "@/app/contexts/useUser";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
 import DayGrid from "./DayGrid";
@@ -81,6 +87,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   activeProjectStartDate,
   activeProjectEndDate,
 }) => {
+  const { isAdmin } = useUser();
   const isMobile = useIsMobile();
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
@@ -755,47 +762,54 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         (taskProjects[0]?.id ?? null);
 
       if (!normalizedTask || !resolvedProjectId) {
-        openQuickCreateForTask(taskId, { status: "done" }, sourceTask ?? undefined);
+        openQuickCreateForTask(taskId, undefined, sourceTask ?? undefined);
         return;
       }
 
       setTaskMarkingState(taskId, true);
 
+      const normalizedStatus =
+        typeof normalizedTask.status === "string" ? normalizedTask.status.trim().toLowerCase() : "";
+      const isAwaitingApproval = normalizedStatus === "in_review";
+      const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+
+      if (isComplete) {
+        setTaskMarkingState(taskId, false);
+        notify("info", "That task is already complete.");
+        return;
+      }
+
+      if (isAwaitingApproval && !isAdmin) {
+        setTaskMarkingState(taskId, false);
+        notify("error", "Only admins can approve tasks that are in review.");
+        return;
+      }
+
       try {
-        const dueDateIso = resolveTaskDueDateIso(normalizedTask);
-        const payload: ApiTask = {
-          projectId: resolvedProjectId,
-          taskId,
-          title: normalizedTask.title,
-          status: "done",
-        };
-
-        if (normalizedTask.description) {
-          payload.description = normalizedTask.description;
+        const taskIdentifier = normalizedTask.id || taskId;
+        if (isAwaitingApproval) {
+          await approveTask(resolvedProjectId, taskIdentifier, { note: "" });
+          notify("success", "Task marked as done!");
+        } else {
+          await requestTaskReview(resolvedProjectId, taskIdentifier);
+          notify("success", "Task submitted for review!");
         }
 
-        if (normalizedTask.assignedTo) {
-          payload.assigneeId = normalizedTask.assignedTo;
-        }
-
-        if (dueDateIso) {
-          payload.dueDate = dueDateIso;
-        }
-
-        const rawBudgetItemId = (normalizedTask.raw as { budgetItemId?: string | null }).budgetItemId;
-        if (typeof rawBudgetItemId === "string") {
-          payload.budgetItemId = rawBudgetItemId;
-        } else if (rawBudgetItemId === null) {
-          payload.budgetItemId = null;
-        }
-
-        await updateTask(payload);
         const refreshResult = onRefreshTasks?.();
         if (refreshResult) {
           await refreshResult;
         }
       } catch (error) {
         console.error("Failed to mark calendar task done", error);
+        const apiError = error as { status?: number };
+        if (apiError?.status === 403) {
+          notify("error", "You don't have permission to perform this action.");
+        } else if (apiError?.status === 409) {
+          notify("error", "Task is not in the correct state for this action.");
+        } else {
+          notify("error", "Failed to update task. Please try again.");
+        }
+
         try {
           const refreshResult = onRefreshTasks?.();
           if (refreshResult) {
@@ -816,6 +830,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       openQuickCreateForTask,
       setTaskMarkingState,
       onRefreshTasks,
+      isAdmin,
     ],
   );
 
@@ -1174,6 +1189,14 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         onTouchEnd={handleTouchEnd}
         sheetRef={sheetRef}
         taskListRef={drawerTaskListRef}
+        canApproveTask={(task) => {
+          if (!isAdmin) {
+            return false;
+          }
+          const normalizedStatus =
+            typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+          return normalizedStatus === "in_review";
+        }}
       />
       <QuickCreateTaskModal
         open={isQuickTaskModalOpen}

@@ -20,7 +20,7 @@ import {
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
-import { updateTask, getFileUrl } from "@/shared/utils/api";
+import { requestTaskReview, approveTask, getFileUrl } from "@/shared/utils/api";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -85,7 +85,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     refreshTasks,
     projectOptions,
   } = useTasksOverview();
-  const { user } = useUser();
+  const { user, isAdmin } = useUser();
   const navigate = useNavigate();
 
   const [isDesktop, setIsDesktop] = useState(false);
@@ -445,21 +445,46 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     }
   }, [filteredTasks, handleTaskEdit]);
 
-  const handleMarkDone = useCallback(async (task: TasksOverviewListItem) => {
-    try {
-      await updateTask({
-        projectId: task.projectId,
-        taskId: task.taskId ?? task.id,
-        title: task.title,
-        status: 'done'
-      });
-      refreshTasks();
-      notify('success', 'Task marked as done');
-    } catch (error) {
-      console.error('Failed to mark task as done:', error);
-      notify('error', 'Failed to mark task as done');
-    }
-  }, [refreshTasks]);
+  const handleMarkDone = useCallback(
+    async (task: TasksOverviewListItem) => {
+      const projectId = task.projectId;
+      const taskId = task.taskId ?? task.id;
+      if (!projectId || !taskId) {
+        notify('error', 'We could not find that task or its project.');
+        return;
+      }
+
+      const normalizedStatus =
+        typeof task.status === 'string' ? task.status.trim().toLowerCase() : '';
+      const isAwaitingApproval = normalizedStatus === 'in_review';
+      const isComplete = normalizedStatus === 'done' || normalizedStatus === 'archived';
+
+      if (isComplete) {
+        notify('info', 'That task is already complete.');
+        return;
+      }
+
+      if (isAwaitingApproval && !isAdmin) {
+        notify('error', 'Only admins can approve tasks that are in review.');
+        return;
+      }
+
+      try {
+        if (isAwaitingApproval) {
+          await approveTask(projectId, taskId, { note: '' });
+          notify('success', 'Task marked as done!');
+        } else {
+          await requestTaskReview(projectId, taskId);
+          notify('success', 'Task submitted for review!');
+        }
+        await refreshTasks();
+      } catch (error) {
+        console.error('Failed to update task status:', error);
+        notify('error', 'Failed to update the task. Please try again.');
+      }
+    },
+    [isAdmin, refreshTasks],
+  );
 
   const handleOpenQuickCreate = useCallback(() => {
     if (isDesktop) {
@@ -1037,14 +1062,36 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                 </span>
                               );
                             })() : null}
-                            <button
-                              type="button"
-                              className={styles.markDoneButton}
-                              onClick={() => handleMarkDone(task)}
-                              aria-label="Mark task as done"
-                            >
-                              Mark done
-                            </button>
+                            {(() => {
+                              const normalizedStatus =
+                                typeof task.status === 'string'
+                                  ? task.status.trim().toLowerCase()
+                                  : '';
+                              const isAwaitingApproval = normalizedStatus === 'in_review';
+                              const isComplete =
+                                normalizedStatus === 'done' || normalizedStatus === 'archived';
+                              if (isComplete) {
+                                return null;
+                              }
+
+                              const buttonDisabled = isAwaitingApproval && !isAdmin;
+                              const buttonLabel =
+                                isAwaitingApproval && isAdmin ? 'Approve' : 'Submit for review';
+                              const ariaLabel =
+                                buttonLabel === 'Approve' ? 'Approve task' : 'Submit task for review';
+
+                              return (
+                                <button
+                                  type="button"
+                                  className={styles.markDoneButton}
+                                  onClick={() => handleMarkDone(task)}
+                                  aria-label={ariaLabel}
+                                  disabled={buttonDisabled}
+                                >
+                                  {buttonLabel}
+                                </button>
+                              );
+                            })()}
                           </div>
                         </li>
                       );

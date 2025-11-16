@@ -750,6 +750,9 @@ export async function createTask(task: Task): Promise<Task> {
   return res as Task;
 }
 
+// IMPORTANT: Do NOT use updateTask() to move a task into in_review, needs_changes,
+// done, or archived. Those transitions must go through the dedicated review /
+// archive endpoints documented in TASK_STATUS_TRANSITIONS.md.
 export async function updateTask(task: Task): Promise<Task> {
   const { projectId, taskId, ...payload } = task;
   if (!projectId || !taskId) throw new Error('projectId and taskId are required for updateTask');
