@@ -1051,12 +1051,13 @@ const BADGE_CLASS_BY_TONE = {
                       const normalizedStatus =
                         typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
                       const isArchived = normalizedStatus === "archived";
-                      const badgeToneCategory = isArchived ? "unscheduled" : category;
+                      const isInReview = normalizedStatus === "in_review";
+                      const badgeToneCategory = isArchived ? "unscheduled" : isInReview ? "scheduled" : category;
                       const tone = getTaskStatusTone(badgeToneCategory);
                       const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
                       const badgeToneClass = badgeClassKey ? styles[badgeClassKey] : undefined;
                       const badgeClassName = [styles.StatusBadge, badgeToneClass].filter(Boolean).join(" ");
-                      const badgeLabel = isArchived ? "Archived" : label;
+                      const badgeLabel = isArchived ? "Archived" : isInReview ? "In Review" : label;
                       const normalizedUserId = normalizeUserId(user?.userId);
                       const normalizedAssignee = normalizeUserId(task.assigneeId);
                       const reviewerId =
@@ -1068,7 +1069,6 @@ const BADGE_CLASS_BY_TONE = {
                           normalizedReviewerId === normalizedUserId,
                       );
                       const isDone = normalizedStatus === "done";
-                      const isInReview = normalizedStatus === "in_review";
                       const isNeedsChanges = normalizedStatus === "needs_changes";
                       const normalizedCreatorId = normalizeUserId(task.createdById);
                       const isAssignee = normalizedUserId && normalizedAssignee && normalizedUserId === normalizedAssignee;
