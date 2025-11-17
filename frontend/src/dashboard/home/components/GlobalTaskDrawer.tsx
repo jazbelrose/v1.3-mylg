@@ -1332,17 +1332,7 @@ const BADGE_CLASS_BY_TONE = {
                           </div>
                           {showActionRow ? (
                             <div className={styles.taskActionBar}>
-                              {isDone && !isArchived ? (
-                                <span className={`${styles.taskStatusTag} ${styles.taskCompletedTag}`}>
-                                  Completed
-                              </span>
-                            ) : null}
-                            {isArchived ? (
-                              <span className={`${styles.taskStatusTag} ${styles.taskArchivedTag}`}>
-                                Archived
-                              </span>
-                            ) : null}
-                            {canSubmitForReview ? (
+                              {canSubmitForReview ? (
                               <button
                                 type="button"
                                 className={`${styles.taskActionButton} ${styles.taskActionSubmit}`}
