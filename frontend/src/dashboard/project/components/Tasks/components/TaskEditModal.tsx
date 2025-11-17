@@ -14,10 +14,10 @@ import {
 import LocationSearchInput from "./LocationSearchInput";
 
 const BADGE_CLASS_BY_TONE: Record<TaskStatusTone, string> = {
-  success: "statusBadgeSuccess",
-  danger: "statusBadgeDanger",
-  warning: "statusBadgeWarning",
-  neutral: "statusBadgeNeutral",
+  success: "StatusBadgeSuccess",
+  danger: "StatusBadgeDanger",
+  warning: "StatusBadgeWarning",
+  neutral: "StatusBadgeNeutral",
 };
 
 type TaskEditModalProps = {
@@ -64,7 +64,7 @@ const TaskEditModal: React.FC<TaskEditModalProps> = ({
   const tone = getTaskStatusTone(category);
   const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
   const badgeToneClass = badgeClassKey ? styles[badgeClassKey as keyof typeof styles] : undefined;
-  const badgeClassName = [styles.statusBadge, badgeToneClass].filter(Boolean).join(" ");
+  const badgeClassName = [styles.StatusBadge, badgeToneClass].filter(Boolean).join(" ");
 
   return (
     <Modal

@@ -67,7 +67,7 @@ const AccountsPage: React.FC = () => {
                     <div className={styles.accountName}>{account.name}</div>
                     <div className={styles.accountInstitution}>{account.institution}</div>
                   </div>
-                  <span className={styles.statusBadge}>Synced</span>
+                  <span className={styles.StatusBadge}>Synced</span>
                 </header>
                 <div className={styles.balance}>{currency.format(account.current)}</div>
                 <div className={styles.metaRow}>

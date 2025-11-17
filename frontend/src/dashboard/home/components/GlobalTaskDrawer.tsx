@@ -718,14 +718,12 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
   const statusContext = useMemo(() => createTaskStatusContext(), []);
 
-  const BADGE_CLASS_BY_TONE = {
-    success: "statusBadgeSuccess",
-    danger: "statusBadgeDanger",
-    warning: "statusBadgeWarning",
-    neutral: "statusBadgeNeutral",
-  } as const;
-
-  const formatStatValue = (value: number): string | number => {
+const BADGE_CLASS_BY_TONE = {
+  success: "StatusBadgeSuccess",
+  danger: "StatusBadgeDanger",
+  warning: "StatusBadgeWarning",
+  neutral: "StatusBadgeNeutral",
+} as const;  const formatStatValue = (value: number): string | number => {
     if (error) return "—";
     if (loading) return "…";
     return value;
@@ -1057,7 +1055,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                       const tone = getTaskStatusTone(badgeToneCategory);
                       const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
                       const badgeToneClass = badgeClassKey ? styles[badgeClassKey] : undefined;
-                      const badgeClassName = [styles.statusBadge, badgeToneClass].filter(Boolean).join(" ");
+                      const badgeClassName = [styles.StatusBadge, badgeToneClass].filter(Boolean).join(" ");
                       const badgeLabel = isArchived ? "Archived" : label;
                       const normalizedUserId = normalizeUserId(user?.userId);
                       const normalizedAssignee = normalizeUserId(task.assigneeId);

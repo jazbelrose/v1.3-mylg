@@ -1236,7 +1236,7 @@
   color: rgba(246, 247, 251, 0.55);
 }
 
-.statusBadge {
+.StatusBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1247,29 +1247,28 @@
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: rgba(246, 247, 251, 0.95);
 }
 
-.statusBadgeSuccess {
+.StatusBadgeSuccess {
   background: color-mix(in srgb, var(--color-success, #4caf50) 28%, transparent);
   border-color: color-mix(in srgb, var(--color-success, #4caf50) 46%, transparent);
   color: color-mix(in srgb, #ffffff 88%, var(--color-success, #4caf50) 12%);
 }
 
-.statusBadgeDanger {
+.StatusBadgeDanger {
   background: color-mix(in srgb, var(--color-error, #ef5350) 28%, transparent);
   border-color: color-mix(in srgb, var(--color-error, #ef5350) 48%, transparent);
   color: color-mix(in srgb, #ffffff 90%, var(--color-error, #ef5350) 10%);
 }
 
-.statusBadgeWarning {
+.StatusBadgeWarning {
   background: color-mix(in srgb, var(--color-warning, #ff9800) 28%, transparent);
   border-color: color-mix(in srgb, var(--color-warning, #ff9800) 46%, transparent);
   color: color-mix(in srgb, #1f1200 22%, #ffffff 78%);
 }
 
-.statusBadgeNeutral {
+.StatusBadgeNeutral {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.2);
   color: rgba(246, 247, 251, 0.9);

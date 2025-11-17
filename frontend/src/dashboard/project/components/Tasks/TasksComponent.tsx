@@ -143,7 +143,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
           <div className={styles.taskTitleRow}>
             <span className={styles.taskTitle}>{task.title}</span>
             <span
-              className={`${styles.statusBadge}${category === "overdue" ? ` ${styles.statusBadgeDanger}` : ""}`}
+              className={`${styles.StatusBadge}${category === "overdue" ? ` ${styles.StatusBadgeDanger}` : ""}`}
             >
               {displayStatusLabel}
             </span>
