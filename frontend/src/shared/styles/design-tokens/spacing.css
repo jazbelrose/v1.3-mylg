@@ -1,39 +1,33 @@
-/* Design Tokens - Spacing */
+/* Design Tokens - Spacing (6px base, all multiples of 6 / 3) */
 :root {
-  /* 8pt Spacing Scale - Design Guide Compliant */
+  /* 6pt Spacing Scale */
   --space-0: 0;
-  --space-1: 8px;    /* Base unit: 8 */
-  --space-2: 16px;   /* 8 * 2 */
-  --space-3: 24px;   /* 8 * 3 */
-  --space-4: 32px;   /* 8 * 4 */
-  --space-5: 48px;   /* 8 * 6 */
-  --space-6: 64px;   /* 8 * 8 */
-  --space-7: 80px;   /* 8 * 10 */
-  --space-8: 96px;   /* 8 * 12 */
+  --space-1: 6px;    /* 6 * 1 */
+  --space-2: 12px;   /* 6 * 2 */
+  --space-3: 18px;   /* 6 * 3 */
+  --space-4: 24px;   /* 6 * 4 */
+  --space-5: 36px;   /* 6 * 6 */
+  --space-6: 48px;   /* 6 * 8 */
+  --space-7: 60px;   /* 6 * 10 */
+  --space-8: 72px;   /* 6 * 12 */
   
-  /* Legacy values kept for gradual migration */
-  --space-legacy-5: 5px;
-  --space-legacy-10: 10px;
-  --space-legacy-15: 15px;
-  --space-legacy-20: 20px;
-  --space-legacy-25: 25px;
-  --space-legacy-30: 30px;
+  /* Legacy values kept for gradual migration (normalized to multiples of 3/6) */
+  --space-legacy-5: 6px;    /* was 5px */
+  --space-legacy-10: 12px;  /* was 10px */
+  --space-legacy-15: 18px;  /* was 15px */
+  --space-legacy-20: 24px;  /* was 20px */
+  --space-legacy-25: 30px;  /* was 25px */
+  --space-legacy-30: 36px;  /* was 30px */
   
-  /* Border Radius - 8pt Grid Aligned */
-  --radius-sm: 8px;   /* 8 * 1 */
-  --radius-md: 16px;  /* 8 * 2 */
-  --radius-lg: 24px;  /* 8 * 3 */
-  --radius-xl: 32px;  /* 8 * 4 */
-  --radius-2xl: 48px; /* 8 * 6 */
+  /* Border Radius - 6px Grid Aligned */
+  --radius-sm: 6px;    /* 6 * 1 */
+  --radius-md: 12px;   /* 6 * 2 */
+  --radius-lg: 18px;   /* 6 * 3 */
+  --radius-xl: 24px;   /* 6 * 4 */
+  --radius-2xl: 36px;  /* 6 * 6 */
   
-  /* Shadows */
+  /* Shadows (unchanged) */
   --shadow-sm: 0 1px 4px rgba(0,0,0,0.10);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
 }
-
-
-
-
-
-

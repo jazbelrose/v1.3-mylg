@@ -503,6 +503,16 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     async (task: TasksOverviewListItem) => {
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
       setTaskPending(task.id, true);
       try {
         await requestTaskReview(identifiers.projectId, identifiers.taskId);
@@ -515,13 +525,29 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleApproveTask = useCallback(
     async (task: TasksOverviewListItem) => {
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
+      const normalizedStatus = typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+      const isAwaitingApproval = normalizedStatus === "in_review";
+      if (isAwaitingApproval && !isAdmin) {
+        notify('error', 'Only admins can approve tasks that are in review.');
+        return;
+      }
       setTaskPending(task.id, true);
       try {
         await approveTask(identifiers.projectId, identifiers.taskId, { note: "" });
@@ -534,7 +560,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleRequestChanges = useCallback(
@@ -551,6 +577,16 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       }
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
       setTaskPending(task.id, true);
       try {
         await requestTaskChanges(identifiers.projectId, identifiers.taskId, { note: trimmed });
@@ -566,13 +602,23 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleArchiveTask = useCallback(
     async (task: TasksOverviewListItem) => {
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
       setTaskPending(task.id, true);
       try {
         await archiveTask(identifiers.projectId, identifiers.taskId);
@@ -585,13 +631,23 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleUnarchiveTask = useCallback(
     async (task: TasksOverviewListItem) => {
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
       setTaskPending(task.id, true);
       try {
         await unarchiveTask(identifiers.projectId, identifiers.taskId);
@@ -604,7 +660,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleOpenQuickCreate = useCallback(() => {
@@ -1020,16 +1076,16 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                       const isDone = normalizedStatus === "done";
                       const isInReview = normalizedStatus === "in_review";
                       const isNeedsChanges = normalizedStatus === "needs_changes";
-                      const canSubmitForReview = Boolean(
-                        normalizedUserId &&
-                          normalizedAssignee &&
-                          normalizedAssignee === normalizedUserId &&
-                          ["todo", "in_progress", "needs_changes"].includes(normalizedStatus),
-                      );
+                      const normalizedCreatorId = normalizeUserId(task.createdById);
+                      const isAssignee = normalizedUserId && normalizedAssignee && normalizedUserId === normalizedAssignee;
+                      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+                      const canActOnTask = isAdmin || isAssignee || isCreator;
+                      const isComplete = isDone || isArchived;
+                      const canSubmitForReview = canActOnTask && ["todo", "in_progress", "needs_changes"].includes(normalizedStatus);
                       const canApprove = Boolean((isAdmin || isReviewer) && isInReview);
-                      const canRequestChanges = Boolean((isAdmin || isReviewer) && isInReview);
-                      const canArchive = Boolean((isAdmin || isReviewer) && isDone);
-                      const canUnarchive = Boolean((isAdmin || isReviewer) && isArchived);
+                      const canRequestChanges = canActOnTask && isInReview;
+                      const canArchive = canActOnTask && isDone;
+                      const canUnarchive = canActOnTask && isArchived;
                       const isBusy = pendingTaskIds.has(task.id);
                       const reviewNote = (
                         task.reviewNote ?? (task.rawTask as { reviewNote?: string })?.reviewNote ?? ""
@@ -1038,13 +1094,14 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                         task.reviewerName ?? (task.rawTask as { reviewerName?: string })?.reviewerName;
                       const showReviewBadge = isInReview && statusFilter !== "archived";
                       const showActionRow = Boolean(
-                        (isDone && !isArchived) ||
-                          isArchived ||
+                        isComplete ||
+                        (canActOnTask && (
                           canSubmitForReview ||
                           canApprove ||
                           canRequestChanges ||
                           canArchive ||
-                          canUnarchive,
+                          canUnarchive
+                        ))
                       );
 
                       return (
