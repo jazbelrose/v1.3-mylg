@@ -1086,7 +1086,6 @@ const BADGE_CLASS_BY_TONE = {
                       ).trim();
                       const reviewerName =
                         task.reviewerName ?? (task.rawTask as { reviewerName?: string })?.reviewerName;
-                      const showReviewBadge = isInReview && statusFilter !== "archived";
                       const showActionRow = Boolean(
                         isComplete ||
                         (canActOnTask && (
@@ -1259,7 +1258,6 @@ const BADGE_CLASS_BY_TONE = {
                             <span className={styles.metaLine}>
                               <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
                             </span>
-                            {showReviewBadge ? <span className={styles.reviewBadge}>In review</span> : null}
                             {isNeedsChanges && (reviewNote || reviewerName) ? (
                               <div className={styles.reviewNoteBlock}>
                                 <div className={styles.reviewNoteLabel}>
@@ -1271,21 +1269,22 @@ const BADGE_CLASS_BY_TONE = {
                                 ) : null}
                               </div>
                             ) : null}
-                            {(task.createdByName || task.assigneeName) && (
-                              <div className={styles.taskAssignmentRow}>
-                                {task.createdByName ? (
-                                  <span className={styles.taskAssignmentItem}>
-                                    <span className={styles.taskAssignmentLabel}>Assigned by</span>
-                                    <span className={styles.taskAssignmentValue}>{task.createdByName}</span>
-                                  </span>
-                                ) : null}
-                                {task.assigneeName ? (
-                                  <span className={styles.taskAssignmentItem}>
-                                    <span className={styles.taskAssignmentLabel}>Assigned to</span>
-                                    <span className={styles.taskAssignmentValue}>{task.assigneeName}</span>
-                                  </span>
-                                ) : null}
-                              </div>
+                            {task.createdByName && task.assigneeName && (
+                              <span
+                                className={styles.metaLine}
+                                style={{
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  marginTop: '0.25rem',
+                                  marginBottom: '0.25rem'
+                                }}
+                              >
+                                <span style={{ color: 'rgba(246, 247, 251, 0.6)' }}>Assigned by </span>
+                                <span style={{ fontWeight: 600, color: 'rgba(246, 247, 251, 0.92)' }}>{task.createdByName}</span>
+                                <span style={{ color: 'rgba(246, 247, 251, 0.6)' }}> to </span>
+                                <span style={{ fontWeight: 600, color: 'rgba(246, 247, 251, 0.92)' }}>{task.assigneeName}</span>
+                              </span>
                             )}
                             {task.address ? (
                               <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
