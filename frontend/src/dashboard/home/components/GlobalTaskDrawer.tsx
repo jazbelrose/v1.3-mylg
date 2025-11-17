@@ -140,8 +140,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const touchStartY = useRef(0);
 
   // Combine open/completed tasks and archived tasks for filtering
-  const activeTaskPool = useMemo(() => [...openTasks, ...completedTasks], [openTasks, completedTasks]);
-  const archivedTaskPool = useMemo(() => [...archivedTasks], [archivedTasks]);
+  const activeTaskPool = useMemo(() => [...openTasks, ...completedTasks].filter(task => task.status !== 'archived'), [openTasks, completedTasks]);
+  const archivedTaskPool = useMemo(() => [...archivedTasks].filter(task => task.status === 'archived'), [archivedTasks]);
   const allKnownTasks = useMemo(
     () => [...activeTaskPool, ...archivedTaskPool],
     [activeTaskPool, archivedTaskPool],
@@ -219,10 +219,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         default:
           filtered = activeTaskPool;
           break;
-      }
-
-      if (statusFilter === "all") {
-        filtered = [...filtered, ...archivedTaskPool];
       }
     }
 
