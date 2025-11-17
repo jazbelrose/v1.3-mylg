@@ -829,6 +829,41 @@
   margin-bottom: 1.5rem;
 }
 
+.statusTabs {
+  width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.statusTabButton {
+  flex: 1 1 0;
+  min-width: 90px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary, rgba(246, 247, 251, 0.78));
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.statusTabButtonActive {
+  border-color: color-mix(in srgb, var(--brand, #fa3356) 60%, rgba(255, 255, 255, 0.3));
+  background: color-mix(in srgb, var(--brand, #fa3356) 35%, rgba(255, 255, 255, 0.08));
+  color: rgba(246, 247, 251, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.statusTabButton:focus-visible {
+  outline: 2px solid var(--brand, #fa3356);
+  outline-offset: 2px;
+}
+
 .sectionHeading {
   margin: 0;
   font-size: 0.95rem;
@@ -911,6 +946,36 @@
   white-space: nowrap;
 }
 
+.taskActionBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 1.1rem 1rem;
+  align-items: center;
+}
+
+.taskStatusTag {
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(246, 247, 251, 0.78);
+}
+
+.taskCompletedTag {
+  background: rgba(98, 243, 158, 0.15);
+  border-color: rgba(98, 243, 158, 0.35);
+  color: #9af5c6;
+}
+
+.taskArchivedTag {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
 .taskActionButton {
   display: inline-flex;
   align-items: center;
@@ -930,6 +995,11 @@
   height: 14px;
 }
 
+.taskActionButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .taskActionButton:not(:disabled):hover,
 .taskActionButton:not(:disabled):focus-visible {
   background: rgba(255, 255, 255, 0.16);
@@ -941,6 +1011,36 @@
 .taskActionButton:focus-visible {
   outline: 2px solid var(--brand, #fa3356);
   outline-offset: 2px;
+}
+
+.taskActionSubmit {
+  background: rgba(83, 214, 255, 0.16);
+  border: 1px solid rgba(83, 214, 255, 0.45);
+  color: #b6eaff;
+}
+
+.taskActionApprove {
+  background: rgba(98, 243, 158, 0.16);
+  border: 1px solid rgba(98, 243, 158, 0.48);
+  color: #9af5c6;
+}
+
+.taskActionRequest {
+  background: rgba(255, 186, 64, 0.16);
+  border: 1px solid rgba(255, 186, 64, 0.45);
+  color: #ffd58f;
+}
+
+.taskActionArchive {
+  background: rgba(255, 90, 120, 0.16);
+  border: 1px solid rgba(255, 90, 120, 0.45);
+  color: #ffb0c4;
+}
+
+.taskActionRestore {
+  background: rgba(123, 255, 220, 0.16);
+  border: 1px solid rgba(123, 255, 220, 0.45);
+  color: #b4ffe7;
 }
 
 .taskMapButton {
@@ -1028,6 +1128,72 @@
 
 .metaLineAddress {
   align-items: flex-start;
+}
+
+.reviewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(123, 255, 220, 0.18);
+  border: 1px solid rgba(123, 255, 220, 0.35);
+  color: #b4ffe7;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reviewNoteBlock {
+  margin-top: 0.45rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.reviewNoteLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(246, 247, 251, 0.82);
+  margin-bottom: 0.35rem;
+}
+
+.reviewNoteText {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(246, 247, 251, 0.7);
+  line-height: 1.4;
+}
+
+.taskAssignmentRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: rgba(246, 247, 251, 0.78);
+}
+
+.taskAssignmentItem {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.taskAssignmentLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: rgba(246, 247, 251, 0.6);
+}
+
+.taskAssignmentValue {
+  font-weight: 600;
+  color: rgba(246, 247, 251, 0.92);
 }
 
 .addressDetails {
