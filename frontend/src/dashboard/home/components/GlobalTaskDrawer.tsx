@@ -20,7 +20,14 @@ import {
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
-import { requestTaskReview, approveTask, getFileUrl } from "@/shared/utils/api";
+import {
+  requestTaskReview,
+  approveTask,
+  requestTaskChanges,
+  archiveTask,
+  unarchiveTask,
+  getFileUrl,
+} from "@/shared/utils/api";
 
 import styles from "@/dashboard/project/components/Tasks/TasksComponentMobile.module.css";
 
@@ -37,6 +44,14 @@ type AssignedPersonOption = {
   id: string;
   name: string;
 };
+
+type StatusFilterOption = "active" | "all" | "archived";
+
+const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilterOption; label: string }> = [
+  { value: "active", label: "Active" },
+  { value: "all", label: "All" },
+  { value: "archived", label: "Archived" },
+];
 
 type GlobalTaskDrawerProps = {
   open: boolean;
@@ -75,6 +90,14 @@ function parseTaskLocation(task: TasksOverviewListItem): { lat: number; lng: num
   return null;
 }
 
+function normalizeUserId(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parts = trimmed.split("__").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : trimmed;
+}
+
 const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) => {
   const {
     loading,
@@ -82,6 +105,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     stats,
     openTasks,
     completedTasks,
+    archivedTasks,
     refreshTasks,
     projectOptions,
   } = useTasksOverview();
@@ -105,16 +129,23 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterOption>("active");
   const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
   const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
+  const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const taskListRef = useRef<HTMLUListElement>(null);
   const initialScrollDoneRef = useRef(false);
   const touchStartY = useRef(0);
 
-  // Combine open and completed tasks for filtering
-  const allTasks = useMemo(() => [...openTasks, ...completedTasks], [openTasks, completedTasks]);
+  // Combine open/completed tasks and archived tasks for filtering
+  const activeTaskPool = useMemo(() => [...openTasks, ...completedTasks], [openTasks, completedTasks]);
+  const archivedTaskPool = useMemo(() => [...archivedTasks], [archivedTasks]);
+  const allKnownTasks = useMemo(
+    () => [...activeTaskPool, ...archivedTaskPool],
+    [activeTaskPool, archivedTaskPool],
+  );
 
   const { assignedByOptions, assignedToOptions } = useMemo<{
     assignedByOptions: AssignedPersonOption[];
@@ -123,7 +154,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     const assignedByMap = new Map<string, string>();
     const assignedToMap = new Map<string, string>();
 
-    allTasks.forEach((task) => {
+    allKnownTasks.forEach((task) => {
       const assignedByValue = task.createdById ?? task.createdByName;
       if (assignedByValue) {
         assignedByMap.set(assignedByValue, task.createdByName ?? assignedByValue);
@@ -143,7 +174,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       .sort((a, b) => a.name.localeCompare(b.name));
 
     return { assignedByOptions, assignedToOptions };
-  }, [allTasks]);
+  }, [allKnownTasks]);
 
   // Filter/sort handlers
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
@@ -159,48 +190,49 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const filteredTasks = useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     let filtered: TasksOverviewListItem[] = [];
 
-    // Apply quick filter first (determines base list)
-    switch (activeFilter) {
-      case "due":
-        // All open tasks with due dates
-        filtered = allTasks.filter((task) => task.dueDate && task.status !== "done");
-        break;
-      case "completed":
-        // All completed tasks
-        filtered = allTasks.filter((task) => task.status === "done");
-        break;
-      case "overdue":
-        // Tasks past their due date (not completed)
-        filtered = allTasks.filter(
-          (task) => task.dueDate && task.dueDate < todayStart && task.status !== "done"
-        );
-        break;
-      case "mine":
-        // All tasks assigned to OR created by current user (including completed)
-        filtered = user?.userId 
-          ? allTasks.filter((task) => 
-              task.assigneeId === user.userId || task.createdById === user.userId
-            )
-          : allTasks;
-        break;
-      case "all":
-      default:
-        // All tasks (open + completed)
-        filtered = allTasks;
-        break;
+    if (statusFilter === "archived") {
+      filtered = [...archivedTaskPool];
+    } else {
+      switch (activeFilter) {
+        case "due":
+          filtered = activeTaskPool.filter((task) => task.dueDate && task.status !== "done");
+          break;
+        case "completed":
+          filtered = activeTaskPool.filter((task) => task.status === "done");
+          break;
+        case "overdue":
+          filtered = activeTaskPool.filter(
+            (task) => task.dueDate && task.dueDate < todayStart && task.status !== "done",
+          );
+          break;
+        case "mine":
+          filtered = user?.userId
+            ? activeTaskPool.filter(
+                (task) => task.assigneeId === user.userId || task.createdById === user.userId,
+              )
+            : activeTaskPool;
+          break;
+        case "all":
+        default:
+          filtered = activeTaskPool;
+          break;
+      }
+
+      if (statusFilter === "all") {
+        filtered = [...filtered, ...archivedTaskPool];
+      }
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (task) =>
           task.title.toLowerCase().includes(query) ||
           task.projectName?.toLowerCase().includes(query) ||
-          task.description?.toLowerCase().includes(query)
+          task.description?.toLowerCase().includes(query),
       );
     }
 
@@ -213,7 +245,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       filtered = filtered.filter((task) => task.assigneeId === assignedToFilter);
     }
 
-    // Sorting
     if (sortField && sortOrder) {
       filtered.sort((a, b) => {
         let aVal: string | number;
@@ -231,15 +262,15 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
         if (sortOrder === "asc") {
           return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-        } else {
-          return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
         }
+        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
       });
     }
 
     return filtered;
   }, [
-    allTasks,
+    activeTaskPool,
+    archivedTaskPool,
     searchQuery,
     activeFilter,
     sortField,
@@ -247,6 +278,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     user?.userId,
     assignedByFilter,
     assignedToFilter,
+    statusFilter,
   ]);
 
   const tasksWithLocation = useMemo(() => {
@@ -445,45 +477,190 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     }
   }, [filteredTasks, handleTaskEdit]);
 
-  const handleMarkDone = useCallback(
+  const setTaskPending = useCallback((taskId: string, pending: boolean) => {
+    setPendingTaskIds((current) => {
+      const next = new Set(current);
+      if (pending) {
+        next.add(taskId);
+      } else {
+        next.delete(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const resolveTaskIdentifiers = useCallback((task: TasksOverviewListItem) => {
+    const projectId = task.projectId;
+    const resolvedTaskId = task.taskId ?? task.id;
+    if (!projectId || !resolvedTaskId) {
+      notify("error", "We couldn't find that task or its project.");
+      return null;
+    }
+    return { projectId, taskId: resolvedTaskId };
+  }, []);
+
+  const handleSubmitForReview = useCallback(
     async (task: TasksOverviewListItem) => {
-      const projectId = task.projectId;
-      const taskId = task.taskId ?? task.id;
-      if (!projectId || !taskId) {
-        notify('error', 'We could not find that task or its project.');
+      const identifiers = resolveTaskIdentifiers(task);
+      if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
         return;
       }
+      setTaskPending(task.id, true);
+      try {
+        await requestTaskReview(identifiers.projectId, identifiers.taskId);
+        notify("success", "Task submitted for review!");
+        await refreshTasks();
+      } catch (error) {
+        console.error("Failed to submit task for review", error);
+        notify("error", "Failed to submit task for review.");
+      } finally {
+        setTaskPending(task.id, false);
+      }
+    },
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+  );
 
-      const normalizedStatus =
-        typeof task.status === 'string' ? task.status.trim().toLowerCase() : '';
-      const isAwaitingApproval = normalizedStatus === 'in_review';
-      const isComplete = normalizedStatus === 'done' || normalizedStatus === 'archived';
-
-      if (isComplete) {
-        notify('info', 'That task is already complete.');
+  const handleApproveTask = useCallback(
+    async (task: TasksOverviewListItem) => {
+      const identifiers = resolveTaskIdentifiers(task);
+      if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
         return;
       }
-
+      const normalizedStatus = typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+      const isAwaitingApproval = normalizedStatus === "in_review";
       if (isAwaitingApproval && !isAdmin) {
         notify('error', 'Only admins can approve tasks that are in review.');
         return;
       }
-
+      setTaskPending(task.id, true);
       try {
-        if (isAwaitingApproval) {
-          await approveTask(projectId, taskId, { note: '' });
-          notify('success', 'Task marked as done!');
-        } else {
-          await requestTaskReview(projectId, taskId);
-          notify('success', 'Task submitted for review!');
-        }
+        await approveTask(identifiers.projectId, identifiers.taskId, { note: "" });
+        notify("success", "Task approved and marked as done.");
         await refreshTasks();
       } catch (error) {
-        console.error('Failed to update task status:', error);
-        notify('error', 'Failed to update the task. Please try again.');
+        console.error("Failed to approve task", error);
+        notify("error", "Failed to approve task.");
+      } finally {
+        setTaskPending(task.id, false);
       }
     },
-    [isAdmin, refreshTasks],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+  );
+
+  const handleRequestChanges = useCallback(
+    async (task: TasksOverviewListItem) => {
+      if (typeof window === "undefined") {
+        notify("error", "A note is required to request changes.");
+        return;
+      }
+      const note = window.prompt("What needs to be fixed?");
+      const trimmed = note?.trim();
+      if (!trimmed) {
+        notify("error", "Please include a note when requesting changes.");
+        return;
+      }
+      const identifiers = resolveTaskIdentifiers(task);
+      if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
+      setTaskPending(task.id, true);
+      try {
+        await requestTaskChanges(identifiers.projectId, identifiers.taskId, { note: trimmed });
+        notify(
+          "success",
+          `Task sent back to ${task.assigneeName ?? "the assignee"} with requested changes.`,
+        );
+        await refreshTasks();
+      } catch (error) {
+        console.error("Failed to request task changes", error);
+        notify("error", "Failed to send the task back for changes.");
+      } finally {
+        setTaskPending(task.id, false);
+      }
+    },
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+  );
+
+  const handleArchiveTask = useCallback(
+    async (task: TasksOverviewListItem) => {
+      const identifiers = resolveTaskIdentifiers(task);
+      if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
+      setTaskPending(task.id, true);
+      try {
+        await archiveTask(identifiers.projectId, identifiers.taskId);
+        notify("success", "Task archived. You can find it under ‘Archived’ if needed.");
+        await refreshTasks();
+      } catch (error) {
+        console.error("Failed to archive task", error);
+        notify("error", "Failed to archive task.");
+      } finally {
+        setTaskPending(task.id, false);
+      }
+    },
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+  );
+
+  const handleUnarchiveTask = useCallback(
+    async (task: TasksOverviewListItem) => {
+      const identifiers = resolveTaskIdentifiers(task);
+      if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+        return;
+      }
+      setTaskPending(task.id, true);
+      try {
+        await unarchiveTask(identifiers.projectId, identifiers.taskId);
+        notify("success", "Task unarchived and marked as completed.");
+        await refreshTasks();
+      } catch (error) {
+        console.error("Failed to unarchive task", error);
+        notify("error", "Failed to unarchive task.");
+      } finally {
+        setTaskPending(task.id, false);
+      }
+    },
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleOpenQuickCreate = useCallback(() => {
@@ -712,6 +889,27 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                 flexWrap: "wrap",
               }}
             >
+              <div className={styles.statusTabs} role="tablist" aria-label="Filter tasks by status">
+                {STATUS_FILTER_OPTIONS.map((option) => {
+                  const isActiveStatus = statusFilter === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActiveStatus}
+                      className={
+                        isActiveStatus
+                          ? `${styles.statusTabButton} ${styles.statusTabButtonActive}`
+                          : styles.statusTabButton
+                      }
+                      onClick={() => setStatusFilter(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
               <div
                 className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
                 style={{ width: "auto", flex: "1 1 140px", minWidth: "120px" }}
@@ -854,12 +1052,57 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                       const { category, label } = getTaskStatusBadge(
                         task.status as "done" | "to_do" | "in_progress",
                         task.dueDate,
-                        statusContext
+                        statusContext,
                       );
-                      const tone = getTaskStatusTone(category);
+                      const normalizedStatus =
+                        typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+                      const isArchived = normalizedStatus === "archived";
+                      const badgeToneCategory = isArchived ? "unscheduled" : category;
+                      const tone = getTaskStatusTone(badgeToneCategory);
                       const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
                       const badgeToneClass = badgeClassKey ? styles[badgeClassKey] : undefined;
                       const badgeClassName = [styles.statusBadge, badgeToneClass].filter(Boolean).join(" ");
+                      const badgeLabel = isArchived ? "Archived" : label;
+                      const normalizedUserId = normalizeUserId(user?.userId);
+                      const normalizedAssignee = normalizeUserId(task.assigneeId);
+                      const reviewerId =
+                        task.reviewerId ?? (task.rawTask as { reviewerId?: string })?.reviewerId;
+                      const normalizedReviewerId = normalizeUserId(reviewerId);
+                      const isReviewer = Boolean(
+                        normalizedReviewerId &&
+                          normalizedUserId &&
+                          normalizedReviewerId === normalizedUserId,
+                      );
+                      const isDone = normalizedStatus === "done";
+                      const isInReview = normalizedStatus === "in_review";
+                      const isNeedsChanges = normalizedStatus === "needs_changes";
+                      const normalizedCreatorId = normalizeUserId(task.createdById);
+                      const isAssignee = normalizedUserId && normalizedAssignee && normalizedUserId === normalizedAssignee;
+                      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+                      const canActOnTask = isAdmin || isAssignee || isCreator;
+                      const isComplete = isDone || isArchived;
+                      const canSubmitForReview = canActOnTask && ["todo", "in_progress", "needs_changes"].includes(normalizedStatus);
+                      const canApprove = Boolean((isAdmin || isReviewer) && isInReview);
+                      const canRequestChanges = canActOnTask && isInReview;
+                      const canArchive = canActOnTask && isDone;
+                      const canUnarchive = canActOnTask && isArchived;
+                      const isBusy = pendingTaskIds.has(task.id);
+                      const reviewNote = (
+                        task.reviewNote ?? (task.rawTask as { reviewNote?: string })?.reviewNote ?? ""
+                      ).trim();
+                      const reviewerName =
+                        task.reviewerName ?? (task.rawTask as { reviewerName?: string })?.reviewerName;
+                      const showReviewBadge = isInReview && statusFilter !== "archived";
+                      const showActionRow = Boolean(
+                        isComplete ||
+                        (canActOnTask && (
+                          canSubmitForReview ||
+                          canApprove ||
+                          canRequestChanges ||
+                          canArchive ||
+                          canUnarchive
+                        ))
+                      );
 
                       return (
                         <li
@@ -999,7 +1242,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                     </div>
                                   )}
                                 </div>
-                                <span className={badgeClassName}>{label}</span>
+                                <span className={badgeClassName}>{badgeLabel}</span>
                               </div>
                             </div>
                           </div>
@@ -1017,11 +1260,39 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                               </span>
                             )}
                             <span className={styles.metaLine} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '32ch', marginBottom: '18px', fontSize: '1.25em' }}>
-                               {task.title}
-                             </span>
+                              {task.title}
+                            </span>
                             <span className={styles.metaLine}>
                               <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
                             </span>
+                            {showReviewBadge ? <span className={styles.reviewBadge}>In review</span> : null}
+                            {isNeedsChanges && (reviewNote || reviewerName) ? (
+                              <div className={styles.reviewNoteBlock}>
+                                <div className={styles.reviewNoteLabel}>
+                                  Changes requested
+                                  {reviewerName ? ` by ${reviewerName}` : ""}
+                                </div>
+                                {reviewNote ? (
+                                  <p className={styles.reviewNoteText}>{reviewNote}</p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {(task.createdByName || task.assigneeName) && (
+                              <div className={styles.taskAssignmentRow}>
+                                {task.createdByName ? (
+                                  <span className={styles.taskAssignmentItem}>
+                                    <span className={styles.taskAssignmentLabel}>Assigned by</span>
+                                    <span className={styles.taskAssignmentValue}>{task.createdByName}</span>
+                                  </span>
+                                ) : null}
+                                {task.assigneeName ? (
+                                  <span className={styles.taskAssignmentItem}>
+                                    <span className={styles.taskAssignmentLabel}>Assigned to</span>
+                                    <span className={styles.taskAssignmentValue}>{task.assigneeName}</span>
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
                             {task.address ? (
                               <span className={`${styles.metaLine} ${styles.metaLineAddress}`}>
                                 <MapPin size={14} aria-hidden="true" />
@@ -1045,6 +1316,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={styles.addressLink}
+                                    onClick={(event) => event.stopPropagation()}
                                   >
                                     Open in Maps
                                   </a>
@@ -1056,43 +1328,93 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={styles.addressLink}
+                                    onClick={(event) => event.stopPropagation()}
                                   >
                                     Open in Google Maps
                                   </a>
                                 </span>
                               );
                             })() : null}
-                            {(() => {
-                              const normalizedStatus =
-                                typeof task.status === 'string'
-                                  ? task.status.trim().toLowerCase()
-                                  : '';
-                              const isAwaitingApproval = normalizedStatus === 'in_review';
-                              const isComplete =
-                                normalizedStatus === 'done' || normalizedStatus === 'archived';
-                              if (isComplete) {
-                                return null;
-                              }
-
-                              const buttonDisabled = isAwaitingApproval && !isAdmin;
-                              const buttonLabel =
-                                isAwaitingApproval && isAdmin ? 'Approve' : 'Submit for review';
-                              const ariaLabel =
-                                buttonLabel === 'Approve' ? 'Approve task' : 'Submit task for review';
-
-                              return (
+                          </div>
+                          {showActionRow ? (
+                            <div className={styles.taskActionBar}>
+                              {isDone && !isArchived ? (
+                                <span className={`${styles.taskStatusTag} ${styles.taskCompletedTag}`}>
+                                  Completed
+                              </span>
+                            ) : null}
+                            {isArchived ? (
+                              <span className={`${styles.taskStatusTag} ${styles.taskArchivedTag}`}>
+                                Archived
+                              </span>
+                            ) : null}
+                            {canSubmitForReview ? (
+                              <button
+                                type="button"
+                                className={`${styles.taskActionButton} ${styles.taskActionSubmit}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleSubmitForReview(task);
+                                }}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? "Working…" : "Submit for review"}
+                              </button>
+                            ) : null}
+                            {canApprove ? (
+                              <button
+                                type="button"
+                                className={`${styles.taskActionButton} ${styles.taskActionApprove}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleApproveTask(task);
+                                }}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? "Working…" : "Mark as done"}
+                              </button>
+                            ) : null}
+                            {canRequestChanges ? (
+                              <button
+                                type="button"
+                                className={`${styles.taskActionButton} ${styles.taskActionRequest}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleRequestChanges(task);
+                                }}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? "Working…" : "Send back for changes"}
+                              </button>
+                            ) : null}
+                            {canArchive ? (
+                              <button
+                                type="button"
+                                className={`${styles.taskActionButton} ${styles.taskActionArchive}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleArchiveTask(task);
+                                }}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? "Working…" : "Archive task"}
+                              </button>
+                            ) : null}
+                              {canUnarchive ? (
                                 <button
                                   type="button"
-                                  className={styles.markDoneButton}
-                                  onClick={() => handleMarkDone(task)}
-                                  aria-label={ariaLabel}
-                                  disabled={buttonDisabled}
-                                >
-                                  {buttonLabel}
-                                </button>
-                              );
-                            })()}
-                          </div>
+                                className={`${styles.taskActionButton} ${styles.taskActionRestore}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleUnarchiveTask(task);
+                                }}
+                                disabled={isBusy}
+                              >
+                                {isBusy ? "Working…" : "Unarchive task"}
+                              </button>
+                            ) : null}
+                            </div>
+                          ) : null}
                         </li>
                       );
                     })}
