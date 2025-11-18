@@ -5,7 +5,7 @@ import mobileStyles from "@/dashboard/home/components/projects-panel.module.css"
 import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import styles from "@/dashboard/project/features/budget/components/BudgetToolbar.module.css";
 
-type FilterOption = "due" | "completed" | "overdue" | "mine" | "all";
+type FilterOption = "due" | "completed" | "completedToday" | "overdue" | "mine" | "all";
 type StatusFilter = "active" | "all" | "archived";
 
 type SortOptionValue = "default" | "dueDate-asc" | "dueDate-desc" | "title-asc" | "title-desc";
@@ -33,6 +33,7 @@ interface FilterButtonConfig {
 const FILTER_BUTTONS: FilterButtonConfig[] = [
   { value: "due", label: "Due" },
   { value: "completed", label: "Completed" },
+  { value: "completedToday", label: "Completed Today" },
   { value: "overdue", label: "Overdue" },
   { value: "mine", label: "Mine" },
 ];

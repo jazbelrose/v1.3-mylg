@@ -203,6 +203,13 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         case "completed":
           filtered = activeTaskPool.filter((task) => task.status === "done");
           break;
+        case "completedToday": {
+          const today = new Date();
+          filtered = activeTaskPool.filter(
+            (task) => task.status === "done" && task.completedAt && task.completedAt.toDateString() === today.toDateString(),
+          );
+          break;
+        }
         case "overdue":
           filtered = activeTaskPool.filter(
             (task) => task.dueDate && task.dueDate < todayStart && task.status !== "done",
@@ -922,6 +929,7 @@ const BADGE_CLASS_BY_TONE = {
                   <option value="all">All</option>
                   <option value="due">Due</option>
                   <option value="completed">Completed</option>
+                  <option value="completedToday">Completed Today</option>
                   <option value="overdue">Overdue</option>
                   <option value="mine">Mine</option>
                 </select>
