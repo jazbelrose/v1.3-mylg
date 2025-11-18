@@ -15,6 +15,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import { useBriefPersistence } from "../hooks/useBriefPersistence";
 
 const EditorPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -27,7 +28,6 @@ const EditorPage: React.FC = () => {
     setProjects,
     setSelectedProjects,
     userId,
-    updateProjectFields,
   } = useData();
 
   const { ws } = useSocket();
@@ -39,38 +39,24 @@ const EditorPage: React.FC = () => {
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const [briefContent, setBriefContent] = useState<string>("");
-  const [isBriefDirty, setIsBriefDirty] = useState(false);
 
   const handleBriefChange = useCallback((json: string) => {
     setBriefContent(json);
-    setIsBriefDirty(true);
   }, []);
 
-  const saveBrief = useCallback(
-    async (showToast = true) => {
-      if (!activeProject?.projectId) {
-        if (showToast) notify("error", "No active project to save");
-        return;
-      }
-      if (!isBriefDirty) {
-        if (showToast) notify("info", "Brief already saved");
-        return;
-      }
-      try {
-        await updateProjectFields(activeProject.projectId, {
-          description: briefContent,
-        });
-        setIsBriefDirty(false);
-        if (showToast) notify("success", "Saved. Nice.");
-      } catch (err) {
-        const error = err as { message?: string };
-        console.error("Failed to save brief:", error);
-        if (showToast)
-          notify("error", "Can’t reach the server—your edits are safe; we’ll retry.");
-      }
-    },
-    [activeProject?.projectId, briefContent, isBriefDirty, updateProjectFields]
-  );
+  // NEW: autosave hook
+  const {
+    saveNow: saveBriefNow,
+    isSaving: isBriefSaving,
+    hasPendingChanges: hasBriefPendingChanges,
+    error: briefSaveError,
+  } = useBriefPersistence({
+    projectId: activeProject?.projectId,
+    content: briefContent,
+    enabled: !!activeProject?.projectId,
+    initialServerContent: activeProject?.description ?? "",
+    debounceMs: 2000,
+  });
 
   useEffect(() => {
     setActiveProject(initialActiveProject);
@@ -78,7 +64,6 @@ const EditorPage: React.FC = () => {
 
   useEffect(() => {
     setBriefContent(activeProject?.description || "");
-    setIsBriefDirty(false);
   }, [activeProject?.description]);
 
   useEffect(() => {
@@ -164,8 +149,25 @@ const EditorPage: React.FC = () => {
   };
 
   const handleSave = useCallback(() => {
-    void saveBrief();
-  }, [saveBrief]);
+    if (!activeProject?.projectId) {
+      notify("error", "No active project to save");
+      return;
+    }
+
+    void (async () => {
+      const didSave = await saveBriefNow();
+      if (didSave) {
+        notify("success", "Saved. Nice.");
+      } else {
+        notify("info", "Brief already saved");
+      }
+    })().catch(() => {
+      notify(
+        "error",
+        "Can't reach the server—your edits are safe; we'll retry."
+      );
+    });
+  }, [activeProject?.projectId, saveBriefNow]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -182,22 +184,26 @@ const EditorPage: React.FC = () => {
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isBriefDirty) return;
+      if (!hasBriefPendingChanges) return;
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isBriefDirty]);
+  }, [hasBriefPendingChanges]);
 
   useEffect(() => {
-    window.hasUnsavedChanges = () => isBriefDirty;
-    window.unsavedChanges = isBriefDirty;
+    // @ts-expect-error: custom globals for unsaved changes tracking
+    window.hasUnsavedChanges = () => hasBriefPendingChanges;
+    // @ts-expect-error: custom globals for unsaved changes tracking
+    window.unsavedChanges = hasBriefPendingChanges;
     return () => {
+      // @ts-expect-error: custom globals for unsaved changes tracking
       delete window.hasUnsavedChanges;
+      // @ts-expect-error: custom globals for unsaved changes tracking
       delete window.unsavedChanges;
     };
-  }, [isBriefDirty]);
+  }, [hasBriefPendingChanges]);
 
   return (
     <ProjectPageLayout
