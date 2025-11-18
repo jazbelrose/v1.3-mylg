@@ -716,6 +716,11 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     return task.timeLabel ? `${formatted} · ${task.timeLabel}` : formatted;
   }, []);
 
+  const formatDateLabel = useCallback((date: Date): string => {
+    const formatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+    return formatter.format(date);
+  }, []);
+
   const statusContext = useMemo(() => createTaskStatusContext(), []);
 
 const BADGE_CLASS_BY_TONE = {
@@ -1258,6 +1263,30 @@ const BADGE_CLASS_BY_TONE = {
                             <span className={styles.metaLine}>
                               <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}
                             </span>
+                            {task.createdAt && (
+                              <span
+                                className={styles.metaLine}
+                                style={{
+                                  fontSize: '11px',
+                                  color: 'rgba(246, 247, 251, 0.6)',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  marginTop: '2px',
+                                  marginBottom: '2px'
+                                }}
+                                title={
+                                  task.completedAt
+                                    ? `Created on ${task.createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} Completed on ${task.completedAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`
+                                    : `Created on ${task.createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`
+                                }
+                              >
+                                {task.completedAt
+                                  ? `Completed ${formatDateLabel(task.completedAt)} · Created ${formatDateLabel(task.createdAt)}`
+                                  : `Created ${formatDateLabel(task.createdAt)}`
+                                }
+                              </span>
+                            )}
                             {isNeedsChanges && (reviewNote || reviewerName) ? (
                               <div className={styles.reviewNoteBlock}>
                                 <div className={styles.reviewNoteLabel}>

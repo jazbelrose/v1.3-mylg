@@ -45,6 +45,7 @@ type NormalizedTask = {
   status: TaskStatus;
   dueDate: Date | null;
   completedAt: Date | null;
+  createdAt: Date | null;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -62,6 +63,7 @@ export type TasksOverviewListItem = {
   status: TaskStatus;
   dueDate: Date | null;
   completedAt: Date | null;
+  createdAt: Date | null;
   projectId: string;
   projectName: string;
   projectColor: string;
@@ -338,6 +340,11 @@ export function useTasksOverview() {
 
                     const status = typeof task.status === "string" ? task.status.toLowerCase() : "todo";
                     const title = normalizeTitle(task.title ?? task.name);
+                    const createdAtCandidate =
+                      (task as { createdAt?: unknown }).createdAt ??
+                      (task as { created_at?: unknown }).created_at ??
+                      null;
+                    const createdAt = parseDueDate(createdAtCandidate);
                     const completionCandidate =
                       (task as { completedAt?: unknown }).completedAt ??
                       (task as { completed_at?: unknown }).completed_at ??
@@ -358,6 +365,7 @@ export function useTasksOverview() {
                       status,
                       dueDate,
                       completedAt,
+                      createdAt,
                       dueKey,
                       timeLabel,
                       completedTimeLabel,
@@ -428,7 +436,7 @@ export function useTasksOverview() {
           raw.createdByEmail,
         ) ?? undefined;
       const createdByName =
-        findUserDisplayNameById(raw.createdById ?? createdByCandidate, allUsers) ??
+        findUserDisplayNameById((raw.createdById as string | undefined) ?? createdByCandidate, allUsers) ??
         (createdByCandidate ? formatAssignmentLabel(createdByCandidate) : undefined);
       const createdByIdCandidate = raw.createdById ?? createdByCandidate;
       const createdById =
@@ -459,6 +467,7 @@ export function useTasksOverview() {
         status: task.status,
         dueDate: task.dueDate,
         completedAt: task.completedAt,
+        createdAt: task.createdAt,
         projectId: task.projectId,
         projectName: task.projectName,
         projectColor: task.projectColor,
