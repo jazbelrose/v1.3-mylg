@@ -11,6 +11,7 @@ import SvgThumbnail from "./SvgThumbnail";
 import { getSquirclePath } from "@/shared/ui/squircle/getSquirclePath";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
 import { type FilterOption } from "./TaskMobileFilter";
+import { useDropdown, type DropdownOption } from "./hooks/useDropdown";
 import { useUser } from "@/app/contexts/useUser";
 import {
   createTaskStatusContext,
@@ -134,6 +135,58 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
 
+  const quickFilterOptions: DropdownOption<FilterOption>[] = useMemo(
+    () => [
+      { value: "all", label: "All" },
+      { value: "due", label: "Due" },
+      { value: "completed", label: "Completed" },
+      { value: "completedToday", label: "Completed Today" },
+      { value: "overdue", label: "Overdue" },
+      { value: "mine", label: "Mine" },
+    ],
+    [],
+  );
+
+  const quickFilterLabel = useMemo(
+    () => quickFilterOptions.find((option) => option.value === activeFilter)?.label ?? "All",
+    [activeFilter, quickFilterOptions],
+  );
+
+  const quickFilterDropdown = useDropdown<FilterOption>({
+    options: quickFilterOptions,
+    selectedValue: activeFilter,
+    onSelect: (value) => setActiveFilter(value),
+    idPrefix: "global-tasks-quick-filter",
+  });
+
+  const sortDropdownOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "default", label: "Default order" },
+      { value: "dueDate-asc", label: "Due Date (Earliest)" },
+      { value: "dueDate-desc", label: "Due Date (Latest)" },
+      { value: "title-asc", label: "Title (A–Z)" },
+      { value: "title-desc", label: "Title (Z–A)" },
+    ],
+    [],
+  );
+
+  const sortSelectedValue =
+    sortField && sortOrder ? `${sortField}-${sortOrder}` : "default";
+
+  const sortDropdown = useDropdown<string>({
+    options: sortDropdownOptions,
+    selectedValue: sortSelectedValue,
+    onSelect: (value) => {
+      if (value === "default") {
+        handleSortChange(null, null);
+        return;
+      }
+      const [field, order] = value.split("-");
+      handleSortChange(field, order as "asc" | "desc");
+    },
+    idPrefix: "global-tasks-sort",
+  });
+
   const sheetRef = useRef<HTMLDivElement>(null);
   const taskListRef = useRef<HTMLUListElement>(null);
   const initialScrollDoneRef = useRef(false);
@@ -175,6 +228,46 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
     return { assignedByOptions, assignedToOptions };
   }, [allKnownTasks]);
+
+  const assignedByDropdownOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: "All creators" },
+      ...assignedByOptions.map((option) => ({
+        value: option.id,
+        label: option.name,
+      })),
+    ],
+    [assignedByOptions],
+  );
+
+  const assignedBySelectedValue = assignedByFilter ?? "";
+
+  const assignedByDropdown = useDropdown<string>({
+    options: assignedByDropdownOptions,
+    selectedValue: assignedBySelectedValue,
+    onSelect: (value) => setAssignedByFilter(value || null),
+    idPrefix: "global-tasks-assigned-by",
+  });
+
+  const assignedToDropdownOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: "All assignees" },
+      ...assignedToOptions.map((option) => ({
+        value: option.id,
+        label: option.name,
+      })),
+    ],
+    [assignedToOptions],
+  );
+
+  const assignedToSelectedValue = assignedToFilter ?? "";
+
+  const assignedToDropdown = useDropdown<string>({
+    options: assignedToDropdownOptions,
+    selectedValue: assignedToSelectedValue,
+    onSelect: (value) => setAssignedToFilter(value || null),
+    idPrefix: "global-tasks-assigned-to",
+  });
 
   // Filter/sort handlers
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
@@ -917,78 +1010,192 @@ const BADGE_CLASS_BY_TONE = {
                 })}
               </div>
               <div
-                className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                className={desktopFilterStyles.statusDropdown}
                 style={{ width: "auto", flex: "1 1 140px", minWidth: "120px" }}
+                ref={quickFilterDropdown.dropdownRef}
               >
-                <select
-                  value={activeFilter}
-                  onChange={(e) => handleFilterChange(e.target.value as FilterOption)}
-                  className={desktopFilterStyles.filterSelectControl}
-                  aria-label="Quick task filter"
+                <button
+                  type="button"
+                  className={desktopFilterStyles.statusTrigger}
+                  aria-haspopup="listbox"
+                  aria-expanded={quickFilterDropdown.isOpen}
+                  aria-controls={quickFilterDropdown.listId}
+                  aria-activedescendant={quickFilterDropdown.activeOptionId}
+                  onClick={quickFilterDropdown.toggle}
+                  onKeyDown={quickFilterDropdown.handleTriggerKeyDown}
                 >
-                  <option value="all">All</option>
-                  <option value="due">Due</option>
-                  <option value="completed">Completed</option>
-                  <option value="completedToday">Completed Today</option>
-                  <option value="overdue">Overdue</option>
-                  <option value="mine">Mine</option>
-                </select>
-                <ChevronDown
-                  size={16}
-                  aria-hidden="true"
-                  className={desktopFilterStyles.filterSelectChevron}
-                />
+                  <span className={desktopFilterStyles.triggerLabel}>
+                    <span className={desktopFilterStyles.triggerLabelText}>{quickFilterLabel}</span>
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    aria-hidden
+                    className={desktopFilterStyles.triggerChevron}
+                  />
+                </button>
+                {quickFilterDropdown.isOpen && (
+                  <ul
+                    className={desktopFilterStyles.statusOptions}
+                    role="listbox"
+                    id={quickFilterDropdown.listId}
+                  >
+                    {quickFilterOptions.map((option, index) => {
+                      const { id, isSelected, isActive } =
+                        quickFilterDropdown.getOptionRenderState(option, index);
+                      const buttonProps = quickFilterDropdown.getOptionButtonProps(option, index);
+                      return (
+                        <li
+                          key={`${option.value}-${index}`}
+                          role="option"
+                          id={id}
+                          aria-selected={isSelected}
+                        >
+                          <button
+                            {...buttonProps}
+                            className={`${desktopFilterStyles.statusOptionButton} ${
+                              isSelected ? desktopFilterStyles.statusOptionSelected : ""
+                            } ${isActive ? desktopFilterStyles.statusOptionActive : ""}`}
+                          >
+                            {option.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
               {assignedByOptions.length > 0 && (
                 <div
-                  className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                  className={desktopFilterStyles.statusDropdown}
                   style={{ width: "auto", flex: "1 1 180px", minWidth: "140px" }}
+                  ref={assignedByDropdown.dropdownRef}
                 >
-                  <select
-                    value={assignedByFilter ?? ""}
-                    onChange={(event) => setAssignedByFilter(event.target.value || null)}
-                    className={desktopFilterStyles.filterSelectControl}
-                    aria-label="Filter tasks by creator"
+                  <button
+                    type="button"
+                    className={desktopFilterStyles.statusTrigger}
+                    aria-haspopup="listbox"
+                    aria-expanded={assignedByDropdown.isOpen}
+                    aria-controls={assignedByDropdown.listId}
+                    aria-activedescendant={assignedByDropdown.activeOptionId}
+                    onClick={assignedByDropdown.toggle}
+                    onKeyDown={assignedByDropdown.handleTriggerKeyDown}
                   >
-                    <option value="">All creators</option>
-                    {assignedByOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={16}
-                    aria-hidden="true"
-                    className={desktopFilterStyles.filterSelectChevron}
-                  />
+                    <span className={desktopFilterStyles.triggerLabel}>
+                      <span className={desktopFilterStyles.triggerLabelText}>
+                        {
+                          assignedByDropdownOptions.find(
+                            (option) => option.value === assignedBySelectedValue,
+                          )?.label
+                        }
+                      </span>
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      aria-hidden
+                      className={desktopFilterStyles.triggerChevron}
+                    />
+                  </button>
+                  {assignedByDropdown.isOpen && (
+                    <ul
+                      className={desktopFilterStyles.statusOptions}
+                      role="listbox"
+                      id={assignedByDropdown.listId}
+                    >
+                      {assignedByDropdownOptions.map((option, index) => {
+                        const { id, isSelected, isActive } =
+                          assignedByDropdown.getOptionRenderState(option, index);
+                        const buttonProps = assignedByDropdown.getOptionButtonProps(
+                          option,
+                          index,
+                        );
+                        return (
+                          <li
+                            key={`${option.value || "all"}-${index}`}
+                            role="option"
+                            id={id}
+                            aria-selected={isSelected}
+                          >
+                            <button
+                              {...buttonProps}
+                              className={`${desktopFilterStyles.statusOptionButton} ${
+                                isSelected ? desktopFilterStyles.statusOptionSelected : ""
+                              } ${isActive ? desktopFilterStyles.statusOptionActive : ""}`}
+                            >
+                              {option.label}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
               )}
 
               {assignedToOptions.length > 0 && (
                 <div
-                  className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                  className={desktopFilterStyles.statusDropdown}
                   style={{ width: "auto", flex: "1 1 180px", minWidth: "140px" }}
+                  ref={assignedToDropdown.dropdownRef}
                 >
-                  <select
-                    value={assignedToFilter ?? ""}
-                    onChange={(event) => setAssignedToFilter(event.target.value || null)}
-                    className={desktopFilterStyles.filterSelectControl}
-                    aria-label="Filter tasks by assignee"
+                  <button
+                    type="button"
+                    className={desktopFilterStyles.statusTrigger}
+                    aria-haspopup="listbox"
+                    aria-expanded={assignedToDropdown.isOpen}
+                    aria-controls={assignedToDropdown.listId}
+                    aria-activedescendant={assignedToDropdown.activeOptionId}
+                    onClick={assignedToDropdown.toggle}
+                    onKeyDown={assignedToDropdown.handleTriggerKeyDown}
                   >
-                    <option value="">All assignees</option>
-                    {assignedToOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={16}
-                    aria-hidden="true"
-                    className={desktopFilterStyles.filterSelectChevron}
-                  />
+                    <span className={desktopFilterStyles.triggerLabel}>
+                      <span className={desktopFilterStyles.triggerLabelText}>
+                        {
+                          assignedToDropdownOptions.find(
+                            (option) => option.value === assignedToSelectedValue,
+                          )?.label
+                        }
+                      </span>
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      aria-hidden
+                      className={desktopFilterStyles.triggerChevron}
+                    />
+                  </button>
+                  {assignedToDropdown.isOpen && (
+                    <ul
+                      className={desktopFilterStyles.statusOptions}
+                      role="listbox"
+                      id={assignedToDropdown.listId}
+                    >
+                      {assignedToDropdownOptions.map((option, index) => {
+                        const { id, isSelected, isActive } =
+                          assignedToDropdown.getOptionRenderState(option, index);
+                        const buttonProps = assignedToDropdown.getOptionButtonProps(
+                          option,
+                          index,
+                        );
+                        return (
+                          <li
+                            key={`${option.value || "all"}-${index}`}
+                            role="option"
+                            id={id}
+                            aria-selected={isSelected}
+                          >
+                            <button
+                              {...buttonProps}
+                              className={`${desktopFilterStyles.statusOptionButton} ${
+                                isSelected ? desktopFilterStyles.statusOptionSelected : ""
+                              } ${isActive ? desktopFilterStyles.statusOptionActive : ""}`}
+                            >
+                              {option.label}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
               )}
 

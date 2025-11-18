@@ -291,6 +291,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [dueDateError, setDueDateError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [reviewerId, setReviewerId] = useState<string | null>(null);
@@ -326,6 +327,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const titleCounterId = `${baseId}-title-counter`;
   const titleErrorId = `${baseId}-title-error`;
   const projectErrorId = `${baseId}-project-error`;
+  const dueDateErrorId = `${baseId}-due-date-error`;
   const locationFieldId = `${baseId}-location`;
   const dueDateFieldId = `${baseId}-due-date`;
   const notesFieldId = `${baseId}-notes`;
@@ -698,6 +700,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setTitleError(null);
     setProjectError(null);
+    setDueDateError(null);
     setTaskId(null);
     setStatus("todo");
     setArchiving(false);
@@ -782,6 +785,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setTitleError(null);
     setProjectError(null);
+    setDueDateError(null);
   }, [open, resetForm]);
 
   useEffect(() => {
@@ -980,6 +984,12 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   }, [effectiveProjectId]);
 
+  useEffect(() => {
+    if (dueDate) {
+      setDueDateError(null);
+    }
+  }, [dueDate]);
+
 
   const descriptionCopy = activeProjectId
     ? `Launch work for ${resolvedActiveProjectName || "this project"}.`
@@ -1108,12 +1118,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setDueDate(event.target.value);
     setSuccessMessage(null);
     setErrorMessage(null);
+    setDueDateError(null);
   };
 
   const handleDueDateQuickSelect = (value: string) => {
     setDueDate(value);
     setSuccessMessage(null);
     setErrorMessage(null);
+    setDueDateError(null);
   };
 
   const handleDescriptionChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1231,6 +1243,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setErrorMessage(null);
       notify("error", errorMsg);
       titleInputRef.current?.focus();
+      return;
+    }
+
+    if (!dueDate) {
+      const errorMsg = "Add a due date before saving.";
+      setDueDateError(errorMsg);
+      setErrorMessage(null);
+      notify("error", errorMsg);
       return;
     }
 
@@ -1757,7 +1777,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
                   <span className={styles.fieldLabelText}>Due date</span>
                 </label>
-                <span className={styles.fieldOptional}>Optional</span>
               </div>
               <input
                 id={dueDateFieldId}
@@ -1767,7 +1786,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 value={dueDate}
                 onChange={handleDueDateInputChange}
                 disabled={isBusy}
+                aria-describedby={dueDateError ? dueDateErrorId : undefined}
               />
+              {dueDateError ? (
+                <p id={dueDateErrorId} className={styles.fieldError} aria-live="polite">
+                  {dueDateError}
+                </p>
+              ) : null}
               <div className={styles.quickChips} role="group" aria-label="Quick due date shortcuts">
                 <button
                   type="button"
