@@ -258,6 +258,7 @@ const EditorPage: React.FC = () => {
                         registerToolbar={() => {}}
                         onPreview={() => setPreviewOpen(true)}
                         onSave={handleSave}
+                        usePersistence={false}
                       />
                     ) : (
                       <div>Loading...</div>

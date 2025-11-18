@@ -72,6 +72,8 @@ type LexicalEditorProps = {
   onSave?: () => void;
   showDefaultToolbar?: boolean;
   customToolbar?: React.ReactNode;
+  /** Optional: disable IndexedDB/Yjs persistence for this doc */
+  usePersistence?: boolean;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -90,6 +92,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onSave,
   showDefaultToolbar = true,
   customToolbar,
+  usePersistence = true,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -169,6 +172,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   }, [initialContent, resolvedDocId]);
 
   useEffect(() => {
+    if (!usePersistence) return;
     const persistence = persistenceRef.current;
     if (persistence) {
       console.log("[Yjs] Destroying IndexedDB persistence for doc:", resolvedDocId);
@@ -181,7 +185,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           console.error("Error clearing IndexedDB:", err);
         });
     }
-  }, [resolvedDocId]);
+  }, [resolvedDocId, usePersistence]);
 
   // Clean up provider only when the component unmounts
   useEffect(() => {
@@ -229,47 +233,52 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         yjsDocMap.set(id, doc);
       }
 
-      // Create and store the persistence instance.
-      const persistence = new IndexeddbPersistence(id, doc);
-      persistence.on("synced", () => {
-        console.log("IndexedDB synced for project:", id);
+      // Only wire IndexedDB when allowed
+      if (usePersistence) {
+        // Create and store the persistence instance.
+        const persistence = new IndexeddbPersistence(id, doc);
+        persistence.on("synced", () => {
+          console.log("IndexedDB synced for project:", id);
 
-        // If IndexedDB/Yjs has no content for this doc but we were given
-        // an `initialContent` (from server), inject it into the shared type.
-        // This prevents stale-empty IndexedDB docs from hiding server content
-        // on page refresh. Do this only once per provider.
-        try {
-          const shared = provider.sharedType;
-          const pFlag = provider as unknown as { __initialContentInjected?: boolean };
-          const alreadyInjected = pFlag.__initialContentInjected;
-          // Note: treat an explicit null as the only "no initial content" sentinel.
-          // Previously this branch required `initialContentRef.current` to be truthy,
-          // which prevented empty-string content ("") from being injected. That could
-          // cause clients with an empty IndexedDB copy to hide server-provided empty
-          // slide content. Use !== null so empty strings or other valid-but-falsy
-          // values are respected.
-          if (
-            shared &&
-            !alreadyInjected &&
-            typeof shared.toString === "function" &&
-            shared.toString().length === 0 &&
-            initialContentRef.current !== null
-          ) {
-            const txt =
-              typeof initialContentRef.current === "string"
-                ? initialContentRef.current
-                : JSON.stringify(initialContentRef.current);
-            console.log("[Yjs] Injecting initial content into IndexedDB doc:", id);
-            // Insert at position 0 so the shared text contains the server content
-            shared.insert(0, txt);
-            // Mark we injected so we don't run multiple times
-            pFlag.__initialContentInjected = true;
+          // If IndexedDB/Yjs has no content for this doc but we were given
+          // an `initialContent` (from server), inject it into the shared type.
+          // This prevents stale-empty IndexedDB docs from hiding server content
+          // on page refresh. Do this only once per provider.
+          try {
+            const shared = provider.sharedType;
+            const pFlag = provider as unknown as { __initialContentInjected?: boolean };
+            const alreadyInjected = pFlag.__initialContentInjected;
+            // Note: treat an explicit null as the only "no initial content" sentinel.
+            // Previously this branch required `initialContentRef.current` to be truthy,
+            // which prevented empty-string content ("") from being injected. That could
+            // cause clients with an empty IndexedDB copy to hide server-provided empty
+            // slide content. Use !== null so empty strings or other valid-but-falsy
+            // values are respected.
+            if (
+              shared &&
+              !alreadyInjected &&
+              typeof shared.toString === "function" &&
+              shared.toString().length === 0 &&
+              initialContentRef.current !== null
+            ) {
+              const txt =
+                typeof initialContentRef.current === "string"
+                  ? initialContentRef.current
+                  : JSON.stringify(initialContentRef.current);
+              console.log("[Yjs] Injecting initial content into IndexedDB doc:", id);
+              // Insert at position 0 so the shared text contains the server content
+              shared.insert(0, txt);
+              // Mark we injected so we don't run multiple times
+              pFlag.__initialContentInjected = true;
+            }
+          } catch (e) {
+            console.warn("[Yjs] failed to inject initial content:", e);
           }
-        } catch (e) {
-          console.warn("[Yjs] failed to inject initial content:", e);
-        }
-      });
-      persistenceRef.current = persistence;
+        });
+        persistenceRef.current = persistence;
+      } else {
+        persistenceRef.current = null;
+      }
 
       const provider = new WebsocketProvider(
         YJS_WS_URL.replace(/\/$/, ""),       // base only, no trailing slash
@@ -336,7 +345,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
       setYjsProvider(provider);
       return provider as unknown as Provider;
     },
-    []
+    [usePersistence]
   );
 
   // Memoize the LexicalComposer configuration so it’s only created once.
