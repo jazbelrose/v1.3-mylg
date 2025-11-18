@@ -1218,34 +1218,52 @@ const BADGE_CLASS_BY_TONE = {
               </div>
 
               <div
-                className={`${desktopFilterStyles.filterField} ${desktopFilterStyles.filterSelect}`}
+                className={desktopFilterStyles.statusDropdown}
                 style={{ width: "auto", flex: "1 1 160px", minWidth: "140px" }}
+                ref={sortDropdown.dropdownRef}
               >
-                <select
-                  value={sortField && sortOrder ? `${sortField}-${sortOrder}` : "default"}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "default") {
-                      handleSortChange(null, null);
-                    } else {
-                      const [field, order] = value.split("-");
-                      handleSortChange(field, order as "asc" | "desc");
-                    }
-                  }}
-                  className={desktopFilterStyles.filterSelectControl}
-                  aria-label="Sort tasks"
+                <button
+                  type="button"
+                  className={desktopFilterStyles.statusTrigger}
+                  aria-haspopup="listbox"
+                  aria-expanded={sortDropdown.isOpen}
+                  aria-controls={sortDropdown.listId}
+                  aria-activedescendant={sortDropdown.activeOptionId}
+                  onClick={sortDropdown.toggle}
+                  onKeyDown={sortDropdown.handleTriggerKeyDown}
                 >
-                  <option value="default">Default order</option>
-                  <option value="dueDate-asc">Due Date (Earliest)</option>
-                  <option value="dueDate-desc">Due Date (Latest)</option>
-                  <option value="title-asc">Title (A→Z)</option>
-                  <option value="title-desc">Title (Z→A)</option>
-                </select>
-                <ChevronDown
-                  size={16}
-                  aria-hidden="true"
-                  className={desktopFilterStyles.filterSelectChevron}
-                />
+                  <span className={desktopFilterStyles.triggerLabel}>
+                    <span className={desktopFilterStyles.triggerLabelText}>
+                      {sortDropdownOptions.find((option) => option.value === sortSelectedValue)?.label}
+                    </span>
+                  </span>
+                  <ChevronDown size={14} aria-hidden className={desktopFilterStyles.triggerChevron} />
+                </button>
+                {sortDropdown.isOpen && (
+                  <ul
+                    className={desktopFilterStyles.statusOptions}
+                    role="listbox"
+                    id={sortDropdown.listId}
+                  >
+                    {sortDropdownOptions.map((option, index) => {
+                      const { id, isSelected, isActive } =
+                        sortDropdown.getOptionRenderState(option, index);
+                      const buttonProps = sortDropdown.getOptionButtonProps(option, index);
+                      return (
+                        <li key={`${option.value}-${index}`} role="option" id={id} aria-selected={isSelected}>
+                          <button
+                            {...buttonProps}
+                            className={`${desktopFilterStyles.statusOptionButton} ${
+                              isSelected ? desktopFilterStyles.statusOptionSelected : ""
+                            } ${isActive ? desktopFilterStyles.statusOptionActive : ""}`}
+                          >
+                            {option.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
             </div>
             <div className={`${styles.sheetScrollArea} ${isDesktop ? styles.desktopDrawerScrollArea : ""}`}>
