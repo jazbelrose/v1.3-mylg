@@ -3,6 +3,7 @@ import Map from "../../../../shared/ui/Map";
 import { toast, ToastContainer } from "react-toastify";
 import Modal from "../../../../shared/ui/ModalWithStack";
 import { NOMINATIM_SEARCH_URL, apiFetch, getFileUrl } from "../../../../shared/utils/api";
+import { fetchGlobalLocationSuggestions, type NominatimSuggestion } from "../../../../shared/utils/location";
 import { useData } from "../../../../app/contexts/useData";
 import { useSocket } from "../../../../app/contexts/useSocket";
 import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
@@ -25,13 +26,6 @@ type Project = {
   thumbnails?: string[];
   address?: string;
   location?: Partial<LatLng>;
-};
-
-type NominatimSuggestion = {
-  place_id: number | string;
-  display_name: string;
-  lat: string; // Nominatim returns strings
-  lon: string;
 };
 
 type ConnectedUser = {
@@ -139,16 +133,7 @@ const LocationComponent: React.FC<LocationComponentProps> = ({
   };
 
   const fetchSuggestions = async (query: string): Promise<NominatimSuggestion[]> => {
-    const url = `${NOMINATIM_SEARCH_URL}${encodeURIComponent(
-      query
-    )}&addressdetails=1&limit=5`;
-    try {
-      const data = await apiFetch<NominatimSuggestion[]>(url);
-      return data;
-    } catch (err) {
-      console.error("Error fetching suggestions:", err);
-      return [];
-    }
+    return await fetchGlobalLocationSuggestions(query, undefined, { limit: 5 });
   };
 
   const handleSearchChange = async (

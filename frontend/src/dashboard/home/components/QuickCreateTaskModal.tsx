@@ -13,6 +13,7 @@ import {
   uploadFile,
   getFileUrl,
 } from "@/shared/utils/api";
+import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type Suggestion, type NominatimSuggestion } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 
@@ -26,13 +27,6 @@ import type {
 } from "./QuickCreateTaskModal.types";
 
 export type { QuickCreateTaskModalTask, QuickCreateTaskModalEvent } from "./QuickCreateTaskModal.types";
-
-type NominatimSuggestion = {
-  place_id: string | number;
-  display_name: string;
-  lat: string;
-  lon: string;
-};
 
 type Coordinates = {
   lat: number;
@@ -280,6 +274,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [dueDate, setDueDate] = useState("");
   const [addressSearch, setAddressSearch] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
+  const [showWorldwideLink, setShowWorldwideLink] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [currentLocationAddress, setCurrentLocationAddress] = useState<string | null>(null);
@@ -696,63 +691,30 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const fetchAddressSuggestions = useCallback(
     async (query: string) => {
-      if (!query || query.length < 3) {
-        let suggestions: NominatimSuggestion[] = [];
-        if (currentLocationAddress && userLocation) {
-          suggestions = [
-            {
-              place_id: 'current',
-              display_name: `Use my current location: ${currentLocationAddress}`,
-              lat: userLocation.lat.toString(),
-              lon: userLocation.lng.toString(),
-            },
-          ];
-        }
-        setAddressSuggestions(suggestions);
-        return;
-      }
+      const result = await fetchLocationSuggestions(query, userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined, {
+        limit: 5,
+        includeCurrentLocation: true,
+        currentLocationAddress: currentLocationAddress || undefined,
+      });
 
-      try {
-        const params = new URLSearchParams({
-          format: 'json',
-          q: query,
-          addressdetails: '1',
-          limit: '5',
-        });
-        if (userLocation) {
-          const { lat, lng } = userLocation;
-          const delta = 0.5; // ~50km at equator
-          params.set('viewbox', `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`);
-        }
-        const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        const suggestions = data.map((item: { place_id: string | number; display_name: string; lat: string; lon: string }) => ({
-          place_id: item.place_id,
-          display_name: item.display_name,
-          lat: item.lat,
-          lon: item.lon,
-        }));
-        const sortedSuggestions = sortSuggestionsByProximity(suggestions, userLocation);
-        let allSuggestions = sortedSuggestions;
-        if (currentLocationAddress && userLocation) {
-          allSuggestions = [
-            {
-              place_id: 'current',
-              display_name: `Use my current location: ${currentLocationAddress}`,
-              lat: userLocation.lat.toString(),
-              lon: userLocation.lng.toString(),
-            },
-            ...sortedSuggestions,
-          ];
-        }
-        setAddressSuggestions(allSuggestions);
-      } catch (error) {
-        console.error("Failed to fetch address suggestions", error);
-        setAddressSuggestions([]);
-      }
+      setAddressSuggestions(result.suggestions);
+      setShowWorldwideLink(result.showWorldwideLink);
     },
-    [sortSuggestionsByProximity, userLocation, currentLocationAddress]
+    [userLocation, currentLocationAddress]
+  );
+
+  const fetchGlobalAddressSuggestions = useCallback(
+    async (query: string) => {
+      const suggestions = await fetchGlobalLocationSuggestions(query, userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined, {
+        limit: 8,
+        includeCurrentLocation: true,
+        currentLocationAddress: currentLocationAddress || undefined,
+      });
+
+      setAddressSuggestions(suggestions);
+      setShowWorldwideLink(false); // Hide the link since we're now showing global results
+    },
+    [userLocation, currentLocationAddress]
   );
 
   const resetForm = useCallback(() => {
@@ -762,6 +724,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setDueDate("");
     setAddressSearch("");
     setAddressSuggestions([]);
+    setShowWorldwideLink(false);
     setSelectedLocation(null);
     setAssigneeTokens([]);
     setNoteAttachments([]);
@@ -1849,6 +1812,16 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                         {suggestion.display_name}
                       </button>
                     ))}
+                    {showWorldwideLink ? (
+                      <button
+                        type="button"
+                        className={styles.worldwideLink}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => fetchGlobalAddressSuggestions(addressSearch)}
+                      >
+                        Search worldwide
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
