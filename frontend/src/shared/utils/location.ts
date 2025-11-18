@@ -10,6 +10,13 @@ export type LatLng = {
   lng: number;
 };
 
+export type SavedLocation = {
+  formattedAddress: string;
+  lat: number;
+  lon: number;
+  placeId?: string;
+};
+
 type NominatimResponseItem = {
   place_id: string | number;
   display_name: string;
@@ -71,13 +78,14 @@ export async function fetchLocationSuggestions(
     limit?: number;
     includeCurrentLocation?: boolean;
     currentLocationAddress?: string;
+    defaultLocation?: SavedLocation | null;
   }
 ): Promise<{
   suggestions: Suggestion[];
   hasLocalResults: boolean;
   showWorldwideLink: boolean;
 }> {
-  const { limit = 8, includeCurrentLocation = false, currentLocationAddress } = options || {};
+  const { limit = 8, includeCurrentLocation = false, currentLocationAddress, defaultLocation } = options || {};
 
   // If query too short, only return current location if available
   if (query.length < 3) {
@@ -168,6 +176,20 @@ export async function fetchLocationSuggestions(
     suggestions = [currentSuggestion, ...suggestions];
   }
 
+  // Add default location after current location if available and not the same as current location
+  if (defaultLocation && (!userLocation || 
+      Math.abs(defaultLocation.lat - userLocation.lat) > 0.001 || 
+      Math.abs(defaultLocation.lon - userLocation.lng) > 0.001)) {
+    const defaultSuggestion: Suggestion = {
+      place_id: 'default',
+      display_name: `Use default address: ${defaultLocation.formattedAddress}`,
+      lat: defaultLocation.lat.toString(),
+      lon: defaultLocation.lon.toString(),
+      distanceKm: userLocation ? haversineKm(userLocation, { lat: defaultLocation.lat, lng: defaultLocation.lon }) : undefined,
+    };
+    suggestions = [defaultSuggestion, ...suggestions];
+  }
+
   return {
     suggestions,
     hasLocalResults,
@@ -185,9 +207,10 @@ export async function fetchGlobalLocationSuggestions(
     limit?: number;
     includeCurrentLocation?: boolean;
     currentLocationAddress?: string;
+    defaultLocation?: SavedLocation | null;
   }
 ): Promise<Suggestion[]> {
-  const { limit = 8, includeCurrentLocation = false, currentLocationAddress } = options || {};
+  const { limit = 8, includeCurrentLocation = false, currentLocationAddress, defaultLocation } = options || {};
 
   const urlGlobal = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
     q: query,
@@ -219,6 +242,20 @@ export async function fetchGlobalLocationSuggestions(
         distanceKm: 0,
       };
       suggestions = [currentSuggestion, ...suggestions];
+    }
+
+    // Add default location after current location if available and not the same as current location
+    if (defaultLocation && (!userLocation || 
+        Math.abs(defaultLocation.lat - userLocation.lat) > 0.001 || 
+        Math.abs(defaultLocation.lon - userLocation.lng) > 0.001)) {
+      const defaultSuggestion: Suggestion = {
+        place_id: 'default',
+        display_name: `Use default address: ${defaultLocation.formattedAddress}`,
+        lat: defaultLocation.lat.toString(),
+        lon: defaultLocation.lon.toString(),
+        distanceKm: userLocation ? haversineKm(userLocation, { lat: defaultLocation.lat, lng: defaultLocation.lon }) : undefined,
+      };
+      suggestions = [defaultSuggestion, ...suggestions];
     }
 
     return suggestions;

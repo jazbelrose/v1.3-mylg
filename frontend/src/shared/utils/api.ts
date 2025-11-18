@@ -7,6 +7,7 @@ import {
   getPreviewBudgetItems,
   isPreviewModeEnabled,
 } from './devPreview';
+import type { SavedLocation } from './location';
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Types
@@ -31,6 +32,7 @@ export interface UserProfile extends JsonRecord {
   username?: string;
   email?: string;
   role?: string;
+  defaultTaskLocation?: SavedLocation | null;
 }
 
 export interface TeamMember {

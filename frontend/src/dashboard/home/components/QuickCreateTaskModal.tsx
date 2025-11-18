@@ -13,7 +13,7 @@ import {
   uploadFile,
   getFileUrl,
 } from "@/shared/utils/api";
-import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type Suggestion, type NominatimSuggestion } from "@/shared/utils/location";
+import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type Suggestion, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 
@@ -267,7 +267,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   onDeleted,
   embedMode = false,
 }) => {
-  const { userData, allUsers, userId, isAdmin } = useUser();
+  const { userData, allUsers, userId, isAdmin, updateUserProfile, refreshUser } = useUser();
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -695,12 +695,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         limit: 5,
         includeCurrentLocation: true,
         currentLocationAddress: currentLocationAddress || undefined,
+        defaultLocation: userData?.defaultTaskLocation || null,
       });
 
       setAddressSuggestions(result.suggestions);
       setShowWorldwideLink(result.showWorldwideLink);
     },
-    [userLocation, currentLocationAddress]
+    [userLocation, currentLocationAddress, userData?.defaultTaskLocation]
   );
 
   const fetchGlobalAddressSuggestions = useCallback(
@@ -709,12 +710,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         limit: 8,
         includeCurrentLocation: true,
         currentLocationAddress: currentLocationAddress || undefined,
+        defaultLocation: userData?.defaultTaskLocation || null,
       });
 
       setAddressSuggestions(suggestions);
       setShowWorldwideLink(false); // Hide the link since we're now showing global results
     },
-    [userLocation, currentLocationAddress]
+    [userLocation, currentLocationAddress, userData?.defaultTaskLocation]
   );
 
   const resetForm = useCallback(() => {
@@ -1141,6 +1143,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setSelectedLocation(userLocation);
         setAddressSearch(currentLocationAddress);
       }
+    } else if (suggestion.place_id === 'default') {
+      // Special case for default location
+      if (userData?.defaultTaskLocation) {
+        const coords = { lat: userData.defaultTaskLocation.lat, lng: userData.defaultTaskLocation.lon };
+        setSelectedLocation(coords);
+        setAddressSearch(userData.defaultTaskLocation.formattedAddress);
+      }
     } else {
       const coords = { lat: parseFloat(suggestion.lat), lng: parseFloat(suggestion.lon) };
       setSelectedLocation(coords);
@@ -1150,6 +1159,27 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
   };
+
+  const handleSetAsDefault = useCallback(async (suggestion: NominatimSuggestion) => {
+    if (!userData) return;
+    
+    const defaultLocation: SavedLocation = {
+      formattedAddress: suggestion.display_name,
+      lat: parseFloat(suggestion.lat),
+      lon: parseFloat(suggestion.lon),
+      placeId: suggestion.place_id.toString(),
+    };
+
+    try {
+      await updateUserProfile({ ...userData, defaultTaskLocation: defaultLocation });
+      setSuccessMessage("Default location updated successfully");
+      // Refresh user data to get the updated default location
+      await refreshUser(true);
+    } catch (error) {
+      console.error("Failed to set default location:", error);
+      setErrorMessage("Failed to set default location");
+    }
+  }, [userData, updateUserProfile, refreshUser]);
 
   const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(event.target.value);
@@ -1331,7 +1361,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         title: trimmedTitle,
         description: description.trim() || undefined,
         dueDate: dueDateIso,
-        ...(statusForPayload ? { status: statusForPayload } : {}),
+        ...(statusForPayload ? { status: statusForPayload as 'todo' | 'in_progress' | 'done' } : {}),
         ...(trimmedAddress ? { address: trimmedAddress } : {}),
         ...(locationPayload ? { location: locationPayload } : {}),
       };
@@ -1783,6 +1813,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 </label>
                 <span className={styles.fieldOptional}>Optional</span>
               </div>
+              {!selectedLocation && userData?.defaultTaskLocation ? (
+                <button
+                  type="button"
+                  className={styles.defaultLocationPill}
+                  onClick={() => {
+                    const coords = { lat: userData.defaultTaskLocation!.lat, lng: userData.defaultTaskLocation!.lon };
+                    setSelectedLocation(coords);
+                    setAddressSearch(userData.defaultTaskLocation!.formattedAddress);
+                  }}
+                >
+                  Use default address — {userData.defaultTaskLocation.formattedAddress}
+                </button>
+              ) : null}
               <div className={styles.locationInputWrapper}>
                 <input
                   id={locationFieldId}
@@ -1801,16 +1844,27 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 {addressSuggestions.length > 0 ? (
                   <div className={styles.locationSuggestions} role="listbox" id={suggestionsListId}>
                     {addressSuggestions.map((suggestion) => (
-                      <button
-                        key={suggestion.place_id}
-                        type="button"
-                        className={styles.locationSuggestionButton}
-                        role="option"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => handleAddressSuggestionSelect(suggestion)}
-                      >
-                        {suggestion.display_name}
-                      </button>
+                      <div key={suggestion.place_id} className={styles.locationSuggestionItem}>
+                        <button
+                          type="button"
+                          className={styles.locationSuggestionButton}
+                          role="option"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => handleAddressSuggestionSelect(suggestion)}
+                        >
+                          {suggestion.display_name}
+                        </button>
+                        {suggestion.place_id !== 'current' && suggestion.place_id !== 'default' ? (
+                          <button
+                            type="button"
+                            className={styles.setDefaultLink}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSetAsDefault(suggestion)}
+                          >
+                            Set as default
+                          </button>
+                        ) : null}
+                      </div>
                     ))}
                     {showWorldwideLink ? (
                       <button

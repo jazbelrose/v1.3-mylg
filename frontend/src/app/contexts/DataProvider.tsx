@@ -3,6 +3,7 @@ import React, { PropsWithChildren } from "react";
 import { UserProvider } from "./UserProvider";
 import { ProjectsProvider } from "./ProjectsProvider";
 import { MessagesProvider } from "./MessagesProvider";
+import type { SavedLocation } from "../../shared/utils/location";
 
 // Export the types and data models from here for backward compatibility
 export type Role = "admin" | "designer" | "builder" | "vendor" | "client" | string;
@@ -23,6 +24,7 @@ export interface UserLite {
   company?: string;
   collaborators?: string[];
   projects?: string[];
+  defaultTaskLocation?: SavedLocation | null;
   [key: string]: unknown; // Add index signature for flexibility
 }
 
