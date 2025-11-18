@@ -937,7 +937,7 @@ const BADGE_CLASS_BY_TONE = {
                     </button>
                   </div>
                 </header>
-                <div className={styles.sheetTitleGroup} style={{ padding: '0 1.75rem 1.25rem' }}>
+                <div className={styles.sheetTitleGroup}>
                   <span className={styles.sheetTitle}>All tasks</span>
                   <span className={styles.sheetSubtitle}>Review everything on your radar</span>
                 </div>

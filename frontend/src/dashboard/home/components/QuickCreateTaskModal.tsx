@@ -282,6 +282,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Coordinates | null>(null);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
+  const [currentLocationAddress, setCurrentLocationAddress] = useState<string | null>(null);
   const [assigneeTokens, setAssigneeTokens] = useState<string[]>([]);
   const [noteAttachments, setNoteAttachments] = useState<TaskNoteAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -653,35 +654,105 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [assigneePopoverOpen, closeAssigneePopover]);
 
+  const getDistance = useCallback((coord1: Coordinates, coord2: Coordinates): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
+    const dLng = (coord2.lng - coord1.lng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, []);
+
+  const fetchCurrentLocationAddress = useCallback(async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await response.json();
+      return data.display_name || null;
+    } catch (error) {
+      console.error("Failed to reverse geocode current location:", error);
+      return null;
+    }
+  }, []);
+
   const sortSuggestionsByProximity = useCallback(
     (suggestions: NominatimSuggestion[], origin: Coordinates | null) => {
       if (!origin) return suggestions;
       return [...suggestions].sort((a, b) => {
-        const distanceA = Math.hypot(origin.lat - parseFloat(a.lat), origin.lng - parseFloat(a.lon));
-        const distanceB = Math.hypot(origin.lat - parseFloat(b.lat), origin.lng - parseFloat(b.lon));
-        return distanceA - distanceB;
+        const coordA = { lat: parseFloat(a.lat), lng: parseFloat(a.lon) };
+        const coordB = { lat: parseFloat(b.lat), lng: parseFloat(b.lon) };
+        const distA = getDistance(origin, coordA);
+        const distB = getDistance(origin, coordB);
+        const within50A = distA <= 50;
+        const within50B = distB <= 50;
+        if (within50A && !within50B) return -1;
+        if (!within50A && within50B) return 1;
+        return distA - distB;
       });
     },
-    []
+    [getDistance]
   );
 
   const fetchAddressSuggestions = useCallback(
     async (query: string) => {
       if (!query || query.length < 3) {
-        setAddressSuggestions([]);
+        let suggestions: NominatimSuggestion[] = [];
+        if (currentLocationAddress && userLocation) {
+          suggestions = [
+            {
+              place_id: 'current',
+              display_name: `Use my current location: ${currentLocationAddress}`,
+              lat: userLocation.lat.toString(),
+              lon: userLocation.lng.toString(),
+            },
+          ];
+        }
+        setAddressSuggestions(suggestions);
         return;
       }
 
       try {
-        const url = `${NOMINATIM_SEARCH_URL}${encodeURIComponent(query)}&addressdetails=1&limit=5`;
-        const results = await apiFetch<NominatimSuggestion[]>(url);
-        setAddressSuggestions(sortSuggestionsByProximity(results ?? [], userLocation));
+        const params = new URLSearchParams({
+          format: 'json',
+          q: query,
+          addressdetails: '1',
+          limit: '5',
+        });
+        if (userLocation) {
+          const { lat, lng } = userLocation;
+          const delta = 0.5; // ~50km at equator
+          params.set('viewbox', `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`);
+        }
+        const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        const suggestions = data.map((item: { place_id: string | number; display_name: string; lat: string; lon: string }) => ({
+          place_id: item.place_id,
+          display_name: item.display_name,
+          lat: item.lat,
+          lon: item.lon,
+        }));
+        const sortedSuggestions = sortSuggestionsByProximity(suggestions, userLocation);
+        let allSuggestions = sortedSuggestions;
+        if (currentLocationAddress && userLocation) {
+          allSuggestions = [
+            {
+              place_id: 'current',
+              display_name: `Use my current location: ${currentLocationAddress}`,
+              lat: userLocation.lat.toString(),
+              lon: userLocation.lng.toString(),
+            },
+            ...sortedSuggestions,
+          ];
+        }
+        setAddressSuggestions(allSuggestions);
       } catch (error) {
         console.error("Failed to fetch address suggestions", error);
         setAddressSuggestions([]);
       }
     },
-    [sortSuggestionsByProximity, userLocation]
+    [sortSuggestionsByProximity, userLocation, currentLocationAddress]
   );
 
   const resetForm = useCallback(() => {
@@ -847,19 +918,26 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
     if (typeof window === "undefined" || !("geolocation" in navigator)) {
       setUserLocation(null);
+      setCurrentLocationAddress(null);
       return;
     }
 
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         if (!cancelled) {
-          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserLocation(coords);
+          const address = await fetchCurrentLocationAddress(coords.lat, coords.lng);
+          if (!cancelled) {
+            setCurrentLocationAddress(address);
+          }
         }
       },
       () => {
         if (!cancelled) {
           setUserLocation(null);
+          setCurrentLocationAddress(null);
         }
       }
     );
@@ -867,7 +945,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, fetchCurrentLocationAddress]);
 
   useEffect(() => {
     if (!userLocation) return;
@@ -1094,9 +1172,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   };
 
   const handleAddressSuggestionSelect = (suggestion: NominatimSuggestion) => {
-    const coords = { lat: parseFloat(suggestion.lat), lng: parseFloat(suggestion.lon) };
-    setSelectedLocation(coords);
-    setAddressSearch(suggestion.display_name);
+    if (suggestion.place_id === 'current') {
+      // Special case for current location
+      if (userLocation && currentLocationAddress) {
+        setSelectedLocation(userLocation);
+        setAddressSearch(currentLocationAddress);
+      }
+    } else {
+      const coords = { lat: parseFloat(suggestion.lat), lng: parseFloat(suggestion.lon) };
+      setSelectedLocation(coords);
+      setAddressSearch(suggestion.display_name);
+    }
     setAddressSuggestions([]);
     setSuccessMessage(null);
     setErrorMessage(null);

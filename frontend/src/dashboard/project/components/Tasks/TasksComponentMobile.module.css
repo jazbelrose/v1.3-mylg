@@ -776,6 +776,7 @@
   /* Prevent text selection when dragging */
   user-select: none;
   -webkit-user-select: none;
+  margin: 32px 32px 16px;
 }
 
 .sheetTitle {
