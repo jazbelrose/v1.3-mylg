@@ -126,8 +126,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
 
   // Filter and sort state
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [sortField, setSortField] = useState<string | null>("dueDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>("desc");
   const [activeFilter, setActiveFilter] = useState<FilterOption>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilterOption>("active");
   const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
