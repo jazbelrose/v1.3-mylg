@@ -1218,14 +1218,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     event.preventDefault();
 
     if (!effectiveProjectId) {
-      setProjectError("Add a project before creating tasks.");
+      const errorMsg = "Add a project before creating tasks.";
+      setProjectError(errorMsg);
       setErrorMessage(null);
+      notify("error", errorMsg);
       return;
     }
 
     if (!trimmedTitle) {
-      setTitleError("Give the task a name before saving.");
+      const errorMsg = "Give the task a name before saving.";
+      setTitleError(errorMsg);
       setErrorMessage(null);
+      notify("error", errorMsg);
+      titleInputRef.current?.focus();
       return;
     }
 
