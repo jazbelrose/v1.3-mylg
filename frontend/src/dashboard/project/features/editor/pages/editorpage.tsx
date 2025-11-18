@@ -193,14 +193,10 @@ const EditorPage: React.FC = () => {
   }, [hasBriefPendingChanges]);
 
   useEffect(() => {
-    // @ts-expect-error: custom globals for unsaved changes tracking
     window.hasUnsavedChanges = () => hasBriefPendingChanges;
-    // @ts-expect-error: custom globals for unsaved changes tracking
     window.unsavedChanges = hasBriefPendingChanges;
     return () => {
-      // @ts-expect-error: custom globals for unsaved changes tracking
       delete window.hasUnsavedChanges;
-      // @ts-expect-error: custom globals for unsaved changes tracking
       delete window.unsavedChanges;
     };
   }, [hasBriefPendingChanges]);
