@@ -108,6 +108,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     completedTasks,
     archivedTasks,
     refreshTasks,
+    updateTaskStatus,
     projectOptions,
   } = useTasksOverview();
   const { user, isAdmin } = useUser();
@@ -610,18 +611,19 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         return;
       }
       setTaskPending(task.id, true);
+      updateTaskStatus(task.id, "in_review");
       try {
         await requestTaskReview(identifiers.projectId, identifiers.taskId);
         notify("success", "Task submitted for review!");
-        await refreshTasks();
       } catch (error) {
         console.error("Failed to submit task for review", error);
         notify("error", "Failed to submit task for review.");
+        await refreshTasks(); // revert
       } finally {
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
   );
 
   const handleApproveTask = useCallback(
@@ -645,18 +647,19 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         return;
       }
       setTaskPending(task.id, true);
+      updateTaskStatus(task.id, "done", { completedAt: new Date() });
       try {
         await approveTask(identifiers.projectId, identifiers.taskId, { note: "" });
         notify("success", "Task approved and marked as done.");
-        await refreshTasks();
       } catch (error) {
         console.error("Failed to approve task", error);
         notify("error", "Failed to approve task.");
+        await refreshTasks(); // revert
       } finally {
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
   );
 
   const handleRequestChanges = useCallback(
@@ -684,21 +687,22 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         return;
       }
       setTaskPending(task.id, true);
+      updateTaskStatus(task.id, "needs_changes");
       try {
         await requestTaskChanges(identifiers.projectId, identifiers.taskId, { note: trimmed });
         notify(
           "success",
           `Task sent back to ${task.assigneeName ?? "the assignee"} with requested changes.`,
         );
-        await refreshTasks();
       } catch (error) {
         console.error("Failed to request task changes", error);
         notify("error", "Failed to send the task back for changes.");
+        await refreshTasks(); // revert
       } finally {
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
   );
 
   const handleArchiveTask = useCallback(
@@ -716,18 +720,19 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         return;
       }
       setTaskPending(task.id, true);
+      updateTaskStatus(task.id, "archived");
       try {
         await archiveTask(identifiers.projectId, identifiers.taskId);
-        notify("success", "Task archived. You can find it under ‘Archived’ if needed.");
-        await refreshTasks();
+        notify("success", "Task archived. You can find it under 'Archived' if needed.");
       } catch (error) {
         console.error("Failed to archive task", error);
         notify("error", "Failed to archive task.");
+        await refreshTasks();
       } finally {
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
   );
 
   const handleUnarchiveTask = useCallback(
@@ -745,18 +750,19 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
         return;
       }
       setTaskPending(task.id, true);
+      updateTaskStatus(task.id, "done", { completedAt: new Date() });
       try {
         await unarchiveTask(identifiers.projectId, identifiers.taskId);
         notify("success", "Task unarchived and marked as completed.");
-        await refreshTasks();
       } catch (error) {
         console.error("Failed to unarchive task", error);
         notify("error", "Failed to unarchive task.");
+        await refreshTasks(); // revert
       } finally {
         setTaskPending(task.id, false);
       }
     },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
   );
 
   const handleOpenQuickCreate = useCallback(() => {

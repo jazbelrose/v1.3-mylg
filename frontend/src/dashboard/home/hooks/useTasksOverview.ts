@@ -718,6 +718,12 @@ export function useTasksOverview() {
     [projects]
   );
 
+  const updateTaskStatus = useCallback((taskId: string, newStatus: TaskStatus, additionalUpdates?: Partial<NormalizedTask>) => {
+    setTasks(current => current.map(task => 
+      task.id === taskId ? { ...task, status: newStatus, ...additionalUpdates } : task
+    ));
+  }, []);
+
   const primaryProjectName = primaryProjectId
     ? projectMap.get(primaryProjectId)?.title ?? primaryProjectId
     : undefined;
@@ -737,6 +743,7 @@ export function useTasksOverview() {
     archivedTasks,
     navigateToProject,
     refreshTasks,
+    updateTaskStatus,
     projectOptions,
     primaryProjectId,
     primaryProjectName,
