@@ -253,7 +253,7 @@ const SlidesPage: React.FC = () => {
       setActiveSlideId(initialSlide.id);
       return [initialSlide];
     });
-  }, [projectId, activeProject?.slides, uiThumbsEnabled]);
+  }, [projectId, activeProject?.slides, uiThumbsEnabled, makeUiThumbnail]);
 
   // Cleanup Yjs connections on unmount
   useEffect(() => {

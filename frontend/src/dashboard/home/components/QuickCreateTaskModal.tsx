@@ -3,8 +3,6 @@ import { createPortal } from "react-dom";
 
 import type { Task } from "@/shared/utils/api";
 import {
-  NOMINATIM_SEARCH_URL,
-  apiFetch,
   createTask,
   deleteTask,
   archiveTask,
@@ -13,7 +11,7 @@ import {
   uploadFile,
   getFileUrl,
 } from "@/shared/utils/api";
-import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type Suggestion, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
+import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 

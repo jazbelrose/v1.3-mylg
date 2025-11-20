@@ -24,7 +24,6 @@ import {
   getViewportHeight,
   isSameDay,
   normalizeTask,
-  resolveTaskDueDateIso,
   sortTasksForDrawer,
   type QuickTask,
   type RawTask,

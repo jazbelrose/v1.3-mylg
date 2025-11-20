@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, ChevronLeft, MapPin, Plus, Search, Trash, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronLeft, MapPin, Plus, Search, Trash } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -275,10 +275,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
     setSortField(field);
     setSortOrder(order);
-  }, []);
-
-  const handleFilterChange = useCallback((filter: FilterOption) => {
-    setActiveFilter(filter);
   }, []);
 
   // Apply filters and sorting

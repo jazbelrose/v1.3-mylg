@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Map from "../../../../shared/ui/Map";
 import { toast, ToastContainer } from "react-toastify";
 import Modal from "../../../../shared/ui/ModalWithStack";
-import { NOMINATIM_SEARCH_URL, apiFetch, getFileUrl } from "../../../../shared/utils/api";
+import { apiFetch, getFileUrl } from "../../../../shared/utils/api";
 import { fetchGlobalLocationSuggestions, type NominatimSuggestion } from "../../../../shared/utils/location";
 import { useData } from "../../../../app/contexts/useData";
 import { useSocket } from "../../../../app/contexts/useSocket";

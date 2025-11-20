@@ -11,7 +11,7 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalTask,
 } from "../components/QuickCreateTaskModal";
 import TaskMobileFilter, { type FilterOption } from "../components/TaskMobileFilter";
-import { endOfWeek, startOfWeek } from "@/dashboard/home/utils/dateUtils";
+import { endOfWeek } from "@/dashboard/home/utils/dateUtils";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 import {
@@ -22,12 +22,6 @@ import {
   unarchiveTask,
 } from "@/shared/utils/api";
 import styles from "./TasksListPage.module.css";
-
-const dayLabelFormatter = new Intl.DateTimeFormat(undefined, {
-  weekday: "long",
-  month: "short",
-  day: "numeric",
-});
 
 const dueFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -324,7 +318,6 @@ const TasksListPage: React.FC = () => {
     stats,
     openTasks,
     undatedTasks,
-    completedThisWeek,
     completedTasks,
     archivedTasks,
     navigateToProject,
@@ -567,11 +560,6 @@ const TasksListPage: React.FC = () => {
 
   // Unified filtered and sorted task list
   const filteredAndSortedTasks = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = startOfWeek(now);
-    const weekEnd = endOfWeek(now);
-
     let tasks: TasksOverviewListItem[] = [];
 
     if (statusFilter === "archived") {
@@ -633,8 +621,8 @@ const TasksListPage: React.FC = () => {
     // Apply sorting
     if (sortField && sortOrder) {
       tasks = [...tasks].sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
+        let aValue: string | number;
+        let bValue: string | number;
 
         switch (sortField) {
           case "dueDate":
@@ -676,21 +664,6 @@ const TasksListPage: React.FC = () => {
   ]);
 
   
-
-  const dueSoonGroups = useMemo(() => {
-    const map = new Map<string, { label: string; tasks: TasksOverviewListItem[] }>();
-
-    dueSoonTasks.forEach((task) => {
-      if (!task.dueDate) return;
-      const key = `${task.dueDate.getFullYear()}-${task.dueDate.getMonth()}-${task.dueDate.getDate()}`;
-      const label = dayLabelFormatter.format(task.dueDate);
-      const entry = map.get(key) ?? { label, tasks: [] };
-      entry.tasks.push(task);
-      map.set(key, entry);
-    });
-
-    return Array.from(map.values());
-  }, [dueSoonTasks]);
 
   // Optional project filter: if the caller passed a projectId in location.state, show only that project's tasks
   const projectFilterId = (location.state as { projectId?: string } | undefined)?.projectId ?? undefined;

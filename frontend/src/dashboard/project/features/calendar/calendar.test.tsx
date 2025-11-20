@@ -3,18 +3,15 @@ import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 // Mock child components to keep mount minimal
-vi.mock("@/dashboard/project/components", () => {
-  const React = require("react");
-  return {
-    ProjectPageLayout: ({ children }: { children: React.ReactNode }) => (
-      <div data-testid="project-layout">{children}</div>
-    ),
-    ProjectHeader: () => <div data-testid="project-header" />,
-    QuickLinksComponent: React.forwardRef((_props: any, ref) => <div ref={ref} />),
-    FileManager: () => <div data-testid="file-manager" />,
-    // export types if necessary
-  };
-});
+vi.mock("@/dashboard/project/components", () => ({
+  ProjectPageLayout: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="project-layout">{children}</div>
+  ),
+  ProjectHeader: () => <div data-testid="project-header" />,
+  QuickLinksComponent: React.forwardRef((_props: unknown, ref) => <div ref={ref} />),
+  FileManager: () => <div data-testid="file-manager" />,
+  // export types if necessary
+}));
 
 // Mock Calendar surface to avoid internal complexities
 vi.mock("./components/CalendarSurface", () => ({

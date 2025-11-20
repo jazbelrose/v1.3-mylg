@@ -8,21 +8,8 @@ import { updateUserProfile } from "@/shared/utils/api";
 import PaymentsSection from "@/dashboard/home/components/paymentsection";
 import EditableTextField from "@/shared/ui/EditableTextField";
 import UserProfilePicture from "@/shared/ui/UserProfilePicture";
-import { HelpCircle } from "lucide-react";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
-
-// --- Client-side helper to mirror typical Cognito password policy ---
-// Keep outside the component so it isn't recreated on each render and is easy to unit test.
-export const validatePasswordAgainstTypicalCognitoPolicy = (pwd: string) => {
-  const missing: string[] = [];
-  if (pwd.length < 8) missing.push("at least 8 characters");
-  if (!/[0-9]/.test(pwd)) missing.push("a number");
-  if (!/[a-z]/.test(pwd)) missing.push("a lowercase letter");
-  if (!/[A-Z]/.test(pwd)) missing.push("an uppercase letter");
-  // If your pool requires symbols, un-comment the next line:
-  // if (!/[^A-Za-z0-9]/.test(pwd)) missing.push("a special character");
-  return missing;
-};
+import { validatePasswordAgainstTypicalCognitoPolicy } from "@/shared/utils/passwordValidation";
 
 type RoleKey = "admin" | "designer" | "builder" | "vendor" | "client" | "";
 
@@ -239,9 +226,10 @@ const Settings: React.FC = () => {
       try {
         await updatePassword({ oldPassword, newPassword });
         setPasswordChangeStatus("Password successfully changed.");
-      } catch (err: any) {
-        let msg = err?.message || "Failed to change password.";
-        switch (err?.name) {
+      } catch (err: unknown) {
+        const error = err as { message?: string; name?: string };
+        let msg = error?.message || "Failed to change password.";
+        switch (error?.name) {
           case "InvalidPasswordException":
             // e.g. "Password did not conform with policy: Password must have numeric characters"
             msg = err.message;

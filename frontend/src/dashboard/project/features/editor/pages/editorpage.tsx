@@ -47,9 +47,7 @@ const EditorPage: React.FC = () => {
   // NEW: autosave hook
   const {
     saveNow: saveBriefNow,
-    isSaving: isBriefSaving,
     hasPendingChanges: hasBriefPendingChanges,
-    error: briefSaveError,
   } = useBriefPersistence({
     projectId: activeProject?.projectId,
     content: briefContent,
