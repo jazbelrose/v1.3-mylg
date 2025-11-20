@@ -128,6 +128,8 @@ type ProjectMessagesThreadProps = {
 
 const pmKey = (pid: string) => `project_messages_${pid}`;
 
+const SCROLL_TOLERANCE_PX = 40;
+
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
 }
@@ -536,41 +538,81 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
   ]);
 
   // Scroll handling
-  const prevCountRef = useRef(messages.length);
-  const initialLoadRef = useRef(true);
+  const prevCountRef = useRef(0);
+  const didInitialScrollRef = useRef(false);
+  const lastProjectIdRef = useRef(projectId);
+
+  const scrollToBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // immediate scroll
+    container.scrollTop = container.scrollHeight;
+
+    // after layout (for images / dynamic content)
+    requestAnimationFrame(() => {
+      const c = messagesContainerRef.current;
+      if (!c) return;
+      c.scrollTop = c.scrollHeight;
+    });
+  };
+
+  // Reset scroll state when switching projects
+  useEffect(() => {
+    if (lastProjectIdRef.current !== projectId) {
+      lastProjectIdRef.current = projectId;
+      didInitialScrollRef.current = false;
+      prevCountRef.current = 0;
+    }
+  }, [projectId]);
+
+  // Main scroll effect
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    if (initialLoadRef.current) {
-      container.scrollTop = container.scrollHeight;
-      prevCountRef.current = messages.length;
-      initialLoadRef.current = false;
+    const total = messages.length;
+    const prevTotal = prevCountRef.current;
+    const hasNewMessages = total > prevTotal;
+    prevCountRef.current = total;
+
+    // Initial entry: wait until we've finished loading and the panel is open
+    if (!didInitialScrollRef.current && open && !isLoading) {
+      didInitialScrollRef.current = true;
+
+      if (total > 0) {
+        scrollToBottom();
+      } else {
+        // Even with 0 messages, make sure we're pinned to the bottom
+        container.scrollTop = container.scrollHeight;
+      }
+
       return;
     }
 
+    // Only auto-scroll when user is near the bottom
     const atBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
-      20;
-    const diff = messages.length - prevCountRef.current;
-    prevCountRef.current = messages.length;
+      SCROLL_TOLERANCE_PX;
 
-    if (diff > 0 && atBottom) {
-      container.scrollTo({ top: container.scrollHeight });
-    } else if (atBottom) {
-      container.scrollTop = container.scrollHeight;
+    if (hasNewMessages && atBottom) {
+      scrollToBottom();
     }
-  }, [messages]);
+  }, [messages, open, isLoading]);
 
   // Resize: keep at bottom when already at bottom
   useEffect(() => {
     const handleResize = () => {
       const container = messagesContainerRef.current;
       if (!container) return;
+
       const atBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight <
-        20;
-      if (atBottom) container.scrollTop = container.scrollHeight;
+        SCROLL_TOLERANCE_PX;
+
+      if (atBottom) {
+        scrollToBottom();
+      }
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -1035,9 +1077,9 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
             style={{
               flexGrow: 1,
               overflowY: "auto",
-              padding: "0 4px",
+              padding: "4px 4px 8px",
               borderRadius: "5px",
-              marginBottom: "8px",
+              marginBottom: 0,
               display: "flex",
               flexDirection: "column",
               justifyContent:
@@ -1069,7 +1111,6 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 />
               ))
             )}
-            {messages.length > 0 && <div />}
           </div>
         )}
 
