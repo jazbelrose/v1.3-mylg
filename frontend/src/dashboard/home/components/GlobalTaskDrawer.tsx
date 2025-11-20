@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, ChevronDown, ChevronLeft, MapPin, Plus, Search, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronLeft, MapPin, Plus, Search, Trash, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -27,6 +27,7 @@ import {
   requestTaskChanges,
   archiveTask,
   unarchiveTask,
+  deleteTask,
   getFileUrl,
 } from "@/shared/utils/api";
 
@@ -763,6 +764,37 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       }
     },
     [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
+  );
+
+  const handleDeleteTask = useCallback(
+    async (task: TasksOverviewListItem) => {
+      const confirmed = window.confirm("Are you sure you want to delete this task? This action cannot be undone.");
+      if (!confirmed) return;
+      const identifiers = resolveTaskIdentifiers(task);
+      if (!identifiers) return;
+      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
+      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
+      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
+      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
+      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
+      const canActOnTask = isAdmin || isAssignee || isCreator;
+      if (!canActOnTask) {
+        notify('error', 'Only the assignee, creator, or an admin can delete this task.');
+        return;
+      }
+      setTaskPending(task.id, true);
+      try {
+        await deleteTask({ projectId: identifiers.projectId, taskId: identifiers.taskId });
+        notify("success", "Task deleted successfully.");
+        await refreshTasks();
+      } catch (error) {
+        console.error("Failed to delete task", error);
+        notify("error", "Failed to delete task.");
+      } finally {
+        setTaskPending(task.id, false);
+      }
+    },
+    [refreshTasks, resolveTaskIdentifiers, setTaskPending, user?.userId, isAdmin],
   );
 
   const handleOpenQuickCreate = useCallback(() => {
@@ -1662,6 +1694,20 @@ const BADGE_CLASS_BY_TONE = {
                                 disabled={isBusy}
                               >
                                 {isBusy ? "Working…" : "Unarchive task"}
+                              </button>
+                            ) : null}
+                            {canUnarchive ? (
+                              <button
+                                type="button"
+                                className={styles.taskActionButton}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDeleteTask(task);
+                                }}
+                                disabled={isBusy}
+                                style={{ color: '#ff6b6b', borderColor: '#ff6b6b', marginLeft: 'auto', background: 'rgba(255, 107, 107, 0.1)' }}
+                              >
+                                <Trash size={14} style={{ marginRight: '4px' }} /> Delete
                               </button>
                             ) : null}
                             </div>
