@@ -167,7 +167,14 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [activeProject, setActiveProject] = useState<Project | null>(() => {
     try {
       const stored = localStorage.getItem("dashboardActiveProject");
-      return stored ? (JSON.parse(stored) as Project) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored) as Project;
+        // Strip description to prevent stale overrides
+        const withoutDesc = { ...parsed };
+        delete withoutDesc.description;
+        return withoutDesc as Project;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -214,7 +221,10 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
   useEffect(() => {
     try {
       if (activeProject) {
-        localStorage.setItem("dashboardActiveProject", JSON.stringify(activeProject));
+        // Exclude description from localStorage to prevent stale overrides
+        const toSave = { ...activeProject };
+        delete toSave.description;
+        localStorage.setItem("dashboardActiveProject", JSON.stringify(toSave));
       } else {
         localStorage.removeItem("dashboardActiveProject");
       }
@@ -363,7 +373,10 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
           const cached = localStorage.getItem(cacheKey);
           if (cached) {
             const parsed = JSON.parse(cached) as Project;
-            hydrated = mergeProjectWithFallback(hydrated, parsed);
+            // Strip description from cached to prevent overriding API description
+            const cachedWithoutDesc = { ...parsed };
+            delete cachedWithoutDesc.description;
+            hydrated = mergeProjectWithFallback(hydrated, cachedWithoutDesc);
           }
         } catch {
           /* ignore */
@@ -389,7 +402,10 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
       }
 
       try {
-        localStorage.setItem(cacheKey, JSON.stringify(hydrated));
+        // Exclude description from localStorage to prevent stale overrides
+        const toSave = { ...hydrated };
+        delete toSave.description;
+        localStorage.setItem(cacheKey, JSON.stringify(toSave));
       } catch {
         /* ignore */
       }
@@ -477,7 +493,10 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
           const cached = localStorage.getItem(`project-${projectId}`);
           if (cached) {
             const parsed = JSON.parse(cached) as Project;
-            project = mergeProjectWithFallback(project, parsed);
+            // Strip description from cached to prevent overriding API description
+            const cachedWithoutDesc = { ...parsed };
+            delete cachedWithoutDesc.description;
+            project = mergeProjectWithFallback(project, cachedWithoutDesc);
           }
         } catch {
           /* ignore */
@@ -530,7 +549,10 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
         return [...prev, patched];
       });
       try {
-        localStorage.setItem(`project-${projectId}`, JSON.stringify(patched));
+        // Exclude description from localStorage to prevent stale overrides
+        const toSave = { ...patched };
+        delete toSave.description;
+        localStorage.setItem(`project-${projectId}`, JSON.stringify(toSave));
       } catch {
         /* ignore */
       }
@@ -594,7 +616,10 @@ const RegularProjectsProvider: React.FC<PropsWithChildren> = ({ children }) => {
 
       if (mergedProject) {
         try {
-          localStorage.setItem(`project-${projectId}`, JSON.stringify(mergedProject));
+          // Exclude description from localStorage to prevent stale overrides
+          const toSave = { ...mergedProject };
+          delete toSave.description;
+          localStorage.setItem(`project-${projectId}`, JSON.stringify(toSave));
         } catch {
           /* ignore */
         }
