@@ -246,7 +246,7 @@ export function getFileUrl(keyOrUrl: string): string {
   if (!keyOrUrl.startsWith('http')) {
     keyOrUrl = keyOrUrl.replace(/^\/+/, '');
   }
-  if (keyOrUrl.startsWith('project-thumbnails/')) {
+  if (keyOrUrl.startsWith('project-thumbnails/') || keyOrUrl.startsWith('uploads/')) {
     keyOrUrl = `public/${keyOrUrl}`;
   }
   keyOrUrl = keyOrUrl.replace(
