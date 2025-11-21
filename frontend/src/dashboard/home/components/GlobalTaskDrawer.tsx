@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
-import QuickCreateTaskModal, { type QuickCreateTaskModalTask } from "./QuickCreateTaskModal";
+import QuickCreateTaskModal, { type QuickCreateTaskModalTask, type TaskNoteAttachment } from "./QuickCreateTaskModal";
 import SvgThumbnail from "./SvgThumbnail";
 import { getSquirclePath } from "@/shared/ui/squircle/getSquirclePath";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
@@ -533,6 +533,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
       assigneeId: task.assigneeId ?? undefined,
       address: task.address ?? undefined,
       location: task.location as QuickCreateTaskModalTask["location"],
+      noteAttachments: (task.rawTask as { noteAttachments?: TaskNoteAttachment[] }).noteAttachments ?? undefined,
       reviewerId: (task.rawTask as { reviewerId?: string }).reviewerId ?? undefined,
       createdById: task.createdById ?? undefined,
       createdByName: task.createdByName ?? undefined,

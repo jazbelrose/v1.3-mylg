@@ -9,6 +9,7 @@ import {
 } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalTask,
+  type TaskNoteAttachment,
 } from "../components/QuickCreateTaskModal";
 import TaskMobileFilter, { type FilterOption } from "../components/TaskMobileFilter";
 import { endOfWeek } from "@/dashboard/home/utils/dateUtils";
@@ -510,6 +511,7 @@ const TasksListPage: React.FC = () => {
       assigneeId: task.assigneeId ?? undefined,
       address: task.address ?? undefined,
       location: task.location as QuickCreateTaskModalTask["location"],
+      noteAttachments: (task.rawTask as { noteAttachments?: TaskNoteAttachment[] }).noteAttachments ?? undefined,
       reviewerId: (task.rawTask as { reviewerId?: string }).reviewerId ?? undefined,
     }),
     [],

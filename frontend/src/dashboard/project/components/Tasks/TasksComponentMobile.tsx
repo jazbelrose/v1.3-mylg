@@ -7,6 +7,7 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalEvent,
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
+  type TaskNoteAttachment,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
 import type { Project } from "@/app/contexts/DataProvider";
 
@@ -139,6 +140,7 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
         assigneeId: task.assignedTo ?? undefined,
         address: task.address ?? undefined,
         location: (task.location ?? task.raw?.location) as QuickCreateTaskModalTask["location"],
+        noteAttachments: (task.raw as { noteAttachments?: TaskNoteAttachment[] }).noteAttachments ?? undefined,
         reviewerId: (task.raw as { reviewerId?: string }).reviewerId ?? undefined,
         createdById: task.raw.createdById ?? undefined,
         createdByName: task.raw.createdByName ?? undefined,

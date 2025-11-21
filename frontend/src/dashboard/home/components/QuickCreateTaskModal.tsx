@@ -2040,4 +2040,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   );
 };
 
+export type { TaskNoteAttachment } from "./QuickCreateTaskModal.types";
+
 export default QuickCreateTaskModal;

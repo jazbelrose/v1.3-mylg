@@ -8,6 +8,7 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
+  type TaskNoteAttachment,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
 import {
   AlertTriangle,
@@ -295,6 +296,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
         assigneeId: task.assignedTo ?? undefined,
         address: task.address ?? undefined,
         location: (task.location ?? task.raw?.location) as QuickCreateTaskModalTask["location"],
+        noteAttachments: (task.raw as { noteAttachments?: TaskNoteAttachment[] }).noteAttachments ?? undefined,
         reviewerId: (task.raw as { reviewerId?: string }).reviewerId ?? undefined,
         createdById: task.raw.createdById ?? undefined,
         createdByName: task.raw.createdByName ?? undefined,
