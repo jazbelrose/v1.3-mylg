@@ -298,7 +298,7 @@ export async function uploadFile(file: File): Promise<string> {
   const timestamp = Date.now();
   const randomId = Math.random().toString(36).slice(2, 8);
   const fileExtension = file.name.split('.').pop() || 'bin';
-  const filename = `public/uploads/tasks/${timestamp}_${randomId}.${fileExtension}`;
+  const filename = `uploads/tasks/${timestamp}_${randomId}.${fileExtension}`;
   
   console.log('Uploading file:', file.name, 'to key:', filename);
   const uploadTask = uploadData({
