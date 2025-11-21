@@ -1382,12 +1382,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         payload.noteAttachments = [];
       }
 
+      console.log('noteAttachments:', noteAttachments);
+      console.log('payload.noteAttachments:', payload.noteAttachments);
+
       if (isEditing && taskId) {
+        console.log('Editing task:', taskId, 'with payload:', payload);
         await updateTask({ ...payload, taskId });
+        console.log('Task updated successfully');
         setSuccessMessage("Task updated. Changes saved.");
         onUpdated?.();
       } else {
+        console.log('Creating task with payload:', payload);
         await createTask(payload);
+        console.log('Task created successfully');
         setSuccessMessage("Task created. You'll see it in your lists shortly.");
         setTitle("");
         setDescription("");

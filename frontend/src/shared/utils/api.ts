@@ -300,6 +300,7 @@ export async function uploadFile(file: File): Promise<string> {
   const fileExtension = file.name.split('.').pop() || 'bin';
   const filename = `public/uploads/tasks/${timestamp}_${randomId}.${fileExtension}`;
   
+  console.log('Uploading file:', file.name, 'to key:', filename);
   const uploadTask = uploadData({
     key: filename,
     data: file,
@@ -307,8 +308,9 @@ export async function uploadFile(file: File): Promise<string> {
   });
   
   await uploadTask.result;
-  
-  return getFileUrl(filename);
+  const url = getFileUrl(filename);
+  console.log('Upload successful, URL:', url);
+  return url;
 }
 
 export const S3_PUBLIC_BASE = `${FILE_CDN || `https://${FILE_BUCKET}.s3.${FILE_REGION}.amazonaws.com`}/`;
