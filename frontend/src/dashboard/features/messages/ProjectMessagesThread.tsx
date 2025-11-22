@@ -128,7 +128,7 @@ type ProjectMessagesThreadProps = {
 
 const pmKey = (pid: string) => `project_messages_${pid}`;
 
-const SCROLL_TOLERANCE_PX = 40;
+const SCROLL_TOLERANCE_PX = 10;
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -313,6 +313,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
   const [sendError, setSendError] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -542,19 +543,8 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
   const didInitialScrollRef = useRef(false);
   const lastProjectIdRef = useRef(projectId);
 
-  const scrollToBottom = () => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    // immediate scroll
-    container.scrollTop = container.scrollHeight;
-
-    // after layout (for images / dynamic content)
-    requestAnimationFrame(() => {
-      const c = messagesContainerRef.current;
-      if (!c) return;
-      c.scrollTop = c.scrollHeight;
-    });
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
   };
 
   // Reset scroll state when switching projects
@@ -617,6 +607,28 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // ResizeObserver: handle image loading and dynamic content layout shifts
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !open) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      const atBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight <
+        SCROLL_TOLERANCE_PX;
+
+      if (atBottom) {
+        scrollToBottom("auto");
+      }
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [open, messages]);
 
   // Send text
   const sendMessage = () => {
@@ -1079,7 +1091,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
               overflowY: "auto",
               padding: "4px 4px 8px",
               borderRadius: "5px",
-              marginBottom: 0,
+              marginBottom: "10px",
               display: "flex",
               flexDirection: "column",
               justifyContent:
@@ -1111,6 +1123,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 />
               ))
             )}
+            <div ref={messagesEndRef} style={{ height: "1px", flexShrink: 0 }} />
           </div>
         )}
 
