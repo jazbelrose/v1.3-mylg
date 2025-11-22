@@ -13,7 +13,6 @@ import {
 } from "@/shared/utils/api";
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
-import FilePreviewModal from "@/dashboard/project/components/FileManager/FilePreviewModal";
 import { notify } from "@/shared/ui/ToastNotifications";
 
 import styles from "./QuickCreateTaskModal.module.css";
@@ -301,8 +300,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [focusedAssigneeIndex, setFocusedAssigneeIndex] = useState(-1);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
-  const previewTouchStartX = useRef<number>(0);
-  const previewTouchStartY = useRef<number>(0);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
   const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
@@ -1303,10 +1300,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   }, []);
 
   const handleAttachmentClick = useCallback((index: number, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent event bubbling to parent handlers
+    
     // Don't open preview if clicking the remove button
     if ((event.target as HTMLElement).closest('button')) {
       return;
     }
+    
     const attachment = noteAttachments[index];
     if (!attachment) return;
     
@@ -1315,36 +1315,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     const isImage = extension && ['jpg', 'jpeg', 'png'].includes(extension);
     
     if (isImage) {
+      console.log('Setting preview state to open');
       setSelectedAttachmentIndex(index);
       setPreviewOpen(true);
     }
   }, [noteAttachments]);
 
   const handleClosePreview = useCallback(() => {
+    console.log('handleClosePreview called - closing preview');
     setPreviewOpen(false);
     setSelectedAttachmentIndex(null);
   }, []);
-
-  const handlePreviewTouchStart = useCallback((event: React.TouchEvent) => {
-    previewTouchStartX.current = event.touches[0].clientX;
-    previewTouchStartY.current = event.touches[0].clientY;
-  }, []);
-
-  const handlePreviewTouchMove = useCallback((event: React.TouchEvent) => {
-    // Touch move logic handled by FilePreviewModal internally
-    void event; // Acknowledge event parameter
-  }, []);
-
-  const handlePreviewTouchEnd = useCallback(() => {
-    const deltaX = 0; // Simplified - FilePreviewModal handles swipe detection
-    if (Math.abs(deltaX) > 50) {
-      if (deltaX > 0 && selectedAttachmentIndex !== null && selectedAttachmentIndex > 0) {
-        setSelectedAttachmentIndex(selectedAttachmentIndex - 1);
-      } else if (deltaX < 0 && selectedAttachmentIndex !== null && selectedAttachmentIndex < noteAttachments.length - 1) {
-        setSelectedAttachmentIndex(selectedAttachmentIndex + 1);
-      }
-    }
-  }, [selectedAttachmentIndex, noteAttachments.length]);
 
   const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setStatus(event.target.value as TaskStatus);
@@ -1528,7 +1509,59 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   };
 
   if (!open) {
-    return null;
+    // Keep preview modal alive even when parent is closed
+    if (!previewOpen) return null;
+    
+    const selectedImage = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex]?.url : null;
+    
+    return createPortal(
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+        }}
+        onClick={handleClosePreview}
+      >
+        <button
+          onClick={handleClosePreview}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: 'none',
+            color: 'white',
+            fontSize: '24px',
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            zIndex: 100000,
+          }}
+        >
+          ×
+        </button>
+        <img 
+          src={selectedImage || ''}
+          alt="Preview"
+          style={{
+            maxWidth: '90%',
+            maxHeight: '90%',
+            objectFit: 'contain',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>,
+      document.body
+    );
   }
 
   const modalContent = (
@@ -2097,41 +2130,82 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const selectedImage = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex]?.url : null;
 
+  console.log('Preview render check:', {
+    previewOpen,
+    selectedAttachmentIndex,
+    selectedImage,
+    currentFile: selectedAttachmentIndex !== null ? displayedFiles[selectedAttachmentIndex] : null,
+    displayedFilesLength: displayedFiles.length
+  });
+
+  const simplePreviewModal = previewOpen && selectedImage ? createPortal(
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999,
+      }}
+      onClick={handleClosePreview}
+    >
+      <button
+        onClick={handleClosePreview}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: 'none',
+          color: 'white',
+          fontSize: '24px',
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          cursor: 'pointer',
+          zIndex: 100000,
+        }}
+      >
+        ×
+      </button>
+      <img 
+        src={selectedImage}
+        alt="Preview"
+        style={{
+          maxWidth: '90%',
+          maxHeight: '90%',
+          objectFit: 'contain',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>,
+    document.body
+  ) : null;
+
   if (embedMode) {
     return (
       <>
         {modalContent}
-        <FilePreviewModal
-          isOpen={previewOpen}
-          onRequestClose={handleClosePreview}
-          displayedFiles={displayedFiles}
-          currentIndex={selectedAttachmentIndex}
-          selectedImage={selectedImage}
-          onTouchStart={handlePreviewTouchStart}
-          onTouchMove={handlePreviewTouchMove}
-          onTouchEnd={handlePreviewTouchEnd}
-        />
+        {simplePreviewModal}
       </>
     );
   }
 
-  return createPortal(
+  return (
     <>
-      <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
-        {modalContent}
-      </div>
-      <FilePreviewModal
-        isOpen={previewOpen}
-        onRequestClose={handleClosePreview}
-        displayedFiles={displayedFiles}
-        currentIndex={selectedAttachmentIndex}
-        selectedImage={selectedImage}
-        onTouchStart={handlePreviewTouchStart}
-        onTouchMove={handlePreviewTouchMove}
-        onTouchEnd={handlePreviewTouchEnd}
-      />
-    </>,
-    document.body
+      {createPortal(
+        <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
+          {modalContent}
+        </div>,
+        document.body
+      )}
+      {simplePreviewModal}
+    </>
   );
 };
 
