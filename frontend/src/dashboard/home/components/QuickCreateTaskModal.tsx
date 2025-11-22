@@ -13,6 +13,7 @@ import {
 } from "@/shared/utils/api";
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
+import FilePreviewModal from "@/dashboard/project/components/FileManager/FilePreviewModal";
 import { notify } from "@/shared/ui/ToastNotifications";
 
 import styles from "./QuickCreateTaskModal.module.css";
@@ -298,6 +299,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [focusedAssigneeIndex, setFocusedAssigneeIndex] = useState(-1);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
+  const previewTouchStartX = useRef<number>(0);
+  const previewTouchStartY = useRef<number>(0);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
   const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
@@ -1297,6 +1302,50 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setErrorMessage(null);
   }, []);
 
+  const handleAttachmentClick = useCallback((index: number, event: React.MouseEvent) => {
+    // Don't open preview if clicking the remove button
+    if ((event.target as HTMLElement).closest('button')) {
+      return;
+    }
+    const attachment = noteAttachments[index];
+    if (!attachment) return;
+    
+    // Check if it's a previewable image
+    const extension = attachment.fileName.split('.').pop()?.toLowerCase();
+    const isImage = extension && ['jpg', 'jpeg', 'png'].includes(extension);
+    
+    if (isImage) {
+      setSelectedAttachmentIndex(index);
+      setPreviewOpen(true);
+    }
+  }, [noteAttachments]);
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewOpen(false);
+    setSelectedAttachmentIndex(null);
+  }, []);
+
+  const handlePreviewTouchStart = useCallback((event: React.TouchEvent) => {
+    previewTouchStartX.current = event.touches[0].clientX;
+    previewTouchStartY.current = event.touches[0].clientY;
+  }, []);
+
+  const handlePreviewTouchMove = useCallback((event: React.TouchEvent) => {
+    // Touch move logic handled by FilePreviewModal internally
+    void event; // Acknowledge event parameter
+  }, []);
+
+  const handlePreviewTouchEnd = useCallback(() => {
+    const deltaX = 0; // Simplified - FilePreviewModal handles swipe detection
+    if (Math.abs(deltaX) > 50) {
+      if (deltaX > 0 && selectedAttachmentIndex !== null && selectedAttachmentIndex > 0) {
+        setSelectedAttachmentIndex(selectedAttachmentIndex - 1);
+      } else if (deltaX < 0 && selectedAttachmentIndex !== null && selectedAttachmentIndex < noteAttachments.length - 1) {
+        setSelectedAttachmentIndex(selectedAttachmentIndex + 1);
+      }
+    }
+  }, [selectedAttachmentIndex, noteAttachments.length]);
+
   const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setStatus(event.target.value as TaskStatus);
     setSuccessMessage(null);
@@ -1960,11 +2009,23 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               />
               {noteAttachments.length > 0 && (
                 <div className={styles.attachmentChips}>
-                  {noteAttachments.map((attachment) => (
-                    <div key={attachment.id} className={styles.attachmentChip}>
+                  {noteAttachments.map((attachment, index) => (
+                    <div 
+                      key={attachment.id} 
+                      className={styles.attachmentChip}
+                      onClick={(e) => handleAttachmentClick(index, e)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <img src={attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
                       <span>{attachment.fileName}</span>
-                      <button onClick={() => handleRemoveAttachment(attachment.id)}>×</button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveAttachment(attachment.id);
+                        }}
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -2028,14 +2089,48 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       </div>
     );
 
+  const displayedFiles = noteAttachments.map(att => ({
+    fileName: att.fileName,
+    url: att.url,
+    uploadedAt: att.uploadedAt || new Date().toISOString(),
+  }));
+
+  const selectedImage = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex]?.url : null;
+
   if (embedMode) {
-    return modalContent;
+    return (
+      <>
+        {modalContent}
+        <FilePreviewModal
+          isOpen={previewOpen}
+          onRequestClose={handleClosePreview}
+          displayedFiles={displayedFiles}
+          currentIndex={selectedAttachmentIndex}
+          selectedImage={selectedImage}
+          onTouchStart={handlePreviewTouchStart}
+          onTouchMove={handlePreviewTouchMove}
+          onTouchEnd={handlePreviewTouchEnd}
+        />
+      </>
+    );
   }
 
   return createPortal(
-    <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
-      {modalContent}
-    </div>,
+    <>
+      <div className={styles.createOverlay} role="presentation" onMouseDown={handleOverlayMouseDown}>
+        {modalContent}
+      </div>
+      <FilePreviewModal
+        isOpen={previewOpen}
+        onRequestClose={handleClosePreview}
+        displayedFiles={displayedFiles}
+        currentIndex={selectedAttachmentIndex}
+        selectedImage={selectedImage}
+        onTouchStart={handlePreviewTouchStart}
+        onTouchMove={handlePreviewTouchMove}
+        onTouchEnd={handlePreviewTouchEnd}
+      />
+    </>,
     document.body
   );
 };
