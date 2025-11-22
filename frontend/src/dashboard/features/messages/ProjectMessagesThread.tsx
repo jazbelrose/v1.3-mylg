@@ -571,7 +571,12 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
       didInitialScrollRef.current = true;
 
       if (total > 0) {
-        scrollToBottom();
+        // Use multiple RAF to ensure layout is complete
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            scrollToBottom();
+          });
+        });
       } else {
         // Even with 0 messages, make sure we're pinned to the bottom
         container.scrollTop = container.scrollHeight;
@@ -586,7 +591,9 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
       SCROLL_TOLERANCE_PX;
 
     if (hasNewMessages && atBottom) {
-      scrollToBottom();
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
     }
   }, [messages, open, isLoading]);
 
@@ -613,13 +620,19 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     const container = messagesContainerRef.current;
     if (!container || !open) return;
 
+    let scrollTimeout: NodeJS.Timeout;
+
     const resizeObserver = new ResizeObserver(() => {
       const atBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight <
         SCROLL_TOLERANCE_PX;
 
       if (atBottom) {
-        scrollToBottom("auto");
+        // Debounce scroll to avoid excessive calls during rapid layout changes
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          scrollToBottom("auto");
+        }, 50);
       }
     });
 
@@ -627,6 +640,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
 
     return () => {
       resizeObserver.disconnect();
+      clearTimeout(scrollTimeout);
     };
   }, [open, messages]);
 
