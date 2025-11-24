@@ -154,7 +154,6 @@ const TasksOverviewCard: React.FC<TasksOverviewCardProps> = ({ className }) => {
   const location = useLocation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
-  const [isMapDrawerOpen, setIsMapDrawerOpen] = useState(false);
 
   const flatTasks = useMemo(
     () =>
@@ -244,14 +243,6 @@ const TasksOverviewCard: React.FC<TasksOverviewCardProps> = ({ className }) => {
     setIsCreateModalOpen(false);
   }, []);
 
-  const openMapDrawer = useCallback(() => {
-    setIsMapDrawerOpen(true);
-  }, []);
-
-  const closeMapDrawer = useCallback(() => {
-    setIsMapDrawerOpen(false);
-  }, []);
-
   const formatStatValue = (value: number): string | number => {
     if (error) return "—";
     if (loading) return "…";
@@ -277,14 +268,6 @@ const TasksOverviewCard: React.FC<TasksOverviewCardProps> = ({ className }) => {
             >
               <Plus aria-hidden="true" />
               New task
-            </Button>
-            <Button
-              variant="outline"
-              className={cn(styles.actionButton)}
-              onClick={openMapDrawer}
-            >
-              <MapPin aria-hidden="true" />
-              Open map view
             </Button>
             <Link
               to="/dashboard/tasks"
@@ -346,7 +329,6 @@ const TasksOverviewCard: React.FC<TasksOverviewCardProps> = ({ className }) => {
         onDeleted={refreshTasks}
         task={taskToEdit}
       />
-      <GlobalTaskDrawer open={isMapDrawerOpen} onClose={closeMapDrawer} />
     </>
   );
 };

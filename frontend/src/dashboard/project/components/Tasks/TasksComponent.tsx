@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 
 import styles from "./TasksComponent.module.css";
-import TaskDrawer from "./components/TaskDrawer";
 import {
   DEFAULT_LOCATION,
   DRAWER_SNAP_POINTS,
@@ -730,8 +729,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
               
               Project tasks
             </Button>
-            <Button variant="outline" onClick={handleOpenDrawer} disabled={loading}>Open map view
-            </Button>
           </div>
         </header>
 
@@ -785,50 +782,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
      
       </div>
 
-      <TaskDrawer
-        open={drawerOpen}
-        isDesktop={isDesktop}
-        viewportHeight={viewportHeight}
-        targetY={targetY}
-        projectName={projectName}
-        mapLocation={mapLocation}
-        mapAddress={mapAddress}
-        mapMarkers={mapMarkers}
-        mapFocus={mapFocus}
-        mapStatusMessage={mapStatusMessage}
-        hasQuickCreateProject={hasQuickCreateProject}
-        loading={loading}
-        error={error}
-        stats={stats}
-        formatValue={formatStatValue}
-        statusMessage={statusMessage}
-        tasks={drawerTasks}
-        activeTaskId={activeTaskId}
-        onTaskSelect={handleTaskSelect}
-        onTaskEdit={handleEditTask}
-        onTaskMarkDone={handleMarkTaskDone}
-        isTaskMarking={isTaskBeingMarked}
-        formatDueLabel={formatDueLabel}
-        selectedTask={selectedTask}
-        selectedAssigneeName={selectedAssigneeName}
-        onMarkerClick={handleMarkerClick}
-        onClose={handleCloseDrawer}
-        onOpenQuickCreate={handleOpenQuickCreate}
-        onHandleClick={handleHandleClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        sheetRef={sheetRef}
-        taskListRef={drawerTaskListRef}
-        canApproveTask={(task) => {
-          if (!isAdmin) {
-            return false;
-          }
-          const normalizedStatus =
-            typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
-          return normalizedStatus === "in_review";
-        }}
-      />
       <QuickCreateTaskModal
         open={quickCreateOpen}
         onClose={handleCloseQuickCreate}
