@@ -886,7 +886,7 @@ const BADGE_CLASS_BY_TONE = {
     ? `${styles.sheetOverlay} ${styles.desktopOverlay}`
     : styles.sheetOverlay;
   const sheetClassName = isDesktop 
-    ? `${styles.sheet} ${styles.desktopSheet} ${detailsPanelOpen ? styles.dimmed : ''}`
+    ? `${styles.sheet} ${styles.desktopSheet}`
     : styles.sheet;
   const drawerInitial = isDesktop ? { x: "-100%" } : { y: viewportHeight };
   const drawerAnimate = isDesktop ? { x: 0 } : { y: targetY };
