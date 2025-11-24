@@ -689,6 +689,10 @@ const CalendarPage: React.FC = () => {
         typeof target.status === "string" ? target.status.trim().toLowerCase() : "";
       const isAwaitingApproval = normalizedStatus === "in_review";
       const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+      const canSubmitForReview =
+        normalizedStatus === "to_do" ||
+        normalizedStatus === "in_progress" ||
+        normalizedStatus === "needs_changes";
 
       if (isComplete) {
         notify("info", "That task is already complete.");
@@ -697,6 +701,11 @@ const CalendarPage: React.FC = () => {
 
       if (isAwaitingApproval && !isAdmin) {
         notify("error", "Only admins can approve tasks that are in review.");
+        return;
+      }
+
+      if (!isAwaitingApproval && !canSubmitForReview) {
+        notify("error", "Task status doesn't allow this action.");
         return;
       }
 

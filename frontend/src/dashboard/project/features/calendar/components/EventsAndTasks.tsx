@@ -378,10 +378,7 @@ function EventsAndTasks({
               const isPopoverOpen = activeTaskPopoverId === task.id;
               const normalizedStatus = typeof rawStatus === "string" ? rawStatus.trim().toLowerCase() : "";
               const isDone =
-                Boolean(task.done) ||
                 normalizedStatus === "done" ||
-                normalizedStatus === "completed" ||
-                normalizedStatus === "complete" ||
                 normalizedStatus === "archived";
               const isAwaitingApproval = normalizedStatus === "in_review";
               const canApprove = isAdmin && isAwaitingApproval;

@@ -407,7 +407,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const statusMessage = useMemo(() => {
     if (!quickTasks.length) return "No tasks for this project yet.";
 
-    const openTasks = quickTasks.filter((task) => task.status !== "done");
+    const openTasks = quickTasks.filter((task) => task.status !== "done" && task.status !== "archived");
     if (!openTasks.length) return "You're all caught up.";
 
     const datedTasks = openTasks.filter(
@@ -772,6 +772,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         typeof normalizedTask.status === "string" ? normalizedTask.status.trim().toLowerCase() : "";
       const isAwaitingApproval = normalizedStatus === "in_review";
       const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+      const canSubmitForReview =
+        normalizedStatus === "to_do" ||
+        normalizedStatus === "in_progress" ||
+        normalizedStatus === "needs_changes";
 
       if (isComplete) {
         setTaskMarkingState(taskId, false);
@@ -782,6 +786,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       if (isAwaitingApproval && !isAdmin) {
         setTaskMarkingState(taskId, false);
         notify("error", "Only admins can approve tasks that are in review.");
+        return;
+      }
+
+      if (!isAwaitingApproval && !canSubmitForReview) {
+        setTaskMarkingState(taskId, false);
+        notify("error", "Task status doesn't allow this action.");
         return;
       }
 
