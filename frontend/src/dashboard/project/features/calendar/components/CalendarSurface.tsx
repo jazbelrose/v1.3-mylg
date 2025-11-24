@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckSquare, Menu, Search } from "lucide-react";
-
-import TaskDrawer from "@/dashboard/project/components/Tasks/components/TaskDrawer";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   buildMapMarkers as buildTaskMapMarkers,
   buildMarkerThumbnail as buildTaskMarkerThumbnail,
@@ -89,6 +88,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 }) => {
   const { isAdmin } = useUser();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
   const [modalState, setModalState] = useState<{
@@ -104,21 +105,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   });
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
-  const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
-  const [drawerSnapIndex, setDrawerSnapIndex] = useState<SnapIndex>(2);
-  const [viewportHeight, setViewportHeight] = useState(() => getTaskViewportHeight());
-  const [activeDrawerTaskId, setActiveDrawerTaskId] = useState<string | null>(null);
-  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
-  const [isDraggingDrawer, setIsDraggingDrawer] = useState(false);
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
-  const [currentDragY, setCurrentDragY] = useState(0);
-  const [isDesktopDrawer, setIsDesktopDrawer] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
-  const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
-  const sheetRef = useRef<HTMLDivElement | null>(null);
-  const initialScrollDoneRef = useRef(false);
 
 
   const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
@@ -445,33 +434,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [activeProjectColor],
   );
 
-  const mapMarkers = useMemo<TaskMapMarker[]>(() => {
-    if (!mapTasks.length) return [];
-    return buildTaskMapMarkers(mapTasks, markerThumbnail, activeDrawerTaskId);
-  }, [mapTasks, markerThumbnail, activeDrawerTaskId]);
-
-  const selectedTask = useMemo(
-    () => drawerTasks.find((task) => task.id === activeDrawerTaskId) ?? null,
-    [drawerTasks, activeDrawerTaskId],
-  );
-
-  const selectedAssigneeName = useMemo(
-    () => formatAssigneeDisplay(selectedTask?.assignedTo),
-    [selectedTask],
-  );
-
-  const mapLocation = selectedTask?.location ?? mapTasks[0]?.location ?? TASKS_DEFAULT_LOCATION;
-  const mapAddress = selectedTask?.address ?? mapTasks[0]?.address ?? activeProjectName ?? "Project";
+  const mapLocation = mapTasks[0]?.location ?? TASKS_DEFAULT_LOCATION;
+  const mapAddress = mapTasks[0]?.address ?? activeProjectName ?? "Project";
 
   const formatStatValue = useCallback((value: number) => value, []);
-
-  const sheetHeights = useMemo(
-    () => DRAWER_SNAP_POINTS.map((point) => viewportHeight * point),
-    [viewportHeight],
-  );
-
-  const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[drawerSnapIndex] : 0;
-  const targetY = isDraggingDrawer ? baseTargetY + currentDragY : baseTargetY;
 
   const canCreateTasks = useMemo(
     () => taskProjects.length > 0 || Boolean(activeProjectId),
@@ -491,170 +457,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   }, []);
 
   const handleOpenTasksOverview = useCallback(() => {
-    if (isMobile) {
-      setIsEventsDrawerOpen(false);
-    }
-    setIsTaskDrawerOpen(true);
-    setDrawerSnapIndex(2);
-    setViewportHeight(getTaskViewportHeight());
-    setMapFocus(null);
-    initialScrollDoneRef.current = false;
-
-    if (!activeDrawerTaskId && drawerTasks.length) {
-      setActiveDrawerTaskId(drawerTasks[0].id);
-    }
-  }, [activeDrawerTaskId, drawerTasks, isMobile]);
-
-  const handleCloseTasksOverview = useCallback(() => {
-    setIsTaskDrawerOpen(false);
-    setDrawerSnapIndex(2);
-    setMapFocus(null);
-    setIsDraggingDrawer(false);
-    setDragStartY(null);
-    setCurrentDragY(0);
-    initialScrollDoneRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    if (!drawerTasks.length) {
-      setActiveDrawerTaskId(null);
-      return;
-    }
-
-    if (!activeDrawerTaskId || !drawerTasks.some((task) => task.id === activeDrawerTaskId)) {
-      setActiveDrawerTaskId(drawerTasks[0].id);
-    }
-  }, [drawerTasks, activeDrawerTaskId]);
-
-  useEffect(() => {
-    if (!isTaskDrawerOpen || typeof window === "undefined") return;
-
-    const update = () => setViewportHeight(getTaskViewportHeight());
-    update();
-
-    window.addEventListener("resize", update);
-    const viewport = window.visualViewport;
-    viewport?.addEventListener("resize", update);
-
-    return () => {
-      window.removeEventListener("resize", update);
-      viewport?.removeEventListener("resize", update);
+    // Navigate to global tasks drawer with project filter and calendar context
+    const state: { projectId?: string; from?: string; fromContext?: string } = {
+      from: location.pathname,
+      fromContext: "calendar",
     };
-  }, [isTaskDrawerOpen]);
-
-  useEffect(() => {
-    if (!isTaskDrawerOpen || typeof document === "undefined") return;
-    const { body } = document;
-    const previousOverflow = body.style.overflow;
-    body.style.overflow = "hidden";
-    return () => {
-      body.style.overflow = previousOverflow;
-    };
-  }, [isTaskDrawerOpen]);
-
-  useEffect(() => {
-    if (!isTaskDrawerOpen) return;
-    if (typeof window === "undefined") return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        handleCloseTasksOverview();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleCloseTasksOverview, isTaskDrawerOpen]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      setIsDesktopDrawer(false);
-      return;
+    
+    if (activeProjectId) {
+      state.projectId = activeProjectId;
     }
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateMatch = () => setIsDesktopDrawer(mediaQuery.matches);
-    updateMatch();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", updateMatch);
-      return () => mediaQuery.removeEventListener("change", updateMatch);
-    }
-
-    mediaQuery.addListener(updateMatch);
-    return () => mediaQuery.removeListener(updateMatch);
-  }, []);
-
-  useEffect(() => {
-    if (!isTaskDrawerOpen || !activeDrawerTaskId || !drawerTaskListRef.current) return;
-
-    const container = drawerTaskListRef.current;
-    const target = container.querySelector<HTMLLIElement>(
-      `[data-task-id="${activeDrawerTaskId}"]`,
-    );
-
-    if (target) {
-      const behavior: ScrollBehavior = initialScrollDoneRef.current ? "smooth" : "auto";
-      target.scrollIntoView({ block: "center", behavior });
-      initialScrollDoneRef.current = true;
-    }
-  }, [isTaskDrawerOpen, activeDrawerTaskId, drawerTasks]);
-
-  useEffect(() => {
-    if (!isTaskDrawerOpen) return;
-    const current = drawerTasks.find((task) => task.id === activeDrawerTaskId);
-    if (current?.location) {
-      setMapFocus(current.location);
-    } else {
-      setMapFocus(null);
-    }
-  }, [isTaskDrawerOpen, drawerTasks, activeDrawerTaskId]);
-
-  const handleHandleClick = useCallback(() => {
-    setDrawerSnapIndex((current) => {
-      if (current === 2) return 1;
-      if (current === 1) return 2;
-      return 1;
-    });
-  }, []);
-
-  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length === 1) {
-      setIsDraggingDrawer(true);
-      setDragStartY(event.touches[0].clientY);
-      setCurrentDragY(0);
-    }
-  }, []);
-
-  const handleTouchMove = useCallback(
-    (event: React.TouchEvent<HTMLDivElement>) => {
-      if (isDraggingDrawer && dragStartY !== null && event.touches.length === 1) {
-        const deltaY = event.touches[0].clientY - dragStartY;
-        setCurrentDragY(deltaY);
-        event.preventDefault();
-      }
-    },
-    [isDraggingDrawer, dragStartY],
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    if (isDraggingDrawer) {
-      setIsDraggingDrawer(false);
-      setDragStartY(null);
-
-      const threshold = viewportHeight * 0.15;
-      if (Math.abs(currentDragY) > threshold) {
-        if (currentDragY > 0) {
-          setDrawerSnapIndex((current) => Math.max(0, current - 1) as SnapIndex);
-        } else {
-          setDrawerSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
-        }
-      }
-
-      setCurrentDragY(0);
-    }
-  }, [isDraggingDrawer, currentDragY, viewportHeight]);
+    
+    navigate("/dashboard/tasks", { state });
+  }, [navigate, location.pathname, activeProjectId]);
 
   const openQuickCreateForTask = useCallback(
     (
@@ -729,29 +543,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     ],
   );
 
-  const handleTaskSelect = useCallback(
-    (taskId: string) => {
-      if (activeDrawerTaskId === taskId) {
-        openQuickCreateForTask(taskId);
-      } else {
-        setActiveDrawerTaskId(taskId);
-        setDrawerSnapIndex((current) => (current === 0 ? 1 : current) as SnapIndex);
-      }
-    },
-    [activeDrawerTaskId, openQuickCreateForTask],
-  );
-
-  const handleTaskEdit = useCallback(
-    (taskId: string) => {
-      setActiveDrawerTaskId(taskId);
-      openQuickCreateForTask(taskId);
-    },
-    [openQuickCreateForTask],
-  );
-
   const handleTaskMarkDone = useCallback(
     async (taskId: string) => {
-      setActiveDrawerTaskId(taskId);
       const quickTask = quickTaskById.get(taskId) ?? null;
       const sourceTask = taskLookup.get(taskId) ?? null;
       const normalizedTask = quickTask ?? (sourceTask ? normalizeQuickTask(sourceTask) ?? null : null);
@@ -844,22 +637,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     ],
   );
 
-  const handleMarkerClick = useCallback(
-    (markerId: string) => {
-      handleTaskSelect(markerId);
-      const locatedTask = drawerTasks.find((task) => task.id === markerId);
-      if (locatedTask?.location) {
-        setMapFocus(locatedTask.location);
-      }
-    },
-    [drawerTasks, handleTaskSelect],
-  );
-
   const handleOpenQuickCreateFromDrawer = useCallback(() => {
     if (!hasQuickCreateProject) return;
 
     const fallbackProjectId =
-      activeProjectId ?? taskProjects[0]?.id ?? (drawerTasks[0]?.projectId ?? "");
+      activeProjectId ?? taskProjects[0]?.id ?? "";
     if (!fallbackProjectId) return;
 
     const fallbackProjectName =
@@ -879,7 +661,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     activeProjectId,
     taskProjects,
     activeProjectName,
-    drawerTasks,
   ]);
 
   const handleOpenQuickTaskModal = useCallback(
@@ -933,7 +714,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     (task: CalendarTask) => {
       const taskDate = task.due ? safeDate(task.due) ?? new Date(task.due) : new Date();
       setInternalDate(taskDate);
-      setActiveDrawerTaskId(task.id);
       openQuickCreateForTask(task.id, undefined, task.source);
     },
     [openQuickCreateForTask],
@@ -1164,50 +944,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           onOpenTasksOverview={handleOpenTasksOverview}
         />
       ) : null}
-      <TaskDrawer
-        open={isTaskDrawerOpen}
-        isDesktop={isDesktopDrawer}
-        viewportHeight={viewportHeight}
-        targetY={targetY}
-        projectName={activeProjectName ?? undefined}
-        mapLocation={mapLocation}
-        mapAddress={mapAddress}
-        mapMarkers={mapMarkers}
-        mapFocus={mapFocus}
-        mapStatusMessage={mapStatusMessage}
-        hasQuickCreateProject={hasQuickCreateProject}
-        loading={false}
-        error={null}
-        stats={stats}
-        formatValue={formatStatValue}
-        statusMessage={statusMessage}
-        tasks={drawerTasks}
-        activeTaskId={activeDrawerTaskId}
-        onTaskSelect={handleTaskSelect}
-        onTaskEdit={handleTaskEdit}
-        onTaskMarkDone={handleTaskMarkDone}
-        isTaskMarking={isTaskMarking}
-        formatDueLabel={formatDrawerDueLabel}
-        selectedTask={selectedTask}
-        selectedAssigneeName={selectedAssigneeName}
-        onMarkerClick={handleMarkerClick}
-        onClose={handleCloseTasksOverview}
-        onOpenQuickCreate={handleOpenQuickCreateFromDrawer}
-        onHandleClick={handleHandleClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        sheetRef={sheetRef}
-        taskListRef={drawerTaskListRef}
-        canApproveTask={(task) => {
-          if (!isAdmin) {
-            return false;
-          }
-          const normalizedStatus =
-            typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
-          return normalizedStatus === "in_review";
-        }}
-      />
       <QuickCreateTaskModal
         open={isQuickTaskModalOpen}
         onClose={handleCloseQuickTaskModal}

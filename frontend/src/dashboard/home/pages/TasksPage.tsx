@@ -19,9 +19,10 @@ const TasksPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Extract project filter and return path from location state
+  // Extract project filter, return path, and context from location state
   const projectId = (location.state as { projectId?: string })?.projectId;
   const returnPath = (location.state as { from?: string })?.from;
+  const fromContext = (location.state as { fromContext?: string })?.fromContext;
 
   /**
    * Handle drawer close - navigate back to previous location or dashboard
@@ -40,12 +41,18 @@ const TasksPage: React.FC = () => {
     }
   }, [navigate, returnPath]);
 
+  /**
+   * Generate back button label based on navigation context
+   */
+  const backLabel = fromContext === "calendar" ? "Back to Calendar" : undefined;
+
   return (
     <GlobalTaskDrawer 
       open={true} 
       onClose={handleClose} 
       initialProjectFilter={projectId}
       fullPage={true}
+      backLabel={backLabel}
     />
   );
 };

@@ -60,6 +60,7 @@ type GlobalTaskDrawerProps = {
   onClose: () => void;
   initialProjectFilter?: string;
   fullPage?: boolean;
+  backLabel?: string;
 };
 
 const DRAWER_SNAP_POINTS = [0.1, 0.45, 0.9] as const;
@@ -102,7 +103,7 @@ function normalizeUserId(value?: string | null): string | undefined {
   return parts.length ? parts[parts.length - 1] : trimmed;
 }
 
-const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false }) => {
+const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false, backLabel }) => {
   const {
     loading,
     error,
@@ -994,11 +995,11 @@ const BADGE_CLASS_BY_TONE = {
                     type="button"
                     className={styles.backButton}
                     onClick={onClose}
-                    aria-label="Back to project"
-                    title="Back to project"
+                    aria-label={backLabel || "Back to project"}
+                    title={backLabel || "Back to project"}
                   >
                     <ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" />
-                    <span className={styles.backButtonLabel}>Back to project</span>
+                    <span className={styles.backButtonLabel}>{backLabel || "Back to project"}</span>
                   </button>
                   <div className={styles.desktopDrawerActions}>
                     <button
