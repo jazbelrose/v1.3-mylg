@@ -23,7 +23,7 @@ const DashboardBudgetPage = React.lazy(() => import("../dashboard/project/featur
 const DashboardCalendarPage = React.lazy(() => import("@/dashboard/project/features/calendar/calendar"));
 const DashboardEditorPage = React.lazy(() => import("@/dashboard/project/features/editor/pages/editorpage"));
 const DashboardSlidesPage = React.lazy(() => import("@/dashboard/project/features/slides/SlidesPage"));
-const DashboardTasksPage = React.lazy(() => import("../dashboard/home/pages/TasksListPage"));
+const DashboardTasksPage = React.lazy(() => import("../dashboard/home/pages/TasksPage"));
 
 const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();

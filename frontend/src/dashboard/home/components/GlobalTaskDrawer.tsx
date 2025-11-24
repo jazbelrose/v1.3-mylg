@@ -58,6 +58,8 @@ const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilterOption; label: string }>
 type GlobalTaskDrawerProps = {
   open: boolean;
   onClose: () => void;
+  initialProjectFilter?: string;
+  fullPage?: boolean;
 };
 
 const DRAWER_SNAP_POINTS = [0.1, 0.45, 0.9] as const;
@@ -100,7 +102,7 @@ function normalizeUserId(value?: string | null): string | undefined {
   return parts.length ? parts[parts.length - 1] : trimmed;
 }
 
-const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) => {
+const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false }) => {
   const {
     loading,
     error,
@@ -135,6 +137,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
   const [statusFilter, setStatusFilter] = useState<StatusFilterOption>("active");
   const [assignedByFilter, setAssignedByFilter] = useState<string | null>(null);
   const [assignedToFilter, setAssignedToFilter] = useState<string | null>(null);
+  const [projectFilter, setProjectFilter] = useState<string | null>(initialProjectFilter ?? null);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
 
   const quickFilterOptions: DropdownOption<FilterOption>[] = useMemo(
@@ -338,6 +341,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     if (assignedToFilter) {
       filtered = filtered.filter((task) => task.assigneeId === assignedToFilter);
     }
+    if (projectFilter) {
+      filtered = filtered.filter((task) => task.projectId === projectFilter);
+    }
 
     if (sortField && sortOrder) {
       filtered.sort((a, b) => {
@@ -373,6 +379,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose }) =>
     assignedByFilter,
     assignedToFilter,
     statusFilter,
+    projectFilter,
   ]);
 
   const tasksWithLocation = useMemo(() => {
@@ -887,9 +894,11 @@ const BADGE_CLASS_BY_TONE = {
     : styles.sheetOverlay;
   const sheetClassName = isDesktop 
     ? `${styles.sheet} ${styles.desktopSheet}`
+    : fullPage
+    ? `${styles.sheet} ${styles.sheetFullPage}`
     : styles.sheet;
-  const drawerInitial = isDesktop ? { x: "-100%" } : { y: viewportHeight };
-  const drawerAnimate = isDesktop ? { x: 0 } : { y: targetY };
+  const drawerInitial = isDesktop ? { x: "-100%" } : fullPage ? { y: 0 } : { y: viewportHeight };
+  const drawerAnimate = isDesktop ? { x: 0 } : fullPage ? { y: 0 } : { y: targetY };
   const drawerTransition = isDesktop
     ? { type: "spring", stiffness: 380, damping: 38, mass: 0.9 }
     : { type: "spring", stiffness: 360, damping: 42, mass: 0.9 };
@@ -982,26 +991,28 @@ const BADGE_CLASS_BY_TONE = {
               </>
             ) : (
               <>
-                <div
-                  className={styles.sheetDragArea}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Toggle tasks drawer size"
-                  onClick={handleClick}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      handleClick();
-                    }
-                  }}
-                >
-                  <div className={styles.sheetHandle}>
-                    <span className={styles.sheetHandleBar} aria-hidden="true" />
+                {!fullPage && (
+                  <div
+                    className={styles.sheetDragArea}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Toggle tasks drawer size"
+                    onClick={handleClick}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleClick();
+                      }
+                    }}
+                  >
+                    <div className={styles.sheetHandle}>
+                      <span className={styles.sheetHandleBar} aria-hidden="true" />
+                    </div>
                   </div>
-                </div>
+                )}
                 <header className={styles.sheetHeader}>
                   <div className={styles.sheetTitleGroup}>
                     <span className={styles.sheetTitle}>All tasks</span>
@@ -1044,6 +1055,47 @@ const BADGE_CLASS_BY_TONE = {
                   );
                 })}
               </div>
+              {projectFilter && (() => {
+                const filteredProject = projectOptions.find((p) => p.id === projectFilter);
+                const projectName = filteredProject?.name ?? "Unknown Project";
+                return (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.4rem 0.75rem",
+                      background: "rgba(250, 51, 86, 0.1)",
+                      border: "1px solid rgba(250, 51, 86, 0.3)",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      color: "#fa3356",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <span>Project: {projectName}</span>
+                    <button
+                      type="button"
+                      onClick={() => setProjectFilter(null)}
+                      style={{
+                        all: "unset",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        opacity: 0.7,
+                        transition: "opacity 0.2s",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+                      aria-label="Clear project filter"
+                      title="Show all projects"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })()}
               <div
                 className={desktopFilterStyles.statusDropdown}
                 style={{ width: "auto", flex: "1 1 140px", minWidth: "120px" }}

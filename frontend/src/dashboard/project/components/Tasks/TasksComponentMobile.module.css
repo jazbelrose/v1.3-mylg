@@ -1740,6 +1740,14 @@
   outline-offset: 2px;
 }
 
+.sheetFullPage {
+  top: 0;
+  bottom: auto;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+}
+
 .projectNameButton {
   background: none;
   border: none;
