@@ -274,6 +274,26 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
     idPrefix: "global-tasks-assigned-to",
   });
 
+  const projectFilterDropdownOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: "All projects" },
+      ...projectOptions.map((option) => ({
+        value: option.id,
+        label: option.name,
+      })),
+    ],
+    [projectOptions],
+  );
+
+  const projectFilterSelectedValue = projectFilter ?? "";
+
+  const projectFilterDropdown = useDropdown<string>({
+    options: projectFilterDropdownOptions,
+    selectedValue: projectFilterSelectedValue,
+    onSelect: (value) => setProjectFilter(value || null),
+    idPrefix: "global-tasks-project-filter",
+  });
+
   // Filter/sort handlers
   const handleSortChange = useCallback((field: string | null, order: "asc" | "desc" | null) => {
     setSortField(field);
@@ -884,6 +904,16 @@ const BADGE_CLASS_BY_TONE = {
     ? `${filteredTasks.length} ${filteredTasks.length === 1 ? "task" : "tasks"} on your radar`
     : "No tasks to show";
 
+  const activeProjectName = useMemo(() => {
+    if (!projectFilter) return null;
+    return projectOptions.find((p) => p.id === projectFilter)?.name ?? null;
+  }, [projectFilter, projectOptions]);
+
+  const pageTitle = activeProjectName ? activeProjectName : "All tasks";
+  const pageSubtitle = activeProjectName
+    ? `Tasks for ${activeProjectName}`
+    : "Review everything on your radar";
+
   if (!open || typeof document === "undefined") {
     return null;
   }
@@ -982,8 +1012,8 @@ const BADGE_CLASS_BY_TONE = {
                   </div>
                 </header>
                 <div className={styles.sheetTitleGroup}>
-                  <span className={styles.sheetTitle}>All tasks</span>
-                  <span className={styles.sheetSubtitle}>Review everything on your radar</span>
+                  <span className={styles.sheetTitle}>{pageTitle}</span>
+                  <span className={styles.sheetSubtitle}>{pageSubtitle}</span>
                 </div>
                 <div className={`${styles.sheetSummary} ${styles.desktopDrawerSummary}`}>
                   <TaskSummary stats={stats} formatValue={formatStatValue} statusMessage={statusMessage} statusStyle={{ textAlign: 'center' }} />
@@ -1015,8 +1045,8 @@ const BADGE_CLASS_BY_TONE = {
                 )}
                 <header className={styles.sheetHeader}>
                   <div className={styles.sheetTitleGroup}>
-                    <span className={styles.sheetTitle}>All tasks</span>
-                    <span className={styles.sheetSubtitle}>Tasks across all your projects</span>
+                    <span className={styles.sheetTitle}>{pageTitle}</span>
+                    <span className={styles.sheetSubtitle}>{pageSubtitle}</span>
                   </div>
                 </header>
                 <div className={styles.sheetSummary}>
@@ -1055,47 +1085,75 @@ const BADGE_CLASS_BY_TONE = {
                   );
                 })}
               </div>
-              {projectFilter && (() => {
-                const filteredProject = projectOptions.find((p) => p.id === projectFilter);
-                const projectName = filteredProject?.name ?? "Unknown Project";
-                return (
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      padding: "0.4rem 0.75rem",
-                      background: "rgba(250, 51, 86, 0.1)",
-                      border: "1px solid rgba(250, 51, 86, 0.3)",
-                      borderRadius: "6px",
-                      fontSize: "13px",
-                      fontWeight: 500,
-                      color: "#fa3356",
-                      whiteSpace: "nowrap",
-                    }}
+              <div
+                className={desktopFilterStyles.statusDropdown}
+                style={{ width: "auto", flex: "1 1 180px", minWidth: "160px" }}
+                ref={projectFilterDropdown.dropdownRef}
+              >
+                <button
+                  type="button"
+                  className={desktopFilterStyles.statusTrigger}
+                  aria-haspopup="listbox"
+                  aria-expanded={projectFilterDropdown.isOpen}
+                  aria-controls={projectFilterDropdown.listId}
+                  aria-activedescendant={projectFilterDropdown.activeOptionId}
+                  onClick={projectFilterDropdown.toggle}
+                  onKeyDown={projectFilterDropdown.handleTriggerKeyDown}
+                  style={{
+                    background: projectFilter ? 'rgba(250, 51, 86, 0.1)' : undefined,
+                    borderColor: projectFilter ? 'rgba(250, 51, 86, 0.3)' : undefined,
+                    color: projectFilter ? '#fa3356' : undefined,
+                  }}
+                >
+                  <span className={desktopFilterStyles.triggerLabel}>
+                    <span className={desktopFilterStyles.triggerLabelText}>
+                      {
+                        projectFilterDropdownOptions.find(
+                          (option) => option.value === projectFilterSelectedValue,
+                        )?.label
+                      }
+                    </span>
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    aria-hidden
+                    className={desktopFilterStyles.triggerChevron}
+                  />
+                </button>
+                {projectFilterDropdown.isOpen && (
+                  <ul
+                    className={desktopFilterStyles.statusOptions}
+                    role="listbox"
+                    id={projectFilterDropdown.listId}
                   >
-                    <span>Project: {projectName}</span>
-                    <button
-                      type="button"
-                      onClick={() => setProjectFilter(null)}
-                      style={{
-                        all: "unset",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        opacity: 0.7,
-                        transition: "opacity 0.2s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-                      aria-label="Clear project filter"
-                      title="Show all projects"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                );
-              })()}
+                    {projectFilterDropdownOptions.map((option, index) => {
+                      const { id, isSelected, isActive } =
+                        projectFilterDropdown.getOptionRenderState(option, index);
+                      const buttonProps = projectFilterDropdown.getOptionButtonProps(
+                        option,
+                        index,
+                      );
+                      return (
+                        <li
+                          key={`${option.value || "all"}-${index}`}
+                          role="option"
+                          id={id}
+                          aria-selected={isSelected}
+                        >
+                          <button
+                            {...buttonProps}
+                            className={`${desktopFilterStyles.statusOptionButton} ${
+                              isSelected ? desktopFilterStyles.statusOptionSelected : ""
+                            } ${isActive ? desktopFilterStyles.statusOptionActive : ""}`}
+                          >
+                            {option.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
               <div
                 className={desktopFilterStyles.statusDropdown}
                 style={{ width: "auto", flex: "1 1 140px", minWidth: "120px" }}
