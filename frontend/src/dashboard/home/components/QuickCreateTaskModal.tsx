@@ -1037,7 +1037,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const descriptionCopy = activeProjectId
     ? `Launch work for ${resolvedActiveProjectName || "this project"}.`
     : "Launch work for any project without leaving this view.";
-  const showProjectSelect = !scopedProjectId && hasProjects;
+  const showProjectSelect = !scopedProjectId && hasProjects && !isEditing;
   const todayValue = getOffsetDate(0);
   const tomorrowValue = getOffsetDate(1);
   const nextWeekValue = getOffsetDate(7);
