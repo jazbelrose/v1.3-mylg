@@ -643,10 +643,16 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       from?: string; 
       fromContext?: string;
       openInCreateMode?: boolean;
+      taskDraft?: Partial<QuickCreateTaskModalTask>;
     } = {
       from: location.pathname,
       fromContext: "calendar",
       openInCreateMode: true,
+      taskDraft: {
+        projectId: activeProjectId ?? undefined,
+        projectName: activeProjectName ?? undefined,
+        status: "todo",
+      },
     };
     
     if (activeProjectId) {
@@ -659,6 +665,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     navigate,
     location.pathname,
     activeProjectId,
+    activeProjectName,
   ]);
 
   const handleOpenQuickTaskModal = useCallback(
@@ -676,6 +683,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         fromContext: "calendar",
         openInCreateMode: true,
         taskDraft: {
+          projectId: activeProjectId ?? undefined,
+          projectName: activeProjectName ?? undefined,
           dueDate: date,
           status: "todo",
         },
@@ -687,7 +696,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       
       navigate("/dashboard/tasks", { state });
     },
-    [navigate, location.pathname, activeProjectId],
+    [navigate, location.pathname, activeProjectId, activeProjectName],
   );
 
   const handleSelectDate = useCallback((date: Date) => {
