@@ -103,8 +103,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     date: currentDate,
     event: null,
   });
-  const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
-  const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
@@ -640,55 +638,57 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleOpenQuickCreateFromDrawer = useCallback(() => {
     if (!hasQuickCreateProject) return;
 
-    const fallbackProjectId =
-      activeProjectId ?? taskProjects[0]?.id ?? "";
-    if (!fallbackProjectId) return;
-
-    const fallbackProjectName =
-      activeProjectName ??
-      taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
-      undefined;
-
-    setQuickTaskDraft({
-      projectId: fallbackProjectId,
-      projectName: fallbackProjectName ?? null,
-      status: "todo",
-      dueDate: null,
-    });
-    setIsQuickTaskModalOpen(true);
+    const state: { 
+      projectId?: string; 
+      from?: string; 
+      fromContext?: string;
+      openInCreateMode?: boolean;
+    } = {
+      from: location.pathname,
+      fromContext: "calendar",
+      openInCreateMode: true,
+    };
+    
+    if (activeProjectId) {
+      state.projectId = activeProjectId;
+    }
+    
+    navigate("/dashboard/tasks", { state });
   }, [
     hasQuickCreateProject,
+    navigate,
+    location.pathname,
     activeProjectId,
-    taskProjects,
-    activeProjectName,
   ]);
 
   const handleOpenQuickTaskModal = useCallback(
     (date: Date) => {
       setInternalDate(date);
-      const fallbackProjectId =
-        (typeof activeProjectId === "string" && activeProjectId) ||
-        (taskProjects.length > 0 ? taskProjects[0].id : "");
-      const fallbackProjectName =
-        activeProjectName ??
-        taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
-        (taskProjects.length === 1 ? taskProjects[0].name : undefined);
-
-      setQuickTaskDraft({
-        projectId: fallbackProjectId || "",
-        projectName: fallbackProjectName ?? undefined,
-        dueDate: date,
-        status: "todo",
-      });
-      setIsQuickTaskModalOpen(true);
+      
+      const state: { 
+        projectId?: string; 
+        from?: string; 
+        fromContext?: string;
+        openInCreateMode?: boolean;
+        taskDraft?: Partial<QuickCreateTaskModalTask>;
+      } = {
+        from: location.pathname,
+        fromContext: "calendar",
+        openInCreateMode: true,
+        taskDraft: {
+          dueDate: date,
+          status: "todo",
+        },
+      };
+      
+      if (activeProjectId) {
+        state.projectId = activeProjectId;
+      }
+      
+      navigate("/dashboard/tasks", { state });
     },
-    [activeProjectId, activeProjectName, taskProjects],
+    [navigate, location.pathname, activeProjectId],
   );
-
-  const handleCloseQuickTaskModal = useCallback(() => {
-    setIsQuickTaskModalOpen(false);
-    setQuickTaskDraft(null);
-  }, []);
 
   const handleSelectDate = useCallback((date: Date) => {
     setInternalDate(date);
@@ -944,18 +944,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           onOpenTasksOverview={handleOpenTasksOverview}
         />
       ) : null}
-      <QuickCreateTaskModal
-        open={isQuickTaskModalOpen}
-        onClose={handleCloseQuickTaskModal}
-        projects={taskProjects}
-        onCreated={() => handleRefreshTasks()}
-        onUpdated={handleRefreshTasks}
-        onDeleted={handleRefreshTasks}
-        activeProjectId={activeProjectId ?? null}
-        activeProjectName={activeProjectName ?? undefined}
-        scopedProjectId={activeProjectId ?? null}
-        task={quickTaskDraft}
-      />
     </div>
   );
 };

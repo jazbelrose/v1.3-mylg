@@ -61,6 +61,8 @@ type GlobalTaskDrawerProps = {
   initialProjectFilter?: string;
   fullPage?: boolean;
   backLabel?: string;
+  openInCreateMode?: boolean;
+  initialTaskDraft?: Partial<QuickCreateTaskModalTask>;
 };
 
 const DRAWER_SNAP_POINTS = [0.1, 0.45, 0.9] as const;
@@ -103,7 +105,7 @@ function normalizeUserId(value?: string | null): string | undefined {
   return parts.length ? parts[parts.length - 1] : trimmed;
 }
 
-const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false, backLabel }) => {
+const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false, backLabel, openInCreateMode = false, initialTaskDraft }) => {
   const {
     loading,
     error,
@@ -831,6 +833,19 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
       setQuickCreateOpen(true);
     }
   }, [isDesktop]);
+
+  // Auto-open create mode when navigating from calendar
+  useEffect(() => {
+    if (open && openInCreateMode) {
+      if (isDesktop) {
+        setDetailsTask(initialTaskDraft as QuickCreateTaskModalTask | null);
+        setDetailsPanelOpen(true);
+      } else {
+        setTaskToEdit(initialTaskDraft as QuickCreateTaskModalTask | null);
+        setQuickCreateOpen(true);
+      }
+    }
+  }, [open, openInCreateMode, initialTaskDraft, isDesktop]);
 
   const handleCloseQuickCreate = useCallback(() => {
     setTaskToEdit(null);

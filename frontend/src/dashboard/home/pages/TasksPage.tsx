@@ -23,6 +23,8 @@ const TasksPage: React.FC = () => {
   const projectId = (location.state as { projectId?: string })?.projectId;
   const returnPath = (location.state as { from?: string })?.from;
   const fromContext = (location.state as { fromContext?: string })?.fromContext;
+  const openInCreateMode = (location.state as { openInCreateMode?: boolean })?.openInCreateMode;
+  const taskDraft = (location.state as { taskDraft?: any })?.taskDraft;
 
   /**
    * Handle drawer close - navigate back to previous location or dashboard
@@ -53,6 +55,8 @@ const TasksPage: React.FC = () => {
       initialProjectFilter={projectId}
       fullPage={true}
       backLabel={backLabel}
+      openInCreateMode={openInCreateMode}
+      initialTaskDraft={taskDraft}
     />
   );
 };
