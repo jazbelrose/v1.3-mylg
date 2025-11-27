@@ -1159,3 +1159,176 @@
   opacity: 0;
   pointer-events: none;
 }
+
+.statusPillContainer {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.StatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(246, 247, 251, 0.95);
+}
+
+.StatusBadgeSuccess {
+  background: color-mix(in srgb, var(--color-success, #4caf50) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-success, #4caf50) 46%, transparent);
+  color: color-mix(in srgb, #ffffff 88%, var(--color-success, #4caf50) 12%);
+}
+
+.StatusBadgeDanger {
+  background: color-mix(in srgb, var(--color-error, #ef5350) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-error, #ef5350) 48%, transparent);
+  color: color-mix(in srgb, #ffffff 90%, var(--color-error, #ef5350) 10%);
+}
+
+.StatusBadgeWarning {
+  background: color-mix(in srgb, var(--color-warning, #ff9800) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning, #ff9800) 46%, transparent);
+  color: color-mix(in srgb, #1f1200 22%, #ffffff 78%);
+}
+
+.StatusBadgeNeutral {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(246, 247, 251, 0.9);
+}
+
+.statusPillContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.statusActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+.statusActionButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.statusActionButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.statusActionButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.statusActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.statusActionButton svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.statusActionButton span {
+  flex: 1;
+}
+
+.statusDropdownLabel {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(246, 247, 251, 0.6);
+  margin-bottom: 6px;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.statusPillContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.statusActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+.statusActionButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.statusActionButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.statusActionButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.statusActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.statusActionButton svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.statusActionButton span {
+  flex: 1;
+}
+
+.statusDropdownLabel {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(246, 247, 251, 0.6);
+  margin-bottom: 6px;
+  margin-top: 8px;
+  font-weight: 500;
+}

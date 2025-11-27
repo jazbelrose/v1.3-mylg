@@ -10,10 +10,18 @@ import {
   updateTask,
   uploadFile,
   getFileUrl,
+  requestTaskReview,
+  approveTask,
+  requestTaskChanges,
 } from "@/shared/utils/api";
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
+import {
+  getTaskStatusBadge,
+  getTaskStatusTone,
+  type TaskStatusTone,
+} from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -1046,13 +1054,35 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const modalDescription = isEditing
     ? "Update the basics or reassign work. Use the task view for reviews and approvals."
     : descriptionCopy;
-  const hasCustomStatusOption = !STATUS_SELECT_OPTIONS.some((option) => option.value === status);
   const isStatusLocked = READ_ONLY_STATUSES.includes(status);
   const normalizedCurrentUserId = normalizeUserIdentifier(userId);
   const normalizedReviewerId = normalizeUserIdentifier(reviewerId);
   const isReviewer = Boolean(
     normalizedReviewerId && normalizedCurrentUserId && normalizedReviewerId === normalizedCurrentUserId,
   );
+
+  const statusBadgeData = useMemo(() => {
+    const dueDateObj = dueDate ? new Date(dueDate) : null;
+    return getTaskStatusBadge(status, dueDateObj, undefined);
+  }, [status, dueDate]);
+  
+  const statusTone: TaskStatusTone = useMemo(
+    () => getTaskStatusTone(statusBadgeData.category),
+    [statusBadgeData.category],
+  );
+
+  const normalizedStatus = status.trim().toLowerCase();
+  const isAwaitingApproval = normalizedStatus === "in_review";
+  const canSubmitForReview =
+    normalizedStatus === "todo" ||
+    normalizedStatus === "in_progress" ||
+    normalizedStatus === "needs_changes";
+
+  const showSubmitForReviewButton = isEditing && canSubmitForReview && !isBusy;
+  const showApproveButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
+  const showRequestChangesButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
+  const hasAnyStatusAction = showSubmitForReviewButton || showApproveButton || showRequestChangesButton;
+
   const canArchiveTask = Boolean(isEditing && status === "done" && (isAdmin || isReviewer));
   const canUnarchiveTask = Boolean(isEditing && status === "archived" && (isAdmin || isReviewer));
   const taskNameDescribedBy = [
@@ -1508,6 +1538,87 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   };
 
+  const handleSubmitForReview = async () => {
+    if (!taskId || !effectiveProjectId) return;
+    if (isBusy) return;
+
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await requestTaskReview(effectiveProjectId, taskId, { note: "" });
+      notify("success", "Task submitted for review!");
+      await onUpdated?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to submit task for review", error);
+      const apiError = error as { status?: number };
+      if (apiError?.status === 403) {
+        notify("error", "You don't have permission to submit this task for review.");
+      } else if (apiError?.status === 409) {
+        notify("error", "Task is not in the correct state for review.");
+      } else {
+        notify("error", "Failed to submit task for review. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!taskId || !effectiveProjectId) return;
+    if (isBusy) return;
+
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await approveTask(effectiveProjectId, taskId, { note: "" });
+      notify("success", "Task marked as done!");
+      await onUpdated?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to approve task", error);
+      const apiError = error as { status?: number };
+      if (apiError?.status === 403) {
+        notify("error", "Only admins can approve tasks.");
+      } else if (apiError?.status === 409) {
+        notify("error", "Task is not in the correct state for approval.");
+      } else {
+        notify("error", "Failed to approve task. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    if (!taskId || !effectiveProjectId) return;
+    if (isBusy) return;
+
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await requestTaskChanges(effectiveProjectId, taskId, { note: "" });
+      notify("success", "Changes requested for this task.");
+      await onUpdated?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to request changes", error);
+      const apiError = error as { status?: number };
+      if (apiError?.status === 403) {
+        notify("error", "You don't have permission to request changes.");
+      } else if (apiError?.status === 409) {
+        notify("error", "Task is not in the correct state to request changes.");
+      } else {
+        notify("error", "Failed to request changes. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (!open) {
     // Keep preview modal alive even when parent is closed
     if (!previewOpen) return null;
@@ -1648,34 +1759,111 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
             ) : null}
             <div className={styles.fieldGroup}>
               <div className={styles.fieldHeader}>
-                <label className={styles.fieldLabel} htmlFor={statusFieldId}>
+                <label className={styles.fieldLabel}>
                   <span className={styles.fieldLabelText}>Status</span>
                 </label>
               </div>
-              <select
-                id={statusFieldId}
-                aria-label="Task status"
-                className={styles.selectInput}
-                value={status}
-                onChange={handleStatusChange}
-                disabled={isBusy || isStatusLocked}
-              >
-                {hasCustomStatusOption ? (
-                  <option value={status} disabled={isStatusLocked}>
-                    {formatStatusLabel(status)}
-                  </option>
-                ) : null}
-                {STATUS_SELECT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {isStatusLocked ? (
-                <p className={styles.helperText}>
-                  Status changes to {formatStatusLabel(status)} happen in the task view.
-                </p>
-              ) : null}
+              
+              {isEditing ? (
+                <>
+                  <div className={styles.statusPillContainer}>
+                    <span
+                      className={`${styles.StatusBadge} ${styles[`StatusBadge${statusTone.charAt(0).toUpperCase() + statusTone.slice(1)}`]}`}
+                    >
+                      {statusBadgeData.label}
+                    </span>
+                  </div>
+
+                  {hasAnyStatusAction && (
+                    <div className={styles.statusActions}>
+                      {showSubmitForReviewButton && (
+                        <button
+                          type="button"
+                          className={styles.statusActionButton}
+                          onClick={handleSubmitForReview}
+                          disabled={isBusy}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 11 12 14 22 4"></polyline>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                          </svg>
+                          <span>Submit for review</span>
+                        </button>
+                      )}
+                      {showApproveButton && (
+                        <button
+                          type="button"
+                          className={styles.statusActionButton}
+                          onClick={handleApprove}
+                          disabled={isBusy}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                          <span>Mark as done</span>
+                        </button>
+                      )}
+                      {showRequestChangesButton && (
+                        <button
+                          type="button"
+                          className={styles.statusActionButton}
+                          onClick={handleRequestChanges}
+                          disabled={isBusy}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                          <span>Request changes</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {!hasAnyStatusAction && isStatusLocked && (
+                    <p className={styles.helperText}>
+                      Status changes to {formatStatusLabel(status)} happen in the task view.
+                    </p>
+                  )}
+
+                  {PATCHABLE_STATUSES.includes(status) && (
+                    <>
+                      <label htmlFor={statusFieldId} className={styles.statusDropdownLabel}>
+                        Or manually change to:
+                      </label>
+                      <select
+                        id={statusFieldId}
+                        aria-label="Task status"
+                        className={styles.selectInput}
+                        value={status}
+                        onChange={handleStatusChange}
+                        disabled={isBusy}
+                      >
+                        {STATUS_SELECT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </>
+              ) : (
+                <select
+                  id={statusFieldId}
+                  aria-label="Task status"
+                  className={styles.selectInput}
+                  value={status}
+                  onChange={handleStatusChange}
+                  disabled={isBusy}
+                >
+                  {STATUS_SELECT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             {isEditing && (createdByName || createdById) ? (
               <div className={styles.fieldGroup}>
