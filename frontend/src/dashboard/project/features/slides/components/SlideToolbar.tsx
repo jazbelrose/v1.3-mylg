@@ -1,5 +1,6 @@
 // components/SlideToolbar.tsx - Compact single-line toolbar with icon groups
 import React, { useMemo, useRef, type ChangeEvent } from "react";
+import ReactDOM from "react-dom";
 import {
   Bold,
   Italic,
@@ -401,7 +402,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <i className="chevron-down" />
             </button>
 
-            {activeDropdown === blockDropdownId && (
+            {activeDropdown === blockDropdownId && ReactDOM.createPortal(
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                 <button
                   type="button"
@@ -448,7 +449,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <span className="text">Code</span>
                   {blockType === "code" && <span className="active">✓</span>}
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
           </>
         )}
@@ -493,7 +495,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <i className="chevron-down" />
             </button>
 
-            {activeDropdown === alignDropdownId && (
+            {activeDropdown === alignDropdownId && ReactDOM.createPortal(
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                 <button
                   type="button"
@@ -546,7 +548,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <span className="text">Numbered List</span>
                   {blockType === "ol" && <span className="active">✓</span>}
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
 
             <Divider />
@@ -563,7 +566,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <i className="chevron-down" />
             </button>
 
-            {activeDropdown === fontDropdownId && (
+            {activeDropdown === fontDropdownId && ReactDOM.createPortal(
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                 <div className="font-section">
                   <label>Family</label>
@@ -591,7 +594,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                     ))}
                   </select>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
 
             {/* Color Dropdown */}
@@ -606,7 +610,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <i className="chevron-down" />
             </button>
 
-            {activeDropdown === colorDropdownId && (
+            {activeDropdown === colorDropdownId && ReactDOM.createPortal(
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                 <div className="color-section">
                   <label>Text Color</label>
@@ -622,7 +626,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                     onChange={handleBgColorSelect}
                   />
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
 
             <Divider />
@@ -638,7 +643,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <FileImageOutlined style={{ fontSize: "18px" }} />
               <i className="chevron-down" />
             </button>
-            {activeDropdown === insertDropdownId && (
+            {activeDropdown === insertDropdownId && ReactDOM.createPortal(
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                 <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined className="dropdown-icon" />
@@ -656,7 +661,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <LayoutOutlined className="dropdown-icon" />
                   <span className="text">Layout</span>
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
 
             <Divider />
@@ -705,7 +711,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 >
                   <MoreHorizontal size={18} />
                 </button>
-                {activeDropdown === moreDropdownId && (
+                {activeDropdown === moreDropdownId && ReactDOM.createPortal(
                   <div className="dropdown dropdown--right" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
                     {onMicToggle && (
                       <button
@@ -775,7 +781,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                         </button>
                       </>
                     )}
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </>
             )}

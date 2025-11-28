@@ -1,11 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 interface DropdownContextValue {
   activeDropdown: string | null;
   openDropdown: (dropdownId: string, ref: HTMLElement | null) => void;
   closeDropdown: () => void;
-  dropdownRef: React.RefObject<HTMLElement>;
+  dropdownRef: (node: HTMLElement | null) => void;
   isDropdownOpen: boolean;
 }
 
@@ -13,7 +13,7 @@ const DropdownContext = createContext<DropdownContextValue | undefined>(undefine
 
 export const DropdownProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLElement | null>(null);
+  const dropdownElementRef = useRef<HTMLElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   const openDropdown = (dropdownId: string, ref: HTMLElement | null) => {
@@ -24,28 +24,31 @@ export const DropdownProvider: React.FC<React.PropsWithChildren> = ({ children }
   const closeDropdown = () => {
     setActiveDropdown(null);
     triggerRef.current = null;
-    dropdownRef.current = null;
+    dropdownElementRef.current = null;
   };
 
-  // Position the dropdown relative to the trigger when it opens
-  useEffect(() => {
-    if (activeDropdown && triggerRef.current && dropdownRef.current) {
+  // Callback ref that positions dropdown when it mounts
+  const dropdownRef = useCallback((node: HTMLElement | null) => {
+    dropdownElementRef.current = node;
+    if (node && triggerRef.current) {
       const trigger = triggerRef.current;
-      const dropdown = dropdownRef.current;
       const triggerRect = trigger.getBoundingClientRect();
       
       // Position the dropdown below the trigger, aligned to the left
-      dropdown.style.position = 'fixed';
-      dropdown.style.top = `${triggerRect.bottom + 8}px`;
-      dropdown.style.left = `${triggerRect.left}px`;
-      dropdown.style.zIndex = '1000';
+      node.style.position = 'fixed';
+      node.style.top = `${triggerRect.bottom + 8}px`;
+      node.style.left = `${triggerRect.left}px`;
+      node.style.zIndex = '1000';
+      node.style.visibility = 'visible';
     }
-  }, [activeDropdown, dropdownRef.current]);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        closeDropdown();
+      if (dropdownElementRef.current && !dropdownElementRef.current.contains(event.target as Node)) {
+        if (triggerRef.current && !triggerRef.current.contains(event.target as Node)) {
+          closeDropdown();
+        }
       }
     };
 

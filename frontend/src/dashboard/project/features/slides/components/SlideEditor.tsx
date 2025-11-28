@@ -205,43 +205,46 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const appliedScale = Math.max(scale * fitScale, 0.01);
 
   return (
-    <div
-      className="slide-editor"
-      data-slide-id={slide.id}
-      data-canvas-width={STAGE_WIDTH}
-      data-canvas-height={STAGE_HEIGHT}
-    >
-      <DropdownProvider>{customToolbar}</DropdownProvider>
+    <DropdownProvider>
+      <div
+        className="slide-editor"
+        data-slide-id={slide.id}
+        data-canvas-width={STAGE_WIDTH}
+        data-canvas-height={STAGE_HEIGHT}
+      >
+        {customToolbar}
 
-      <div className="slide-editor__canvas" ref={canvasRef}>
-        <div
-          className="slide-editor__canvas-scaler"
-          style={{
-            transform: `scale(${appliedScale})`,
-            transformOrigin: "center center",
-          }}
-        >
+        <div className="slide-editor__canvas" ref={canvasRef}>
           <div
-            className="slide-editor__canvas-inner"
+            className="slide-editor__canvas-scaler"
             style={{
-              width: `${STAGE_WIDTH}px`,
-              height: `${STAGE_HEIGHT}px`,
+              transform: `scale(${appliedScale})`,
+              transformOrigin: "center center",
             }}
           >
-            <LexicalEditor
-              key={slide.id}
-              docId={`${projectId}::slide::${slide.id}`}
-              onChange={handleChange}
-              showDefaultToolbar={false}
-              initialContent={slide.content ?? null}
-              onSave={handleSave}
-              registerToolbar={handleRegisterToolbar}
-              customToolbar={null}
-            />
+            <div
+              className="slide-editor__canvas-inner"
+              style={{
+                width: `${STAGE_WIDTH}px`,
+                height: `${STAGE_HEIGHT}px`,
+              }}
+            >
+              <LexicalEditor
+                key={slide.id}
+                docId={`${projectId}::slide::${slide.id}`}
+                onChange={handleChange}
+                showDefaultToolbar={false}
+                initialContent={slide.content ?? null}
+                onSave={handleSave}
+                registerToolbar={handleRegisterToolbar}
+                customToolbar={null}
+                disableDropdownProvider
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </DropdownProvider>
   );
 };
 

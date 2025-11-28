@@ -1,7 +1,7 @@
 /* SlideToolbar.css - Compact single-line toolbar with icon groups */
 
 .slide-toolbar {
-  position: sticky;
+  position: relative;
   z-index: 100;
   display: flex;
   flex-wrap: nowrap;
@@ -18,7 +18,7 @@
   color: var(--text, #eaecee);
   backdrop-filter: blur(10px);
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
 }
 
 .slide-toolbar::-webkit-scrollbar {

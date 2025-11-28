@@ -10,7 +10,7 @@
   border-left: 1px solid var(--border-color, #2a2a2a);
   padding: 12px 24px 0;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .slide-editor__canvas {

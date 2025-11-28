@@ -74,6 +74,8 @@ type LexicalEditorProps = {
   customToolbar?: React.ReactNode;
   /** Optional: disable IndexedDB/Yjs persistence for this doc */
   usePersistence?: boolean;
+  /** Allow parent components to provide their own DropdownProvider */
+  disableDropdownProvider?: boolean;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -93,6 +95,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   showDefaultToolbar = true,
   customToolbar,
   usePersistence = true,
+  disableDropdownProvider = false,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -406,6 +409,98 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
     []
   );
 
+  const editorLayout = (
+    <ImageLockPlugin provider={providerRef.current}>
+      <div
+        className="editor-container"
+        ref={editorContainerRef}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          height: "100%",
+        }}
+      >
+        <ToolbarActionsPlugin registerToolbar={registerToolbar} />
+        {customToolbar ? customToolbar : showDefaultToolbar && (
+          <ToolbarPlugin onPreview={onPreview} onSave={onSave} />
+        )}
+        <ColorPlugin showToolbar={false} />
+        <FontPlugin showToolbar={false} />
+        <ImagePlugin showToolbarButton={false} />
+        <VectorPlugin showToolbarButton={false} />
+        <FigmaPlugin showToolbarButton={false} />
+        <LayoutPlugin showToolbarButton={false} />
+
+        <FloatingToolbar editorRef={editorRef} />
+
+        <div
+          className="content-container"
+          ref={contentRef}
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className="editor-input"
+                style={{ position: "relative", minHeight: "100%" }}
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+
+          <CollaborationPlugin
+            id={resolvedDocId}
+            providerFactory={getProvider}
+            initialEditorState={initialContentRef.current as never}
+            shouldBootstrap={true}
+            username={displayName}
+            awarenessData={awarenessData}
+            syncCursorPositionsFn={syncCursorPositionsWithAvatars}
+          />
+
+          <RemoveEmptyLayoutItemsOnBackspacePlugin />
+
+          {providerRef.current && (
+            <YjsSyncPlugin provider={providerRef.current} />
+          )}
+
+          <ListPlugin />
+          <LinkPlugin />
+          <ClickableLinkPlugin />
+          <TextStylePlugin />
+
+          {editorContainerRef.current && (
+            <DraggableBlockPlugin anchorElem={editorContainerRef.current} />
+          )}
+
+          <DragAndDropPlugin />
+          <ImageCopyPastePlugin />
+          <DeleteImagePlugin />
+
+          <AutoScrollToBottomPlugin contentRef={contentRef} />
+
+          <OnChangePlugin
+            onChange={useCallback(
+              (editorState: LexicalEditorState) => {
+                editorState.read(() => {
+                  const json = JSON.stringify(editorState.toJSON());
+                  // console.log("[Editor State] Updated:", json);
+                  onChange(json);
+                });
+              },
+              [onChange]
+            )}
+          />
+        </div>
+      </div>
+    </ImageLockPlugin>
+  );
+
   return (
     <div
       ref={editorRef}
@@ -419,96 +514,11 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
       }}
     >
       <LexicalComposer initialConfig={initialConfig}>
-        <DropdownProvider>
-          <ImageLockPlugin provider={providerRef.current}>
-            <div
-              className="editor-container"
-              ref={editorContainerRef}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                height: "100%",
-              }}
-            >
-              <ToolbarActionsPlugin registerToolbar={registerToolbar} />
-              {customToolbar ? customToolbar : showDefaultToolbar && <ToolbarPlugin onPreview={onPreview} onSave={onSave} />}
-              <ColorPlugin showToolbar={false} />
-              <FontPlugin showToolbar={false} />
-              <ImagePlugin showToolbarButton={false} />
-              <VectorPlugin showToolbarButton={false} />
-              <FigmaPlugin showToolbarButton={false} />
-              <LayoutPlugin showToolbarButton={false} />
-              
-              <FloatingToolbar editorRef={editorRef} />
-
-              <div
-                className="content-container"
-                ref={contentRef}
-                style={{
-                  flex: 1,
-                  overflowY: "auto",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                <RichTextPlugin
-                  contentEditable={
-                    <ContentEditable
-                      className="editor-input"
-                      style={{ position: "relative", minHeight: "100%" }}
-                    />
-                  }
-                  ErrorBoundary={LexicalErrorBoundary}
-                />
-
-                <CollaborationPlugin
-                  id={resolvedDocId}
-                  providerFactory={getProvider}
-                  initialEditorState={initialContentRef.current as never}
-                  shouldBootstrap={true}
-                  username={displayName}
-                  awarenessData={awarenessData}
-                  syncCursorPositionsFn={syncCursorPositionsWithAvatars}
-                />
-
-                <RemoveEmptyLayoutItemsOnBackspacePlugin />
-
-                {providerRef.current && (
-                  <YjsSyncPlugin provider={providerRef.current} />
-                )}
-
-                <ListPlugin />
-                <LinkPlugin />
-                <ClickableLinkPlugin />
-                <TextStylePlugin />
-
-                {editorContainerRef.current && (
-                  <DraggableBlockPlugin anchorElem={editorContainerRef.current} />
-                )}
-
-                <DragAndDropPlugin />
-                <ImageCopyPastePlugin />
-                <DeleteImagePlugin />
-
-                <AutoScrollToBottomPlugin contentRef={contentRef} />
-
-                <OnChangePlugin
-                  onChange={useCallback(
-                    (editorState: LexicalEditorState) => {
-                      editorState.read(() => {
-                        const json = JSON.stringify(editorState.toJSON());
-                        // console.log("[Editor State] Updated:", json);
-                        onChange(json);
-                      });
-                    },
-                    [onChange]
-                  )}
-                />
-              </div>
-
-              </div>
-          </ImageLockPlugin>
-        </DropdownProvider>
+        {disableDropdownProvider ? (
+          editorLayout
+        ) : (
+          <DropdownProvider>{editorLayout}</DropdownProvider>
+        )}
       </LexicalComposer>
     </div>
   );
