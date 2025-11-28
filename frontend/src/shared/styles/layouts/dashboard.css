@@ -79,7 +79,7 @@
   background-color: var(--bg-color);
   margin: 0 auto;
   padding: 0;
-  padding-top: var(--space-4); /* Added padding above week widget welcome desktop */
+  
 }
 
 .dashboard-wrapper.welcome-screen.no-vertical-center {

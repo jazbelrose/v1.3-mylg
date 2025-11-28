@@ -28,6 +28,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  padding: 40px;
 }
 
 .slide-editor__canvas-scaler {
