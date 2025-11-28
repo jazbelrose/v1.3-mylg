@@ -332,7 +332,7 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
         }}
       >
         {headerNode ? (
-          <div style={{ padding: "0" }}>{headerNode}</div>
+          <div style={{ padding: "0 12px" }}>{headerNode}</div>
         ) : null}
       </div>
 

@@ -8,7 +8,7 @@
   min-width: 0;
   background: var(--bg3, #181a1b);
   border-left: 1px solid var(--border-color, #2a2a2a);
-  padding: 0 24px 0;
+  padding: 12px 24px 0;
   box-sizing: border-box;
   overflow: hidden;
 }
