@@ -343,51 +343,131 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <span className="save-status__text">Saving…</span>
             </>
           ) : isDirty ? (
-            <span className="save-status__text save-status__text--dirty">Unsaved</span>
+            <span className="save-status__text save-status__text--dirty">Unsaved changes</span>
           ) : (
-            <span className="save-status__text save-status__text--clean">Saved</span>
+            <span className="save-status__text save-status__text--clean">All changes saved</span>
           )}
         </div>
 
-        {/* Save Button */}
-        {onSave && (
-          <button
-            type="button"
-            onClick={onSave}
-            className="toolbar-item save"
-            disabled={isSaving}
-            title="Save slide"
-          >
-            <Save size={18} />
-            <span className="toolbar-item__label">Save</span>
-          </button>
-        )}
-
         <Divider />
 
-        {/* History Group: Undo/Redo */}
+        {/* Undo/Redo */}
         <button
           type="button"
           disabled={!canUndo}
           onClick={onUndo}
-          className="toolbar-item"
-          title="Undo"
+          className="toolbar-item spaced"
+          aria-label="Undo"
         >
-          <Undo2 size={18} />
+          <Undo2 size={16} />
         </button>
         <button
           type="button"
           disabled={!canRedo}
           onClick={onRedo}
           className="toolbar-item"
-          title="Redo"
+          aria-label="Redo"
         >
-          <Redo2 size={18} />
+          <Redo2 size={16} />
         </button>
 
         <Divider />
 
-        {/* Text Style Dropdown (Block Type) */}
+        {/* Mic Button */}
+        {onMicToggle && (
+          <button
+            onClick={onMicToggle}
+            className={`toolbar-item ${isMicActive ? "mic-active" : ""}`}
+          >
+            <Mic size={16} />
+            {isMicActive ? "Stop" : "Mic"}
+          </button>
+        )}
+
+        {/* Duplicate Button */}
+        {onDuplicate && (
+          <button
+            onClick={onDuplicate}
+            className="toolbar-item"
+          >
+            <Copy size={16} />
+            
+          </button>
+        )}
+
+        {/* Delete Button */}
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="toolbar-item delete"
+          >
+            <Trash2 size={16} />
+            
+          </button>
+        )}
+
+        {/* Export Button */}
+        {onExport && (
+          <button
+            onClick={onExport}
+            className="toolbar-item"
+          >
+            <Download size={16} />
+            
+          </button>
+        )}
+
+        {/* Save Button */}
+        {onSave && (
+          <button
+            onClick={onSave}
+            className="toolbar-item save"
+            disabled={isSaving}
+          >
+            <Save size={16} />
+            Save
+          </button>
+        )}
+
+        <Divider />
+
+        {/* Zoom Controls */}
+        <div className="zoom-controls">
+          <button
+            type="button"
+            onClick={onZoomOut}
+            className="toolbar-item"
+            aria-label="Zoom Out"
+            disabled={zoom <= 25}
+          >
+            <ZoomOut size={16} />
+          </button>
+          <span className="zoom-display">{zoom}%</span>
+          <button
+            type="button"
+            onClick={onZoomIn}
+            className="toolbar-item"
+            aria-label="Zoom In"
+            disabled={zoom >= 200}
+          >
+            <ZoomIn size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onResetZoom}
+            className="toolbar-item"
+            aria-label="Reset Zoom"
+            disabled={zoom === 100}
+          >
+            <RotateCcw size={16} />
+          </button>
+        </div>
+
+        <Divider />
+      </div>
+
+      {/* Text Formatting Section */}
+      <div className="text-formatting">
         {supportedBlockTypes.has(blockType) && (
           <>
             <button
@@ -395,9 +475,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               className="toolbar-item block-controls"
               onClick={handleBlockDropdownToggle}
               ref={blockButtonRef}
-              title="Text style"
+              aria-label="Formatting Options"
             >
               <span className={"icon block-type " + blockType} />
+              <span className="text">{blockTypeToBlockName[blockType]}</span>
               <i className="chevron-down" />
             </button>
 
@@ -442,124 +523,116 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 <button
                   type="button"
                   className="item"
-                  onClick={() => handleDropdownItemClick("code")}
-                >
-                  <span className="icon">&lt;/&gt;</span>
-                  <span className="text">Code</span>
-                  {blockType === "code" && <span className="active">✓</span>}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Bold/Italic/Underline Inline Icons */}
-        {blockType !== "code" && (
-          <>
-            <button
-              type="button"
-              onClick={onFormatBold}
-              className={"toolbar-item" + (isBold ? " active" : "")}
-              title="Bold"
-            >
-              <Bold size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onFormatItalic}
-              className={"toolbar-item" + (isItalic ? " active" : "")}
-              title="Italic"
-            >
-              <Italic size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onFormatUnderline}
-              className={"toolbar-item" + (isUnderline ? " active" : "")}
-              title="Underline"
-            >
-              <Underline size={18} />
-            </button>
-
-            {/* Align & List Dropdown */}
-            <button
-              type="button"
-              className="toolbar-item align-trigger"
-              onClick={handleAlignDropdownToggle}
-              ref={alignButtonRef}
-              title="Align & Lists"
-            >
-              <AlignLeft size={18} />
-              <i className="chevron-down" />
-            </button>
-
-            {activeDropdown === alignDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignLeftClick}
-                >
-                  <AlignLeft size={18} className="dropdown-icon" />
-                  <span className="text">Align Left</span>
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignCenterClick}
-                >
-                  <AlignCenter size={18} className="dropdown-icon" />
-                  <span className="text">Align Center</span>
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignRightClick}
-                >
-                  <AlignRight size={18} className="dropdown-icon" />
-                  <span className="text">Align Right</span>
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignJustifyClick}
-                >
-                  <AlignJustify size={18} className="dropdown-icon" />
-                  <span className="text">Justify</span>
-                </button>
-                <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleListUlClick}
+                  onClick={() => handleDropdownItemClick("ul")}
                 >
                   <span className="icon">•</span>
-                  <span className="text">Bulleted List</span>
+                  <span className="text">Bulleted</span>
                   {blockType === "ul" && <span className="active">✓</span>}
                 </button>
                 <button
                   type="button"
                   className="item"
-                  onClick={handleListOlClick}
+                  onClick={() => handleDropdownItemClick("ol")}
                 >
                   <span className="icon">1.</span>
-                  <span className="text">Numbered List</span>
+                  <span className="text">Numbered</span>
                   {blockType === "ol" && <span className="active">✓</span>}
                 </button>
               </div>
             )}
+            <Divider />
+          </>
+        )}
+
+        {blockType !== "code" && (
+          <>
+            <button
+              type="button"
+              onClick={onFormatBold}
+              className={"toolbar-item spaced " + (isBold ? "active" : "")}
+              aria-label="Format Bold"
+            >
+              <Bold size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onFormatItalic}
+              className={"toolbar-item spaced " + (isItalic ? "active" : "")}
+              aria-label="Format Italics"
+            >
+              <Italic size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onFormatUnderline}
+              className={"toolbar-item spaced " + (isUnderline ? "active" : "")}
+              aria-label="Format Underline"
+            >
+              <Underline size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onFormatStrikethrough}
+              className={"toolbar-item spaced " + (isStrikethrough ? "active" : "")}
+              aria-label="Format Strikethrough"
+            >
+              <Strikethrough size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onFormatCode}
+              className={"toolbar-item spaced " + (isCode ? "active" : "")}
+              aria-label="Insert Code"
+            >
+              <Code size={16} />
+            </button>
 
             <Divider />
 
-            {/* Font Dropdown */}
             <button
               type="button"
-              className="toolbar-item font-trigger"
+              onClick={onAlignLeft}
+              className="toolbar-item spaced"
+              aria-label="Left Align"
+            >
+              <AlignLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onAlignCenter}
+              className="toolbar-item spaced"
+              aria-label="Center Align"
+            >
+              <AlignCenter size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onAlignRight}
+              className="toolbar-item spaced"
+              aria-label="Right Align"
+            >
+              <AlignRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onAlignJustify}
+              className="toolbar-item"
+              aria-label="Justify Align"
+            >
+              <AlignJustify size={16} />
+            </button>
+
+            <Divider />
+
+            {/* Font Controls */}
+            <button
+              type="button"
+              className="toolbar-item"
               onClick={handleFontDropdownToggle}
               ref={fontButtonRef}
-              title="Font family & size"
+              aria-label="Font Options"
             >
-              <span className="toolbar-item__label">Aa</span>
+              <span className="text">Font</span>
               <i className="chevron-down" />
             </button>
 
@@ -594,15 +667,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               </div>
             )}
 
-            {/* Color Dropdown */}
+            <Divider />
+
+            {/* Color Controls */}
             <button
               type="button"
-              className="toolbar-item color-trigger"
+              className="toolbar-item"
               onClick={handleColorDropdownToggle}
               ref={colorButtonRef}
-              title="Text & background color"
+              aria-label="Color Options"
             >
-              <div className="color-swatch" style={{ background: textColor }} />
+              <span className="text">Color</span>
               <i className="chevron-down" />
             </button>
 
@@ -627,20 +702,19 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
             <Divider />
 
-            {/* Insert Dropdown */}
             <button
               type="button"
-              className="toolbar-item insert-trigger"
+              className="toolbar-item"
               onClick={handleInsertDropdownToggle}
               ref={insertButtonRef}
-              title="Insert content"
+              aria-label="Insert Options"
             >
-              <FileImageOutlined style={{ fontSize: "18px" }} />
+              <span className="text">Insert</span>
               <i className="chevron-down" />
             </button>
             {activeDropdown === insertDropdownId && (
               <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-                <button type="button" className="item" onClick={handleInsertImage}>
+            <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined className="dropdown-icon" />
                   <span className="text">Image</span>
                 </button>
@@ -661,123 +735,15 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
             <Divider />
 
-            {/* Zoom Controls */}
-            <div className="zoom-controls">
+            {onPreview && (
               <button
                 type="button"
-                onClick={onZoomOut}
-                className="toolbar-item"
-                title="Zoom out"
-                disabled={zoom <= 25}
+                onClick={onPreview}
+                className="toolbar-item spaced"
+                aria-label="Preview"
               >
-                <ZoomOut size={18} />
+                <Eye size={16} />
               </button>
-              <span className="zoom-display">{zoom}%</span>
-              <button
-                type="button"
-                onClick={onZoomIn}
-                className="toolbar-item"
-                title="Zoom in"
-                disabled={zoom >= 200}
-              >
-                <ZoomIn size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={onResetZoom}
-                className="toolbar-item"
-                title="Reset zoom"
-                disabled={zoom === 100}
-              >
-                <RotateCcw size={18} />
-              </button>
-            </div>
-
-            {/* More Menu (Mobile Overflow) */}
-            {(onMicToggle || onDuplicate || onDelete || onExport || onPreview) && (
-              <>
-                <button
-                  type="button"
-                  className="toolbar-item more-trigger"
-                  onClick={handleMoreDropdownToggle}
-                  ref={moreButtonRef}
-                  title="More actions"
-                >
-                  <MoreHorizontal size={18} />
-                </button>
-                {activeDropdown === moreDropdownId && (
-                  <div className="dropdown dropdown--right" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
-                    {onMicToggle && (
-                      <button
-                        type="button"
-                        className={"item" + (isMicActive ? " active" : "")}
-                        onClick={() => {
-                          onMicToggle();
-                          closeDropdown();
-                        }}
-                      >
-                        <Mic size={18} className="dropdown-icon" />
-                        <span className="text">{isMicActive ? "Stop Recording" : "Start Recording"}</span>
-                      </button>
-                    )}
-                    {onDuplicate && (
-                      <button
-                        type="button"
-                        className="item"
-                        onClick={() => {
-                          onDuplicate();
-                          closeDropdown();
-                        }}
-                      >
-                        <Copy size={18} className="dropdown-icon" />
-                        <span className="text">Duplicate</span>
-                      </button>
-                    )}
-                    {onExport && (
-                      <button
-                        type="button"
-                        className="item"
-                        onClick={() => {
-                          onExport();
-                          closeDropdown();
-                        }}
-                      >
-                        <Download size={18} className="dropdown-icon" />
-                        <span className="text">Export</span>
-                      </button>
-                    )}
-                    {onPreview && (
-                      <button
-                        type="button"
-                        className="item"
-                        onClick={() => {
-                          onPreview();
-                          closeDropdown();
-                        }}
-                      >
-                        <Eye size={18} className="dropdown-icon" />
-                        <span className="text">Preview</span>
-                      </button>
-                    )}
-                    {onDelete && (
-                      <>
-                        <div className="dropdown-divider" />
-                        <button
-                          type="button"
-                          className="item item--danger"
-                          onClick={() => {
-                            onDelete();
-                            closeDropdown();
-                          }}
-                        >
-                          <Trash2 size={18} className="dropdown-icon" />
-                          <span className="text">Delete</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
             )}
           </>
         )}

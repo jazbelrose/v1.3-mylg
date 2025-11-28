@@ -36,11 +36,11 @@ export const DropdownProvider: React.FC<React.PropsWithChildren> = ({ children }
       
       // Position the dropdown below the trigger, aligned to the left
       dropdown.style.position = 'fixed';
-      dropdown.style.top = `${triggerRect.bottom}px`;
+      dropdown.style.top = `${triggerRect.bottom + 8}px`;
       dropdown.style.left = `${triggerRect.left}px`;
       dropdown.style.zIndex = '1000';
     }
-  }, [activeDropdown]);
+  }, [activeDropdown, dropdownRef.current]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
