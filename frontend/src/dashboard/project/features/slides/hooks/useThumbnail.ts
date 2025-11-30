@@ -1,6 +1,6 @@
 // hooks/useThumbnail.ts - Hook for managing local slide thumbnails
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getOrRenderThumb, invalidateThumb, hashContent } from '../lib/thumbnails';
+import { getOrRenderThumb, invalidateThumb, hashContent, hashBackgroundColor } from '../lib/thumbnails';
 import { isUiThumbsEnabled } from '../lib/featureFlags';
 
 interface UseThumbnailOptions {
@@ -168,7 +168,7 @@ export function useThumbnail({
     return () => {
       cancelled = true;
     };
-  }, [projectId, slideId, content, width, height, refreshSeq, decodeImage]);
+  }, [projectId, slideId, content, backgroundColor, width, height, refreshSeq, decodeImage]);
 
   useEffect(() => () => {
     if (currentUrlRef.current) {

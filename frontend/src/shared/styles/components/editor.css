@@ -7,7 +7,6 @@
   padding: var(--space-1);
   width: 100%;
   max-width: var(--container-max-width);
-  background-color: var(--bg-color);
   font-family: var(--font-family-primary);
   font-weight: var(--font-weight-normal);
   font-size: var(--font-size-base);
@@ -18,7 +17,6 @@
 
 .editor-inner {
   position: relative;
-  background: var(--bg-color);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   min-height: 100px;

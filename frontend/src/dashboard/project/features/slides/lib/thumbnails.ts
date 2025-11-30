@@ -13,9 +13,9 @@ const STORE_NAME = 'thumbnails';
 const MAX_CACHE_ENTRIES = 200; // Maximum number of cached thumbnails per project
 const MAX_CACHE_SIZE_MB = 150; // Maximum cache size in MB
 
-// Cache key format: slides:<projectId>:<slideId>:<contentHash>
-const makeCacheKey = (projectId: string, slideId: string, contentHash: string) =>
-  `slides:${projectId}:${slideId}:${contentHash}`;
+// Cache key format: slides:<projectId>:<slideId>:<contentHash>:<bgColorHash>
+const makeCacheKey = (projectId: string, slideId: string, contentHash: string, bgColorHash: string) =>
+  `slides:${projectId}:${slideId}:${contentHash}:${bgColorHash}`;
 
 const warmInflightKeys = new Set<string>();
 const inflightRenderMap = new Map<string, Promise<Blob | null>>();
@@ -160,6 +160,16 @@ export async function hashContent(content: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-1', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Generate a short hash of backgroundColor for cache key
+export async function hashBackgroundColor(color: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(color);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  // Use only first 8 characters for shorter cache keys
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
 }
 
 // Read blob from IndexedDB cache
@@ -332,9 +342,10 @@ export async function getOrRenderThumb({
   }
   
   try {
-    // Generate content hash
+    // Generate content hash and background color hash
     const contentHash = await hashContent(content);
-    const cacheKey = makeCacheKey(projectId, slideId, contentHash);
+    const bgColorHash = await hashBackgroundColor(backgroundColor);
+    const cacheKey = makeCacheKey(projectId, slideId, contentHash, bgColorHash);
     
     // Check cache first
     const cachedBlob = await readBlob(cacheKey);
@@ -410,7 +421,7 @@ export async function refreshAllThumbnails(projectId: string): Promise<void> {
 // Warm thumbnails for visible range (preload)
 export async function warmThumbsForVisibleRange(
   projectId: string,
-  slides: Array<{ id: string; content?: string }>,
+  slides: Array<{ id: string; content?: string; backgroundColor?: string }>,
   visibleStart: number = 0,
   visibleEnd: number = slides.length
 ): Promise<void> {
@@ -422,8 +433,10 @@ export async function warmThumbsForVisibleRange(
     .filter((slide) => typeof slide.content === 'string' && slide.content.length > 0)
     .map(async (slide) => {
       const content = slide.content as string;
+      const backgroundColor = slide.backgroundColor || '#101112';
       const hash = await hashContent(content);
-      const cacheKey = makeCacheKey(projectId, slide.id, hash);
+      const bgColorHash = await hashBackgroundColor(backgroundColor);
+      const cacheKey = makeCacheKey(projectId, slide.id, hash, bgColorHash);
 
       if (warmInflightKeys.has(cacheKey)) {
         return;
@@ -435,6 +448,7 @@ export async function warmThumbsForVisibleRange(
           projectId,
           slideId: slide.id,
           content,
+          backgroundColor,
         });
 
         if (url) {
