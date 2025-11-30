@@ -34,7 +34,7 @@ export function useThumbnail({
   // Track active object URL so we can revoke it when it is replaced
   const currentUrlRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
-  const lastLoadedRef = useRef<{ hash: string; refreshSeq: number } | null>(null);
+  const lastLoadedRef = useRef<{ hash: string; backgroundColor: string; refreshSeq: number } | null>(null);
 
   const [refreshSeq, setRefreshSeq] = useState(0);
 
@@ -100,8 +100,8 @@ export function useThumbnail({
         }
 
         const alreadyLoaded = lastLoadedRef.current;
-        if (alreadyLoaded && alreadyLoaded.hash === hash && alreadyLoaded.refreshSeq === currentRefreshSeq) {
-          // Nothing to do; we already have the thumbnail for this hash
+        if (alreadyLoaded && alreadyLoaded.hash === hash && alreadyLoaded.backgroundColor === backgroundColor && alreadyLoaded.refreshSeq === currentRefreshSeq) {
+          // Nothing to do; we already have the thumbnail for this hash and background color
           setIsLoading(false);
           return;
         }
@@ -146,7 +146,7 @@ export function useThumbnail({
 
         const previousUrl = currentUrlRef.current;
   currentUrlRef.current = url;
-        lastLoadedRef.current = { hash, refreshSeq: currentRefreshSeq };
+        lastLoadedRef.current = { hash, backgroundColor, refreshSeq: currentRefreshSeq };
         setThumbnailUrl(url);
         setIsLoading(false);
         setError(null);

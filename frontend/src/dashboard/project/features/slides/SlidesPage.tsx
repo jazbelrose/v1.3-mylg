@@ -274,7 +274,9 @@ const SlidesPage: React.FC = () => {
           // Fire-and-forget; browsers may not allow async work on unload
           const width = 1920;
           const height = 1080;
-          saveSlideThumb(projectId, activeSlideId, undefined, { width, height }).catch(() => {});
+          const slide = slides.find((s) => s.id === activeSlideId);
+          const bgColor = slide?.backgroundColor || '#101112';
+          saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: bgColor }).catch(() => {});
         } catch {
           // ignore
         }
@@ -552,28 +554,36 @@ const SlidesPage: React.FC = () => {
       setTimeout(() => {
         const width = 1920;
         const height = 1080;
-        saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
-          if (!thumbnailUrl) return;
+        // Get the updated slide to retrieve the new backgroundColor
+        setSlides((currentSlides) => {
+          const slide = currentSlides.find((s) => s.id === activeSlideId);
+          const bgColor = slide?.backgroundColor || color;
           
-          void waitForThumbnailReady(thumbnailUrl)
-            .then((readyUrl) => {
-              setSlides((prev) => {
-                const updated = prev.map((s) =>
-                  s.id === activeSlideId
-                    ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
-                    : s
-                );
-                const persisted = updated.map((s) => ({
-                  ...s,
-                  thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
-                }));
-                updateProjectFields(projectId, { slides: persisted })
-                  .catch((e) => console.warn("Failed to persist thumbnail after color change:", e));
-                return updated;
-              });
-            })
-            .catch((error) => console.warn("Thumbnail not ready after color change:", error));
-        }, { width, height }).catch((e) => console.warn('Failed to save thumbnail after color change:', e));
+          saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
+            if (!thumbnailUrl) return;
+            
+            void waitForThumbnailReady(thumbnailUrl)
+              .then((readyUrl) => {
+                setSlides((prev) => {
+                  const updated = prev.map((s) =>
+                    s.id === activeSlideId
+                      ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                      : s
+                  );
+                  const persisted = updated.map((s) => ({
+                    ...s,
+                    thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+                  }));
+                  updateProjectFields(projectId, { slides: persisted })
+                    .catch((e) => console.warn("Failed to persist thumbnail after color change:", e));
+                  return updated;
+                });
+              })
+              .catch((error) => console.warn("Thumbnail not ready after color change:", error));
+          }, { width, height, backgroundColor: bgColor }).catch((e) => console.warn('Failed to save thumbnail after color change:', e));
+          
+          return currentSlides;
+        });
       }, 200); // Increased timeout to allow DOM to update
     }
   }, [activeSlideId, saveSlides, projectId, uiThumbsEnabled, makeUiThumbnail, sanitizeThumbnailForPersist, updateProjectFields]);
@@ -598,6 +608,8 @@ const SlidesPage: React.FC = () => {
               const height = 1080;
               // Generate a thumbnail for the active slide and persist the slide
               // update with the new thumbnail URL once.
+              const slide = slides.find((s) => s.id === activeSlideId);
+              const bgColor = slide?.backgroundColor || '#101112';
               let thumbnailUpdatePromise: Promise<void> | null = null;
 
               await saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
@@ -627,7 +639,7 @@ const SlidesPage: React.FC = () => {
                   .catch((error) => {
                     console.warn('Thumbnail not ready during autosave:', error);
                   });
-              }, { width, height });
+              }, { width, height, backgroundColor: bgColor });
 
               if (thumbnailUpdatePromise) {
                 await thumbnailUpdatePromise;

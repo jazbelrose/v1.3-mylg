@@ -582,7 +582,8 @@ export async function generateAndUploadThumbnail(
  */
 export async function generateSlideThumbnail(
   slideId: string,
-  projectId: string
+  projectId: string,
+  backgroundColor?: string
 ): Promise<string | null> {
   try {
     // Find the editor content for this slide. Different builds/styles may use
@@ -619,14 +620,14 @@ export async function generateSlideThumbnail(
       const container = document.querySelector(rootSelector) as HTMLElement | null;
         if (container) {
         console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
-        return await generateAndUploadThumbnail(container, projectId, slideId);
+        return await generateAndUploadThumbnail(container, projectId, slideId, backgroundColor);
       }
 
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
     }
 
-  return await generateAndUploadThumbnail(editorElement, projectId, slideId);
+  return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
@@ -638,7 +639,8 @@ export async function generateSlideThumbnail(
  */
 export async function generateSlideThumbnailWithSize(
   slideId: string,
-  projectId: string
+  projectId: string,
+  backgroundColor?: string
 ): Promise<string | null> {
   try {
     const selectors = [
@@ -667,14 +669,14 @@ export async function generateSlideThumbnailWithSize(
       const container = document.querySelector(rootSelector) as HTMLElement | null;
       if (container) {
         console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
-        return await generateAndUploadThumbnail(container, projectId, slideId);
+        return await generateAndUploadThumbnail(container, projectId, slideId, backgroundColor);
       }
 
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
     }
 
-    return await generateAndUploadThumbnail(editorElement, projectId, slideId);
+    return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
@@ -691,14 +693,14 @@ export async function saveSlideThumb(
   projectId: string,
   slideId: string,
   onSuccess?: (thumbnailUrl: string) => void,
-  options?: { width?: number; height?: number; scale?: number }
+  options?: { width?: number; height?: number; scale?: number; backgroundColor?: string }
 ): Promise<void> {
   try {
     let thumbnailUrl: string | null;
     if (options?.width && options?.height) {
-      thumbnailUrl = await generateSlideThumbnailWithSize(slideId, projectId);
+      thumbnailUrl = await generateSlideThumbnailWithSize(slideId, projectId, options.backgroundColor);
     } else {
-      thumbnailUrl = await generateSlideThumbnail(slideId, projectId);
+      thumbnailUrl = await generateSlideThumbnail(slideId, projectId, options?.backgroundColor);
     }
     if (!thumbnailUrl) {
       console.warn("No thumbnail generated");
