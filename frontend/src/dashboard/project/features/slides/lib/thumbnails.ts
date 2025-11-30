@@ -300,7 +300,7 @@ async function renderThumbnailOffscreen(
     const canvas = await html2canvas(container, {
       width,
       height,
-      background: backgroundColor,
+      backgroundColor,
       useCORS: true,
     });
     
@@ -541,7 +541,7 @@ export async function generateAndUploadThumbnail(
     }
     
     const canvas = await html2canvas(element, {
-      background: bgColor,
+      backgroundColor: bgColor,
       useCORS: true,
     });
 
