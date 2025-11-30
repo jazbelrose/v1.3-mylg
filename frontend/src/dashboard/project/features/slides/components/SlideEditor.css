@@ -61,7 +61,7 @@
   flex-direction: column;
   background: var(--bg, #101112);
   border-radius: 18px;
-  overflow: hidden;
+  overflow: hidden !important;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04),
     0 18px 36px rgba(0, 0, 0, 0.55);
@@ -71,14 +71,23 @@
   max-width: 100%;
   width: 100%;
   height: 100%;
+  border-radius: inherit;
 }
 
 .slide-editor__canvas-inner .editor-container {
   height: 100% !important;
+  border-radius: inherit;
+  overflow: hidden;
 }
 
 .slide-editor__canvas-inner .content-container {
   height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.slide-editor__canvas-inner .editor-input {
+  border-radius: inherit;
   overflow: hidden;
 }
 

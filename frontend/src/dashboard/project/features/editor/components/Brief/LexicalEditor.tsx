@@ -419,6 +419,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           flexDirection: "column",
           overflow: "hidden",
           height: "100%",
+          borderRadius: "inherit",
         }}
       >
         <ToolbarActionsPlugin registerToolbar={registerToolbar} />
@@ -441,13 +442,18 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
             flex: 1,
             overflowY: "auto",
             WebkitOverflowScrolling: "touch",
+            borderRadius: "inherit",
           }}
         >
           <RichTextPlugin
             contentEditable={
               <ContentEditable
                 className="editor-input"
-                style={{ position: "relative", minHeight: "100%" }}
+                style={{ 
+                  position: "relative", 
+                  minHeight: "100%",
+                  borderRadius: "inherit"
+                }}
               />
             }
             ErrorBoundary={LexicalErrorBoundary}
