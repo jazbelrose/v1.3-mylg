@@ -133,6 +133,8 @@ interface SlideToolbarProps {
   onSetFontSize?: (size: FontSize) => void;
   onSetTextColor?: (color: string) => void;
   onSetBgColor?: (color: string) => void;
+  onSetSlideBackgroundColor?: (color: string) => void;
+  slideBackgroundColor?: string;
   onInsertImage?: () => void;
   onInsertVector?: () => void;
   onInsertFigma?: () => void;
@@ -190,6 +192,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSetFontSize,
   onSetTextColor,
   onSetBgColor,
+  onSetSlideBackgroundColor,
+  slideBackgroundColor = '#101112',
   onInsertImage,
   onInsertVector,
   onInsertFigma,
@@ -215,6 +219,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
   const fontButtonRef = useRef<HTMLButtonElement | null>(null);
   const colorButtonRef = useRef<HTMLButtonElement | null>(null);
+  const slideBgButtonRef = useRef<HTMLButtonElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
@@ -223,6 +228,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const insertDropdownId = "insert-dropdown";
   const fontDropdownId = "font-dropdown";
   const colorDropdownId = "color-dropdown";
+  const slideBgDropdownId = "slide-bg-dropdown";
   const moreDropdownId = "more-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
@@ -255,6 +261,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     handleDropdownToggle(colorDropdownId, colorButtonRef);
   };
 
+  const handleSlideBgDropdownToggle = () => {
+    handleDropdownToggle(slideBgDropdownId, slideBgButtonRef);
+  };
+
   const handleMoreDropdownToggle = () => {
     handleDropdownToggle(moreDropdownId, moreButtonRef);
   };
@@ -280,6 +290,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleBgColorSelect = (e: { target: { value: string } }) => {
     onSetBgColor?.(e.target.value);
+  };
+
+  const handleSlideBgColorSelect = (e: { target: { value: string } }) => {
+    onSetSlideBackgroundColor?.(e.target.value);
   };
 
   const handleInsertImage = () => {
@@ -624,6 +638,33 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <ColorPicker
                     color={bgColor}
                     onChange={handleBgColorSelect}
+                  />
+                </div>
+              </div>,
+              document.body
+            )}
+
+            <Divider />
+
+            {/* Slide Background Color Dropdown */}
+            <button
+              type="button"
+              className="toolbar-item color-trigger"
+              onClick={handleSlideBgDropdownToggle}
+              ref={slideBgButtonRef}
+              title="Slide background color"
+            >
+              <div className="color-swatch" style={{ background: slideBackgroundColor, border: '1px solid rgba(255,255,255,0.1)' }} />
+              <i className="chevron-down" />
+            </button>
+
+            {activeDropdown === slideBgDropdownId && ReactDOM.createPortal(
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+                <div className="color-section">
+                  <label>Slide Background</label>
+                  <ColorPicker
+                    color={slideBackgroundColor}
+                    onChange={handleSlideBgColorSelect}
                   />
                 </div>
               </div>,

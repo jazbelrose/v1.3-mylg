@@ -230,6 +230,7 @@ const SlidesPage: React.FC = () => {
         id: uuidv4(),
         title: "Slide 1",
         order: 0,
+        backgroundColor: '#101112',
         content: JSON.stringify({
           root: {
             children: [
@@ -393,6 +394,7 @@ const SlidesPage: React.FC = () => {
       id: uuidv4(),
       title: `Slide ${slides.length + 1}`,
       order: slides.length,
+      backgroundColor: '#101112',
       content: JSON.stringify({
         root: {
           children: [
@@ -529,6 +531,52 @@ const SlidesPage: React.FC = () => {
       }
     }
   }, [uiThumbsEnabled]);
+
+  const handleSlideBackgroundColorChange = useCallback((color: string) => {
+    if (!activeSlideId) return;
+    
+    setSlides((prev) => {
+      const updated = prev.map((slide) => 
+        slide.id === activeSlideId ? { ...slide, backgroundColor: color } : slide
+      );
+      
+      // Save immediately after color change (use updated state)
+      saveSlides(updated, { skipThumbnail: true });
+      
+      return updated;
+    });
+    setIsDirty(true);
+    
+    // Regenerate thumbnail with new background color
+    if (projectId && activeSlideId && !uiThumbsEnabled) {
+      setTimeout(() => {
+        const width = 1920;
+        const height = 1080;
+        saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
+          if (!thumbnailUrl) return;
+          
+          void waitForThumbnailReady(thumbnailUrl)
+            .then((readyUrl) => {
+              setSlides((prev) => {
+                const updated = prev.map((s) =>
+                  s.id === activeSlideId
+                    ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                    : s
+                );
+                const persisted = updated.map((s) => ({
+                  ...s,
+                  thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
+                }));
+                updateProjectFields(projectId, { slides: persisted })
+                  .catch((e) => console.warn("Failed to persist thumbnail after color change:", e));
+                return updated;
+              });
+            })
+            .catch((error) => console.warn("Thumbnail not ready after color change:", error));
+        }, { width, height }).catch((e) => console.warn('Failed to save thumbnail after color change:', e));
+      }, 200); // Increased timeout to allow DOM to update
+    }
+  }, [activeSlideId, saveSlides, projectId, uiThumbsEnabled, makeUiThumbnail, sanitizeThumbnailForPersist, updateProjectFields]);
 
   // Debounced auto-save of slide content to backend when edits occur.
   useEffect(() => {
@@ -679,6 +727,7 @@ const SlidesPage: React.FC = () => {
                   onContentChange={(content) =>
                     handleContentChange(activeSlide.id, content)
                   }
+                  onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
                   onDuplicate={handleDuplicateSlide}
                   onDelete={handleDeleteSlide}
                   onExport={handleExport}

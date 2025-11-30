@@ -59,7 +59,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--bg, #101112);
+  /* background color is set via inline style from slide.backgroundColor */
   border-radius: 18px;
   overflow: hidden !important;
   box-shadow:

@@ -17,6 +17,7 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
     projectId,
     slideId: slide.id,
     content: slide.content,
+    backgroundColor: slide.backgroundColor || '#101112',
   });
 
   const uiThumbsEnabled = isUiThumbsEnabled();

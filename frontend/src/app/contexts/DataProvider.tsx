@@ -55,6 +55,7 @@ export interface Slide {
   thumbnail?: string;
   order?: number;
   content?: string; // Lexical JSON
+  backgroundColor?: string; // Slide background color
   [k: string]: unknown;
 }
 

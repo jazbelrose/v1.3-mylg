@@ -241,7 +241,8 @@ async function renderThumbnailOffscreen(
   slideId: string,
   content: string,
   width: number = 1920,
-  height: number = 1080
+  height: number = 1080,
+  backgroundColor: string = '#101112'
 ): Promise<Blob | null> {
   // Create offscreen container with fixed dimensions
   const container = document.createElement('div');
@@ -250,7 +251,7 @@ async function renderThumbnailOffscreen(
   container.style.top = '0';
   container.style.width = `${width}px`;
   container.style.height = `${height}px`;
-  container.style.backgroundColor = '#ffffff';
+  container.style.backgroundColor = backgroundColor;
   container.style.overflow = 'hidden';
   container.style.zIndex = '-1';
   
@@ -289,7 +290,7 @@ async function renderThumbnailOffscreen(
     const canvas = await html2canvas(container, {
       width,
       height,
-      background: '#ffffff',
+      background: backgroundColor,
       useCORS: true,
     });
     
@@ -315,13 +316,15 @@ export async function getOrRenderThumb({
   slideId,
   content,
   width = 1920,
-  height = 1080
+  height = 1080,
+  backgroundColor = '#101112'
 }: {
   projectId: string;
   slideId: string;
   content: string;
   width?: number;
   height?: number;
+  backgroundColor?: string;
 }): Promise<string | null> {
   if (!isUiThumbsEnabled()) {
     // Fallback to server thumbnails if feature flag is off
@@ -343,7 +346,7 @@ export async function getOrRenderThumb({
     let renderPromise = inflightRenderMap.get(cacheKey);
     if (!renderPromise) {
       renderPromise = (async () => {
-        const blob = await renderThumbnailOffscreen(slideId, content, width, height);
+        const blob = await renderThumbnailOffscreen(slideId, content, width, height, backgroundColor);
         if (!blob) {
           return null;
         }
@@ -499,16 +502,32 @@ async function uploadFileToS3({
  * @param element - The DOM element to capture
  * @param projectId - The project ID
  * @param slideId - The slide ID
+ * @param backgroundColor - Optional background color override
  * @returns Public S3 URL of the uploaded thumbnail
  */
 export async function generateAndUploadThumbnail(
   element: HTMLElement,
   projectId: string,
-  slideId: string
+  slideId: string,
+  backgroundColor?: string
 ): Promise<string | null> {
   try {
+    // Get computed background color from the slide canvas-inner element if not provided
+    let bgColor = backgroundColor;
+    if (!bgColor) {
+      // Try to find the canvas-inner parent element which has the background color
+      const canvasInner = element.closest('.slide-editor__canvas-inner') as HTMLElement;
+      if (canvasInner) {
+        bgColor = window.getComputedStyle(canvasInner).backgroundColor;
+      }
+      // Fallback to default if still not found
+      if (!bgColor || bgColor === 'rgba(0, 0, 0, 0)' || bgColor === 'transparent') {
+        bgColor = '#101112';
+      }
+    }
+    
     const canvas = await html2canvas(element, {
-      background: "#fff",
+      background: bgColor,
       useCORS: true,
     });
 

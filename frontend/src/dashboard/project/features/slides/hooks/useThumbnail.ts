@@ -7,6 +7,7 @@ interface UseThumbnailOptions {
   projectId: string;
   slideId: string;
   content?: string;
+  backgroundColor?: string;
   width?: number;
   height?: number;
 }
@@ -22,6 +23,7 @@ export function useThumbnail({
   projectId,
   slideId,
   content,
+  backgroundColor = '#101112',
   width = 1920,
   height = 1080,
 }: UseThumbnailOptions): UseThumbnailReturn {
@@ -112,6 +114,7 @@ export function useThumbnail({
           projectId,
           slideId,
           content,
+          backgroundColor,
           width,
           height,
         });

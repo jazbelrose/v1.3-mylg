@@ -17,6 +17,7 @@ interface SlideEditorProps {
   slide: Slide;
   onContentChange?: (content: string) => void;
   onSaveSuccess?: () => void;
+  onSlideBackgroundColorChange?: (color: string) => void;
   // Toolbar props
   onDuplicate?: () => void;
   onDelete?: () => void;
@@ -39,6 +40,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   slide,
   onContentChange,
   onSaveSuccess,
+  onSlideBackgroundColorChange,
   onDuplicate,
   onDelete,
   onExport,
@@ -195,6 +197,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onSetFontSize={(size: FontSize) => toolbarActions.onFontSizeChange(size)}
       onSetTextColor={toolbarActions.onFontColorChange}
       onSetBgColor={toolbarActions.onBgColorChange}
+      onSetSlideBackgroundColor={onSlideBackgroundColorChange}
+      slideBackgroundColor={slide.backgroundColor || '#101112'}
       onInsertImage={toolbarActions.onAddImage}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={() => toolbarActions.onInsertLayout("1fr 1fr")}
@@ -227,6 +231,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               style={{
                 width: `${STAGE_WIDTH}px`,
                 height: `${STAGE_HEIGHT}px`,
+                backgroundColor: slide.backgroundColor || '#101112',
               }}
             >
               <LexicalEditor
