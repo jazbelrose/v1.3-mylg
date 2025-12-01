@@ -350,6 +350,46 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
     return () => clearTimeout(timer);
   }, [autoFocus]);
 
+  useEffect(() => {
+    let focusTimeout: number | null = null;
+
+    const handleGlobalShortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) {
+        return;
+      }
+
+      if (event.key.toLowerCase() !== 'k') {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName;
+        const isEditable = target.isContentEditable;
+        if (isEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+          return;
+        }
+      }
+
+      event.preventDefault();
+      setIsOpen(true);
+      setSelectedIndex(-1);
+      focusTimeout = window.setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    };
+
+    window.addEventListener('keydown', handleGlobalShortcut);
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalShortcut);
+      if (focusTimeout !== null) {
+        window.clearTimeout(focusTimeout);
+      }
+    };
+  }, []);
+
   const currentProjectViewSuffix = useMemo(() => {
     const path = location.pathname.split(/[?#]/)[0];
     if (!path.startsWith('/dashboard/projects/')) {
