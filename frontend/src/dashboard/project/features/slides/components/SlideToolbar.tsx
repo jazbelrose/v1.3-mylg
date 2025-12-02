@@ -758,8 +758,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   if (node && layoutButtonRef.current) {
                     const triggerRect = layoutButtonRef.current.getBoundingClientRect();
                     node.style.position = 'fixed';
-                    node.style.left = `${triggerRect.right + 8}px`;
-                    node.style.top = `${triggerRect.top}px`;
+                    node.style.left = `${triggerRect.left + 12}px`;
+                    node.style.top = `${triggerRect.bottom + 4}px`;
                     node.style.zIndex = '1001';
                     node.style.visibility = 'visible';
                   }
