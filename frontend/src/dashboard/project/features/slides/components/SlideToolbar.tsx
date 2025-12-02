@@ -713,8 +713,58 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               document.body
             )}
 
+            {/* Keep insert dropdown visible when layout is open */}
             {activeDropdown === layoutDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div 
+                className="dropdown" 
+                data-slide-dropdown 
+                ref={(node) => {
+                  if (node && insertButtonRef.current) {
+                    const triggerRect = insertButtonRef.current.getBoundingClientRect();
+                    node.style.position = 'fixed';
+                    node.style.left = `${triggerRect.left}px`;
+                    node.style.top = `${triggerRect.bottom + 8}px`;
+                    node.style.zIndex = '1000';
+                    node.style.visibility = 'visible';
+                  }
+                }}
+              >
+                <button type="button" className="item" onClick={handleInsertImage}>
+                  <FileImageOutlined className="dropdown-icon" />
+                  <span className="text">Image</span>
+                </button>
+                <button type="button" className="item" onClick={handleInsertVector}>
+                  <NodeIndexOutlined className="dropdown-icon" />
+                  <span className="text">Vector</span>
+                </button>
+                <button type="button" className="item" onClick={handleInsertFigma}>
+                  <SiFigma className="dropdown-icon" size={16} />
+                  <span className="text">Figma</span>
+                </button>
+                <button type="button" className="item active" ref={layoutButtonRef}>
+                  <LayoutOutlined className="dropdown-icon" />
+                  <span className="text">Layout</span>
+                  <i className="chevron-right" />
+                </button>
+              </div>,
+              document.body
+            )}
+
+            {activeDropdown === layoutDropdownId && ReactDOM.createPortal(
+              <div 
+                className="dropdown dropdown--nested" 
+                data-slide-dropdown 
+                ref={(node) => {
+                  if (node && layoutButtonRef.current) {
+                    const triggerRect = layoutButtonRef.current.getBoundingClientRect();
+                    node.style.position = 'fixed';
+                    node.style.left = `${triggerRect.right + 8}px`;
+                    node.style.top = `${triggerRect.top}px`;
+                    node.style.zIndex = '1001';
+                    node.style.visibility = 'visible';
+                  }
+                }}
+              >
                 <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr")}>
                   <span className="text">2 Columns (Equal Width)</span>
                 </button>

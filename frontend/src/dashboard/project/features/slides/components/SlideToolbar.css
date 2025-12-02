@@ -186,13 +186,18 @@
   flex-direction: column;
   gap: 4px;
   color: rgba(255, 255, 255, 0.9);
-  visibility: visible;
+  visibility: hidden;
   opacity: 1;
 }
 
 .dropdown[data-slide-dropdown].dropdown--right {
-  left: auto;
-  right: 0;
+  /* Positioning handled by JS */
+}
+
+.dropdown[data-slide-dropdown].dropdown--nested {
+  /* Nested dropdowns (e.g., layout inside insert) positioned to the right */
+  /* Positioning handled by JS but with different offset logic */
+  min-width: 240px;
 }
 
 .dropdown[data-slide-dropdown] .item {
