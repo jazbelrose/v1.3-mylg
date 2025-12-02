@@ -138,7 +138,7 @@ interface SlideToolbarProps {
   onInsertImage?: () => void;
   onInsertVector?: () => void;
   onInsertFigma?: () => void;
-  onInsertLayout?: () => void;
+  onInsertLayout?: (template: string) => void;
 
   // Text formatting state
   isBold?: boolean;
@@ -221,6 +221,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const colorButtonRef = useRef<HTMLButtonElement | null>(null);
   const slideBgButtonRef = useRef<HTMLButtonElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
+  const layoutButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const blockDropdownId = "block-dropdown";
@@ -230,6 +231,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const colorDropdownId = "color-dropdown";
   const slideBgDropdownId = "slide-bg-dropdown";
   const moreDropdownId = "more-dropdown";
+  const layoutDropdownId = "layout-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
 
@@ -267,6 +269,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleMoreDropdownToggle = () => {
     handleDropdownToggle(moreDropdownId, moreButtonRef);
+  };
+
+  const handleLayoutDropdownToggle = () => {
+    handleDropdownToggle(layoutDropdownId, layoutButtonRef);
   };
 
   const handleDropdownItemClick = (type: BlockType) => {
@@ -311,8 +317,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     closeDropdown();
   };
 
-  const handleInsertLayout = () => {
-    onInsertLayout?.();
+  const handleInsertLayout = (template: string) => {
+    onInsertLayout?.(template);
     closeDropdown();
   };
 
@@ -698,9 +704,31 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <SiFigma className="dropdown-icon" size={16} />
                   <span className="text">Figma</span>
                 </button>
-                <button type="button" className="item" onClick={handleInsertLayout}>
+                <button type="button" className="item" onClick={handleLayoutDropdownToggle} ref={layoutButtonRef}>
                   <LayoutOutlined className="dropdown-icon" />
                   <span className="text">Layout</span>
+                  <i className="chevron-right" />
+                </button>
+              </div>,
+              document.body
+            )}
+
+            {activeDropdown === layoutDropdownId && ReactDOM.createPortal(
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+                <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr")}>
+                  <span className="text">2 Columns (Equal Width)</span>
+                </button>
+                <button type="button" className="item" onClick={() => handleInsertLayout("25% 75%")}>
+                  <span className="text">2 Columns (25% - 75%)</span>
+                </button>
+                <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr 1fr")}>
+                  <span className="text">3 Columns (Equal Width)</span>
+                </button>
+                <button type="button" className="item" onClick={() => handleInsertLayout("25% 50% 25%")}>
+                  <span className="text">3 Columns (25% - 50% - 25%)</span>
+                </button>
+                <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr 1fr 1fr")}>
+                  <span className="text">4 Columns (Equal Width)</span>
                 </button>
               </div>,
               document.body

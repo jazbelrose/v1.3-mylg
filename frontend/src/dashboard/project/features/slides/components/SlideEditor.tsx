@@ -201,7 +201,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       slideBackgroundColor={slide.backgroundColor || '#101112'}
       onInsertImage={toolbarActions.onAddImage}
       onInsertFigma={toolbarActions.onFigma}
-      onInsertLayout={() => toolbarActions.onInsertLayout("1fr 1fr")}
+      onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
     />
   ) : null;
 
