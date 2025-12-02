@@ -76,6 +76,9 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
       showTrigger = true,
       isOpen,
       onRequestClose,
+      selectionMode = 'none',
+      onFileSelect,
+      fileTypeFilter = 'all',
     }: FileManagerProps,
     ref
   ) => {
@@ -92,6 +95,7 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
 
     const canUpload = isAdmin || isBuilder || isDesigner || folder === "uploads";
     const canDelete = isAdmin || isBuilder || isDesigner;
+    const isSelectionEnabled = selectionMode && selectionMode !== 'none';
 
     const state = useFileManagerState({
       folder,
@@ -99,6 +103,9 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
       isOpen,
       onRequestClose,
       activeProject,
+      selectionMode,
+      onFileSelect,
+      fileTypeFilter,
     });
 
     const {

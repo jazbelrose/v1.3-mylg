@@ -15,10 +15,11 @@ import type {
   Project,
   SortOption,
   ViewMode,
+  FileSelectionMode,
 } from "../../FileManager/FileManagerTypes";
 
 interface UseFileManagerStateParams
-  extends Pick<FileManagerProps, "folder" | "displayName" | "isOpen" | "onRequestClose"> {
+  extends Pick<FileManagerProps, "folder" | "displayName" | "isOpen" | "onRequestClose" | "selectionMode" | "onFileSelect" | "fileTypeFilter"> {
   activeProject?: Project;
 }
 
@@ -60,6 +61,9 @@ export const useFileManagerState = ({
   isOpen,
   onRequestClose,
   activeProject,
+  selectionMode = 'none',
+  onFileSelect,
+  fileTypeFilter = 'all',
 }: UseFileManagerStateParams) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -86,6 +90,8 @@ export const useFileManagerState = ({
   const [customFolders, setCustomFolders] = useState<FolderOption[]>(
     () => parseCustomFolders((activeProject as { customFolders?: unknown })?.customFolders)
   );
+
+  const isSelectionEnabled = selectionMode && selectionMode !== 'none';
 
   const renderedName = useMemo(
     () => {
@@ -181,13 +187,22 @@ export const useFileManagerState = ({
   );
 
   const displayedFiles = useMemo(() => {
-    const filtered = selectedFiles.filter(
+    let filtered = selectedFiles.filter(
       (f) =>
         f.fileName.toLowerCase().includes(searchTerm.toLowerCase()) &&
         (filterOption === "all" || f.kind === filterOption)
     );
+    
+    // Apply image filtering when in selection mode with image filter
+    if (isSelectionEnabled && fileTypeFilter === 'images') {
+      filtered = filtered.filter((f) => {
+        const extension = f.fileName.split(".").pop()?.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(extension || '');
+      });
+    }
+    
     return sortFiles(filtered);
-  }, [selectedFiles, searchTerm, filterOption, sortFiles]);
+  }, [selectedFiles, searchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
 
   const toggleViewMode = useCallback(() => {
     const newMode: ViewMode = viewMode === "grid" ? "list" : "grid";
@@ -248,6 +263,32 @@ export const useFileManagerState = ({
 
   const handleFileClick = useCallback(
     (file: FileItem, index: number) => {
+      // Selection mode takes precedence
+      if (isSelectionEnabled) {
+        // Validate file type if filtering for images
+        if (fileTypeFilter === 'images') {
+          const extension = file.fileName.split(".").pop()?.toLowerCase();
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(extension || '');
+          if (!isImage) {
+            // Optionally show error - for now, just ignore non-images
+            return;
+          }
+        }
+        
+        if (selectionMode === 'single') {
+          onFileSelect?.(file);
+          closeFilesModal();
+          return;
+        }
+        
+        // Multi-select mode (future expansion)
+        if (selectionMode === 'multi') {
+          handleSelectionChange(file.url);
+          return;
+        }
+      }
+      
+      // Original behavior for normal mode
       if (isSelectMode) {
         handleSelectionChange(file.url);
       } else {
@@ -261,7 +302,7 @@ export const useFileManagerState = ({
         setImageModalOpen(true);
       }
     },
-    [handleSelectionChange, isSelectMode]
+    [handleSelectionChange, isSelectMode, isSelectionEnabled, selectionMode, onFileSelect, closeFilesModal, fileTypeFilter]
   );
 
   useEffect(() => {

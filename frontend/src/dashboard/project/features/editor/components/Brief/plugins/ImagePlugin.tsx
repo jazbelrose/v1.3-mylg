@@ -13,8 +13,10 @@ import {
 } from "lexical";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { useData } from "@/app/contexts/useData";
-import { S3_PUBLIC_BASE } from "@/shared/utils/api";
+import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
 import { OPEN_IMAGE_COMMAND } from "../commands";
+import FileManagerComponent, { type FileItem } from "@/dashboard/project/components/FileManager/FileManager";
+import { notify } from "@/shared/ui/ToastNotifications";
 
 type Props = {
   showToolbarButton?: boolean;
@@ -41,8 +43,25 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
   const [url, setURL] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [editor] = useLexicalComposerContext();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    
+    if (showDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showDropdown]);
 
   // Allow other UI (palette/shortcut) to open the modal
   useEffect(() => {
@@ -96,6 +115,35 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
         $insertNodes([node]);
       }
     });
+  };
+
+  const handleFileSelectedFromManager = (selectedFile: FileItem) => {
+    const src = getFileUrl(selectedFile.url);
+    
+    // Validate it's an image
+    const extension = selectedFile.fileName.split(".").pop()?.toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(extension || '');
+    
+    if (!isImage) {
+      notify("error", "Only image files can be inserted");
+      return;
+    }
+
+    // Load image to get dimensions
+    const img = new Image();
+    img.src = src;
+
+    img.onload = () => {
+      insertImageNode(src, img.width || 400, img.height || 300);
+      setIsOpen(false);
+    };
+
+    img.onerror = () => {
+      console.error("Failed to load image:", src);
+      // Still insert as fallback
+      insertImageNode(src, 400, 300);
+      setIsOpen(false);
+    };
   };
 
   const onAddImage = async () => {
@@ -226,21 +274,97 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
               color: "white",
             }}
           />
-          <button
-            type="button"
-            style={{
-              width: "100%",
-              padding: "10px",
-              background: "#1b1b1b",
-              border: "1px solid white",
-              borderRadius: "5px",
-              color: "white",
-              cursor: "pointer",
-            }}
-            onClick={() => inputRef.current?.click()}
-          >
-            {file ? file.name : "Upload Image"}
-          </button>
+          
+          <div style={{ position: "relative" }} ref={dropdownRef}>
+            <button
+              type="button"
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: "#1b1b1b",
+                border: "1px solid white",
+                borderRadius: "5px",
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+              onClick={() => setShowDropdown(!showDropdown)}
+            >
+              <span>{file ? file.name : "Upload Image"}</span>
+              <span style={{ marginLeft: "8px" }}>▾</span>
+            </button>
+            
+            {showDropdown && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  marginTop: "4px",
+                  background: "#1b1b1b",
+                  border: "1px solid white",
+                  borderRadius: "5px",
+                  overflow: "hidden",
+                  zIndex: 1001,
+                }}
+              >
+                <button
+                  type="button"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    background: "transparent",
+                    border: "none",
+                    color: "white",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.2s",
+                  }}
+                  onClick={() => {
+                    inputRef.current?.click();
+                    setShowDropdown(false);
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#2a2a2a";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  Upload from Computer
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    background: "transparent",
+                    border: "none",
+                    borderTop: "1px solid #333",
+                    color: "white",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.2s",
+                  }}
+                  onClick={() => {
+                    setShowDropdown(false);
+                    setIsFileManagerOpen(true);
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#2a2a2a";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  Choose from Project Files
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -290,6 +414,18 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           </button>
         </div>
       </ReactModal>
+
+      {isFileManagerOpen && (
+        <FileManagerComponent
+          isOpen={isFileManagerOpen}
+          onRequestClose={() => setIsFileManagerOpen(false)}
+          showTrigger={false}
+          folder="uploads"
+          selectionMode="single"
+          onFileSelect={handleFileSelectedFromManager}
+          fileTypeFilter="images"
+        />
+      )}
     </div>
   );
 }

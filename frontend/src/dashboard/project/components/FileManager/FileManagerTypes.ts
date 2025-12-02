@@ -1,5 +1,7 @@
 import type React from "react";
 
+export type FileSelectionMode = 'none' | 'single' | 'multi';
+
 export interface FileManagerProps {
   folder?: string;
   displayName?: string;
@@ -7,6 +9,9 @@ export interface FileManagerProps {
   showTrigger?: boolean;
   isOpen?: boolean;
   onRequestClose?: () => void;
+  selectionMode?: FileSelectionMode;
+  onFileSelect?: (file: FileItem) => void;
+  fileTypeFilter?: 'images' | 'all';
 }
 
 export interface FileItem {
