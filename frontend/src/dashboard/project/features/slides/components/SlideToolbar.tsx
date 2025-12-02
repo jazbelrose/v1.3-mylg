@@ -423,7 +423,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === blockDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
                 <button
                   type="button"
                   className="item"
@@ -516,7 +516,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === alignDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
                 <button
                   type="button"
                   className="item"
@@ -587,7 +587,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === fontDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
                 <div className="font-section">
                   <label>Family</label>
                   <select
@@ -631,7 +631,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === colorDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
                 <div className="color-section">
                   <label>Text Color</label>
                   <ColorPicker
@@ -665,7 +665,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === slideBgDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
                 <div className="color-section">
                   <label>Slide Background</label>
                   <ColorPicker
@@ -691,7 +691,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <i className="chevron-down" />
             </button>
             {activeDropdown === insertDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
                 <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined className="dropdown-icon" />
                   <span className="text">Image</span>
@@ -831,7 +831,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <MoreHorizontal size={18} />
                 </button>
                 {activeDropdown === moreDropdownId && ReactDOM.createPortal(
-                  <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+                  <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef}>
                     {onMicToggle && (
                       <button
                         type="button"

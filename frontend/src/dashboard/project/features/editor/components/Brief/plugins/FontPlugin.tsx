@@ -146,7 +146,7 @@ export default function FontPlugin({ showToolbar = true }: Props) {
         </button>
 
         {activeDropdown === fontFamilyDropdownId && (
-          <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+          <div className="dropdown" ref={dropdownRef}>
             {FONT_FAMILIES.map((family) => (
               <button
                 key={family}
@@ -174,7 +174,7 @@ export default function FontPlugin({ showToolbar = true }: Props) {
         </button>
 
         {activeDropdown === fontSizeDropdownId && (
-          <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+          <div className="dropdown" ref={dropdownRef}>
             {FONT_SIZES.map((size) => (
               <button
                 key={size}

@@ -10,6 +10,7 @@ import EditableTextField from "@/shared/ui/EditableTextField";
 import UserProfilePicture from "@/shared/ui/UserProfilePicture";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
 import { validatePasswordAgainstTypicalCognitoPolicy } from "@/shared/utils/passwordValidation";
+import { HelpCircle } from "lucide-react";
 
 type RoleKey = "admin" | "designer" | "builder" | "vendor" | "client" | "";
 
@@ -232,7 +233,7 @@ const Settings: React.FC = () => {
         switch (error?.name) {
           case "InvalidPasswordException":
             // e.g. "Password did not conform with policy: Password must have numeric characters"
-            msg = err.message;
+            msg = error.message;
             break;
           case "NotAuthorizedException":
             msg = "Old password is incorrect.";

@@ -351,7 +351,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
             </button>
 
             {activeDropdown === blockDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" ref={dropdownRef}>
                 <button
                   type="button"
                   className="item"
@@ -512,7 +512,7 @@ export default function ToolbarPlugin({ onPreview, onSave }: ToolbarPluginProps 
               <i className="chevron-down" />
             </button>
             {activeDropdown === insertDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" ref={dropdownRef}>
                 <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined style={{ fontSize: 16, marginRight: '18px' }} />
                   <span className="text">Image</span>

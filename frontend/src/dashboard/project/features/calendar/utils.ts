@@ -431,7 +431,7 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
     title: task.title ?? "Untitled task",
     due,
     time,
-    done: task.status === "done" || task.status === "archived",
+    done: task.status === "done",
     description: task.description ?? undefined,
     status: task.status,
     assignedTo: rawAssignedTo,

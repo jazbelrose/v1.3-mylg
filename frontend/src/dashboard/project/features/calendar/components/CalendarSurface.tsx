@@ -106,6 +106,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
+  const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
+  const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
 
 
   const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {

@@ -483,7 +483,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === blockDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" ref={dropdownRef}>
                 <button
                   type="button"
                   className="item"
@@ -637,7 +637,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === fontDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" ref={dropdownRef}>
                 <div className="font-section">
                   <label>Family</label>
                   <select
@@ -682,7 +682,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
 
             {activeDropdown === colorDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" ref={dropdownRef}>
                 <div className="color-section">
                   <label>Text Color</label>
                   <ColorPicker
@@ -713,7 +713,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <i className="chevron-down" />
             </button>
             {activeDropdown === insertDropdownId && (
-              <div className="dropdown" ref={dropdownRef as React.RefObject<HTMLDivElement>}>
+              <div className="dropdown" ref={dropdownRef}>
             <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined className="dropdown-icon" />
                   <span className="text">Image</span>
