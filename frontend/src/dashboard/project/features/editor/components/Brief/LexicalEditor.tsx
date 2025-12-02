@@ -30,6 +30,7 @@ import DeleteImagePlugin from "./plugins/DeleteImagePlugin";
 import ImageLockPlugin from "./plugins/ImageLockPlugin";
 import ImageCopyPastePlugin from "./plugins/ImageCopyPastePlugin";
 import YjsSyncPlugin from "./plugins/YjsSyncPlugin";
+import UndoBoundaryPlugin from "./plugins/UndoBoundaryPlugin";
 
 import { WebsocketProvider } from "y-websocket";
 import { IndexeddbPersistence } from "y-indexeddb";
@@ -468,6 +469,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
             awarenessData={awarenessData}
             syncCursorPositionsFn={syncCursorPositionsWithAvatars}
           />
+
+          <UndoBoundaryPlugin />
 
           <RemoveEmptyLayoutItemsOnBackspacePlugin />
 
