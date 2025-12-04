@@ -1210,77 +1210,37 @@ i.bg-color::before {
 .editor-textbox {
   position: absolute;
   box-sizing: border-box;
-  background: transparent;           /* no gray fill */
-  border: 1px solid #4c9aff;        /* visible frame */
+  background: transparent;
+  border: 1px solid #4c9aff;
   padding: 8px;
   margin: 0;
 
-  /* native resize handle in the bottom-right corner */
+  /* you can keep native resize if you like */
   resize: both;
   overflow: auto;
+
+  /* Default: behave like a text area inside */
+  cursor: text;
 }
 
-/* Thin invisible strip at the top of the textbox used for dragging */
+/* When you're hovering near the border (JS adds this class) */
+.editor-textbox.editor-textbox-border-hover {
+  cursor: move;
+}
+
+/* You can keep this or remove it; it’s unused by the new plugin */
 .editor-textbox .textbox-drag-handle {
   position: absolute;
-  top: -6px;             /* sits just above the frame */
+  top: -6px;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 0;          /* effectively disables it visually */
   cursor: move;
 }
 
 
 
-.textbox-overlay-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 10;
-}
 
-.textbox-overlay {
-  box-sizing: border-box;
-  border: 1px solid #4c9aff;
-}
-
-.textbox-overlay__move-handle {
-  display: none;
-}
-
-.textbox-overlay__resize-handle {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid #4c9aff;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-.textbox-overlay__resize-handle--nw {
-  top: -6px;
-  left: -6px;
-  cursor: nwse-resize;
-}
-
-.textbox-overlay__resize-handle--ne {
-  top: -6px;
-  right: -6px;
-  cursor: nesw-resize;
-}
-
-.textbox-overlay__resize-handle--sw {
-  bottom: -6px;
-  left: -6px;
-  cursor: nesw-resize;
-}
-
-.textbox-overlay__resize-handle--se {
-  bottom: -6px;
-  right: -6px;
-  cursor: nwse-resize;
-}
 
 
 

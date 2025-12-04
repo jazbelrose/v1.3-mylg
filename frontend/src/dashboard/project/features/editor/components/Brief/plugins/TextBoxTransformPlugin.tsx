@@ -11,6 +11,20 @@ type MoveInteraction = {
   originY: number;
 };
 
+const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
+
+function isOnBorder(textbox: HTMLElement, event: PointerEvent): boolean {
+  const rect = textbox.getBoundingClientRect();
+  const { clientX, clientY } = event;
+
+  const onLeft = Math.abs(clientX - rect.left) <= EDGE_THRESHOLD;
+  const onRight = Math.abs(clientX - rect.right) <= EDGE_THRESHOLD;
+  const onTop = Math.abs(clientY - rect.top) <= EDGE_THRESHOLD;
+  const onBottom = Math.abs(clientY - rect.bottom) <= EDGE_THRESHOLD;
+
+  return onLeft || onRight || onTop || onBottom;
+}
+
 export default function TextBoxTransformPlugin(): null {
   const [editor] = useLexicalComposerContext();
 
@@ -21,6 +35,40 @@ export default function TextBoxTransformPlugin(): null {
     }
 
     let interaction: MoveInteraction | null = null;
+    let hoverTextbox: HTMLElement | null = null;
+
+    const clearHover = () => {
+      if (hoverTextbox) {
+        hoverTextbox.classList.remove("editor-textbox-border-hover");
+        hoverTextbox = null;
+      }
+    };
+
+    const onPointerMoveHover = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        clearHover();
+        return;
+      }
+
+      const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
+      if (!textbox) {
+        clearHover();
+        return;
+      }
+
+      if (isOnBorder(textbox, event)) {
+        if (hoverTextbox !== textbox) {
+          clearHover();
+          hoverTextbox = textbox;
+          hoverTextbox.classList.add("editor-textbox-border-hover");
+        }
+      } else {
+        if (hoverTextbox === textbox) {
+          clearHover();
+        }
+      }
+    };
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
@@ -28,12 +76,14 @@ export default function TextBoxTransformPlugin(): null {
       const target = event.target as HTMLElement | null;
       if (!target) return;
 
-      // Only start dragging if you grabbed the drag handle
-      const dragHandle = target.closest<HTMLElement>(".textbox-drag-handle");
-      if (!dragHandle) return;
-
-      const textbox = dragHandle.closest<HTMLElement>("[data-lexical-textbox]");
+      const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
       if (!textbox) return;
+
+      // Only start dragging if the pointer is on the border band
+      if (!isOnBorder(textbox, event)) {
+        // Click inside -> normal text editing
+        return;
+      }
 
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
       if (!nodeKey) return;
@@ -63,8 +113,10 @@ export default function TextBoxTransformPlugin(): null {
       event.stopPropagation();
     };
 
-    const onPointerMove = (event: PointerEvent) => {
-      if (!interaction) return;
+    const onPointerMoveDrag = (event: PointerEvent) => {
+      if (!interaction) {
+        return;
+      }
 
       const dx = event.clientX - interaction.startX;
       const dy = event.clientY - interaction.startY;
@@ -84,16 +136,24 @@ export default function TextBoxTransformPlugin(): null {
       interaction = null;
     };
 
+    // Hover detection for cursor change
+    root.addEventListener("pointermove", onPointerMoveHover);
+    // Drag handling
     root.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointermove", onPointerMoveDrag);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
 
     return () => {
+      root.removeEventListener("pointermove", onPointerMoveHover);
       root.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointermove", onPointerMoveDrag);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      // cleanup hover class just in case
+      if (hoverTextbox) {
+        hoverTextbox.classList.remove("editor-textbox-border-hover");
+      }
     };
   }, [editor]);
 
