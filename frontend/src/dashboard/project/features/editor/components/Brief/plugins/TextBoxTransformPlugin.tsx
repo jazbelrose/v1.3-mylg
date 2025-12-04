@@ -289,6 +289,8 @@ export default function TextBoxTransformPlugin(): null {
       const resizeHandle = document.createElement("div");
       resizeHandle.className = `textbox-overlay__resize-handle textbox-overlay__resize-handle--${handle}`;
       resizeHandle.dataset.textboxHandle = handle;
+      resizeHandle.style.pointerEvents = "auto";
+      resizeHandle.style.cursor = `${handle}-resize`;
       resizeHandle.addEventListener("pointerdown", (event) =>
         startResize(nodeKey, overlay, handle, event)
       );
@@ -310,6 +312,8 @@ export default function TextBoxTransformPlugin(): null {
       const moveHandle = document.createElement("div");
       moveHandle.className = "textbox-overlay__move-handle";
       moveHandle.dataset.textboxHandle = "move";
+      moveHandle.style.pointerEvents = "auto";
+      moveHandle.style.cursor = "move";
       moveHandle.addEventListener("pointerdown", (event) =>
         startMove(nodeKey, container, event)
       );
@@ -324,6 +328,27 @@ export default function TextBoxTransformPlugin(): null {
       return container;
     };
 
+    const handleTextboxPointerDown = (event: PointerEvent): void => {
+      const target = event.target as HTMLElement | null;
+      const textboxEl = target?.closest<HTMLElement>("[data-lexical-textbox]");
+      if (!textboxEl) {
+        return;
+      }
+
+      const nodeKey = textboxEl.getAttribute("data-lexical-node-key");
+      if (!nodeKey) {
+        return;
+      }
+
+      const overlay = ensureOverlay(nodeKey);
+      const tag = (target?.tagName || "").toLowerCase();
+      if (tag === "span" || tag === "p") {
+        return;
+      }
+
+      startMove(nodeKey, overlay, event);
+    };
+
     syncOverlays();
 
     const unregisterUpdate = editor.registerUpdateListener(() => {
@@ -333,12 +358,14 @@ export default function TextBoxTransformPlugin(): null {
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
+    root.addEventListener("pointerdown", handleTextboxPointerDown);
 
     return () => {
       unregisterUpdate();
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
+      root.removeEventListener("pointerdown", handleTextboxPointerDown);
       overlayMap.forEach((overlay) => overlay.remove());
       overlayMap.clear();
       overlayRoot.remove();

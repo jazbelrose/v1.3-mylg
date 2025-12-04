@@ -1233,61 +1233,61 @@ i.bg-color::before {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 10;
 }
 
 .textbox-overlay {
-  border: 1px dashed rgba(255, 255, 255, 0.35);
-  border-radius: 14px;
-  pointer-events: none;
+  border: 2px solid rgba(250, 51, 86, 0.6);
   box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 16px;
 }
 
 .textbox-overlay__move-handle {
   position: absolute;
-  top: 4px;
-  left: 50%;
-  width: 80px;
-  transform: translateX(-50%);
-  height: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  cursor: move;
+  inset: -8px;
+  border: 2px dashed rgba(250, 51, 86, 0.8);
+  border-radius: 20px;
   pointer-events: auto;
+  cursor: move;
+  background: transparent;
 }
 
 .textbox-overlay__resize-handle {
   position: absolute;
   width: 12px;
   height: 12px;
+  background: #fa3356;
+  border: 2px solid #fff;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(0, 0, 0, 0.35);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 2;
 }
 
 .textbox-overlay__resize-handle--nw {
   top: -6px;
   left: -6px;
-  cursor: nwse-resize;
+  cursor: nw-resize;
 }
 
 .textbox-overlay__resize-handle--ne {
   top: -6px;
   right: -6px;
-  cursor: nesw-resize;
+  cursor: ne-resize;
 }
 
 .textbox-overlay__resize-handle--sw {
   bottom: -6px;
   left: -6px;
-  cursor: nesw-resize;
+  cursor: sw-resize;
 }
 
 .textbox-overlay__resize-handle--se {
   bottom: -6px;
   right: -6px;
-  cursor: nwse-resize;
+  cursor: se-resize;
 }
 
 
