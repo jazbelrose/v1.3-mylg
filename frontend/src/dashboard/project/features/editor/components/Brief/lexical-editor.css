@@ -1215,17 +1215,12 @@ i.bg-color::before {
   padding: 8px;
   margin: 0;
 
-  /* you can keep native resize if you like */
-  resize: both;
+  /* Disable native resize since we have custom resize */
+  resize: none;
   overflow: auto;
 
   /* Default: behave like a text area inside */
   cursor: text;
-}
-
-/* When you're hovering near the border (JS adds this class) */
-.editor-textbox.editor-textbox-border-hover {
-  cursor: move;
 }
 
 /* You can keep this or remove it; it’s unused by the new plugin */
