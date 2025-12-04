@@ -10,6 +10,7 @@ export const OPEN_FIGMA_COMMAND: LexicalCommand<string> = createCommand('OPEN_FI
 export const OPEN_VECTOR_COMMAND: LexicalCommand<void> = createCommand('OPEN_VECTOR');
 export const TOGGLE_SPEECH_COMMAND: LexicalCommand<void> = createCommand('TOGGLE_SPEECH');
 export const OPEN_DROPDOWN_COMMAND: LexicalCommand<void> = createCommand('OPEN_DROPDOWN');
+export const INSERT_TEXTBOX_COMMAND: LexicalCommand<void> = createCommand('INSERT_TEXTBOX');
 
 
 

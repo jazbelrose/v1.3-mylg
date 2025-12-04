@@ -74,6 +74,22 @@
   border-radius: inherit;
 }
 
+.slide-editor__slide-frame {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  border-radius: inherit;
+}
+
+.slide-editor__slide-frame > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .slide-editor__canvas-inner .editor-container {
   height: 100% !important;
   border-radius: inherit;
@@ -89,6 +105,15 @@
 .slide-editor__canvas-inner .editor-input {
   border-radius: inherit;
   overflow: hidden;
+}
+
+.slide-editor__slide-frame .content-container {
+  max-height: 100% !important;
+  height: 100% !important;
+}
+
+.slide-editor__slide-frame .editor-input {
+  max-height: 100% !important;
 }
 
 @media (max-width: 1200px) {

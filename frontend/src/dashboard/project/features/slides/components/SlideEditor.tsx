@@ -34,6 +34,7 @@ interface SlideEditorProps {
 // Fixed stage dimensions (16:9 aspect ratio) - never changes
 const STAGE_WIDTH = 1920;
 const STAGE_HEIGHT = 1080;
+const SLIDE_PADDING = "96px 120px";
 
 const SlideEditor: React.FC<SlideEditorProps> = ({
   projectId,
@@ -200,6 +201,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onSetSlideBackgroundColor={onSlideBackgroundColorChange}
       slideBackgroundColor={slide.backgroundColor || '#101112'}
       onInsertImage={toolbarActions.onAddImage}
+      onInsertTextBox={toolbarActions.onInsertTextBox}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
     />
@@ -234,17 +236,22 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                 backgroundColor: slide.backgroundColor || '#101112',
               }}
             >
-              <LexicalEditor
-                key={slide.id}
-                docId={`${projectId}::slide::${slide.id}`}
-                onChange={handleChange}
-                showDefaultToolbar={false}
-                initialContent={slide.content ?? null}
-                onSave={handleSave}
-                registerToolbar={handleRegisterToolbar}
-                customToolbar={null}
-                disableDropdownProvider
-              />
+              <div className="slide-editor__slide-frame">
+                <LexicalEditor
+                  key={slide.id}
+                  docId={`${projectId}::slide::${slide.id}`}
+                  onChange={handleChange}
+                  showDefaultToolbar={false}
+                  initialContent={slide.content ?? null}
+                  onSave={handleSave}
+                  registerToolbar={handleRegisterToolbar}
+                  customToolbar={null}
+                  disableDropdownProvider
+                  contentOverflowBehavior="hidden"
+                  contentPadding={SLIDE_PADDING}
+                  contentMaxHeight="100%"
+                />
+              </div>
             </div>
           </div>
         </div>

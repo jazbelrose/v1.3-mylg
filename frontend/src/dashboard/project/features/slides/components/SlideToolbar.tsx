@@ -25,6 +25,7 @@ import {
   ZoomOut,
   RotateCcw,
   MoreHorizontal,
+  Type,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -137,6 +138,7 @@ interface SlideToolbarProps {
   slideBackgroundColor?: string;
   onInsertImage?: () => void;
   onInsertVector?: () => void;
+  onInsertTextBox?: () => void;
   onInsertFigma?: () => void;
   onInsertLayout?: (template: string) => void;
 
@@ -196,6 +198,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   slideBackgroundColor = '#101112',
   onInsertImage,
   onInsertVector,
+  onInsertTextBox,
   onInsertFigma,
   onInsertLayout,
 
@@ -309,6 +312,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleInsertVector = () => {
     onInsertVector?.();
+    closeDropdown();
+  };
+
+  const handleInsertTextBox = () => {
+    onInsertTextBox?.();
     closeDropdown();
   };
 
@@ -692,6 +700,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </button>
             {activeDropdown === insertDropdownId && ReactDOM.createPortal(
               <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                <button type="button" className="item" onClick={handleInsertTextBox}>
+                  <Type className="dropdown-icon" size={18} />
+                  <span className="text">Text Box</span>
+                </button>
                 <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined className="dropdown-icon" />
                   <span className="text">Image</span>
@@ -729,6 +741,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   }
                 }}
               >
+                <button type="button" className="item" onClick={handleInsertTextBox}>
+                  <Type className="dropdown-icon" size={18} />
+                  <span className="text">Text Box</span>
+                </button>
                 <button type="button" className="item" onClick={handleInsertImage}>
                   <FileImageOutlined className="dropdown-icon" />
                   <span className="text">Image</span>

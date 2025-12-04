@@ -25,6 +25,7 @@ import {
   OPEN_IMAGE_COMMAND,
   OPEN_FIGMA_COMMAND,
   TOGGLE_SPEECH_COMMAND,
+  INSERT_TEXTBOX_COMMAND,
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 
@@ -57,6 +58,7 @@ export type ToolbarActions = {
   onAddImage: () => void;
   onFigma: () => void;
   onVoice: () => void;
+  onInsertTextBox: () => void;
 
   onInsertLayout: (template: string) => void;
 
@@ -151,6 +153,7 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
       onAddImage: () => editor.dispatchCommand(OPEN_IMAGE_COMMAND, undefined),
       onFigma: () => editor.dispatchCommand(OPEN_FIGMA_COMMAND, undefined),
       onVoice: () => editor.dispatchCommand(TOGGLE_SPEECH_COMMAND, undefined),
+      onInsertTextBox: () => editor.dispatchCommand(INSERT_TEXTBOX_COMMAND, undefined),
 
       onInsertLayout: (template: string) =>
         editor.dispatchCommand(INSERT_LAYOUT_COMMAND, template),

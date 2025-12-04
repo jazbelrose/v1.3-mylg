@@ -53,6 +53,7 @@ import { SvgNode } from "./plugins/nodes/SvgNode";
 import { FigmaEmbedNode } from "./plugins/nodes/FigmaEmbedNode";
 import { LayoutContainerNode } from "./plugins/nodes/LayoutContainerNode";
 import { LayoutItemNode } from "./plugins/nodes/LayoutItemNode";
+import { TextBoxNode } from "./plugins/nodes/TextBoxNode";
 import RemoveEmptyLayoutItemsOnBackspacePlugin from "./plugins/BackspacePlugin";
 import ToolbarPlugin from "./plugins/ToolbarPlugin";
 import ColorPlugin from "./plugins/ColorPlugin";
@@ -62,6 +63,8 @@ import VectorPlugin from "./plugins/VectorPlugin";
 import FigmaPlugin from "./plugins/FigmaPlugin";
 import { LayoutPlugin } from "./plugins/LayoutPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
+import TextBoxPlugin from "./plugins/TextBoxPlugin";
+import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 
 type LexicalEditorProps = {
@@ -77,6 +80,12 @@ type LexicalEditorProps = {
   usePersistence?: boolean;
   /** Allow parent components to provide their own DropdownProvider */
   disableDropdownProvider?: boolean;
+  /** Optional padding applied inside the editable surface */
+  contentPadding?: number | string;
+  /** Control overflow for the editable surface (slide uses hidden) */
+  contentOverflowBehavior?: "auto" | "hidden";
+  /** Clamp the editable surface height if provided */
+  contentMaxHeight?: number | string;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -97,6 +106,9 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   customToolbar,
   usePersistence = true,
   disableDropdownProvider = false,
+  contentPadding = 20,
+  contentOverflowBehavior = "auto",
+  contentMaxHeight,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -136,6 +148,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const resolvedContentPadding =
+    typeof contentPadding === "number" ? `${contentPadding}px` : contentPadding;
 
   const providerRef = useRef<ExtendedWebsocketProvider | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
@@ -389,6 +403,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           justify: "editor-align-justify",
         },
         link: "editor-link",
+        textBox: "editor-textbox",
       },
       nodes: [
         ParagraphNode,
@@ -403,6 +418,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         FigmaEmbedNode,
         LayoutContainerNode,
         LayoutItemNode,
+        TextBoxNode,
       ] as Klass<LexicalNode>[],
       onError: (error: Error) => console.error("Lexical Editor Error:", error),
       editorState: null,
@@ -433,6 +449,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <VectorPlugin showToolbarButton={false} />
         <FigmaPlugin showToolbarButton={false} />
         <LayoutPlugin showToolbarButton={false} />
+        <TextBoxPlugin />
+        <TextBoxTransformPlugin />
 
         <FloatingToolbar editorRef={editorRef} />
 
@@ -441,9 +459,14 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           ref={contentRef}
           style={{
             flex: 1,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
+            position: "relative",
+            overflowY: contentOverflowBehavior,
+            overflowX: "hidden",
+            WebkitOverflowScrolling: contentOverflowBehavior === "auto" ? "touch" : undefined,
             borderRadius: "inherit",
+            padding: 0,
+            height: "100%",
+            maxHeight: contentMaxHeight,
           }}
         >
           <RichTextPlugin
@@ -453,7 +476,11 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                 style={{ 
                   position: "relative", 
                   minHeight: "100%",
-                  borderRadius: "inherit"
+                  maxHeight: "100%",
+                  borderRadius: "inherit",
+                  padding: resolvedContentPadding,
+                  boxSizing: "border-box",
+                  overflow: "hidden",
                 }}
               />
             }
