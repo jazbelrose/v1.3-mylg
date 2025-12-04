@@ -87,10 +87,6 @@ export class TextBoxNode extends ElementNode {
     dom.style.boxSizing = "border-box";
     dom.style.margin = "0";
 
-    const dragHandle = document.createElement("div");
-    dragHandle.className = "textbox-drag-handle";
-    dom.appendChild(dragHandle);
-
     return dom;
   }
 

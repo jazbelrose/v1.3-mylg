@@ -25,10 +25,6 @@ function isOnBorder(textbox: HTMLElement, event: PointerEvent): boolean {
   return onLeft || onRight || onTop || onBottom;
 }
 
-function isClickOnDragHandle(target: HTMLElement): boolean {
-  return target.classList.contains("textbox-drag-handle");
-}
-
 export default function TextBoxTransformPlugin(): null {
   const [editor] = useLexicalComposerContext();
 
@@ -61,8 +57,8 @@ export default function TextBoxTransformPlugin(): null {
         return;
       }
 
-      // Show move cursor on border OR on drag handle
-      if (isOnBorder(textbox, event) || isClickOnDragHandle(target)) {
+      // Show move cursor on border
+      if (isOnBorder(textbox, event)) {
         if (hoverTextbox !== textbox) {
           clearHover();
           hoverTextbox = textbox;
@@ -84,10 +80,8 @@ export default function TextBoxTransformPlugin(): null {
       const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
       if (!textbox) return;
 
-      // Start dragging if on border OR on drag handle
-      const shouldStartDrag = isOnBorder(textbox, event) || isClickOnDragHandle(target);
-      
-      if (!shouldStartDrag) {
+      // Start dragging if on border
+      if (!isOnBorder(textbox, event)) {
         // Click inside -> normal text editing
         return;
       }

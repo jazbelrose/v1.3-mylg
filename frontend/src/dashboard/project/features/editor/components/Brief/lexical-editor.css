@@ -1212,7 +1212,7 @@ i.bg-color::before {
   box-sizing: border-box;
   background: transparent;
   border: 1px solid #4c9aff;
-  padding: 32px 8px 8px 8px; /* Extra top padding for drag handle */
+  padding: 8px;
   margin: 0;
 
   /* you can keep native resize if you like */
