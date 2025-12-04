@@ -300,7 +300,8 @@ async function renderThumbnailOffscreen(
     const canvas = await html2canvas(container, {
       width,
       height,
-      background: backgroundColor,
+      // html2canvas expects `backgroundColor`; using `background` defaults to white
+      backgroundColor,
       useCORS: true,
     });
     
@@ -541,7 +542,8 @@ export async function generateAndUploadThumbnail(
     }
     
     const canvas = await html2canvas(element, {
-      background: bgColor,
+      // Ensure the captured canvas uses the slide background instead of default white
+      backgroundColor: bgColor,
       useCORS: true,
     });
 
