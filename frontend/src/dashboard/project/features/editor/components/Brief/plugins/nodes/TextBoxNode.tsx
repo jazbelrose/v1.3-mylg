@@ -78,6 +78,7 @@ export class TextBoxNode extends ElementNode {
     const dom = document.createElement("div");
     addClassNamesToElement(dom, config.theme.textBox || "editor-textbox");
     dom.setAttribute("data-lexical-textbox", "true");
+    dom.setAttribute("data-lexical-node-key", this.__key);
     dom.style.position = "absolute";
     dom.style.left = `${this.__x}px`;
     dom.style.top = `${this.__y}px`;

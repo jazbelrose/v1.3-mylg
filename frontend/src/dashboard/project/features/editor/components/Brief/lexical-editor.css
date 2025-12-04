@@ -1212,7 +1212,7 @@ i.bg-color::before {
   box-sizing: border-box;
   background: transparent;
   border: 1px solid #4c9aff;
-  padding: 8px;
+  padding: 32px 8px 8px 8px; /* Extra top padding for drag handle */
   margin: 0;
 
   /* you can keep native resize if you like */
@@ -1231,11 +1231,28 @@ i.bg-color::before {
 /* You can keep this or remove it; it’s unused by the new plugin */
 .editor-textbox .textbox-drag-handle {
   position: absolute;
-  top: -6px;
+  top: 0;
   left: 0;
   right: 0;
-  height: 0;          /* effectively disables it visually */
+  height: 24px;
   cursor: move;
+  background: rgba(76, 154, 255, 0.1);
+  border-bottom: 1px solid rgba(76, 154, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.editor-textbox .textbox-drag-handle:hover {
+  background: rgba(76, 154, 255, 0.2);
+}
+
+.editor-textbox .textbox-drag-handle::before {
+  content: '⋮⋮';
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  letter-spacing: 2px;
 }
 
 
