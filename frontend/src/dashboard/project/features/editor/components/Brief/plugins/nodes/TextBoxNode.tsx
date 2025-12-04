@@ -87,6 +87,14 @@ export class TextBoxNode extends ElementNode {
     dom.style.boxSizing = "border-box";
     dom.style.margin = "0";
 
+    // Add resize handles
+    const handles = ["top", "right", "bottom", "left", "bottom-right"];
+    handles.forEach(position => {
+      const handle = document.createElement("div");
+      handle.className = `textbox-resize-handle textbox-resize-handle-${position}`;
+      dom.appendChild(handle);
+    });
+
     return dom;
   }
 

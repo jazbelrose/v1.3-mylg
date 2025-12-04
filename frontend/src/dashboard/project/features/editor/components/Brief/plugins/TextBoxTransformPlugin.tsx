@@ -3,8 +3,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getNodeByKey } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 
-type InteractionType = "move" | "resize-left" | "resize-right" | "resize-top" | "resize-bottom" 
-  | "resize-top-left" | "resize-top-right" | "resize-bottom-left" | "resize-bottom-right";
+type InteractionType = "move" | "resize-left" | "resize-right" | "resize-top" | "resize-bottom" | "resize-bottom-right";
 
 type Interaction = {
   type: InteractionType;
@@ -18,38 +17,57 @@ type Interaction = {
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
-const CORNER_SIZE = 16; // px for corner resize zones
+const RESIZE_HANDLE_OFFSET = 20; // px from corners where center handles are
 
 function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
+  const target = event.target as HTMLElement;
   const rect = textbox.getBoundingClientRect();
   const { clientX, clientY } = event;
 
-  // If Shift is held, force move mode
-  if (forceMove || event.shiftKey) {
+  if (forceMove) {
     return "move";
   }
 
-  const onLeft = Math.abs(clientX - rect.left) <= EDGE_THRESHOLD;
-  const onRight = Math.abs(clientX - rect.right) <= EDGE_THRESHOLD;
-  const onTop = Math.abs(clientY - rect.top) <= EDGE_THRESHOLD;
-  const onBottom = Math.abs(clientY - rect.bottom) <= EDGE_THRESHOLD;
+  // Check if clicking directly on a resize handle element
+  if (target.classList.contains("textbox-resize-handle")) {
+    if (target.classList.contains("textbox-resize-handle-top")) return "resize-top";
+    if (target.classList.contains("textbox-resize-handle-bottom")) return "resize-bottom";
+    if (target.classList.contains("textbox-resize-handle-left")) return "resize-left";
+    if (target.classList.contains("textbox-resize-handle-right")) return "resize-right";
+    if (target.classList.contains("textbox-resize-handle-bottom-right")) return "resize-bottom-right";
+  }
 
-  // Check corners first (higher priority)
-  const inTopLeftCorner = clientX - rect.left <= CORNER_SIZE && clientY - rect.top <= CORNER_SIZE;
-  const inTopRightCorner = rect.right - clientX <= CORNER_SIZE && clientY - rect.top <= CORNER_SIZE;
-  const inBottomLeftCorner = clientX - rect.left <= CORNER_SIZE && rect.bottom - clientY <= CORNER_SIZE;
-  const inBottomRightCorner = rect.right - clientX <= CORNER_SIZE && rect.bottom - clientY <= CORNER_SIZE;
+  const onLeftEdge = Math.abs(clientX - rect.left) <= EDGE_THRESHOLD;
+  const onRightEdge = Math.abs(clientX - rect.right) <= EDGE_THRESHOLD;
+  const onTopEdge = Math.abs(clientY - rect.top) <= EDGE_THRESHOLD;
+  const onBottomEdge = Math.abs(clientY - rect.bottom) <= EDGE_THRESHOLD;
 
-  if (inTopLeftCorner) return "resize-top-left";
-  if (inTopRightCorner) return "resize-top-right";
-  if (inBottomLeftCorner) return "resize-bottom-left";
+  // Calculate center positions for resize handles
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  
+  // Check for resize handles at center of each edge
+  const onTopCenterHandle = onTopEdge && Math.abs(clientX - centerX) <= RESIZE_HANDLE_OFFSET;
+  const onBottomCenterHandle = onBottomEdge && Math.abs(clientX - centerX) <= RESIZE_HANDLE_OFFSET;
+  const onLeftCenterHandle = onLeftEdge && Math.abs(clientY - centerY) <= RESIZE_HANDLE_OFFSET;
+  const onRightCenterHandle = onRightEdge && Math.abs(clientY - centerY) <= RESIZE_HANDLE_OFFSET;
+  
+  // Check for bottom-right corner resize handle
+  const inBottomRightCorner = 
+    rect.right - clientX <= RESIZE_HANDLE_OFFSET && 
+    rect.bottom - clientY <= RESIZE_HANDLE_OFFSET;
+
+  // Priority: specific resize handles first
+  if (onTopCenterHandle) return "resize-top";
+  if (onBottomCenterHandle) return "resize-bottom";
+  if (onLeftCenterHandle) return "resize-left";
+  if (onRightCenterHandle) return "resize-right";
   if (inBottomRightCorner) return "resize-bottom-right";
 
-  // Then check edges
-  if (onLeft) return "resize-left";
-  if (onRight) return "resize-right";
-  if (onTop) return "resize-top";
-  if (onBottom) return "resize-bottom";
+  // If on any edge but not on a resize handle, it's a move
+  if (onLeftEdge || onRightEdge || onTopEdge || onBottomEdge) {
+    return "move";
+  }
 
   return null;
 }
@@ -63,10 +81,7 @@ function getCursorForInteraction(type: InteractionType | null): string {
     case "resize-right": return "ew-resize";
     case "resize-top":
     case "resize-bottom": return "ns-resize";
-    case "resize-top-left":
     case "resize-bottom-right": return "nwse-resize";
-    case "resize-top-right":
-    case "resize-bottom-left": return "nesw-resize";
     default: return "text";
   }
 }
@@ -202,22 +217,6 @@ export default function TextBoxTransformPlugin(): null {
             newHeight = interaction!.originHeight - dy;
             break;
           case "resize-bottom":
-            newHeight = interaction!.originHeight + dy;
-            break;
-          case "resize-top-left":
-            newX = interaction!.originX + dx;
-            newY = interaction!.originY + dy;
-            newWidth = interaction!.originWidth - dx;
-            newHeight = interaction!.originHeight - dy;
-            break;
-          case "resize-top-right":
-            newY = interaction!.originY + dy;
-            newWidth = interaction!.originWidth + dx;
-            newHeight = interaction!.originHeight - dy;
-            break;
-          case "resize-bottom-left":
-            newX = interaction!.originX + dx;
-            newWidth = interaction!.originWidth - dx;
             newHeight = interaction!.originHeight + dy;
             break;
           case "resize-bottom-right":
