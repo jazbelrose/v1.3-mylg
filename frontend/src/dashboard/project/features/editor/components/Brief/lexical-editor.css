@@ -1209,25 +1209,28 @@ i.bg-color::before {
 
 .editor-textbox {
   position: absolute;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 18px 20px;
-  margin: 0;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.02),
-    0 14px 30px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   box-sizing: border-box;
+  background: transparent;           /* no gray fill */
+  border: 1px solid #4c9aff;        /* visible frame */
+  padding: 8px;
+  margin: 0;
+
+  /* native resize handle in the bottom-right corner */
+  resize: both;
+  overflow: auto;
 }
 
-.editor-textbox:focus-within {
-  border-color: rgba(250, 51, 86, 0.5);
-  box-shadow:
-    0 0 0 1px rgba(250, 51, 86, 0.35),
-    0 18px 36px rgba(0, 0, 0, 0.45);
-  background: rgba(255, 255, 255, 0.07);
+/* Thin invisible strip at the top of the textbox used for dragging */
+.editor-textbox .textbox-drag-handle {
+  position: absolute;
+  top: -6px;             /* sits just above the frame */
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: move;
 }
+
+
 
 .textbox-overlay-layer {
   position: absolute;
@@ -1237,58 +1240,49 @@ i.bg-color::before {
 }
 
 .textbox-overlay {
-  border: 2px solid rgba(250, 51, 86, 0.6);
   box-sizing: border-box;
-  pointer-events: none;
-  z-index: 1;
-  border-radius: 16px;
+  border: 1px solid #4c9aff;
 }
 
 .textbox-overlay__move-handle {
-  position: absolute;
-  inset: -8px;
-  border: 2px dashed rgba(250, 51, 86, 0.8);
-  border-radius: 20px;
-  pointer-events: auto;
-  cursor: move;
-  background: transparent;
+  display: none;
 }
 
 .textbox-overlay__resize-handle {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #fa3356;
-  border: 2px solid #fff;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  pointer-events: auto;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  z-index: 2;
+  border: 2px solid #4c9aff;
+  background: #ffffff;
+  box-sizing: border-box;
 }
 
 .textbox-overlay__resize-handle--nw {
   top: -6px;
   left: -6px;
-  cursor: nw-resize;
+  cursor: nwse-resize;
 }
 
 .textbox-overlay__resize-handle--ne {
   top: -6px;
   right: -6px;
-  cursor: ne-resize;
+  cursor: nesw-resize;
 }
 
 .textbox-overlay__resize-handle--sw {
   bottom: -6px;
   left: -6px;
-  cursor: sw-resize;
+  cursor: nesw-resize;
 }
 
 .textbox-overlay__resize-handle--se {
   bottom: -6px;
   right: -6px;
-  cursor: se-resize;
+  cursor: nwse-resize;
 }
+
+
 
 
 
