@@ -475,12 +475,12 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
                 className="editor-input"
                 style={{ 
                   position: "relative", 
-                  minHeight: "100%",
-                  maxHeight: "100%",
+                  minHeight: contentOverflowBehavior === "hidden" ? "100%" : "auto",
+                  maxHeight: contentOverflowBehavior === "hidden" ? "100%" : undefined,
                   borderRadius: "inherit",
                   padding: resolvedContentPadding,
                   boxSizing: "border-box",
-                  overflow: "hidden",
+                  overflow: contentOverflowBehavior === "hidden" ? "hidden" : "visible",
                 }}
               />
             }
