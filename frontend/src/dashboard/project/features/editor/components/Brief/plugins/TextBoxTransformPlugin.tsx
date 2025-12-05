@@ -168,10 +168,15 @@ const onPointerMoveHover = (event: PointerEvent) => {
       const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
       if (!textbox) {
         setSelected(null);
+        // Only clear Lexical selection if the current node selection is a textbox
         editor.update(() => {
           const selection = $getSelection();
           if ($isNodeSelection(selection)) {
-            $setSelection(null);
+            const nodes = selection.getNodes();
+            const allTextboxes = nodes.length > 0 && nodes.every((n) => n.getType && n.getType() === TEXTBOX_TYPE);
+            if (allTextboxes) {
+              $setSelection(null);
+            }
           }
         });
         return;
