@@ -39,6 +39,10 @@ function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove
     return "move";
   }
 
+  if (target.classList.contains("textbox-move-handle")) {
+    return "move";
+  }
+
   if (target.classList.contains("textbox-rotate-handle")) {
     return "rotate";
   }

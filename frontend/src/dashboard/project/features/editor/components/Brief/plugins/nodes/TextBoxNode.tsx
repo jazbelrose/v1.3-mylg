@@ -113,6 +113,14 @@ export class TextBoxNode extends ElementNode {
       dom.appendChild(handle);
     });
 
+    // Add move handles (thin edge strips)
+    const moveHandles = ["top", "right", "bottom", "left"];
+    moveHandles.forEach(pos => {
+      const handle = document.createElement("div");
+      handle.className = `textbox-move-handle textbox-move-handle-${pos}`;
+      dom.appendChild(handle);
+    });
+
     const rotateHandle = document.createElement("div");
     rotateHandle.className = "textbox-rotate-handle";
     rotateHandle.setAttribute("aria-label", "Rotate text box");
