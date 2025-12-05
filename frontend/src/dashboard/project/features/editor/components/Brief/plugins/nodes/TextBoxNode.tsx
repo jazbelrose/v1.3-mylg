@@ -80,12 +80,14 @@ export class TextBoxNode extends ElementNode {
     dom.setAttribute("data-lexical-textbox", "true");
     dom.setAttribute("data-lexical-node-key", this.__key);
     dom.style.position = "absolute";
-    dom.style.left = `${this.__x}px`;
-    dom.style.top = `${this.__y}px`;
+    dom.style.left = "0px";
+    dom.style.top = "0px";
+    dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0)`;
     dom.style.width = `${this.__width}px`;
     dom.style.height = `${this.__height}px`;
     dom.style.boxSizing = "border-box";
     dom.style.margin = "0";
+    dom.style.willChange = "transform, width, height";
 
     // Add resize handles
     const handles = ["top", "right", "bottom", "left", "bottom-right"];
@@ -99,15 +101,15 @@ export class TextBoxNode extends ElementNode {
   }
 
   updateDOM(prevNode: TextBoxNode, dom: HTMLElement): boolean {
-    if (
-      prevNode.__x !== this.__x ||
-      prevNode.__y !== this.__y ||
-      prevNode.__width !== this.__width ||
-      prevNode.__height !== this.__height
-    ) {
-      dom.style.left = `${this.__x}px`;
-      dom.style.top = `${this.__y}px`;
+    if (prevNode.__x !== this.__x || prevNode.__y !== this.__y) {
+      dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0)`;
+    }
+
+    if (prevNode.__width !== this.__width) {
       dom.style.width = `${this.__width}px`;
+    }
+
+    if (prevNode.__height !== this.__height) {
       dom.style.height = `${this.__height}px`;
     }
     return false;

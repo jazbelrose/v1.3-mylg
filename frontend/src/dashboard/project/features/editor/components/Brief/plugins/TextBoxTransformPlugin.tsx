@@ -97,6 +97,17 @@ export default function TextBoxTransformPlugin(): null {
 
     let interaction: Interaction | null = null;
     let hoverTextbox: HTMLElement | null = null;
+    let selectedTextbox: HTMLElement | null = null;
+
+    const setSelected = (textbox: HTMLElement | null) => {
+      if (selectedTextbox && selectedTextbox !== textbox) {
+        selectedTextbox.classList.remove("editor-textbox-selected");
+      }
+      selectedTextbox = textbox;
+      if (selectedTextbox) {
+        selectedTextbox.classList.add("editor-textbox-selected");
+      }
+    };
 
     const clearHover = () => {
       if (hoverTextbox) {
@@ -139,7 +150,12 @@ export default function TextBoxTransformPlugin(): null {
       if (!target) return;
 
       const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
-      if (!textbox) return;
+      if (!textbox) {
+        setSelected(null);
+        return;
+      }
+
+      setSelected(textbox);
 
       const interactionType = getInteractionType(textbox, event);
       if (!interactionType) {
@@ -260,6 +276,7 @@ export default function TextBoxTransformPlugin(): null {
       if (hoverTextbox) {
         hoverTextbox.classList.remove("editor-textbox-border-hover");
       }
+      setSelected(null);
     };
   }, [editor]);
 

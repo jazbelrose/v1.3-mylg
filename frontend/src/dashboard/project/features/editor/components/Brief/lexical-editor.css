@@ -1211,7 +1211,7 @@ i.bg-color::before {
   position: absolute;
   box-sizing: border-box;
   background: transparent;
-  border: 1px solid #4c9aff;
+  border: 1px solid transparent;
   padding: 8px;
   margin: 0;
 
@@ -1223,18 +1223,23 @@ i.bg-color::before {
   cursor: text;
 }
 
-/* Resize handles - visible on hover */
-.editor-textbox:hover .textbox-resize-handle {
-  opacity: 1;
+.editor-textbox:hover,
+.editor-textbox.editor-textbox-selected {
+  border-color: #4c9aff;
 }
 
 .textbox-resize-handle {
   position: absolute;
   background: #4c9aff;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
   pointer-events: auto;
   z-index: 10;
+}
+
+.editor-textbox:hover .textbox-resize-handle,
+.editor-textbox.editor-textbox-selected .textbox-resize-handle {
+  opacity: 1;
 }
 
 /* Center handles on edges */
@@ -1311,14 +1316,7 @@ i.bg-color::before {
   letter-spacing: 2px;
 }
 
-
-
-
-
-
-
-
-
-
-
-
+.editor-textbox {
+  contain: layout paint;
+  will-change: transform, width, height;
+}
