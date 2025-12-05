@@ -16,6 +16,7 @@ export type SerializedTextBoxNode = SerializedElementNode & {
   y: number;
   width: number;
   height: number;
+  rotation: number;
 };
 
 export class TextBoxNode extends ElementNode {
@@ -23,6 +24,7 @@ export class TextBoxNode extends ElementNode {
   __y: number;
   __width: number;
   __height: number;
+  __rotation: number;
 
   static getType(): string {
     return "text-box";
@@ -34,6 +36,7 @@ export class TextBoxNode extends ElementNode {
       node.__y,
       node.__width,
       node.__height,
+      node.__rotation,
       node.__key
     );
   }
@@ -43,6 +46,7 @@ export class TextBoxNode extends ElementNode {
     y = 200,
     width = 420,
     height = 160,
+    rotation = 0,
     key?: NodeKey
   ) {
     super(key);
@@ -50,6 +54,7 @@ export class TextBoxNode extends ElementNode {
     this.__y = y;
     this.__width = width;
     this.__height = height;
+    this.__rotation = rotation;
   }
 
   getPosition(): { x: number; y: number } {
@@ -74,6 +79,16 @@ export class TextBoxNode extends ElementNode {
     writable.__height = height;
   }
 
+  getRotation(): number {
+    const self = this.getLatest();
+    return self.__rotation;
+  }
+
+  setRotation(rotation: number): void {
+    const writable = this.getWritable<TextBoxNode>();
+    writable.__rotation = rotation;
+  }
+
   createDOM(config: EditorConfig): HTMLElement {
     const dom = document.createElement("div");
     addClassNamesToElement(dom, config.theme.textBox || "editor-textbox");
@@ -82,7 +97,8 @@ export class TextBoxNode extends ElementNode {
     dom.style.position = "absolute";
     dom.style.left = "0px";
     dom.style.top = "0px";
-    dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0)`;
+    dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0) rotate(${this.__rotation}deg)`;
+    dom.style.transformOrigin = "center center";
     dom.style.width = `${this.__width}px`;
     dom.style.height = `${this.__height}px`;
     dom.style.boxSizing = "border-box";
@@ -97,12 +113,20 @@ export class TextBoxNode extends ElementNode {
       dom.appendChild(handle);
     });
 
+    const rotateHandle = document.createElement("div");
+    rotateHandle.className = "textbox-rotate-handle";
+    dom.appendChild(rotateHandle);
+
     return dom;
   }
 
   updateDOM(prevNode: TextBoxNode, dom: HTMLElement): boolean {
-    if (prevNode.__x !== this.__x || prevNode.__y !== this.__y) {
-      dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0)`;
+    if (
+      prevNode.__x !== this.__x ||
+      prevNode.__y !== this.__y ||
+      prevNode.__rotation !== this.__rotation
+    ) {
+      dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0) rotate(${this.__rotation}deg)`;
     }
 
     if (prevNode.__width !== this.__width) {
@@ -119,8 +143,10 @@ export class TextBoxNode extends ElementNode {
     const element = document.createElement("div");
     element.setAttribute("data-lexical-textbox", "true");
     element.style.position = "absolute";
-    element.style.left = `${this.__x}px`;
-    element.style.top = `${this.__y}px`;
+    element.style.left = "0px";
+    element.style.top = "0px";
+    element.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0) rotate(${this.__rotation}deg)`;
+    element.style.transformOrigin = "center center";
     element.style.width = `${this.__width}px`;
     element.style.height = `${this.__height}px`;
     return { element };
@@ -161,8 +187,9 @@ export class TextBoxNode extends ElementNode {
       y = 200,
       width = 420,
       height = 160,
+      rotation = 0,
     } = serializedNode;
-    const node = new TextBoxNode(x, y, width, height);
+    const node = new TextBoxNode(x, y, width, height, rotation);
     return node.updateFromJSON(serializedNode);
   }
 
@@ -175,6 +202,7 @@ export class TextBoxNode extends ElementNode {
       y: this.__y,
       width: this.__width,
       height: this.__height,
+      rotation: this.__rotation,
     };
   }
 
@@ -187,9 +215,10 @@ export function $createTextBoxNode(
   x?: number,
   y?: number,
   width?: number,
-  height?: number
+  height?: number,
+  rotation?: number
 ): TextBoxNode {
-  return new TextBoxNode(x, y, width, height);
+  return new TextBoxNode(x, y, width, height, rotation);
 }
 
 export function $isTextBoxNode(node: unknown): node is TextBoxNode {

@@ -1242,6 +1242,28 @@ i.bg-color::before {
   opacity: 1;
 }
 
+.textbox-rotate-handle {
+  position: absolute;
+  top: -28px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4c9aff;
+  opacity: 0;
+  cursor: grab;
+  z-index: 12;
+}
+
+.editor-textbox:hover .textbox-rotate-handle,
+.editor-textbox.editor-textbox-selected .textbox-rotate-handle {
+  opacity: 1;
+}
+
+.textbox-rotate-handle:active {
+  cursor: grabbing;
+}
+
 /* Center handles on edges */
 .textbox-resize-handle-top {
   top: -4px;

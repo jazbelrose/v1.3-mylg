@@ -11,6 +11,7 @@ import {
   createBudgetItem,
   updateBudgetItem,
   createEvent as createEventApi,
+  fetchEvents,
   updateEvent as updateEventApi,
   deleteEvent as deleteEventApi,
 } from "@/shared/utils/api";
@@ -145,6 +146,7 @@ export function useCalendarController({
   const userNavigatedRef = useRef(false);
 
   const [events, setEvents] = useState<TimelineEvent[]>(project?.timelineEvents || []);
+  const eventsLoadedForProject = useRef<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [eventDesc, setEventDesc] = useState("");
@@ -369,7 +371,34 @@ export function useCalendarController({
   }, [project?.projectId]);
 
   useEffect(() => {
-    setEvents(project?.timelineEvents || []);
+    if (!project?.projectId) return;
+
+    let cancelled = false;
+
+    fetchEvents(project.projectId)
+      .then((events) => {
+        if (cancelled) return;
+
+        eventsLoadedForProject.current = project.projectId;
+        setEvents(events as TimelineEvent[]);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch project events", err);
+        if (!cancelled) setEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.projectId]);
+
+  useEffect(() => {
+    if (!project) return;
+
+    // don't override backend-fetched events
+    if (eventsLoadedForProject.current === project.projectId) return;
+
+    setEvents(project.timelineEvents || []);
   }, [project]);
 
   useEffect(() => {

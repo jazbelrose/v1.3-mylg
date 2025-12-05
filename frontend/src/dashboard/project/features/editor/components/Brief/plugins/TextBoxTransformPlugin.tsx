@@ -3,7 +3,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getNodeByKey } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 
-type InteractionType = "move" | "resize-left" | "resize-right" | "resize-top" | "resize-bottom" | "resize-bottom-right";
+type InteractionType = "move" | "resize-left" | "resize-right" | "resize-top" | "resize-bottom" | "resize-bottom-right" | "rotate";
 
 type Interaction = {
   type: InteractionType;
@@ -14,6 +14,10 @@ type Interaction = {
   originY: number;
   originWidth: number;
   originHeight: number;
+  originRotation: number;
+  startAngle: number;
+  centerX: number;
+  centerY: number;
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
@@ -26,6 +30,10 @@ function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove
 
   if (forceMove) {
     return "move";
+  }
+
+  if (target.classList.contains("textbox-rotate-handle")) {
+    return "rotate";
   }
 
   // Check if clicking directly on a resize handle element
@@ -82,6 +90,7 @@ function getCursorForInteraction(type: InteractionType | null): string {
     case "resize-top":
     case "resize-bottom": return "ns-resize";
     case "resize-bottom-right": return "nwse-resize";
+    case "rotate": return "grab";
     default: return "text";
   }
 }
@@ -110,38 +119,38 @@ export default function TextBoxTransformPlugin(): null {
     };
 
     const clearHover = () => {
-      if (hoverTextbox) {
-        hoverTextbox.style.cursor = "";
-        hoverTextbox = null;
-      }
-    };
+  if (hoverTextbox) {
+    hoverTextbox.style.cursor = "";
+    hoverTextbox = null;
+  }
+};
 
-    const onPointerMoveHover = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) {
-        clearHover();
-        return;
-      }
+const onPointerMoveHover = (event: PointerEvent) => {
+  const target = event.target as HTMLElement | null;
+  if (!target) {
+    clearHover();
+    return;
+  }
 
-      const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
-      if (!textbox) {
-        clearHover();
-        return;
-      }
+  const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
+  if (!textbox) {
+    clearHover();
+    return;
+  }
 
-      const interactionType = getInteractionType(textbox, event);
-      if (interactionType) {
-        if (hoverTextbox !== textbox) {
-          clearHover();
-          hoverTextbox = textbox;
-        }
-        hoverTextbox.style.cursor = getCursorForInteraction(interactionType);
-      } else {
-        if (hoverTextbox === textbox) {
-          clearHover();
-        }
-      }
-    };
+  const interactionType = getInteractionType(textbox, event);
+  if (interactionType) {
+    if (hoverTextbox !== textbox) {
+      clearHover();
+      hoverTextbox = textbox;
+    }
+    hoverTextbox.style.cursor = getCursorForInteraction(interactionType);
+  } else {
+    if (hoverTextbox === textbox) {
+      clearHover();
+    }
+  }
+};
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
@@ -170,18 +179,25 @@ export default function TextBoxTransformPlugin(): null {
       let originY = 0;
       let originWidth = 0;
       let originHeight = 0;
+      let originRotation = 0;
 
       editor.getEditorState().read(() => {
         const node = $getNodeByKey(nodeKey);
         if (node instanceof TextBoxNode) {
           const { x, y } = node.getPosition();
           const { width, height } = node.getSize();
+          originRotation = node.getRotation();
           originX = x;
           originY = y;
           originWidth = width;
           originHeight = height;
         }
       });
+
+      const rect = textbox.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX);
 
       interaction = {
         type: interactionType,
@@ -192,6 +208,10 @@ export default function TextBoxTransformPlugin(): null {
         originY,
         originWidth,
         originHeight,
+        originRotation,
+        startAngle,
+        centerX,
+        centerY,
       };
 
       (event.target as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
@@ -239,6 +259,17 @@ export default function TextBoxTransformPlugin(): null {
             newWidth = interaction!.originWidth + dx;
             newHeight = interaction!.originHeight + dy;
             break;
+          case "rotate": {
+            const currentAngle = Math.atan2(
+              event.clientY - interaction!.centerY,
+              event.clientX - interaction!.centerX
+            );
+            const deltaRad = currentAngle - interaction!.startAngle;
+            const deltaDeg = (deltaRad * 180) / Math.PI;
+            const nextRotation = interaction!.originRotation + deltaDeg;
+            node.setRotation(nextRotation);
+            return;
+          }
         }
 
         // Enforce minimum size for resize operations

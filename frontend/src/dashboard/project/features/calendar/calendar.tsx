@@ -17,6 +17,7 @@ import type { Project } from "@/app/contexts/DataProvider";
 import { notify } from "@/shared/ui/ToastNotifications";
 import {
   createEvent,
+  fetchEvents,
   fetchTasks,
   updateEvent,
   deleteEvent,
@@ -68,6 +69,7 @@ const CalendarPage: React.FC = () => {
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const initializedDateForProject = useRef<string | null>(null);
+  const eventsLoadedForProject = useRef<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -75,6 +77,43 @@ const CalendarPage: React.FC = () => {
       fetchProjectDetails(projectId);
     }
   }, [projectId, activeProject, fetchProjectDetails]);
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    let cancelled = false;
+
+    fetchEvents(projectId)
+      .then((events) => {
+        if (cancelled) return;
+
+        eventsLoadedForProject.current = projectId;
+        setTimelineEvents(events);
+
+        // optional: keep global state in sync
+        setActiveProject((prev) =>
+          prev && prev.projectId === projectId
+            ? { ...prev, timelineEvents: events }
+            : prev
+        );
+
+        setProjects((prev) =>
+          Array.isArray(prev)
+            ? prev.map((p) =>
+                p.projectId === projectId ? { ...p, timelineEvents: events } : p
+              )
+            : prev
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to fetch project events", err);
+        if (!cancelled) setTimelineEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, setActiveProject, setProjects]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -115,6 +154,10 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     if (!activeProject) return;
+
+    // don't override backend-fetched events
+    if (eventsLoadedForProject.current === activeProject.projectId) return;
+
     const events = Array.isArray(activeProject.timelineEvents)
       ? (activeProject.timelineEvents as ApiTimelineEvent[])
       : [];
