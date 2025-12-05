@@ -7,8 +7,9 @@ import {
   addDays,
   addHoursToTime,
   categoryColor,
-  fmt,
+  fmtLocal,
   pad,
+  safeDate,
   setTime,
 } from "../utils";
 
@@ -35,6 +36,13 @@ const parseHour = (time?: string) => {
   return h;
 };
 
+const formatHour12 = (hour: number): string => {
+  if (hour === 0) return "12 AM";
+  if (hour < 12) return `${hour} AM`;
+  if (hour === 12) return "12 PM";
+  return `${hour - 12} PM`;
+};
+
 function WeekGrid({
   anchorDate,
   events,
@@ -47,17 +55,21 @@ function WeekGrid({
 }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
-  const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 7), []); // 7am - 6pm
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []); // 24-hour day
 
   const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, WeekDayEvents>();
     days.forEach((day) => {
-      map.set(fmt(day), { allDay: [], timed: [] });
+      map.set(fmtLocal(day), { allDay: [], timed: [] });
     });
     events.forEach((event) => {
-      const bucket = map.get(event.date);
+      // Normalize event.date to match map keys format
+      const eventDate = safeDate(event.date);
+      if (!eventDate) return;
+      const eventKey = fmtLocal(eventDate);
+      const bucket = map.get(eventKey);
       if (!bucket) return;
       const hour = parseHour(event.start);
       if (hour == null) {
@@ -72,11 +84,15 @@ function WeekGrid({
   const tasksByDay = useMemo(() => {
     const map = new Map<string, CalendarTask[]>();
     days.forEach((day) => {
-      map.set(fmt(day), []);
+      map.set(fmtLocal(day), []);
     });
     tasks.forEach((task) => {
       if (!task.due) return;
-      const bucket = map.get(task.due);
+      // Normalize task.due to match map keys format
+      const taskDate = safeDate(task.due);
+      if (!taskDate) return;
+      const taskKey = fmtLocal(taskDate);
+      const bucket = map.get(taskKey);
       if (!bucket) return;
       bucket.push(task);
     });
@@ -123,7 +139,7 @@ function WeekGrid({
     <div className="week-grid">
       <div className="week-grid__spacer" />
       {days.map((day, index) => {
-        const key = fmt(day);
+        const key = fmtLocal(day);
         const isOpen = quickAddKey === key;
         const weekdayClassName = `week-grid__weekday${
           index === days.length - 1 ? " week-grid__weekday--end" : ""
@@ -181,9 +197,9 @@ function WeekGrid({
       })}
       {hours.map((hour, hourIndex) => (
         <React.Fragment key={hour}>
-          <div className="week-grid__hour">{pad(hour)}:00</div>
+          <div className="week-grid__hour">{formatHour12(hour)}</div>
           {days.map((day) => {
-            const key = fmt(day);
+            const key = fmtLocal(day);
             const dayEvents = eventsByDay.get(key) ?? { allDay: [], timed: [] };
             const dayTasks = tasksByDay.get(key) ?? [];
             const timed = dayEvents.timed.filter(

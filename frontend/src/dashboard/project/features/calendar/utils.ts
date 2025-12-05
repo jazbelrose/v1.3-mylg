@@ -41,6 +41,13 @@ export const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 
 export const addDays = (d: Date, n: number) =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 export const fmt = (d: Date) => d.toISOString().slice(0, 10);
+// Local timezone formatter - does not convert to UTC
+export const fmtLocal = (d: Date) => {
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  return `${year}-${month}-${day}`;
+};
 export const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
 export const setTime = (date: Date, hours: number, minutes = 0) =>
   new Date(
@@ -211,10 +218,10 @@ const parseNumberish = (value: unknown): number | undefined => {
 
 const extractDateString = (value: unknown): string | undefined => {
   if (value instanceof Date) {
-    return fmt(value);
+    return fmtLocal(value);
   }
   if (typeof value === "number" && Number.isFinite(value)) {
-    return fmt(new Date(value));
+    return fmtLocal(new Date(value));
   }
   if (typeof value !== "string") {
     return undefined;
@@ -225,7 +232,7 @@ const extractDateString = (value: unknown): string | undefined => {
   }
   const parsed = safeDate(trimmed);
   if (parsed) {
-    return fmt(parsed);
+    return fmtLocal(parsed);
   }
   const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
   if (match) {

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { CheckSquare, Clock, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
-import { getMonthMatrix, fmt, isSameDay } from "../utils";
+import { getMonthMatrix, fmtLocal, isSameDay } from "../utils";
 
 export type MonthGridProps = {
   viewDate: Date;
@@ -105,7 +105,7 @@ function MonthGrid({
       <div className="month-grid__body">
         {days.map((day) => {
           const isCurrentMonth = day.getMonth() === month;
-          const key = fmt(day);
+          const key = fmtLocal(day);
           const isSelected = isSameDay(day, selectedDate);
           const dayEvents = eventsByDate.get(key) || [];
           const dayTasks = tasksByDate.get(key) || [];

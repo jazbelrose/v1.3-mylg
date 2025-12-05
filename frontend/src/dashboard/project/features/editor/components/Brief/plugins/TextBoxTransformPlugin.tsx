@@ -1,6 +1,12 @@
 import { useEffect } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getNodeByKey } from "lexical";
+import {
+  $createNodeSelection,
+  $getNodeByKey,
+  $getSelection,
+  $isNodeSelection,
+  $setSelection,
+} from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 
 type InteractionType = "move" | "resize-left" | "resize-right" | "resize-top" | "resize-bottom" | "resize-bottom-right" | "rotate";
@@ -161,6 +167,12 @@ const onPointerMoveHover = (event: PointerEvent) => {
       const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
       if (!textbox) {
         setSelected(null);
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isNodeSelection(selection)) {
+            $setSelection(null);
+          }
+        });
         return;
       }
 
@@ -174,6 +186,14 @@ const onPointerMoveHover = (event: PointerEvent) => {
 
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
       if (!nodeKey) return;
+
+      // Sync visual selection with Lexical node selection for object interactions
+      editor.update(() => {
+        const selection = $createNodeSelection();
+        selection.add(nodeKey);
+        $setSelection(selection);
+      });
+      editor.focus();
 
       let originX = 0;
       let originY = 0;

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { CheckSquare, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
-import { addHoursToTime, categoryColor, fmt, pad, setTime } from "../utils";
+import { addHoursToTime, categoryColor, fmtLocal, pad, safeDate, setTime } from "../utils";
 
 export type DayGridProps = {
   date: Date;
@@ -23,6 +23,13 @@ const parseHour = (time?: string) => {
   return hours;
 };
 
+const formatHour12 = (hour: number): string => {
+  if (hour === 0) return "12 AM";
+  if (hour < 12) return `${hour} AM`;
+  if (hour === 12) return "12 PM";
+  return `${hour - 12} PM`;
+};
+
 const HOURS_IN_DAY = 24;
 
 function DayGrid({
@@ -35,7 +42,7 @@ function DayGrid({
   onCreateTask,
   canCreateTasks,
 }: DayGridProps) {
-  const key = useMemo(() => fmt(date), [date]);
+  const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
@@ -44,7 +51,11 @@ function DayGrid({
     const timed = new Map<number, CalendarEvent[]>();
 
     events.forEach((event) => {
-      if (event.date !== key) return;
+      // Normalize event.date to match key format
+      const eventDate = safeDate(event.date);
+      if (!eventDate) return;
+      const eventKey = fmtLocal(eventDate);
+      if (eventKey !== key) return;
       const hour = event.allDay ? undefined : parseHour(event.start);
       if (hour == null) {
         allDay.push(event);
@@ -71,7 +82,12 @@ function DayGrid({
     const timed = new Map<number, CalendarTask[]>();
 
     tasks.forEach((task) => {
-      if (task.due !== key) return;
+      if (!task.due) return;
+      // Normalize task.due to match key format
+      const taskDate = safeDate(task.due);
+      if (!taskDate) return;
+      const taskKey = fmtLocal(taskDate);
+      if (taskKey !== key) return;
       const hour = parseHour(task.time);
       if (hour == null) {
         floating.push(task);
@@ -220,7 +236,7 @@ function DayGrid({
 
         return (
           <React.Fragment key={hour}>
-            <div className="week-grid__hour">{pad(hour)}:00</div>
+            <div className="week-grid__hour">{formatHour12(hour)}</div>
             <div
               className="week-grid__cell day-grid__cell"
               role="presentation"
