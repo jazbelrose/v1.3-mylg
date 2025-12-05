@@ -1226,6 +1226,7 @@ i.bg-color::before {
 .editor-textbox:hover,
 .editor-textbox.editor-textbox-selected {
   border-color: #4c9aff;
+  overflow: visible;
 }
 
 .textbox-resize-handle {
@@ -1244,15 +1245,23 @@ i.bg-color::before {
 
 .textbox-rotate-handle {
   position: absolute;
-  top: -28px;
-  right: -6px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #4c9aff;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  background: #0f1113;
+  border: 1px solid #4c9aff;
+  color: #4c9aff;
   opacity: 0;
   cursor: grab;
-  z-index: 12;
+  z-index: 20;
 }
 
 .editor-textbox:hover .textbox-rotate-handle,
@@ -1339,6 +1348,6 @@ i.bg-color::before {
 }
 
 .editor-textbox {
-  contain: layout paint;
+  contain: layout;
   will-change: transform, width, height;
 }

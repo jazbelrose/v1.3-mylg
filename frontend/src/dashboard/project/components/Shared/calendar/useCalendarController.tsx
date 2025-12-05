@@ -787,6 +787,7 @@ const handleDayOpen = useCallback(
 
       const existingIds = new Set(events.map((ev) => ev.id));
       const persisted: TimelineEvent[] = [];
+      let hasError = false;
       for (const ev of updated) {
         const eventId = ev.id || uuid();
         const payload = {
@@ -809,7 +810,13 @@ const handleDayOpen = useCallback(
           persisted.push(payload);
         } catch (err) {
           console.error("Error saving event", err);
+          hasError = true;
         }
+      }
+
+      if (hasError) {
+        notify("error", "Failed to save some events. Please try again.");
+        return;
       }
 
       setEvents(persisted);
