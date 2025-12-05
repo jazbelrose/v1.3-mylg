@@ -66,6 +66,7 @@ import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import TextBoxPlugin from "./plugins/TextBoxPlugin";
 import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import DeleteTextBoxPlugin from "./plugins/DeleteTextBoxPlugin";
+import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 
 type LexicalEditorProps = {
@@ -453,6 +454,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <TextBoxPlugin />
         <TextBoxTransformPlugin />
         <DeleteTextBoxPlugin />
+        <TextBoxKeyboardShortcutsPlugin />
 
         <FloatingToolbar editorRef={editorRef} />
 
