@@ -28,6 +28,7 @@ type Interaction = {
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
 const RESIZE_HANDLE_OFFSET = 20; // px from corners where center handles are
+const TEXTBOX_TYPE = "text-box";
 
 function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
   const target = event.target as HTMLElement;
@@ -177,6 +178,7 @@ const onPointerMoveHover = (event: PointerEvent) => {
       }
 
       setSelected(textbox);
+      editor.focus();
 
       const interactionType = getInteractionType(textbox, event);
       if (!interactionType) {
@@ -309,6 +311,27 @@ const onPointerMoveHover = (event: PointerEvent) => {
       interaction = null;
     };
 
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      const root = editor.getRootElement();
+      const el = root?.querySelector<HTMLElement>(
+        `[data-lexical-textbox].editor-textbox-selected`
+      );
+      const key = el?.getAttribute("data-lexical-node-key");
+      if (!key) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      editor.update(() => {
+        const node = $getNodeByKey(key);
+        if (node && node.getType && node.getType() === TEXTBOX_TYPE) {
+          node.remove();
+        }
+      });
+    };
+
     // Hover detection for cursor change
     root.addEventListener("pointermove", onPointerMoveHover);
     // Drag handling
@@ -316,6 +339,7 @@ const onPointerMoveHover = (event: PointerEvent) => {
     window.addEventListener("pointermove", onPointerMoveDrag);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
+    window.addEventListener("keydown", onKeyDown);
 
     return () => {
       root.removeEventListener("pointermove", onPointerMoveHover);
@@ -323,6 +347,7 @@ const onPointerMoveHover = (event: PointerEvent) => {
       window.removeEventListener("pointermove", onPointerMoveDrag);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      window.removeEventListener("keydown", onKeyDown);
       // cleanup hover class just in case
       if (hoverTextbox) {
         hoverTextbox.classList.remove("editor-textbox-border-hover");
