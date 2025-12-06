@@ -8,9 +8,11 @@ interface FileManagerFooterProps {
   canUpload: boolean;
   canDelete: boolean;
   isSelectMode: boolean;
+  selectionMode?: 'none' | 'single' | 'multi';
   fileInputRef: React.RefObject<HTMLInputElement>;
   onFileSelect: React.ChangeEventHandler<HTMLInputElement>;
   onToggleSelectMode: () => void;
+  onConfirmSelection?: () => void;
   onBulkDownload: () => void;
   onDeleteSelected: () => void;
   onCancelSelection: () => void;
@@ -21,9 +23,11 @@ export const FileManagerFooter = ({
   canUpload,
   canDelete,
   isSelectMode,
+  selectionMode,
   fileInputRef,
   onFileSelect,
   onToggleSelectMode,
+  onConfirmSelection,
   onBulkDownload,
   onDeleteSelected,
   onCancelSelection,
@@ -68,7 +72,7 @@ export const FileManagerFooter = ({
         </>
       ) : (
         <>
-          {selectedFilesCount > 0 && (
+          {selectedFilesCount > 0 && selectionMode !== 'multi' && (
             <button className={styles.iconButton} onClick={onToggleSelectMode} aria-label="Select files">
               <FontAwesomeIcon icon={faCheck} /> Select
             </button>

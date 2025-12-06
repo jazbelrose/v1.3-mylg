@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useImperativeHandle, useMemo } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo } from "react";
 import Modal from "../../../../shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import { FileText, Download, Layout, Upload as UploadIcon, PenTool } from "lucide-react";
@@ -118,6 +118,7 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
       isFilesModalOpen,
       setFilesModalOpen,
       closeFilesModal,
+      onConfirmSelection,
       isImageModalOpen,
       selectedImage,
       currentIndex,
@@ -158,6 +159,22 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
       customFolders,
       addCustomFolder,
     } = state;
+
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          if (selectionMode === 'multi' && selectedItems.size > 0) {
+            setSelectedItems(new Set());
+          } else {
+            closeFilesModal();
+          }
+        } else if (e.key === 'Enter' && selectionMode === 'multi' && selectedItems.size > 0) {
+          onConfirmSelection();
+        }
+      };
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [selectionMode, selectedItems.size, onConfirmSelection, closeFilesModal, setSelectedItems]);
 
     const { removeReferences } = useFileMessenger({
       activeProject: activeProject || {},
@@ -333,6 +350,7 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
             isLoading={isLoading}
             displayedFiles={displayedFiles}
             isSelectMode={isSelectMode}
+            selectionMode={selectionMode}
             onSelectAll={handleSelectAll}
             selectedItems={selectedItems}
             selectedFilesCount={selectedFilesCount}
@@ -350,14 +368,38 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
             renderFolderIcon={getFolderIcon}
           />
 
+          {selectionMode === 'multi' && selectedItems.size > 0 && (
+            <div className={styles.selectionBar}>
+              <span>{selectedItems.size} selected</span>
+              <div className={styles.selectionActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => setSelectedItems(new Set())}
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={onConfirmSelection}
+                >
+                  Insert {selectedItems.size} selected
+                </button>
+              </div>
+            </div>
+          )}
+
           <FileManagerFooter
             selectedFilesCount={selectedFilesCount}
             canUpload={canUpload}
             canDelete={canDelete}
             isSelectMode={isSelectMode}
+            selectionMode={selectionMode}
             fileInputRef={fileInputRef}
             onFileSelect={handleFileSelect}
             onToggleSelectMode={toggleSelectMode}
+            onConfirmSelection={onConfirmSelection}
             onBulkDownload={handleBulkDownload}
             onDeleteSelected={handleDelete}
             onCancelSelection={() => {

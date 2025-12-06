@@ -42,7 +42,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
   const { activeProject } = useData() as { activeProject: ProjectLike };
   const [isOpen, setIsOpen] = useState(false);
   const [url, setURL] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
@@ -77,27 +77,30 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
     return unregister;
   }, [editor]);
 
-  const handleFileUpload = async (f: File | null): Promise<string | null> => {
-    if (!f || !activeProject?.projectId) return null;
+  const handleFileUpload = async (fs: File[]): Promise<string[]> => {
+    if (!fs.length || !activeProject?.projectId) return [];
 
-    const key = `projects/${activeProject.projectId}/lexical/${f.name}`;
     setIsUploading(true);
+    const uploads = fs.map(async (f) => {
+      const key = `projects/${activeProject.projectId}/lexical/${f.name}`;
+      try {
+        const { result } = await uploadData({
+          key,
+          data: f,
+          options: { accessLevel: "public" },
+        });
+        console.log("Upload completed:", result);
+        const publicKey = key.startsWith("public/") ? key : `public/${key}`;
+        return `${S3_PUBLIC_BASE}${encodeS3Key(publicKey)}`;
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        return null;
+      }
+    });
 
-    try {
-      const { result } = await uploadData({
-        key,
-        data: f,
-        options: { accessLevel: "public" },
-      });
-      console.log("Upload completed:", result);
-      const publicKey = key.startsWith("public/") ? key : `public/${key}`;
-      return `${S3_PUBLIC_BASE}${encodeS3Key(publicKey)}`;
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      return null;
-    } finally {
-      setIsUploading(false);
-    }
+    const results = await Promise.all(uploads);
+    setIsUploading(false);
+    return results.filter((src): src is string => src !== null);
   };
 
   const insertImageNode = (src: string, width = 400, height = 300) => {
@@ -118,42 +121,45 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
     });
   };
 
-  const handleFileSelectedFromManager = (selectedFile: FileItem) => {
-    const src = getFileUrl(selectedFile.url);
-    
-    // Validate it's an image
-    const extension = selectedFile.fileName.split(".").pop()?.toLowerCase();
-    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(extension || '');
-    
-    if (!isImage) {
-      notify("error", "Only image files can be inserted");
-      return;
-    }
+  const handleFileSelectedFromManager = (selectedFiles: FileItem[]) => {
+    selectedFiles.forEach((selectedFile) => {
+      const src = getFileUrl(selectedFile.url);
+      
+      // Validate it's an image
+      const extension = selectedFile.fileName.split(".").pop()?.toLowerCase();
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(extension || '');
+      
+      if (!isImage) {
+        notify("error", "Only image files can be inserted");
+        return;
+      }
 
-    // Load image to get dimensions
-    const img = new Image();
-    img.src = src;
+      // Load image to get dimensions
+      const img = new Image();
+      img.src = src;
 
-    img.onload = () => {
-      insertImageNode(src, img.width || 400, img.height || 300);
-      setIsOpen(false);
-    };
+      img.onload = () => {
+        insertImageNode(src, img.width || 400, img.height || 300);
+      };
 
-    img.onerror = () => {
-      console.error("Failed to load image:", src);
-      // Still insert as fallback
-      insertImageNode(src, 400, 300);
-      setIsOpen(false);
-    };
+      img.onerror = () => {
+        console.error("Failed to load image:", src);
+        // Still insert as fallback
+        insertImageNode(src, 400, 300);
+      };
+    });
+    setIsOpen(false);
   };
 
   const onAddImage = async () => {
-    let src = url.trim();
-    if (!src && file) {
-      src = (await handleFileUpload(file)) ?? "";
+    let srcs: string[] = [];
+    if (!url.trim() && files.length) {
+      srcs = (await handleFileUpload(files)) ?? [];
+    } else if (url.trim()) {
+      srcs = [url.trim()];
     }
 
-    if (src) {
+    srcs.forEach((src) => {
       const img = new Image();
       img.src = src;
 
@@ -173,15 +179,15 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           }
         });
       };
-    }
+    });
 
-    setFile(null);
+    setFiles([]);
     setURL("");
     setIsOpen(false);
   };
 
   const canSubmit =
-    (!!url.trim() || !!file) && !isUploading && !!activeProject?.projectId;
+    (!!url.trim() || !!files.length) && !isUploading && !!activeProject?.projectId;
 
   return (
     <div>
@@ -198,12 +204,13 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
 
       <input
         type="file"
+        multiple
         ref={inputRef}
         accept="image/*"
         style={{ display: "none" }}
         onChange={(e) => {
-          const selectedFile = e.target.files?.[0] ?? null;
-          if (selectedFile) setFile(selectedFile);
+          const selectedFiles = Array.from(e.target.files || []);
+          if (selectedFiles.length) setFiles(selectedFiles);
           e.currentTarget.value = "";
         }}
       />
@@ -218,7 +225,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
         shouldCloseOnEsc
       >
         <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Add Image</h2>
+          <h2 className={styles.modalTitle}>Add Images</h2>
           <button
             type="button"
             className={styles.closeButton}
@@ -243,7 +250,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
               className={styles.dropdownButton}
               onClick={() => setShowDropdown(!showDropdown)}
             >
-              <span>{file ? file.name : "Upload Image"}</span>
+              <span>{files.length ? `${files.length} file(s) selected` : "Upload Images"}</span>
               <span className={styles.dropdownArrow}>▾</span>
             </button>
             
@@ -281,7 +288,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
             disabled={!canSubmit}
             className={styles.primaryButton}
           >
-            {isUploading ? "Uploading..." : "Add Image"}
+            {isUploading ? "Uploading..." : "Add Images"}
           </button>
 
           <button
@@ -300,7 +307,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           onRequestClose={() => setIsFileManagerOpen(false)}
           showTrigger={false}
           folder="uploads"
-          selectionMode="single"
+          selectionMode="multi"
           onFileSelect={handleFileSelectedFromManager}
           fileTypeFilter="images"
         />

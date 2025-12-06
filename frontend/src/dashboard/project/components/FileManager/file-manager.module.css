@@ -267,6 +267,12 @@
 
 .selected {
   background: rgba(0, 0, 0, 0.5);
+  outline: 1px solid rgba(250, 51, 86, 0.55);
+  box-shadow: 0 0 0 1px rgba(250, 51, 86, 0.2);
+}
+
+.selected .previewImage {
+  filter: brightness(0.75);
 }
 
 .fileName {
@@ -566,7 +572,7 @@
 }
 
 .checkIcon {
-  color: white;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .filePlaceholder {
@@ -699,6 +705,21 @@
 .fileTable td {
   padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.selectionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.selectionActions {
+  display: flex;
+  gap: 8px;
 }
 
 

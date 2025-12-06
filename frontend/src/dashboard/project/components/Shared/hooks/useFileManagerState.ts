@@ -245,6 +245,12 @@ export const useFileManagerState = ({
     onRequestClose?.();
   }, [onRequestClose]);
 
+  const onConfirmSelection = useCallback(() => {
+    const selected = displayedFiles.filter(f => selectedItems.has(f.url));
+    onFileSelect?.(selected);
+    closeFilesModal();
+  }, [displayedFiles, selectedItems, onFileSelect, closeFilesModal]);
+
   const closeImageModal = useCallback(() => setImageModalOpen(false), []);
 
   const handleNextImage = useCallback(() => {
@@ -276,7 +282,7 @@ export const useFileManagerState = ({
         }
         
         if (selectionMode === 'single') {
-          onFileSelect?.(file);
+          onFileSelect?.([file]);
           closeFilesModal();
           return;
         }
@@ -378,6 +384,7 @@ export const useFileManagerState = ({
     isFilesModalOpen,
     setFilesModalOpen,
     closeFilesModal,
+    onConfirmSelection,
     isImageModalOpen,
     setImageModalOpen,
     selectedImage,
@@ -414,7 +421,7 @@ export const useFileManagerState = ({
     handleNextImage,
     handlePrevImage,
     closeImageModal,
-    selectedFilesCount: selectedFiles.length,
+    selectedFilesCount: selectedItems.size,
     localActiveProject,
     setLocalActiveProject,
     handleTouchStart,

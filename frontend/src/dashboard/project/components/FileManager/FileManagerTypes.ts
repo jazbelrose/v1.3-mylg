@@ -10,7 +10,7 @@ export interface FileManagerProps {
   isOpen?: boolean;
   onRequestClose?: () => void;
   selectionMode?: FileSelectionMode;
-  onFileSelect?: (file: FileItem) => void;
+  onFileSelect?: (files: FileItem[]) => void;
   fileTypeFilter?: 'images' | 'all';
 }
 

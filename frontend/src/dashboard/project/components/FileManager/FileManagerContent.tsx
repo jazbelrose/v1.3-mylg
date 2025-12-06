@@ -20,6 +20,7 @@ interface FileManagerContentProps {
   isLoading: boolean;
   displayedFiles: FileItem[];
   isSelectMode: boolean;
+  selectionMode?: 'none' | 'single' | 'multi';
   onSelectAll: () => void;
   selectedItems: Set<string>;
   selectedFilesCount: number;
@@ -67,6 +68,7 @@ export const FileManagerContent = ({
   isLoading,
   displayedFiles,
   isSelectMode,
+  selectionMode,
   onSelectAll,
   selectedItems,
   selectedFilesCount,
@@ -135,7 +137,7 @@ export const FileManagerContent = ({
         </div>
       ) : (
         <>
-          {isSelectMode && (
+          {isSelectMode && selectionMode !== 'multi' && (
             <div>
               <input
                 type="checkbox"
@@ -152,14 +154,17 @@ export const FileManagerContent = ({
                 <li key={file.url} className={styles.fileItem}>
                   <div
                     onClick={() => {
-                      if (isSelectMode) onSelectionChange(file.url);
-                      else onFileClick(file, index);
+                      if (selectionMode === 'multi' || isSelectMode) {
+                        onSelectionChange(file.url);
+                      } else {
+                        onFileClick(file, index);
+                      }
                     }}
-                    className={`${styles.filePreview} ${isSelectMode ? styles.clickable : ""}`}
+                    className={`${styles.filePreview} ${(selectionMode === 'multi' || isSelectMode) ? styles.clickable : ""}`}
                   >
                     {renderPreview(file, folderKey)}
 
-                    {isSelectMode && (
+                    {(selectionMode === 'multi' || isSelectMode) && (
                       <div className={`${styles.selectionOverlay} ${isSelected(file.url) ? styles.selected : ""}`}>
                         {isSelected(file.url) && (
                           <FontAwesomeIcon icon={faCheck} className={styles.checkIcon} />
