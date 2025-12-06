@@ -751,84 +751,84 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className={styles.fieldGroup}>
-                <label className={styles.label} htmlFor="modal-location">
-                  Location
-                </label>
-                {!location && userData?.defaultTaskLocation ? (
-                  <button
-                    type="button"
-                    className={styles.defaultLocationPill}
-                    onClick={handleUseDefaultLocation}
-                    disabled={isSubmitting}
-                  >
-                    Use default address — {userData.defaultTaskLocation.formattedAddress}
-                  </button>
-                ) : null}
-                <div className={styles.locationInputWrapper}>
-                  <div className={styles.fieldShell}>
-                    <div className={styles.fieldShellHeader}>
-                      <MapPin className={styles.fieldIcon} />
-                      <input
-                        id="modal-location"
-                        className={styles.textInput}
-                        placeholder="Add a location"
-                        value={location}
-                        onChange={handleLocationChange}
-                        disabled={isSubmitting}
-                        aria-autocomplete="list"
-                        aria-expanded={locationSuggestions.length > 0}
-                        aria-controls={
-                          locationSuggestions.length > 0 ? locationSuggestionsId : undefined
-                        }
-                      />
-                    </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="modal-location">
+                Location
+              </label>
+              {!location && userData?.defaultTaskLocation ? (
+                <button
+                  type="button"
+                  className={styles.defaultLocationPill}
+                  onClick={handleUseDefaultLocation}
+                  disabled={isSubmitting}
+                >
+                  Use default address — {userData.defaultTaskLocation.formattedAddress}
+                </button>
+              ) : null}
+              <div className={styles.locationInputWrapper}>
+                <div className={styles.fieldShell}>
+                  <div className={styles.fieldShellHeader}>
+                    <MapPin className={styles.fieldIcon} />
+                    <input
+                      id="modal-location"
+                      className={styles.textInput}
+                      placeholder="Add a location"
+                      value={location}
+                      onChange={handleLocationChange}
+                      disabled={isSubmitting}
+                      aria-autocomplete="list"
+                      aria-expanded={locationSuggestions.length > 0}
+                      aria-controls={
+                        locationSuggestions.length > 0 ? locationSuggestionsId : undefined
+                      }
+                    />
                   </div>
-                  {locationSuggestions.length > 0 ? (
-                    <div
-                      className={styles.locationSuggestions}
-                      role="listbox"
-                      id={locationSuggestionsId}
-                    >
-                      {locationSuggestions.map((suggestion) => (
-                        <div key={suggestion.place_id} className={styles.locationSuggestionItem}>
-                          <button
-                            type="button"
-                            className={styles.locationSuggestionButton}
-                            role="option"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => handleLocationSuggestionSelect(suggestion)}
-                          >
-                            {suggestion.display_name}
-                          </button>
-                          {suggestion.place_id !== "current" && suggestion.place_id !== "default" ? (
-                            <button
-                              type="button"
-                              className={styles.setDefaultLink}
-                              onMouseDown={(event) => event.preventDefault()}
-                              onClick={() => handleSetAsDefault(suggestion)}
-                            >
-                              Set as default
-                            </button>
-                          ) : null}
-                        </div>
-                      ))}
-                      {showWorldwideLink ? (
+                </div>
+                {locationSuggestions.length > 0 ? (
+                  <div
+                    className={styles.locationSuggestions}
+                    role="listbox"
+                    id={locationSuggestionsId}
+                  >
+                    {locationSuggestions.map((suggestion) => (
+                      <div key={suggestion.place_id} className={styles.locationSuggestionItem}>
                         <button
                           type="button"
-                          className={styles.worldwideLink}
+                          className={styles.locationSuggestionButton}
+                          role="option"
                           onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            void fetchGlobalAddressSuggestions(location);
-                          }}
+                          onClick={() => handleLocationSuggestionSelect(suggestion)}
                         >
-                          Search worldwide
+                          {suggestion.display_name}
                         </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                        {suggestion.place_id !== "current" && suggestion.place_id !== "default" ? (
+                          <button
+                            type="button"
+                            className={styles.setDefaultLink}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSetAsDefault(suggestion)}
+                          >
+                            Set as default
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                    {showWorldwideLink ? (
+                      <button
+                        type="button"
+                        className={styles.worldwideLink}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          void fetchGlobalAddressSuggestions(location);
+                        }}
+                      >
+                        Search worldwide
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
