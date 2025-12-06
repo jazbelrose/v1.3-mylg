@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useId } from "react";
+import clsx from "clsx";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -10,8 +11,10 @@ import {
 } from "lucide-react";
 
 import Modal from "@/shared/ui/ModalWithStack";
+import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
 import styles from "./create-calendar-item-modal.module.css";
+import drawerStyles from "./components/calendar-drawer-shell.module.css";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 
 type EventFormInitialValues = Partial<{
@@ -139,12 +142,37 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   }, [guestOptions, guestQuery, guests]);
 
   const isEditing = mode === "edit";
+  const isMobileViewport = useIsMobile();
   const titleId = useId();
   const descriptionId = useId();
   const headerTitle = isEditing ? "Edit event" : "Create a new event";
   const headerDescription = isEditing
     ? "Adjust the schedule and share updates with your collaborators."
     : "Bring your collaborators together by sharing the when, where, and why.";
+
+  const overlayClassName = useMemo(() => {
+    const base = clsx(
+      drawerStyles.overlay,
+      isMobileViewport ? drawerStyles.overlayMobile : drawerStyles.overlayDesktop,
+    );
+    return {
+      base,
+      afterOpen: clsx(base, drawerStyles.overlayVisible),
+      beforeClose: clsx(base, drawerStyles.overlayHidden),
+    };
+  }, [isMobileViewport]);
+
+  const contentClassName = useMemo(() => {
+    const base = clsx(
+      drawerStyles.panel,
+      isMobileViewport ? drawerStyles.panelMobile : drawerStyles.panelDesktop,
+    );
+    return {
+      base,
+      afterOpen: clsx(base, drawerStyles.panelOpen),
+      beforeClose: base,
+    };
+  }, [isMobileViewport]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -303,11 +331,11 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     <Modal
       isOpen={isOpen}
       onRequestClose={handleRequestClose}
-      overlayClassName={styles.modalOverlay}
-      className={styles.modalContent}
+      overlayClassName={overlayClassName}
+      className={contentClassName}
       contentLabel={isEditing ? "Edit event" : "Create event"}
       shouldCloseOnOverlayClick={!isSubmitting && !isDeleting}
-      closeTimeoutMS={160}
+      closeTimeoutMS={280}
     >
       <div
         className={styles.modalShell}

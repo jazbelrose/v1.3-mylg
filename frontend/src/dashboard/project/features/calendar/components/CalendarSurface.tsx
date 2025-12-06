@@ -19,9 +19,9 @@ import {
   isSameDay as isSameDayTask,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
-import QuickCreateTaskModal, {
-  type QuickCreateTaskModalProject,
-  type QuickCreateTaskModalTask,
+import type {
+  QuickCreateTaskModalProject,
+  QuickCreateTaskModalTask,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
 import CreateCalendarItemModal, {
   type CreateEventRequest,
@@ -40,6 +40,7 @@ import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hook
 import DayGrid from "./DayGrid";
 import EventsAndTasks from "./EventsAndTasks";
 import MobileEventsDrawer from "./MobileEventsDrawer";
+import CalendarTaskDrawer from "./CalendarTaskDrawer";
 import MiniCalendar, { type MiniCalendarActivityItem } from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
@@ -637,69 +638,41 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     ],
   );
 
-  const handleOpenQuickCreateFromDrawer = useCallback(() => {
-    if (!hasQuickCreateProject) return;
-
-    const state: { 
-      projectId?: string; 
-      from?: string; 
-      fromContext?: string;
-      openInCreateMode?: boolean;
-      taskDraft?: Partial<QuickCreateTaskModalTask>;
-    } = {
-      from: location.pathname,
-      fromContext: "calendar",
-      openInCreateMode: true,
-      taskDraft: {
-        projectId: activeProjectId ?? undefined,
-        projectName: activeProjectName ?? undefined,
-        status: "todo",
-      },
-    };
-    
-    if (activeProjectId) {
-      state.projectId = activeProjectId;
-    }
-    
-    navigate("/dashboard/tasks", { state });
-  }, [
-    hasQuickCreateProject,
-    navigate,
-    location.pathname,
-    activeProjectId,
-    activeProjectName,
-  ]);
-
   const handleOpenQuickTaskModal = useCallback(
     (date: Date) => {
       setInternalDate(date);
-      
-      const state: { 
-        projectId?: string; 
-        from?: string; 
-        fromContext?: string;
-        openInCreateMode?: boolean;
-        taskDraft?: Partial<QuickCreateTaskModalTask>;
-      } = {
-        from: location.pathname,
-        fromContext: "calendar",
-        openInCreateMode: true,
-        taskDraft: {
-          projectId: activeProjectId ?? undefined,
-          projectName: activeProjectName ?? undefined,
-          dueDate: date,
-          status: "todo",
-        },
-      };
-      
-      if (activeProjectId) {
-        state.projectId = activeProjectId;
+      const fallbackProjectId = activeProjectId ?? taskProjects[0]?.id ?? null;
+      if (!fallbackProjectId) {
+        notify("error", "Add a project before creating tasks.");
+        return;
       }
-      
-      navigate("/dashboard/tasks", { state });
+
+      const fallbackProjectName =
+        activeProjectName ??
+        taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
+        null;
+
+      const draft: QuickCreateTaskModalTask = {
+        projectId: fallbackProjectId,
+        projectName: fallbackProjectName ?? null,
+        dueDate: date,
+        status: "todo",
+      };
+
+      setQuickTaskDraft(draft);
+      setIsQuickTaskModalOpen(true);
     },
-    [navigate, location.pathname, activeProjectId, activeProjectName],
+    [activeProjectId, activeProjectName, taskProjects],
   );
+
+  const handleTaskDrawerClose = useCallback(() => {
+    setIsQuickTaskModalOpen(false);
+    setQuickTaskDraft(null);
+  }, []);
+
+  const handleTaskDrawerRefresh = useCallback(() => {
+    handleRefreshTasks();
+  }, [handleRefreshTasks]);
 
   const handleSelectDate = useCallback((date: Date) => {
     setInternalDate(date);
@@ -942,6 +915,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             ? () => onDeleteEvent(modalState.event!.source)
             : undefined
         }
+      />
+      <CalendarTaskDrawer
+        open={isQuickTaskModalOpen}
+        task={quickTaskDraft}
+        projects={taskProjects}
+        activeProjectId={activeProjectId ?? null}
+        activeProjectName={activeProjectName ?? null}
+        onClose={handleTaskDrawerClose}
+        onCreated={() => handleTaskDrawerRefresh()}
+        onUpdated={handleTaskDrawerRefresh}
+        onDeleted={handleTaskDrawerRefresh}
       />
       {isMobile ? (
         <MobileEventsDrawer

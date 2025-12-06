@@ -1,0 +1,83 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15000;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  background: rgba(5, 6, 7, 0.72);
+  backdrop-filter: blur(10px);
+  transition: opacity 0.28s ease;
+  opacity: 0;
+}
+
+.overlayMobile {
+  align-items: flex-end;
+}
+
+.overlayDesktop {
+  align-items: stretch;
+}
+
+.overlayVisible {
+  opacity: 1;
+}
+
+.overlayHidden {
+  opacity: 0;
+}
+
+.panel {
+  --drawer-shift-x: 100%;
+  --drawer-shift-y: 0%;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(9, 10, 12, 0.98), rgba(4, 5, 7, 0.98));
+  color: var(--text-primary, #f6f7fb);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -32px 0 64px rgba(0, 0, 0, 0.55);
+  outline: none;
+  transform: translate3d(var(--drawer-shift-x), var(--drawer-shift-y), 0);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.panelDesktop {
+  max-width: clamp(420px, 40vw, 560px);
+  border-radius: 0;
+}
+
+.panelMobile {
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.45);
+  --drawer-shift-x: 0%;
+  --drawer-shift-y: 100%;
+}
+
+.panelOpen {
+  --drawer-shift-x: 0%;
+  --drawer-shift-y: 0%;
+}
+
+.panelBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollBody {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.taskDrawerBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}

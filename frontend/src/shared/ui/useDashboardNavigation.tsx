@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Folder,
   Bell,
+  Layers,
   MessageSquare,
   Settings,
   LogOut,
@@ -149,7 +150,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       },
       {
         key: "home",
-        icon: <Folder size={24} color="white" />,
+        icon: <Layers size={24} color="white" />,
         label: "Projects",
         onClick: () => handleNavigation(PROJECTS_OVERVIEW_VIEW),
         isActive:
