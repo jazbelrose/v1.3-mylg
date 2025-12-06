@@ -29,12 +29,17 @@ export function formatStatusLabel(status: Status): string {
   return normalized.replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function isTaskCompleted(status: Status): boolean {
+  const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
+  return ["done", "completed", "complete", "archived"].includes(normalized);
+}
+
 export function getTaskStatusCategory(
   status: Status,
   dueDate: Date | null,
   context: TaskStatusContext = createTaskStatusContext(),
 ): TaskStatusCategory {
-  if (status === "done") {
+  if (isTaskCompleted(status)) {
     return "completed";
   }
 

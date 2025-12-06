@@ -229,18 +229,12 @@ const CalendarPage: React.FC = () => {
 
       const startAtIso =
         !input.allDay && input.time
-          ? (() => {
-              const parsed = new Date(`${isoDate}T${input.time}`);
-              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-            })()
+          ? `${isoDate}T${input.time}:00`
           : undefined;
 
       const endAtIso =
         !input.allDay && input.endTime
-          ? (() => {
-              const parsed = new Date(`${isoDate}T${input.endTime}`);
-              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-            })()
+          ? `${isoDate}T${input.endTime}:00`
           : undefined;
 
       try {
@@ -405,18 +399,12 @@ const CalendarPage: React.FC = () => {
       const trimmedDescription = input.description?.trim();
       const startAtIso =
         !input.allDay && input.time
-          ? (() => {
-              const parsed = new Date(`${isoDate}T${input.time}`);
-              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-            })()
+          ? `${isoDate}T${input.time}:00`
           : undefined;
 
       const endAtIso =
         !input.allDay && input.endTime
-          ? (() => {
-              const parsed = new Date(`${isoDate}T${input.endTime}`);
-              return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-            })()
+          ? `${isoDate}T${input.endTime}:00`
           : undefined;
 
       const existingDetails: Record<string, unknown> = {

@@ -10,8 +10,16 @@ import {
   X,
 } from "lucide-react";
 
+import { useUser } from "@/app/contexts/useUser";
+import { notify } from "@/shared/ui/ToastNotifications";
 import Modal from "@/shared/ui/ModalWithStack";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
+import {
+  fetchLocationSuggestions,
+  fetchGlobalLocationSuggestions,
+  type NominatimSuggestion,
+  type SavedLocation,
+} from "@/shared/utils/location";
 
 import styles from "./create-calendar-item-modal.module.css";
 import drawerStyles from "./components/calendar-drawer-shell.module.css";
@@ -45,6 +53,11 @@ type BaseProps = {
 type Option = {
   label: string;
   value: string;
+};
+
+type Coordinates = {
+  lat: number;
+  lng: number;
 };
 
 export type CreateEventRequest = {
@@ -103,6 +116,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   initialValues,
   teamMembers,
 }) => {
+  const { userData, updateUserProfile, refreshUser } = useUser();
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>(["Meeting"]);
   const [guestQuery, setGuestQuery] = useState("");
@@ -113,6 +127,10 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [allDay, setAllDay] = useState(false);
   const [eventType, setEventType] = useState(EVENT_TYPE_OPTIONS[0].value);
   const [location, setLocation] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<NominatimSuggestion[]>([]);
+  const [showWorldwideLink, setShowWorldwideLink] = useState(false);
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
+  const [currentLocationAddress, setCurrentLocationAddress] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,6 +163,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const isMobileViewport = useIsMobile();
   const titleId = useId();
   const descriptionId = useId();
+  const locationSuggestionsId = useId();
   const headerTitle = isEditing ? "Edit event" : "Create a new event";
   const headerDescription = isEditing
     ? "Adjust the schedule and share updates with your collaborators."
@@ -174,6 +193,45 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     };
   }, [isMobileViewport]);
 
+  const getDistance = useCallback((coord1: Coordinates, coord2: Coordinates): number => {
+    const R = 6371;
+    const dLat = ((coord2.lat - coord1.lat) * Math.PI) / 180;
+    const dLng = ((coord2.lng - coord1.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((coord1.lat * Math.PI) / 180) *
+        Math.cos((coord2.lat * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, []);
+
+  const fetchCurrentLocationAddress = useCallback(async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      );
+      const data = await response.json();
+      return typeof data.display_name === "string" ? data.display_name : null;
+    } catch (fetchError) {
+      console.error("Failed to reverse geocode current location", fetchError);
+      return null;
+    }
+  }, []);
+
+  const sortSuggestionsByProximity = useCallback(
+    (suggestions: NominatimSuggestion[], origin: Coordinates | null) => {
+      if (!origin) return suggestions;
+      return [...suggestions].sort((a, b) => {
+        const coordA = { lat: parseFloat(a.lat), lng: parseFloat(a.lon) };
+        const coordB = { lat: parseFloat(b.lat), lng: parseFloat(b.lon) };
+        return getDistance(origin, coordA) - getDistance(origin, coordB);
+      });
+    },
+    [getDistance],
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     const resolvedDate = initialValues?.date ?? formatDateInput(initialDate);
@@ -200,6 +258,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setAllDay(initialValues?.allDay ?? false);
     setEventType(initialValues?.eventType ?? EVENT_TYPE_OPTIONS[0].value);
     setLocation(initialValues?.location ?? "");
+    setLocationSuggestions([]);
+    setShowWorldwideLink(false);
     setError(null);
     setIsSubmitting(false);
     setIsDeleting(false);
@@ -210,6 +270,43 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       setGuestError(null);
     }
   }, [guestError, guestQuery]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setUserLocation(null);
+      setCurrentLocationAddress(null);
+      return;
+    }
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        if (cancelled) return;
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(coords);
+        const address = await fetchCurrentLocationAddress(coords.lat, coords.lng);
+        if (!cancelled) {
+          setCurrentLocationAddress(address);
+        }
+      },
+      () => {
+        if (!cancelled) {
+          setUserLocation(null);
+          setCurrentLocationAddress(null);
+        }
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchCurrentLocationAddress, isOpen]);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    setLocationSuggestions((prev) => sortSuggestionsByProximity(prev, userLocation));
+  }, [sortSuggestionsByProximity, userLocation]);
 
   const canSubmit = useMemo(() => title.trim().length > 0 && date.trim().length > 0, [title, date]);
 
@@ -257,6 +354,103 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
 
   const handleRemoveTag = (tag: string) => {
     setTags((prev) => prev.filter((item) => item !== tag));
+  };
+
+  const fetchAddressSuggestions = useCallback(
+    async (query: string) => {
+      try {
+        const result = await fetchLocationSuggestions(query, userLocation ?? undefined, {
+          limit: 5,
+          includeCurrentLocation: true,
+          currentLocationAddress: currentLocationAddress ?? undefined,
+          defaultLocation: userData?.defaultTaskLocation ?? null,
+        });
+        setLocationSuggestions(result.suggestions);
+        setShowWorldwideLink(result.showWorldwideLink);
+      } catch (suggestionError) {
+        console.error("Failed to fetch location suggestions", suggestionError);
+        setLocationSuggestions([]);
+        setShowWorldwideLink(false);
+      }
+    },
+    [currentLocationAddress, userData?.defaultTaskLocation, userLocation],
+  );
+
+  const fetchGlobalAddressSuggestions = useCallback(
+    async (query: string) => {
+      try {
+        const suggestions = await fetchGlobalLocationSuggestions(
+          query,
+          userLocation ?? undefined,
+          {
+            limit: 8,
+            includeCurrentLocation: true,
+            currentLocationAddress: currentLocationAddress ?? undefined,
+            defaultLocation: userData?.defaultTaskLocation ?? null,
+          },
+        );
+        setLocationSuggestions(suggestions);
+        setShowWorldwideLink(false);
+      } catch (suggestionError) {
+        console.error("Failed to fetch global location suggestions", suggestionError);
+        setLocationSuggestions([]);
+        setShowWorldwideLink(false);
+      }
+    },
+    [currentLocationAddress, userData?.defaultTaskLocation, userLocation],
+  );
+
+  const handleLocationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setLocation(value);
+    void fetchAddressSuggestions(value);
+  };
+
+  const handleLocationSuggestionSelect = (suggestion: NominatimSuggestion) => {
+    const suggestionId = suggestion.place_id?.toString();
+    if (suggestionId === "current") {
+      const fallback = currentLocationAddress ?? suggestion.display_name;
+      if (fallback) {
+        setLocation(fallback);
+      }
+    } else if (suggestionId === "default") {
+      const defaultLocation = userData?.defaultTaskLocation;
+      if (defaultLocation) {
+        setLocation(defaultLocation.formattedAddress);
+      }
+    } else {
+      setLocation(suggestion.display_name);
+    }
+    setLocationSuggestions([]);
+    setShowWorldwideLink(false);
+  };
+
+  const handleSetAsDefault = useCallback(
+    async (suggestion: NominatimSuggestion) => {
+      if (!userData) return;
+      const defaultLocation: SavedLocation = {
+        formattedAddress: suggestion.display_name,
+        lat: parseFloat(suggestion.lat),
+        lon: parseFloat(suggestion.lon),
+        placeId: suggestion.place_id?.toString(),
+      };
+      try {
+        await updateUserProfile({ ...userData, defaultTaskLocation: defaultLocation });
+        await refreshUser(true);
+        notify("success", "Default location updated");
+      } catch (setError) {
+        console.error("Failed to set default location", setError);
+        notify("error", "Failed to set default location");
+      }
+    },
+    [refreshUser, updateUserProfile, userData],
+  );
+
+  const handleUseDefaultLocation = () => {
+    if (!userData?.defaultTaskLocation) return;
+    setLocation(userData.defaultTaskLocation.formattedAddress);
+    setLocationSuggestions([]);
+    setShowWorldwideLink(false);
   };
 
   const handleSubmit = async () => {
@@ -562,18 +756,78 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                 <label className={styles.label} htmlFor="modal-location">
                   Location
                 </label>
-                <div className={styles.fieldShell}>
-                  <div className={styles.fieldShellHeader}>
-                    <MapPin className={styles.fieldIcon} />
-                    <input
-                      id="modal-location"
-                      className={styles.textInput}
-                      placeholder="Add a location"
-                      value={location}
-                      onChange={(event) => setLocation(event.target.value)}
-                      disabled={isSubmitting}
-                    />
+                {!location && userData?.defaultTaskLocation ? (
+                  <button
+                    type="button"
+                    className={styles.defaultLocationPill}
+                    onClick={handleUseDefaultLocation}
+                    disabled={isSubmitting}
+                  >
+                    Use default address — {userData.defaultTaskLocation.formattedAddress}
+                  </button>
+                ) : null}
+                <div className={styles.locationInputWrapper}>
+                  <div className={styles.fieldShell}>
+                    <div className={styles.fieldShellHeader}>
+                      <MapPin className={styles.fieldIcon} />
+                      <input
+                        id="modal-location"
+                        className={styles.textInput}
+                        placeholder="Add a location"
+                        value={location}
+                        onChange={handleLocationChange}
+                        disabled={isSubmitting}
+                        aria-autocomplete="list"
+                        aria-expanded={locationSuggestions.length > 0}
+                        aria-controls={
+                          locationSuggestions.length > 0 ? locationSuggestionsId : undefined
+                        }
+                      />
+                    </div>
                   </div>
+                  {locationSuggestions.length > 0 ? (
+                    <div
+                      className={styles.locationSuggestions}
+                      role="listbox"
+                      id={locationSuggestionsId}
+                    >
+                      {locationSuggestions.map((suggestion) => (
+                        <div key={suggestion.place_id} className={styles.locationSuggestionItem}>
+                          <button
+                            type="button"
+                            className={styles.locationSuggestionButton}
+                            role="option"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleLocationSuggestionSelect(suggestion)}
+                          >
+                            {suggestion.display_name}
+                          </button>
+                          {suggestion.place_id !== "current" && suggestion.place_id !== "default" ? (
+                            <button
+                              type="button"
+                              className={styles.setDefaultLink}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => handleSetAsDefault(suggestion)}
+                            >
+                              Set as default
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                      {showWorldwideLink ? (
+                        <button
+                          type="button"
+                          className={styles.worldwideLink}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            void fetchGlobalAddressSuggestions(location);
+                          }}
+                        >
+                          Search worldwide
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

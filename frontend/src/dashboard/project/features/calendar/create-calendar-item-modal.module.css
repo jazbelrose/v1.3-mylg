@@ -200,6 +200,122 @@
   color: rgba(246, 247, 251, 0.45);
 }
 
+.locationInputWrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.locationSuggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: rgba(13, 14, 16, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  z-index: 20;
+}
+
+.locationSuggestionItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.locationSuggestionButton {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.locationSuggestionButton:hover,
+.locationSuggestionButton:focus {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.setDefaultLink {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--brand, #fa3356);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.setDefaultLink:hover,
+.setDefaultLink:focus {
+  background: rgba(250, 51, 86, 0.12);
+  outline: none;
+}
+
+.defaultLocationPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.08);
+  color: rgba(250, 51, 86, 0.9);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  align-self: flex-start;
+}
+
+.defaultLocationPill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.defaultLocationPill:not(:disabled):hover,
+.defaultLocationPill:not(:disabled):focus {
+  background: rgba(250, 51, 86, 0.12);
+  border-color: rgba(250, 51, 86, 0.5);
+  outline: none;
+}
+
+.worldwideLink {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--brand, #fa3356);
+  text-align: center;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  margin-top: 4px;
+}
+
+.worldwideLink:hover,
+.worldwideLink:focus {
+  background: rgba(250, 51, 86, 0.08);
+  color: #ff6b8a;
+  outline: none;
+}
+
 .chipList {
   display: flex;
   flex-wrap: wrap;
