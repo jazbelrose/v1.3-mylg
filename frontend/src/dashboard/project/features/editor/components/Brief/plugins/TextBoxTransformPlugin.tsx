@@ -9,7 +9,17 @@ import {
 } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 
-type InteractionType = "move" | "resize-left" | "resize-right" | "resize-top" | "resize-bottom" | "resize-bottom-right" | "rotate";
+type InteractionType =
+  | "move"
+  | "resize-left"
+  | "resize-right"
+  | "resize-top"
+  | "resize-bottom"
+  | "resize-top-left"
+  | "resize-top-right"
+  | "resize-bottom-left"
+  | "resize-bottom-right"
+  | "rotate";
 
 type Interaction = {
   type: InteractionType;
@@ -53,6 +63,9 @@ function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove
     if (target.classList.contains("textbox-resize-handle-bottom")) return "resize-bottom";
     if (target.classList.contains("textbox-resize-handle-left")) return "resize-left";
     if (target.classList.contains("textbox-resize-handle-right")) return "resize-right";
+    if (target.classList.contains("textbox-resize-handle-top-left")) return "resize-top-left";
+    if (target.classList.contains("textbox-resize-handle-top-right")) return "resize-top-right";
+    if (target.classList.contains("textbox-resize-handle-bottom-left")) return "resize-bottom-left";
     if (target.classList.contains("textbox-resize-handle-bottom-right")) return "resize-bottom-right";
   }
 
@@ -72,8 +85,17 @@ function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove
   const onRightCenterHandle = onRightEdge && Math.abs(clientY - centerY) <= RESIZE_HANDLE_OFFSET;
   
   // Check for bottom-right corner resize handle
-  const inBottomRightCorner = 
-    rect.right - clientX <= RESIZE_HANDLE_OFFSET && 
+  const inTopLeftCorner =
+    clientX - rect.left <= RESIZE_HANDLE_OFFSET &&
+    clientY - rect.top <= RESIZE_HANDLE_OFFSET;
+  const inTopRightCorner =
+    rect.right - clientX <= RESIZE_HANDLE_OFFSET &&
+    clientY - rect.top <= RESIZE_HANDLE_OFFSET;
+  const inBottomLeftCorner =
+    clientX - rect.left <= RESIZE_HANDLE_OFFSET &&
+    rect.bottom - clientY <= RESIZE_HANDLE_OFFSET;
+  const inBottomRightCorner =
+    rect.right - clientX <= RESIZE_HANDLE_OFFSET &&
     rect.bottom - clientY <= RESIZE_HANDLE_OFFSET;
 
   // Priority: specific resize handles first
@@ -81,6 +103,9 @@ function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove
   if (onBottomCenterHandle) return "resize-bottom";
   if (onLeftCenterHandle) return "resize-left";
   if (onRightCenterHandle) return "resize-right";
+  if (inTopLeftCorner) return "resize-top-left";
+  if (inTopRightCorner) return "resize-top-right";
+  if (inBottomLeftCorner) return "resize-bottom-left";
   if (inBottomRightCorner) return "resize-bottom-right";
 
   // If on any edge but not on a resize handle, it's a move
@@ -100,7 +125,12 @@ function getCursorForInteraction(type: InteractionType | null): string {
     case "resize-right": return "ew-resize";
     case "resize-top":
     case "resize-bottom": return "ns-resize";
-    case "resize-bottom-right": return "nwse-resize";
+    case "resize-top-left":
+    case "resize-bottom-right":
+      return "nwse-resize";
+    case "resize-top-right":
+    case "resize-bottom-left":
+      return "nesw-resize";
     case "rotate": return "grab";
     default: return "text";
   }
@@ -288,6 +318,22 @@ const onPointerMoveHover = (event: PointerEvent) => {
             break;
           case "resize-bottom-right":
             newWidth = interaction!.originWidth + dx;
+            newHeight = interaction!.originHeight + dy;
+            break;
+          case "resize-top-left":
+            newX = interaction!.originX + dx;
+            newY = interaction!.originY + dy;
+            newWidth = interaction!.originWidth - dx;
+            newHeight = interaction!.originHeight - dy;
+            break;
+          case "resize-top-right":
+            newY = interaction!.originY + dy;
+            newWidth = interaction!.originWidth + dx;
+            newHeight = interaction!.originHeight - dy;
+            break;
+          case "resize-bottom-left":
+            newX = interaction!.originX + dx;
+            newWidth = interaction!.originWidth - dx;
             newHeight = interaction!.originHeight + dy;
             break;
           case "rotate": {

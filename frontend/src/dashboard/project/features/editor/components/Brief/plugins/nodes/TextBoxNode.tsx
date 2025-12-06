@@ -105,19 +105,28 @@ export class TextBoxNode extends ElementNode {
     dom.style.margin = "0";
     dom.style.willChange = "transform, width, height";
 
-    // Add resize handles
-    const handles = ["top", "right", "bottom", "left", "bottom-right"];
-    handles.forEach(position => {
+    // Add move handles (thin edge strips) first so resize handles sit on top
+    const moveHandles = ["top", "right", "bottom", "left"];
+    moveHandles.forEach((pos) => {
       const handle = document.createElement("div");
-      handle.className = `textbox-resize-handle textbox-resize-handle-${position}`;
+      handle.className = `textbox-move-handle textbox-move-handle-${pos}`;
       dom.appendChild(handle);
     });
 
-    // Add move handles (thin edge strips)
-    const moveHandles = ["top", "right", "bottom", "left"];
-    moveHandles.forEach(pos => {
+    // Add resize handles (edge centers + corners)
+    const resizeHandles = [
+      "top",
+      "right",
+      "bottom",
+      "left",
+      "top-left",
+      "top-right",
+      "bottom-left",
+      "bottom-right",
+    ];
+    resizeHandles.forEach((position) => {
       const handle = document.createElement("div");
-      handle.className = `textbox-move-handle textbox-move-handle-${pos}`;
+      handle.className = `textbox-resize-handle textbox-resize-handle-${position}`;
       dom.appendChild(handle);
     });
 

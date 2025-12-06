@@ -1235,7 +1235,7 @@ i.bg-color::before {
   opacity: 0;
   transition: opacity 0.15s ease;
   pointer-events: auto;
-  z-index: 10;
+  z-index: 30;
 }
 
 .editor-textbox:hover .textbox-resize-handle,
@@ -1247,7 +1247,7 @@ i.bg-color::before {
   position: absolute;
   opacity: 0;
   pointer-events: auto;
-  z-index: 11;
+  z-index: 10;
   background: transparent;
 }
 
@@ -1260,7 +1260,7 @@ i.bg-color::before {
   top: -6px;
   left: 6px;
   right: 6px;
-  height: 12px;
+  height: 6px;
   cursor: move;
 }
 
@@ -1268,7 +1268,7 @@ i.bg-color::before {
   bottom: -6px;
   left: 6px;
   right: 6px;
-  height: 12px;
+  height: 6px;
   cursor: move;
 }
 
@@ -1276,7 +1276,7 @@ i.bg-color::before {
   left: -6px;
   top: 6px;
   bottom: 6px;
-  width: 12px;
+  width: 6px;
   cursor: move;
 }
 
@@ -1284,7 +1284,7 @@ i.bg-color::before {
   right: -6px;
   top: 6px;
   bottom: 6px;
-  width: 12px;
+  width: 6px;
   cursor: move;
 }
 
@@ -1323,8 +1323,8 @@ i.bg-color::before {
   top: -4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 40px;
-  height: 8px;
+  width: 24px;
+  height: 6px;
   cursor: ns-resize;
 }
 
@@ -1332,8 +1332,8 @@ i.bg-color::before {
   bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 40px;
-  height: 8px;
+  width: 24px;
+  height: 6px;
   cursor: ns-resize;
 }
 
@@ -1341,8 +1341,8 @@ i.bg-color::before {
   left: -4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px;
-  height: 40px;
+  width: 6px;
+  height: 24px;
   cursor: ew-resize;
 }
 
@@ -1350,19 +1350,44 @@ i.bg-color::before {
   right: -4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px;
-  height: 40px;
+  width: 6px;
+  height: 24px;
   cursor: ew-resize;
 }
 
-/* Corner handle - bottom-right */
+.textbox-resize-handle-top-left,
+.textbox-resize-handle-top-right,
+.textbox-resize-handle-bottom-left,
 .textbox-resize-handle-bottom-right {
-  bottom: -4px;
-  right: -4px;
   width: 12px;
   height: 12px;
+  border-radius: 50%;
   cursor: nwse-resize;
-  border-radius: 2px;
+  background: #4c9aff;
+}
+
+.textbox-resize-handle-top-left {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+
+.textbox-resize-handle-top-right {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+
+.textbox-resize-handle-bottom-left {
+  bottom: -6px;
+  left: -6px;
+  cursor: nesw-resize;
+}
+
+.textbox-resize-handle-bottom-right {
+  bottom: -6px;
+  right: -6px;
+  cursor: nwse-resize;
 }
 
 /* You can keep this or remove it; it’s unused by the new plugin */

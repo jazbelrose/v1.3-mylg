@@ -147,7 +147,8 @@ function EventsAndTasks({
         Boolean(task.done) ||
         normalizedStatus === "done" ||
         normalizedStatus === "completed" ||
-        normalizedStatus === "complete";
+        normalizedStatus === "complete" ||
+        normalizedStatus === "archived";
 
       if (resolvedTaskFilter === "completed") {
         return isCompleted;
