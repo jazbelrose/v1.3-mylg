@@ -1,5 +1,4 @@
-import { DecoratorNode } from "lexical";
-import { $getNodeByKey } from "lexical";
+import { DecoratorNode, $getNodeByKey, $getSelection, $setSelection, $createNodeSelection, $isNodeSelection } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import React, { useRef, useState, useEffect } from "react";
@@ -229,12 +228,29 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
   const onClickImage = (e) => {
     e.stopPropagation();
     editor.focus();
-    if (e.shiftKey) {
-      setSelected(!isSelected);
-    } else {
-      
-      setSelected(true);
-    }
+    editor.update(() => {
+      const selection = $getSelection();
+      if (e.ctrlKey) {
+        // Toggle: Add if not selected, remove if selected
+        let nodeSelection;
+        if ($isNodeSelection(selection)) {
+          nodeSelection = selection;
+        } else {
+          nodeSelection = $createNodeSelection();
+          $setSelection(nodeSelection);
+        }
+        if (nodeSelection.has(nodeKey)) {
+          nodeSelection.delete(nodeKey);
+        } else {
+          nodeSelection.add(nodeKey);
+        }
+      } else {
+        // Clear all and select only this node
+        const newSelection = $createNodeSelection();
+        newSelection.add(nodeKey);
+        $setSelection(newSelection);
+      }
+    });
   };
 
   const handleMouseDown = (e, handleType) => {
