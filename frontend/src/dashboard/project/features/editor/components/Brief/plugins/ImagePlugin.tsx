@@ -17,6 +17,7 @@ import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
 import { OPEN_IMAGE_COMMAND } from "../commands";
 import FileManagerComponent, { type FileItem } from "@/dashboard/project/components/FileManager/FileManager";
 import { notify } from "@/shared/ui/ToastNotifications";
+import styles from "./ImagePlugin.module.css";
 
 type Props = {
   showToolbarButton?: boolean;
@@ -210,154 +211,60 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
       <ReactModal
         isOpen={isOpen}
         onRequestClose={() => setIsOpen(false)}
-        style={{
-          overlay: {
-            backgroundColor: "rgba(0, 0, 0, 0.6)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          },
-          content: {
-            background: "#0c0c0c",
-            padding: "20px",
-            borderRadius: "10px",
-            width: "400px",
-            maxWidth: "90%",
-            border: "1px solid white",
-            boxShadow: "0 4px 12px rgba(250, 51, 86, 0.3)",
-            inset: "unset",
-            color: "white",
-          },
-        }}
+        overlayClassName={styles.modalOverlay}
+        className={styles.modalContent}
         contentLabel="Add Image"
         shouldCloseOnOverlayClick
         shouldCloseOnEsc
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "15px",
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: "20px", color: "white" }}>Add Image</h2>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.modalTitle}>Add Image</h2>
           <button
             type="button"
-            style={{
-              background: "none",
-              border: "none",
-              fontSize: "20px",
-              cursor: "pointer",
-              color: "white",
-            }}
+            className={styles.closeButton}
             onClick={() => setIsOpen(false)}
           >
             &times;
           </button>
         </div>
 
-        <div style={{ marginBottom: "15px" }}>
+        <div className={styles.formSection}>
           <input
             type="url"
             value={url}
             onChange={(e) => setURL(e.target.value)}
             placeholder="Add Image URL"
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "10px",
-              border: "1px solid white",
-              borderRadius: "5px",
-              background: "#1b1b1b",
-              color: "white",
-            }}
+            className={styles.urlInput}
           />
           
-          <div style={{ position: "relative" }} ref={dropdownRef}>
+          <div className={styles.dropdownContainer} ref={dropdownRef}>
             <button
               type="button"
-              style={{
-                width: "100%",
-                padding: "10px",
-                background: "#1b1b1b",
-                border: "1px solid white",
-                borderRadius: "5px",
-                color: "white",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
+              className={styles.dropdownButton}
               onClick={() => setShowDropdown(!showDropdown)}
             >
               <span>{file ? file.name : "Upload Image"}</span>
-              <span style={{ marginLeft: "8px" }}>▾</span>
+              <span className={styles.dropdownArrow}>▾</span>
             </button>
             
             {showDropdown && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  right: 0,
-                  marginTop: "4px",
-                  background: "#1b1b1b",
-                  border: "1px solid white",
-                  borderRadius: "5px",
-                  overflow: "hidden",
-                  zIndex: 1001,
-                }}
-              >
+              <div className={styles.dropdownMenu}>
                 <button
                   type="button"
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    background: "transparent",
-                    border: "none",
-                    color: "white",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 0.2s",
-                  }}
+                  className={styles.dropdownItem}
                   onClick={() => {
                     inputRef.current?.click();
                     setShowDropdown(false);
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#2a2a2a";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   Upload from Computer
                 </button>
                 <button
                   type="button"
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    background: "transparent",
-                    border: "none",
-                    borderTop: "1px solid #333",
-                    color: "white",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 0.2s",
-                  }}
+                  className={styles.dropdownItem}
                   onClick={() => {
                     setShowDropdown(false);
                     setIsFileManagerOpen(true);
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#2a2a2a";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   Choose from Project Files
@@ -367,21 +274,12 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div className={styles.actionButtons}>
           <button
             type="button"
             onClick={onAddImage}
             disabled={!canSubmit}
-            style={{
-              flex: 1,
-              padding: "10px",
-              background: canSubmit ? "#FA3356" : "#555",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: canSubmit ? "pointer" : "not-allowed",
-              marginRight: "10px",
-            }}
+            className={styles.primaryButton}
           >
             {isUploading ? "Uploading..." : "Add Image"}
           </button>
@@ -389,26 +287,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            style={{
-              flex: 1,
-              padding: "10px",
-              background: "transparent",
-              border: "1px solid white",
-              borderRadius: "5px",
-              color: "white",
-              cursor: "pointer",
-              transition: "border 0.3s ease, color 0.3s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.border =
-                "1px solid #FA3356";
-              (e.currentTarget as HTMLButtonElement).style.color = "#FA3356";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.border =
-                "1px solid white";
-              (e.currentTarget as HTMLButtonElement).style.color = "white";
-            }}
+            className={styles.secondaryButton}
           >
             Cancel
           </button>
