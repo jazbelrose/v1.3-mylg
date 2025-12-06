@@ -373,8 +373,8 @@
   position: sticky;
   bottom: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   padding: 20px clamp(24px, 4vw, 40px)
     calc(clamp(28px, 5vw, 40px) + env(safe-area-inset-bottom, 0px));
@@ -388,12 +388,14 @@
 .footerMeta {
   font-size: 0.85rem;
   color: var(--text-tertiary, rgba(246, 247, 251, 0.6));
+  text-align: center;
 }
 
 .footerActions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  justify-content: center;
 }
 
 .secondaryButton,
@@ -401,7 +403,7 @@
 .dangerButton {
   border-radius: 14px;
   min-height: 48px;
-  padding: 0 20px;
+  padding: 0 24px;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -449,7 +451,7 @@
 @media (max-width: 720px) {
   .footer {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     width: 100%;
   }
 
