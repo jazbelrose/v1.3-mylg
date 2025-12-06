@@ -216,7 +216,7 @@ function MonthGrid({
                       <CheckSquare className="month-grid__item-icon-svg" aria-hidden />
                     </span>
                     <span
-                      className={`month-grid__event-title ${task.done ? "is-complete" : ""}`}
+                      className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
                       title={task.title}
                     >
                       {task.title}

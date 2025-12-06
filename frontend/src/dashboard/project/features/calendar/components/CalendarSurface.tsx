@@ -353,7 +353,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         note: undefined,
         type: "task",
         color: defaultColor,
-        isCompleted: Boolean(task.done),
+        isCompleted: Boolean(task.done || task.status === 'archived'),
         sortKey: task.time ?? "99:99",
         taskId: task.id,
       };

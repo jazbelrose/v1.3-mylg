@@ -255,7 +255,7 @@ function WeekGrid({
                           <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                         </span>
                         <div className="week-grid__task-body">
-                          <div className={`week-grid__task-title ${task.done ? "is-complete" : ""}`}>
+                          <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
                             {task.title}
                           </div>
                           {task.time && (
