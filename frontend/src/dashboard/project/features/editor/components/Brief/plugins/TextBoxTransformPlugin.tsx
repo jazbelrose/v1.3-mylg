@@ -216,14 +216,17 @@ const onPointerMoveHover = (event: PointerEvent) => {
         return;
       }
 
-      setSelected(textbox);
-      editor.focus();
-
       const interactionType = getInteractionType(textbox, event);
       if (!interactionType) {
-        // Click inside -> normal text editing
+        // Click inside -> normal text editing, exit object mode
+        setSelected(null);
+        editor.focus();
         return;
       }
+
+      // Object interaction (resize/rotate/move) - enter object mode
+      setSelected(textbox);
+      editor.focus();
 
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
       if (!nodeKey) return;
