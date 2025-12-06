@@ -542,26 +542,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
             >
               ↻
             </div>
-            
-            {/* Controls info panel */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-60px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                backgroundColor: "rgba(0, 0, 0, 0.8)",
-                color: "white",
-                padding: "4px 8px",
-                borderRadius: "4px",
-                fontSize: "10px",
-                whiteSpace: "nowrap",
-                pointerEvents: "none",
-                zIndex: 1001,
-              }}
-            >
-              Arrows: Move | Ctrl+R/L: Rotate | Ctrl+0: Reset | Shift: 10x
-            </div>
+          
           </div>
         )}
       </div>
