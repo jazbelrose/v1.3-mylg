@@ -259,6 +259,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                     contentOverflowBehavior="hidden"
                     contentPadding={SLIDE_PADDING}
                     contentMaxHeight="100%"
+                    slidesMode={true}
                   />
                 </div>
               </div>

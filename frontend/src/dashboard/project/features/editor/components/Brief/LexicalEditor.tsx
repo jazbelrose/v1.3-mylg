@@ -68,6 +68,7 @@ import TextBoxPlugin from "./plugins/TextBoxPlugin";
 import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import DeleteTextBoxPlugin from "./plugins/DeleteTextBoxPlugin";
 import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPlugin";
+import PreventRootTextPlugin from "./plugins/PreventRootTextPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 
 type LexicalEditorProps = {
@@ -89,6 +90,8 @@ type LexicalEditorProps = {
   contentOverflowBehavior?: "auto" | "hidden";
   /** Clamp the editable surface height if provided */
   contentMaxHeight?: number | string;
+  /** Enable slides mode: prevents root-level text insertion, only allows editing inside textboxes */
+  slidesMode?: boolean;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -112,6 +115,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   contentPadding = 20,
   contentOverflowBehavior = "auto",
   contentMaxHeight,
+  slidesMode = false,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -492,6 +496,8 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
             }
             ErrorBoundary={LexicalErrorBoundary}
           />
+
+          {slidesMode && <PreventRootTextPlugin />}
 
           <CollaborationPlugin
             id={resolvedDocId}
