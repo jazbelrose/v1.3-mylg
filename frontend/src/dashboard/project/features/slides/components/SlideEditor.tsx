@@ -31,6 +31,7 @@ interface SlideEditorProps {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
+  onSetZoom?: (level: number) => void;
 }
 
 // Fixed stage dimensions (16:9 aspect ratio) - never changes
@@ -53,6 +54,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onSetZoom,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -174,6 +176,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onZoomIn={onZoomIn}
       onZoomOut={onZoomOut}
       onResetZoom={onResetZoom}
+      onSetZoom={onSetZoom}
       // Map toolbar actions to individual props
       onUndo={toolbarActions.onUndo}
       onRedo={toolbarActions.onRedo}

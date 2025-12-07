@@ -686,6 +686,10 @@ const SlidesPage: React.FC = () => {
     setZoom(100);
   }, []);
 
+  const handleSetZoom = useCallback((level: number) => {
+    setZoom(Math.max(25, Math.min(level, 200)));
+  }, []);
+
   const activeSlide = slides.find((s) => s.id === activeSlideId);
 
   if (!projectId) {
@@ -749,6 +753,7 @@ const SlidesPage: React.FC = () => {
                   onZoomIn={handleZoomIn}
                   onZoomOut={handleZoomOut}
                   onResetZoom={handleResetZoom}
+                  onSetZoom={handleSetZoom}
                 />
               ) : (
                 <div className="slides-main__empty">No slide selected</div>
