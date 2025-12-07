@@ -28,6 +28,7 @@ import {
   Layout as LayoutIcon,
   BringToFront,
   SendToBack,
+  Lock,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -116,6 +117,8 @@ interface SlideToolbarProps {
   onDeleteSelection?: () => void;
   onBringToFront?: () => void;
   onSendToBack?: () => void;
+  onDuplicateSelection?: () => void;
+  onLockSelection?: () => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -161,6 +164,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDeleteSelection,
   onBringToFront,
   onSendToBack,
+  onDuplicateSelection,
+  onLockSelection,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -288,7 +293,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
     return (
       <div className="context-panel">
-        <div className="context-pill">Text</div>
         <div className="context-controls">
           <button
             type="button"
@@ -486,7 +490,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     const hasArrange = Boolean(onBringToFront || onSendToBack);
     return (
       <div className="context-panel">
-        <div className="context-pill">{label}</div>
         <div className="context-controls compact">
           {options.showReplace && (
             <button
@@ -510,6 +513,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               </button>
             </>
           )}
+          {label === "Image" && (
+            <>
+              <button type="button" className="toolbar-item" onClick={onDuplicateSelection}>
+                <Copy size={18} />
+                <span>Duplicate</span>
+              </button>
+              <button type="button" className="toolbar-item" onClick={onLockSelection}>
+                <Lock size={18} />
+                <span>Lock</span>
+              </button>
+            </>
+          )}
           <button type="button" className="toolbar-item danger" onClick={onDeleteSelection}>
             <Trash2 size={18} />
             <span>Delete</span>
@@ -521,16 +536,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const renderCanvasContext = () => (
     <div className="context-panel">
-      <div className="context-pill">Canvas</div>
       <div className="context-controls compact">
-        <div className="context-hint">Use the Insert menu to add content.</div>
+        <button type="button" className="toolbar-item" onClick={() => handleInsert(onInsertTextBox)}>
+          <Type size={18} />
+          <span>Add Text Box</span>
+        </button>
+        <div className="context-hint">Use the Theme button above to adjust background & guides.</div>
       </div>
     </div>
   );
 
   const renderMixedContext = () => (
     <div className="context-panel">
-      <div className="context-pill">Multiple</div>
       <div className="context-hint">Arrange or align via right-click menu.</div>
     </div>
   );
@@ -865,6 +882,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </div>,
             document.body
           )}
+
+        <Divider />
       </div>
 
       <div className="toolbar-center">
