@@ -88,6 +88,7 @@ interface SlideToolbarProps {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
+  onSetZoom?: (level: number) => void;
 
   onUndo?: () => void;
   onRedo?: () => void;
@@ -136,6 +137,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onSetZoom,
 
   onUndo,
   onRedo,
@@ -178,6 +180,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const slideBgButtonRef = useRef<HTMLButtonElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const layoutButtonRef = useRef<HTMLButtonElement | null>(null);
+  const zoomButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const blockDropdownId = "block-dropdown";
@@ -188,6 +191,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const slideBgDropdownId = "slide-bg-dropdown";
   const moreDropdownId = "more-dropdown";
   const layoutDropdownId = "layout-dropdown";
+  const zoomDropdownId = "zoom-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
 
@@ -196,8 +200,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       if (!toolbarRef.current) return;
       const width = toolbarRef.current.offsetWidth;
       const newCollapsed = new Set<string>();
-      // Simple priority: hide zoom if < 1200, hide slide bg if < 1000
-      if (width < 1200) newCollapsed.add('zoom');
+      // Simple priority: hide slide bg if < 1000
       if (width < 1000) newCollapsed.add('slide-bg');
       setCollapsedGroups(newCollapsed);
     };
@@ -249,6 +252,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     handleDropdownToggle(layoutDropdownId, layoutButtonRef);
   };
 
+  const handleZoomDropdownToggle = () => {
+    handleDropdownToggle(zoomDropdownId, zoomButtonRef);
+  };
+
   const handleBlockTypeClick = (type: TextBlockType) => {
     onSetBlockType?.(type);
     closeDropdown();
@@ -283,6 +290,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleInsert = (fn?: () => void) => {
     fn?.();
+    closeDropdown();
+  };
+
+  const handleZoomPreset = (level: number) => {
+    onSetZoom?.(level);
     closeDropdown();
   };
 
@@ -541,7 +553,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           <Type size={18} />
           <span>Add Text Box</span>
         </button>
-        <div className="context-hint">Use the Theme button above to adjust background & guides.</div>
+        
       </div>
     </div>
   );
@@ -618,38 +630,47 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
         <Divider />
 
-        {!collapsedGroups.has('zoom') && (
-          <div className="zoom-controls">
-            <button
-              type="button"
-              onClick={onZoomOut}
-              className="toolbar-item"
-              title="Zoom out"
-              disabled={zoom <= 25}
-            >
-              <ZoomOut size={18} />
-            </button>
-            <span className="zoom-display">{zoom}%</span>
-            <button
-              type="button"
-              onClick={onZoomIn}
-              className="toolbar-item"
-              title="Zoom in"
-              disabled={zoom >= 200}
-            >
-              <ZoomIn size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onResetZoom}
-              className="toolbar-item"
-              title="Reset zoom"
-              disabled={zoom === 100}
-            >
-              <RotateCcw size={18} />
-            </button>
-          </div>
-        )}
+        <button
+          type="button"
+          className="toolbar-item zoom-trigger"
+          onClick={handleZoomDropdownToggle}
+          ref={zoomButtonRef}
+          title="Zoom"
+        >
+          <span className="toolbar-item__label">{zoom}%</span>
+          <i className="chevron-down" />
+        </button>
+        {activeDropdown === zoomDropdownId &&
+          ReactDOM.createPortal(
+            <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+              <button type="button" className="item" onClick={callAndClose(onZoomIn)} disabled={zoom >= 200}>
+                <ZoomIn size={18} className="dropdown-icon" />
+                <span className="text">Zoom In</span>
+              </button>
+              <button type="button" className="item" onClick={callAndClose(onZoomOut)} disabled={zoom <= 25}>
+                <ZoomOut size={18} className="dropdown-icon" />
+                <span className="text">Zoom Out</span>
+              </button>
+              <button type="button" className="item" onClick={callAndClose(onResetZoom)} disabled={zoom === 100}>
+                <RotateCcw size={18} className="dropdown-icon" />
+                <span className="text">Reset Zoom</span>
+              </button>
+              <div className="dropdown-divider" />
+              {[50, 75, 100, 125, 150, 200].map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`item${zoom === level ? " active" : ""}`}
+                  disabled={!onSetZoom}
+                  onClick={() => handleZoomPreset(level)}
+                >
+                  <span className="text">{level}%</span>
+                  {zoom === level && <span className="active">✓</span>}
+                </button>
+              ))}
+            </div>,
+            document.body
+          )}
 
         {!collapsedGroups.has('slide-bg') && (
           <>
@@ -692,23 +713,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
         {activeDropdown === moreDropdownId &&
           ReactDOM.createPortal(
             <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef}>
-              {collapsedGroups.has('zoom') && (
-                <>
-                  <button type="button" className="item" onClick={onZoomOut} disabled={zoom <= 25}>
-                    <ZoomOut size={18} className="dropdown-icon" />
-                    <span className="text">Zoom Out</span>
-                  </button>
-                  <button type="button" className="item" onClick={onZoomIn} disabled={zoom >= 200}>
-                    <ZoomIn size={18} className="dropdown-icon" />
-                    <span className="text">Zoom In</span>
-                  </button>
-                  <button type="button" className="item" onClick={onResetZoom} disabled={zoom === 100}>
-                    <RotateCcw size={18} className="dropdown-icon" />
-                    <span className="text">Reset Zoom</span>
-                  </button>
-                  <div className="dropdown-divider" />
-                </>
-              )}
               {collapsedGroups.has('slide-bg') && (
                 <>
                   <button type="button" className="item" onClick={handleSlideBgDropdownToggle}>

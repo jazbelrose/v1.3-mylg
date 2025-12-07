@@ -194,7 +194,7 @@ export default function ToolbarContextPlugin() {
         COMMAND_PRIORITY_LOW
       )
     );
-  }, [ctxApi, editor]);
+  }, [ctxApi?.setCtx, editor]);
 
   return null;
 }
