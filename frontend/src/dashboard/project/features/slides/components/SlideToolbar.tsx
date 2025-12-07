@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, type ChangeEvent } from "react";
+import React, { useMemo, useRef, type ChangeEvent, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import {
   Bold,
@@ -162,6 +162,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onBringToFront,
   onSendToBack,
 }) => {
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
   const alignButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -183,6 +185,21 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const layoutDropdownId = "layout-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (!toolbarRef.current) return;
+      const width = toolbarRef.current.offsetWidth;
+      const newCollapsed = new Set<string>();
+      // Simple priority: hide zoom if < 1200, hide slide bg if < 1000
+      if (width < 1200) newCollapsed.add('zoom');
+      if (width < 1000) newCollapsed.add('slide-bg');
+      setCollapsedGroups(newCollapsed);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleDropdownToggle = (
     dropdownId: string,
@@ -271,7 +288,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
     return (
       <div className="context-panel">
-        <div className="context-title">Text</div>
+        <div className="context-pill">Text</div>
         <div className="context-controls">
           <button
             type="button"
@@ -469,7 +486,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     const hasArrange = Boolean(onBringToFront || onSendToBack);
     return (
       <div className="context-panel">
-        <div className="context-title">{label}</div>
+        <div className="context-pill">{label}</div>
         <div className="context-controls compact">
           {options.showReplace && (
             <button
@@ -504,20 +521,16 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const renderCanvasContext = () => (
     <div className="context-panel">
-      <div className="context-title">Canvas</div>
+      <div className="context-pill">Canvas</div>
       <div className="context-controls compact">
-        <button type="button" className="toolbar-item" onClick={() => handleInsert(onInsertTextBox)}>
-          <Type size={18} />
-          <span>Add Text Box</span>
-        </button>
-        <div className="context-hint">Use the Theme button above to adjust background & guides.</div>
+        <div className="context-hint">Use the Insert menu to add content.</div>
       </div>
     </div>
   );
 
   const renderMixedContext = () => (
     <div className="context-panel">
-      <div className="context-title">Multiple</div>
+      <div className="context-pill">Multiple</div>
       <div className="context-hint">Arrange or align via right-click menu.</div>
     </div>
   );
@@ -538,8 +551,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   };
 
   return (
-    <div className="slide-toolbar">
-      <div className="toolbar-row toolbar-row--always">
+    <div className="slide-toolbar" ref={toolbarRef}>
+      <div className="toolbar-left">
         <div className="save-status">
           {isSaving ? (
             <>
@@ -562,7 +575,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             title="Save slide"
           >
             <Save size={18} />
-            <span className="toolbar-item__label">Save</span>
           </button>
         )}
 
@@ -597,7 +609,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           title="Insert content"
         >
           <LayoutIcon size={18} />
-          <i className="chevron-down" />
+          <span className="toolbar-item__label">Insert</span>
         </button>
         {activeDropdown === insertDropdownId &&
           ReactDOM.createPortal(
@@ -674,156 +686,190 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </div>,
             document.body
           )}
+      </div>
 
-        <Divider />
+      <div className="toolbar-center">
+        {renderContextPanel()}
+      </div>
 
-        <div className="zoom-controls">
-          <button
-            type="button"
-            onClick={onZoomOut}
-            className="toolbar-item"
-            title="Zoom out"
-            disabled={zoom <= 25}
-          >
-            <ZoomOut size={18} />
-          </button>
-          <span className="zoom-display">{zoom}%</span>
-          <button
-            type="button"
-            onClick={onZoomIn}
-            className="toolbar-item"
-            title="Zoom in"
-            disabled={zoom >= 200}
-          >
-            <ZoomIn size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={onResetZoom}
-            className="toolbar-item"
-            title="Reset zoom"
-            disabled={zoom === 100}
-          >
-            <RotateCcw size={18} />
-          </button>
-        </div>
+      <div className="toolbar-right">
+        {!collapsedGroups.has('zoom') && (
+          <div className="zoom-controls">
+            <button
+              type="button"
+              onClick={onZoomOut}
+              className="toolbar-item"
+              title="Zoom out"
+              disabled={zoom <= 25}
+            >
+              <ZoomOut size={18} />
+            </button>
+            <span className="zoom-display">{zoom}%</span>
+            <button
+              type="button"
+              onClick={onZoomIn}
+              className="toolbar-item"
+              title="Zoom in"
+              disabled={zoom >= 200}
+            >
+              <ZoomIn size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={onResetZoom}
+              className="toolbar-item"
+              title="Reset zoom"
+              disabled={zoom === 100}
+            >
+              <RotateCcw size={18} />
+            </button>
+          </div>
+        )}
 
-        <button
-          type="button"
-          className="toolbar-item color-trigger"
-          onClick={handleSlideBgDropdownToggle}
-          ref={slideBgButtonRef}
-          title="Slide background color"
-        >
-          <div
-            className="color-swatch"
-            style={{ background: slideBackgroundColor, border: "1px solid rgba(255,255,255,0.1)" }}
-          />
-          <i className="chevron-down" />
-        </button>
-        {activeDropdown === slideBgDropdownId &&
-          ReactDOM.createPortal(
-            <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-              <div className="color-section">
-                <label>Slide Background</label>
-                <ColorPicker color={slideBackgroundColor} onChange={handleSlideBgColorSelect} />
-              </div>
-            </div>,
-            document.body
-          )}
-
-        {(onMicToggle || onDuplicate || onDelete || onExport || onPreview) && (
+        {!collapsedGroups.has('slide-bg') && (
           <>
             <button
               type="button"
-              className="toolbar-item more-trigger"
-              onClick={handleMoreDropdownToggle}
-              ref={moreButtonRef}
-              title="More actions"
+              className="toolbar-item color-trigger"
+              onClick={handleSlideBgDropdownToggle}
+              ref={slideBgButtonRef}
+              title="Slide background color"
             >
-              <MoreHorizontal size={18} />
+              <div
+                className="color-swatch"
+                style={{ background: slideBackgroundColor, border: "1px solid rgba(255,255,255,0.1)" }}
+              />
             </button>
-            {activeDropdown === moreDropdownId &&
+            {activeDropdown === slideBgDropdownId &&
               ReactDOM.createPortal(
-                <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef}>
-                  {onMicToggle && (
-                    <button
-                      type="button"
-                      className={`item${isMicActive ? " active" : ""}`}
-                      onClick={() => {
-                        onMicToggle();
-                        closeDropdown();
-                      }}
-                    >
-                      <Mic size={18} className="dropdown-icon" />
-                      <span className="text">
-                        {isMicActive ? "Stop Recording" : "Start Recording"}
-                      </span>
-                    </button>
-                  )}
-                  {onDuplicate && (
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={() => {
-                        onDuplicate();
-                        closeDropdown();
-                      }}
-                    >
-                      <Copy size={18} className="dropdown-icon" />
-                      <span className="text">Duplicate Slide</span>
-                    </button>
-                  )}
-                  {onExport && (
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={() => {
-                        onExport();
-                        closeDropdown();
-                      }}
-                    >
-                      <Download size={18} className="dropdown-icon" />
-                      <span className="text">Export</span>
-                    </button>
-                  )}
-                  {onPreview && (
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={() => {
-                        onPreview();
-                        closeDropdown();
-                      }}
-                    >
-                      <Eye size={18} className="dropdown-icon" />
-                      <span className="text">Preview</span>
-                    </button>
-                  )}
-                  {onDelete && (
-                    <>
-                      <div className="dropdown-divider" />
-                      <button
-                        type="button"
-                        className="item item--danger"
-                        onClick={() => {
-                          onDelete();
-                          closeDropdown();
-                        }}
-                      >
-                        <Trash2 size={18} className="dropdown-icon" />
-                        <span className="text">Delete Slide</span>
-                      </button>
-                    </>
-                  )}
+                <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                  <div className="color-section">
+                    <label>Slide Background</label>
+                    <ColorPicker color={slideBackgroundColor} onChange={handleSlideBgColorSelect} />
+                  </div>
                 </div>,
                 document.body
               )}
           </>
         )}
-      </div>
 
-      <div className="toolbar-row toolbar-row--context">{renderContextPanel()}</div>
+        {(onMicToggle || onDuplicate || onDelete || onExport || onPreview) && (
+          <button
+            type="button"
+            className="toolbar-item more-trigger"
+            onClick={handleMoreDropdownToggle}
+            ref={moreButtonRef}
+            title="More actions"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+        )}
+        {activeDropdown === moreDropdownId &&
+          ReactDOM.createPortal(
+            <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef}>
+              {collapsedGroups.has('zoom') && (
+                <>
+                  <button type="button" className="item" onClick={onZoomOut} disabled={zoom <= 25}>
+                    <ZoomOut size={18} className="dropdown-icon" />
+                    <span className="text">Zoom Out</span>
+                  </button>
+                  <button type="button" className="item" onClick={onZoomIn} disabled={zoom >= 200}>
+                    <ZoomIn size={18} className="dropdown-icon" />
+                    <span className="text">Zoom In</span>
+                  </button>
+                  <button type="button" className="item" onClick={onResetZoom} disabled={zoom === 100}>
+                    <RotateCcw size={18} className="dropdown-icon" />
+                    <span className="text">Reset Zoom</span>
+                  </button>
+                  <div className="dropdown-divider" />
+                </>
+              )}
+              {collapsedGroups.has('slide-bg') && (
+                <>
+                  <button type="button" className="item" onClick={handleSlideBgDropdownToggle}>
+                    <div
+                      className="color-swatch"
+                      style={{ background: slideBackgroundColor, border: "1px solid rgba(255,255,255,0.1)" }}
+                    />
+                    <span className="text">Slide Background</span>
+                  </button>
+                  <div className="dropdown-divider" />
+                </>
+              )}
+              {onMicToggle && (
+                <button
+                  type="button"
+                  className={`item${isMicActive ? " active" : ""}`}
+                  onClick={() => {
+                    onMicToggle();
+                    closeDropdown();
+                  }}
+                >
+                  <Mic size={18} className="dropdown-icon" />
+                  <span className="text">
+                    {isMicActive ? "Stop Recording" : "Start Recording"}
+                  </span>
+                </button>
+              )}
+              {onDuplicate && (
+                <button
+                  type="button"
+                  className="item"
+                  onClick={() => {
+                    onDuplicate();
+                    closeDropdown();
+                  }}
+                >
+                  <Copy size={18} className="dropdown-icon" />
+                  <span className="text">Duplicate Slide</span>
+                </button>
+              )}
+              {onExport && (
+                <button
+                  type="button"
+                  className="item"
+                  onClick={() => {
+                    onExport();
+                    closeDropdown();
+                  }}
+                >
+                  <Download size={18} className="dropdown-icon" />
+                  <span className="text">Export</span>
+                </button>
+              )}
+              {onPreview && (
+                <button
+                  type="button"
+                  className="item"
+                  onClick={() => {
+                    onPreview();
+                    closeDropdown();
+                  }}
+                >
+                  <Eye size={18} className="dropdown-icon" />
+                  <span className="text">Preview</span>
+                </button>
+              )}
+              {onDelete && (
+                <>
+                  <div className="dropdown-divider" />
+                  <button
+                    type="button"
+                    className="item item--danger"
+                    onClick={() => {
+                      onDelete();
+                      closeDropdown();
+                    }}
+                  >
+                    <Trash2 size={18} className="dropdown-icon" />
+                    <span className="text">Delete Slide</span>
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body
+          )}
+      </div>
     </div>
   );
 };
