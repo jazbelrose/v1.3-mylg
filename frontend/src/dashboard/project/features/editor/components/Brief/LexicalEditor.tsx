@@ -63,6 +63,7 @@ import VectorPlugin from "./plugins/VectorPlugin";
 import FigmaPlugin from "./plugins/FigmaPlugin";
 import { LayoutPlugin } from "./plugins/LayoutPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
+import ToolbarContextPlugin from "./plugins/ToolbarContextPlugin";
 import TextBoxPlugin from "./plugins/TextBoxPlugin";
 import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import DeleteTextBoxPlugin from "./plugins/DeleteTextBoxPlugin";
@@ -442,6 +443,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         }}
       >
         <ToolbarActionsPlugin registerToolbar={registerToolbar} />
+        <ToolbarContextPlugin />
         {customToolbar ? customToolbar : showDefaultToolbar && (
           <ToolbarPlugin onPreview={onPreview} onSave={onSave} />
         )}

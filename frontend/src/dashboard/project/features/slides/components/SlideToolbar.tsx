@@ -1,4 +1,3 @@
-// components/SlideToolbar.tsx - Compact single-line toolbar with icon groups
 import React, { useMemo, useRef, type ChangeEvent } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -26,6 +25,9 @@ import {
   RotateCcw,
   MoreHorizontal,
   Type,
+  Layout as LayoutIcon,
+  BringToFront,
+  SendToBack,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -33,46 +35,19 @@ import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
 import { SiFigma } from "react-icons/si";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import ColorPicker from "@/shared/ui/ColorPicker";
+import {
+  useToolbarContextBridge,
+} from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
+import {
+  BLOCK_TYPE_LABELS,
+  FONT_FAMILIES,
+  FONT_SIZES,
+  SUPPORTED_BLOCK_TYPES,
+  type FontFamily,
+  type FontSize,
+  type TextBlockType,
+} from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
 import "./SlideToolbar.css";
-
-type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
-
-const supportedBlockTypes = new Set<BlockType>([
-  "paragraph",
-  "quote",
-  "code",
-  "h1",
-  "h2",
-  "ul",
-  "ol",
-]);
-
-const blockTypeToBlockName: Record<BlockType | "h3" | "h4" | "h5", string> = {
-  code: "Code Block",
-  h1: "Large Heading",
-  h2: "Small Heading",
-  h3: "Heading",
-  h4: "Heading",
-  h5: "Heading",
-  ol: "Numbered List",
-  paragraph: "Normal",
-  quote: "Quote",
-  ul: "Bulleted List",
-};
-
-const FONT_FAMILIES = [
-  "Helvetica Special",
-  "Helvetica Black",
-  "Helvetica Light",
-  "Helvetica Neue",
-  "Helvetica Medium",
-  "mylg-serif",
-] as const;
-
-const FONT_SIZES = ["12px", "14px", "16px", "18px", "24px", "32px", "48px"] as const;
-
-type FontFamily = (typeof FONT_FAMILIES)[number];
-type FontSize = (typeof FONT_SIZES)[number];
 
 function Divider() {
   return <div className="divider" />;
@@ -98,7 +73,6 @@ function Select({ onChange, className, options, value }: SelectProps) {
 }
 
 interface SlideToolbarProps {
-  // Slide actions
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
@@ -109,17 +83,13 @@ interface SlideToolbarProps {
   isDirty?: boolean;
   isMicActive?: boolean;
 
-  // Zoom controls
   zoom?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
 
-  // Text formatting commands
   onUndo?: () => void;
   onRedo?: () => void;
-  canUndo?: boolean;
-  canRedo?: boolean;
   onFormatBold?: () => void;
   onFormatItalic?: () => void;
   onFormatUnderline?: () => void;
@@ -129,7 +99,7 @@ interface SlideToolbarProps {
   onAlignCenter?: () => void;
   onAlignRight?: () => void;
   onAlignJustify?: () => void;
-  onSetBlockType?: (type: BlockType) => void;
+  onSetBlockType?: (type: TextBlockType) => void;
   onSetFontFamily?: (font: FontFamily) => void;
   onSetFontSize?: (size: FontSize) => void;
   onSetTextColor?: (color: string) => void;
@@ -141,24 +111,14 @@ interface SlideToolbarProps {
   onInsertTextBox?: () => void;
   onInsertFigma?: () => void;
   onInsertLayout?: (template: string) => void;
-
-  // Text formatting state
-  isBold?: boolean;
-  isItalic?: boolean;
-  isUnderline?: boolean;
-  isStrikethrough?: boolean;
-  isCode?: boolean;
-  blockType?: BlockType;
-  fontFamily?: FontFamily;
-  fontSize?: FontSize;
-  textColor?: string;
-  bgColor?: string;
-  codeLanguage?: string;
   onSetCodeLanguage?: (lang: string) => void;
+
+  onDeleteSelection?: () => void;
+  onBringToFront?: () => void;
+  onSendToBack?: () => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
-  // Slide actions
   onDuplicate,
   onDelete,
   onExport,
@@ -169,17 +129,13 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   isDirty = false,
   isMicActive = false,
 
-  // Zoom controls
   zoom = 100,
   onZoomIn,
   onZoomOut,
   onResetZoom,
 
-  // Text formatting commands
   onUndo,
   onRedo,
-  canUndo = false,
-  canRedo = false,
   onFormatBold,
   onFormatItalic,
   onFormatUnderline,
@@ -195,28 +151,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSetTextColor,
   onSetBgColor,
   onSetSlideBackgroundColor,
-  slideBackgroundColor = '#101112',
+  slideBackgroundColor = "#101112",
   onInsertImage,
   onInsertVector,
   onInsertTextBox,
   onInsertFigma,
   onInsertLayout,
-
-  // Text formatting state
-  isBold = false,
-  isItalic = false,
-  isUnderline = false,
-  isStrikethrough = false,
-  isCode = false,
-  blockType = "paragraph",
-  fontFamily = "Helvetica Neue",
-  fontSize = "16px",
-  textColor = "#000000",
-  bgColor = "#ffffff",
-  codeLanguage = "",
   onSetCodeLanguage,
+  onDeleteSelection,
+  onBringToFront,
+  onSendToBack,
 }) => {
-  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
   const alignButtonRef = useRef<HTMLButtonElement | null>(null);
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -238,7 +184,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
 
-  const handleDropdownToggle = (dropdownId: string, buttonRef: React.RefObject<HTMLButtonElement>) => {
+  const handleDropdownToggle = (
+    dropdownId: string,
+    buttonRef: React.RefObject<HTMLButtonElement>
+  ) => {
     if (activeDropdown === dropdownId) {
       closeDropdown();
     } else {
@@ -278,8 +227,13 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     handleDropdownToggle(layoutDropdownId, layoutButtonRef);
   };
 
-  const handleDropdownItemClick = (type: BlockType) => {
+  const handleBlockTypeClick = (type: TextBlockType) => {
     onSetBlockType?.(type);
+    closeDropdown();
+  };
+
+  const callAndClose = (fn?: () => void) => () => {
+    fn?.();
     closeDropdown();
   };
 
@@ -305,66 +259,287 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     onSetSlideBackgroundColor?.(e.target.value);
   };
 
-  const handleInsertImage = () => {
-    onInsertImage?.();
+  const handleInsert = (fn?: () => void) => {
+    fn?.();
     closeDropdown();
   };
 
-  const handleInsertVector = () => {
-    onInsertVector?.();
-    closeDropdown();
+  const renderTextContext = () => {
+    if (!SUPPORTED_BLOCK_TYPES.has(text.blockType)) {
+      return null;
+    }
+
+    return (
+      <div className="context-panel">
+        <div className="context-title">Text</div>
+        <div className="context-controls">
+          <button
+            type="button"
+            className="toolbar-item block-controls"
+            onClick={handleBlockDropdownToggle}
+            ref={blockButtonRef}
+            title="Text style"
+          >
+            <span className="toolbar-item__label">{BLOCK_TYPE_LABELS[text.blockType]}</span>
+            <i className="chevron-down" />
+          </button>
+          {activeDropdown === blockDropdownId &&
+            ReactDOM.createPortal(
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                {Array.from(SUPPORTED_BLOCK_TYPES).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className="item"
+                    onClick={() => handleBlockTypeClick(type)}
+                  >
+                    <span className="text">{BLOCK_TYPE_LABELS[type]}</span>
+                    {text.blockType === type && <span className="active">✓</span>}
+                  </button>
+                ))}
+              </div>,
+              document.body
+            )}
+
+          <button
+            type="button"
+            onClick={onFormatBold}
+            className={`toolbar-item${text.isBold ? " active" : ""}`}
+            title="Bold"
+          >
+            <Bold size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onFormatItalic}
+            className={`toolbar-item${text.isItalic ? " active" : ""}`}
+            title="Italic"
+          >
+            <Italic size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onFormatUnderline}
+            className={`toolbar-item${text.isUnderline ? " active" : ""}`}
+            title="Underline"
+          >
+            <Underline size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onFormatStrikethrough}
+            className={`toolbar-item${text.isStrikethrough ? " active" : ""}`}
+            title="Strikethrough"
+          >
+            <Strikethrough size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onFormatCode}
+            className={`toolbar-item${text.isCode ? " active" : ""}`}
+            title="Code"
+          >
+            <Code size={18} />
+          </button>
+
+          <button
+            type="button"
+            className="toolbar-item align-trigger"
+            onClick={handleAlignDropdownToggle}
+            ref={alignButtonRef}
+            title="Align & Lists"
+          >
+            <AlignLeft size={18} />
+            <i className="chevron-down" />
+          </button>
+          {activeDropdown === alignDropdownId &&
+            ReactDOM.createPortal(
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                <button type="button" className="item" onClick={callAndClose(onAlignLeft)}>
+                  <AlignLeft size={18} className="dropdown-icon" />
+                  <span className="text">Align Left</span>
+                </button>
+                <button type="button" className="item" onClick={callAndClose(onAlignCenter)}>
+                  <AlignCenter size={18} className="dropdown-icon" />
+                  <span className="text">Align Center</span>
+                </button>
+                <button type="button" className="item" onClick={callAndClose(onAlignRight)}>
+                  <AlignRight size={18} className="dropdown-icon" />
+                  <span className="text">Align Right</span>
+                </button>
+                <button type="button" className="item" onClick={callAndClose(onAlignJustify)}>
+                  <AlignJustify size={18} className="dropdown-icon" />
+                  <span className="text">Justify</span>
+                </button>
+                <div className="dropdown-divider" />
+                <button type="button" className="item" onClick={callAndClose(() => onSetBlockType?.("ul"))}>
+                  <List size={18} className="dropdown-icon" />
+                  <span className="text">Bulleted List</span>
+                </button>
+                <button type="button" className="item" onClick={callAndClose(() => onSetBlockType?.("ol"))}>
+                  <span className="dropdown-icon">1.</span>
+                  <span className="text">Numbered List</span>
+                </button>
+              </div>,
+              document.body
+            )}
+
+          <button
+            type="button"
+            className="toolbar-item font-trigger"
+            onClick={handleFontDropdownToggle}
+            ref={fontButtonRef}
+            title="Font family & size"
+          >
+            <span className="toolbar-item__label">{text.fontFamily}</span>
+            <i className="chevron-down" />
+          </button>
+          {activeDropdown === fontDropdownId &&
+            ReactDOM.createPortal(
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                <div className="font-section">
+                  <label>Family</label>
+                  <select
+                    value={text.fontFamily}
+                    onChange={(e) => handleFontFamilySelect(e.target.value as FontFamily)}
+                  >
+                    {FONT_FAMILIES.map((font) => (
+                      <option key={font} value={font}>
+                        {font}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="font-section">
+                  <label>Size</label>
+                  <select
+                    value={text.fontSize}
+                    onChange={(e) => handleFontSizeSelect(e.target.value as FontSize)}
+                  >
+                    {FONT_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>,
+              document.body
+            )}
+
+          <button
+            type="button"
+            className="toolbar-item color-trigger"
+            onClick={handleColorDropdownToggle}
+            ref={colorButtonRef}
+            title="Text & background color"
+          >
+            <div className="color-swatch" style={{ background: text.textColor }} />
+            <i className="chevron-down" />
+          </button>
+          {activeDropdown === colorDropdownId &&
+            ReactDOM.createPortal(
+              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                <div className="color-section">
+                  <label>Text Color</label>
+                  <ColorPicker color={text.textColor} onChange={handleTextColorSelect} />
+                </div>
+                <div className="color-section">
+                  <label>Highlight</label>
+                  <ColorPicker color={text.bgColor} onChange={handleBgColorSelect} />
+                </div>
+              </div>,
+              document.body
+            )}
+
+          {text.blockType === "code" && (
+            <Select
+              className="toolbar-item code-language"
+              onChange={(e) => onSetCodeLanguage?.(e.target.value)}
+              options={codeLanguages}
+              value={text.codeLanguage}
+            />
+          )}
+        </div>
+      </div>
+    );
   };
 
-  const handleInsertTextBox = () => {
-    onInsertTextBox?.();
-    closeDropdown();
+  const renderObjectContext = (label: string, options: { showReplace?: boolean } = { showReplace: true }) => {
+    const hasArrange = Boolean(onBringToFront || onSendToBack);
+    return (
+      <div className="context-panel">
+        <div className="context-title">{label}</div>
+        <div className="context-controls compact">
+          {options.showReplace && (
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={() => handleInsert(onInsertImage)}
+            >
+              <FileImageOutlined className="dropdown-icon" />
+              <span>Replace</span>
+            </button>
+          )}
+          {hasArrange && (
+            <>
+              <button type="button" className="toolbar-item" onClick={onBringToFront}>
+                <BringToFront size={18} />
+                <span>Bring Front</span>
+              </button>
+              <button type="button" className="toolbar-item" onClick={onSendToBack}>
+                <SendToBack size={18} />
+                <span>Send Back</span>
+              </button>
+            </>
+          )}
+          <button type="button" className="toolbar-item danger" onClick={onDeleteSelection}>
+            <Trash2 size={18} />
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    );
   };
 
-  const handleInsertFigma = () => {
-    onInsertFigma?.();
-    closeDropdown();
-  };
+  const renderCanvasContext = () => (
+    <div className="context-panel">
+      <div className="context-title">Canvas</div>
+      <div className="context-controls compact">
+        <button type="button" className="toolbar-item" onClick={() => handleInsert(onInsertTextBox)}>
+          <Type size={18} />
+          <span>Add Text Box</span>
+        </button>
+        <div className="context-hint">Use the Theme button above to adjust background & guides.</div>
+      </div>
+    </div>
+  );
 
-  const handleInsertLayout = (template: string) => {
-    onInsertLayout?.(template);
-    closeDropdown();
-  };
+  const renderMixedContext = () => (
+    <div className="context-panel">
+      <div className="context-title">Multiple</div>
+      <div className="context-hint">Arrange or align via right-click menu.</div>
+    </div>
+  );
 
-  const handleAlignLeftClick = () => {
-    onAlignLeft?.();
-    closeDropdown();
-  };
-
-  const handleAlignCenterClick = () => {
-    onAlignCenter?.();
-    closeDropdown();
-  };
-
-  const handleAlignRightClick = () => {
-    onAlignRight?.();
-    closeDropdown();
-  };
-
-  const handleAlignJustifyClick = () => {
-    onAlignJustify?.();
-    closeDropdown();
-  };
-
-  const handleListUlClick = () => {
-    onSetBlockType?.("ul");
-    closeDropdown();
-  };
-
-  const handleListOlClick = () => {
-    onSetBlockType?.("ol");
-    closeDropdown();
+  const renderContextPanel = () => {
+    switch (ctx.type) {
+      case "text":
+        return renderTextContext();
+      case "image":
+        return renderObjectContext("Image");
+      case "textbox":
+        return renderObjectContext("Text Box", { showReplace: false });
+      case "mixed":
+        return renderMixedContext();
+      default:
+        return renderCanvasContext();
+    }
   };
 
   return (
-    <div className="slide-toolbar" ref={toolbarRef}>
-      {/* Compact Single-Line Layout */}
-      <div className="toolbar-content">
-        {/* Save Status */}
+    <div className="slide-toolbar">
+      <div className="toolbar-row toolbar-row--always">
         <div className="save-status">
           {isSaving ? (
             <>
@@ -378,7 +553,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           )}
         </div>
 
-        {/* Save Button */}
         {onSave && (
           <button
             type="button"
@@ -394,10 +568,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
         <Divider />
 
-        {/* History Group: Undo/Redo */}
         <button
           type="button"
-          disabled={!canUndo}
+          disabled={!history.canUndo}
           onClick={onUndo}
           className="toolbar-item"
           title="Undo"
@@ -406,7 +579,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
         </button>
         <button
           type="button"
-          disabled={!canRedo}
+          disabled={!history.canRedo}
           onClick={onRedo}
           className="toolbar-item"
           title="Redo"
@@ -416,526 +589,241 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
         <Divider />
 
-        {/* Text Style Dropdown (Block Type) */}
-        {supportedBlockTypes.has(blockType) && (
-          <>
-            <button
-              type="button"
-              className="toolbar-item block-controls"
-              onClick={handleBlockDropdownToggle}
-              ref={blockButtonRef}
-              title="Text style"
-            >
-              <span className={"icon block-type " + blockType} />
-              <i className="chevron-down" />
-            </button>
-
-            {activeDropdown === blockDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => handleDropdownItemClick("paragraph")}
-                >
-                  <span className="icon">¶</span>
-                  <span className="text">Body</span>
-                  {blockType === "paragraph" && <span className="active">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => handleDropdownItemClick("h1")}
-                >
-                  <span className="icon">H1</span>
-                  <span className="text">Heading</span>
-                  {blockType === "h1" && <span className="active">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => handleDropdownItemClick("h2")}
-                >
-                  <span className="icon">H2</span>
-                  <span className="text">Subheading</span>
-                  {blockType === "h2" && <span className="active">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => handleDropdownItemClick("quote")}
-                >
-                  <span className="icon">❝</span>
-                  <span className="text">Quote</span>
-                  {blockType === "quote" && <span className="active">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => handleDropdownItemClick("code")}
-                >
-                  <span className="icon">&lt;/&gt;</span>
-                  <span className="text">Code</span>
-                  {blockType === "code" && <span className="active">✓</span>}
-                </button>
-              </div>,
-              document.body
-            )}
-          </>
-        )}
-
-        {/* Bold/Italic/Underline Inline Icons */}
-        {blockType !== "code" && (
-          <>
-            <button
-              type="button"
-              onClick={onFormatBold}
-              className={"toolbar-item" + (isBold ? " active" : "")}
-              title="Bold"
-            >
-              <Bold size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onFormatItalic}
-              className={"toolbar-item" + (isItalic ? " active" : "")}
-              title="Italic"
-            >
-              <Italic size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onFormatUnderline}
-              className={"toolbar-item" + (isUnderline ? " active" : "")}
-              title="Underline"
-            >
-              <Underline size={18} />
-            </button>
-
-            {/* Align & List Dropdown */}
-            <button
-              type="button"
-              className="toolbar-item align-trigger"
-              onClick={handleAlignDropdownToggle}
-              ref={alignButtonRef}
-              title="Align & Lists"
-            >
-              <AlignLeft size={18} />
-              <i className="chevron-down" />
-            </button>
-
-            {activeDropdown === alignDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignLeftClick}
-                >
-                  <AlignLeft size={18} className="dropdown-icon" />
-                  <span className="text">Align Left</span>
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignCenterClick}
-                >
-                  <AlignCenter size={18} className="dropdown-icon" />
-                  <span className="text">Align Center</span>
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignRightClick}
-                >
-                  <AlignRight size={18} className="dropdown-icon" />
-                  <span className="text">Align Right</span>
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleAlignJustifyClick}
-                >
-                  <AlignJustify size={18} className="dropdown-icon" />
-                  <span className="text">Justify</span>
-                </button>
-                <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleListUlClick}
-                >
-                  <span className="icon">•</span>
-                  <span className="text">Bulleted List</span>
-                  {blockType === "ul" && <span className="active">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  className="item"
-                  onClick={handleListOlClick}
-                >
-                  <span className="icon">1.</span>
-                  <span className="text">Numbered List</span>
-                  {blockType === "ol" && <span className="active">✓</span>}
-                </button>
-              </div>,
-              document.body
-            )}
-
-            <Divider />
-
-            {/* Font Dropdown */}
-            <button
-              type="button"
-              className="toolbar-item font-trigger"
-              onClick={handleFontDropdownToggle}
-              ref={fontButtonRef}
-              title="Font family & size"
-            >
-              <span className="toolbar-item__label">Aa</span>
-              <i className="chevron-down" />
-            </button>
-
-            {activeDropdown === fontDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                <div className="font-section">
-                  <label>Family</label>
-                  <select
-                    value={fontFamily}
-                    onChange={(e) => handleFontFamilySelect(e.target.value as FontFamily)}
-                  >
-                    {FONT_FAMILIES.map((font) => (
-                      <option key={font} value={font}>
-                        {font}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="font-section">
-                  <label>Size</label>
-                  <select
-                    value={fontSize}
-                    onChange={(e) => handleFontSizeSelect(e.target.value as FontSize)}
-                  >
-                    {FONT_SIZES.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>,
-              document.body
-            )}
-
-            {/* Color Dropdown */}
-            <button
-              type="button"
-              className="toolbar-item color-trigger"
-              onClick={handleColorDropdownToggle}
-              ref={colorButtonRef}
-              title="Text & background color"
-            >
-              <div className="color-swatch" style={{ background: textColor }} />
-              <i className="chevron-down" />
-            </button>
-
-            {activeDropdown === colorDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                <div className="color-section">
-                  <label>Text Color</label>
-                  <ColorPicker
-                    color={textColor}
-                    onChange={handleTextColorSelect}
-                  />
-                </div>
-                <div className="color-section">
-                  <label>Background</label>
-                  <ColorPicker
-                    color={bgColor}
-                    onChange={handleBgColorSelect}
-                  />
-                </div>
-              </div>,
-              document.body
-            )}
-
-            <Divider />
-
-            {/* Slide Background Color Dropdown */}
-            <button
-              type="button"
-              className="toolbar-item color-trigger"
-              onClick={handleSlideBgDropdownToggle}
-              ref={slideBgButtonRef}
-              title="Slide background color"
-            >
-              <div className="color-swatch" style={{ background: slideBackgroundColor, border: '1px solid rgba(255,255,255,0.1)' }} />
-              <i className="chevron-down" />
-            </button>
-
-            {activeDropdown === slideBgDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                <div className="color-section">
-                  <label>Slide Background</label>
-                  <ColorPicker
-                    color={slideBackgroundColor}
-                    onChange={handleSlideBgColorSelect}
-                  />
-                </div>
-              </div>,
-              document.body
-            )}
-
-            <Divider />
-
-            {/* Insert Dropdown */}
-            <button
-              type="button"
-              className="toolbar-item insert-trigger"
-              onClick={handleInsertDropdownToggle}
-              ref={insertButtonRef}
-              title="Insert content"
-            >
-              <FileImageOutlined style={{ fontSize: "18px" }} />
-              <i className="chevron-down" />
-            </button>
-            {activeDropdown === insertDropdownId && ReactDOM.createPortal(
-              <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                <button type="button" className="item" onClick={handleInsertTextBox}>
-                  <Type className="dropdown-icon" size={18} />
-                  <span className="text">Text Box</span>
-                </button>
-                <button type="button" className="item" onClick={handleInsertImage}>
-                  <FileImageOutlined className="dropdown-icon" />
-                  <span className="text">Image</span>
-                </button>
-                <button type="button" className="item" onClick={handleInsertVector}>
-                  <NodeIndexOutlined className="dropdown-icon" />
-                  <span className="text">Vector</span>
-                </button>
-                <button type="button" className="item" onClick={handleInsertFigma}>
-                  <SiFigma className="dropdown-icon" size={16} />
-                  <span className="text">Figma</span>
-                </button>
-                <button type="button" className="item" onClick={handleLayoutDropdownToggle} ref={layoutButtonRef}>
-                  <LayoutOutlined className="dropdown-icon" />
-                  <span className="text">Layout</span>
-                  <i className="chevron-right" />
-                </button>
-              </div>,
-              document.body
-            )}
-
-            {/* Keep insert dropdown visible when layout is open */}
-            {activeDropdown === layoutDropdownId && ReactDOM.createPortal(
-              <div 
-                className="dropdown" 
-                data-slide-dropdown 
-                ref={(node) => {
-                  if (node && insertButtonRef.current) {
-                    const triggerRect = insertButtonRef.current.getBoundingClientRect();
-                    node.style.position = 'fixed';
-                    node.style.left = `${triggerRect.left}px`;
-                    node.style.top = `${triggerRect.bottom + 8}px`;
-                    node.style.zIndex = '1000';
-                    node.style.visibility = 'visible';
-                  }
-                }}
-              >
-                <button type="button" className="item" onClick={handleInsertTextBox}>
-                  <Type className="dropdown-icon" size={18} />
-                  <span className="text">Text Box</span>
-                </button>
-                <button type="button" className="item" onClick={handleInsertImage}>
-                  <FileImageOutlined className="dropdown-icon" />
-                  <span className="text">Image</span>
-                </button>
-                <button type="button" className="item" onClick={handleInsertVector}>
-                  <NodeIndexOutlined className="dropdown-icon" />
-                  <span className="text">Vector</span>
-                </button>
-                <button type="button" className="item" onClick={handleInsertFigma}>
-                  <SiFigma className="dropdown-icon" size={16} />
-                  <span className="text">Figma</span>
-                </button>
-                <button type="button" className="item active" ref={layoutButtonRef}>
-                  <LayoutOutlined className="dropdown-icon" />
-                  <span className="text">Layout</span>
-                  <i className="chevron-right" />
-                </button>
-              </div>,
-              document.body
-            )}
-
-            {activeDropdown === layoutDropdownId && ReactDOM.createPortal(
-              <div 
-                className="dropdown dropdown--nested" 
-                data-slide-dropdown 
-                ref={(node) => {
-                  if (node && layoutButtonRef.current) {
-                    const triggerRect = layoutButtonRef.current.getBoundingClientRect();
-                    node.style.position = 'fixed';
-                    node.style.left = `${triggerRect.left + 12}px`;
-                    node.style.top = `${triggerRect.bottom + 4}px`;
-                    node.style.zIndex = '1001';
-                    node.style.visibility = 'visible';
-                  }
-                }}
-              >
-                <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr")}>
-                  <span className="text">2 Columns (Equal Width)</span>
-                </button>
-                <button type="button" className="item" onClick={() => handleInsertLayout("25% 75%")}>
-                  <span className="text">2 Columns (25% - 75%)</span>
-                </button>
-                <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr 1fr")}>
-                  <span className="text">3 Columns (Equal Width)</span>
-                </button>
-                <button type="button" className="item" onClick={() => handleInsertLayout("25% 50% 25%")}>
-                  <span className="text">3 Columns (25% - 50% - 25%)</span>
-                </button>
-                <button type="button" className="item" onClick={() => handleInsertLayout("1fr 1fr 1fr 1fr")}>
-                  <span className="text">4 Columns (Equal Width)</span>
-                </button>
-              </div>,
-              document.body
-            )}
-
-            <Divider />
-
-            {/* Zoom Controls */}
-            <div className="zoom-controls">
-              <button
-                type="button"
-                onClick={onZoomOut}
-                className="toolbar-item"
-                title="Zoom out"
-                disabled={zoom <= 25}
-              >
-                <ZoomOut size={18} />
+        <button
+          type="button"
+          className="toolbar-item insert-trigger"
+          onClick={handleInsertDropdownToggle}
+          ref={insertButtonRef}
+          title="Insert content"
+        >
+          <LayoutIcon size={18} />
+          <i className="chevron-down" />
+        </button>
+        {activeDropdown === insertDropdownId &&
+          ReactDOM.createPortal(
+            <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertTextBox)}>
+                <Type className="dropdown-icon" size={18} />
+                <span className="text">Text Box</span>
               </button>
-              <span className="zoom-display">{zoom}%</span>
-              <button
-                type="button"
-                onClick={onZoomIn}
-                className="toolbar-item"
-                title="Zoom in"
-                disabled={zoom >= 200}
-              >
-                <ZoomIn size={18} />
+              <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
+                <FileImageOutlined className="dropdown-icon" />
+                <span className="text">Image</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertVector)}>
+                <NodeIndexOutlined className="dropdown-icon" />
+                <span className="text">Vector</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertFigma)}>
+                <SiFigma className="dropdown-icon" size={16} />
+                <span className="text">Figma</span>
               </button>
               <button
                 type="button"
-                onClick={onResetZoom}
-                className="toolbar-item"
-                title="Reset zoom"
-                disabled={zoom === 100}
+                className="item"
+                onClick={handleLayoutDropdownToggle}
+                ref={layoutButtonRef}
               >
-                <RotateCcw size={18} />
+                <LayoutOutlined className="dropdown-icon" />
+                <span className="text">Layout</span>
+                <i className="chevron-right" />
               </button>
-            </div>
+            </div>,
+            document.body
+          )}
 
-            {/* More Menu (Mobile Overflow) */}
-            {(onMicToggle || onDuplicate || onDelete || onExport || onPreview) && (
-              <>
-                <button
-                  type="button"
-                  className="toolbar-item more-trigger"
-                  onClick={handleMoreDropdownToggle}
-                  ref={moreButtonRef}
-                  title="More actions"
-                >
-                  <MoreHorizontal size={18} />
-                </button>
-                {activeDropdown === moreDropdownId && ReactDOM.createPortal(
-                  <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef}>
-                    {onMicToggle && (
-                      <button
-                        type="button"
-                        className={"item" + (isMicActive ? " active" : "")}
-                        onClick={() => {
-                          onMicToggle();
-                          closeDropdown();
-                        }}
-                      >
-                        <Mic size={18} className="dropdown-icon" />
-                        <span className="text">{isMicActive ? "Stop Recording" : "Start Recording"}</span>
-                      </button>
-                    )}
-                    {onDuplicate && (
-                      <button
-                        type="button"
-                        className="item"
-                        onClick={() => {
-                          onDuplicate();
-                          closeDropdown();
-                        }}
-                      >
-                        <Copy size={18} className="dropdown-icon" />
-                        <span className="text">Duplicate</span>
-                      </button>
-                    )}
-                    {onExport && (
-                      <button
-                        type="button"
-                        className="item"
-                        onClick={() => {
-                          onExport();
-                          closeDropdown();
-                        }}
-                      >
-                        <Download size={18} className="dropdown-icon" />
-                        <span className="text">Export</span>
-                      </button>
-                    )}
-                    {onPreview && (
-                      <button
-                        type="button"
-                        className="item"
-                        onClick={() => {
-                          onPreview();
-                          closeDropdown();
-                        }}
-                      >
-                        <Eye size={18} className="dropdown-icon" />
-                        <span className="text">Preview</span>
-                      </button>
-                    )}
-                    {onDelete && (
-                      <>
-                        <div className="dropdown-divider" />
-                        <button
-                          type="button"
-                          className="item item--danger"
-                          onClick={() => {
-                            onDelete();
-                            closeDropdown();
-                          }}
-                        >
-                          <Trash2 size={18} className="dropdown-icon" />
-                          <span className="text">Delete</span>
-                        </button>
-                      </>
-                    )}
-                  </div>,
-                  document.body
-                )}
-              </>
-            )}
-          </>
-        )}
+        {activeDropdown === layoutDropdownId &&
+          ReactDOM.createPortal(
+            <div
+              className="dropdown dropdown--nested"
+              data-slide-dropdown
+              ref={(node) => {
+                if (node && layoutButtonRef.current) {
+                  const triggerRect = layoutButtonRef.current.getBoundingClientRect();
+                  node.style.position = "fixed";
+                  node.style.left = `${triggerRect.left + 12}px`;
+                  node.style.top = `${triggerRect.bottom + 4}px`;
+                  node.style.zIndex = "1001";
+                  node.style.visibility = "visible";
+                }
+              }}
+            >
+              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr"))}>
+                <span className="text">2 Columns (Equal Width)</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("25% 75%"))}>
+                <span className="text">2 Columns (25% - 75%)</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr"))}>
+                <span className="text">3 Columns (Equal Width)</span>
+              </button>
+              <button
+                type="button"
+                className="item"
+                onClick={() => handleInsert(() => onInsertLayout?.("25% 50% 25%"))}
+              >
+                <span className="text">3 Columns (25% - 50% - 25%)</span>
+              </button>
+              <button
+                type="button"
+                className="item"
+                onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr 1fr"))}
+              >
+                <span className="text">4 Columns (Equal Width)</span>
+              </button>
+            </div>,
+            document.body
+          )}
 
-        {blockType === "code" && (
+        <Divider />
+
+        <div className="zoom-controls">
+          <button
+            type="button"
+            onClick={onZoomOut}
+            className="toolbar-item"
+            title="Zoom out"
+            disabled={zoom <= 25}
+          >
+            <ZoomOut size={18} />
+          </button>
+          <span className="zoom-display">{zoom}%</span>
+          <button
+            type="button"
+            onClick={onZoomIn}
+            className="toolbar-item"
+            title="Zoom in"
+            disabled={zoom >= 200}
+          >
+            <ZoomIn size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={onResetZoom}
+            className="toolbar-item"
+            title="Reset zoom"
+            disabled={zoom === 100}
+          >
+            <RotateCcw size={18} />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="toolbar-item color-trigger"
+          onClick={handleSlideBgDropdownToggle}
+          ref={slideBgButtonRef}
+          title="Slide background color"
+        >
+          <div
+            className="color-swatch"
+            style={{ background: slideBackgroundColor, border: "1px solid rgba(255,255,255,0.1)" }}
+          />
+          <i className="chevron-down" />
+        </button>
+        {activeDropdown === slideBgDropdownId &&
+          ReactDOM.createPortal(
+            <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+              <div className="color-section">
+                <label>Slide Background</label>
+                <ColorPicker color={slideBackgroundColor} onChange={handleSlideBgColorSelect} />
+              </div>
+            </div>,
+            document.body
+          )}
+
+        {(onMicToggle || onDuplicate || onDelete || onExport || onPreview) && (
           <>
-            <Select
-              className="toolbar-item code-language"
-              onChange={(e) => onSetCodeLanguage?.(e.target.value)}
-              options={codeLanguages}
-              value={codeLanguage}
-            />
-            <i className="chevron-down inside" />
+            <button
+              type="button"
+              className="toolbar-item more-trigger"
+              onClick={handleMoreDropdownToggle}
+              ref={moreButtonRef}
+              title="More actions"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {activeDropdown === moreDropdownId &&
+              ReactDOM.createPortal(
+                <div className="dropdown dropdown--right" data-slide-dropdown ref={dropdownRef}>
+                  {onMicToggle && (
+                    <button
+                      type="button"
+                      className={`item${isMicActive ? " active" : ""}`}
+                      onClick={() => {
+                        onMicToggle();
+                        closeDropdown();
+                      }}
+                    >
+                      <Mic size={18} className="dropdown-icon" />
+                      <span className="text">
+                        {isMicActive ? "Stop Recording" : "Start Recording"}
+                      </span>
+                    </button>
+                  )}
+                  {onDuplicate && (
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={() => {
+                        onDuplicate();
+                        closeDropdown();
+                      }}
+                    >
+                      <Copy size={18} className="dropdown-icon" />
+                      <span className="text">Duplicate Slide</span>
+                    </button>
+                  )}
+                  {onExport && (
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={() => {
+                        onExport();
+                        closeDropdown();
+                      }}
+                    >
+                      <Download size={18} className="dropdown-icon" />
+                      <span className="text">Export</span>
+                    </button>
+                  )}
+                  {onPreview && (
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={() => {
+                        onPreview();
+                        closeDropdown();
+                      }}
+                    >
+                      <Eye size={18} className="dropdown-icon" />
+                      <span className="text">Preview</span>
+                    </button>
+                  )}
+                  {onDelete && (
+                    <>
+                      <div className="dropdown-divider" />
+                      <button
+                        type="button"
+                        className="item item--danger"
+                        onClick={() => {
+                          onDelete();
+                          closeDropdown();
+                        }}
+                      >
+                        <Trash2 size={18} className="dropdown-icon" />
+                        <span className="text">Delete Slide</span>
+                      </button>
+                    </>
+                  )}
+                </div>,
+                document.body
+              )}
           </>
         )}
       </div>
+
+      <div className="toolbar-row toolbar-row--context">{renderContextPanel()}</div>
     </div>
   );
 };

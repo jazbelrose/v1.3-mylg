@@ -7,7 +7,9 @@ import {
   REDO_COMMAND,
   $getSelection,
   $isRangeSelection,
+  $isNodeSelection,
   $createParagraphNode,
+  type LexicalNode,
 } from "lexical";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import {
@@ -64,6 +66,10 @@ export type ToolbarActions = {
 
   onUndo: () => void;
   onRedo: () => void;
+
+  onDeleteSelection: () => void;
+  onBringToFront: () => void;
+  onSendToBack: () => void;
 };
 
 type Props = {
@@ -107,6 +113,23 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
             break;
         }
+      });
+    },
+    [editor]
+  );
+
+  const mutateSelectedNodes = useCallback(
+    (mutator: (node: LexicalNode) => void) => {
+      editor.update(() => {
+        const selection = $getSelection();
+        if (!$isNodeSelection(selection)) {
+          return;
+        }
+        selection.getNodes().forEach((node) => {
+          if (node.isAttached()) {
+            mutator(node);
+          }
+        });
       });
     },
     [editor]
@@ -160,10 +183,33 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
 
       onUndo: () => editor.dispatchCommand(UNDO_COMMAND, undefined),
       onRedo: () => editor.dispatchCommand(REDO_COMMAND, undefined),
+
+      onDeleteSelection: () =>
+        mutateSelectedNodes((node) => {
+          node.remove();
+        }),
+      onBringToFront: () =>
+        mutateSelectedNodes((node) => {
+          const parent = node.getParent();
+          if (parent) {
+            parent.append(node);
+          }
+        }),
+      onSendToBack: () =>
+        mutateSelectedNodes((node) => {
+          const parent = node.getParent();
+          if (!parent) return;
+          const firstChild = parent.getFirstChild();
+          if (firstChild) {
+            firstChild.insertBefore(node);
+          } else {
+            parent.append(node);
+          }
+        }),
     };
 
     registerToolbar(actions);
-  }, [editor, formatBlock, registerToolbar]);
+  }, [editor, formatBlock, mutateSelectedNodes, registerToolbar]);
 
   return null;
 }

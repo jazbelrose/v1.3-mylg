@@ -9,38 +9,14 @@ import {
 import { $patchStyleText } from "@lexical/selection";
 import { SET_FONT_FAMILY_COMMAND, SET_FONT_SIZE_COMMAND } from "../commands";
 import { useDropdown } from "../contexts/DropdownContext";
-
-const FONT_FAMILIES = [
-  "Helvetica Special",
-  "Helvetica Black",
-  "Helvetica Light",
-  "Helvetica Neue",
-  "Helvetica Medium",
-  "mylg-serif",
-] as const;
-
-const FONT_FAMILY_CSS_VALUES: Record<FontFamily, string> = {
-  "Helvetica Special": "var(--font-family-helvetica-special)",
-  "Helvetica Black": "var(--font-family-helvetica-black)",
-  "Helvetica Light": "var(--font-family-helvetica-light)", 
-  "Helvetica Neue": "var(--font-family-helvetica-neue)",
-  "Helvetica Medium": "var(--font-family-helvetica-medium)",
-  "mylg-serif": "var(--font-family-serif)",
-};
-
-const FONT_FAMILY_WEIGHTS: Record<FontFamily, string> = {
-  "Helvetica Special": "700",
-  "Helvetica Black": "900",
-  "Helvetica Light": "300",
-  "Helvetica Neue": "400",
-  "Helvetica Medium": "500",
-  "mylg-serif": "500",
-};
-
-const FONT_SIZES = ["12px", "14px", "16px", "18px", "24px", "32px", "48px"] as const;
-
-type FontFamily = (typeof FONT_FAMILIES)[number];
-type FontSize = (typeof FONT_SIZES)[number];
+import {
+  FONT_FAMILIES,
+  FONT_FAMILY_CSS_VALUES,
+  FONT_FAMILY_WEIGHTS,
+  FONT_SIZES,
+  type FontFamily,
+  type FontSize,
+} from "./toolbarShared";
 
 type Props = {
   /** Show the toolbar UI (plugin still registers commands even if hidden). */

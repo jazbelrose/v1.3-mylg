@@ -6,11 +6,13 @@ import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import { ToolbarContextProvider } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
+import {
+  type FontFamily,
+  type FontSize,
+  type TextBlockType,
+} from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
 import "./SlideEditor.css";
-
-type BlockType = "paragraph" | "quote" | "code" | "h1" | "h2" | "ul" | "ol";
-type FontFamily = "Helvetica Special" | "Helvetica Black" | "Helvetica Light" | "Helvetica Neue" | "Helvetica Medium" | "mylg-serif";
-type FontSize = "12px" | "14px" | "16px" | "18px" | "24px" | "32px" | "48px";
 
 interface SlideEditorProps {
   projectId: string;
@@ -180,7 +182,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onFormatUnderline={toolbarActions.onUnderline}
       onFormatStrikethrough={toolbarActions.onStrikethrough}
       onFormatCode={toolbarActions.onCode}
-      onSetBlockType={(type: BlockType) => {
+      onSetBlockType={(type: TextBlockType) => {
         switch (type) {
           case "h1": toolbarActions.onHeading1(); break;
           case "h2": toolbarActions.onHeading2(); break;
@@ -204,6 +206,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertTextBox={toolbarActions.onInsertTextBox}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
+      onDeleteSelection={toolbarActions.onDeleteSelection}
+      onBringToFront={toolbarActions.onBringToFront}
+      onSendToBack={toolbarActions.onSendToBack}
     />
   ) : null;
 
@@ -212,50 +217,52 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   return (
     <DropdownProvider>
-      <div
-        className="slide-editor"
-        data-slide-id={slide.id}
-        data-canvas-width={STAGE_WIDTH}
-        data-canvas-height={STAGE_HEIGHT}
-      >
-        {customToolbar}
+      <ToolbarContextProvider>
+        <div
+          className="slide-editor"
+          data-slide-id={slide.id}
+          data-canvas-width={STAGE_WIDTH}
+          data-canvas-height={STAGE_HEIGHT}
+        >
+          {customToolbar}
 
-        <div className="slide-editor__canvas" ref={canvasRef}>
-          <div
-            className="slide-editor__canvas-scaler"
-            style={{
-              transform: `scale(${appliedScale})`,
-              transformOrigin: "center center",
-            }}
-          >
+          <div className="slide-editor__canvas" ref={canvasRef}>
             <div
-              className="slide-editor__canvas-inner"
+              className="slide-editor__canvas-scaler"
               style={{
-                width: `${STAGE_WIDTH}px`,
-                height: `${STAGE_HEIGHT}px`,
-                backgroundColor: slide.backgroundColor || '#101112',
+                transform: `scale(${appliedScale})`,
+                transformOrigin: "center center",
               }}
             >
-              <div className="slide-editor__slide-frame">
-                <LexicalEditor
-                  key={slide.id}
-                  docId={`${projectId}::slide::${slide.id}`}
-                  onChange={handleChange}
-                  showDefaultToolbar={false}
-                  initialContent={slide.content ?? null}
-                  onSave={handleSave}
-                  registerToolbar={handleRegisterToolbar}
-                  customToolbar={null}
-                  disableDropdownProvider
-                  contentOverflowBehavior="hidden"
-                  contentPadding={SLIDE_PADDING}
-                  contentMaxHeight="100%"
-                />
+              <div
+                className="slide-editor__canvas-inner"
+                style={{
+                  width: `${STAGE_WIDTH}px`,
+                  height: `${STAGE_HEIGHT}px`,
+                  backgroundColor: slide.backgroundColor || '#101112',
+                }}
+              >
+                <div className="slide-editor__slide-frame">
+                  <LexicalEditor
+                    key={slide.id}
+                    docId={`${projectId}::slide::${slide.id}`}
+                    onChange={handleChange}
+                    showDefaultToolbar={false}
+                    initialContent={slide.content ?? null}
+                    onSave={handleSave}
+                    registerToolbar={handleRegisterToolbar}
+                    customToolbar={null}
+                    disableDropdownProvider
+                    contentOverflowBehavior="hidden"
+                    contentPadding={SLIDE_PADDING}
+                    contentMaxHeight="100%"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </ToolbarContextProvider>
     </DropdownProvider>
   );
 };
