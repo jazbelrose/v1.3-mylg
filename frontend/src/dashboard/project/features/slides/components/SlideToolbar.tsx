@@ -601,98 +601,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
         <Divider />
 
-        <button
-          type="button"
-          className="toolbar-item insert-trigger"
-          onClick={handleInsertDropdownToggle}
-          ref={insertButtonRef}
-          title="Insert content"
-        >
-          <LayoutIcon size={18} />
-          <span className="toolbar-item__label">Insert</span>
-        </button>
-        {activeDropdown === insertDropdownId &&
-          ReactDOM.createPortal(
-            <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertTextBox)}>
-                <Type className="dropdown-icon" size={18} />
-                <span className="text">Text Box</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
-                <FileImageOutlined className="dropdown-icon" />
-                <span className="text">Image</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertVector)}>
-                <NodeIndexOutlined className="dropdown-icon" />
-                <span className="text">Vector</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertFigma)}>
-                <SiFigma className="dropdown-icon" size={16} />
-                <span className="text">Figma</span>
-              </button>
-              <button
-                type="button"
-                className="item"
-                onClick={handleLayoutDropdownToggle}
-                ref={layoutButtonRef}
-              >
-                <LayoutOutlined className="dropdown-icon" />
-                <span className="text">Layout</span>
-                <i className="chevron-right" />
-              </button>
-            </div>,
-            document.body
-          )}
-
-        {activeDropdown === layoutDropdownId &&
-          ReactDOM.createPortal(
-            <div
-              className="dropdown dropdown--nested"
-              data-slide-dropdown
-              ref={(node) => {
-                if (node && layoutButtonRef.current) {
-                  const triggerRect = layoutButtonRef.current.getBoundingClientRect();
-                  node.style.position = "fixed";
-                  node.style.left = `${triggerRect.left + 12}px`;
-                  node.style.top = `${triggerRect.bottom + 4}px`;
-                  node.style.zIndex = "1001";
-                  node.style.visibility = "visible";
-                }
-              }}
-            >
-              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr"))}>
-                <span className="text">2 Columns (Equal Width)</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("25% 75%"))}>
-                <span className="text">2 Columns (25% - 75%)</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr"))}>
-                <span className="text">3 Columns (Equal Width)</span>
-              </button>
-              <button
-                type="button"
-                className="item"
-                onClick={() => handleInsert(() => onInsertLayout?.("25% 50% 25%"))}
-              >
-                <span className="text">3 Columns (25% - 50% - 25%)</span>
-              </button>
-              <button
-                type="button"
-                className="item"
-                onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr 1fr"))}
-              >
-                <span className="text">4 Columns (Equal Width)</span>
-              </button>
-            </div>,
-            document.body
-          )}
-      </div>
-
-      <div className="toolbar-center">
-        {renderContextPanel()}
-      </div>
-
-      <div className="toolbar-right">
         {!collapsedGroups.has('zoom') && (
           <div className="zoom-controls">
             <button
@@ -869,6 +777,101 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </div>,
             document.body
           )}
+
+        <Divider />
+
+        <button
+          type="button"
+          className="toolbar-item insert-trigger"
+          onClick={handleInsertDropdownToggle}
+          ref={insertButtonRef}
+          title="Insert content"
+        >
+          <LayoutIcon size={18} />
+          <span className="toolbar-item__label">Insert</span>
+        </button>
+        {activeDropdown === insertDropdownId &&
+          ReactDOM.createPortal(
+            <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertTextBox)}>
+                <Type className="dropdown-icon" size={18} />
+                <span className="text">Text Box</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
+                <FileImageOutlined className="dropdown-icon" />
+                <span className="text">Image</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertVector)}>
+                <NodeIndexOutlined className="dropdown-icon" />
+                <span className="text">Vector</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertFigma)}>
+                <SiFigma className="dropdown-icon" size={16} />
+                <span className="text">Figma</span>
+              </button>
+              <button
+                type="button"
+                className="item"
+                onClick={handleLayoutDropdownToggle}
+                ref={layoutButtonRef}
+              >
+                <LayoutOutlined className="dropdown-icon" />
+                <span className="text">Layout</span>
+                <i className="chevron-right" />
+              </button>
+            </div>,
+            document.body
+          )}
+
+        {activeDropdown === layoutDropdownId &&
+          ReactDOM.createPortal(
+            <div
+              className="dropdown dropdown--nested"
+              data-slide-dropdown
+              ref={(node) => {
+                if (node && layoutButtonRef.current) {
+                  const triggerRect = layoutButtonRef.current.getBoundingClientRect();
+                  node.style.position = "fixed";
+                  node.style.left = `${triggerRect.left + 12}px`;
+                  node.style.top = `${triggerRect.bottom + 4}px`;
+                  node.style.zIndex = "1001";
+                  node.style.visibility = "visible";
+                }
+              }}
+            >
+              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr"))}>
+                <span className="text">2 Columns (Equal Width)</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("25% 75%"))}>
+                <span className="text">2 Columns (25% - 75%)</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr"))}>
+                <span className="text">3 Columns (Equal Width)</span>
+              </button>
+              <button
+                type="button"
+                className="item"
+                onClick={() => handleInsert(() => onInsertLayout?.("25% 50% 25%"))}
+              >
+                <span className="text">3 Columns (25% - 50% - 25%)</span>
+              </button>
+              <button
+                type="button"
+                className="item"
+                onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr 1fr"))}
+              >
+                <span className="text">4 Columns (Equal Width)</span>
+              </button>
+            </div>,
+            document.body
+          )}
+      </div>
+
+      <div className="toolbar-center">
+        {renderContextPanel()}
+      </div>
+
+      <div className="toolbar-right">
       </div>
     </div>
   );
