@@ -62,37 +62,93 @@ export default function PreventRootTextPlugin(): null {
       return false;
     };
 
+    const clearSelectionAndBlur = (): void => {
+      editor.update(() => {
+        const selection = $getSelection();
+        if (selection) {
+          $setSelection(null);
+        }
+      });
+
+      const root = editor.getRootElement();
+      if (root && document.activeElement === root) {
+        root.blur();
+      }
+    };
+
+    const isCanvasBackgroundTarget = (target: EventTarget | null): target is HTMLElement => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      return (
+        target.classList.contains("editor-input") ||
+        target.classList.contains("slide-editor__canvas-inner") ||
+        target.classList.contains("slide-editor__slide-frame")
+      );
+    };
+
+    const pointerEventName: "pointerdown" | "mousedown" =
+      typeof window !== "undefined" && "PointerEvent" in window ? "pointerdown" : "mousedown";
+
+    let detachBackgroundGuards: (() => void) | null = null;
+
+    const unregisterRootListener = editor.registerRootListener((rootElement) => {
+      if (detachBackgroundGuards) {
+        detachBackgroundGuards();
+        detachBackgroundGuards = null;
+      }
+
+      if (!rootElement) {
+        return;
+      }
+
+      const handleBackgroundPointerDown = (event: MouseEvent | PointerEvent): void => {
+        if ("button" in event && event.button !== 0) {
+          return;
+        }
+
+        if (!isCanvasBackgroundTarget(event.target)) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        clearSelectionAndBlur();
+      };
+
+      rootElement.addEventListener(
+        pointerEventName,
+        handleBackgroundPointerDown as EventListener,
+        true
+      );
+
+      detachBackgroundGuards = () => {
+        rootElement.removeEventListener(
+          pointerEventName,
+          handleBackgroundPointerDown as EventListener,
+          true
+        );
+      };
+    });
+
     // Handle clicks on empty canvas to deselect + avoid caret
     const unregisterClick = editor.registerCommand(
       CLICK_COMMAND,
       (event: MouseEvent) => {
         const target = event.target as HTMLElement;
 
-        // Check if clicking on the canvas background (not a node)
-        // The editor-input is the contentEditable area
-        const isCanvasBackground =
-          target.classList.contains("editor-input") ||
-          target.classList.contains("slide-editor__canvas-inner") ||
-          target.classList.contains("slide-editor__slide-frame");
+        if (event.button !== 0) {
+          return false;
+        }
 
-        if (!isCanvasBackground) {
+        if (!isCanvasBackgroundTarget(target)) {
           return false;
         }
 
         event.preventDefault();
         event.stopPropagation();
-
-        editor.update(() => {
-          const selection = $getSelection();
-          if (selection) {
-            $setSelection(null);
-          }
-        });
-
-        const root = editor.getRootElement();
-        if (root && document.activeElement === root) {
-          root.blur();
-        }
+        clearSelectionAndBlur();
 
         return true; // stop default handlers
       },
@@ -245,14 +301,7 @@ export default function PreventRootTextPlugin(): null {
         if ($isRangeSelection(selection) && !isInsideTextBox()) {
           isCleaning = true;
 
-          editor.update(() => {
-            $setSelection(null);
-          });
-
-          const root = editor.getRootElement();
-          if (root && document.activeElement === root) {
-            root.blur();
-          }
+          clearSelectionAndBlur();
 
           isCleaning = false;
         }
@@ -267,6 +316,10 @@ export default function PreventRootTextPlugin(): null {
       unregisterInsertText();
       unregisterPaste();
       unregisterUpdate();
+      if (detachBackgroundGuards) {
+        detachBackgroundGuards();
+      }
+      unregisterRootListener();
     };
   }, [editor]);
 
