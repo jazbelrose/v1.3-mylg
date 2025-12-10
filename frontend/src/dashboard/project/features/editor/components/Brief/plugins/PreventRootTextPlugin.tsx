@@ -12,7 +12,6 @@ import {
   type LexicalNode,
   CONTROLLED_TEXT_INSERTION_COMMAND,
   CLICK_COMMAND,
-  COMMAND_PRIORITY_LOW,
   $setSelection,
 } from "lexical";
 import { $isTextBoxNode } from "./nodes/TextBoxNode";
@@ -63,34 +62,41 @@ export default function PreventRootTextPlugin(): null {
       return false;
     };
 
-    // Handle clicks on empty canvas to deselect
+    // Handle clicks on empty canvas to deselect + avoid caret
     const unregisterClick = editor.registerCommand(
       CLICK_COMMAND,
       (event: MouseEvent) => {
         const target = event.target as HTMLElement;
-        
+
         // Check if clicking on the canvas background (not a node)
         // The editor-input is the contentEditable area
-        const isCanvasBackground = 
-          target.classList.contains('editor-input') ||
-          target.classList.contains('slide-editor__canvas-inner') ||
-          target.classList.contains('slide-editor__slide-frame');
+        const isCanvasBackground =
+          target.classList.contains("editor-input") ||
+          target.classList.contains("slide-editor__canvas-inner") ||
+          target.classList.contains("slide-editor__slide-frame");
 
-        if (isCanvasBackground) {
-          // Clear selection when clicking empty canvas
-          editor.update(() => {
-            const selection = $getSelection();
-            if (selection) {
-              $setSelection(null);
-            }
-          });
-          // Don't prevent default - let click propagate
+        if (!isCanvasBackground) {
           return false;
         }
 
-        return false; // Let other handlers process the click
+        event.preventDefault();
+        event.stopPropagation();
+
+        editor.update(() => {
+          const selection = $getSelection();
+          if (selection) {
+            $setSelection(null);
+          }
+        });
+
+        const root = editor.getRootElement();
+        if (root && document.activeElement === root) {
+          root.blur();
+        }
+
+        return true; // stop default handlers
       },
-      COMMAND_PRIORITY_LOW // Use low priority so node-specific handlers run first
+      COMMAND_PRIORITY_CRITICAL
     );
 
     // Block ENTER key at root level
@@ -226,6 +232,33 @@ export default function PreventRootTextPlugin(): null {
       COMMAND_PRIORITY_CRITICAL
     );
 
+    let isCleaning = false;
+
+    const unregisterUpdate = editor.registerUpdateListener(() => {
+      if (isCleaning) {
+        return;
+      }
+
+      editor.getEditorState().read(() => {
+        const selection = $getSelection();
+
+        if ($isRangeSelection(selection) && !isInsideTextBox()) {
+          isCleaning = true;
+
+          editor.update(() => {
+            $setSelection(null);
+          });
+
+          const root = editor.getRootElement();
+          if (root && document.activeElement === root) {
+            root.blur();
+          }
+
+          isCleaning = false;
+        }
+      });
+    });
+
     return () => {
       unregisterClick();
       unregisterEnter();
@@ -233,6 +266,7 @@ export default function PreventRootTextPlugin(): null {
       unregisterTab();
       unregisterInsertText();
       unregisterPaste();
+      unregisterUpdate();
     };
   }, [editor]);
 
