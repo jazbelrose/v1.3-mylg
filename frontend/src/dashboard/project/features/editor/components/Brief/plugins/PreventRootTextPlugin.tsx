@@ -13,6 +13,7 @@ import {
   CONTROLLED_TEXT_INSERTION_COMMAND,
   CLICK_COMMAND,
   $setSelection,
+  $createNodeSelection,
 } from "lexical";
 import { $isTextBoxNode } from "./nodes/TextBoxNode";
 
@@ -136,11 +137,11 @@ export default function PreventRootTextPlugin(): null {
       };
     });
 
-    // Handle clicks on empty canvas to deselect + avoid caret
+    // Handle clicks on empty canvas to deselect + avoid caret, or select textbox on border/handle
     const unregisterClick = editor.registerCommand(
       CLICK_COMMAND,
       (event: MouseEvent) => {
-        const target = event.target as HTMLElement;
+        const target = event.target;
 
         if (event.button !== 0) {
           return false;
@@ -150,15 +151,44 @@ export default function PreventRootTextPlugin(): null {
           return false;
         }
 
-        if (!isCanvasBackgroundTarget(target)) {
+        if (isCanvasBackgroundTarget(target)) {
+          event.preventDefault();
+          event.stopPropagation();
+          clearSelectionAndBlur();
+          return true;
+        }
+
+        if (!(target instanceof HTMLElement)) {
           return false;
         }
 
-        event.preventDefault();
-        event.stopPropagation();
-        clearSelectionAndBlur();
+        const htmlTarget = target as HTMLElement;
 
-        return true; // stop default handlers
+        // Check if clicking on textbox or its handles
+        const textboxElement = htmlTarget.closest('[data-lexical-textbox]');
+        if (textboxElement) {
+          const isHandleOrBorder = 
+            htmlTarget === textboxElement ||
+            htmlTarget.classList.contains('textbox-move-handle') ||
+            htmlTarget.classList.contains('textbox-resize-handle') ||
+            htmlTarget.classList.contains('textbox-rotate-handle');
+          
+          if (isHandleOrBorder) {
+            const nodeKey = textboxElement.getAttribute('data-lexical-node-key');
+            if (nodeKey) {
+              editor.update(() => {
+                const nodeSelection = $createNodeSelection();
+                nodeSelection.add(nodeKey);
+                $setSelection(nodeSelection);
+              });
+              event.preventDefault();
+              event.stopPropagation();
+              return true;
+            }
+          }
+        }
+
+        return false;
       },
       COMMAND_PRIORITY_CRITICAL
     );
