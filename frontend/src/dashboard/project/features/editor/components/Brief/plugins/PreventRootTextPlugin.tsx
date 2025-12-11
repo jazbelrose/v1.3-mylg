@@ -108,6 +108,10 @@ export default function PreventRootTextPlugin(): null {
           return;
         }
 
+        if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+          return;
+        }
+
         if (!isCanvasBackgroundTarget(event.target)) {
           return;
         }
@@ -139,6 +143,10 @@ export default function PreventRootTextPlugin(): null {
         const target = event.target as HTMLElement;
 
         if (event.button !== 0) {
+          return false;
+        }
+
+        if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
           return false;
         }
 

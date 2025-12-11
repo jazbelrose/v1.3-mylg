@@ -1,10 +1,16 @@
-import { DecoratorNode, $getNodeByKey, $getSelection, $setSelection, $createNodeSelection, $isNodeSelection } from "lexical";
+import { DecoratorNode, $getNodeByKey } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import React, { useRef, useState, useEffect } from "react";
 import { useData } from "@/app/contexts/useData";
 import { useImageLocks } from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockContext";
 import { getFileUrl } from "@/shared/utils/api";
+import {
+  applyModifierNodeSelection,
+  duplicateSlideNodes,
+  getSlideNodeSelectionKeys,
+  isCopyGesture,
+} from "../slides/slideSelectionUtils";
 
 export class ResizableImageNode extends DecoratorNode {
   static getType() {
@@ -40,6 +46,14 @@ export class ResizableImageNode extends DecoratorNode {
 
   getOriginalAspectRatio() {
     return this.__originalAspectRatio;
+  }
+
+  getSrc() {
+    return this.__src;
+  }
+
+  getAltText() {
+    return this.__altText;
   }
 
   setOriginalAspectRatio(aspectRatio) {
@@ -215,6 +229,13 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
   const initialPosXRef = useRef(x);
   const initialPosYRef = useRef(y);
   const initialRotationRef = useRef(rotation);
+  const dragMetaRef = useRef({
+    copyGesture: false,
+    didDuplicate: false,
+    activeNodeKey: nodeKey,
+    selectionBefore: [],
+    wasSelectedBefore: false,
+  });
 
   // Read the original aspect ratio from the node.
   const originalAspectRatioRef = useRef(
@@ -229,27 +250,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
     e.stopPropagation();
     editor.focus();
     editor.update(() => {
-      const selection = $getSelection();
-      if (e.ctrlKey) {
-        // Toggle: Add if not selected, remove if selected
-        let nodeSelection;
-        if ($isNodeSelection(selection)) {
-          nodeSelection = selection;
-        } else {
-          nodeSelection = $createNodeSelection();
-          $setSelection(nodeSelection);
-        }
-        if (nodeSelection.has(nodeKey)) {
-          nodeSelection.delete(nodeKey);
-        } else {
-          nodeSelection.add(nodeKey);
-        }
-      } else {
-        // Clear all and select only this node
-        const newSelection = $createNodeSelection();
-        newSelection.add(nodeKey);
-        $setSelection(newSelection);
-      }
+      applyModifierNodeSelection(nodeKey, e);
     });
   };
 
@@ -258,6 +259,16 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
     e.stopPropagation();
     editor.focus();
     if (isLocked) return;
+    const selectionBefore = editor.getEditorState().read(() =>
+      getSlideNodeSelectionKeys()
+    );
+    dragMetaRef.current = {
+      copyGesture: isCopyGesture(e),
+      didDuplicate: false,
+      activeNodeKey: nodeKey,
+      selectionBefore,
+      wasSelectedBefore: selectionBefore.includes(nodeKey),
+    };
     skipClickClearRef.current = true;
     
     if (handleType === 'rotate') {
@@ -277,6 +288,20 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
     initialPosXRef.current = x;
     initialPosYRef.current = y;
     initialRotationRef.current = rotation;
+  };
+
+  const refreshDragSnapshot = (targetKey) => {
+    editor.getEditorState().read(() => {
+      const node = $getNodeByKey(targetKey);
+      if (!node) {
+        return;
+      }
+      initialPosXRef.current = node.getX();
+      initialPosYRef.current = node.getY();
+      initialWidthRef.current = node.getWidth();
+      initialHeightRef.current = node.getHeight();
+      initialRotationRef.current = node.getRotation();
+    });
   };
 
   useEffect(() => {
@@ -384,7 +409,32 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
 
     function onMouseMove(e) {
       editor.update(() => {
-        const node = $getNodeByKey(nodeKey);
+        if (
+          isDragging &&
+          currentHandle === "move" &&
+          dragMetaRef.current.copyGesture &&
+          !dragMetaRef.current.didDuplicate
+        ) {
+          const keysBefore = dragMetaRef.current.selectionBefore;
+          const keysToClone =
+            dragMetaRef.current.wasSelectedBefore && keysBefore.length > 0
+              ? keysBefore
+              : keysBefore.length > 0
+              ? keysBefore
+              : [nodeKey];
+          const { clones, cloneKeys } = duplicateSlideNodes(keysToClone);
+          dragMetaRef.current.didDuplicate = true;
+          if (cloneKeys.length > 0) {
+            const mapping = new Map(clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey]));
+            const replacementKey =
+              mapping.get(dragMetaRef.current.activeNodeKey) ?? cloneKeys[cloneKeys.length - 1];
+            dragMetaRef.current.activeNodeKey = replacementKey;
+            refreshDragSnapshot(replacementKey);
+          }
+        }
+
+        const activeKey = dragMetaRef.current.activeNodeKey || nodeKey;
+        const node = $getNodeByKey(activeKey);
         if (!node) return;
 
         const deltaX = e.clientX - initialXRef.current;
@@ -444,6 +494,11 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
       setIsDragging(false);
       setIsRotating(false);
       setCurrentHandle(null);
+      dragMetaRef.current.copyGesture = false;
+      dragMetaRef.current.didDuplicate = false;
+      dragMetaRef.current.activeNodeKey = nodeKey;
+      dragMetaRef.current.selectionBefore = [];
+      dragMetaRef.current.wasSelectedBefore = false;
       endEdit();
       // keep the image selected after interaction ends
       setSelected(true);

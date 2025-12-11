@@ -8,6 +8,12 @@ import {
   $setSelection,
 } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
+import {
+  applyModifierNodeSelection,
+  duplicateSlideNodes,
+  getSlideNodeSelectionKeys,
+  isCopyGesture,
+} from "./slides/slideSelectionUtils";
 
 type InteractionType =
   | "move"
@@ -34,6 +40,11 @@ type Interaction = {
   startAngle: number;
   centerX: number;
   centerY: number;
+  initialSelectionKeys: string[];
+  selectionKeys: string[];
+  wasSelectedBeforePointerDown: boolean;
+  copyGesture: boolean;
+  didDuplicate: boolean;
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
@@ -147,16 +158,73 @@ export default function TextBoxTransformPlugin(): null {
 
     let interaction: Interaction | null = null;
     let hoverTextbox: HTMLElement | null = null;
-    let selectedTextbox: HTMLElement | null = null;
+    const selectedElementMap = new Map<string, HTMLElement>();
 
-    const setSelected = (textbox: HTMLElement | null) => {
-      if (selectedTextbox && selectedTextbox !== textbox) {
-        selectedTextbox.classList.remove("editor-textbox-selected");
+    const syncSelectedElements = (keys: Set<string>) => {
+      selectedElementMap.forEach((element, key) => {
+        if (!keys.has(key)) {
+          element.classList.remove("editor-textbox-selected");
+          selectedElementMap.delete(key);
+        }
+      });
+
+      keys.forEach((key) => {
+        if (selectedElementMap.has(key)) {
+          return;
+        }
+        const element = root.querySelector<HTMLElement>(
+          `[data-lexical-textbox="true"][data-lexical-node-key="${key}"]`
+        );
+        if (element) {
+          element.classList.add("editor-textbox-selected");
+          selectedElementMap.set(key, element);
+        }
+      });
+    };
+
+    const unregisterSelectionSync = editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const selection = $getSelection();
+        const keys = new Set<string>();
+        if ($isNodeSelection(selection)) {
+          selection.getNodes().forEach((node) => {
+            if (node instanceof TextBoxNode) {
+              keys.add(node.getKey());
+            }
+          });
+        }
+        syncSelectedElements(keys);
+      });
+    });
+
+    const resolveKeysForDuplication = (context: Interaction): string[] => {
+      if (context.wasSelectedBeforePointerDown && context.initialSelectionKeys.length > 0) {
+        return context.initialSelectionKeys;
       }
-      selectedTextbox = textbox;
-      if (selectedTextbox) {
-        selectedTextbox.classList.add("editor-textbox-selected");
+      if (context.selectionKeys.length > 0) {
+        return context.selectionKeys.includes(context.nodeKey)
+          ? context.selectionKeys
+          : [...context.selectionKeys, context.nodeKey];
       }
+      return [context.nodeKey];
+    };
+
+    const captureInteractionSnapshot = (targetKey: string) => {
+      if (!interaction) {
+        return;
+      }
+      editor.getEditorState().read(() => {
+        const node = $getNodeByKey(targetKey);
+        if (node instanceof TextBoxNode) {
+          const { x, y } = node.getPosition();
+          const { width, height } = node.getSize();
+          interaction!.originX = x;
+          interaction!.originY = y;
+          interaction!.originWidth = width;
+          interaction!.originHeight = height;
+          interaction!.originRotation = node.getRotation();
+        }
+      });
     };
 
     const clearHover = () => {
@@ -201,8 +269,6 @@ const onPointerMoveHover = (event: PointerEvent) => {
 
       const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
       if (!textbox) {
-        setSelected(null);
-        // Only clear Lexical selection if the current node selection is a textbox
         editor.update(() => {
           const selection = $getSelection();
           if ($isNodeSelection(selection)) {
@@ -218,44 +284,26 @@ const onPointerMoveHover = (event: PointerEvent) => {
 
       const interactionType = getInteractionType(textbox, event);
       if (!interactionType) {
-        // Click inside -> normal text editing, exit object mode
-        setSelected(null);
         editor.focus();
         return;
       }
 
-      // Object interaction (resize/rotate/move) - enter object mode
-      setSelected(textbox);
       editor.focus();
 
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
       if (!nodeKey) return;
 
-      // Sync visual selection with Lexical node selection for object interactions
+      const prevSelectionKeys = editor.getEditorState().read(() =>
+        getSlideNodeSelectionKeys()
+      );
+
+      let selectionResult = {
+        selectedKeys: prevSelectionKeys,
+        nodeIsSelected: prevSelectionKeys.includes(nodeKey),
+      };
+
       editor.update(() => {
-        const selection = $createNodeSelection();
-        selection.add(nodeKey);
-        $setSelection(selection);
-      });
-      editor.focus();
-
-      let originX = 0;
-      let originY = 0;
-      let originWidth = 0;
-      let originHeight = 0;
-      let originRotation = 0;
-
-      editor.getEditorState().read(() => {
-        const node = $getNodeByKey(nodeKey);
-        if (node instanceof TextBoxNode) {
-          const { x, y } = node.getPosition();
-          const { width, height } = node.getSize();
-          originRotation = node.getRotation();
-          originX = x;
-          originY = y;
-          originWidth = width;
-          originHeight = height;
-        }
+        selectionResult = applyModifierNodeSelection(nodeKey, event);
       });
 
       const rect = textbox.getBoundingClientRect();
@@ -268,15 +316,22 @@ const onPointerMoveHover = (event: PointerEvent) => {
         nodeKey,
         startX: event.clientX,
         startY: event.clientY,
-        originX,
-        originY,
-        originWidth,
-        originHeight,
-        originRotation,
+        originX: 0,
+        originY: 0,
+        originWidth: 0,
+        originHeight: 0,
+        originRotation: 0,
         startAngle,
         centerX,
         centerY,
+        initialSelectionKeys: prevSelectionKeys,
+        selectionKeys: selectionResult.selectedKeys,
+        wasSelectedBeforePointerDown: prevSelectionKeys.includes(nodeKey),
+        copyGesture: isCopyGesture(event),
+        didDuplicate: false,
       };
+
+      captureInteractionSnapshot(nodeKey);
 
       (event.target as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
       event.preventDefault();
@@ -286,6 +341,28 @@ const onPointerMoveHover = (event: PointerEvent) => {
     const onPointerMoveDrag = (event: PointerEvent) => {
       if (!interaction) {
         return;
+      }
+
+      if (
+        interaction.copyGesture &&
+        !interaction.didDuplicate &&
+        interaction.type === "move"
+      ) {
+        editor.update(() => {
+          const keysToClone = resolveKeysForDuplication(interaction!);
+          const { clones, cloneKeys } = duplicateSlideNodes(keysToClone);
+          interaction!.didDuplicate = true;
+          if (cloneKeys.length === 0) {
+            return;
+          }
+
+          interaction!.selectionKeys = cloneKeys;
+          const mapping = new Map(clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey]));
+          const replacementKey =
+            mapping.get(interaction!.nodeKey) ?? cloneKeys[cloneKeys.length - 1];
+          interaction!.nodeKey = replacementKey;
+          captureInteractionSnapshot(replacementKey);
+        });
       }
 
       const dx = event.clientX - interaction.startX;
@@ -410,7 +487,9 @@ const onPointerMoveHover = (event: PointerEvent) => {
       if (hoverTextbox) {
         hoverTextbox.classList.remove("editor-textbox-border-hover");
       }
-      setSelected(null);
+      syncSelectedElements(new Set());
+      selectedElementMap.clear();
+      unregisterSelectionSync();
     };
   }, [editor]);
 
