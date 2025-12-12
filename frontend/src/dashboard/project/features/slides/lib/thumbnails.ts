@@ -4,6 +4,47 @@ import { uploadData } from 'aws-amplify/storage';
 import { getFileUrl } from '@/shared/utils/api';
 import { isUiThumbsEnabled } from './featureFlags';
 
+function prepareNodeForThumbnailCapture(root: HTMLElement) {
+  const touched: Array<{
+    el: HTMLElement;
+    overflow: string;
+    scrollTop: number;
+    scrollLeft: number;
+  }> = [];
+
+  // Target textbox elements which have overflow: auto by default
+  const nodes = root.querySelectorAll<HTMLElement>('.editor-textbox');
+
+  nodes.forEach((el) => {
+    touched.push({
+      el,
+      overflow: el.style.overflow,
+      scrollTop: el.scrollTop,
+      scrollLeft: el.scrollLeft,
+    });
+
+    // kill scrollbars for the capture (this is what removes them)
+    el.style.overflow = 'hidden';
+
+    // optional: ensure we capture from the top-left of the text
+    el.scrollTop = 0;
+    el.scrollLeft = 0;
+  });
+
+  // also ensure the root itself doesn't show scrollbars in the snapshot
+  const rootPrevOverflow = root.style.overflow;
+  root.style.overflow = 'hidden';
+
+  return () => {
+    root.style.overflow = rootPrevOverflow;
+    for (const t of touched) {
+      t.el.style.overflow = t.overflow;
+      t.el.scrollTop = t.scrollTop;
+      t.el.scrollLeft = t.scrollLeft;
+    }
+  };
+}
+
 // Local thumbnail cache using IndexedDB
 const DB_NAME = 'slides-thumbnails';
 const DB_VERSION = 1;
@@ -537,11 +578,22 @@ export async function generateAndUploadThumbnail(
       }
     }
     
-    const blob = await toBlob(element, {
-      backgroundColor: bgColor,
-      quality: 0.92,
-      includeQueryParams: true,
-    });
+    // Wait for fonts to load
+    await document.fonts?.ready;
+
+    // Temporarily remove scrollbars during capture
+    const restore = prepareNodeForThumbnailCapture(element);
+
+    let blob: Blob | null = null;
+    try {
+      blob = await toBlob(element, {
+        backgroundColor: bgColor,
+        quality: 0.92,
+        includeQueryParams: true,
+      });
+    } finally {
+      restore();
+    }
 
     if (!blob) return null;
 
