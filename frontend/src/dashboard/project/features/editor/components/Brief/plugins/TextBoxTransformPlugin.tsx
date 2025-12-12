@@ -7,12 +7,10 @@ import {
   $isNodeSelection,
   $setSelection,
 } from "lexical";
-import { TextBoxNode } from "./nodes/TextBoxNode";
+import { TextBoxNode, type SerializedTextBoxNode } from "./nodes/TextBoxNode";
 import {
   applyModifierNodeSelection,
-  duplicateSlideNodes,
   getSlideNodeSelectionKeys,
-  isCopyGesture,
 } from "./slides/slideSelectionUtils";
 
 type InteractionType =
@@ -50,6 +48,27 @@ type Interaction = {
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
 const RESIZE_HANDLE_OFFSET = 20; // px from corners where center handles are
 const TEXTBOX_TYPE = "text-box";
+
+type CopyModifiers = Pick<MouseEvent, "ctrlKey" | "metaKey" | "altKey"> & {
+  getModifierState?: (keyArg: string) => boolean;
+};
+
+function hasCopyModifier(event?: CopyModifiers | null): boolean {
+  if (!event) {
+    return false;
+  }
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    return true;
+  }
+  if (typeof event.getModifierState === "function") {
+    return (
+      event.getModifierState("Control") ||
+      event.getModifierState("Meta") ||
+      event.getModifierState("Alt")
+    );
+  }
+  return false;
+}
 
 function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
   const target = event.target as HTMLElement;
@@ -157,6 +176,7 @@ export default function TextBoxTransformPlugin(): null {
     }
 
     let interaction: Interaction | null = null;
+    const copyModifierState = { current: false };
     let hoverTextbox: HTMLElement | null = null;
     const selectedElementMap = new Map<string, HTMLElement>();
 
@@ -173,7 +193,7 @@ export default function TextBoxTransformPlugin(): null {
           return;
         }
         const element = root.querySelector<HTMLElement>(
-          `[data-lexical-textbox="true"][data-lexical-node-key="${key}"]`
+          `[data-lexical-textbox][data-lexical-node-key="${key}"]`
         );
         if (element) {
           element.classList.add("editor-textbox-selected");
@@ -227,39 +247,119 @@ export default function TextBoxTransformPlugin(): null {
       });
     };
 
+    const duplicateTextBoxes = (
+      keysToClone: string[],
+      opts: { offsetX: number; offsetY: number }
+    ): { clones: Array<{ originalKey: string; cloneKey: string }>; cloneKeys: string[] } => {
+      const clones: Array<{ originalKey: string; cloneKey: string }> = [];
+      const cloneKeys: string[] = [];
+
+      keysToClone.forEach((key) => {
+        const node = $getNodeByKey(key);
+        if (!(node instanceof TextBoxNode)) return;
+
+        // safest way to truly "copy" content + props without depending on clone semantics
+        const json = node.exportJSON();
+        const clone = TextBoxNode.importJSON(json as SerializedTextBoxNode);
+
+        // insert right after original to preserve z-order feel
+        node.insertAfter(clone);
+
+        // offset position so it's visible
+        const { x, y } = node.getPosition();
+        clone.setPosition(x + opts.offsetX, y + opts.offsetY);
+
+        const cloneKey = clone.getKey();
+        clones.push({ originalKey: key, cloneKey });
+        cloneKeys.push(cloneKey);
+      });
+
+      return { clones, cloneKeys };
+    };
+
+    const duplicateForInteraction = (event: PointerEvent) => {
+      if (!interaction || interaction.type !== "move" || !interaction.copyGesture || interaction.didDuplicate) {
+        return;
+      }
+
+      editor.update(() => {
+        const keysToClone = resolveKeysForDuplication(interaction!);
+        const { clones, cloneKeys } = duplicateTextBoxes(keysToClone, {
+          offsetX: 8,
+          offsetY: 8,
+        });
+        if (cloneKeys.length === 0) {
+          return;
+        }
+
+        // D) Explicitly select the clones to make duplication visually obvious
+        const nextSelection = $createNodeSelection();
+        cloneKeys.forEach((k) => nextSelection.add(k));
+        $setSelection(nextSelection);
+
+        interaction!.didDuplicate = true;
+        interaction!.selectionKeys = cloneKeys;
+        const mapping = new Map(clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey]));
+        const replacementKey =
+          mapping.get(interaction!.nodeKey) ?? cloneKeys[cloneKeys.length - 1];
+        interaction!.nodeKey = replacementKey;
+
+        const cloneNode = $getNodeByKey(replacementKey);
+        if (cloneNode instanceof TextBoxNode) {
+          const { x, y } = cloneNode.getPosition();
+          const { width, height } = cloneNode.getSize();
+          interaction!.originX = x;
+          interaction!.originY = y;
+          interaction!.originWidth = width;
+          interaction!.originHeight = height;
+          interaction!.originRotation = cloneNode.getRotation();
+          interaction!.startX = event.clientX;
+          interaction!.startY = event.clientY;
+        }
+      });
+    };
+
     const clearHover = () => {
-  if (hoverTextbox) {
-    hoverTextbox.style.cursor = "";
-    hoverTextbox = null;
-  }
-};
+      if (hoverTextbox) {
+        hoverTextbox.style.cursor = "";
+        hoverTextbox = null;
+      }
+    };
 
-const onPointerMoveHover = (event: PointerEvent) => {
-  const target = event.target as HTMLElement | null;
-  if (!target) {
-    clearHover();
-    return;
-  }
+    const syncCopyModifierState = (event: KeyboardEvent) => {
+      copyModifierState.current = hasCopyModifier(event);
+    };
 
-  const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
-  if (!textbox) {
-    clearHover();
-    return;
-  }
+    const resetCopyModifierState = () => {
+      copyModifierState.current = false;
+    };
 
-  const interactionType = getInteractionType(textbox, event);
-  if (interactionType) {
-    if (hoverTextbox !== textbox) {
-      clearHover();
-      hoverTextbox = textbox;
-    }
-    hoverTextbox.style.cursor = getCursorForInteraction(interactionType);
-  } else {
-    if (hoverTextbox === textbox) {
-      clearHover();
-    }
-  }
-};
+    const onPointerMoveHover = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        clearHover();
+        return;
+      }
+
+      const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
+      if (!textbox) {
+        clearHover();
+        return;
+      }
+
+      const interactionType = getInteractionType(textbox, event);
+      if (interactionType) {
+        if (hoverTextbox !== textbox) {
+          clearHover();
+          hoverTextbox = textbox;
+        }
+        hoverTextbox.style.cursor = getCursorForInteraction(interactionType);
+      } else {
+        if (hoverTextbox === textbox) {
+          clearHover();
+        }
+      }
+    };
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
@@ -282,12 +382,6 @@ const onPointerMoveHover = (event: PointerEvent) => {
         return;
       }
 
-      const interactionType = getInteractionType(textbox, event);
-      if (!interactionType) {
-        editor.focus();
-        return;
-      }
-
       editor.focus();
 
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
@@ -305,6 +399,31 @@ const onPointerMoveHover = (event: PointerEvent) => {
       editor.update(() => {
         selectionResult = applyModifierNodeSelection(nodeKey, event);
       });
+
+      // A) Check copy modifier BEFORE determining interaction type
+      const pointerCopyModifierActive = hasCopyModifier(event);
+      if (pointerCopyModifierActive) {
+        copyModifierState.current = true;
+      }
+
+      // If copy modifier is down, treat this as a move interaction
+      let interactionType = getInteractionType(
+        textbox,
+        event,
+        pointerCopyModifierActive || copyModifierState.current
+      );
+
+      if (
+        !interactionType &&
+        selectionResult.nodeIsSelected &&
+        target === textbox
+      ) {
+        interactionType = "move";
+      }
+
+      if (!interactionType) {
+        return;
+      }
 
       const rect = textbox.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
@@ -327,11 +446,13 @@ const onPointerMoveHover = (event: PointerEvent) => {
         initialSelectionKeys: prevSelectionKeys,
         selectionKeys: selectionResult.selectedKeys,
         wasSelectedBeforePointerDown: prevSelectionKeys.includes(nodeKey),
-        copyGesture: isCopyGesture(event),
+        copyGesture: pointerCopyModifierActive,
         didDuplicate: false,
       };
 
       captureInteractionSnapshot(nodeKey);
+
+      // B) Don't duplicate on pointerdown; wait for actual drag movement
 
       (event.target as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
       event.preventDefault();
@@ -343,30 +464,30 @@ const onPointerMoveHover = (event: PointerEvent) => {
         return;
       }
 
-      if (
-        interaction.copyGesture &&
-        !interaction.didDuplicate &&
-        interaction.type === "move"
-      ) {
-        editor.update(() => {
-          const keysToClone = resolveKeysForDuplication(interaction!);
-          const { clones, cloneKeys } = duplicateSlideNodes(keysToClone);
-          interaction!.didDuplicate = true;
-          if (cloneKeys.length === 0) {
-            return;
-          }
-
-          interaction!.selectionKeys = cloneKeys;
-          const mapping = new Map(clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey]));
-          const replacementKey =
-            mapping.get(interaction!.nodeKey) ?? cloneKeys[cloneKeys.length - 1];
-          interaction!.nodeKey = replacementKey;
-          captureInteractionSnapshot(replacementKey);
-        });
-      }
-
       const dx = event.clientX - interaction.startX;
       const dy = event.clientY - interaction.startY;
+      const moved = Math.abs(dx) + Math.abs(dy) > 2; // threshold
+
+      // C) If user presses CTRL mid-drag, convert resize → move cleanly
+      const copyDown = hasCopyModifier(event) || copyModifierState.current;
+
+      if (!interaction.copyGesture && copyDown && interaction.type !== "rotate") {
+        interaction.copyGesture = true;
+        if (hasCopyModifier(event)) copyModifierState.current = true;
+
+        // If we were resizing, switch to move without jumping
+        if (interaction.type !== "move") {
+          interaction.type = "move";
+          captureInteractionSnapshot(interaction.nodeKey);
+          interaction.startX = event.clientX;
+          interaction.startY = event.clientY;
+        }
+      }
+
+      // D) Only duplicate after actual movement
+      if (moved && interaction.copyGesture) {
+        duplicateForInteraction(event);
+      }
 
       editor.update(() => {
         const node = $getNodeByKey(interaction!.nodeKey);
@@ -446,7 +567,7 @@ const onPointerMoveHover = (event: PointerEvent) => {
       interaction = null;
     };
 
-    const onKeyDown = (e: KeyboardEvent) => {
+    const onDeleteKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
 
       const root = editor.getRootElement();
@@ -474,7 +595,23 @@ const onPointerMoveHover = (event: PointerEvent) => {
     window.addEventListener("pointermove", onPointerMoveDrag);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onDeleteKeyDown);
+    const modifierTargets = new Set<EventTarget>();
+    if (typeof window !== "undefined") {
+      modifierTargets.add(window);
+    }
+    if (root) {
+      modifierTargets.add(root);
+    }
+    const ownerDocument = root.ownerDocument;
+    if (ownerDocument) {
+      modifierTargets.add(ownerDocument);
+    }
+    modifierTargets.forEach((target) => {
+      target.addEventListener("keydown", syncCopyModifierState, true);
+      target.addEventListener("keyup", syncCopyModifierState, true);
+      target.addEventListener("blur", resetCopyModifierState, true);
+    });
 
     return () => {
       root.removeEventListener("pointermove", onPointerMoveHover);
@@ -482,7 +619,12 @@ const onPointerMoveHover = (event: PointerEvent) => {
       window.removeEventListener("pointermove", onPointerMoveDrag);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onDeleteKeyDown);
+      modifierTargets.forEach((target) => {
+        target.removeEventListener("keydown", syncCopyModifierState, true);
+        target.removeEventListener("keyup", syncCopyModifierState, true);
+        target.removeEventListener("blur", resetCopyModifierState, true);
+      });
       // cleanup hover class just in case
       if (hoverTextbox) {
         hoverTextbox.classList.remove("editor-textbox-border-hover");
