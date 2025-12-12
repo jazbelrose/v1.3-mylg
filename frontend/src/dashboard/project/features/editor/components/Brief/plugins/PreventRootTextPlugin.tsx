@@ -14,8 +14,13 @@ import {
   CLICK_COMMAND,
   $setSelection,
   $createNodeSelection,
+  $getNodeByKey,
 } from "lexical";
 import { $isTextBoxNode } from "./nodes/TextBoxNode";
+import { applyModifierNodeSelection } from "./slides/slideSelectionUtils";
+import { getInteractionType } from "./TextBoxTransformPlugin";
+
+const TEXTBOX_TYPE = "text-box";
 
 /**
  * PreventRootTextPlugin - Blocks typing/pasting text at the root level in slides mode
@@ -64,16 +69,24 @@ export default function PreventRootTextPlugin(): null {
     };
 
     const clearSelectionAndBlur = (): void => {
+      let shouldBlur = false;
+      
       editor.update(() => {
         const selection = $getSelection();
-        if (selection) {
+        // Only clear RangeSelection, preserve NodeSelection for textboxes
+        if (selection && $isRangeSelection(selection)) {
           $setSelection(null);
+          shouldBlur = true;
         }
       });
 
-      const root = editor.getRootElement();
-      if (root && document.activeElement === root) {
-        root.blur();
+      // Only blur if we actually cleared a RangeSelection
+      // Don't blur if there's a NodeSelection (for textboxes)
+      if (shouldBlur) {
+        const root = editor.getRootElement();
+        if (root && document.activeElement === root) {
+          root.blur();
+        }
       }
     };
 
@@ -156,10 +169,6 @@ export default function PreventRootTextPlugin(): null {
           return false;
         }
 
-        if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
-          return false;
-        }
-
         const rootEl = editor.getRootElement();
         if (rootEl && isCanvasBackgroundTarget(target, rootEl)) {
           event.preventDefault();
@@ -177,29 +186,20 @@ export default function PreventRootTextPlugin(): null {
         // Check if clicking on textbox or its handles
         const textboxElement = htmlTarget.closest('[data-lexical-textbox]');
         if (textboxElement) {
-          // If the click is inside an editable region, allow normal text selection/editing.
-          if (htmlTarget.closest('[contenteditable="true"]')) {
-            return false;
-          }
-
-          const isHandleOrBorder = 
-            htmlTarget === textboxElement ||
-            htmlTarget.classList.contains('textbox-move-handle') ||
-            htmlTarget.classList.contains('textbox-resize-handle') ||
-            htmlTarget.classList.contains('textbox-rotate-handle');
-          
-          if (isHandleOrBorder) {
+          const interactionType = getInteractionType(textboxElement as HTMLElement, event);
+          if (interactionType !== null) {
             const nodeKey = textboxElement.getAttribute('data-lexical-node-key');
             if (nodeKey) {
               editor.update(() => {
-                const nodeSelection = $createNodeSelection();
-                nodeSelection.add(nodeKey);
-                $setSelection(nodeSelection);
+                applyModifierNodeSelection(nodeKey, event);
               });
               event.preventDefault();
               event.stopPropagation();
               return true;
             }
+          } else {
+            // Click inside content area: allow default range selection/editing
+            return false;
           }
         }
 
@@ -361,6 +361,37 @@ export default function PreventRootTextPlugin(): null {
       });
     });
 
+    const onDeleteKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      const root = editor.getRootElement();
+      const els = root?.querySelectorAll<HTMLElement>(
+        `[data-lexical-textbox].editor-textbox-selected`
+      );
+      const keys: string[] = [];
+      els?.forEach((el) => {
+        const key = el.getAttribute("data-lexical-node-key");
+        if (key) keys.push(key);
+      });
+
+      if (keys.length === 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      editor.update(() => {
+        keys.forEach((key) => {
+          const node = $getNodeByKey(key);
+          if (node && node.getType && node.getType() === TEXTBOX_TYPE) {
+            node.remove();
+          }
+        });
+        $setSelection(null);
+      });
+    };
+
+    window.addEventListener("keydown", onDeleteKeyDown);
+
     return () => {
       unregisterClick();
       unregisterEnter();
@@ -373,6 +404,7 @@ export default function PreventRootTextPlugin(): null {
         detachBackgroundGuards();
       }
       unregisterRootListener();
+      window.removeEventListener("keydown", onDeleteKeyDown);
     };
   }, [editor]);
 

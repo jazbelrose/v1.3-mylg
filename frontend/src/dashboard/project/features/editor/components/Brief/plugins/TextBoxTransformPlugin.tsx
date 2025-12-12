@@ -45,6 +45,7 @@ type Interaction = {
   wasSelectedBeforePointerDown: boolean;
   copyGesture: boolean;
   didDuplicate: boolean;
+  didInteract: boolean;
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
@@ -126,7 +127,7 @@ function duplicateTextBoxes(
   return { clones, cloneKeys };
 }
 
-function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
+export function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
   const target = event.target as HTMLElement;
   const rect = textbox.getBoundingClientRect();
   const { clientX, clientY } = event;
@@ -232,6 +233,7 @@ export default function TextBoxTransformPlugin(): null {
     }
 
     let interaction: Interaction | null = null;
+    let wasInteracted = false;
     const copyModifierState = { current: false };
     let hoverTextbox: HTMLElement | null = null;
     const selectedElementMap = new Map<string, HTMLElement>();
@@ -412,8 +414,6 @@ export default function TextBoxTransformPlugin(): null {
         return;
       }
 
-      editor.focus();
-
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
       if (!nodeKey) return;
 
@@ -426,6 +426,7 @@ export default function TextBoxTransformPlugin(): null {
         nodeIsSelected: prevSelectionKeys.includes(nodeKey),
       };
 
+      // Set selection in a single update to avoid race conditions with PreventRootTextPlugin
       editor.update(() => {
         selectionResult = applyModifierNodeSelection(nodeKey, event);
       });
@@ -458,6 +459,7 @@ export default function TextBoxTransformPlugin(): null {
         wasSelectedBeforePointerDown: prevSelectionKeys.includes(nodeKey),
         copyGesture: pointerCopyModifierActive || copyModifierState.current,
         didDuplicate: false,
+        didInteract: false,
       };
 
       captureInteractionSnapshot(nodeKey);
@@ -474,6 +476,15 @@ export default function TextBoxTransformPlugin(): null {
     const onPointerMoveDrag = (event: PointerEvent) => {
       if (!interaction) {
         return;
+      }
+
+      // Set didInteract if there's any change (move, resize, rotate)
+      if (!interaction.didInteract) {
+        const dx = event.clientX - interaction.startX;
+        const dy = event.clientY - interaction.startY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2 || interaction.type === "rotate") {
+          interaction.didInteract = true;
+        }
       }
 
       if (
@@ -567,28 +578,10 @@ export default function TextBoxTransformPlugin(): null {
     };
 
     const onPointerUp = () => {
+      if (interaction) {
+        wasInteracted = interaction.didInteract || interaction.didDuplicate;
+      }
       interaction = null;
-    };
-
-    const onDeleteKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
-
-      const root = editor.getRootElement();
-      const el = root?.querySelector<HTMLElement>(
-        `[data-lexical-textbox].editor-textbox-selected`
-      );
-      const key = el?.getAttribute("data-lexical-node-key");
-      if (!key) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      editor.update(() => {
-        const node = $getNodeByKey(key);
-        if (node && node.getType && node.getType() === TEXTBOX_TYPE) {
-          node.remove();
-        }
-      });
     };
 
     // Hover detection for cursor change
@@ -598,7 +591,15 @@ export default function TextBoxTransformPlugin(): null {
     window.addEventListener("pointermove", onPointerMoveDrag);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
-    window.addEventListener("keydown", onDeleteKeyDown);
+    const preventClickAfterInteract = (e: MouseEvent) => {
+      if (wasInteracted) {
+        e.preventDefault();
+        e.stopPropagation();
+        wasInteracted = false;
+      }
+    };
+
+    window.addEventListener("click", preventClickAfterInteract);
     const modifierTargets = new Set<EventTarget>();
     if (typeof window !== "undefined") {
       modifierTargets.add(window);
@@ -622,7 +623,7 @@ export default function TextBoxTransformPlugin(): null {
       window.removeEventListener("pointermove", onPointerMoveDrag);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
-      window.removeEventListener("keydown", onDeleteKeyDown);
+      window.removeEventListener("click", preventClickAfterInteract);
       modifierTargets.forEach((target) => {
         target.removeEventListener("keydown", syncCopyModifierState, true);
         target.removeEventListener("keyup", syncCopyModifierState, true);
