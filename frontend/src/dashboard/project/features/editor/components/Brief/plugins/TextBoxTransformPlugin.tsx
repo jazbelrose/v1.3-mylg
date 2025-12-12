@@ -6,8 +6,10 @@ import {
   $getSelection,
   $isNodeSelection,
   $setSelection,
+  ElementNode,
+  type LexicalNode,
 } from "lexical";
-import { TextBoxNode, type SerializedTextBoxNode } from "./nodes/TextBoxNode";
+import { TextBoxNode } from "./nodes/TextBoxNode";
 import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
@@ -68,6 +70,59 @@ function hasCopyModifier(event?: CopyModifiers | null): boolean {
     );
   }
   return false;
+}
+
+
+function deepCloneNode(node: LexicalNode): LexicalNode | null {
+  const Ctor = node.constructor as any;
+
+  if (typeof Ctor.importJSON !== "function") {
+    return null;
+  }
+
+  // IMPORTANT: don't use node.clone() for duplication — clone() preserves the key.
+  // importJSON(exportJSON()) generates a fresh key.
+  const cloned = Ctor.importJSON(node.exportJSON());
+
+  if (node instanceof ElementNode && cloned instanceof ElementNode) {
+    const childClones: LexicalNode[] = [];
+    node.getChildren().forEach((child) => {
+      const childClone = deepCloneNode(child);
+      if (childClone) childClones.push(childClone);
+    });
+    if (childClones.length) cloned.append(...childClones);
+  }
+
+  return cloned;
+}
+
+function duplicateTextBoxes(
+  keysToClone: string[],
+  opts: { offsetX: number; offsetY: number }
+): { clones: Array<{ key: string }>; cloneKeys: string[] } {
+  const clones: Array<{ key: string }> = [];
+  const cloneKeys: string[] = [];
+
+  keysToClone.forEach((key) => {
+    const node = $getNodeByKey(key);
+    if (!(node instanceof TextBoxNode)) return;
+
+    const cloneAny = deepCloneNode(node);
+    if (!(cloneAny instanceof TextBoxNode)) return;
+    const clone = cloneAny;
+
+    // keep z-order: insert right after original
+    node.insertAfter(clone);
+
+    // offset so it's visible
+    const { x, y } = node.getPosition();
+    clone.setPosition(x + opts.offsetX, y + opts.offsetY);
+
+    clones.push({ key: clone.getKey() });
+    cloneKeys.push(clone.getKey());
+  });
+
+  return { clones, cloneKeys };
 }
 
 function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
@@ -193,7 +248,7 @@ export default function TextBoxTransformPlugin(): null {
           return;
         }
         const element = root.querySelector<HTMLElement>(
-          `[data-lexical-textbox][data-lexical-node-key="${key}"]`
+          `[data-lexical-textbox="true"][data-lexical-node-key="${key}"]`
         );
         if (element) {
           element.classList.add("editor-textbox-selected");
@@ -247,36 +302,6 @@ export default function TextBoxTransformPlugin(): null {
       });
     };
 
-    const duplicateTextBoxes = (
-      keysToClone: string[],
-      opts: { offsetX: number; offsetY: number }
-    ): { clones: Array<{ originalKey: string; cloneKey: string }>; cloneKeys: string[] } => {
-      const clones: Array<{ originalKey: string; cloneKey: string }> = [];
-      const cloneKeys: string[] = [];
-
-      keysToClone.forEach((key) => {
-        const node = $getNodeByKey(key);
-        if (!(node instanceof TextBoxNode)) return;
-
-        // safest way to truly "copy" content + props without depending on clone semantics
-        const json = node.exportJSON();
-        const clone = TextBoxNode.importJSON(json as SerializedTextBoxNode);
-
-        // insert right after original to preserve z-order feel
-        node.insertAfter(clone);
-
-        // offset position so it's visible
-        const { x, y } = node.getPosition();
-        clone.setPosition(x + opts.offsetX, y + opts.offsetY);
-
-        const cloneKey = clone.getKey();
-        clones.push({ originalKey: key, cloneKey });
-        cloneKeys.push(cloneKey);
-      });
-
-      return { clones, cloneKeys };
-    };
-
     const duplicateForInteraction = (event: PointerEvent) => {
       if (!interaction || interaction.type !== "move" || !interaction.copyGesture || interaction.didDuplicate) {
         return;
@@ -284,18 +309,10 @@ export default function TextBoxTransformPlugin(): null {
 
       editor.update(() => {
         const keysToClone = resolveKeysForDuplication(interaction!);
-        const { clones, cloneKeys } = duplicateTextBoxes(keysToClone, {
-          offsetX: 8,
-          offsetY: 8,
-        });
+        const { clones, cloneKeys } = duplicateTextBoxes(keysToClone, { offsetX: 8, offsetY: 8 });
         if (cloneKeys.length === 0) {
           return;
         }
-
-        // D) Explicitly select the clones to make duplication visually obvious
-        const nextSelection = $createNodeSelection();
-        cloneKeys.forEach((k) => nextSelection.add(k));
-        $setSelection(nextSelection);
 
         interaction!.didDuplicate = true;
         interaction!.selectionKeys = cloneKeys;
@@ -382,6 +399,12 @@ export default function TextBoxTransformPlugin(): null {
         return;
       }
 
+      const interactionType = getInteractionType(textbox, event);
+      if (!interactionType) {
+        editor.focus();
+        return;
+      }
+
       editor.focus();
 
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
@@ -400,35 +423,15 @@ export default function TextBoxTransformPlugin(): null {
         selectionResult = applyModifierNodeSelection(nodeKey, event);
       });
 
-      // A) Check copy modifier BEFORE determining interaction type
-      const pointerCopyModifierActive = hasCopyModifier(event);
-      if (pointerCopyModifierActive) {
-        copyModifierState.current = true;
-      }
-
-      // If copy modifier is down, treat this as a move interaction
-      let interactionType = getInteractionType(
-        textbox,
-        event,
-        pointerCopyModifierActive || copyModifierState.current
-      );
-
-      if (
-        !interactionType &&
-        selectionResult.nodeIsSelected &&
-        target === textbox
-      ) {
-        interactionType = "move";
-      }
-
-      if (!interactionType) {
-        return;
-      }
-
       const rect = textbox.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const startAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+
+      const pointerCopyModifierActive = hasCopyModifier(event);
+      if (pointerCopyModifierActive) {
+        copyModifierState.current = true;
+      }
 
       interaction = {
         type: interactionType,
@@ -446,13 +449,15 @@ export default function TextBoxTransformPlugin(): null {
         initialSelectionKeys: prevSelectionKeys,
         selectionKeys: selectionResult.selectedKeys,
         wasSelectedBeforePointerDown: prevSelectionKeys.includes(nodeKey),
-        copyGesture: pointerCopyModifierActive,
+        copyGesture: pointerCopyModifierActive || copyModifierState.current,
         didDuplicate: false,
       };
 
       captureInteractionSnapshot(nodeKey);
 
-      // B) Don't duplicate on pointerdown; wait for actual drag movement
+      if (interaction.copyGesture) {
+        duplicateForInteraction(event);
+      }
 
       (event.target as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
       event.preventDefault();
@@ -464,30 +469,21 @@ export default function TextBoxTransformPlugin(): null {
         return;
       }
 
-      const dx = event.clientX - interaction.startX;
-      const dy = event.clientY - interaction.startY;
-      const moved = Math.abs(dx) + Math.abs(dy) > 2; // threshold
-
-      // C) If user presses CTRL mid-drag, convert resize → move cleanly
-      const copyDown = hasCopyModifier(event) || copyModifierState.current;
-
-      if (!interaction.copyGesture && copyDown && interaction.type !== "rotate") {
+      if (
+        interaction.type === "move" &&
+        !interaction.copyGesture &&
+        (hasCopyModifier(event) || copyModifierState.current)
+      ) {
         interaction.copyGesture = true;
-        if (hasCopyModifier(event)) copyModifierState.current = true;
-
-        // If we were resizing, switch to move without jumping
-        if (interaction.type !== "move") {
-          interaction.type = "move";
-          captureInteractionSnapshot(interaction.nodeKey);
-          interaction.startX = event.clientX;
-          interaction.startY = event.clientY;
+        if (hasCopyModifier(event)) {
+          copyModifierState.current = true;
         }
       }
 
-      // D) Only duplicate after actual movement
-      if (moved && interaction.copyGesture) {
-        duplicateForInteraction(event);
-      }
+      duplicateForInteraction(event);
+
+      const dx = event.clientX - interaction.startX;
+      const dy = event.clientY - interaction.startY;
 
       editor.update(() => {
         const node = $getNodeByKey(interaction!.nodeKey);
