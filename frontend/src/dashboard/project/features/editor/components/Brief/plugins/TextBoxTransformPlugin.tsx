@@ -99,8 +99,8 @@ function deepCloneNode(node: LexicalNode): LexicalNode | null {
 function duplicateTextBoxes(
   keysToClone: string[],
   opts: { offsetX: number; offsetY: number }
-): { clones: Array<{ key: string }>; cloneKeys: string[] } {
-  const clones: Array<{ key: string }> = [];
+): { clones: Array<{ originalKey: string; cloneKey: string }>; cloneKeys: string[] } {
+  const clones: Array<{ originalKey: string; cloneKey: string }> = [];
   const cloneKeys: string[] = [];
 
   keysToClone.forEach((key) => {
@@ -118,8 +118,9 @@ function duplicateTextBoxes(
     const { x, y } = node.getPosition();
     clone.setPosition(x + opts.offsetX, y + opts.offsetY);
 
-    clones.push({ key: clone.getKey() });
-    cloneKeys.push(clone.getKey());
+    const cloneKey = clone.getKey();
+    clones.push({ originalKey: key, cloneKey });
+    cloneKeys.push(cloneKey);
   });
 
   return { clones, cloneKeys };
@@ -316,6 +317,12 @@ export default function TextBoxTransformPlugin(): null {
 
         interaction!.didDuplicate = true;
         interaction!.selectionKeys = cloneKeys;
+
+        // IMPORTANT: select the clones so their borders render during the drag
+        const nodeSelection = $createNodeSelection();
+        cloneKeys.forEach((k) => nodeSelection.add(k));
+        $setSelection(nodeSelection);
+
         const mapping = new Map(clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey]));
         const replacementKey =
           mapping.get(interaction!.nodeKey) ?? cloneKeys[cloneKeys.length - 1];
