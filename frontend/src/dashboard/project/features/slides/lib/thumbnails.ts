@@ -1,5 +1,5 @@
 // lib/thumbnails.ts - Thumbnail generation and upload utilities
-import html2canvas from "html2canvas";
+import { toBlob } from 'html-to-image';
 import { uploadData } from 'aws-amplify/storage';
 import { getFileUrl } from '@/shared/utils/api';
 import { isUiThumbsEnabled } from './featureFlags';
@@ -297,17 +297,13 @@ async function renderThumbnailOffscreen(
     // Wait for fonts to load
     await document.fonts.ready;
     
-    const canvas = await html2canvas(container, {
-      width,
-      height,
-      // html2canvas expects `backgroundColor`; using `background` defaults to white
+    const blob = await toBlob(container, {
+      canvasWidth: width,
+      canvasHeight: height,
       backgroundColor,
-      useCORS: true,
+      quality: 0.92,
+      includeQueryParams: true,
     });
-    
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob((blob) => resolve(blob), "image/png", 0.92)
-    );
     
     return blob;
   } catch (error) {
@@ -541,15 +537,11 @@ export async function generateAndUploadThumbnail(
       }
     }
     
-    const canvas = await html2canvas(element, {
-      // Ensure the captured canvas uses the slide background instead of default white
+    const blob = await toBlob(element, {
       backgroundColor: bgColor,
-      useCORS: true,
+      quality: 0.92,
+      includeQueryParams: true,
     });
-
-    const blob: Blob | null = await new Promise((resolve) =>
-      canvas.toBlob((blob) => resolve(blob), "image/png", 0.92)
-    );
 
     if (!blob) return null;
 
