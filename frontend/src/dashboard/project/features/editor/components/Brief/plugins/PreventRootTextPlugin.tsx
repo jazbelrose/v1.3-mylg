@@ -77,13 +77,22 @@ export default function PreventRootTextPlugin(): null {
       }
     };
 
-    const isCanvasBackgroundTarget = (target: EventTarget | null): target is HTMLElement => {
+    const isCanvasBackgroundTarget = (
+      target: EventTarget | null,
+      rootElement: HTMLElement
+    ): target is HTMLElement => {
       if (!(target instanceof HTMLElement)) {
         return false;
       }
 
+      // Never treat anything inside a textbox as background.
+      if (target.closest('[data-lexical-textbox]')) {
+        return false;
+      }
+
+      // Background click = directly on the editor root OR known canvas wrapper elements.
       return (
-        target.classList.contains("editor-input") ||
+        target === rootElement ||
         target.classList.contains("slide-editor__canvas-inner") ||
         target.classList.contains("slide-editor__slide-frame")
       );
@@ -113,7 +122,7 @@ export default function PreventRootTextPlugin(): null {
           return;
         }
 
-        if (!isCanvasBackgroundTarget(event.target)) {
+        if (!isCanvasBackgroundTarget(event.target, rootElement)) {
           return;
         }
 
@@ -151,7 +160,8 @@ export default function PreventRootTextPlugin(): null {
           return false;
         }
 
-        if (isCanvasBackgroundTarget(target)) {
+        const rootEl = editor.getRootElement();
+        if (rootEl && isCanvasBackgroundTarget(target, rootEl)) {
           event.preventDefault();
           event.stopPropagation();
           clearSelectionAndBlur();
@@ -167,6 +177,11 @@ export default function PreventRootTextPlugin(): null {
         // Check if clicking on textbox or its handles
         const textboxElement = htmlTarget.closest('[data-lexical-textbox]');
         if (textboxElement) {
+          // If the click is inside an editable region, allow normal text selection/editing.
+          if (htmlTarget.closest('[contenteditable="true"]')) {
+            return false;
+          }
+
           const isHandleOrBorder = 
             htmlTarget === textboxElement ||
             htmlTarget.classList.contains('textbox-move-handle') ||
@@ -336,7 +351,7 @@ export default function PreventRootTextPlugin(): null {
       editor.getEditorState().read(() => {
         const selection = $getSelection();
 
-        if ($isRangeSelection(selection) && !isInsideTextBox()) {
+        if ($isRangeSelection(selection) && selection.anchor.getNode() && !isInsideTextBox()) {
           isCleaning = true;
 
           clearSelectionAndBlur();
