@@ -247,21 +247,29 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
     })
   );
 
-  const captureSelectionSnapshot = (keys) => {
+  const captureSelectionSnapshot = (keys, options = {}) => {
     const normalizedKeys = keys.length > 0 ? keys : [nodeKey];
-    editor.getEditorState().read(() => {
-      const snapshot = new Map();
-      normalizedKeys.forEach((key) => {
-        const targetNode = $getNodeByKey(key);
-        if (targetNode instanceof ResizableImageNode) {
-          snapshot.set(key, { x: targetNode.getX(), y: targetNode.getY() });
-        } else if (targetNode instanceof TextBoxNode) {
-          const { x: tx, y: ty } = targetNode.getPosition();
-          snapshot.set(key, { x: tx, y: ty });
-        }
+    const run = () => {
+      editor.getEditorState().read(() => {
+        const snapshot = new Map();
+        normalizedKeys.forEach((key) => {
+          const targetNode = $getNodeByKey(key);
+          if (targetNode instanceof ResizableImageNode) {
+            snapshot.set(key, { x: targetNode.getX(), y: targetNode.getY() });
+          } else if (targetNode instanceof TextBoxNode) {
+            const { x: tx, y: ty } = targetNode.getPosition();
+            snapshot.set(key, { x: tx, y: ty });
+          }
+        });
+        selectionSnapshotRef.current = snapshot;
       });
-      selectionSnapshotRef.current = snapshot;
-    });
+    };
+
+    if (options.defer) {
+      queueMicrotask(run);
+    } else {
+      run();
+    }
   };
 
   // When the image is clicked, select it.
@@ -450,7 +458,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
               mapping.get(dragMetaRef.current.activeNodeKey) ?? cloneKeys[cloneKeys.length - 1];
             dragMetaRef.current.activeNodeKey = replacementKey;
             refreshDragSnapshot(replacementKey);
-            captureSelectionSnapshot(cloneKeys);
+            captureSelectionSnapshot(cloneKeys, { defer: true });
           }
         }
 
@@ -708,7 +716,6 @@ function getResizeCursor(vertical, horizontal) {
   if (vertical === "bottom" && horizontal === "right") return "se-resize";
   return "pointer";
 }
-
 
 
 

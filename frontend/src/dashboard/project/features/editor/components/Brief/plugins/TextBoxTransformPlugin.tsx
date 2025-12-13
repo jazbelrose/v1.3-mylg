@@ -294,16 +294,24 @@ export default function TextBoxTransformPlugin(): null {
       });
     });
 
-    const syncSelectionSnapshots = (keys: string[]) => {
+    const syncSelectionSnapshots = (keys: string[], options: { defer?: boolean } = {}) => {
       if (!interaction) {
         return;
       }
       const normalizedKeys = keys.length > 0 ? keys : [interaction.nodeKey];
-      editor.getEditorState().read(() => {
-        captureNodePositions(normalizedKeys, (snapshots) => {
-          interaction!.selectionSnapshots = snapshots;
+      const run = () => {
+        editor.getEditorState().read(() => {
+          captureNodePositions(normalizedKeys, (snapshots) => {
+            interaction!.selectionSnapshots = snapshots;
+          });
         });
-      });
+      };
+
+      if (options.defer) {
+        queueMicrotask(run);
+      } else {
+        run();
+      }
     };
 
     const resolveKeysForDuplication = (context: Interaction): string[] => {
@@ -350,7 +358,7 @@ export default function TextBoxTransformPlugin(): null {
 
         interaction!.didDuplicate = true;
         interaction!.selectionKeys = cloneKeys;
-        syncSelectionSnapshots(cloneKeys);
+        syncSelectionSnapshots(cloneKeys, { defer: true });
 
         // IMPORTANT: select the clones so their borders render during the drag
         const nodeSelection = $createNodeSelection();
@@ -496,7 +504,9 @@ export default function TextBoxTransformPlugin(): null {
       };
 
       captureInteractionSnapshot(nodeKey);
-      syncSelectionSnapshots(selectionResult.selectedKeys.length > 0 ? selectionResult.selectedKeys : [nodeKey]);
+      syncSelectionSnapshots(
+        selectionResult.selectedKeys.length > 0 ? selectionResult.selectedKeys : [nodeKey]
+      );
 
       if (interaction.copyGesture) {
         duplicateForInteraction(event);
