@@ -10,6 +10,7 @@ import {
   type LexicalNode,
 } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
+import { ResizableImageNode } from "./nodes/ResizableImageNode";
 import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
@@ -46,6 +47,7 @@ type Interaction = {
   copyGesture: boolean;
   didDuplicate: boolean;
   didInteract: boolean;
+  selectionSnapshots: Map<string, { x: number; y: number }>;
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
@@ -125,6 +127,23 @@ function duplicateTextBoxes(
   });
 
   return { clones, cloneKeys };
+}
+
+function captureNodePositions(
+  keys: string[],
+  update: (snapshots: Map<string, { x: number; y: number }>) => void
+) {
+  const snapshot = new Map<string, { x: number; y: number }>();
+  keys.forEach((key) => {
+    const node = $getNodeByKey(key);
+    if (node instanceof TextBoxNode) {
+      const { x, y } = node.getPosition();
+      snapshot.set(key, { x, y });
+    } else if (node instanceof ResizableImageNode) {
+      snapshot.set(key, { x: node.getX(), y: node.getY() });
+    }
+  });
+  update(snapshot);
 }
 
 export function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
@@ -275,6 +294,18 @@ export default function TextBoxTransformPlugin(): null {
       });
     });
 
+    const syncSelectionSnapshots = (keys: string[]) => {
+      if (!interaction) {
+        return;
+      }
+      const normalizedKeys = keys.length > 0 ? keys : [interaction.nodeKey];
+      editor.getEditorState().read(() => {
+        captureNodePositions(normalizedKeys, (snapshots) => {
+          interaction!.selectionSnapshots = snapshots;
+        });
+      });
+    };
+
     const resolveKeysForDuplication = (context: Interaction): string[] => {
       if (context.wasSelectedBeforePointerDown && context.initialSelectionKeys.length > 0) {
         return context.initialSelectionKeys;
@@ -319,6 +350,7 @@ export default function TextBoxTransformPlugin(): null {
 
         interaction!.didDuplicate = true;
         interaction!.selectionKeys = cloneKeys;
+        syncSelectionSnapshots(cloneKeys);
 
         // IMPORTANT: select the clones so their borders render during the drag
         const nodeSelection = $createNodeSelection();
@@ -460,9 +492,11 @@ export default function TextBoxTransformPlugin(): null {
         copyGesture: pointerCopyModifierActive || copyModifierState.current,
         didDuplicate: false,
         didInteract: false,
+        selectionSnapshots: new Map(),
       };
 
       captureInteractionSnapshot(nodeKey);
+      syncSelectionSnapshots(selectionResult.selectedKeys.length > 0 ? selectionResult.selectedKeys : [nodeKey]);
 
       if (interaction.copyGesture) {
         duplicateForInteraction(event);
@@ -504,6 +538,33 @@ export default function TextBoxTransformPlugin(): null {
       const dy = event.clientY - interaction.startY;
 
       editor.update(() => {
+        if (interaction!.type === "move") {
+          const snapshots = interaction!.selectionSnapshots;
+          const entries =
+            snapshots.size > 0
+              ? Array.from(snapshots.entries())
+              : [[interaction!.nodeKey, { x: interaction!.originX, y: interaction!.originY }]];
+
+          entries.forEach(([key, origin]) => {
+            if (!origin) {
+              return;
+            }
+            const targetNode = $getNodeByKey(key);
+            if (!targetNode) {
+              return;
+            }
+            const nextX = origin.x + dx;
+            const nextY = origin.y + dy;
+            if (targetNode instanceof TextBoxNode) {
+              targetNode.setPosition(nextX, nextY);
+            } else if (targetNode instanceof ResizableImageNode) {
+              targetNode.setX(nextX);
+              targetNode.setY(nextY);
+            }
+          });
+          return;
+        }
+
         const node = $getNodeByKey(interaction!.nodeKey);
         if (!(node instanceof TextBoxNode)) return;
 
@@ -513,10 +574,6 @@ export default function TextBoxTransformPlugin(): null {
         let newHeight = interaction!.originHeight;
 
         switch (interaction!.type) {
-          case "move":
-            newX = interaction!.originX + dx;
-            newY = interaction!.originY + dy;
-            break;
           case "resize-left":
             newX = interaction!.originX + dx;
             newWidth = interaction!.originWidth - dx;
@@ -565,11 +622,9 @@ export default function TextBoxTransformPlugin(): null {
         }
 
         // Enforce minimum size for resize operations
-        if (interaction!.type !== "move") {
-          const MIN_SIZE = 50;
-          if (newWidth < MIN_SIZE || newHeight < MIN_SIZE) {
-            return;
-          }
+        const MIN_SIZE = 50;
+        if (newWidth < MIN_SIZE || newHeight < MIN_SIZE) {
+          return;
         }
 
         node.setPosition(newX, newY);

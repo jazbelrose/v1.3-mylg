@@ -4,6 +4,7 @@ import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 import React, { useRef, useState, useEffect } from "react";
 import { useData } from "@/app/contexts/useData";
 import { useImageLocks } from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockContext";
+import { TextBoxNode } from "./TextBoxNode";
 import { getFileUrl } from "@/shared/utils/api";
 import {
   applyModifierNodeSelection,
@@ -229,6 +230,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
   const initialPosXRef = useRef(x);
   const initialPosYRef = useRef(y);
   const initialRotationRef = useRef(rotation);
+  const selectionSnapshotRef = useRef(new Map());
   const dragMetaRef = useRef({
     copyGesture: false,
     didDuplicate: false,
@@ -244,6 +246,23 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
       return node?.getOriginalAspectRatio() ?? width / height;
     })
   );
+
+  const captureSelectionSnapshot = (keys) => {
+    const normalizedKeys = keys.length > 0 ? keys : [nodeKey];
+    editor.getEditorState().read(() => {
+      const snapshot = new Map();
+      normalizedKeys.forEach((key) => {
+        const targetNode = $getNodeByKey(key);
+        if (targetNode instanceof ResizableImageNode) {
+          snapshot.set(key, { x: targetNode.getX(), y: targetNode.getY() });
+        } else if (targetNode instanceof TextBoxNode) {
+          const { x: tx, y: ty } = targetNode.getPosition();
+          snapshot.set(key, { x: tx, y: ty });
+        }
+      });
+      selectionSnapshotRef.current = snapshot;
+    });
+  };
 
   // When the image is clicked, select it.
   const onClickImage = (e) => {
@@ -266,10 +285,11 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
       copyGesture: isCopyGesture(e),
       didDuplicate: false,
       activeNodeKey: nodeKey,
-      selectionBefore,
-      wasSelectedBefore: selectionBefore.includes(nodeKey),
-    };
-    skipClickClearRef.current = true;
+    selectionBefore,
+    wasSelectedBefore: selectionBefore.includes(nodeKey),
+  };
+  captureSelectionSnapshot(selectionBefore.length > 0 ? selectionBefore : [nodeKey]);
+  skipClickClearRef.current = true;
     
     if (handleType === 'rotate') {
       setIsRotating(true);
@@ -430,6 +450,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
               mapping.get(dragMetaRef.current.activeNodeKey) ?? cloneKeys[cloneKeys.length - 1];
             dragMetaRef.current.activeNodeKey = replacementKey;
             refreshDragSnapshot(replacementKey);
+            captureSelectionSnapshot(cloneKeys);
           }
         }
 
@@ -441,11 +462,28 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
         const deltaY = e.clientY - initialYRef.current;
 
         if (isDragging) {
-          // Handle dragging (movement)
-          const newX = initialPosXRef.current + deltaX;
-          const newY = initialPosYRef.current + deltaY;
-          node.setX(newX);
-          node.setY(newY);
+          const snapshots = selectionSnapshotRef.current;
+          const entries =
+            snapshots.size > 0
+              ? Array.from(snapshots.entries())
+              : [[activeKey, { x: initialPosXRef.current, y: initialPosYRef.current }]];
+          entries.forEach(([key, origin]) => {
+            if (!origin) {
+              return;
+            }
+            const targetNode = $getNodeByKey(key);
+            if (!targetNode) {
+              return;
+            }
+            const nextX = origin.x + deltaX;
+            const nextY = origin.y + deltaY;
+            if (targetNode instanceof ResizableImageNode) {
+              targetNode.setX(nextX);
+              targetNode.setY(nextY);
+            } else if (targetNode instanceof TextBoxNode) {
+              targetNode.setPosition(nextX, nextY);
+            }
+          });
         } else if (isRotating) {
           // Handle rotation
           const containerRect = containerRef.current?.getBoundingClientRect();
@@ -499,6 +537,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
       dragMetaRef.current.activeNodeKey = nodeKey;
       dragMetaRef.current.selectionBefore = [];
       dragMetaRef.current.wasSelectedBefore = false;
+      selectionSnapshotRef.current = new Map();
       endEdit();
       // keep the image selected after interaction ends
       setSelected(true);
@@ -669,13 +708,6 @@ function getResizeCursor(vertical, horizontal) {
   if (vertical === "bottom" && horizontal === "right") return "se-resize";
   return "pointer";
 }
-
-
-
-
-
-
-
 
 
 
