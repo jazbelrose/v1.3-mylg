@@ -55,6 +55,27 @@ export function formatNotification(msg: string): string {
   }
 
   try {
+    // Handle "slides: [object Object], ..." messages
+    if (normalized.startsWith('slides: ')) {
+      const slidesPart = normalized.replace('slides: ', '');
+      if (slidesPart.startsWith('[') && slidesPart.endsWith(']')) {
+        const slides = JSON.parse(slidesPart);
+        if (Array.isArray(slides)) {
+          const count = slides.length;
+          if (count === 0) return 'No slides updated.';
+          if (count === 1) return 'Edited 1 slide.';
+          
+          // If slides have IDs, list them; otherwise, just the count
+          const slideIds = slides.map((slide: any) => slide?.id || slide?.slideId).filter(Boolean);
+          if (slideIds.length === count) {
+            return `Edited slides ${slideIds.join(', ')}.`;
+          } else {
+            return `Edited ${count} slides.`;
+          }
+        }
+      }
+    }
+
     if (normalized.startsWith('\uD83D\uDCE6 Parsed Payload: ')) {
       const payload = JSON.parse(normalized.replace('\uD83D\uDCE6 Parsed Payload: ', ''));
       if (payload.action === 'projectUpdated') {
@@ -149,6 +170,9 @@ const NotificationList: React.FC<NotificationListProps> = ({
         const time = formatTimeAgo(notif.timestamp);
         const notifId = notif['timestamp#uuid'];
 
+        // Preprocess the message to replace project ID with project title
+        const processedMessage = notif.message.replace(notif.projectId || '', project?.title || notif.projectId || '');
+
         return (
           <li
             key={notifId || idx}
@@ -210,7 +234,7 @@ const NotificationList: React.FC<NotificationListProps> = ({
                   )}
                 </div>
               </div>
-              <div className="notification-message">{formatNotification(notif.message)}</div>
+              <div className="notification-message">{formatNotification(processedMessage)}</div>
             </div>
           </li>
         );
