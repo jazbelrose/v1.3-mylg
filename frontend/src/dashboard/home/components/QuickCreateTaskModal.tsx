@@ -1140,7 +1140,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   }, [dueDate]);
 
 
-  const descriptionCopy = activeProjectId
+  const descriptionCopy = (activeProjectId || scopedProjectId)
     ? `Launch work for ${resolvedActiveProjectName || "this project"}.`
     : "Launch work for any project without leaving this view.";
   const showProjectSelect = !scopedProjectId && hasProjects && !isEditing;

@@ -1879,6 +1879,7 @@ const BADGE_CLASS_BY_TONE = {
                 }}
                 task={detailsTask}
                 embedMode={true}
+                scopedProjectId={projectFilter || undefined}
               />
             </motion.div>
           )}
@@ -1897,6 +1898,7 @@ const BADGE_CLASS_BY_TONE = {
             refreshTasks();
           }}
           task={taskToEdit}
+          scopedProjectId={projectFilter || undefined}
         />
       )}
     </>
