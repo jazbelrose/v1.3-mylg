@@ -25,7 +25,9 @@ export default function TextBoxPlugin(): null {
       () => {
         editor.update(() => {
           // Drop a new floating text box roughly near the center of the slide.
-          const textBox = $createTextBoxNode(300, 200, 480, 160);
+          const defaultX = (1920 - 480) / 2; // Center horizontally
+          const defaultY = (1080 - 160) / 2; // Center vertically
+          const textBox = $createTextBoxNode(defaultX, defaultY, 480, 160);
           textBox.append($createParagraphNode());
           $insertNodeToNearestRoot(textBox);
           textBox.selectEnd();

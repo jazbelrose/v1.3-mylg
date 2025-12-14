@@ -92,6 +92,8 @@ type LexicalEditorProps = {
   contentMaxHeight?: number | string;
   /** Enable slides mode: prevents root-level text insertion, only allows editing inside textboxes */
   slidesMode?: boolean;
+  /** Scale factor for normalizing coordinates in slides mode */
+  scale?: number;
 };
 
 type ActiveProjectLike = { projectId?: string } | string | null | undefined;
@@ -116,6 +118,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   contentOverflowBehavior = "auto",
   contentMaxHeight,
   slidesMode = false,
+  scale = 1,
 }) => {
   const { userName, userData, activeProject } = useData() as {
     userName?: string;
@@ -458,7 +461,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <FigmaPlugin showToolbarButton={false} />
         <LayoutPlugin showToolbarButton={false} />
         <TextBoxPlugin />
-        <TextBoxTransformPlugin />
+        <TextBoxTransformPlugin scale={scale} />
         <DeleteTextBoxPlugin />
         <TextBoxKeyboardShortcutsPlugin />
 

@@ -229,6 +229,12 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         >
           {customToolbar}
 
+          {zoom !== 100 && (
+            <div className="slide-editor__zoom-warning">
+              Zoom active: Positions may not match thumbnails. Reset to 100% for accuracy.
+            </div>
+          )}
+
           <div className="slide-editor__canvas" ref={canvasRef}>
             <div
               className="slide-editor__canvas-scaler"
@@ -260,6 +266,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                     contentPadding={SLIDE_PADDING}
                     contentMaxHeight="100%"
                     slidesMode={true}
+                    scale={appliedScale}
                   />
                 </div>
               </div>

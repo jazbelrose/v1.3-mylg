@@ -372,7 +372,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           width: 100%;
           height: 100%;
           box-sizing: border-box;
-          padding: 80px;
+          padding: 96px 120px;
           display: flex;
           flex-direction: column;
           gap: 16px;
@@ -435,6 +435,12 @@ async function generateThumbnail(html, width, height) {
     
     // Wait longer for images to load
     await page.waitForTimeout(2000);
+    
+    // Wait for all images to load fully
+    await page.waitForFunction(() => {
+      const images = Array.from(document.querySelectorAll('img'));
+      return images.every(img => img.complete && img.naturalWidth > 0);
+    }, { timeout: 5000 });
     
     // Check if images loaded
     const imagesStatus = await page.evaluate(() => {

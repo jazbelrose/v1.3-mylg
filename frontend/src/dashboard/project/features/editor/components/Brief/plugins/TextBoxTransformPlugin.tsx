@@ -242,7 +242,7 @@ function getCursorForInteraction(type: InteractionType | null): string {
   }
 }
 
-export default function TextBoxTransformPlugin(): null {
+export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }): null {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
@@ -544,8 +544,8 @@ export default function TextBoxTransformPlugin(): null {
 
       duplicateForInteraction(event);
 
-      const dx = event.clientX - interaction.startX;
-      const dy = event.clientY - interaction.startY;
+      const dx = (event.clientX - interaction.startX) / scale;
+      const dy = (event.clientY - interaction.startY) / scale;
 
       editor.update(() => {
         if (interaction!.type === "move") {
