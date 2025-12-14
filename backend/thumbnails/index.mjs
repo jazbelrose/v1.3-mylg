@@ -11,6 +11,8 @@ import {
 const BASE_CANVAS_WIDTH = 1920;
 const BASE_CANVAS_HEIGHT = 1080;
 const DEFAULT_BACKGROUND = '#101112';
+// Must match SlideEditor SLIDE_PADDING = "96px 120px"
+const STAGE_PADDING = '96px 120px';
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -314,6 +316,14 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     structuredHtml = `<div class="lexical-doc" style="color:${textColor}">${fallbackDoc}</div>`;
   }
 
+  // IMPORTANT:
+  // In the editor, absolutely-positioned nodes are positioned relative to the padded ContentEditable.
+  // Apply the same padding here for structured layers/elements so x/y match.
+  const needsStagePadding = Boolean(elementHtml || layerMarkup);
+  if (needsStagePadding) {
+    structuredHtml = `<div class="stage-padding">${structuredHtml}</div>`;
+  }
+
   return `<!DOCTYPE html>
   <html>
     <head>
@@ -347,10 +357,20 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           width: 100%;
           height: 100%;
         }
+        .stage-padding {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          padding: ${STAGE_PADDING};
+          overflow: hidden;
+        }
         .text-box {
           white-space: pre-wrap;
           word-wrap: break-word;
         }
+        .text-layer { overflow: hidden; scrollbar-width: none; }
+        .text-layer::-webkit-scrollbar { display: none; }
         .text-layer p {
           margin: 0;
         }
