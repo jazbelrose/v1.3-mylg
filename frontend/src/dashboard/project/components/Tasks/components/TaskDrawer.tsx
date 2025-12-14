@@ -116,7 +116,7 @@ const TaskDrawer: React.FC<TaskDrawerProps> = ({
             markers={mapMarkers}
             onMarkerClick={onMarkerClick}
             focusLocation={mapFocus}
-            focusZoom={15}
+            focusZoom={mapFocus ? undefined : 13}  // Use undefined for task focus (stable zoom), 13 for initial/default
           />
         </div>
         <div className={styles.mapGradient} aria-hidden="true" />

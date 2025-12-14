@@ -48,6 +48,7 @@ const ProjectIdentityModal = ({
     return color && color.trim() ? color : DEFAULT_ACCENT;
   }, [project?.color]);
 
+  // Initialize modal state when opening
   useEffect(() => {
     if (!modal.isOpen) return;
 
@@ -73,26 +74,12 @@ const ProjectIdentityModal = ({
       }
     });
 
-    if (colorModal.selectedColor !== resolvedProjectColor) {
-      colorModal.setSelectedColor(resolvedProjectColor);
-    }
+    // Only reset color when modal opens, not continuously
+    colorModal.setSelectedColor(resolvedProjectColor);
 
     setIsConfirmingDelete(false);
-  }, [
-    modal.isOpen,
-    project?.title,
-    project?.invoiceBrandName,
-    project?.invoiceBrandAddress,
-    project?.invoiceBrandPhone,
-    project?.clientName,
-    project?.clientAddress,
-    project?.clientPhone,
-    project?.clientEmail,
-    editNameModal,
-    invoiceInfoModal,
-    colorModal,
-    resolvedProjectColor,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal.isOpen]); // Only run when modal opens/closes
 
   const accentStyles = useMemo(() => {
     const source = colorModal.selectedColor || resolvedProjectColor;

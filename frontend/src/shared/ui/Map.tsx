@@ -492,7 +492,7 @@ const Map = forwardRef<MapRef, MapProps>(
       if (lastFocusRef.current === key) return;
       lastFocusRef.current = key;
 
-      const zoom = focusZoom ?? Math.max(mapInstance.current.getZoom(), 13);
+      const zoom = focusZoom ?? mapInstance.current.getZoom();  // Preserve current zoom for stability
       mapInstance.current.setView([focusLocation.lat, focusLocation.lng], zoom, { animate: true });
     }, [focusLocation, focusZoom]);
 

@@ -699,7 +699,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const fetchAddressSuggestions = useCallback(
     async (query: string) => {
-      const result = await fetchLocationSuggestions(query, userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined, {
+      let biasLocation = userLocation;
+      if (!biasLocation && userData?.defaultTaskLocation) {
+        biasLocation = {
+          lat: userData.defaultTaskLocation.lat,
+          lng: userData.defaultTaskLocation.lon,
+        };
+      }
+      const result = await fetchLocationSuggestions(query, biasLocation ? { lat: biasLocation.lat, lng: biasLocation.lng } : undefined, {
         limit: 5,
         includeCurrentLocation: true,
         currentLocationAddress: currentLocationAddress || undefined,
@@ -714,7 +721,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const fetchGlobalAddressSuggestions = useCallback(
     async (query: string) => {
-      const suggestions = await fetchGlobalLocationSuggestions(query, userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : undefined, {
+      let biasLocation = userLocation;
+      if (!biasLocation && userData?.defaultTaskLocation) {
+        biasLocation = {
+          lat: userData.defaultTaskLocation.lat,
+          lng: userData.defaultTaskLocation.lon,
+        };
+      }
+      const suggestions = await fetchGlobalLocationSuggestions(query, biasLocation ? { lat: biasLocation.lat, lng: biasLocation.lng } : undefined, {
         limit: 8,
         includeCurrentLocation: true,
         currentLocationAddress: currentLocationAddress || undefined,
@@ -909,8 +923,20 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       },
       () => {
         if (!cancelled) {
-          setUserLocation(null);
-          setCurrentLocationAddress(null);
+          // Fallback to default location if available
+          if (userData?.defaultTaskLocation) {
+            const fallbackCoords = {
+              lat: userData.defaultTaskLocation.lat,
+              lng: userData.defaultTaskLocation.lon,
+            };
+            setUserLocation(fallbackCoords);
+            setCurrentLocationAddress(userData.defaultTaskLocation.formattedAddress);
+            notify("Using your default location for suggestions.", "info");
+          } else {
+            setUserLocation(null);
+            setCurrentLocationAddress(null);
+            notify("Location access denied. Suggestions may be less accurate.", "warning");
+          }
         }
       }
     );
