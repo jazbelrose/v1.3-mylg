@@ -289,29 +289,46 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     },
   });
 
-  const structuredHtml =
-    elementHtml || hasStructuredLayers
-      ? `${elementHtml}${absoluteLayers.join('')}`
-      : `<div class="lexical-doc" style="color:${textColor}">${fallbackDoc}</div>`;
+  const layerMarkup = absoluteLayers.join('');
+  let structuredHtml;
+  if (elementHtml && layerMarkup) {
+    structuredHtml = `${elementHtml}${layerMarkup}`;
+  } else if (elementHtml) {
+    structuredHtml = elementHtml;
+  } else if (layerMarkup) {
+    structuredHtml = `<div class="slide-layers">${layerMarkup}</div>`;
+  } else {
+    structuredHtml = `<div class="lexical-doc" style="color:${textColor}">${fallbackDoc}</div>`;
+  }
 
   return `<!DOCTYPE html>
   <html>
     <head>
       <meta charset="utf-8" />
       <style>
+        html,
         body {
           margin: 0;
           padding: 0;
           width: ${targetWidth}px;
           height: ${targetHeight}px;
           background: ${background};
-          display: flex;
-          align-items: center;
-          justify-content: center;
           overflow: hidden;
           font-family: Arial, sans-serif;
         }
+        body {
+          position: relative;
+        }
+        .thumbnail-stage {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
         .slide-wrapper {
+          position: absolute;
+          top: 0;
+          left: 0;
           width: ${BASE_CANVAS_WIDTH}px;
           height: ${BASE_CANVAS_HEIGHT}px;
           transform-origin: top left;
@@ -328,6 +345,11 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
         }
         .text-layer p {
           margin: 0;
+        }
+        .slide-layers {
+          position: relative;
+          width: 100%;
+          height: 100%;
         }
         .image-layer img {
           display: block;
@@ -365,9 +387,11 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
       </style>
     </head>
     <body>
-      <div class="slide-wrapper">
-        <div class="slide-content">
-          ${structuredHtml}
+      <div class="thumbnail-stage">
+        <div class="slide-wrapper">
+          <div class="slide-content">
+            ${structuredHtml}
+          </div>
         </div>
       </div>
     </body>
@@ -385,7 +409,13 @@ async function generateThumbnail(html, width, height) {
   try {
     const executablePath = await chromium.executablePath();
     browser = await puppeteer.launch({
-      args: puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
+      args: [
+        ...puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
+        '--ignore-certificate-errors',
+        '--ignore-ssl-errors',
+        '--disable-web-security',
+        '--allow-running-insecure-content',
+      ],
       defaultViewport: viewport,
       executablePath,
       headless: 'shell',
@@ -394,7 +424,23 @@ async function generateThumbnail(html, width, height) {
     const page = await browser.newPage();
     await page.setViewport(viewport);
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.waitForTimeout(50);
+    
+    // Wait longer for images to load
+    await page.waitForTimeout(2000);
+    
+    // Check if images loaded
+    const imagesStatus = await page.evaluate(() => {
+      const images = document.querySelectorAll('img');
+      return Array.from(images).map(img => ({
+        src: img.src,
+        complete: img.complete,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+        currentSrc: img.currentSrc,
+      }));
+    });
+    console.log('Images status:', JSON.stringify(imagesStatus, null, 2));
+    
     return await page.screenshot({ type: 'png' });
   } finally {
     if (browser) {
