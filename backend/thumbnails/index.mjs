@@ -158,7 +158,7 @@ function buildThumbnailKey(projectId, slideId, width, height, lexicalJson) {
   const safeProject = safeSegment(projectId, 'anonymous');
   const safeSlide = safeSegment(slideId, 'slide');
   const hash = hashInput({ lexicalJson, width, height });
-  return `thumbnails/${safeProject}/${safeSlide}-${hash}-${width}x${height}.png`;
+  return `public/thumbnails/${safeProject}/${safeSlide}-${hash}-${width}x${height}.png`;
 }
 
 export async function handler(event) {
@@ -193,7 +193,6 @@ export async function handler(event) {
         Key: key,
         Body: imageBuffer,
         ContentType: 'image/png',
-        ACL: 'public-read',
         CacheControl: 'public,max-age=31536000,immutable',
       })
       .promise();
