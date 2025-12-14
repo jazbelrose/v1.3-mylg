@@ -220,11 +220,9 @@ function renderTextBoxLayer(node, textColor) {
     'transform-origin: center center',
     `width:${width}px`,
     `height:${height}px`,
-    'display:flex',
-    'flex-direction:column',
-    'justify-content:center',
-    'padding:16px',
+    'padding:8px',
     'box-sizing:border-box',
+    'overflow:hidden',
     `color:${textColor}`,
   ].join('; ');
 
@@ -422,12 +420,12 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
         .text-layer { 
           overflow: hidden; 
           scrollbar-width: none;
-          white-space: pre-wrap;
-          word-break: break-word;
         }
         .text-layer::-webkit-scrollbar { display: none; }
         .text-layer p {
           margin: 0;
+          white-space: pre-wrap;
+          word-break: break-word;
         }
         .slide-layers {
           position: relative;
