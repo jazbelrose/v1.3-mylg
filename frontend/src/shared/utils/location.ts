@@ -102,13 +102,18 @@ export async function fetchLocationSuggestions(
     return { suggestions, hasLocalResults: false, showWorldwideLink: false };
   }
 
+  let biasLocation = userLocation;
+  if (!biasLocation && defaultLocation) {
+    biasLocation = { lat: defaultLocation.lat, lng: defaultLocation.lon };
+  }
+
   let localResults: NominatimSuggestion[] = [];
   let hasLocalResults = false;
 
-  // Step 1: Local bounded search if we have user location
-  if (userLocation) {
-    const { lat, lng } = userLocation;
-    const delta = 0.5; // ~50km box
+  // Step 1: Local bounded search if we have bias location
+  if (biasLocation) {
+    const { lat, lng } = biasLocation;
+    const delta = 5; // ~550km box for broader state-level coverage
     const urlLocal = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
       q: query,
       format: 'json',
@@ -116,6 +121,7 @@ export async function fetchLocationSuggestions(
       limit: limit.toString(),
       viewbox: `${lng - delta},${lat + delta},${lng + delta},${lat - delta}`,
       bounded: '1',
+      countrycodes: 'us',
     })}`;
 
     try {
@@ -137,7 +143,7 @@ export async function fetchLocationSuggestions(
 
   if (hasLocalResults) {
     // Use local results with distance sorting
-    suggestions = addDistance(localResults, userLocation);
+    suggestions = addDistance(localResults, biasLocation);
     suggestions = sortByDistanceFirst(suggestions);
   } else {
     // Step 2: Global search if no local results
@@ -146,6 +152,7 @@ export async function fetchLocationSuggestions(
       format: 'json',
       addressdetails: '1',
       limit: limit.toString(),
+      countrycodes: 'us',
     })}`;
 
     try {
@@ -157,7 +164,7 @@ export async function fetchLocationSuggestions(
         lat: item.lat,
         lon: item.lon,
       }));
-      suggestions = addDistance(globalResults, userLocation);
+      suggestions = addDistance(globalResults, biasLocation);
       suggestions = sortByDistanceFirst(suggestions);
     } catch (error) {
       console.error("Failed to fetch global suggestions:", error);
@@ -185,7 +192,7 @@ export async function fetchLocationSuggestions(
       display_name: `Use default address: ${defaultLocation.formattedAddress}`,
       lat: defaultLocation.lat.toString(),
       lon: defaultLocation.lon.toString(),
-      distanceKm: userLocation ? haversineKm(userLocation, { lat: defaultLocation.lat, lng: defaultLocation.lon }) : undefined,
+      distanceKm: biasLocation ? haversineKm(biasLocation, { lat: defaultLocation.lat, lng: defaultLocation.lon }) : undefined,
     };
     suggestions = [defaultSuggestion, ...suggestions];
   }
@@ -212,11 +219,17 @@ export async function fetchGlobalLocationSuggestions(
 ): Promise<Suggestion[]> {
   const { limit = 8, includeCurrentLocation = false, currentLocationAddress, defaultLocation } = options || {};
 
+  let biasLocation = userLocation;
+  if (!biasLocation && defaultLocation) {
+    biasLocation = { lat: defaultLocation.lat, lng: defaultLocation.lon };
+  }
+
   const urlGlobal = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
     q: query,
     format: 'json',
     addressdetails: '1',
     limit: limit.toString(),
+    countrycodes: 'us',
   })}`;
 
   try {
@@ -229,7 +242,7 @@ export async function fetchGlobalLocationSuggestions(
       lon: item.lon,
     }));
 
-    suggestions = addDistance(suggestions, userLocation);
+    suggestions = addDistance(suggestions, biasLocation);
     suggestions = sortByDistanceFirst(suggestions);
 
     // Add current location at the top if requested
@@ -253,7 +266,7 @@ export async function fetchGlobalLocationSuggestions(
         display_name: `Use default address: ${defaultLocation.formattedAddress}`,
         lat: defaultLocation.lat.toString(),
         lon: defaultLocation.lon.toString(),
-        distanceKm: userLocation ? haversineKm(userLocation, { lat: defaultLocation.lat, lng: defaultLocation.lon }) : undefined,
+        distanceKm: biasLocation ? haversineKm(biasLocation, { lat: defaultLocation.lat, lng: defaultLocation.lon }) : undefined,
       };
       suggestions = [defaultSuggestion, ...suggestions];
     }
