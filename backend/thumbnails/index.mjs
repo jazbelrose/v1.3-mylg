@@ -10,6 +10,7 @@ import {
 
 const BASE_CANVAS_WIDTH = 1920;
 const BASE_CANVAS_HEIGHT = 1080;
+const DEFAULT_BACKGROUND = '#101112';
 
 // WebGL is not needed for thumbnails, so disable it to avoid extracting extra assets.
 chromium.setGraphicsMode = false;
@@ -44,9 +45,108 @@ function safeSegment(value, fallback) {
   return raw.replace(/[^a-zA-Z0-9-_]/g, '-');
 }
 
-async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight) {
+function parseColorToRgb(value) {
+  if (typeof value !== 'string') return null;
+  const color = value.trim();
+  const hexMatch = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hexMatch) {
+    let hex = hexMatch[1];
+    if (hex.length === 3) {
+      hex = hex
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+    const numeric = Number.parseInt(hex, 16);
+    return {
+      r: (numeric >> 16) & 255,
+      g: (numeric >> 8) & 255,
+      b: numeric & 255,
+    };
+  }
+  const rgbMatch = color.match(/^rgba?\(([^)]+)\)/i);
+  if (rgbMatch) {
+    const parts = rgbMatch[1].split(',').map((part) => Number(part.trim()));
+    if (parts.length >= 3 && parts.every((n) => Number.isFinite(n))) {
+      return { r: parts[0], g: parts[1], b: parts[2] };
+    }
+  }
+  return null;
+}
+
+function pickTextColor(background) {
+  const rgb = parseColorToRgb(background);
+  if (!rgb) return '#f5f5f5';
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance > 0.6 ? '#111111' : '#f5f5f5';
+}
+
+function applyTextFormatting(text, format = 0) {
+  let output = text;
+  const FORMAT = {
+    bold: 1,
+    italic: 2,
+    strikethrough: 4,
+    underline: 8,
+    code: 16,
+  };
+  if (format & FORMAT.bold) output = `<strong>${output}</strong>`;
+  if (format & FORMAT.italic) output = `<em>${output}</em>`;
+  if (format & FORMAT.strikethrough) output = `<s>${output}</s>`;
+  if (format & FORMAT.underline) output = `<u>${output}</u>`;
+  if (format & FORMAT.code) output = `<code>${output}</code>`;
+  return output;
+}
+
+function lexicalNodeToHtml(node) {
+  if (!node) return '';
+  const children = Array.isArray(node.children)
+    ? node.children.map((child) => lexicalNodeToHtml(child)).join('')
+    : '';
+
+  switch (node.type) {
+    case 'text': {
+      const text = escapeHtml(node.text || '');
+      return applyTextFormatting(text, node.format || 0);
+    }
+    case 'paragraph':
+      return `<p>${children || '<br />'}</p>`;
+    case 'heading': {
+      const tag = node.tag || `h${node.level || 2}`;
+      return `<${tag}>${children}</${tag}>`;
+    }
+    case 'quote':
+      return `<blockquote>${children}</blockquote>`;
+    case 'list': {
+      const tag = node.listType === 'number' ? 'ol' : 'ul';
+      return `<${tag}>${children}</${tag}>`;
+    }
+    case 'listitem':
+    case 'list-item':
+      return `<li>${children}</li>`;
+    case 'linebreak':
+    case 'linebreaknode':
+      return '<br />';
+    case 'code':
+      return `<pre><code>${escapeHtml(node.text || children)}</code></pre>`;
+    default:
+      return children;
+  }
+}
+
+function renderDocumentContent(lexicalJson) {
+  const root = lexicalJson?.root || lexicalJson?.document?.root;
+  if (!root || !Array.isArray(root.children)) {
+    return '<p></p>';
+  }
+  const content = root.children.map((child) => lexicalNodeToHtml(child)).join('');
+  return content || '<p></p>';
+}
+
+async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundOverride) {
   const elements = Array.isArray(lexicalJson?.elements) ? lexicalJson.elements : [];
-  const background = lexicalJson?.background || '#ffffff';
+  const background = backgroundOverride || lexicalJson?.background || DEFAULT_BACKGROUND;
+  const textColor = pickTextColor(background);
   const scale = Math.min(
     targetWidth / BASE_CANVAS_WIDTH,
     targetHeight / BASE_CANVAS_HEIGHT,
@@ -77,6 +177,10 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight) {
       return `<div style="${style}" class="text-box">${content}</div>`;
     })
     .join('');
+
+  const structuredHtml =
+    elementHtml ||
+    `<div class="lexical-doc" style="color:${textColor}">${renderDocumentContent(lexicalJson)}</div>`;
 
   return `<!DOCTYPE html>
   <html>
@@ -113,12 +217,36 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight) {
         img {
           object-fit: contain;
         }
+        .lexical-doc {
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          padding: 80px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          justify-content: center;
+        }
+        .lexical-doc p,
+        .lexical-doc h1,
+        .lexical-doc h2,
+        .lexical-doc h3,
+        .lexical-doc h4,
+        .lexical-doc h5,
+        .lexical-doc h6 {
+          margin: 0;
+        }
+        .lexical-doc blockquote {
+          margin: 0;
+          padding-left: 16px;
+          border-left: 4px solid currentColor;
+        }
       </style>
     </head>
     <body>
       <div class="slide-wrapper">
         <div class="slide-content">
-          ${elementHtml}
+          ${structuredHtml}
         </div>
       </div>
     </body>
@@ -175,6 +303,7 @@ export async function handler(event) {
     const lexicalJson = body?.lexicalJson;
     const projectId = body?.projectId;
     const slideId = body?.slideId;
+    const backgroundColor = body?.backgroundColor;
 
     if (!lexicalJson) {
       return json(400, headers, { error: 'Missing lexicalJson' });
@@ -183,7 +312,7 @@ export async function handler(event) {
       throw new Error('BUCKET_NAME environment variable is not configured');
     }
 
-    const html = await renderLexicalToHtml(lexicalJson, targetWidth, targetHeight);
+    const html = await renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundColor);
     const imageBuffer = await generateThumbnail(html, targetWidth, targetHeight);
     const key = buildThumbnailKey(projectId, slideId, targetWidth, targetHeight, lexicalJson);
 
