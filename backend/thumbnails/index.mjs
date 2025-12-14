@@ -95,6 +95,37 @@ function pickTextColor(background) {
   return luminance > 0.6 ? '#111111' : '#f5f5f5';
 }
 
+function sanitizeInlineStyle(style = '') {
+  // Keep this conservative to avoid weird/unsafe CSS in Lambda HTML.
+  const allowed = new Set([
+    'font-size',
+    'font-family',
+    'font-weight',
+    'font-style',
+    'line-height',
+    'letter-spacing',
+    'text-decoration',
+    'text-transform',
+    'color',
+    'background-color',
+    'text-shadow',
+  ]);
+  return String(style)
+    .split(';')
+    .map((decl) => decl.trim())
+    .filter(Boolean)
+    .map((decl) => {
+      const idx = decl.indexOf(':');
+      if (idx === -1) return '';
+      const prop = decl.slice(0, idx).trim().toLowerCase();
+      const val = decl.slice(idx + 1).trim();
+      if (!allowed.has(prop) || !val) return '';
+      return `${prop}:${val}`;
+    })
+    .filter(Boolean)
+    .join(';');
+}
+
 function applyTextFormatting(text, format = 0) {
   let output = text;
   const FORMAT = {
@@ -121,13 +152,32 @@ function lexicalNodeToHtml(node) {
   switch (node.type) {
     case 'text': {
       const text = escapeHtml(node.text || '');
-      return applyTextFormatting(text, node.format || 0);
+      const formatted = applyTextFormatting(text, node.format || 0);
+      const style = sanitizeInlineStyle(node.style || '');
+      if (style) {
+        return `<span style="${escapeHtml(style)}">${formatted}</span>`;
+      }
+      return formatted;
     }
-    case 'paragraph':
-      return `<p>${children || '<br />'}</p>`;
+    case 'paragraph': {
+      // Lexical element alignment often shows up here.
+      // (string formats: 'left'|'center'|'right'|'justify')
+      const align =
+        typeof node.format === 'string' && node.format
+          ? `text-align:${node.format}`
+          : '';
+      const style = [align].filter(Boolean).join(';');
+      return style
+        ? `<p style="${escapeHtml(style)}">${children || '<br />'}</p>`
+        : `<p>${children || '<br />'}</p>`;
+    }
     case 'heading': {
       const tag = node.tag || `h${node.level || 2}`;
       return `<${tag}>${children}</${tag}>`;
+    }
+    case 'link': {
+      const url = escapeHtml(node.url || '#');
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${children}</a>`;
     }
     case 'quote':
       return `<blockquote>${children}</blockquote>`;
@@ -337,7 +387,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           height: ${targetHeight}px;
           background: ${background};
           overflow: hidden;
-          font-family: Arial, sans-serif;
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
         body {
           position: relative;
@@ -369,7 +419,12 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           white-space: pre-wrap;
           word-wrap: break-word;
         }
-        .text-layer { overflow: hidden; scrollbar-width: none; }
+        .text-layer { 
+          overflow: hidden; 
+          scrollbar-width: none;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
         .text-layer::-webkit-scrollbar { display: none; }
         .text-layer p {
           margin: 0;
