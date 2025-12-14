@@ -10,8 +10,6 @@ provider:
   environment:
     BUCKET_NAME: ${self:custom.bucketName}
     CDN_DOMAIN: ${self:custom.cdnDomain}
-    PUPPETEER_EXECUTABLE_PATH: /opt/headless-chromium
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
   iam:
     role:
       statements:
@@ -37,7 +35,7 @@ functions:
     handler: index.handler
     layers:
       - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
-      - arn:aws:lambda:us-west-2:764866452798:layer:chrome-aws-lambda:41
+      - arn:aws:lambda:us-west-2:764866452798:layer:chrome-aws-lambda:31
     events:
       - http:
           path: /thumbnails
@@ -67,14 +65,14 @@ functions:
     memorySize: 2048
     environment:
       PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
-      PUPPETEER_EXECUTABLE_PATH: /opt/headless-chromium
+      PUPPETEER_EXECUTABLE_PATH: /opt/chrome/headless-chromium
 
 package:
-  include:
-    - node_modules/**
+  individually: true
   exclude:
     - .git/**
     - test/**
+    - node_modules/sharp/**
 
 resources:
   Resources:

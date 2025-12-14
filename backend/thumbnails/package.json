@@ -12,8 +12,7 @@
   "dependencies": {
     "aws-sdk": "^2.1430.0",
     "crypto": "^1.0.1",
-    "puppeteer-core": "^21.0.0",
-    "sharp": "^0.32.6"
+    "puppeteer-core": "^21.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -1,6 +1,7 @@
 import AWS from 'aws-sdk';
 import puppeteer from 'puppeteer-core';
 import crypto from 'crypto';
+import fs from 'fs';
 
 // Lazy import Sharp to avoid top-level crashes
 let sharpModule;
@@ -137,10 +138,14 @@ async function generateThumbnail(html, width = 320, height = 180) {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--disable-gpu',
-        '--single-process'
+        '--single-process', // <- this one doesn't work in Windows
+        '--disable-gpu'
       ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/headless-chromium',
+      defaultViewport: {
+        width: 1920,
+        height: 1080
+      },
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/chrome/headless-chromium',
       headless: true,
     });
 
@@ -168,6 +173,9 @@ async function generateThumbnail(html, width = 320, height = 180) {
 export async function handler(event) {
   const CORS = corsHeadersFromEvent(event);
 
+  console.log('opt dir:', fs.existsSync('/opt') ? fs.readdirSync('/opt') : 'no /opt');
+  if (fs.existsSync('/opt/chrome')) console.log('opt/chrome:', fs.readdirSync('/opt/chrome'));
+
   try {
     const body = JSON.parse(event.body || '{}');
     const { lexicalJson, width = 320, height = 180, projectId, slideId } = body;
@@ -177,7 +185,8 @@ export async function handler(event) {
     }
 
     // Generate the actual thumbnail
-    const thumbnailBuffer = await generateThumbnail(lexicalJson, width, height);
+    const html = await renderLexicalToHtml(lexicalJson);
+    const thumbnailBuffer = await generateThumbnail(html, width, height);
     
     // Upload to S3
     const hash = hashInput(JSON.stringify(lexicalJson));
@@ -196,6 +205,8 @@ export async function handler(event) {
     return json(200, CORS, { url });
   } catch (error) {
     console.error('Error in handler:', error);
-    return json(500, CORS, { error: 'Internal server error', details: error.message });
+    const message =
+      error instanceof Error ? (error.stack || error.message) : JSON.stringify(error);
+    return json(500, CORS, { error: 'Internal server error', details: message });
   }
 }
