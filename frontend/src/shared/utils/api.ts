@@ -223,13 +223,15 @@ export function getFileUrl(keyOrUrl: string): string {
   if (keyOrUrl.startsWith('http')) {
     try {
       const parsed = new URL(keyOrUrl);
-      const host = parsed.hostname;
-      const cdnHost = FILE_CDN ? new URL(FILE_CDN).hostname : '';
-      const shouldRewrite =
-        host.includes(FILE_BUCKET) ||
-        host.endsWith('amazonaws.com') ||
-        (cdnHost && host === cdnHost);
-      if (!shouldRewrite) {
+      const host = parsed.hostname.toLowerCase();
+      const cdnHost = FILE_CDN ? new URL(FILE_CDN).hostname.toLowerCase() : '';
+      const bucketHosts = [
+        `${FILE_BUCKET}.s3.${FILE_REGION}.amazonaws.com`.toLowerCase(),
+        `${FILE_BUCKET}.s3.amazonaws.com`.toLowerCase(),
+      ];
+      const isFileBucketHost = bucketHosts.includes(host) || host === FILE_BUCKET.toLowerCase();
+      const isCdnHost = Boolean(cdnHost && host === cdnHost);
+      if (!isFileBucketHost && !isCdnHost) {
         return keyOrUrl;
       }
       const path = parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname;
@@ -369,10 +371,38 @@ const BASE_ENDPOINTS = {
 
 const defaults = (BASE_ENDPOINTS as Record<string, Record<string, string>>)[ENV] || BASE_ENDPOINTS.development;
 
+const LEGACY_THUMBNAIL_HOST = 'pve3o4elx7.execute-api.us-west-2.amazonaws.com';
+const CURRENT_THUMBNAIL_ENDPOINT =
+  BASE_ENDPOINTS.development.THUMBNAILS_URL ||
+  'https://lgomuuj428.execute-api.us-west-2.amazonaws.com/dev/thumbnails';
+
+function normalizeEndpoint(key: string, rawValue: string): string {
+  if (key !== 'THUMBNAILS_URL') {
+    return rawValue;
+  }
+
+  const trimmed = rawValue?.trim();
+  if (!trimmed) {
+    return defaults.THUMBNAILS_URL;
+  }
+  if (trimmed.includes(LEGACY_THUMBNAIL_HOST)) {
+    if (typeof console !== 'undefined') {
+      console.warn(
+        `[api] VITE_THUMBNAILS_URL points at deprecated host ${LEGACY_THUMBNAIL_HOST}. Falling back to ${CURRENT_THUMBNAIL_ENDPOINT}.`,
+      );
+    }
+    return CURRENT_THUMBNAIL_ENDPOINT;
+  }
+  return trimmed;
+}
+
 export const API_ENDPOINTS: ApiEndpoints = Object.keys(BASE_ENDPOINTS.development).reduce<ApiEndpoints>(
   (acc, key) => {
     const envKey = `VITE_${key}` as keyof ImportMetaEnv;
-    acc[key] = (import.meta.env as Record<string, string | undefined>)[envKey] || (defaults as Record<string, string>)[key];
+    const rawValue =
+      (import.meta.env as Record<string, string | undefined>)[envKey] ||
+      (defaults as Record<string, string>)[key];
+    acc[key] = normalizeEndpoint(key, rawValue);
     return acc;
   },
   {}
@@ -1267,8 +1297,6 @@ export async function updateCollabInvite(inviteId: string, action: 'accept' | 'd
 export const acceptCollabInvite = (inviteId: string) => updateCollabInvite(inviteId, 'accept');
 export const declineCollabInvite = (inviteId: string) => updateCollabInvite(inviteId, 'decline');
 export const cancelCollabInvite  = (inviteId: string) => updateCollabInvite(inviteId, 'cancel');
-
-
 
 
 

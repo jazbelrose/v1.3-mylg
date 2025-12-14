@@ -30,7 +30,7 @@ plugins:
 custom:
   bucketName: mylg-files-v12
   bucketRegion: ${self:provider.region}
-  cdnDomain: ${self:custom.bucketName}.s3.${self:custom.bucketRegion}.amazonaws.com
+  cdnDomain: https://d3kix94vejprx7.cloudfront.net
 
 functions:
   generateThumbnail:
