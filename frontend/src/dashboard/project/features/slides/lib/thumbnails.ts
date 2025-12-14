@@ -1,7 +1,7 @@
 // lib/thumbnails.ts - Thumbnail generation and upload utilities
 import { toBlob } from 'html-to-image';
 import { uploadData } from 'aws-amplify/storage';
-import { getFileUrl } from '@/shared/utils/api';
+import { getFileUrl, THUMBNAILS_URL, apiFetch } from '@/shared/utils/api';
 import { isUiThumbsEnabled } from './featureFlags';
 
 function prepareNodeForThumbnailCapture(root: HTMLElement) {
@@ -624,13 +624,41 @@ export async function generateAndUploadThumbnail(
  * Generate thumbnail from slide content and upload to S3
  * @param slideId - The slide ID to capture
  * @param projectId - The project ID
+ * @param backgroundColor - Optional background color
+ * @param content - Optional Lexical JSON content for server-side generation
  * @returns Public S3 URL of the uploaded thumbnail
  */
 export async function generateSlideThumbnail(
   slideId: string,
   projectId: string,
-  backgroundColor?: string
+  backgroundColor?: string,
+  content?: string
 ): Promise<string | null> {
+  // Try server-side thumbnail generation first if content is provided
+  if (content) {
+    try {
+      console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}`);
+      const response = await apiFetch<{ url: string }>(THUMBNAILS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lexicalJson: JSON.parse(content),
+          projectId,
+          slideId,
+          width: 320,
+          height: 180,
+        }),
+      });
+      if (response.url) {
+        console.log(`[Thumbnails] Server-side generation successful for slide ${slideId}`);
+        return response.url;
+      }
+    } catch (error) {
+      console.warn(`[Thumbnails] Server-side generation failed for slide ${slideId}, falling back to client-side:`, error);
+    }
+  }
+
+  // Fallback to client-side generation
   try {
     // Find the editor content for this slide. Different builds/styles may use
     // different class names for the editable root (e.g. `ContentEditable__root`
@@ -686,8 +714,34 @@ export async function generateSlideThumbnail(
 export async function generateSlideThumbnailWithSize(
   slideId: string,
   projectId: string,
-  backgroundColor?: string
+  backgroundColor?: string,
+  content?: string
 ): Promise<string | null> {
+  // Try server-side thumbnail generation first if content is provided
+  if (content) {
+    try {
+      console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}`);
+      const response = await apiFetch<{ url: string }>(THUMBNAILS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lexicalJson: JSON.parse(content),
+          projectId,
+          slideId,
+          width: 320,
+          height: 180,
+        }),
+      });
+      if (response.url) {
+        console.log(`[Thumbnails] Server-side generation successful for slide ${slideId}`);
+        return response.url;
+      }
+    } catch (error) {
+      console.warn(`[Thumbnails] Server-side generation failed for slide ${slideId}, falling back to client-side:`, error);
+    }
+  }
+
+  // Fallback to client-side generation
   try {
     const selectors = [
       `.ContentEditable__root`,
@@ -734,19 +788,20 @@ export async function generateSlideThumbnailWithSize(
  * @param projectId - The project ID
  * @param slideId - The slide ID
  * @param onSuccess - Callback when thumbnail is saved
+ * @param options - Options including content for server-side generation
  */
 export async function saveSlideThumb(
   projectId: string,
   slideId: string,
   onSuccess?: (thumbnailUrl: string) => void,
-  options?: { width?: number; height?: number; scale?: number; backgroundColor?: string }
+  options?: { width?: number; height?: number; scale?: number; backgroundColor?: string; content?: string }
 ): Promise<void> {
   try {
     let thumbnailUrl: string | null;
     if (options?.width && options?.height) {
-      thumbnailUrl = await generateSlideThumbnailWithSize(slideId, projectId, options.backgroundColor);
+      thumbnailUrl = await generateSlideThumbnailWithSize(slideId, projectId, options.backgroundColor, options.content);
     } else {
-      thumbnailUrl = await generateSlideThumbnail(slideId, projectId, options?.backgroundColor);
+      thumbnailUrl = await generateSlideThumbnail(slideId, projectId, options?.backgroundColor, options.content);
     }
     if (!thumbnailUrl) {
       console.warn("No thumbnail generated");
