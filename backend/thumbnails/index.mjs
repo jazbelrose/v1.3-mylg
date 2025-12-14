@@ -419,12 +419,16 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event?.body || '{}');
+    console.log('Received event body:', JSON.stringify(body, null, 2));
     const targetWidth = clampDimension(body?.width, 320);
     const targetHeight = clampDimension(body?.height, 180);
     const lexicalJson = body?.lexicalJson;
     const projectId = body?.projectId;
     const slideId = body?.slideId;
     const backgroundColor = body?.backgroundColor;
+
+    console.log('Parsed inputs:', { targetWidth, targetHeight, projectId, slideId, backgroundColor });
+    console.log('Lexical JSON:', JSON.stringify(lexicalJson, null, 2));
 
     if (!lexicalJson) {
       return json(400, headers, { error: 'Missing lexicalJson' });
@@ -434,8 +438,14 @@ export async function handler(event) {
     }
 
     const html = await renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundColor);
+    console.log('Generated HTML length:', html.length);
+    console.log('Generated HTML snippet:', html.substring(0, 500));
+
     const imageBuffer = await generateThumbnail(html, targetWidth, targetHeight);
+    console.log('Screenshot buffer length:', imageBuffer.length);
+
     const key = buildThumbnailKey(projectId, slideId, targetWidth, targetHeight, lexicalJson);
+    console.log('S3 key:', key);
 
     await s3
       .putObject({
@@ -446,6 +456,8 @@ export async function handler(event) {
         CacheControl: 'public,max-age=31536000,immutable',
       })
       .promise();
+
+    console.log('S3 upload successful for key:', key);
 
     const cdnBase =
       CDN_DOMAIN?.startsWith('http') || !CDN_DOMAIN
