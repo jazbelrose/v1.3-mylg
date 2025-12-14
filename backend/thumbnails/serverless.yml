@@ -4,7 +4,8 @@ frameworkVersion: '3'
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs20.x
+  architecture: x86_64
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-west-2'}
   environment:
@@ -35,7 +36,6 @@ functions:
     handler: index.handler
     layers:
       - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
-      - arn:aws:lambda:us-west-2:764866452798:layer:chrome-aws-lambda:31
     events:
       - http:
           path: /thumbnails
@@ -63,9 +63,6 @@ functions:
             allowCredentials: false
     timeout: 60
     memorySize: 2048
-    environment:
-      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
-      PUPPETEER_EXECUTABLE_PATH: /opt/chrome/headless-chromium
 
 package:
   individually: true

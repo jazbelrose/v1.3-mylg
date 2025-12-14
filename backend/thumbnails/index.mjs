@@ -2,156 +2,151 @@ import AWS from 'aws-sdk';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import crypto from 'crypto';
-import fs from 'fs';
+import {
+  corsHeadersFromEvent,
+  preflightFromEvent,
+  json,
+} from '/opt/nodejs/utils/cors.mjs';
 
-// Lazy import Sharp to avoid top-level crashes
-let sharpModule;
-async function getSharp() {
-  if (!sharpModule) {
-    sharpModule = (await import('sharp')).default;
-  }
-  return sharpModule;
-}
+const BASE_CANVAS_WIDTH = 1920;
+const BASE_CANVAS_HEIGHT = 1080;
 
-// CORS utilities (inline for now)
-const ALLOWED_ORIGINS = [
-  'https://beta.mylg.studio',
-  'https://mylg.studio',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://192.168.1.172:5173',
-  'http://192.168.1.200:5173',
-  'http://192.168.1.172:3000',
-  'http://192.168.1.200:3000'
-];
-
-function corsHeaders(origin) {
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : 'http://localhost:5173';
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
-    'Vary': 'Origin',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token, x-csrf-token, X-Amz-Date, X-Amz-Security-Token, X-Amz-User-Agent, X-Amzn-Trace-Id',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Expose-Headers': 'Authorization,x-amzn-RequestId,x-amz-apigw-id',
-    'Access-Control-Max-Age': '600',
-  };
-}
-
-function corsHeadersFromEvent(event) {
-  const h = event?.headers || {};
-  const origin = h.origin || h.Origin || h.ORIGIN || '';
-  return corsHeaders(origin);
-}
-
-function json(statusCode, headers, body) {
-  return {
-    statusCode,
-    headers: { ...headers, 'Content-Type': 'application/json' },
-    body: typeof body === 'string' ? body : JSON.stringify(body ?? ''),
-  };
-}
+// WebGL is not needed for thumbnails, so disable it to avoid extracting extra assets.
+chromium.setGraphicsMode = false;
 
 const s3 = new AWS.S3();
-
 const BUCKET_NAME = process.env.BUCKET_NAME;
 const CDN_DOMAIN = process.env.CDN_DOMAIN;
 
-// Function to hash the input JSON
+function escapeHtml(text = '') {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function hashInput(input) {
   return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }
 
-// Function to render Lexical JSON to HTML
-async function renderLexicalToHtml(lexicalJson) {
-  // Assume lexicalJson has elements array with type, content, x, y, rotation, etc.
-  const elements = lexicalJson.elements || [];
+function clampDimension(value, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(3840, Math.round(numeric)));
+}
 
-  const elementHtml = elements.map(el => {
-    const style = `
-      position: absolute;
-      left: ${el.x || 0}px;
-      top: ${el.y || 0}px;
-      width: ${el.width || 200}px;
-      height: ${el.height || 50}px;
-      transform: rotate(${el.rotation || 0}deg);
-      font-size: ${el.fontSize || 16}px;
-      color: ${el.color || 'black'};
-      background: ${el.background || 'transparent'};
-      border: ${el.border || 'none'};
-      text-align: ${el.textAlign || 'left'};
-      overflow: hidden;
-    `;
+function safeSegment(value, fallback) {
+  const raw = typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
+  return raw.replace(/[^a-zA-Z0-9-_]/g, '-');
+}
 
-    if (el.type === 'text') {
-      return `<div style="${style}" class="text-box">${el.content || ''}</div>`;
-    } else if (el.type === 'image') {
-      return `<img src="${el.src}" style="${style}" />`;
-    } else {
-      return `<div style="${style}">${el.content || ''}</div>`;
-    }
-  }).join('');
+async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight) {
+  const elements = Array.isArray(lexicalJson?.elements) ? lexicalJson.elements : [];
+  const background = lexicalJson?.background || '#ffffff';
+  const scale = Math.min(
+    targetWidth / BASE_CANVAS_WIDTH,
+    targetHeight / BASE_CANVAS_HEIGHT,
+  );
 
-  // Wrap in basic HTML structure
-  const fullHtml = `
-    <!DOCTYPE html>
-    <html>
+  const elementHtml = elements
+    .map((el = {}) => {
+      const style = [
+        'position: absolute',
+        `left: ${Number(el.x) || 0}px`,
+        `top: ${Number(el.y) || 0}px`,
+        `width: ${Number(el.width) || 200}px`,
+        `height: ${Number(el.height) || 50}px`,
+        `transform: rotate(${Number(el.rotation) || 0}deg)`,
+        `font-size: ${Number(el.fontSize) || 16}px`,
+        `color: ${el.color || 'black'}`,
+        `background: ${el.background || 'transparent'}`,
+        `border: ${el.border || 'none'}`,
+        `text-align: ${el.textAlign || 'left'}`,
+        'overflow: hidden',
+      ].join('; ');
+
+      if (el.type === 'image' && el.src) {
+        return `<img src="${escapeHtml(el.src)}" style="${style}" alt="" />`;
+      }
+
+      const content = escapeHtml(el.content || '');
+      return `<div style="${style}" class="text-box">${content}</div>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+  <html>
     <head>
+      <meta charset="utf-8" />
       <style>
         body {
           margin: 0;
           padding: 0;
-          width: 1920px;
-          height: 1080px;
-          background: ${lexicalJson.background || 'white'};
+          width: ${targetWidth}px;
+          height: ${targetHeight}px;
+          background: ${background};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
           font-family: Arial, sans-serif;
         }
+        .slide-wrapper {
+          width: ${BASE_CANVAS_WIDTH}px;
+          height: ${BASE_CANVAS_HEIGHT}px;
+          transform-origin: top left;
+          transform: scale(${scale});
+        }
         .slide-content {
+          position: relative;
           width: 100%;
           height: 100%;
-          position: relative;
         }
         .text-box {
           white-space: pre-wrap;
           word-wrap: break-word;
         }
+        img {
+          object-fit: contain;
+        }
       </style>
     </head>
     <body>
-      <div class="slide-content">
-        ${elementHtml}
+      <div class="slide-wrapper">
+        <div class="slide-content">
+          ${elementHtml}
+        </div>
       </div>
     </body>
-    </html>
-  `;
-
-  return fullHtml;
+  </html>`;
 }
 
-// Function to generate thumbnail
-async function generateThumbnail(html, width = 320, height = 180) {
+async function generateThumbnail(html, width, height) {
+  const viewport = {
+    width,
+    height,
+    deviceScaleFactor: 2,
+  };
+
   let browser;
   try {
+    const executablePath = await chromium.executablePath();
     browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport ?? { width: 1920, height: 1080 },
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      args: puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
+      defaultViewport: viewport,
+      executablePath,
+      headless: 'shell',
     });
 
     const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport(viewport);
     await page.setContent(html, { waitUntil: 'networkidle0' });
-
-    const screenshot = await page.screenshot({ type: 'png', fullPage: false });
-
-    // Resize with Sharp
-    const sharp = await getSharp();
-    const resized = await sharp(screenshot)
-      .resize(width, height, { fit: 'cover' })
-      .png()
-      .toBuffer();
-
-    return resized;
+    await page.waitForTimeout(50);
+    return await page.screenshot({ type: 'png' });
   } finally {
     if (browser) {
       await browser.close();
@@ -159,43 +154,61 @@ async function generateThumbnail(html, width = 320, height = 180) {
   }
 }
 
-export async function handler(event) {
-  const CORS = corsHeadersFromEvent(event);
+function buildThumbnailKey(projectId, slideId, width, height, lexicalJson) {
+  const safeProject = safeSegment(projectId, 'anonymous');
+  const safeSlide = safeSegment(slideId, 'slide');
+  const hash = hashInput({ lexicalJson, width, height });
+  return `thumbnails/${safeProject}/${safeSlide}-${hash}-${width}x${height}.png`;
+}
 
-  console.log('opt dir:', fs.existsSync('/opt') ? fs.readdirSync('/opt') : 'no /opt');
-  if (fs.existsSync('/opt/chrome')) console.log('opt/chrome:', fs.readdirSync('/opt/chrome'));
+export async function handler(event) {
+  if ((event?.httpMethod || event?.requestContext?.httpMethod) === 'OPTIONS') {
+    return preflightFromEvent(event);
+  }
+
+  const headers = corsHeadersFromEvent(event);
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const { lexicalJson, width = 320, height = 180, projectId, slideId } = body;
+    const body = JSON.parse(event?.body || '{}');
+    const targetWidth = clampDimension(body?.width, 320);
+    const targetHeight = clampDimension(body?.height, 180);
+    const lexicalJson = body?.lexicalJson;
+    const projectId = body?.projectId;
+    const slideId = body?.slideId;
 
     if (!lexicalJson) {
-      return json(400, CORS, { error: 'Missing lexicalJson' });
+      return json(400, headers, { error: 'Missing lexicalJson' });
+    }
+    if (!BUCKET_NAME) {
+      throw new Error('BUCKET_NAME environment variable is not configured');
     }
 
-    // Generate the actual thumbnail
-    const html = await renderLexicalToHtml(lexicalJson);
-    const thumbnailBuffer = await generateThumbnail(html, width, height);
-    
-    // Upload to S3
-    const hash = hashInput(JSON.stringify(lexicalJson));
-    const key = `thumbnails/${hash}_${width}x${height}.png`;
-    
-    await s3.putObject({
-      Bucket: BUCKET_NAME,
-      Key: key,
-      Body: thumbnailBuffer,
-      ContentType: 'image/png',
-      ACL: 'public-read'
-    }).promise();
-    
-    const url = `https://${CDN_DOMAIN}/${key}`;
-    
-    return json(200, CORS, { url });
+    const html = await renderLexicalToHtml(lexicalJson, targetWidth, targetHeight);
+    const imageBuffer = await generateThumbnail(html, targetWidth, targetHeight);
+    const key = buildThumbnailKey(projectId, slideId, targetWidth, targetHeight, lexicalJson);
+
+    await s3
+      .putObject({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        Body: imageBuffer,
+        ContentType: 'image/png',
+        ACL: 'public-read',
+        CacheControl: 'public,max-age=31536000,immutable',
+      })
+      .promise();
+
+    const cdnBase =
+      CDN_DOMAIN?.startsWith('http') || !CDN_DOMAIN
+        ? CDN_DOMAIN || `https://${BUCKET_NAME}.s3.amazonaws.com`
+        : `https://${CDN_DOMAIN}`;
+    const url = `${cdnBase.replace(/\/$/, '')}/${key}`;
+
+    return json(200, headers, { url });
   } catch (error) {
-    console.error('Error in handler:', error);
-    const message =
-      error instanceof Error ? (error.stack || error.message) : JSON.stringify(error);
-    return json(500, CORS, { error: 'Internal server error', details: message });
+    console.error('Thumbnail generation failed:', error);
+    const details =
+      error instanceof Error ? error.stack || error.message : JSON.stringify(error);
+    return json(500, headers, { error: 'Internal server error', details });
   }
 }
