@@ -92,6 +92,7 @@ const Map = forwardRef<MapRef, MapProps>(
     const customMarkersRef = useRef<Record<string, L.Marker>>({});
     const lastFocusRef = useRef<string | null>(null);
     const markerIdsRef = useRef<string[]>([]);
+    const hasFittedRef = useRef(false);
 
     const createMarkerIcon = (marker: MapMarker) => {
       const { iconUrl, isActive, markerColor, borderColor, variant } = marker;
@@ -161,6 +162,8 @@ const Map = forwardRef<MapRef, MapProps>(
           zoomOffset: 0,
         },
       ).addTo(mapInstance.current);
+
+      hasFittedRef.current = false;
 
       mapInstance.current.whenReady(() => mapInstance.current?.invalidateSize());
     }, [location.lat, location.lng, scrollWheelZoom, dragging, touchZoom]);
@@ -470,11 +473,12 @@ const Map = forwardRef<MapRef, MapProps>(
         Object.values(otherUsersMarkersRef.current).forEach((marker) => latLngs.push(marker.getLatLng()));
         Object.values(activeMarkers).forEach((marker) => latLngs.push(marker.getLatLng()));
         if (latLngs.length > 1) {
-          map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
+          map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50], animate: !hasFittedRef.current });
         } else if (latLngs.length === 1) {
-          map.setView(latLngs[0], map.getZoom());
+          map.setView(latLngs[0], map.getZoom(), { animate: !hasFittedRef.current });
         }
       }
+      hasFittedRef.current = true;
 
       return () => {
         Object.values(activeMarkers).forEach((marker) => marker.off('click'));
