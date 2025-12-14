@@ -1,0 +1,43 @@
+{
+  "name": "thumbnails-service",
+  "version": "1.0.0",
+  "description": "Serverless thumbnail generation for slides",
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "test": "jest",
+    "lint": "eslint .",
+    "deploy": "serverless deploy"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1430.0",
+    "crypto": "^1.0.1",
+    "puppeteer-core": "^21.0.0",
+    "sharp": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "serverless": "^3.0.0",
+    "serverless-esbuild": "^1.56.1",
+    "serverless-offline": "^12.0.0"
+  },
+  "serverless": {
+    "package": {
+      "exclude": [
+        "node_modules/puppeteer/.local-chromium/**",
+        "node_modules/@aws-sdk/**",
+        "node_modules/aws-sdk/**",
+        "node_modules/typescript/**",
+        "node_modules/@types/**",
+        "node_modules/jest/**",
+        "node_modules/eslint/**",
+        "node_modules/prettier/**",
+        "node_modules/webpack/**",
+        "node_modules/babel/**",
+        "node_modules/serverless-esbuild/**"
+      ]
+    }
+  }
+}

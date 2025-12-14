@@ -1,0 +1,68 @@
+service: thumbnails
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  environment:
+    BUCKET_NAME: ${self:custom.bucketName}
+    CDN_DOMAIN: ${self:custom.cdnDomain}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: arn:aws:s3:::${self:custom.bucketName}/*
+        - Effect: Allow
+          Action:
+            - s3:GetBucketLocation
+          Resource: arn:aws:s3:::${self:custom.bucketName}
+
+plugins:
+
+custom:
+  bucketName: mylg-thumbnails-${self:provider.stage}
+  cdnDomain: ${self:custom.bucketName}.s3.amazonaws.com
+
+functions:
+  generateThumbnail:
+    handler: index.generateThumbnail
+    events:
+      - http:
+          path: /thumbnails
+          method: post
+          cors: true
+    layers:
+      - arn:aws:lambda:us-west-2:764866452798:layer:chrome-aws-lambda:41
+    timeout: 60
+    memorySize: 2048
+    environment:
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
+      PUPPETEER_EXECUTABLE_PATH: /opt/headless-chromium
+
+package:
+  include:
+    - node_modules/**
+  exclude:
+    - .git/**
+    - test/**
+
+resources:
+  Resources:
+    ThumbnailsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        AccessControl: Private
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
+              AllowedOrigins: ['*']
+              MaxAge: 3000
