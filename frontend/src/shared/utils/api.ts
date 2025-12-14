@@ -356,7 +356,7 @@ const BASE_ENDPOINTS = {
     
     // External services (unchanged)
     NOMINATIM_SEARCH_URL: 'https://nominatim.openstreetmap.org/search?format=json&q=',
-    THUMBNAILS_URL: 'https://pve3o4elx7.execute-api.us-west-2.amazonaws.com/dev/thumbnails',
+    THUMBNAILS_URL: 'https://lgomuuj428.execute-api.us-west-2.amazonaws.com/dev/thumbnails',
     
     
     // Legacy endpoints that may need special handling or removal

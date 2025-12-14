@@ -28,8 +28,9 @@ provider:
 plugins:
 
 custom:
-  bucketName: mylg-thumbnails-${self:provider.stage}
-  cdnDomain: ${self:custom.bucketName}.s3.amazonaws.com
+  bucketName: mylg-files-v12
+  bucketRegion: ${self:provider.region}
+  cdnDomain: ${self:custom.bucketName}.s3.${self:custom.bucketRegion}.amazonaws.com
 
 functions:
   generateThumbnail:
@@ -70,17 +71,3 @@ package:
     - .git/**
     - test/**
     - node_modules/sharp/**
-
-resources:
-  Resources:
-    ThumbnailsBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: ${self:custom.bucketName}
-        AccessControl: Private
-        CorsConfiguration:
-          CorsRules:
-            - AllowedHeaders: ['*']
-              AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
-              AllowedOrigins: ['*']
-              MaxAge: 3000
