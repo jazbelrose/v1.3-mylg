@@ -23,6 +23,17 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
   const uiThumbsEnabled = isUiThumbsEnabled();
   const resolvedSrc = uiThumbsEnabled ? thumbnailUrl : slide.thumbnail ?? null;
 
+  const bgColor = slide.backgroundColor || '#101112';
+  const getContrastingColor = (color: string) => {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#000000' : '#ffffff';
+  };
+  const textColor = getContrastingColor(bgColor);
+
   const [activeSrc, setActiveSrc] = useState<string | null>(resolvedSrc);
   const [previousSrc, setPreviousSrc] = useState<string | null>(null);
   const [activeVisible, setActiveVisible] = useState(false);
@@ -130,7 +141,7 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
   }, [invalidate, resolvedSrc, uiThumbsEnabled]);
 
   return (
-    <div className="slides-sidebar__thumbnail" aria-busy={isLoading}>
+    <div className="slides-sidebar__thumbnail" aria-busy={isLoading} style={{ backgroundColor: bgColor }}>
       {previousSrc && (
         <img
           src={previousSrc}
@@ -146,11 +157,11 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
         />
       )}
       {showFallback && (
-        <div className="slides-sidebar__thumbnail-fallback">
-          <div className="slides-sidebar__thumbnail-title">
+        <div className="slides-sidebar__thumbnail-fallback" style={{ color: textColor }}>
+          <div className="slides-sidebar__thumbnail-title" style={{ opacity: 0.85 }}>
             {slide.title || `Slide ${slide.order || 0}`}
           </div>
-          <div className="slides-sidebar__thumbnail-subtitle">
+          <div className="slides-sidebar__thumbnail-subtitle" style={{ opacity: 0.5 }}>
             {error ? "Preview unavailable" : "No preview"}
           </div>
         </div>

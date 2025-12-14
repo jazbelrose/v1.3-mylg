@@ -148,7 +148,7 @@ const SlidesPage: React.FC = () => {
       const width = 1920;
       const height = 1080;
       const slide = slides.find((s) => s.id === activeSlideId);
-      saveSlideThumb(projectId, activeSlideId, undefined, { width, height, content: slide?.content })
+      saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: slide?.backgroundColor, content: slide?.content })
         .catch((e) => console.warn("Failed to save thumbnail on exit:", e))
         .finally(() => {
           navigate(getProjectDashboardPath(projectId!, title));
@@ -324,6 +324,7 @@ const SlidesPage: React.FC = () => {
               setTimeout(() => {
                 // Generate and persist thumbnail; update local state and then persist
                 const slide = slides.find((s) => s.id === activeSlideId);
+                const bgColor = slide?.backgroundColor;
                 saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
                   if (!thumbnailUrl) {
                     return;
@@ -364,7 +365,7 @@ const SlidesPage: React.FC = () => {
                     .catch((error) => {
                       console.warn("Thumbnail not ready after save:", error);
                     });
-                }, { width, height, content: slide?.content }).catch((e) => {
+                }, { width, height, backgroundColor: bgColor, content: slide?.content }).catch((e) => {
                   console.warn('Failed to save thumbnail after save:', e);
                 });
               }, 100);
@@ -437,6 +438,7 @@ const SlidesPage: React.FC = () => {
         const width = 1920;
         const height = 1080;
         const slide = slides.find((s) => s.id === activeSlideId);
+        const bgColor = slide?.backgroundColor;
         saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
           if (!thumbnailUrl) {
             return;
@@ -457,7 +459,7 @@ const SlidesPage: React.FC = () => {
             .catch((error) => {
               console.warn("Thumbnail not ready when switching slides:", error);
             });
-        }, { width, height, content: slide?.content }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
+        }, { width, height, backgroundColor: bgColor, content: slide?.content }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
       }
 
       setActiveSlideId(slideId);
