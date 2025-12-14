@@ -17,6 +17,8 @@ import {
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
+import ConfirmModal from "@/shared/ui/ConfirmModal";
+import useModalStack from "@/shared/utils/useModalStack";
 import {
   getTaskStatusBadge,
   getTaskStatusTone,
@@ -274,6 +276,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   embedMode = false,
 }) => {
   const { userData, allUsers, userId, isAdmin, updateUserProfile, refreshUser } = useUser();
+  useModalStack(open);
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -308,6 +311,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [focusedAssigneeIndex, setFocusedAssigneeIndex] = useState(-1);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
   const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
@@ -324,6 +328,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
   const lastAppliedTaskRef = useRef<string | null>(null);
   const successMessageRef = useRef<string | null>(null);
+  const initialTaskRef = useRef<QuickCreateTaskModalTask | null>(null);
   const baseId = useId();
   const descriptionId = `${baseId}-description`;
   const projectFieldId = `${baseId}-project`;
@@ -549,6 +554,53 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const showTitleCounter = titleRemaining <= 20;
   const canSubmit = Boolean(effectiveProjectId && trimmedTitle);
   const isBusy = submitting || deleting || archiving;
+
+  const hasUnsavedChanges = useMemo(() => {
+    const current = {
+      projectId,
+      title: title.trim(),
+      description: description.trim(),
+      dueDate,
+      assigneeTokens: [...assigneeTokens].sort(),
+      address: addressSearch.trim(),
+      location: selectedLocation,
+      noteAttachments: noteAttachments.map(att => ({ fileName: att.fileName, mimeType: att.mimeType, url: att.url })),
+      status,
+    };
+    if (initialTaskRef.current) {
+      // edit mode
+      const initial = {
+        projectId: initialTaskRef.current.projectId || "",
+        title: initialTaskRef.current.title?.trim() || "",
+        description: initialTaskRef.current.description?.trim() || "",
+        dueDate: toDateInputString(initialTaskRef.current.dueDate) || "",
+        assigneeTokens: parseAssigneeTokensInput(initialTaskRef.current.assigneeTokens || initialTaskRef.current.assigneeId || initialTaskRef.current.assigneeIds).sort(),
+        address: initialTaskRef.current.address?.trim() || "",
+        location: normalizeLocation(initialTaskRef.current.location),
+        noteAttachments: sanitizeIncomingAttachments(initialTaskRef.current.noteAttachments).map(att => ({ fileName: att.fileName, mimeType: att.mimeType, url: att.url })),
+        status: normalizeStatus(initialTaskRef.current.status),
+      };
+      const hasChanges = JSON.stringify(current) !== JSON.stringify(initial);
+      console.log('[QuickCreateTaskModal] Edit mode - hasChanges:', hasChanges, 'current:', current, 'initial:', initial);
+      return hasChanges;
+    } else {
+      // create mode
+      const hasData = !!(projectId || title.trim() || description.trim() || dueDate || assigneeTokens.length || addressSearch.trim() || selectedLocation || noteAttachments.length || status !== "todo");
+      console.log('[QuickCreateTaskModal] Create mode - hasData:', hasData, 'current:', current);
+      return hasData;
+    }
+  }, [projectId, title, description, dueDate, assigneeTokens, addressSearch, selectedLocation, noteAttachments, status]);
+
+  const handleClose = useCallback(() => {
+    console.log('[QuickCreateTaskModal] handleClose called, hasUnsavedChanges:', hasUnsavedChanges);
+    if (hasUnsavedChanges) {
+      console.log('[QuickCreateTaskModal] Showing confirm close dialog');
+      setShowConfirmClose(true);
+      return;
+    }
+    console.log('[QuickCreateTaskModal] No unsaved changes, closing directly');
+    onClose();
+  }, [hasUnsavedChanges, onClose]);
 
   useEffect(() => {
     successMessageRef.current = successMessage;
@@ -788,9 +840,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setCreatedByUsername(null);
     setCreatedByEmail(null);
     setCreatedByThumbnail(null);
+    initialTaskRef.current = null;
   }, []);
-
-  
 
   const applyTaskToForm = useCallback(
     (
@@ -893,6 +944,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     const shouldPreserveFeedback =
       Boolean(successMessageRef.current) && taskKey !== null && taskKey === lastAppliedTaskRef.current;
     applyTaskToForm(task, { preserveFeedback: shouldPreserveFeedback });
+    initialTaskRef.current = task;
     lastAppliedTaskRef.current = taskKey;
   }, [open, task, applyTaskToForm]);
 
@@ -911,14 +963,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       if (event.key === "Escape") {
         event.preventDefault();
         if (!isBusy) {
-          onClose();
+          handleClose();
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose, isBusy]);
+  }, [open, handleClose, isBusy]);
 
   useEffect(() => {
     if (!open) return;
@@ -1175,7 +1227,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
     if (shouldClose) {
       setSwipeOffset(0);
-      onClose();
+      handleClose();
     } else {
       setSwipeOffset(0);
     }
@@ -1188,7 +1240,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const handleOverlayMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget && !isBusy) {
-      onClose();
+      handleClose();
     }
   };
 
@@ -1762,7 +1814,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               {embedMode && (
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className={styles.embedCloseButton}
                   aria-label="Close task details"
                 >
@@ -2433,6 +2485,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       <>
         {modalContent}
         {simplePreviewModal}
+        <ConfirmModal
+          isOpen={showConfirmClose}
+          onRequestClose={() => setShowConfirmClose(false)}
+          onConfirm={() => {
+            setShowConfirmClose(false);
+            onClose();
+          }}
+          message="You have unsaved changes. Are you sure you want to close without saving?"
+          confirmLabel="Close without saving"
+          cancelLabel="Keep editing"
+        />
       </>
     );
   }
@@ -2446,6 +2509,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         document.body
       )}
       {simplePreviewModal}
+      <ConfirmModal
+        isOpen={showConfirmClose}
+        onRequestClose={() => setShowConfirmClose(false)}
+        onConfirm={() => {
+          setShowConfirmClose(false);
+          onClose();
+        }}
+        message="You have unsaved changes. Are you sure you want to close without saving?"
+        confirmLabel="Close without saving"
+        cancelLabel="Keep editing"
+      />
     </>
   );
 };

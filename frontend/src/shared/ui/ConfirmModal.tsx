@@ -30,8 +30,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmLabel = 'Yes',
   cancelLabel = 'No',
   confirmText = '',
-  className,
-  overlayClassName,
+  className = 'confirmModalContent',
+  overlayClassName = 'confirmModalOverlay',
 }) => {
   useModalStack(isOpen);
 
@@ -101,7 +101,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 };
 
 export default ConfirmModal;
-
 
 
 

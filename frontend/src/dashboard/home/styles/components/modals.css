@@ -8,7 +8,39 @@ body.ReactModal__Body--open {
 
 .ReactModalPortal {
   position: fixed;
-  z-index: 2000 !important;
+  z-index: 16500 !important;
+}
+
+.confirmModalOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 6, 7, 0.82);
+  backdrop-filter: blur(6px);
+  z-index: 16510 !important;
+}
+
+.confirmModalContent {
+  width: min(420px, calc(100vw - 32px));
+  max-width: 90vw;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 14, 16, 0.98);
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.55);
+  color: rgba(246, 247, 251, 0.92);
+  padding: 28px 32px;
+  text-align: left;
+}
+
+.confirmModalContent p {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: inherit;
 }
 
 body.ReactModal__Body--open .dashboard-wrapper {
@@ -197,7 +229,10 @@ body.ReactModal__Body--open .dashboard-wrapper {
   cursor: pointer;
 }
 
-
+/* High z-index for modals over task modal */
+.ReactModal__Overlay--high-z {
+  z-index: 16000 !important;
+}
 
 
 
