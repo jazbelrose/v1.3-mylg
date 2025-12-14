@@ -252,6 +252,19 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     targetWidth / BASE_CANVAS_WIDTH,
     targetHeight / BASE_CANVAS_HEIGHT,
   );
+  const scaledWidth = BASE_CANVAS_WIDTH * scale;
+  const scaledHeight = BASE_CANVAS_HEIGHT * scale;
+  const offsetX = Math.max(0, (targetWidth - scaledWidth) / 2);
+  const offsetY = Math.max(0, (targetHeight - scaledHeight) / 2);
+  const slideWrapperStyle = [
+    'position:absolute',
+    `top:${offsetY}px`,
+    `left:${offsetX}px`,
+    `width:${BASE_CANVAS_WIDTH}px`,
+    `height:${BASE_CANVAS_HEIGHT}px`,
+    'transform-origin:top left',
+    `transform:scale(${scale})`,
+  ].join('; ');
 
   const elementHtml = elements
     .map((el = {}) => {
@@ -324,15 +337,10 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           width: 100%;
           height: 100%;
           overflow: hidden;
+          background: ${background};
         }
         .slide-wrapper {
           position: absolute;
-          top: 0;
-          left: 0;
-          width: ${BASE_CANVAS_WIDTH}px;
-          height: ${BASE_CANVAS_HEIGHT}px;
-          transform-origin: top left;
-          transform: scale(${scale});
         }
         .slide-content {
           position: relative;
@@ -388,7 +396,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     </head>
     <body>
       <div class="thumbnail-stage">
-        <div class="slide-wrapper">
+        <div class="slide-wrapper" style="${slideWrapperStyle}">
           <div class="slide-content">
             ${structuredHtml}
           </div>

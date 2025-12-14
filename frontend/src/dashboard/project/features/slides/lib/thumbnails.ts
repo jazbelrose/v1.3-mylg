@@ -647,6 +647,7 @@ export async function generateSlideThumbnail(
           slideId,
           width: 320,
           height: 180,
+          backgroundColor,
         }),
       });
       if (response.url) {
@@ -730,6 +731,7 @@ export async function generateSlideThumbnailWithSize(
           slideId,
           width: 320,
           height: 180,
+          backgroundColor,
         }),
       });
       if (response.url) {
