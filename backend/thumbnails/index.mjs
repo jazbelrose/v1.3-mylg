@@ -11,6 +11,9 @@ import {
 const BASE_CANVAS_WIDTH = 1920;
 const BASE_CANVAS_HEIGHT = 1080;
 const DEFAULT_BACKGROUND = '#101112';
+const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
+const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
+const FILE_CDN = process.env.FILE_CDN;
 
 // WebGL is not needed for thumbnails, so disable it to avoid extracting extra assets.
 chromium.setGraphicsMode = false;
@@ -43,6 +46,15 @@ function clampDimension(value, fallback) {
 function safeSegment(value, fallback) {
   const raw = typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
   return raw.replace(/[^a-zA-Z0-9-_]/g, '-');
+}
+
+function resolveAssetUrl(src) {
+  if (!src || typeof src !== 'string') return '';
+  if (/^https?:\/\//i.test(src)) return src;
+  const base =
+    FILE_CDN ||
+    `https://${FILE_BUCKET}.s3.${REGION}.amazonaws.com`;
+  return `${base.replace(/\/$/, '')}/${src.replace(/^\/+/, '')}`;
 }
 
 function parseColorToRgb(value) {
@@ -129,9 +141,98 @@ function lexicalNodeToHtml(node) {
       return '<br />';
     case 'code':
       return `<pre><code>${escapeHtml(node.text || children)}</code></pre>`;
+    case 'text-box':
+    case 'resizable-image':
+    case 'image':
+      return '';
     default:
       return children;
   }
+}
+
+function renderTextBoxLayer(node, textColor) {
+  const x = Number(node.x) || 0;
+  const y = Number(node.y) || 0;
+  const width = Number(node.width) || 300;
+  const height = Number(node.height) || 150;
+  const rotation = Number(node.rotation) || 0;
+  const inner =
+    (Array.isArray(node.children) && node.children.map((child) => lexicalNodeToHtml(child)).join('')) ||
+    '<p></p>';
+
+  const style = [
+    'position:absolute',
+    'left:0',
+    'top:0',
+    `transform: translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+    'transform-origin: center center',
+    `width:${width}px`,
+    `height:${height}px`,
+    'display:flex',
+    'flex-direction:column',
+    'justify-content:center',
+    'padding:16px',
+    'box-sizing:border-box',
+    `color:${textColor}`,
+  ].join('; ');
+
+  return `<div class="text-layer" style="${style}">${inner}</div>`;
+}
+
+function renderImageLayer(node) {
+  const x = Number(node.x) || 0;
+  const y = Number(node.y) || 0;
+  const width = Number(node.width) || 320;
+  const height = Number(node.height) || 240;
+  const rotation = Number(node.rotation) || 0;
+  const src = resolveAssetUrl(node.src || node.fileKey || '');
+  if (!src) return '';
+  const alt = escapeHtml(node.altText || 'Image');
+  const style = [
+    'position:absolute',
+    'left:0',
+    'top:0',
+    `transform: translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+    'transform-origin:center center',
+    `width:${width}px`,
+    `height:${height}px`,
+  ].join('; ');
+
+  return `<div class="image-layer" style="${style}">
+    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+  </div>`;
+}
+
+function gatherLayerHtml(nodes, textColor, layers) {
+  let handled = false;
+  if (!Array.isArray(nodes)) return handled;
+
+  for (const node of nodes) {
+    if (!node) continue;
+    switch (node.type) {
+      case 'text-box':
+        layers.push(renderTextBoxLayer(node, textColor));
+        handled = true;
+        break;
+      case 'resizable-image':
+      case 'image':
+        layers.push(renderImageLayer(node));
+        handled = true;
+        break;
+      case 'layout-container':
+      case 'layout-item':
+        if (gatherLayerHtml(node.children, textColor, layers)) {
+          handled = true;
+        }
+        break;
+      default:
+        if (Array.isArray(node.children) && gatherLayerHtml(node.children, textColor, layers)) {
+          handled = true;
+        }
+        break;
+    }
+  }
+  return handled;
 }
 
 function renderDocumentContent(lexicalJson) {
@@ -178,9 +279,20 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     })
     .join('');
 
+  const absoluteLayers = [];
+  const root = lexicalJson?.root || lexicalJson?.document?.root;
+  const rootChildren = Array.isArray(root?.children) ? root.children : [];
+  const hasStructuredLayers = gatherLayerHtml(rootChildren, textColor, absoluteLayers);
+  const fallbackDoc = renderDocumentContent({
+    root: {
+      children: rootChildren,
+    },
+  });
+
   const structuredHtml =
-    elementHtml ||
-    `<div class="lexical-doc" style="color:${textColor}">${renderDocumentContent(lexicalJson)}</div>`;
+    elementHtml || hasStructuredLayers
+      ? `${elementHtml}${absoluteLayers.join('')}`
+      : `<div class="lexical-doc" style="color:${textColor}">${fallbackDoc}</div>`;
 
   return `<!DOCTYPE html>
   <html>
@@ -213,6 +325,15 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
         .text-box {
           white-space: pre-wrap;
           word-wrap: break-word;
+        }
+        .text-layer p {
+          margin: 0;
+        }
+        .image-layer img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
         img {
           object-fit: contain;

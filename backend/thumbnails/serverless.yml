@@ -11,6 +11,8 @@ provider:
   environment:
     BUCKET_NAME: ${self:custom.bucketName}
     CDN_DOMAIN: ${self:custom.cdnDomain}
+    FILE_BUCKET: ${env:FILE_BUCKET, 'mylg-files-v12'}
+    FILE_CDN: ${env:FILE_CDN, ''}
   iam:
     role:
       statements:
