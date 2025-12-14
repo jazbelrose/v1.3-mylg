@@ -13,6 +13,119 @@ const BASE_CANVAS_HEIGHT = 1080;
 const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
+const SLIDE_TYPOGRAPHY_CSS = `
+  body,
+  .thumbnail-stage,
+  .slide-wrapper,
+  .slide-content {
+    font-family: 'Helvetica Neue', 'Helvetica', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  .editor-paragraph {
+    margin: 0;
+    position: relative;
+  }
+
+  .editor-heading-h1 {
+    font-size: 3rem;
+    line-height: 0.9;
+    color: #ffffff;
+    font-weight: 400;
+    margin: 0;
+    padding: 0;
+  }
+
+  .editor-heading-h2 {
+    font-size: 1.5rem;
+    color: #ffffff;
+    font-weight: 700;
+    margin: 0;
+    padding: 0;
+    text-transform: uppercase;
+  }
+
+  .editor-heading-h3,
+  .editor-heading-h4,
+  .editor-heading-h5,
+  .editor-heading-h6 {
+    margin: 0;
+    padding: 0;
+    color: #ffffff;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+
+  .editor-heading-h3 { font-size: 1.25rem; }
+  .editor-heading-h4 { font-size: 1.125rem; }
+  .editor-heading-h5 { font-size: 1rem; }
+  .editor-heading-h6 { font-size: 0.875rem; }
+
+  .editor-quote {
+    margin: 0;
+    margin-left: 20px;
+    font-size: 15px;
+    color: rgb(101, 103, 107);
+    border-left-color: rgb(206, 208, 212);
+    border-left-width: 4px;
+    border-left-style: solid;
+    padding-left: 16px;
+  }
+
+  .editor-list-ol,
+  .editor-list-ul {
+    padding: 0;
+    margin: 0;
+    margin-left: 16px;
+  }
+
+  .editor-list-ul {
+    list-style-type: disc;
+    list-style-position: inside;
+  }
+
+  .editor-listitem {
+    margin: 8px 32px 8px 32px;
+  }
+
+  .editor-link {
+    color: #216fdb;
+    text-decoration: none;
+    transition: color 0.3s ease, text-decoration 0.3s ease;
+  }
+
+  .editor-link:hover {
+    color: #5292ff;
+    text-decoration: underline;
+  }
+
+  .editor-code {
+    background-color: rgb(240, 242, 245);
+    font-family: Menlo, Consolas, Monaco, monospace;
+    display: block;
+    padding: 8px 8px 8px 52px;
+    line-height: 1.53;
+    font-size: 13px;
+    margin: 8px 0;
+    tab-size: 2;
+    overflow-x: auto;
+    position: relative;
+    color: #111111;
+  }
+
+  .editor-code::before {
+    content: attr(data-gutter);
+    position: absolute;
+    background-color: #eee;
+    left: 0;
+    top: 0;
+    border-right: 1px solid #ccc;
+    padding: 8px;
+    color: #777;
+    white-space: pre-wrap;
+    text-align: right;
+    min-width: 25px;
+  }
+`;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -143,6 +256,65 @@ function applyTextFormatting(text, format = 0) {
   return output;
 }
 
+const ALLOWED_TEXT_ALIGNMENTS = new Set(['left', 'center', 'right', 'justify']);
+
+function buildAttrString(attrs = {}) {
+  const parts = [];
+  if (attrs.className) {
+    parts.push(`class="${escapeHtml(attrs.className)}"`);
+  }
+  if (attrs.style) {
+    parts.push(`style="${escapeHtml(attrs.style)}"`);
+  }
+  return parts.length ? ` ${parts.join(' ')}` : '';
+}
+
+function safeHeadingTag(tag, level) {
+  const normalized =
+    typeof tag === 'string' && tag.trim().length > 0 ? tag.trim().toLowerCase() : '';
+  const validHeadings = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+  if (validHeadings.has(normalized)) {
+    return normalized;
+  }
+  const numericLevel = Number(level);
+  if (Number.isInteger(numericLevel) && numericLevel >= 1 && numericLevel <= 6) {
+    return `h${numericLevel}`;
+  }
+  return 'h2';
+}
+
+function resolveHeadingClass(tag) {
+  const normalized = typeof tag === 'string' ? tag.toLowerCase() : '';
+  switch (normalized) {
+    case 'h1':
+      return 'editor-heading-h1';
+    case 'h2':
+      return 'editor-heading-h2';
+    case 'h3':
+      return 'editor-heading-h3';
+    case 'h4':
+      return 'editor-heading-h4';
+    case 'h5':
+      return 'editor-heading-h5';
+    case 'h6':
+      return 'editor-heading-h6';
+    default:
+      return '';
+  }
+}
+
+const LIST_CLASS_BY_TAG = {
+  ol: 'editor-list-ol',
+  ul: 'editor-list-ul',
+};
+
+const NODE_THEME_CLASSES = {
+  paragraph: 'editor-paragraph',
+  quote: 'editor-quote',
+  listitem: 'editor-listitem',
+  'list-item': 'editor-listitem',
+};
+
 function lexicalNodeToHtml(node) {
   if (!node) return '';
   const children = Array.isArray(node.children)
@@ -162,37 +334,45 @@ function lexicalNodeToHtml(node) {
     case 'paragraph': {
       // Lexical element alignment often shows up here.
       // (string formats: 'left'|'center'|'right'|'justify')
-      const align =
-        typeof node.format === 'string' && node.format
-          ? `text-align:${node.format}`
+      const formatValue =
+        typeof node.format === 'string' && ALLOWED_TEXT_ALIGNMENTS.has(node.format)
+          ? node.format
           : '';
-      const style = [align].filter(Boolean).join(';');
-      return style
-        ? `<p style="${escapeHtml(style)}">${children || '<br />'}</p>`
-        : `<p>${children || '<br />'}</p>`;
+      const align = formatValue ? `text-align:${formatValue}` : '';
+      const attrs = buildAttrString({
+        className: NODE_THEME_CLASSES.paragraph,
+        style: align,
+      });
+      return `<p${attrs}>${children || '<br />'}</p>`;
     }
     case 'heading': {
-      const tag = node.tag || `h${node.level || 2}`;
-      return `<${tag}>${children}</${tag}>`;
+      const tag = safeHeadingTag(node.tag, node.level);
+      const className = resolveHeadingClass(tag);
+      const attrs = buildAttrString({ className });
+      return `<${tag}${attrs}>${children}</${tag}>`;
     }
     case 'link': {
       const url = escapeHtml(node.url || '#');
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${children}</a>`;
+      const attrs = buildAttrString({ className: 'editor-link' });
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer"${attrs}>${children}</a>`;
     }
     case 'quote':
-      return `<blockquote>${children}</blockquote>`;
+      return `<blockquote${buildAttrString({ className: NODE_THEME_CLASSES.quote })}>${children}</blockquote>`;
     case 'list': {
       const tag = node.listType === 'number' ? 'ol' : 'ul';
-      return `<${tag}>${children}</${tag}>`;
+      const className = LIST_CLASS_BY_TAG[tag] || '';
+      return `<${tag}${buildAttrString({ className })}>${children}</${tag}>`;
     }
     case 'listitem':
-    case 'list-item':
-      return `<li>${children}</li>`;
+    case 'list-item': {
+      const className = NODE_THEME_CLASSES[node.type] || 'editor-listitem';
+      return `<li${buildAttrString({ className })}>${children}</li>`;
+    }
     case 'linebreak':
     case 'linebreaknode':
       return '<br />';
     case 'code':
-      return `<pre><code>${escapeHtml(node.text || children)}</code></pre>`;
+      return `<pre${buildAttrString({ className: 'editor-code' })}><code>${escapeHtml(node.text || children)}</code></pre>`;
     case 'text-box':
     case 'resizable-image':
     case 'image':
@@ -390,6 +570,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
         body {
           position: relative;
         }
+        ${SLIDE_TYPOGRAPHY_CSS}
         .thumbnail-stage {
           position: relative;
           width: 100%;
