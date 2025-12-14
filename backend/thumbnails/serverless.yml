@@ -10,6 +10,8 @@ provider:
   environment:
     BUCKET_NAME: ${self:custom.bucketName}
     CDN_DOMAIN: ${self:custom.cdnDomain}
+    PUPPETEER_EXECUTABLE_PATH: /opt/headless-chromium
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
   iam:
     role:
       statements:

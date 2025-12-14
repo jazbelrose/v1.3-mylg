@@ -1,7 +1,15 @@
 import AWS from 'aws-sdk';
 import puppeteer from 'puppeteer-core';
-import sharp from 'sharp';
 import crypto from 'crypto';
+
+// Lazy import Sharp to avoid top-level crashes
+let sharpModule;
+async function getSharp() {
+  if (!sharpModule) {
+    sharpModule = (await import('sharp')).default;
+  }
+  return sharpModule;
+}
 
 // CORS utilities (inline for now)
 const ALLOWED_ORIGINS = [
@@ -143,6 +151,7 @@ async function generateThumbnail(html, width = 320, height = 180) {
     const screenshot = await page.screenshot({ type: 'png', fullPage: false });
 
     // Resize with Sharp
+    const sharp = await getSharp();
     const resized = await sharp(screenshot)
       .resize(width, height, { fit: 'cover' })
       .png()
@@ -167,10 +176,24 @@ export async function handler(event) {
       return json(400, CORS, { error: 'Missing lexicalJson' });
     }
 
-    // Return a mock URL for testing
-    const mockUrl = `https://via.placeholder.com/${width}x${height}.png?text=${slideId}`;
-
-    return json(200, CORS, { url: mockUrl });
+    // Generate the actual thumbnail
+    const thumbnailBuffer = await generateThumbnail(lexicalJson, width, height);
+    
+    // Upload to S3
+    const hash = hashInput(JSON.stringify(lexicalJson));
+    const key = `thumbnails/${hash}_${width}x${height}.png`;
+    
+    await s3.putObject({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Body: thumbnailBuffer,
+      ContentType: 'image/png',
+      ACL: 'public-read'
+    }).promise();
+    
+    const url = `https://${CDN_DOMAIN}/${key}`;
+    
+    return json(200, CORS, { url });
   } catch (error) {
     console.error('Error in handler:', error);
     return json(500, CORS, { error: 'Internal server error', details: error.message });
