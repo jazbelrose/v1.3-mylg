@@ -311,6 +311,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
   const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
+  const locationInputRef = useRef<HTMLInputElement | null>(null);
+  const locationSuggestionsRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const lastOffsetRef = useRef(0);
@@ -656,6 +658,24 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [assigneePopoverOpen, closeAssigneePopover]);
+
+  useEffect(() => {
+    if (addressSuggestions.length === 0) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        locationSuggestionsRef.current?.contains(target) ||
+        locationInputRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setAddressSuggestions([]);
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [addressSuggestions.length]);
 
   const getDistance = useCallback((coord1: Coordinates, coord2: Coordinates): number => {
     const R = 6371; // Earth's radius in km
@@ -2129,12 +2149,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               ) : null}
               <div className={styles.locationInputWrapper}>
                 <input
+                  ref={locationInputRef}
                   id={locationFieldId}
                   aria-label="Task location"
                   type="text"
                   className={styles.textInput}
                   value={addressSearch}
                   onChange={handleAddressChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && addressSuggestions.length > 0) {
+                      setAddressSuggestions([]);
+                      e.preventDefault();
+                    }
+                  }}
                   placeholder="Search for an address or venue"
                   disabled={isBusy}
                   aria-autocomplete="list"
@@ -2143,7 +2170,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   aria-describedby={locationDescribedBy}
                 />
                 {addressSuggestions.length > 0 ? (
-                  <div className={styles.locationSuggestions} role="listbox" id={suggestionsListId}>
+                  <div ref={locationSuggestionsRef} className={styles.locationSuggestions} role="listbox" id={suggestionsListId}>
                     {addressSuggestions.map((suggestion) => (
                       <div key={suggestion.place_id} className={styles.locationSuggestionItem}>
                         <button

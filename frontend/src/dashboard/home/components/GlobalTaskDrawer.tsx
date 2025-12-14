@@ -199,6 +199,7 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
   const taskListRef = useRef<HTMLUListElement>(null);
   const initialScrollDoneRef = useRef(false);
   const touchStartY = useRef(0);
+  const hasFocusedTaskRef = useRef(false);
 
   // Combine open/completed tasks and archived tasks for filtering
   const activeTaskPool = useMemo(() => [...openTasks, ...completedTasks].filter(task => task.status !== 'archived'), [openTasks, completedTasks]);
@@ -467,12 +468,23 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
       return;
     }
 
+    if (!hasFocusedTaskRef.current) {
+      hasFocusedTaskRef.current = true;
+      return;
+    }
+
     setMapFocus(locatedTask.parsedLocation);
 
     if (typeof window === "undefined") return;
     const timeout = window.setTimeout(() => setMapFocus(null), 420);
     return () => window.clearTimeout(timeout);
   }, [activeTaskId, tasksWithLocation, open]);
+
+  useEffect(() => {
+    if (!open) {
+      hasFocusedTaskRef.current = false;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open || !activeTaskId || !taskListRef.current) return;

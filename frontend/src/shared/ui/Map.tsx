@@ -467,11 +467,21 @@ const Map = forwardRef<MapRef, MapProps>(
       markerIdsRef.current = sortedIds;
 
       if (changed) {
-        const latLngs: L.LatLngExpression[] = [];
-        if (projectMarkerRef.current) latLngs.push(projectMarkerRef.current.getLatLng());
-        if (userMarkerRef.current) latLngs.push(userMarkerRef.current.getLatLng());
-        Object.values(otherUsersMarkersRef.current).forEach((marker) => latLngs.push(marker.getLatLng()));
-        Object.values(activeMarkers).forEach((marker) => latLngs.push(marker.getLatLng()));
+        const taskLatLngs = Object.values(activeMarkers).map((marker) => marker.getLatLng());
+        const fallbackLatLngs: L.LatLngExpression[] = [];
+
+        if (projectMarkerRef.current) fallbackLatLngs.push(projectMarkerRef.current.getLatLng());
+        if (userMarkerRef.current) {
+          fallbackLatLngs.push(userMarkerRef.current.getLatLng());
+          if (accuracyCircleRef.current) {
+            const bounds = accuracyCircleRef.current.getBounds();
+            fallbackLatLngs.push(bounds.getNorthEast(), bounds.getSouthWest());
+          }
+        }
+        Object.values(otherUsersMarkersRef.current).forEach((marker) => fallbackLatLngs.push(marker.getLatLng()));
+
+        const latLngs = taskLatLngs.length ? taskLatLngs : fallbackLatLngs;
+
         if (latLngs.length > 1) {
           map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50], animate: !hasFittedRef.current });
         } else if (latLngs.length === 1) {

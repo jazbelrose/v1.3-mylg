@@ -64,6 +64,7 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const taskListRef = useRef<HTMLUListElement | null>(null);
   const initialScrollDoneRef = useRef(false);
+  const hasFocusedTaskRef = useRef(false);
 
 
   const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
@@ -289,12 +290,23 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
       return;
     }
 
+    if (!hasFocusedTaskRef.current) {
+      hasFocusedTaskRef.current = true;
+      return;
+    }
+
     setMapFocus(locatedTask.location);
 
     if (typeof window === "undefined") return;
     const timeout = window.setTimeout(() => setMapFocus(null), 420);
     return () => window.clearTimeout(timeout);
   }, [activeTaskId, mapTasks, drawerOpen]);
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      hasFocusedTaskRef.current = false;
+    }
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (!drawerOpen || !activeTaskId || !taskListRef.current) return;
