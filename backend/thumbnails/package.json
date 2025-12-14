@@ -10,6 +10,7 @@
     "deploy": "serverless deploy"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.0",
     "aws-sdk": "^2.1430.0",
     "crypto": "^1.0.1",
     "puppeteer-core": "^21.0.0"

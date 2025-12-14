@@ -1,5 +1,6 @@
 import AWS from 'aws-sdk';
 import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import crypto from 'crypto';
 import fs from 'fs';
 
@@ -131,22 +132,10 @@ async function generateThumbnail(html, width = 320, height = 180) {
   let browser;
   try {
     browser = await puppeteer.launch({
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process', // <- this one doesn't work in Windows
-        '--disable-gpu'
-      ],
-      defaultViewport: {
-        width: 1920,
-        height: 1080
-      },
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/chrome/headless-chromium',
-      headless: true,
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport ?? { width: 1920, height: 1080 },
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
