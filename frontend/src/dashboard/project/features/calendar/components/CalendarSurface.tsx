@@ -923,8 +923,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         activeProjectId={activeProjectId ?? null}
         activeProjectName={activeProjectName ?? null}
         onClose={handleTaskDrawerClose}
-        onCreated={() => handleTaskDrawerRefresh()}
-        onUpdated={handleTaskDrawerRefresh}
+        onCreated={handleTaskDrawerClose}
+        onUpdated={handleTaskDrawerClose}
         onDeleted={handleTaskDrawerRefresh}
       />
       {isMobile ? (
