@@ -161,8 +161,8 @@ function EventsAndTasks({
 
   const hasActiveFilters = resolvedEventFilter !== "all" || resolvedTaskFilter !== "all";
   const filterButtonLabel = hasActiveFilters
-    ? `${EVENT_FILTER_SUMMARY[resolvedEventFilter]} · ${TASK_FILTER_SUMMARY[resolvedTaskFilter]}`
-    : "Filter";
+    ? `Filter: ${EVENT_FILTER_SUMMARY[resolvedEventFilter]} · ${TASK_FILTER_SUMMARY[resolvedTaskFilter]} ▾`
+    : "Filters ▾";
   const filterButtonAriaLabel = hasActiveFilters
     ? `Filtering by ${EVENT_FILTER_LABELS[resolvedEventFilter]} and ${TASK_FILTER_LABELS[resolvedTaskFilter]}`
     : "Filter events and tasks";
@@ -214,7 +214,6 @@ function EventsAndTasks({
                   aria-expanded={isFilterPopoverOpen}
                   aria-label={filterButtonAriaLabel}
                 >
-                  <span className="events-tasks__filter-dot" aria-hidden />
                   <span className="events-tasks__filter-label">{filterButtonLabel}</span>
                 </button>
               </PopoverTrigger>
@@ -222,6 +221,20 @@ function EventsAndTasks({
                 className="events-tasks__filter-popover"
                 align="start"
               >
+                <div className="events-tasks__filter-header">
+                  <div className="events-tasks__filter-title">Filter events & tasks</div>
+                  <button
+                    type="button"
+                    className="events-tasks__filter-reset"
+                    onClick={() => {
+                      handleEventFilterChange(DEFAULT_EVENT_FILTER);
+                      handleTaskFilterChange(DEFAULT_TASK_FILTER);
+                    }}
+                    disabled={!hasActiveFilters}
+                  >
+                    Reset
+                  </button>
+                </div>
                 <div className="events-tasks__filter-section">
                   <div className="events-tasks__filter-heading">Events</div>
                   <div className="events-tasks__filter-options" role="group" aria-label="Filter events">
@@ -260,24 +273,41 @@ function EventsAndTasks({
                     })}
                   </div>
                 </div>
-                <div className="events-tasks__filter-footer">
-                  <button
-                    type="button"
-                    className="events-tasks__filter-reset"
-                    onClick={() => {
-                      handleEventFilterChange(DEFAULT_EVENT_FILTER);
-                      handleTaskFilterChange(DEFAULT_TASK_FILTER);
-                    }}
-                    disabled={!hasActiveFilters}
-                  >
-                    Reset filters
-                  </button>
-                </div>
               </PopoverContent>
             </Popover>
+            {hasActiveFilters && (
+              <div className="events-tasks__active-filters">
+                {resolvedEventFilter !== "all" && (
+                  <button
+                    type="button"
+                    className="events-tasks__filter-chip"
+                    onClick={() => handleEventFilterChange("all")}
+                    aria-label={`Remove ${EVENT_FILTER_LABELS[resolvedEventFilter]} filter`}
+                  >
+                    {EVENT_FILTER_LABELS[resolvedEventFilter]} ✕
+                  </button>
+                )}
+                {resolvedTaskFilter !== "all" && (
+                  <button
+                    type="button"
+                    className="events-tasks__filter-chip"
+                    onClick={() => handleTaskFilterChange("all")}
+                    aria-label={`Remove ${TASK_FILTER_LABELS[resolvedTaskFilter]} filter`}
+                  >
+                    {TASK_FILTER_LABELS[resolvedTaskFilter]} ✕
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {hasActiveFilters && (
+        <div className="events-tasks__summary">
+          Showing: {EVENT_FILTER_LABELS[resolvedEventFilter]} · {TASK_FILTER_LABELS[resolvedTaskFilter]}
+        </div>
+      )}
 
       <div className="events-tasks__content">
         <div className="events-tasks__section">
