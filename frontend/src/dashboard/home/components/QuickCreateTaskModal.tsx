@@ -1546,6 +1546,22 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       if (isEditing && taskId) {
         console.log('Editing task:', taskId, 'with payload:', payload);
         await updateTask({ ...payload, taskId });
+        const savedAttachmentsSnapshot = noteAttachments.map((attachment) => ({ ...attachment }));
+        const nextAssigneeTokens = [...trimmedAssigneeTokens];
+        initialTaskRef.current = {
+          ...(initialTaskRef.current ?? { projectId: effectiveProjectId }),
+          projectId: effectiveProjectId,
+          title: trimmedTitle,
+          description: description.trim(),
+          dueDate: dueDate || null,
+          status,
+          assigneeTokens: nextAssigneeTokens.length ? nextAssigneeTokens : [],
+          assigneeIds: nextAssigneeTokens.length ? nextAssigneeTokens : [],
+          assigneeId: nextAssigneeTokens.length ? nextAssigneeTokens[0] : null,
+          address: trimmedAddress || null,
+          location: locationPayload ? { ...locationPayload } : null,
+          noteAttachments: savedAttachmentsSnapshot,
+        };
         console.log('Task updated successfully');
         setSuccessMessage("Task updated. Changes saved.");
         onUpdated?.();
