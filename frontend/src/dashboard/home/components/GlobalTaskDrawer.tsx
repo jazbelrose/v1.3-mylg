@@ -582,6 +582,14 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
       title: task.title,
       description: task.description ?? undefined,
       dueDate: task.dueDateInput ?? (task.dueDate ? task.dueDate.toISOString() : null),
+      startAt:
+        (task.rawTask as { startAt?: string | number | Date | null }).startAt ??
+        (task.rawTask as { start_at?: string | number | Date | null }).start_at ??
+        null,
+      endAt:
+        (task.rawTask as { endAt?: string | number | Date | null }).endAt ??
+        (task.rawTask as { end_at?: string | number | Date | null }).end_at ??
+        null,
       status: task.status,
       assigneeId: task.assigneeId ?? undefined,
       address: task.address ?? undefined,

@@ -20,6 +20,8 @@ export type QuickCreateTaskModalTask = {
   title?: string | null;
   description?: string | null;
   dueDate?: string | number | Date | null;
+  startAt?: string | number | Date | null;
+  endAt?: string | number | Date | null;
   status?: string | null;
   assigneeId?: string | null;
   assigneeIds?: string[] | null;

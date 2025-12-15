@@ -22,8 +22,9 @@ export type CalendarTask = {
   id: string;
   title: string;
   due?: string; // ISO date
+  start?: string; // "HH:MM"
+  end?: string; // "HH:MM"
   done?: boolean;
-  time?: string;
   description?: string;
   status?: ApiTask["status"];
   assignedTo?: string;
@@ -408,25 +409,102 @@ export const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent |
 };
 
 export const normalizeTask = (task: ApiTask): CalendarTask => {
-  const dueSource = task.dueDate ?? undefined;
+  const dueSource =
+    task.dueDate ??
+    (task as { dueAt?: unknown }).dueAt ??
+    (task as { due_at?: unknown }).due_at ??
+    (task as { due?: unknown }).due ??
+    undefined;
   let due: string | undefined;
-  let time: string | undefined;
+  let dueTime: string | undefined;
   const rawAssignedTo =
     typeof task.assigneeId === "string"
       ? task.assigneeId
       : typeof (task as { assignedTo?: string }).assignedTo === "string"
-        ? (task as { assignedTo?: string }).assignedTo
-        : undefined;
+         ? (task as { assignedTo?: string }).assignedTo
+         : undefined;
 
-  if (dueSource) {
-    const match = dueSource.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))/);
-    if (match) {
-      due = match[1];
-      time = match[2];
-    } else {
-      due = dueSource.slice(0, 10);
-      const fallback = dueSource.match(/T(\d{2}:\d{2})/);
-      time = fallback ? fallback[1] : undefined;
+  const parseDateTimeCandidate = (value: unknown): Date | null => {
+    if (value == null || value === "") return null;
+    if (value instanceof Date) {
+      const copy = new Date(value.getTime());
+      return Number.isNaN(copy.getTime()) ? null : copy;
+    }
+    if (typeof value === "number") {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const parsed = new Date(`${trimmed}T00:00:00`);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+      const parsed = new Date(trimmed);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return null;
+  };
+
+  const formatLocalTime = (value: unknown): string | undefined => {
+    if (value == null || value === "") return undefined;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return undefined;
+      }
+      if (trimmed.includes("T")) {
+        const parsed = parseDateTimeCandidate(trimmed);
+        if (parsed) {
+          return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+        }
+      }
+      const timeMatch = trimmed.match(/^(\d{1,2})(:?)(\d{2})?$/);
+      if (timeMatch) {
+        const hours = Number(timeMatch[1]);
+        const minutes = Number(timeMatch[3] ?? 0);
+        if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+          return `${pad(hours)}:${pad(minutes)}`;
+        }
+      }
+      return undefined;
+    }
+    const parsed = parseDateTimeCandidate(value);
+    if (!parsed) return undefined;
+    return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+  };
+
+  const dueDateTime = parseDateTimeCandidate(dueSource);
+  if (dueDateTime) {
+    due = fmtLocal(dueDateTime);
+    const hours = dueDateTime.getHours();
+    const minutes = dueDateTime.getMinutes();
+    if (hours !== 0 || minutes !== 0) {
+      dueTime = `${pad(hours)}:${pad(minutes)}`;
+    }
+  }
+
+  const startCandidate =
+    task.startAt ??
+    (task as { startTime?: unknown }).startTime ??
+    (task as { start_time?: unknown }).start_time ??
+    (task as { start?: unknown }).start ??
+    undefined;
+  const endCandidate =
+    task.endAt ??
+    (task as { endTime?: unknown }).endTime ??
+    (task as { end_time?: unknown }).end_time ??
+    (task as { end?: unknown }).end ??
+    undefined;
+
+  const start = formatLocalTime(startCandidate) ?? dueTime;
+  const end = formatLocalTime(endCandidate);
+  if (!due) {
+    const fallbackDateTime = parseDateTimeCandidate(startCandidate) ?? parseDateTimeCandidate(endCandidate);
+    if (fallbackDateTime) {
+      due = fmtLocal(fallbackDateTime);
     }
   }
 
@@ -437,7 +515,8 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
       `${task.projectId}-${Math.random().toString(36).slice(2)}`,
     title: task.title ?? "Untitled task",
     due,
-    time,
+    start,
+    end,
     done: task.status === "done",
     description: task.description ?? undefined,
     status: task.status,

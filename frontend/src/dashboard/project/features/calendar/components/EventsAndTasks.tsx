@@ -402,7 +402,10 @@ function EventsAndTasks({
                   ? formattedStatusLabel
                   : `${statusData.label} (${formattedStatusLabel})`;
               const dueLabel = dueDate ? scheduleDateFormatter.format(dueDate) : undefined;
-              const timeLabel = formatTimeLabel(task.time);
+              const startLabel = formatTimeLabel(task.start);
+              const endLabel = formatTimeLabel(task.end);
+              const timeLabel =
+                startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? undefined;
               const assignedLabel = quickTask?.assignedTo
                 ? formatAssigneeDisplay(quickTask.assignedTo)
                 : formatAssigneeDisplay(task.assignedTo);

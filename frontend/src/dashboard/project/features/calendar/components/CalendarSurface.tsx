@@ -347,15 +347,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         return;
       }
       const key = fmt(taskDate);
+      const startLabel = formatTimeLabel(task.start) ?? undefined;
+      const endLabel = formatTimeLabel(task.end) ?? undefined;
+      const timeLabel = startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? undefined;
       const entry: MiniCalendarActivityItem = {
         id: `task-${task.id}`,
         title: task.title,
-        time: formatTimeLabel(task.time) ?? undefined,
+        time: timeLabel,
         note: undefined,
         type: "task",
         color: defaultColor,
         isCompleted: Boolean(task.done || task.status === 'archived'),
-        sortKey: task.time ?? "99:99",
+        sortKey: task.start ?? "99:99",
         taskId: task.id,
       };
       map[key] = [...(map[key] ?? []), entry];
@@ -510,6 +513,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           sourceTask?.dueDate ??
           (sourceTask as { due_at?: string | null })?.due_at ??
           (sourceTask as { dueAt?: string | number | Date | null })?.dueAt ??
+          null,
+        startAt:
+          sourceTask?.startAt ??
+          (sourceTask as { start_at?: string | null })?.start_at ??
+          (sourceTask as { startTime?: string | null })?.startTime ??
+          (quickTask?.raw as { startAt?: string | number | Date | null } | undefined)?.startAt ??
+          null,
+        endAt:
+          sourceTask?.endAt ??
+          (sourceTask as { end_at?: string | null })?.end_at ??
+          (sourceTask as { endTime?: string | null })?.endTime ??
+          (quickTask?.raw as { endAt?: string | number | Date | null } | undefined)?.endAt ??
           null,
         status:
           (sourceTask?.status as string | undefined) ??

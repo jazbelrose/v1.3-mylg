@@ -78,11 +78,13 @@ export interface Task extends JsonRecord {
   title: string;
   description?: string;
   budgetItemId?: string | null;
-  status?: 'todo' | 'in_progress' | 'done';
+  status?: 'todo' | 'in_progress' | 'in_review' | 'needs_changes' | 'done' | 'archived';
   assigneeId?: string;
   assigneeIds?: string[];
   assigneeTokens?: string[];
   dueDate?: string; // ISO
+  startAt?: string | null; // ISO-like local datetime string (YYYY-MM-DDTHH:mm:ss) or ISO
+  endAt?: string | null; // ISO-like local datetime string (YYYY-MM-DDTHH:mm:ss) or ISO
   address?: string;
   location?: { lat: number; lng: number };
   noteAttachments?: Array<{
@@ -1297,8 +1299,6 @@ export async function updateCollabInvite(inviteId: string, action: 'accept' | 'd
 export const acceptCollabInvite = (inviteId: string) => updateCollabInvite(inviteId, 'accept');
 export const declineCollabInvite = (inviteId: string) => updateCollabInvite(inviteId, 'decline');
 export const cancelCollabInvite  = (inviteId: string) => updateCollabInvite(inviteId, 'cancel');
-
-
 
 
 

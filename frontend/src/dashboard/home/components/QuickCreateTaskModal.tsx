@@ -158,6 +158,44 @@ function toDateInputString(value?: string | number | Date | null): string {
   return "";
 }
 
+function toTimeInputString(value?: string | number | Date | null): string {
+  if (value == null || value === "") {
+    return "";
+  }
+
+  const pad = (segment: number) => `${segment}`.padStart(2, "0");
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? "" : `${pad(value.getHours())}:${pad(value.getMinutes())}`;
+  }
+
+  if (typeof value === "number") {
+    const asDate = new Date(value);
+    return Number.isNaN(asDate.getTime()) ? "" : `${pad(asDate.getHours())}:${pad(asDate.getMinutes())}`;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    const isoMatch = trimmed.match(/T(\d{2}):(\d{2})/);
+    if (isoMatch) {
+      return `${isoMatch[1]}:${isoMatch[2]}`;
+    }
+
+    const plainMatch = trimmed.match(/^(\d{1,2})(:?)(\d{2})?$/);
+    if (plainMatch) {
+      const hours = Number(plainMatch[1]);
+      const minutes = Number(plainMatch[3] ?? 0);
+      if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+        return `${pad(hours)}:${pad(minutes)}`;
+      }
+    }
+  }
+
+  return "";
+}
+
 function parseCoordinate(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -282,6 +320,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [addressSearch, setAddressSearch] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
   const [showWorldwideLink, setShowWorldwideLink] = useState(false);
@@ -298,6 +338,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [dueDateError, setDueDateError] = useState<string | null>(null);
+  const [timeRangeError, setTimeRangeError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [reviewerId, setReviewerId] = useState<string | null>(null);
@@ -340,8 +381,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const titleErrorId = `${baseId}-title-error`;
   const projectErrorId = `${baseId}-project-error`;
   const dueDateErrorId = `${baseId}-due-date-error`;
+  const timeRangeErrorId = `${baseId}-time-range-error`;
   const locationFieldId = `${baseId}-location`;
   const dueDateFieldId = `${baseId}-due-date`;
+  const startTimeFieldId = `${baseId}-start-time`;
+  const endTimeFieldId = `${baseId}-end-time`;
   const notesFieldId = `${baseId}-notes`;
   const attachmentsFieldId = `${baseId}-attachments`;
   const feedbackRegionId = `${baseId}-feedback`;
@@ -563,6 +607,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       title: title.trim(),
       description: description.trim(),
       dueDate,
+      startTime,
+      endTime,
       assigneeTokens: [...assigneeTokens].sort(),
       address: addressSearch.trim(),
       location: selectedLocation,
@@ -576,6 +622,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         title: initialTaskRef.current.title?.trim() || "",
         description: initialTaskRef.current.description?.trim() || "",
         dueDate: toDateInputString(initialTaskRef.current.dueDate) || "",
+        startTime: toTimeInputString(initialTaskRef.current.startAt) || "",
+        endTime: toTimeInputString(initialTaskRef.current.endAt) || "",
         assigneeTokens: parseAssigneeTokensInput(initialTaskRef.current.assigneeTokens || initialTaskRef.current.assigneeId || initialTaskRef.current.assigneeIds).sort(),
         address: initialTaskRef.current.address?.trim() || "",
         location: normalizeLocation(initialTaskRef.current.location),
@@ -587,11 +635,22 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       return hasChanges;
     } else {
       // create mode - only consider user-entered fields, not auto-set projectId
-      const hasData = !!(title.trim() || description.trim() || dueDate || assigneeTokens.length || addressSearch.trim() || selectedLocation || noteAttachments.length || status !== "todo");
+      const hasData = !!(
+        title.trim() ||
+        description.trim() ||
+        dueDate ||
+        startTime ||
+        endTime ||
+        assigneeTokens.length ||
+        addressSearch.trim() ||
+        selectedLocation ||
+        noteAttachments.length ||
+        status !== "todo"
+      );
       console.log('[QuickCreateTaskModal] Create mode - hasData:', hasData, 'current:', current);
       return hasData;
     }
-  }, [projectId, title, description, dueDate, assigneeTokens, addressSearch, selectedLocation, noteAttachments, status]);
+  }, [projectId, title, description, dueDate, startTime, endTime, assigneeTokens, addressSearch, selectedLocation, noteAttachments, status]);
 
   const handleClose = useCallback(() => {
     console.log('[QuickCreateTaskModal] handleClose called, hasUnsavedChanges:', hasUnsavedChanges);
@@ -820,6 +879,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTitle("");
     setDescription("");
     setDueDate("");
+    setStartTime("");
+    setEndTime("");
     setAddressSearch("");
     setAddressSuggestions([]);
     setShowWorldwideLink(false);
@@ -833,6 +894,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTitleError(null);
     setProjectError(null);
     setDueDateError(null);
+    setTimeRangeError(null);
     setTaskId(null);
     setStatus("todo");
     setArchiving(false);
@@ -864,6 +926,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setTitle(typeof taskData.title === "string" ? formatTaskName(taskData.title) : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
+      setStartTime(toTimeInputString(taskData.startAt));
+      setEndTime(toTimeInputString(taskData.endAt));
       const normalizedFormStatus = normalizeStatus(taskData.status);
       setStatus(normalizedFormStatus);
       const providedTokens = Array.isArray(taskData.assigneeTokens)
@@ -896,6 +960,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
       setTitleError(null);
       setProjectError(null);
+      setTimeRangeError(null);
     },
     [],
   );
@@ -917,6 +982,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTitleError(null);
     setProjectError(null);
     setDueDateError(null);
+    setTimeRangeError(null);
   }, [open, resetForm]);
 
   useEffect(() => {
@@ -1003,13 +1069,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               lat: userData.defaultTaskLocation.lat,
               lng: userData.defaultTaskLocation.lon,
             };
-            setUserLocation(fallbackCoords);
-            setCurrentLocationAddress(userData.defaultTaskLocation.formattedAddress);
-            notify("Using your default location for suggestions.", "info");
+             setUserLocation(fallbackCoords);
+             setCurrentLocationAddress(userData.defaultTaskLocation.formattedAddress);
+            notify("info", "Using your default location for suggestions.");
           } else {
             setUserLocation(null);
             setCurrentLocationAddress(null);
-            notify("Location access denied. Suggestions may be less accurate.", "warning");
+            notify("warning", "Location access denied. Suggestions may be less accurate.");
           }
         }
       }
@@ -1328,6 +1394,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
     setDueDateError(null);
+    setTimeRangeError(null);
   };
 
   const handleDueDateQuickSelect = (value: string) => {
@@ -1335,6 +1402,21 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
     setDueDateError(null);
+    setTimeRangeError(null);
+  };
+
+  const handleStartTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setStartTime(event.target.value);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    setTimeRangeError(null);
+  };
+
+  const handleEndTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setEndTime(event.target.value);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    setTimeRangeError(null);
   };
 
   const handleDescriptionChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1491,9 +1573,39 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       return;
     }
 
+    const startTimeValue = startTime.trim();
+    const endTimeValue = endTime.trim();
+    if (startTimeValue || endTimeValue) {
+      if (!startTimeValue || !endTimeValue) {
+        const errorMsg = "Add both a start time and end time.";
+        setTimeRangeError(errorMsg);
+        setErrorMessage(null);
+        notify("error", errorMsg);
+        return;
+      }
+
+      const [startHours, startMinutes] = startTimeValue.split(":").map(Number);
+      const [endHours, endMinutes] = endTimeValue.split(":").map(Number);
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      const endTotalMinutes = endHours * 60 + endMinutes;
+
+      if (
+        Number.isNaN(startTotalMinutes) ||
+        Number.isNaN(endTotalMinutes) ||
+        endTotalMinutes <= startTotalMinutes
+      ) {
+        const errorMsg = "End time must be after start time.";
+        setTimeRangeError(errorMsg);
+        setErrorMessage(null);
+        notify("error", errorMsg);
+        return;
+      }
+    }
+
     setSubmitting(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setTimeRangeError(null);
     const eventType: QuickCreateTaskModalEventType = isEditing ? "update" : "create";
     const normalizedStatusForPayload = PATCHABLE_STATUSES.includes(status) ? status : undefined;
     const statusForPayload = !isEditing
@@ -1508,6 +1620,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       dueDateIso = Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
     }
 
+    const startAtIso = startTimeValue ? `${dueDate}T${startTimeValue}:00` : undefined;
+    const endAtIso = endTimeValue ? `${dueDate}T${endTimeValue}:00` : undefined;
+
     try {
       const trimmedAddress = addressSearch.trim();
       const locationPayload = selectedLocation
@@ -1519,6 +1634,16 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         title: formattedTitle,
         description: description.trim() || undefined,
         dueDate: dueDateIso,
+        ...(startAtIso
+          ? { startAt: startAtIso }
+          : isEditing && initialTaskRef.current?.startAt != null && initialTaskRef.current?.startAt !== ""
+            ? { startAt: null }
+            : {}),
+        ...(endAtIso
+          ? { endAt: endAtIso }
+          : isEditing && initialTaskRef.current?.endAt != null && initialTaskRef.current?.endAt !== ""
+            ? { endAt: null }
+            : {}),
         ...(statusForPayload ? { status: statusForPayload as 'todo' | 'in_progress' | 'done' } : {}),
         ...(trimmedAddress ? { address: trimmedAddress } : {}),
         ...(locationPayload ? { location: locationPayload } : {}),
@@ -1556,6 +1681,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           title: formattedTitle,
           description: description.trim(),
           dueDate: toDateInputString(dueDate) || "",
+          startAt: startAtIso ?? null,
+          endAt: endAtIso ?? null,
           status: normalizeStatus(status),
           assigneeTokens: parseAssigneeTokensInput(nextAssigneeTokens.length ? nextAssigneeTokens : []).sort(),
           assigneeIds: nextAssigneeTokens.length ? nextAssigneeTokens : [],
@@ -1575,6 +1702,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setTitle("");
         setDescription("");
         setDueDate("");
+        setStartTime("");
+        setEndTime("");
         setAddressSearch("");
         setAddressSuggestions([]);
         setSelectedLocation(null);
@@ -2330,6 +2459,49 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   +7
                 </button>
               </div>
+              <div className={styles.timeRangeRow}>
+                <div className={styles.timeRangeField}>
+                  <div className={styles.fieldHeader}>
+                    <label className={styles.fieldLabel} htmlFor={startTimeFieldId}>
+                      <span className={styles.fieldLabelText}>Start time</span>
+                    </label>
+                    <span className={styles.fieldOptional}>Optional</span>
+                  </div>
+                  <input
+                    id={startTimeFieldId}
+                    aria-label="Task start time"
+                    type="time"
+                    className={styles.textInput}
+                    value={startTime}
+                    onChange={handleStartTimeChange}
+                    disabled={isBusy}
+                    aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
+                  />
+                </div>
+                <div className={styles.timeRangeField}>
+                  <div className={styles.fieldHeader}>
+                    <label className={styles.fieldLabel} htmlFor={endTimeFieldId}>
+                      <span className={styles.fieldLabelText}>End time</span>
+                    </label>
+                    <span className={styles.fieldOptional}>Optional</span>
+                  </div>
+                  <input
+                    id={endTimeFieldId}
+                    aria-label="Task end time"
+                    type="time"
+                    className={styles.textInput}
+                    value={endTime}
+                    onChange={handleEndTimeChange}
+                    disabled={isBusy}
+                    aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
+                  />
+                </div>
+              </div>
+              {timeRangeError ? (
+                <p id={timeRangeErrorId} className={styles.fieldError} aria-live="polite">
+                  {timeRangeError}
+                </p>
+              ) : null}
             </div>
             <div className={styles.fieldGroup}>
               <div className={styles.fieldHeader}>

@@ -440,6 +440,18 @@
   margin-top: -4px;
 }
 
+.timeRangeRow {
+  display: flex;
+  gap: 12px;
+}
+
+.timeRangeField {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .quickChip {
   flex: 0 0 auto;
   min-height: 40px;

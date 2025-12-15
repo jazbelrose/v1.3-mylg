@@ -29,6 +29,11 @@ type WeekDayEvents = {
   timed: CalendarEvent[];
 };
 
+type WeekDayTasks = {
+  allDay: CalendarTask[];
+  timed: Map<number, CalendarTask[]>;
+};
+
 const parseHour = (time?: string) => {
   if (!time) return undefined;
   const [h] = time.split(":").map(Number);
@@ -82,9 +87,9 @@ function WeekGrid({
   }, [days, events]);
 
   const tasksByDay = useMemo(() => {
-    const map = new Map<string, CalendarTask[]>();
+    const map = new Map<string, WeekDayTasks>();
     days.forEach((day) => {
-      map.set(fmtLocal(day), []);
+      map.set(fmtLocal(day), { allDay: [], timed: new Map() });
     });
     tasks.forEach((task) => {
       if (!task.due) return;
@@ -94,7 +99,22 @@ function WeekGrid({
       const taskKey = fmtLocal(taskDate);
       const bucket = map.get(taskKey);
       if (!bucket) return;
-      bucket.push(task);
+      const hour = parseHour(task.start);
+      if (hour == null) {
+        bucket.allDay.push(task);
+        return;
+      }
+      const timedBucket = bucket.timed.get(hour);
+      if (timedBucket) {
+        timedBucket.push(task);
+      } else {
+        bucket.timed.set(hour, [task]);
+      }
+    });
+    map.forEach((bucket) => {
+      Array.from(bucket.timed.values()).forEach((timedBucket) =>
+        timedBucket.sort((a, b) => (a.start ?? "").localeCompare(b.start ?? "")),
+      );
     });
     return map;
   }, [days, tasks]);
@@ -201,10 +221,11 @@ function WeekGrid({
           {days.map((day) => {
             const key = fmtLocal(day);
             const dayEvents = eventsByDay.get(key) ?? { allDay: [], timed: [] };
-            const dayTasks = tasksByDay.get(key) ?? [];
+            const dayTasks = tasksByDay.get(key) ?? { allDay: [], timed: new Map() };
             const timed = dayEvents.timed.filter(
               (event) => parseHour(event.start) === hour,
             );
+            const timedTasks = dayTasks.timed.get(hour) ?? [];
             return (
               <div
                 key={`${key}-${hour}`}
@@ -224,7 +245,7 @@ function WeekGrid({
                   handleCreateEvent(day, hour);
                 }}
               >
-                {hourIndex === 0 && (dayEvents.allDay.length > 0 || dayTasks.length > 0) && (
+                {hourIndex === 0 && (dayEvents.allDay.length > 0 || dayTasks.allDay.length > 0) && (
                   <div className="week-grid__all-day">
                     {dayEvents.allDay.map((event) => (
                       <div
@@ -244,7 +265,7 @@ function WeekGrid({
                         <div className="week-grid__event-time">All day</div>
                       </div>
                     ))}
-                    {dayTasks.map((task) => (
+                    {dayTasks.allDay.map((task) => (
                       <button
                         key={task.id}
                         type="button"
@@ -258,9 +279,7 @@ function WeekGrid({
                           <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
                             {task.title}
                           </div>
-                          {task.time && (
-                            <div className="week-grid__task-time">{task.time}</div>
-                          )}
+                          <div className="week-grid__task-time">All day</div>
                         </div>
                       </button>
                     ))}
@@ -286,7 +305,30 @@ function WeekGrid({
                     <div className="week-grid__event-time">
                       {event.start} – {event.end || addHoursToTime(event.start!, 1)}
                     </div>
-                  </motion.div>
+                    </motion.div>
+                ))}
+                {timedTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className="week-grid__task"
+                    onClick={() => onEditTask(task)}
+                  >
+                    <span className="week-grid__task-icon">
+                      <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                    </span>
+                    <div className="week-grid__task-body">
+                      <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
+                        {task.title}
+                      </div>
+                      {task.start ? (
+                        <div className="week-grid__task-time">
+                          {task.start}
+                          {task.end ? ` - ${task.end}` : ""}
+                        </div>
+                      ) : null}
+                    </div>
+                  </button>
                 ))}
               </div>
             );

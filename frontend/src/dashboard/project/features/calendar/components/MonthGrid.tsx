@@ -117,7 +117,7 @@ function MonthGrid({
             })),
             ...dayTasks.map((task) => ({
               type: "task" as const,
-              sortKey: task.time ?? "99:99",
+              sortKey: task.start ?? "99:99",
               task,
             })),
           ].sort((a, b) => {
@@ -195,6 +195,7 @@ function MonthGrid({
                 }
 
                 const { task } = item;
+                const timePrefix = task.start ? `${task.start}${task.end ? `-${task.end}` : ""} ` : "";
                 return (
                   <div
                     key={`task-${task.id}`}
@@ -219,6 +220,7 @@ function MonthGrid({
                       className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
                       title={task.title}
                     >
+                      {timePrefix}
                       {task.title}
                     </span>
                   </div>

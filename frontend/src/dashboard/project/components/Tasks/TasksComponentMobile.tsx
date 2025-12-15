@@ -137,6 +137,14 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
         title: task.title,
         description: task.description ?? undefined,
         dueDate: task.dueDateInput ?? (task.dueDate ? task.dueDate.toISOString() : null),
+        startAt:
+          (task.raw as { startAt?: string | number | Date | null }).startAt ??
+          (task.raw as { start_at?: string | number | Date | null }).start_at ??
+          null,
+        endAt:
+          (task.raw as { endAt?: string | number | Date | null }).endAt ??
+          (task.raw as { end_at?: string | number | Date | null }).end_at ??
+          null,
         status: task.status,
         assigneeId: task.assignedTo ?? undefined,
         address: task.address ?? undefined,
@@ -626,5 +634,4 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
 };
 
 export default TasksComponentMobile;
-
 
