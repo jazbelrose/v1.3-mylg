@@ -1553,14 +1553,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           projectId: effectiveProjectId,
           title: trimmedTitle,
           description: description.trim(),
-          dueDate: dueDate || null,
-          status,
-          assigneeTokens: nextAssigneeTokens.length ? nextAssigneeTokens : [],
+          dueDate: toDateInputString(dueDate) || "",
+          status: normalizeStatus(status),
+          assigneeTokens: parseAssigneeTokensInput(nextAssigneeTokens.length ? nextAssigneeTokens : []).sort(),
           assigneeIds: nextAssigneeTokens.length ? nextAssigneeTokens : [],
           assigneeId: nextAssigneeTokens.length ? nextAssigneeTokens[0] : null,
-          address: trimmedAddress || null,
-          location: locationPayload ? { ...locationPayload } : null,
-          noteAttachments: savedAttachmentsSnapshot,
+          address: trimmedAddress,
+          location: normalizeLocation(locationPayload ? { ...locationPayload } : null),
+          noteAttachments: sanitizeIncomingAttachments(savedAttachmentsSnapshot),
         };
         console.log('Task updated successfully');
         setSuccessMessage("Task updated. Changes saved.");
