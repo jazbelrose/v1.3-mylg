@@ -1,4 +1,5 @@
 import type { ApiTask, NominatimSuggestion, Status, Task, TeamMember } from "./types";
+import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 
 export const STATUS_OPTIONS: { value: Status; label: string }[] = [
   { value: "todo", label: "To Do" },
@@ -97,12 +98,16 @@ export function sortByProximity(
 
 export function mapApiTaskToTask(task: ApiTask, fallbackId?: string): Task {
   const id = task.taskId || task.id || fallbackId || "";
+  const titleSource = task.title ?? task.name ?? "";
+  const rawTitle =
+    typeof titleSource === "string" ? titleSource.trim() : String(titleSource ?? "").trim();
+  const formattedTitle = rawTitle ? formatTaskName(rawTitle) : "Untitled task";
 
   return {
     id,
     taskId: task.taskId,
     projectId: task.projectId,
-    name: (task.title || task.name || "").toUpperCase(),
+    name: formattedTitle,
     assigneeId: task.assigneeId || task.assignedTo,
     assignedTo: task.assigneeId || task.assignedTo,
     dueDate: task.dueDate,

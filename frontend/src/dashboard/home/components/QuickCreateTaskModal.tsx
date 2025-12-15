@@ -24,6 +24,7 @@ import {
   getTaskStatusTone,
   type TaskStatusTone,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
+import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -550,6 +551,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return projectOptions[0]?.id ?? "";
   }, [isEditing, projectId, projectOptions, scopedProjectId]);
   const trimmedTitle = title.trim();
+  const formattedTitle = trimmedTitle ? formatTaskName(trimmedTitle) : "";
   const titleRemaining = 120 - title.length;
   const showTitleCounter = titleRemaining <= 20;
   const canSubmit = Boolean(effectiveProjectId && trimmedTitle);
@@ -859,7 +861,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         null;
       setTaskId(nextTaskId);
       setReviewerId(typeof taskData.reviewerId === "string" ? taskData.reviewerId : null);
-      setTitle(typeof taskData.title === "string" ? taskData.title : "");
+      setTitle(typeof taskData.title === "string" ? formatTaskName(taskData.title) : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
       const normalizedFormStatus = normalizeStatus(taskData.status);
@@ -1514,7 +1516,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
       const payload: Task = {
         projectId: effectiveProjectId,
-        title: trimmedTitle,
+        title: formattedTitle,
         description: description.trim() || undefined,
         dueDate: dueDateIso,
         ...(statusForPayload ? { status: statusForPayload as 'todo' | 'in_progress' | 'done' } : {}),
@@ -1551,7 +1553,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         initialTaskRef.current = {
           ...(initialTaskRef.current ?? { projectId: effectiveProjectId }),
           projectId: effectiveProjectId,
-          title: trimmedTitle,
+          title: formattedTitle,
           description: description.trim(),
           dueDate: toDateInputString(dueDate) || "",
           status: normalizeStatus(status),

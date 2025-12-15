@@ -23,6 +23,7 @@ import {
   getTaskStatusTone,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { buildDirectionsLinks } from "@/dashboard/project/components/Tasks/utils";
+import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 import desktopFilterStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 import { notify } from "@/shared/ui/ToastNotifications";
 import {
@@ -424,14 +425,19 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
   const mapAddress = tasksWithLocation[0]?.address || "Global tasks";
 
   const mapMarkers = useMemo<TaskMapMarker[]>(() => {
-    return tasksWithLocation.map((task) => ({
-      id: task.id,
-      lat: task.parsedLocation.lat,
-      lng: task.parsedLocation.lng,
-      iconUrl: buildMarkerThumbnail(task.projectColor),
-      title: task.title,
-      isActive: task.id === activeTaskId,
-    }));
+    return tasksWithLocation.map((task) => {
+      const formattedTitle = task.title?.trim()
+        ? formatTaskName(task.title)
+        : "Untitled task";
+      return {
+        id: task.id,
+        lat: task.parsedLocation.lat,
+        lng: task.parsedLocation.lng,
+        iconUrl: buildMarkerThumbnail(task.projectColor),
+        title: formattedTitle,
+        isActive: task.id === activeTaskId,
+      };
+    });
   }, [tasksWithLocation, activeTaskId]);
 
   useEffect(() => {
@@ -1524,6 +1530,9 @@ const BADGE_CLASS_BY_TONE = {
                       const reviewNote = (
                         task.reviewNote ?? (task.rawTask as { reviewNote?: string })?.reviewNote ?? ""
                       ).trim();
+                      const formattedTitle = task.title?.trim()
+                        ? formatTaskName(task.title)
+                        : "Untitled task";
                       const reviewerName =
                         task.reviewerName ?? (task.rawTask as { reviewerName?: string })?.reviewerName;
                       const showActionRow = Boolean(
@@ -1596,7 +1605,7 @@ const BADGE_CLASS_BY_TONE = {
                                   className={styles.taskTitle}
                                   style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}
                                 >
-                                  {task.projectName || task.title}
+                                  {task.projectName || formattedTitle}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1693,7 +1702,7 @@ const BADGE_CLASS_BY_TONE = {
                               </span>
                             )}
                             <span className={styles.metaLine} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '32ch', marginBottom: '18px', fontSize: '1.25em' }}>
-                              {task.title}
+                              {formattedTitle}
                             </span>
                             <span className={styles.metaLine}>
                               <Calendar size={14} aria-hidden="true" /> {formatDueLabel(task)}

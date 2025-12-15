@@ -24,6 +24,7 @@ import {
   type EventFilter,
   type TaskFilter,
 } from "./events-and-tasks-filters";
+import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 
 function formatInitials(value?: string): string | undefined {
   if (!value) return undefined;
@@ -386,6 +387,8 @@ function EventsAndTasks({
               const canSubmitForReview = !isAwaitingApproval && !isDone;
               const showStatusAction = canApprove || canSubmitForReview;
               const toggleLabel = canApprove ? "Approve task" : "Submit for review";
+              const rawTitle = typeof task.title === "string" ? task.title.trim() : "";
+              const displayTaskTitle = rawTitle ? formatTaskName(rawTitle) : "Untitled task";
 
               return (
                 <li key={task.id} className="events-tasks__list-item">
@@ -402,8 +405,8 @@ function EventsAndTasks({
                     }}
                   >
                     <div className="events-tasks__card-header">
-                      <span className="events-tasks__card-title" title={task.title}>
-                        {task.title}
+                      <span className="events-tasks__card-title" title={displayTaskTitle}>
+                        {displayTaskTitle}
                       </span>
                       <Popover
                         open={isPopoverOpen}

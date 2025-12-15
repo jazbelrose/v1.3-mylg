@@ -10,6 +10,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import pLimit from "@/shared/utils/pLimit";
 import { endOfWeek, startOfWeek } from "@/dashboard/home/utils/dateUtils";
+import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 
 const dayFormatter = new Intl.DateTimeFormat(undefined, {
   weekday: "short",
@@ -209,16 +210,8 @@ function normalizeTitle(value?: unknown): string {
   if (typeof value !== "string") return "Untitled task";
   const trimmed = value.trim();
   if (!trimmed) return "Untitled task";
-
-  if (trimmed === trimmed.toUpperCase()) {
-    return trimmed
-      .toLowerCase()
-      .split(/\s+/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  }
-
-  return trimmed;
+  const formatted = formatTaskName(trimmed);
+  return formatted || "Untitled task";
 }
 
 function getFirstNonEmptyString(...values: unknown[]): string | undefined {
@@ -751,7 +744,6 @@ export function useTasksOverview() {
     markTaskDone,
   };
 }
-
 
 
 
