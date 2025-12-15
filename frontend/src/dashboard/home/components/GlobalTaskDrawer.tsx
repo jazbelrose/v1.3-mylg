@@ -6,7 +6,11 @@ import { useNavigate } from "react-router-dom";
 
 import MapComponent from "@/shared/ui/Map";
 import { useTasksOverview, type TasksOverviewListItem } from "../hooks/useTasksOverview";
-import QuickCreateTaskModal, { type QuickCreateTaskModalTask, type TaskNoteAttachment } from "./QuickCreateTaskModal";
+import QuickCreateTaskModal, {
+  type QuickCreateTaskModalEvent,
+  type QuickCreateTaskModalTask,
+  type TaskNoteAttachment,
+} from "./QuickCreateTaskModal";
 import SvgThumbnail from "./SvgThumbnail";
 import { getSquirclePath } from "@/shared/ui/squircle/getSquirclePath";
 import TaskSummary from "@/dashboard/project/components/Tasks/components/TaskSummary";
@@ -863,6 +867,16 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
     setTaskToEdit(null);
     setQuickCreateOpen(false);
   }, []);
+
+  const handleQuickCreateModalResult = useCallback(
+    (event: QuickCreateTaskModalEvent) => {
+      refreshTasks();
+      if (event.type === "create") {
+        handleCloseQuickCreate();
+      }
+    },
+    [refreshTasks, handleCloseQuickCreate],
+  );
 
   const handleCloseDetailsPanel = useCallback(() => {
     setDetailsTask(null);
@@ -1891,7 +1905,7 @@ const BADGE_CLASS_BY_TONE = {
           open={quickCreateOpen}
           onClose={handleCloseQuickCreate}
           projects={projectOptions}
-          onCreated={() => refreshTasks()}
+          onCreated={handleQuickCreateModalResult}
           onUpdated={() => refreshTasks()}
           onDeleted={() => {
             notify('success', 'Task deleted successfully');
