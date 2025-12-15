@@ -586,8 +586,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       console.log('[QuickCreateTaskModal] Edit mode - hasChanges:', hasChanges, 'current:', current, 'initial:', initial);
       return hasChanges;
     } else {
-      // create mode
-      const hasData = !!(projectId || title.trim() || description.trim() || dueDate || assigneeTokens.length || addressSearch.trim() || selectedLocation || noteAttachments.length || status !== "todo");
+      // create mode - only consider user-entered fields, not auto-set projectId
+      const hasData = !!(title.trim() || description.trim() || dueDate || assigneeTokens.length || addressSearch.trim() || selectedLocation || noteAttachments.length || status !== "todo");
       console.log('[QuickCreateTaskModal] Create mode - hasData:', hasData, 'current:', current);
       return hasData;
     }

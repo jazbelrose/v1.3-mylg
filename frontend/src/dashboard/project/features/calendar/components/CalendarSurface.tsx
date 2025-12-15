@@ -670,6 +670,16 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     setQuickTaskDraft(null);
   }, []);
 
+  const handleTaskDrawerCreated = useCallback(() => {
+    handleRefreshTasks();
+    handleTaskDrawerClose();
+  }, [handleRefreshTasks, handleTaskDrawerClose]);
+
+  const handleTaskDrawerUpdated = useCallback(() => {
+    handleRefreshTasks();
+    handleTaskDrawerClose();
+  }, [handleRefreshTasks, handleTaskDrawerClose]);
+
   const handleTaskDrawerRefresh = useCallback(() => {
     handleRefreshTasks();
   }, [handleRefreshTasks]);
@@ -923,8 +933,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         activeProjectId={activeProjectId ?? null}
         activeProjectName={activeProjectName ?? null}
         onClose={handleTaskDrawerClose}
-        onCreated={handleTaskDrawerClose}
-        onUpdated={handleTaskDrawerClose}
+        onCreated={handleTaskDrawerCreated}
+        onUpdated={handleTaskDrawerUpdated}
         onDeleted={handleTaskDrawerRefresh}
       />
       {isMobile ? (
