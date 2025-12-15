@@ -65,6 +65,7 @@ type GlobalTaskDrawerProps = {
   initialProjectFilter?: string;
   fullPage?: boolean;
   backLabel?: string;
+  calendarAction?: { label: string; onClick: () => void };
   openInCreateMode?: boolean;
   initialTaskDraft?: Partial<QuickCreateTaskModalTask>;
 };
@@ -109,7 +110,7 @@ function normalizeUserId(value?: string | null): string | undefined {
   return parts.length ? parts[parts.length - 1] : trimmed;
 }
 
-const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false, backLabel, openInCreateMode = false, initialTaskDraft }) => {
+const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, initialProjectFilter, fullPage = false, backLabel, calendarAction, openInCreateMode = false, initialTaskDraft }) => {
   const {
     loading,
     error,
@@ -1032,16 +1033,30 @@ const BADGE_CLASS_BY_TONE = {
             {isDesktop ? (
               <>
                 <header className={styles.desktopDrawerHeader}>
-                  <button
-                    type="button"
-                    className={styles.backButton}
-                    onClick={onClose}
-                    aria-label={backLabel || "Back to project"}
-                    title={backLabel || "Back to project"}
-                  >
-                    <ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" />
-                    <span className={styles.backButtonLabel}>{backLabel || "Back to project"}</span>
-                  </button>
+                  <div className={styles.desktopDrawerHeaderLeft}>
+                    <button
+                      type="button"
+                      className={styles.backButton}
+                      onClick={onClose}
+                      aria-label={backLabel || "Back to project"}
+                      title={backLabel || "Back to project"}
+                    >
+                      <ChevronLeft size={20} strokeWidth={2.5} aria-hidden="true" />
+                      <span className={styles.backButtonLabel}>{backLabel || "Back to project"}</span>
+                    </button>
+                    {calendarAction && (
+                      <button
+                        type="button"
+                        className={styles.calendarActionButton}
+                        onClick={calendarAction.onClick}
+                        aria-label={calendarAction.label}
+                        title={calendarAction.label}
+                      >
+                        <Calendar size={16} strokeWidth={2.5} aria-hidden="true" />
+                        <span className={styles.calendarActionLabel}>{calendarAction.label}</span>
+                      </button>
+                    )}
+                  </div>
                   <div className={styles.desktopDrawerActions}>
                     <button
                       type="button"

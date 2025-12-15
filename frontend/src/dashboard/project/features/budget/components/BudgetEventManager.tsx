@@ -8,6 +8,8 @@ import {
   deleteBudgetItem,
 } from "@/shared/utils/api";
 import type { BudgetLine, Project, UserProfile, TimelineEvent, BudgetItem } from "@/shared/utils/api";
+import { notify } from "@/shared/ui/ToastNotifications";
+
 // Frontend no longer persists events directly; backend handles persistence
 
 
@@ -134,13 +136,25 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
     [budgetItems]
   );
 
+  const ensureBudgetInitialized = useCallback(() => {
+    const budgetId = (budgetHeader as { budgetId?: string | number } | null)?.budgetId;
+    const hasBudgetId =
+      budgetId !== undefined && budgetId !== null && String(budgetId).trim() !== "";
+    if (!hasBudgetId) {
+      notify("warning", "Create your budget overview before adding line items.");
+      return false;
+    }
+    return true;
+  }, [budgetHeader]);
+
   const openCreateModal = useCallback(() => {
+    if (!ensureBudgetInitialized()) return;
     const nextKey = getNextElementKey();
     stateManager.setNextElementKey(nextKey);
     stateManager.setEditItem(null);
     stateManager.setPrefillItem(null);
     stateManager.setCreateModalOpen(true);
-  }, [getNextElementKey, stateManager]);
+  }, [ensureBudgetInitialized, getNextElementKey, stateManager]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -435,7 +449,7 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
     if (data.budgetItemId) {
       return await handleEditLineItem(data, isAutoSave);
     }
-    if (!activeProject?.projectId || !budgetHeader?.budgetId) return;
+    if (!activeProject?.projectId || !ensureBudgetInitialized()) return;
     if (!isAutoSave) {
       // Close the modal immediately so the UI feels responsive
       closeCreateModal();
@@ -482,7 +496,7 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
       console.error('Error creating line item:', err);
     }
     return null;
-  }, [activeProject, budgetHeader, budgetItems, setBudgetItems, closeCreateModal, stateManager, emitBudgetUpdate, handleEditLineItem]);
+  }, [activeProject, budgetHeader, budgetItems, setBudgetItems, closeCreateModal, stateManager, emitBudgetUpdate, handleEditLineItem, ensureBudgetInitialized]);
 
   // WebSocket event handling via window events from BudgetProvider
   useEffect(() => {
@@ -562,11 +576,6 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
 };
 
 export default BudgetEventManager;
-
-
-
-
-
 
 
 

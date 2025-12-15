@@ -48,6 +48,11 @@ const TasksPage: React.FC = () => {
    */
   const backLabel = fromContext === "calendar" ? "Back to Calendar" : undefined;
 
+  const calendarAction = projectId && fromContext !== "calendar" ? {
+    label: "Open calendar",
+    onClick: () => navigate(`/dashboard/projects/${projectId}/calendar`)
+  } : undefined;
+
   return (
     <GlobalTaskDrawer 
       open={true} 
@@ -55,6 +60,7 @@ const TasksPage: React.FC = () => {
       initialProjectFilter={projectId}
       fullPage={true}
       backLabel={backLabel}
+      calendarAction={calendarAction}
       openInCreateMode={openInCreateMode}
       initialTaskDraft={taskDraft}
     />
