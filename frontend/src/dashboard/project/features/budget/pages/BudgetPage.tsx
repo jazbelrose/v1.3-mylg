@@ -807,6 +807,12 @@ const BudgetPageContent = () => {
                                           prevKeys.filter((id) => !availableRowIdSet.has(id))
                                         );
                                       };
+                                      const hasBudgetHeader = Boolean(
+                                        (budgetHeader as { budgetId?: string | number } | null)?.budgetId
+                                      );
+                                      const createDisabledReason = hasBudgetHeader
+                                        ? undefined
+                                        : "Create a budget before adding line items.";
 
                                       return (
                                         <>
@@ -815,6 +821,8 @@ const BudgetPageContent = () => {
                                             handleDuplicateSelected={eventHandlers.handleDuplicateSelected}
                                             openDeleteModal={eventHandlers.openDeleteModal}
                                             openCreateModal={eventHandlers.openCreateModal}
+                                            canCreateLineItems={hasBudgetHeader}
+                                            createDisabledReason={createDisabledReason}
                                             filterQuery={stateManager.filterQuery as string}
                                             onFilterQueryChange={
                                               stateManager.setFilterQuery as (query: string) => void
@@ -971,7 +979,6 @@ const BudgetPage = () => {
 };
 
 export default BudgetPage;
-
 
 
 

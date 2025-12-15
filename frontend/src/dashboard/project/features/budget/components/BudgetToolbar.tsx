@@ -15,6 +15,8 @@ interface BudgetToolbarProps {
   handleDuplicateSelected: () => void;
   openDeleteModal: (ids: string[]) => void;
   openCreateModal?: () => void;
+  canCreateLineItems?: boolean;
+  createDisabledReason?: string;
   filterQuery: string;
   onFilterQueryChange: (query: string) => void;
   sortField: string | null;
@@ -39,6 +41,8 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
   handleDuplicateSelected,
   openDeleteModal,
   openCreateModal,
+  canCreateLineItems = true,
+  createDisabledReason,
   filterQuery,
   onFilterQueryChange,
   sortField,
@@ -303,17 +307,40 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
           </>
         )}
         {openCreateModal && (
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={openCreateModal}
-            aria-label="Add item"
-          >
-            <span className={styles.addIcon} aria-hidden="true">
-              +
-            </span>
-            <span className={styles.addLabel}>Add Item</span>
-          </button>
+          <>
+            {createDisabledReason && !canCreateLineItems ? (
+              <AntTooltip title={createDisabledReason}>
+                <span>
+                  <button
+                    type="button"
+                    className={styles.addButton}
+                    onClick={openCreateModal}
+                    aria-label="Add item"
+                    disabled
+                    aria-disabled="true"
+                  >
+                    <span className={styles.addIcon} aria-hidden="true">
+                      +
+                    </span>
+                    <span className={styles.addLabel}>Add Item</span>
+                  </button>
+                </span>
+              </AntTooltip>
+            ) : (
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={openCreateModal}
+                aria-label="Add item"
+                disabled={!canCreateLineItems}
+              >
+                <span className={styles.addIcon} aria-hidden="true">
+                  +
+                </span>
+                <span className={styles.addLabel}>Add Item</span>
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -321,7 +348,6 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
 };
 
 export default BudgetToolbar;
-
 
 
 
