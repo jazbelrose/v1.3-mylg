@@ -488,10 +488,7 @@ function EventsAndTasks({
                         {dueLabel ? (
                           <span className="events-tasks__meta-chip">
                             <CalendarIcon size={12} aria-hidden />
-                            <span>
-                              Due {dueLabel}
-                              {timeLabel ? ` · ${timeLabel}` : ""}
-                            </span>
+                            <span>Due {dueLabel}</span>
                           </span>
                         ) : null}
                       </div>

@@ -461,7 +461,7 @@ function WeekGrid({
                   >
                     {entry.title}
                   </div>
-                  {entry.timeLabel ? (
+                  {entry.timeLabel && entry.type !== "task" ? (
                     <div className="week-grid__timeline-entry-time">{entry.timeLabel}</div>
                   ) : null}
                 </div>
