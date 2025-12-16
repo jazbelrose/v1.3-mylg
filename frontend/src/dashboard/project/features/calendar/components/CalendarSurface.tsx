@@ -872,6 +872,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
                       canCreateTasks={canCreateTasks}
+                      teamMembers={teamMembers}
                     />
                   </div>
                 )}
@@ -886,6 +887,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
                       canCreateTasks={canCreateTasks}
+                      teamMembers={teamMembers}
                     />
                   </div>
                 )}

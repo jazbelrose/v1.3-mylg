@@ -8,10 +8,20 @@ import {
   categoryColor,
   fmtLocal,
   formatTimeLabel,
-  pad,
   safeDate,
   setTime,
 } from "../utils";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
+import ProjectAvatar from "@/shared/ui/ProjectAvatar";
+import {
+  MINUTES_IN_HOUR,
+  assignTimelineColumns,
+  buildEventAvatars,
+  buildTaskAvatars,
+  buildTeamMemberLookup,
+  parseTimeToMinutes,
+  type TimelineHourEntry,
+} from "./timelineLayout";
 
 export type DayGridProps = {
   date: Date;
@@ -22,6 +32,7 @@ export type DayGridProps = {
   onCreateEvent: (date: Date) => void;
   onCreateTask: (date: Date) => void;
   canCreateTasks: boolean;
+  teamMembers?: ProjectTeamMember[];
 };
 
 const parseHour = (time?: string) => {
@@ -49,6 +60,7 @@ function DayGrid({
   onCreateEvent,
   onCreateTask,
   canCreateTasks,
+  teamMembers,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
@@ -74,68 +86,131 @@ function DayGrid({
     return () => clearTimeout(timer);
   }, [date]);
 
-  const dayEvents = useMemo(() => {
+  const dayAllDayEvents = useMemo(() => {
     const allDay: CalendarEvent[] = [];
-    const timed = new Map<number, CalendarEvent[]>();
-
     events.forEach((event) => {
-      // Normalize event.date to match key format
       const eventDate = safeDate(event.date);
       if (!eventDate) return;
-      const eventKey = fmtLocal(eventDate);
-      if (eventKey !== key) return;
+      if (fmtLocal(eventDate) !== key) return;
       const hour = event.allDay ? undefined : parseHour(event.start);
       if (hour == null) {
         allDay.push(event);
-        return;
-      }
-
-      const bucket = timed.get(hour);
-      if (bucket) {
-        bucket.push(event);
-      } else {
-        timed.set(hour, [event]);
       }
     });
-
-    Array.from(timed.values()).forEach((bucket) =>
-      bucket.sort((a, b) => (a.start ?? "").localeCompare(b.start ?? "")),
-    );
-
-    return { allDay, timed };
+    return allDay;
   }, [events, key]);
 
-  const dayTasks = useMemo(() => {
+  const dayFloatingTasks = useMemo(() => {
     const floating: CalendarTask[] = [];
-    const timed = new Map<number, CalendarTask[]>();
-
     tasks.forEach((task) => {
       if (!task.due) return;
-      // Normalize task.due to match key format
       const taskDate = safeDate(task.due);
       if (!taskDate) return;
-      const taskKey = fmtLocal(taskDate);
-      if (taskKey !== key) return;
+      if (fmtLocal(taskDate) !== key) return;
       const hour = parseHour(task.start);
       if (hour == null) {
         floating.push(task);
-        return;
       }
+    });
+    return floating;
+  }, [tasks, key]);
 
-      const bucket = timed.get(hour);
-      if (bucket) {
-        bucket.push(task);
-      } else {
-        timed.set(hour, [task]);
+  const teamMemberLookup = useMemo(
+    () => buildTeamMemberLookup(teamMembers ?? []),
+    [teamMembers],
+  );
+
+  const timelineEntriesByHour = useMemo(() => {
+    const entries = new Map<number, Array<TimelineHourEntry<CalendarEvent | CalendarTask>>>();
+    const addEntry = (hour: number, entry: TimelineHourEntry<CalendarEvent | CalendarTask>) => {
+      if (hour < 0 || hour > 23) return;
+      const bucket = entries.get(hour) ?? [];
+      bucket.push(entry);
+      entries.set(hour, bucket);
+    };
+
+    events.forEach((event) => {
+      const eventDate = safeDate(event.date);
+      if (!eventDate) return;
+      if (fmtLocal(eventDate) !== key) return;
+      if (event.allDay) return;
+      const startMinutes = parseTimeToMinutes(event.start);
+      if (startMinutes == null) return;
+      const fallbackEnd =
+        event.end ?? (event.start ? addHoursToTime(event.start, 1) : undefined);
+      const rawEndMinutes =
+        parseTimeToMinutes(fallbackEnd) ?? startMinutes + MINUTES_IN_HOUR;
+      const endMinutes = Math.max(
+        startMinutes + 5,
+        Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR),
+      );
+
+      const startLabel = formatTimeLabel(event.start) ?? event.start;
+      const endLabel = fallbackEnd ? formatTimeLabel(fallbackEnd) ?? fallbackEnd : undefined;
+      const timeLabel =
+        startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
+
+      const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
+      addEntry(hour, {
+        id: `event-${event.id}`,
+        type: "event",
+        payload: event,
+        title: event.title || "Untitled event",
+        timeLabel,
+        startMinutes,
+        endMinutes,
+        avatars: buildEventAvatars(event, teamMemberLookup),
+        colorClass: categoryColor[event.category],
+        hour,
+      });
+    });
+
+    tasks.forEach((task) => {
+      if (!task.due) return;
+      const taskDate = safeDate(task.due);
+      if (!taskDate) return;
+      if (fmtLocal(taskDate) !== key) return;
+      const startMinutes = parseTimeToMinutes(task.start);
+      if (startMinutes == null) return;
+      const fallbackEnd =
+        task.end ?? (task.start ? addHoursToTime(task.start, 1) : undefined);
+      const rawEndMinutes =
+        parseTimeToMinutes(fallbackEnd) ?? startMinutes + MINUTES_IN_HOUR;
+      const endMinutes = Math.max(
+        startMinutes + 5,
+        Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR),
+      );
+
+      const startLabel = formatTimeLabel(task.start) ?? task.start;
+      const endLabel = fallbackEnd ? formatTimeLabel(fallbackEnd) ?? fallbackEnd : undefined;
+      const timeLabel =
+        startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
+
+      const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
+      const isComplete = Boolean(task.done || task.status === "archived");
+      addEntry(hour, {
+        id: `task-${task.id}`,
+        type: "task",
+        payload: task,
+        title: task.title || "Untitled task",
+        timeLabel,
+        startMinutes,
+        endMinutes,
+        avatars: buildTaskAvatars(task, teamMemberLookup),
+        completed: isComplete,
+        hour,
+      });
+    });
+
+    const layout = new Map<number, ReturnType<typeof assignTimelineColumns>>();
+    entries.forEach((hourEntries, hour) => {
+      if (hourEntries.length) {
+        layout.set(hour, assignTimelineColumns(hourEntries));
       }
     });
 
-    Array.from(timed.values()).forEach((bucket) =>
-      bucket.sort((a, b) => (a.start ?? "").localeCompare(b.start ?? "")),
-    );
-
-    return { floating, timed };
-  }, [tasks, key]);
+    return layout;
+  }, [events, tasks, key, teamMemberLookup]);
 
   const headerLabel = useMemo(
     () =>
@@ -259,8 +334,7 @@ function DayGrid({
         </div>
       </div>
       {hours.map((hour, hourIndex) => {
-        const timedEvents = dayEvents.timed.get(hour) ?? [];
-        const timedTasks = dayTasks.timed.get(hour) ?? [];
+        const timelineEntries = timelineEntriesByHour.get(hour) ?? [];
 
         return (
           <React.Fragment key={hour}>
@@ -272,8 +346,7 @@ function DayGrid({
                 const target = mouseEvent.target as HTMLElement | null;
                 if (!target) return;
                 if (
-                  target.closest(".week-grid__event") ||
-                  target.closest(".week-grid__task") ||
+                  target.closest(".week-grid__timeline-entry") ||
                   target.closest(".week-grid__all-day") ||
                   target.closest(".day-grid__all-day") ||
                   target.closest(".week-grid__quick-add-container")
@@ -283,27 +356,28 @@ function DayGrid({
                 handleCreateEvent(hour);
               }}
             >
-              {hourIndex === 0 && (dayEvents.allDay.length > 0 || dayTasks.floating.length > 0) && (
-                <div className="week-grid__all-day day-grid__all-day">
-                  {dayEvents.allDay.map((event) => (
-                    <div
-                      key={event.id}
-                      className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onEditEvent(event)}
-                      onKeyDown={(keyboardEvent) => {
-                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                          keyboardEvent.preventDefault();
-                          onEditEvent(event);
-                        }
-                      }}
-                    >
-                      <div className="week-grid__event-title">{event.title}</div>
-                      <div className="week-grid__event-time">All day</div>
-                    </div>
-                  ))}
-                    {dayTasks.floating.map((task) => (
+              {hourIndex === 0 &&
+                (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0) && (
+                  <div className="week-grid__all-day day-grid__all-day">
+                    {dayAllDayEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onEditEvent(event)}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                            keyboardEvent.preventDefault();
+                            onEditEvent(event);
+                          }
+                        }}
+                      >
+                        <div className="week-grid__event-title">{event.title}</div>
+                        <div className="week-grid__event-time">All day</div>
+                      </div>
+                    ))}
+                    {dayFloatingTasks.map((task) => (
                       <button
                         key={task.id}
                         type="button"
@@ -314,73 +388,112 @@ function DayGrid({
                           <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                         </span>
                         <div className="week-grid__task-body">
-                          <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
+                          <div
+                            className={`week-grid__task-title ${
+                              task.done || task.status === "archived" ? "is-complete" : ""
+                            }`}
+                          >
                             {task.title}
                           </div>
-                          <div className="week-grid__task-time">
-                            All day
-                          </div>
+                          <div className="week-grid__task-time">All day</div>
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
-              {timedEvents.map((event) => {
-                const fallbackEnd =
-                  event.end ?? (event.start ? addHoursToTime(event.start, 1) : undefined);
-                const startLabel = formatTimeLabel(event.start) ?? event.start;
-                const endLabel =
-                  fallbackEnd != null ? formatTimeLabel(fallbackEnd) ?? fallbackEnd : undefined;
-                const eventTimeLabel =
-                  startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
-
-                return (
-                  <motion.div
-                    key={event.id}
-                    initial={{ opacity: 0.4, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`week-grid__event ${categoryColor[event.category]}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onEditEvent(event)}
-                    onKeyDown={(keyboardEvent) => {
-                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                        keyboardEvent.preventDefault();
-                        onEditEvent(event);
-                      }
-                    }}
-                  >
-                    <div className="week-grid__event-title">{event.title}</div>
-                    {eventTimeLabel ? (
-                      <div className="week-grid__event-time">{eventTimeLabel}</div>
-                    ) : null}
-                  </motion.div>
+              {timelineEntries.map((entry) => {
+                const columns = Math.max(entry.columnCount, 1);
+                const hourStart = hour * MINUTES_IN_HOUR;
+                const hourEnd = hourStart + MINUTES_IN_HOUR;
+                const startWithinHour = Math.max(
+                  0,
+                  Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
                 );
-              })}
-              {timedTasks.map((task) => {
-                const taskStartLabel = formatTimeLabel(task.start) ?? task.start;
-                const taskEndLabel = task.end ? formatTimeLabel(task.end) ?? task.end : undefined;
-                const taskTimeLabel =
-                  taskStartLabel && taskEndLabel
-                    ? `${taskStartLabel} - ${taskEndLabel}`
-                    : taskStartLabel ?? taskEndLabel;
+                const entryEnd = Math.max(
+                  entry.startMinutes + 1,
+                  Math.min(entry.endMinutes, hourEnd),
+                );
+                const durationMinutes = Math.max(entryEnd - entry.startMinutes, 5);
+                const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
+                const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
+                const maxHeightPercent = Math.max(4, 100 - topPercent);
+                const heightPercent = Math.min(maxHeightPercent, Math.max(rawHeightPercent, 6));
+                const columnWidth = 100 / columns;
+                const entryStyle = {
+                  top: `${topPercent}%`,
+                  height: `${heightPercent}%`,
+                  left: `${columnWidth * entry.columnIndex}%`,
+                  width: `${columnWidth}%`,
+                };
+
+                const avatars =
+                  entry.avatars.length > 0 ? (
+                    <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
+                      {entry.avatars.map((avatar) => (
+                        <ProjectAvatar
+                          key={avatar.key}
+                          className="week-grid__timeline-avatar"
+                          thumb={avatar.thumb ?? undefined}
+                          name={avatar.name}
+                          shape="circle"
+                          radius={8}
+                        />
+                      ))}
+                    </div>
+                  ) : null;
+
+                const content = (
+                  <div className="week-grid__timeline-entry-content">
+                    <div
+                      className={`week-grid__timeline-entry-title ${
+                        entry.completed ? "is-complete" : ""
+                      }`}
+                    >
+                      {entry.title}
+                    </div>
+                    {entry.timeLabel ? (
+                      <div className="week-grid__timeline-entry-time">{entry.timeLabel}</div>
+                    ) : null}
+                  </div>
+                );
+
+                if (entry.type === "event") {
+                  return (
+                    <motion.div
+                      key={entry.id}
+                      initial={{ opacity: 0.4, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`week-grid__timeline-entry week-grid__timeline-entry--event ${entry.colorClass}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onEditEvent(entry.payload as CalendarEvent)}
+                      onKeyDown={(keyboardEvent) => {
+                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                          keyboardEvent.preventDefault();
+                          onEditEvent(entry.payload as CalendarEvent);
+                        }
+                      }}
+                      style={entryStyle}
+                    >
+                      {content}
+                      {avatars}
+                    </motion.div>
+                  );
+                }
 
                 return (
                   <button
-                    key={task.id}
+                    key={entry.id}
                     type="button"
-                    className="week-grid__task"
-                    onClick={() => onEditTask(task)}
+                    className="week-grid__timeline-entry week-grid__timeline-entry--task"
+                    onClick={() => onEditTask(entry.payload as CalendarTask)}
+                    style={entryStyle}
                   >
-                    <span className="week-grid__task-icon">
+                    <span className="week-grid__timeline-entry-icon">
                       <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                     </span>
-                    <div className="week-grid__task-body">
-                      <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
-                        {task.title}
-                      </div>
-                      {taskTimeLabel ? <div className="week-grid__task-time">{taskTimeLabel}</div> : null}
-                    </div>
+                    {content}
+                    {avatars}
                   </button>
                 );
               })}
