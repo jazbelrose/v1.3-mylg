@@ -72,7 +72,7 @@ export const FileManagerFooter = ({
         </>
       ) : (
         <>
-          {selectedFilesCount > 0 && selectionMode !== 'multi' && (
+          {selectionMode !== 'multi' && (
             <button className={styles.iconButton} onClick={onToggleSelectMode} aria-label="Select files">
               <FontAwesomeIcon icon={faCheck} /> Select
             </button>
