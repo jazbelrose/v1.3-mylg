@@ -321,7 +321,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startTime, setStartTime] = useState("12:00");
-  const [endTime, setEndTime] = useState("");
+  const [endTime, setEndTime] = useState("13:00");
   const [addressSearch, setAddressSearch] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
   const [showWorldwideLink, setShowWorldwideLink] = useState(false);
@@ -880,7 +880,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setDescription("");
     setDueDate("");
     setStartTime("12:00");
-    setEndTime("");
+    setEndTime("13:00");
     setAddressSearch("");
     setAddressSuggestions([]);
     setShowWorldwideLink(false);
@@ -926,8 +926,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setTitle(typeof taskData.title === "string" ? formatTaskName(taskData.title) : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
-      setStartTime(toTimeInputString(taskData.startAt));
-      setEndTime(toTimeInputString(taskData.endAt));
+      setStartTime(toTimeInputString(taskData.startAt) || "12:00");
+      setEndTime(toTimeInputString(taskData.endAt) || "13:00");
       const normalizedFormStatus = normalizeStatus(taskData.status);
       setStatus(normalizedFormStatus);
       const providedTokens = Array.isArray(taskData.assigneeTokens)
@@ -1703,7 +1703,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setDescription("");
         setDueDate("");
         setStartTime("12:00");
-        setEndTime("");
+        setEndTime("13:00");
         setAddressSearch("");
         setAddressSuggestions([]);
         setSelectedLocation(null);
