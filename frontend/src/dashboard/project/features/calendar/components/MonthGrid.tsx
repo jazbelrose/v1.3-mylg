@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckSquare, Clock, Plus } from "lucide-react";
+import { Calendar, CheckSquare, Clock, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import { getMonthMatrix, fmtLocal, formatTimeLabel, isSameDay } from "../utils";
@@ -187,8 +187,13 @@ function MonthGrid({
                         }
                       }}
                     >
-                      <div className="month-grid__event-title" title={event.title}>
-                        {event.title}
+                      <div className="month-grid__event-content">
+                        <div className="month-grid__item-icon month-grid__item-icon--event">
+                          <Calendar size={10} className="month-grid__item-icon-svg" />
+                        </div>
+                        <div className="month-grid__event-title" title={event.title}>
+                          {event.title}
+                        </div>
                       </div>
                     </div>
                   );
@@ -216,13 +221,17 @@ function MonthGrid({
                       }
                     }}
                   >
-                    <div
-                      className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
-                      title={task.title}
-                    >
-                      {task.title}
+                    <div className="month-grid__event-content">
+                      <div className="month-grid__item-icon month-grid__item-icon--task">
+                        <CheckSquare size={10} className="month-grid__item-icon-svg" />
+                      </div>
+                      <div
+                        className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
+                        title={task.title}
+                      >
+                        {task.title}
+                      </div>
                     </div>
-
                   </div>
                 );
               })}

@@ -572,6 +572,43 @@
   font-weight: 600;
 }
 
+.cardAttachmentList {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.cardAttachmentLink {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sheet-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.cardAttachmentLink:hover,
+.cardAttachmentLink:focus-visible {
+  border-color: var(--color-primary, #4b6bff);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.cardAttachmentMore {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: auto;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 
 
 .cardMetrics {
@@ -1100,7 +1137,6 @@
   line-height: 1;
   font-size: 6px;
 }
-
 
 
 

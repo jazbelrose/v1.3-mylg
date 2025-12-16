@@ -12,6 +12,7 @@ import {
   uploadFile,
   getFileUrl,
   requestTaskReview,
+  fetchTask,
   approveTask,
   requestTaskChanges,
 } from "@/shared/utils/api";
@@ -542,6 +543,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     [assigneeTokens, collaboratorOptions],
   );
 
+  const incomingTaskId = useMemo(() => {
+    if (!task) return null;
+    const normalizedTaskId = task.taskId?.trim();
+    const normalizedId = task.id?.trim();
+    return normalizedTaskId || normalizedId || null;
+  }, [task]);
+
   const visibleAssignees = selectedAssignees.slice(0, 3);
   const remainingAssigneeCount = Math.max(0, selectedAssignees.length - visibleAssignees.length);
 
@@ -1016,6 +1024,34 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     initialTaskRef.current = task;
     lastAppliedTaskRef.current = taskKey;
   }, [open, task, applyTaskToForm]);
+
+  useEffect(() => {
+    if (!open || !task || !incomingTaskId) return;
+    const projectIdentifier = task.projectId;
+    if (!projectIdentifier) return;
+
+    let cancelled = false;
+
+    const loadAttachments = async () => {
+      try {
+        const taskDetails = await fetchTask(projectIdentifier, incomingTaskId);
+        if (cancelled || !taskDetails) return;
+        const attachments = sanitizeIncomingAttachments(taskDetails.noteAttachments);
+        setNoteAttachments(attachments);
+        initialTaskRef.current = {
+          ...(initialTaskRef.current ?? {}),
+          noteAttachments: attachments,
+        };
+      } catch (error) {
+        console.error("Failed to refresh task attachments", error);
+      }
+    };
+
+    void loadAttachments();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, task, incomingTaskId]);
 
   // Reset form when opening in create mode (no task provided)
   useEffect(() => {

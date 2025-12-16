@@ -283,6 +283,17 @@ export function normalizeFileUrl(urlOrKey: string): string {
   return getFileUrl(urlOrKey);
 }
 
+export async function fetchTask(projectId: string, taskId: string): Promise<Task | null> {
+  if (!projectId || !taskId) return null;
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`;
+  try {
+    return await apiFetch<Task>(url);
+  } catch (error) {
+    console.error("Failed to fetch task details", error);
+    return null;
+  }
+}
+
 export function fileUrlsToKeys(urls: string[]): string[] {
   return urls.map((url) => {
     try {
@@ -1299,7 +1310,6 @@ export async function updateCollabInvite(inviteId: string, action: 'accept' | 'd
 export const acceptCollabInvite = (inviteId: string) => updateCollabInvite(inviteId, 'accept');
 export const declineCollabInvite = (inviteId: string) => updateCollabInvite(inviteId, 'decline');
 export const cancelCollabInvite  = (inviteId: string) => updateCollabInvite(inviteId, 'cancel');
-
 
 
 

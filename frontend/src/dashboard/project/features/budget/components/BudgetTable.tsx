@@ -13,6 +13,7 @@ import {
   faPaperclip,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
+import AttachmentPreviewModal, { type AttachmentPreviewItem } from "@/shared/ui/AttachmentPreviewModal";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 import { formatUSD } from "@/shared/utils/budgetUtils";
 
@@ -21,6 +22,34 @@ const MOBILE_BREAKPOINT = 768;
 const PAGINATION_ESTIMATE = 96;
 
 const EMPTY_PLACEHOLDER = "\u2014";
+const ATTACHMENT_PREVIEW_LIMIT = 2;
+
+const toAttachmentPreviewItems = (raw: unknown): AttachmentPreviewItem[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const attachmentEntry = entry as Record<string, unknown>;
+      const urlCandidate =
+        typeof attachmentEntry.url === "string" && attachmentEntry.url.trim();
+      if (!urlCandidate) return null;
+      const fileNameCandidate =
+        typeof attachmentEntry.fileName === "string" && attachmentEntry.fileName.trim();
+      const mimeTypeCandidate =
+        typeof attachmentEntry.mimeType === "string" ? attachmentEntry.mimeType : undefined;
+      const idCandidate =
+        typeof attachmentEntry.id === "string" && attachmentEntry.id.trim()
+          ? attachmentEntry.id.trim()
+          : undefined;
+      return {
+        id: idCandidate,
+        fileName: fileNameCandidate || "Attachment",
+        mimeType: mimeTypeCandidate,
+        url: urlCandidate,
+      } satisfies AttachmentPreviewItem;
+    })
+    .filter((attachment): attachment is AttachmentPreviewItem => Boolean(attachment));
+};
 
 type NormalizedPaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
 
@@ -74,9 +103,12 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     setCurrentPage,
     isSelectMode,
   }) => {
-    const [isMobile, setIsMobile] = useState(false);
-    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-    const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [isMobile, setIsMobile] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [attachmentPreviewItems, setAttachmentPreviewItems] = useState<AttachmentPreviewItem[]>([]);
+  const [attachmentPreviewIndex, setAttachmentPreviewIndex] = useState(0);
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
 
     useEffect(() => {
       if (typeof window === "undefined") return;
@@ -95,8 +127,22 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       }
 
       mediaQuery.addListener(listener);
-      return () => mediaQuery.removeListener(listener);
-    }, []);
+    return () => mediaQuery.removeListener(listener);
+  }, []);
+
+  const openAttachmentPreview = useCallback((items: AttachmentPreviewItem[], index: number) => {
+    if (!items.length) return;
+    const boundedIndex = Math.min(Math.max(index, 0), items.length - 1);
+    setAttachmentPreviewItems(items);
+    setAttachmentPreviewIndex(boundedIndex);
+    setAttachmentPreviewOpen(true);
+  }, []);
+
+  const closeAttachmentPreview = useCallback(() => {
+    setAttachmentPreviewOpen(false);
+    setAttachmentPreviewItems([]);
+    setAttachmentPreviewIndex(0);
+  }, []);
 
     const costKeys = useMemo(
       () => [
@@ -348,8 +394,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       return () => document.removeEventListener("keydown", handleEscape);
     }, [setOpenMenuId]);
 
+    const previewAttachment = attachmentPreviewItems[attachmentPreviewIndex] ?? null;
+
     return (
-      <div ref={tableRef} className={styles.tableContainer}>
+      <>
+        <div ref={tableRef} className={styles.tableContainer}>
         {isSelectMode && dataSource.length > 0 && isMobile && (
           <div className={styles.cardListHeader}>
             <button
@@ -389,7 +438,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                 const isLocked = lockedLines.includes(record.budgetItemId);
                 const events = eventsByLineItem[record.budgetItemId] || [];
                 const eventCount = events.length;
-                const attachmentCount = Array.isArray(record.attachments) ? record.attachments.length : 0;
+                const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
+                const attachmentCount = attachmentsForRecord.length;
+                const visibleAttachments = attachmentsForRecord.slice(0, ATTACHMENT_PREVIEW_LIMIT);
+                const hiddenAttachmentCount =
+                  Math.max(0, attachmentCount - visibleAttachments.length);
 
                 return (
                   <article
@@ -444,17 +497,75 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                               </span>
                             )}
                           </div>
-                          <div className={styles.cardDescription}>
-                            {record.description
-                              ? String(record.description)
-                              : "No description"}
-                          </div>
-                          {attachmentCount > 0 && (
-                            <div className={styles.cardAttachmentIndicator}>
-                              <FontAwesomeIcon icon={faPaperclip} />
-                              <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
+                            <div className={styles.cardDescription}>
+                              {record.description
+                                ? String(record.description)
+                                : "No description"}
                             </div>
-                          )}
+                            {attachmentCount > 0 && (
+                              <>
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  className={styles.cardAttachmentIndicator}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openAttachmentPreview(attachmentsForRecord, 0);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      openAttachmentPreview(attachmentsForRecord, 0);
+                                    }
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faPaperclip} />
+                                  <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
+                                </div>
+                                <div className={styles.cardAttachmentList}>
+                                  {visibleAttachments.map((attachment, index) => (
+                                    <button
+                                      key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
+                                      type="button"
+                                      className={styles.cardAttachmentLink}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        openAttachmentPreview(attachmentsForRecord, index);
+                                      }}
+                                    >
+                                      {attachment.fileName}
+                                    </button>
+                                  ))}
+                                  {hiddenAttachmentCount > 0 && (
+                                    <span
+                                      className={styles.cardAttachmentMore}
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        openAttachmentPreview(
+                                          attachmentsForRecord,
+                                          visibleAttachments.length,
+                                        );
+                                      }}
+                                      onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          openAttachmentPreview(
+                                            attachmentsForRecord,
+                                            visibleAttachments.length,
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      +{hiddenAttachmentCount} more
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                         </div>
                       </div>
 
@@ -583,7 +694,14 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
           )}
         </div>
 
-      </div>
+        </div>
+
+        <AttachmentPreviewModal
+          attachment={previewAttachment}
+          isOpen={attachmentPreviewOpen && Boolean(previewAttachment)}
+          onRequestClose={closeAttachmentPreview}
+        />
+      </>
     );
   }
 );

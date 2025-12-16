@@ -668,9 +668,16 @@
   box-shadow: none;
   transition: background 0.18s ease, border-color 0.18s ease;
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 6px;
+}
+
+.month-grid__event-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .month-grid__item-icon {
@@ -709,6 +716,14 @@
 .month-grid__event:hover {
   background: rgba(148, 163, 184, 0.24);
   border-color: rgba(148, 163, 184, 0.4);
+}
+
+.month-grid__event-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .month-grid__event-title.is-complete {
