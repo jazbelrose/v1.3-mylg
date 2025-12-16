@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, CheckSquare, Clock, Pencil } from "lucide-react";
+import { Calendar as CalendarIcon, CheckSquare, ChevronDown, Clock, Pencil } from "lucide-react";
+
+import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import { compareDateStrings, formatTimeLabel, parseIsoDate, fmt } from "../utils";
@@ -209,12 +211,20 @@ function EventsAndTasks({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className={`events-tasks__filter-trigger${hasActiveFilters ? " is-active" : ""}`}
+                  className={desktopStyles.statusTrigger}
                   aria-haspopup="menu"
                   aria-expanded={isFilterPopoverOpen}
                   aria-label={filterButtonAriaLabel}
+                  style={{ width: "auto", minWidth: "180px" }}
                 >
-                  <span className="events-tasks__filter-label">{filterButtonLabel}</span>
+                  <span className={desktopStyles.triggerLabel}>
+                    <span className={desktopStyles.triggerLabelText}>
+                      {hasActiveFilters
+                        ? `${EVENT_FILTER_SUMMARY[resolvedEventFilter]} · ${TASK_FILTER_SUMMARY[resolvedTaskFilter]}`
+                        : "Filters"}
+                    </span>
+                  </span>
+                  <ChevronDown size={14} aria-hidden className={desktopStyles.triggerChevron} />
                 </button>
               </PopoverTrigger>
               <PopoverContent
@@ -235,6 +245,11 @@ function EventsAndTasks({
                     Reset
                   </button>
                 </div>
+                {hasActiveFilters && (
+                  <div className="events-tasks__summary">
+                    Showing: {EVENT_FILTER_LABELS[resolvedEventFilter]} · {TASK_FILTER_LABELS[resolvedTaskFilter]}
+                  </div>
+                )}
                 <div className="events-tasks__filter-section">
                   <div className="events-tasks__filter-heading">Events</div>
                   <div className="events-tasks__filter-options" role="group" aria-label="Filter events">
@@ -302,12 +317,6 @@ function EventsAndTasks({
           </div>
         )}
       </div>
-
-      {hasActiveFilters && (
-        <div className="events-tasks__summary">
-          Showing: {EVENT_FILTER_LABELS[resolvedEventFilter]} · {TASK_FILTER_LABELS[resolvedTaskFilter]}
-        </div>
-      )}
 
       <div className="events-tasks__content">
         <div className="events-tasks__section">
