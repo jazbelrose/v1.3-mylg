@@ -326,6 +326,13 @@
   background-color: transparent;
 }
 
+.selectedCount {
+  color: white;
+  font-size: 14px;
+  margin-right: auto;
+  align-self: center;
+}
+
 .primaryButton {
   display: inline-flex;
   align-items: center;

@@ -65,17 +65,20 @@ export const FileManagerFooter = ({
         </>
       ) : (
         <>
+          <span className={styles.selectedCount}>
+            {selectedFilesCount} selected
+          </span>
+          <button className={styles.iconButton} onClick={onCancelSelection} aria-label="Clear selection">
+            Clear
+          </button>
           <button className={styles.iconButton} onClick={onBulkDownload} disabled={selectedFilesCount === 0} aria-label="Download selected">
-            <FontAwesomeIcon icon={faDownload} />
+            <FontAwesomeIcon icon={faDownload} /> Download
           </button>
           {canDelete && (
             <button className={styles.iconButton} onClick={onDeleteSelected} disabled={selectedFilesCount === 0} aria-label="Delete selected">
-              <FontAwesomeIcon icon={faTrash} />
+              <FontAwesomeIcon icon={faTrash} /> Delete
             </button>
           )}
-          <button className={styles.iconButton} onClick={onCancelSelection} aria-label="Cancel selection">
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
         </>
       )}
     </div>
