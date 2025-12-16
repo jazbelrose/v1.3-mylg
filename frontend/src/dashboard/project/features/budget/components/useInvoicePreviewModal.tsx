@@ -308,16 +308,14 @@ export function useInvoicePreviewModal({
   useEffect(() => {
     if (!isOpen) return;
     const desiredField = resolvedInvoiceDetails?.groupField;
-    if (
+    const isValidField =
       desiredField === "invoiceGroup" ||
       desiredField === "areaGroup" ||
-      desiredField === "category"
-    ) {
-      if (desiredField !== groupField) {
-        setGroupField(desiredField);
-      }
-    }
-  }, [groupField, isOpen, resolvedInvoiceDetails, setGroupField]);
+      desiredField === "category";
+    if (!isValidField) return;
+
+    setGroupField((current) => (current === desiredField ? current : desiredField));
+  }, [isOpen, resolvedInvoiceDetails, setGroupField]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -767,4 +765,3 @@ export function useInvoicePreviewModal({
 }
 
 export default useInvoicePreviewModal;
-
