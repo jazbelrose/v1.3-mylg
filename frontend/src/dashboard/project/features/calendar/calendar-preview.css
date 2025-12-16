@@ -1166,7 +1166,7 @@
   padding: 24px 10px 6px 10px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   line-height: 1.2;
   color: rgba(226, 232, 240, 0.95);
   background: rgba(148, 163, 184, 0.16);
@@ -1188,8 +1188,9 @@
 
 .week-grid__timeline-entry-main {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
   flex: 1;
 }
 
@@ -1197,6 +1198,12 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.week-grid__timeline-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .week-grid__timeline-entry-title {
@@ -1212,17 +1219,14 @@
 }
 
 .week-grid__timeline-entry-time {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: rgba(226, 232, 240, 0.75);
 }
 
 .week-grid__timeline-entry-avatars {
   display: flex;
   gap: 4px;
-  margin-top: 2px;
-  position: absolute;
-  top: 6px;
-  right: 6px;
+  flex-shrink: 0;
 }
 
 .week-grid__timeline-avatar {

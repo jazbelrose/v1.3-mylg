@@ -390,12 +390,14 @@ function DayGrid({
                           <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                         </span>
                         <div className="week-grid__task-body">
-                          <div
-                            className={`week-grid__task-title ${
-                              task.done || task.status === "archived" ? "is-complete" : ""
-                            }`}
-                          >
-                            {task.title}
+                          <div className="week-grid__task-header">
+                            <div
+                              className={`week-grid__task-title ${
+                                task.done || task.status === "archived" ? "is-complete" : ""
+                              }`}
+                            >
+                              {task.title}
+                            </div>
                           </div>
                           <div className="week-grid__task-time">All day</div>
                         </div>
@@ -446,12 +448,19 @@ function DayGrid({
 
                 const content = (
                   <div className="week-grid__timeline-entry-content">
-                    <div
-                      className={`week-grid__timeline-entry-title ${
-                        entry.completed ? "is-complete" : ""
-                      }`}
-                    >
-                      {entry.title}
+                    <div className="week-grid__timeline-entry-header">
+                      {entry.type === "task" && (
+                        <span className="week-grid__timeline-entry-icon">
+                          <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                        </span>
+                      )}
+                      <div
+                        className={`week-grid__timeline-entry-title ${
+                          entry.completed ? "is-complete" : ""
+                        }`}
+                      >
+                        {entry.title}
+                      </div>
                     </div>
                     {entry.timeLabel && entry.type !== "task" ? (
                       <div className="week-grid__timeline-entry-time">{entry.timeLabel}</div>
@@ -479,8 +488,8 @@ function DayGrid({
                     >
                       <div className="week-grid__timeline-entry-main">
                         {content}
+                        {avatars}
                       </div>
-                      {avatars}
                     </motion.div>
                   );
                 }
@@ -494,12 +503,9 @@ function DayGrid({
                     style={entryStyle}
                   >
                     <div className="week-grid__timeline-entry-main">
-                      <span className="week-grid__timeline-entry-icon">
-                        <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-                      </span>
                       {content}
+                      {avatars}
                     </div>
-                    {avatars}
                   </button>
                 );
               })}
