@@ -1135,6 +1135,11 @@
   height: 12px;
 }
 
+.week-grid__event-icon-svg {
+  width: 12px;
+  height: 12px;
+}
+
 .week-grid__task-body {
   display: flex;
   flex-direction: column;
@@ -1231,8 +1236,8 @@
 }
 
 .week-grid__timeline-avatar {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

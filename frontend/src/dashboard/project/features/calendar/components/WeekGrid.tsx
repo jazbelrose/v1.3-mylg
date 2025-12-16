@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Plus } from "lucide-react";
+import { CheckSquare, Clock, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -446,7 +446,7 @@ function WeekGrid({
                         thumb={avatar.thumb ?? undefined}
                         name={avatar.name}
                         shape="circle"
-                        radius={8}
+                          radius={9}
                       />
                     ))}
                   </div>
@@ -460,6 +460,11 @@ function WeekGrid({
                         <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                       </span>
                     )}
+                    {entry.type === "event" && (
+                      <span className="week-grid__timeline-entry-icon">
+                        <Clock className="week-grid__event-icon-svg" aria-hidden />
+                      </span>
+                    )}
                     <div
                       className={`week-grid__timeline-entry-title ${
                         entry.completed ? "is-complete" : ""
@@ -468,9 +473,6 @@ function WeekGrid({
                       {entry.title}
                     </div>
                   </div>
-                  {entry.timeLabel && entry.type !== "task" ? (
-                    <div className="week-grid__timeline-entry-time">{entry.timeLabel}</div>
-                  ) : null}
                 </div>
               );
 
