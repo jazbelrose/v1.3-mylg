@@ -50,6 +50,7 @@ const formatHour12 = (hour: number): string => {
 };
 
 const HOURS_IN_DAY = 24;
+const HOUR_ROW_HEIGHT_PX = 88;
 const ROW_ENTRY_LIMIT = 2;
 
 const chunkEntries = <T,>(entries: T[], size: number): T[][] => {
@@ -78,20 +79,16 @@ function DayGrid({
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Find the scrollable parent container
     const scrollToNoon = () => {
       const grid = gridRef.current;
       if (!grid) return;
-      
+
       const scroller = grid.closest('.calendar-view__scroller') as HTMLElement | null;
       if (scroller) {
-        // Scroll to 12 PM (hour 12), each hour row is 88px minimum
-        const rowHeight = 88;
-        scroller.scrollTop = 12 * rowHeight;
+        scroller.scrollTop = 12 * HOUR_ROW_HEIGHT_PX;
       }
     };
-    
-    // Use setTimeout to ensure DOM is fully rendered
+
     const timer = setTimeout(scrollToNoon, 0);
     return () => clearTimeout(timer);
   }, [date]);
@@ -305,15 +302,18 @@ function DayGrid({
     const maxHeightPercent = Math.max(4, 100 - topPercent);
     const heightPercent = Math.min(maxHeightPercent, Math.max(rawHeightPercent, 6));
     const columns = Math.max(entry.columnCount, 1);
+    const entryHeight = Math.max((heightPercent / 100) * HOUR_ROW_HEIGHT_PX, 32);
     const columnWidth = 100 / columns;
-    const entryStyle = stacked
-      ? undefined
-      : {
-          top: `${topPercent}%`,
-          height: `${heightPercent}%`,
-          left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
-          width: `${columnWidth}%`,
-        };
+    const entryStyle = {
+      height: `${entryHeight}px`,
+      ...(stacked
+        ? {}
+        : {
+            top: `${topPercent}%`,
+            left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
+            width: `${columnWidth}%`,
+          }),
+    };
 
     const avatars = entry.avatars.length > 0 ? (
       <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
