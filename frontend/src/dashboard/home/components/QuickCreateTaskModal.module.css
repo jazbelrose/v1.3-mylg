@@ -275,6 +275,11 @@
   opacity: 1;
 }
 
+.textInput[type="date"],
+.textInput[type="time"] {
+  color-scheme: dark;
+}
+
 .locationInputWrapper {
   position: relative;
   display: flex;
