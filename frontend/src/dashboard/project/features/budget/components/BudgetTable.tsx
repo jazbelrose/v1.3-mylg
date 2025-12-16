@@ -10,6 +10,7 @@ import {
   faChevronDown,
   faClone,
   faClock,
+  faPaperclip,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
@@ -388,6 +389,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                 const isLocked = lockedLines.includes(record.budgetItemId);
                 const events = eventsByLineItem[record.budgetItemId] || [];
                 const eventCount = events.length;
+                const attachmentCount = Array.isArray(record.attachments) ? record.attachments.length : 0;
 
                 return (
                   <article
@@ -447,6 +449,12 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                               ? String(record.description)
                               : "No description"}
                           </div>
+                          {attachmentCount > 0 && (
+                            <div className={styles.cardAttachmentIndicator}>
+                              <FontAwesomeIcon icon={faPaperclip} />
+                              <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

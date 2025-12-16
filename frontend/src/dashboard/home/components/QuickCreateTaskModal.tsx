@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { FileText } from "lucide-react";
 
 import type { Task } from "@/shared/utils/api";
 import {
@@ -1432,11 +1433,22 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
 
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     const created: TaskNoteAttachment[] = [];
 
     for (const file of fileList) {
-      if (file.type && !file.type.startsWith("image/")) {
-        setErrorMessage("Only image files can be attached to notes.");
+      // Validate file type
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isImage = file.type.startsWith('image/');
+      
+      if (!isPdf && !isImage) {
+        setErrorMessage("Only images and PDF files can be attached.");
+        continue;
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        setErrorMessage(`${file.name} is too large. Maximum size is 10MB.`);
         continue;
       }
 
@@ -1452,7 +1464,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         });
       } catch (error) {
         console.error("Failed to upload attachment", error);
-        setErrorMessage("We couldn't upload one of the images. Please try again.");
+        setErrorMessage(`Failed to upload ${file.name}. Please try again.`);
       }
     }
 
@@ -1476,11 +1488,22 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setErrorMessage(null);
 
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     const created: TaskNoteAttachment[] = [];
 
     for (const file of files) {
-      if (file.type && !file.type.startsWith("image/")) {
-        setErrorMessage("Only image files can be attached to notes.");
+      // Validate file type
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isImage = file.type.startsWith('image/');
+      
+      if (!isPdf && !isImage) {
+        setErrorMessage("Only images and PDF files can be attached.");
+        continue;
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        setErrorMessage(`${file.name} is too large. Maximum size is 10MB.`);
         continue;
       }
 
@@ -1496,7 +1519,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         });
       } catch (error) {
         console.error("Failed to upload attachment", error);
-        setErrorMessage("We couldn't upload one of the images. Please try again.");
+        setErrorMessage(`Failed to upload ${file.name}. Please try again.`);
       }
     }
 
@@ -1522,11 +1545,12 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     const attachment = noteAttachments[index];
     if (!attachment) return;
     
-    // Check if it's a previewable image
+    // Check if it's previewable (image or PDF)
     const extension = attachment.fileName.split('.').pop()?.toLowerCase();
     const isImage = extension && ['jpg', 'jpeg', 'png'].includes(extension);
+    const isPdf = extension === 'pdf' || attachment.mimeType === 'application/pdf';
     
-    if (isImage) {
+    if (isImage || isPdf) {
       console.log('Setting preview state to open');
       setSelectedAttachmentIndex(index);
       setPreviewOpen(true);
@@ -2525,25 +2549,34 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               />
               {noteAttachments.length > 0 && (
                 <div className={styles.attachmentChips}>
-                  {noteAttachments.map((attachment, index) => (
-                    <div 
-                      key={attachment.id} 
-                      className={styles.attachmentChip}
-                      onClick={(e) => handleAttachmentClick(index, e)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <img src={attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
-                      <span>{attachment.fileName}</span>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveAttachment(attachment.id);
-                        }}
+                  {noteAttachments.map((attachment, index) => {
+                    const isPdf = attachment.mimeType === 'application/pdf' || 
+                                  attachment.fileName.toLowerCase().endsWith('.pdf');
+                    
+                    return (
+                      <div 
+                        key={attachment.id} 
+                        className={styles.attachmentChip}
+                        onClick={(e) => handleAttachmentClick(index, e)}
+                        style={{ cursor: 'pointer' }}
                       >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                        {isPdf ? (
+                          <FileText size={16} style={{ flexShrink: 0, color: 'var(--muted, #9aa0a6)' }} />
+                        ) : (
+                          <img src={attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
+                        )}
+                        <span>{attachment.fileName}</span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveAttachment(attachment.id);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               <div className={styles.notesFooter}>
@@ -2555,7 +2588,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   id={attachmentsFieldId}
                   className={styles.fileInput}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.pdf"
                   multiple
                   onChange={handleAttachmentInputChange}
                   disabled={isBusy}
@@ -2656,16 +2689,40 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       >
         ×
       </button>
-      <img 
-        src={selectedImage}
-        alt="Preview"
-        style={{
-          maxWidth: '90%',
-          maxHeight: '90%',
-          objectFit: 'contain',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      />
+      {(() => {
+        const attachment = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex] : null;
+        const isPdf = attachment && (attachment.mimeType === 'application/pdf' || 
+                      attachment.fileName.toLowerCase().endsWith('.pdf'));
+        
+        if (isPdf) {
+          return (
+            <iframe
+              src={selectedImage}
+              title={attachment?.fileName || 'PDF Preview'}
+              style={{
+                width: '90%',
+                height: '90%',
+                border: 'none',
+                backgroundColor: 'white',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          );
+        }
+        
+        return (
+          <img 
+            src={selectedImage}
+            alt="Preview"
+            style={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              objectFit: 'contain',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        );
+      })()}
     </div>,
     document.body
   ) : null;

@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faPaperclip, faXmark } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import styles from "./create-line-item-modal.module.css";
 import { parseBudget, formatUSD } from "@/shared/utils/budgetUtils";
+import { uploadFile } from "@/shared/utils/api";
 import { useData } from "@/app/contexts/useData";
 import { generateSequentialPalette } from "@/shared/utils/colorUtils";
 
@@ -26,6 +27,15 @@ interface FieldDef {
   type?: FieldType;
   options?: readonly string[];
 }
+
+type BudgetAttachment = {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  url: string;
+  uploadedAt?: string;
+  size?: number;
+};
 
 export interface ItemForm extends Record<string, unknown> {
   category: string;
@@ -59,6 +69,8 @@ export interface ItemForm extends Record<string, unknown> {
 
   amountPaid: MoneyLike;
   balanceDue: MoneyLike;
+
+  attachments?: BudgetAttachment[];
 
   notes: string;
 
@@ -150,6 +162,32 @@ const sanitizeFormPayload = (payload: ItemForm): ItemForm => {
   return sanitized as ItemForm;
 };
 
+const ATTACHMENT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
+  "application/pdf",
+]);
+
+const ATTACHMENT_EXTENSIONS = new Set(["jpeg", "jpg", "pdf"]);
+
+const isAttachmentSupported = (file: File): boolean => {
+  const normalizedType = (file.type || "").toLowerCase();
+  if (ATTACHMENT_MIME_TYPES.has(normalizedType)) return true;
+
+  const extMatch = file.name?.split(".").pop()?.toLowerCase();
+  if (extMatch && ATTACHMENT_EXTENSIONS.has(extMatch)) return true;
+
+  return false;
+};
+
+const generateAttachmentId = (): string => {
+  if (typeof globalThis !== "undefined" && globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `budget-attachment-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+};
+
 const fields: FieldDef[] = [
   { name: "category", label: "Category", type: "select", options: CATEGORY_OPTIONS },
   { name: "elementKey", label: "Element Key" },
@@ -191,6 +229,8 @@ const initialState: ItemForm = fields.reduce<ItemForm>(
   },
   {} as ItemForm
 );
+
+initialState.attachments = [];
 
 const FULL_WIDTH_FIELDS = new Set<keyof ItemForm>(["description", "notes"]);
 
@@ -284,6 +324,12 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const lastOffsetRef = useRef(0);
   const swipeCloseTimeoutRef = useRef<number | null>(null);
   const closeResetTimeoutRef = useRef<number | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const attachmentsFieldId = useId();
+  const attachmentsHintId = `${attachmentsFieldId}-hint`;
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const resetSwipeState = useCallback(() => {
     setSwipeOffset(0);
@@ -702,6 +748,98 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     }
   };
 
+  const handleAttachmentFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setAttachmentError(null);
+    setIsUploadingAttachment(true);
+    const created: BudgetAttachment[] = [];
+
+    try {
+      for (const file of files) {
+        if (!isAttachmentSupported(file)) {
+          setAttachmentError("Only JPEG or PDF receipts can be attached.");
+          continue;
+        }
+
+        try {
+          const uploadedUrl = await uploadFile(file);
+          created.push({
+            id: generateAttachmentId(),
+            fileName: file.name || "Receipt",
+            mimeType: file.type || undefined,
+            url: uploadedUrl,
+            uploadedAt: new Date().toISOString(),
+            size: file.size,
+          });
+        } catch (error) {
+          console.error("Failed to upload budget attachment", error);
+          setAttachmentError("We couldn't upload one of the files. Please try again.");
+        }
+      }
+
+      if (created.length) {
+        setItem((prev) => ({
+          ...prev,
+          attachments: [...(prev.attachments ?? []), ...created],
+        }));
+      }
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  const handleAttachmentInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files ? Array.from(event.target.files) : [];
+    if (!fileList.length) return;
+    await handleAttachmentFiles(fileList);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+  };
+
+  const handleAttachmentDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragActive(false);
+    const fileList = event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : [];
+    if (!fileList.length) return;
+    await handleAttachmentFiles(fileList);
+  };
+
+  const handleAttachmentDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleAttachmentDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleAttachmentDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setDragActive(false);
+    }
+  };
+
+  const handleAttachmentDropzoneKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      attachmentInputRef.current?.click();
+    }
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setItem((prev) => {
+      const remaining = (prev.attachments ?? []).filter((attachment) => attachment.id !== attachmentId);
+      return remaining.length === (prev.attachments ?? []).length
+        ? prev
+        : { ...prev, attachments: remaining };
+    });
+  };
+
   const submitItem = async (isAutoSave = false) => {
     const data: ItemForm = { ...item };
 
@@ -1026,21 +1164,102 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
                 </button>
               </div>
             </header>
-            <div className={styles.modalBody} onClick={handleFormBodyClick}>
-              {SECTION_DEFINITIONS.map((section) => (
-                <section key={section.id} className={styles.section}>
-                  <div className={styles.sectionHeader}>
-                    <h3 className={styles.sectionTitle}>{section.title}</h3>
-                    {section.description ? (
-                      <p className={styles.sectionDescription}>{section.description}</p>
-                    ) : null}
+          <div className={styles.modalBody} onClick={handleFormBodyClick}>
+            {SECTION_DEFINITIONS.map((section) => (
+              <section key={section.id} className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <h3 className={styles.sectionTitle}>{section.title}</h3>
+                  {section.description ? (
+                    <p className={styles.sectionDescription}>{section.description}</p>
+                  ) : null}
+                </div>
+                <div className={styles.fieldGrid}>
+                  {section.fields.map((fieldName) => renderField(fieldName))}
+                </div>
+              </section>
+            ))}
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h3 className={styles.sectionTitle}>Attachments</h3>
+                <p className={styles.sectionDescription}>
+                  Upload JPEG or PDF receipts so purchase records stay with the line item.
+                </p>
+              </div>
+              <div
+                className={`${styles.attachmentsDropzone} ${
+                  dragActive ? styles.attachmentsDropzoneActive : ""
+                }`}
+                role="button"
+                aria-label="Upload receipt attachments"
+                aria-describedby={attachmentsHintId}
+                tabIndex={0}
+                onDragOver={handleAttachmentDragOver}
+                onDragEnter={handleAttachmentDragEnter}
+                onDragLeave={handleAttachmentDragLeave}
+                onDrop={handleAttachmentDrop}
+                onKeyDown={handleAttachmentDropzoneKeyDown}
+              >
+                <input
+                  id={attachmentsFieldId}
+                  ref={attachmentInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/pjpeg,application/pdf"
+                  className={styles.hiddenFileInput}
+                  multiple
+                  onChange={handleAttachmentInputChange}
+                  disabled={isUploadingAttachment}
+                />
+                <div className={styles.attachmentsDropzoneContent}>
+                  <span className={styles.attachmentsDropzoneIcon}>
+                    <FontAwesomeIcon icon={faPaperclip} />
+                  </span>
+                  <div className={styles.attachmentsDropzoneText}>
+                    <label htmlFor={attachmentsFieldId} className={styles.attachmentsDropzoneLabel}>
+                      {isUploadingAttachment ? "Uploading files..." : "Add JPEG or PDF receipts"}
+                    </label>
+                    <span id={attachmentsHintId} className={styles.attachmentsDropzoneHint}>
+                      Drag & drop or click to browse
+                    </span>
                   </div>
-                  <div className={styles.fieldGrid}>
-                    {section.fields.map((fieldName) => renderField(fieldName))}
-                  </div>
-                </section>
-              ))}
-            </div>
+                </div>
+              </div>
+              <p className={styles.attachmentsHint}>
+                Files are stored with the line item for easy reference later.
+              </p>
+              {attachmentError ? (
+                <p className={styles.attachmentError} role="alert">
+                  {attachmentError}
+                </p>
+              ) : null}
+              {Array.isArray(item.attachments) && item.attachments.length > 0 ? (
+                <div className={styles.attachmentList}>
+                  {item.attachments.map((attachment) => (
+                    <div key={attachment.id} className={styles.attachmentChip}>
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.attachmentLink}
+                      >
+                        {attachment.fileName}
+                      </a>
+                      <button
+                        type="button"
+                        className={styles.attachmentRemoveButton}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRemoveAttachment(attachment.id);
+                        }}
+                        aria-label={`Remove ${attachment.fileName}`}
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          </div>
 
             <datalist id="area-group-options">
               {areaGroupOptions.map((option) => (

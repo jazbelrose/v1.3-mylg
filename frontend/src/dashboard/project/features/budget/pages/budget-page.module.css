@@ -555,6 +555,23 @@
   max-width: 100%;
 }
 
+.cardAttachmentIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--sheet-text-muted);
+}
+
+.cardAttachmentIndicator svg {
+  font-size: 0.75rem;
+}
+
+.cardAttachmentCount {
+  font-weight: 600;
+}
+
 
 
 .cardMetrics {
@@ -1083,7 +1100,6 @@
   line-height: 1;
   font-size: 6px;
 }
-
 
 
 

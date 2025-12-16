@@ -230,6 +230,119 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.attachmentsDropzone {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border-radius: 16px;
+  border: 1px dashed var(--sheet-border);
+  background: var(--sheet-surface-muted);
+  padding: 18px;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.attachmentsDropzoneActive {
+  border-color: color-mix(in srgb, var(--line-item-accent) 65%, var(--sheet-border) 35%);
+  background: color-mix(in srgb, var(--line-item-accent) 8%, var(--sheet-surface-muted));
+}
+
+.attachmentsDropzoneContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.attachmentsDropzoneIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--line-item-accent) 18%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.attachmentsDropzoneText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachmentsDropzoneLabel {
+  font-weight: 600;
+}
+
+.attachmentsDropzoneHint {
+  font-size: 0.85rem;
+  color: var(--sheet-text-muted);
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.attachmentsHint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--sheet-text-soft);
+}
+
+.attachmentError {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--color-error);
+}
+
+.attachmentList {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attachmentChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--sheet-border);
+  background: var(--sheet-surface-strong);
+}
+
+.attachmentLink {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  max-width: 160px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.attachmentLink:hover {
+  text-decoration: underline;
+}
+
+.attachmentRemoveButton {
+  border: none;
+  background: none;
+  padding: 0;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attachmentRemoveButton:hover {
+  color: color-mix(in srgb, var(--color-error) 80%, transparent);
+}
+
 @media (min-width: 1280px) {
   .fieldGrid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
