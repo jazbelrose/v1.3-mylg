@@ -15,6 +15,7 @@ export type MonthGridProps = {
   canCreateTasks: boolean;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
+  onSwitchToDayView?: () => void;
 };
 
 function MonthGrid({
@@ -28,6 +29,7 @@ function MonthGrid({
   canCreateTasks,
   onEditEvent,
   onEditTask,
+  onSwitchToDayView,
 }: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
@@ -82,6 +84,7 @@ function MonthGrid({
 
   const handleSelectDay = (day: Date) => {
     onSelectDate(day);
+    onSwitchToDayView?.();
     setQuickAddKey(null);
   };
 

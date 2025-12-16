@@ -703,6 +703,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     setInternalDate(date);
   }, []);
 
+  const handleSwitchToDayView = useCallback(() => {
+    setView("day");
+  }, []);
+
   const handleOpenCreate = useCallback((date: Date) => {
     setInternalDate(date);
     setModalState({ open: true, mode: "create", date, event: null });
@@ -854,6 +858,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     canCreateTasks={canCreateTasks}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
+                    onSwitchToDayView={handleSwitchToDayView}
                   />
                 )}
                 {view === "week" && (
