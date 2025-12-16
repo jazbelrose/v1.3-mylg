@@ -54,23 +54,7 @@ export const FileManagerFooter = ({
 
   return (
     <div className={styles.modalFooter}>
-      {selectedFilesCount === 0 ? (
-        <>{renderUploadControl()}</>
-      ) : isSelectMode ? (
-        <>
-          <button className={styles.iconButton} onClick={onBulkDownload} aria-label="Download selected">
-            <FontAwesomeIcon icon={faDownload} />
-          </button>
-          {canDelete && (
-            <button className={styles.iconButton} onClick={onDeleteSelected} aria-label="Delete selected">
-              <FontAwesomeIcon icon={faTrash} />
-            </button>
-          )}
-          <button className={styles.iconButton} onClick={onCancelSelection} aria-label="Cancel selection">
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
-        </>
-      ) : (
+      {!isSelectMode ? (
         <>
           {selectionMode !== 'multi' && (
             <button className={styles.iconButton} onClick={onToggleSelectMode} aria-label="Select files">
@@ -78,6 +62,20 @@ export const FileManagerFooter = ({
             </button>
           )}
           {renderUploadControl()}
+        </>
+      ) : (
+        <>
+          <button className={styles.iconButton} onClick={onBulkDownload} disabled={selectedFilesCount === 0} aria-label="Download selected">
+            <FontAwesomeIcon icon={faDownload} />
+          </button>
+          {canDelete && (
+            <button className={styles.iconButton} onClick={onDeleteSelected} disabled={selectedFilesCount === 0} aria-label="Delete selected">
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          )}
+          <button className={styles.iconButton} onClick={onCancelSelection} aria-label="Cancel selection">
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
         </>
       )}
     </div>
