@@ -1259,6 +1259,26 @@
   margin-bottom: 2px;
 }
 
+.week-grid__timeline-rows {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week-grid__timeline-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.week-grid__timeline-entry--stacked {
+  position: relative;
+  flex: 1;
+  min-height: 48px;
+  width: 100%;
+}
+
 .week-grid__overflow-pill {
   position: absolute;
   bottom: 4px;
