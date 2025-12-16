@@ -187,8 +187,11 @@ export const assignTimelineColumns = <T extends TimelineHourEntry<unknown>>(
 
     const usedColumns = new Set(active.map((item) => item.columnIndex));
     let columnIndex = 0;
-    while (usedColumns.has(columnIndex)) {
+    while (usedColumns.has(columnIndex) && columnIndex < 2) {
       columnIndex += 1;
+    }
+    if (columnIndex >= 2) {
+      columnIndex = 1; // Force to second column or something, but since we limit, maybe skip or stack
     }
 
     const layoutEntry: T & { columnIndex: number; columnCount: number } = {
@@ -206,6 +209,7 @@ export const assignTimelineColumns = <T extends TimelineHourEntry<unknown>>(
     if (maxColumns === 0) {
       maxColumns = 1;
     }
+    maxColumns = Math.min(maxColumns, 2); // Limit to 2 columns max
 
     active.forEach((activeEntry) => {
       activeEntry.columnCount = Math.max(activeEntry.columnCount, maxColumns);

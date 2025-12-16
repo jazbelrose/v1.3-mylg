@@ -65,6 +65,7 @@ function DayGrid({
   const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,8 +76,8 @@ function DayGrid({
       
       const scroller = grid.closest('.calendar-view__scroller') as HTMLElement | null;
       if (scroller) {
-        // Scroll to 12 PM (hour 12), each hour row is 64px minimum
-        const rowHeight = 64;
+        // Scroll to 12 PM (hour 12), each hour row is 88px minimum
+        const rowHeight = 88;
         scroller.scrollTop = 12 * rowHeight;
       }
     };
@@ -349,7 +350,8 @@ function DayGrid({
                   target.closest(".week-grid__timeline-entry") ||
                   target.closest(".week-grid__all-day") ||
                   target.closest(".day-grid__all-day") ||
-                  target.closest(".week-grid__quick-add-container")
+                  target.closest(".week-grid__quick-add-container") ||
+                  target.closest(".week-grid__overflow-pill")
                 ) {
                   return;
                 }
@@ -401,7 +403,7 @@ function DayGrid({
                     ))}
                   </div>
                 )}
-              {timelineEntries.map((entry) => {
+              {timelineEntries.slice(0, expandedHours.has(hour) ? undefined : 2).map((entry) => {
                 const columns = Math.max(entry.columnCount, 1);
                 const hourStart = hour * MINUTES_IN_HOUR;
                 const hourEnd = hourStart + MINUTES_IN_HOUR;
@@ -422,7 +424,7 @@ function DayGrid({
                 const entryStyle = {
                   top: `${topPercent}%`,
                   height: `${heightPercent}%`,
-                  left: `${columnWidth * entry.columnIndex}%`,
+                  left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
                   width: `${columnWidth}%`,
                 };
 
@@ -475,7 +477,9 @@ function DayGrid({
                       }}
                       style={entryStyle}
                     >
-                      {content}
+                      <div className="week-grid__timeline-entry-main">
+                        {content}
+                      </div>
                       {avatars}
                     </motion.div>
                   );
@@ -489,14 +493,24 @@ function DayGrid({
                     onClick={() => onEditTask(entry.payload as CalendarTask)}
                     style={entryStyle}
                   >
-                    <span className="week-grid__timeline-entry-icon">
-                      <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-                    </span>
-                    {content}
+                    <div className="week-grid__timeline-entry-main">
+                      <span className="week-grid__timeline-entry-icon">
+                        <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                      </span>
+                      {content}
+                    </div>
                     {avatars}
                   </button>
                 );
               })}
+              {timelineEntries.length > 2 && !expandedHours.has(hour) && (
+                <div
+                  className="week-grid__overflow-pill"
+                  onClick={() => setExpandedHours(prev => new Set(prev).add(hour))}
+                >
+                  +{timelineEntries.length - 2} more
+                </div>
+              )}
             </div>
           </React.Fragment>
         );
