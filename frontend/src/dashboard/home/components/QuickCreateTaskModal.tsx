@@ -26,6 +26,7 @@ import {
   type TaskStatusTone,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatTaskName } from "@/shared/utils/taskNameFormatting";
+import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -580,9 +581,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const hasCollaborators = collaboratorOptions.length > 0;
   const effectiveProjectId = useMemo(() => {
-    // When editing a task, always use the task's original project ID
-    if (isEditing && projectId) {
-      return projectId;
+    if (isEditing) {
+      if (projectId) {
+        return projectId;
+      }
+      if (initialTaskRef.current?.projectId) {
+        return initialTaskRef.current.projectId;
+      }
     }
 
     if (scopedProjectId) {
@@ -593,7 +598,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       return projectId;
     }
 
-    return projectOptions[0]?.id ?? "";
+    return projectOptions[0]?.id ?? initialTaskRef.current?.projectId ?? "";
   }, [isEditing, projectId, projectOptions, scopedProjectId]);
   const trimmedTitle = title.trim();
   const formattedTitle = trimmedTitle ? formatTaskName(trimmedTitle) : "";
@@ -632,7 +637,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         status: normalizeStatus(initialTaskRef.current.status),
       };
       const hasChanges = JSON.stringify(current) !== JSON.stringify(initial);
-      console.log('[QuickCreateTaskModal] Edit mode - hasChanges:', hasChanges, 'current:', current, 'initial:', initial);
       return hasChanges;
     } else {
       // create mode - only consider user-entered fields, not auto-set projectId
@@ -648,19 +652,15 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         noteAttachments.length ||
         status !== "todo"
       );
-      console.log('[QuickCreateTaskModal] Create mode - hasData:', hasData, 'current:', current);
       return hasData;
     }
   }, [projectId, title, description, dueDate, startTime, endTime, assigneeTokens, addressSearch, selectedLocation, noteAttachments, status]);
 
   const handleClose = useCallback(() => {
-    console.log('[QuickCreateTaskModal] handleClose called, hasUnsavedChanges:', hasUnsavedChanges);
     if (hasUnsavedChanges) {
-      console.log('[QuickCreateTaskModal] Showing confirm close dialog');
       setShowConfirmClose(true);
       return;
     }
-    console.log('[QuickCreateTaskModal] No unsaved changes, closing directly');
     onClose();
   }, [hasUnsavedChanges, onClose]);
 
@@ -1535,33 +1535,37 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   }, []);
 
   const handleAttachmentClick = useCallback((index: number, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent event bubbling to parent handlers
-    
-    // Don't open preview if clicking the remove button
-    if ((event.target as HTMLElement).closest('button')) {
+    event.stopPropagation();
+
+    if ((event.target as HTMLElement).closest("button, a")) {
       return;
     }
-    
+
     const attachment = noteAttachments[index];
-    if (!attachment) return;
-    
-    // Check if it's previewable (image or PDF)
-    const extension = attachment.fileName.split('.').pop()?.toLowerCase();
-    const isImage = extension && ['jpg', 'jpeg', 'png'].includes(extension);
-    const isPdf = extension === 'pdf' || attachment.mimeType === 'application/pdf';
-    
-    if (isImage || isPdf) {
-      console.log('Setting preview state to open');
-      setSelectedAttachmentIndex(index);
-      setPreviewOpen(true);
-    }
+    if (!attachment || !attachment.url) return;
+
+    const mimeType = (attachment.mimeType || "").toLowerCase();
+    const extension = attachment.fileName.split(".").pop()?.toLowerCase() || "";
+    const previewableImageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "svg"];
+    const isImage = mimeType.startsWith("image/") || previewableImageExtensions.includes(extension);
+    const isPdf = mimeType === "application/pdf" || extension === "pdf";
+
+    if (!isImage && !isPdf) return;
+
+    setSelectedAttachmentIndex(index);
+    setPreviewOpen(true);
   }, [noteAttachments]);
 
   const handleClosePreview = useCallback(() => {
-    console.log('handleClosePreview called - closing preview');
     setPreviewOpen(false);
     setSelectedAttachmentIndex(null);
   }, []);
+
+  useEffect(() => {
+    if (selectedAttachmentIndex === null) return;
+    if (selectedAttachmentIndex < noteAttachments.length) return;
+    handleClosePreview();
+  }, [selectedAttachmentIndex, noteAttachments.length, handleClosePreview]);
 
   const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setStatus(event.target.value as TaskStatus);
@@ -1653,8 +1657,25 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         ? { lat: selectedLocation.lat, lng: selectedLocation.lng }
         : undefined;
 
+      const resolvedProjectId =
+        effectiveProjectId ||
+        initialTaskRef.current?.projectId ||
+        projectId ||
+        scopedProjectId ||
+        task?.projectId ||
+        "";
+
+      if (!resolvedProjectId) {
+        const errorMsg = "Add a project before saving this task.";
+        setProjectError(errorMsg);
+        setErrorMessage(null);
+        setSubmitting(false);
+        notify("error", errorMsg);
+        return;
+      }
+
       const payload: Task = {
-        projectId: effectiveProjectId,
+        projectId: resolvedProjectId,
         title: formattedTitle,
         description: description.trim() || undefined,
         dueDate: dueDateIso,
@@ -1691,17 +1712,20 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         payload.noteAttachments = [];
       }
 
-      console.log('noteAttachments:', noteAttachments);
-      console.log('payload.noteAttachments:', payload.noteAttachments);
 
-      if (isEditing && taskId) {
-        console.log('Editing task:', taskId, 'with payload:', payload);
-        await updateTask({ ...payload, taskId });
+      const resolvedTaskId =
+        taskId ??
+        initialTaskRef.current?.taskId?.trim() ??
+        initialTaskRef.current?.id?.trim() ??
+        (task?.taskId?.trim() || task?.id?.trim() || null);
+
+      if (isEditing && resolvedTaskId) {
+        await updateTask({ ...payload, projectId: resolvedProjectId, taskId: resolvedTaskId });
         const savedAttachmentsSnapshot = noteAttachments.map((attachment) => ({ ...attachment }));
         const nextAssigneeTokens = [...trimmedAssigneeTokens];
         initialTaskRef.current = {
-          ...(initialTaskRef.current ?? { projectId: effectiveProjectId }),
-          projectId: effectiveProjectId,
+          ...(initialTaskRef.current ?? { projectId: resolvedProjectId }),
+          projectId: resolvedProjectId,
           title: formattedTitle,
           description: description.trim(),
           dueDate: toDateInputString(dueDate) || "",
@@ -1715,13 +1739,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           location: normalizeLocation(locationPayload ? { ...locationPayload } : null),
           noteAttachments: sanitizeIncomingAttachments(savedAttachmentsSnapshot),
         };
-        console.log('Task updated successfully');
         setSuccessMessage("Task updated. Changes saved.");
         onUpdated?.();
       } else {
-        console.log('Creating task with payload:', payload);
         await createTask(payload);
-        console.log('Task created successfully');
         setSuccessMessage("Task created. You'll see it in your lists shortly.");
         setTitle("");
         setDescription("");
@@ -1888,61 +1909,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   };
 
-  if (!open) {
-    // Keep preview modal alive even when parent is closed
-    if (!previewOpen) return null;
-    
-    const selectedImage = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex]?.url : null;
-    
-    return createPortal(
-      <div 
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.9)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-        }}
-        onClick={handleClosePreview}
-      >
-        <button
-          onClick={handleClosePreview}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            background: 'rgba(255, 255, 255, 0.1)',
-            border: 'none',
-            color: 'white',
-            fontSize: '24px',
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            zIndex: 100000,
-          }}
-        >
-          ×
-        </button>
-        <img 
-          src={selectedImage || ''}
-          alt="Preview"
-          style={{
-            maxWidth: '90%',
-            maxHeight: '90%',
-            objectFit: 'contain',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>,
-      document.body
-    );
-  }
+  if (!open) {
+    if (!previewOpen) return null;
+    return previewModal;
+  }
+
 
   const modalContent = (
     <div
@@ -2638,100 +2609,22 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       </div>
     );
 
-  const displayedFiles = noteAttachments.map(att => ({
-    fileName: att.fileName,
-    url: att.url,
-    uploadedAt: att.uploadedAt || new Date().toISOString(),
-  }));
+  const previewAttachment =
+    selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex] : null;
 
-  const selectedImage = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex]?.url : null;
-
-  console.log('Preview render check:', {
-    previewOpen,
-    selectedAttachmentIndex,
-    selectedImage,
-    currentFile: selectedAttachmentIndex !== null ? displayedFiles[selectedAttachmentIndex] : null,
-    displayedFilesLength: displayedFiles.length
-  });
-
-  const simplePreviewModal = previewOpen && selectedImage ? createPortal(
-    <div 
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 99999,
-      }}
-      onClick={handleClosePreview}
-    >
-      <button
-        onClick={handleClosePreview}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-          background: 'rgba(255, 255, 255, 0.1)',
-          border: 'none',
-          color: 'white',
-          fontSize: '24px',
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          zIndex: 100000,
-        }}
-      >
-        ×
-      </button>
-      {(() => {
-        const attachment = selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex] : null;
-        const isPdf = attachment && (attachment.mimeType === 'application/pdf' || 
-                      attachment.fileName.toLowerCase().endsWith('.pdf'));
-        
-        if (isPdf) {
-          return (
-            <iframe
-              src={selectedImage}
-              title={attachment?.fileName || 'PDF Preview'}
-              style={{
-                width: '90%',
-                height: '90%',
-                border: 'none',
-                backgroundColor: 'white',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            />
-          );
-        }
-        
-        return (
-          <img 
-            src={selectedImage}
-            alt="Preview"
-            style={{
-              maxWidth: '90%',
-              maxHeight: '90%',
-              objectFit: 'contain',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-        );
-      })()}
-    </div>,
-    document.body
-  ) : null;
+  const previewModal = (
+    <AttachmentPreviewModal
+      attachment={previewAttachment}
+      isOpen={previewOpen}
+      onRequestClose={handleClosePreview}
+    />
+  );
 
   if (embedMode) {
     return (
       <>
         {modalContent}
-        {simplePreviewModal}
+        {previewModal}
         <ConfirmModal
           isOpen={showConfirmClose}
           onRequestClose={() => setShowConfirmClose(false)}
@@ -2755,7 +2648,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         </div>,
         document.body
       )}
-      {simplePreviewModal}
+      {previewModal}
       <ConfirmModal
         isOpen={showConfirmClose}
         onRequestClose={() => setShowConfirmClose(false)}

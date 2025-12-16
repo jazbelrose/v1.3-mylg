@@ -329,6 +329,40 @@
   text-decoration: underline;
 }
 
+.attachmentPreviewButton {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  max-width: 160px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.attachmentPreviewButton:hover,
+.attachmentPreviewButton:focus {
+  text-decoration: underline;
+}
+
+.attachmentDownloadLink {
+  font-size: 0.85rem;
+  color: var(--sheet-text-muted);
+  text-decoration: none;
+  max-width: 120px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.attachmentDownloadLink:hover {
+  color: var(--text);
+}
+
 .attachmentRemoveButton {
   border: none;
   background: none;

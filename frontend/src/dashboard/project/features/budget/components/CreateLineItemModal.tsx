@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperclip, faXmark } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
+import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
 import styles from "./create-line-item-modal.module.css";
 import { parseBudget, formatUSD } from "@/shared/utils/budgetUtils";
 import { uploadFile } from "@/shared/utils/api";
@@ -327,6 +328,8 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
   const attachmentsFieldId = useId();
   const attachmentsHintId = `${attachmentsFieldId}-hint`;
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
@@ -840,6 +843,25 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     });
   };
 
+  const handleAttachmentPreviewOpen = useCallback((index: number) => {
+    const attachment = item.attachments?.[index];
+    if (!attachment?.url) return;
+    setSelectedAttachmentIndex(index);
+    setPreviewOpen(true);
+  }, [item.attachments]);
+
+  const handleCloseAttachmentPreview = useCallback(() => {
+    setPreviewOpen(false);
+    setSelectedAttachmentIndex(null);
+  }, []);
+
+  useEffect(() => {
+    if (selectedAttachmentIndex === null) return;
+    if ((item.attachments?.length ?? 0) <= selectedAttachmentIndex) {
+      handleCloseAttachmentPreview();
+    }
+  }, [selectedAttachmentIndex, item.attachments, handleCloseAttachmentPreview]);
+
   const submitItem = async (isAutoSave = false) => {
     const data: ItemForm = { ...item };
 
@@ -1116,6 +1138,9 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     ? { ...accentStyles, transform: `translateY(${swipeOffset}px)` }
     : accentStyles;
 
+  const previewAttachment =
+    selectedAttachmentIndex !== null ? item.attachments?.[selectedAttachmentIndex] ?? null : null;
+
   return (
     <>
       <Modal
@@ -1233,15 +1258,23 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
               ) : null}
               {Array.isArray(item.attachments) && item.attachments.length > 0 ? (
                 <div className={styles.attachmentList}>
-                  {item.attachments.map((attachment) => (
+                  {item.attachments.map((attachment, index) => (
                     <div key={attachment.id} className={styles.attachmentChip}>
-                      <a
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.attachmentLink}
+                      <button
+                        type="button"
+                        className={styles.attachmentPreviewButton}
+                        onClick={() => handleAttachmentPreviewOpen(index)}
                       >
                         {attachment.fileName}
+                      </button>
+                      <a
+                        href={attachment.url}
+                        download={attachment.fileName}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.attachmentDownloadLink}
+                      >
+                        Download
                       </a>
                       <button
                         type="button"
@@ -1291,6 +1324,12 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
           </form>
         </div>
       </Modal>
+
+      <AttachmentPreviewModal
+        attachment={previewAttachment}
+        isOpen={previewOpen}
+        onRequestClose={handleCloseAttachmentPreview}
+      />
 
       <ConfirmModal
         isOpen={showUnsavedConfirm}
