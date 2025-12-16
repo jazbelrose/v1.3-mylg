@@ -1292,6 +1292,18 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   cursor: pointer;
 }
+
+.week-grid__collapse-pill {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+}
 .week-grid__event-title {
   font-weight: 600;
   overflow: hidden;
