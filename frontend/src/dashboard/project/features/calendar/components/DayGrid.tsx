@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckSquare, Plus } from "lucide-react";
 
@@ -53,6 +53,26 @@ function DayGrid({
   const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Find the scrollable parent container
+    const scrollToNoon = () => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      
+      const scroller = grid.closest('.calendar-view__scroller') as HTMLElement | null;
+      if (scroller) {
+        // Scroll to 12 PM (hour 12), each hour row is 64px minimum
+        const rowHeight = 64;
+        scroller.scrollTop = 12 * rowHeight;
+      }
+    };
+    
+    // Use setTimeout to ensure DOM is fully rendered
+    const timer = setTimeout(scrollToNoon, 0);
+    return () => clearTimeout(timer);
+  }, [date]);
 
   const dayEvents = useMemo(() => {
     const allDay: CalendarEvent[] = [];
@@ -183,7 +203,7 @@ function DayGrid({
   }, [canCreateTasks, date, onCreateTask]);
 
   return (
-    <div className="day-grid">
+    <div className="day-grid" ref={gridRef}>
       <div className="day-grid__spacer" aria-hidden />
       <div className="day-grid__header">
         <div className="day-grid__header-row">

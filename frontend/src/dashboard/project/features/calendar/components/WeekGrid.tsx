@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckSquare, Plus } from "lucide-react";
 
@@ -64,6 +64,26 @@ function WeekGrid({
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []); // 24-hour day
 
   const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Find the scrollable parent container
+    const scrollToNoon = () => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      
+      const scroller = grid.closest('.calendar-view__scroller') as HTMLElement | null;
+      if (scroller) {
+        // Scroll to 12 PM (hour 12), each hour row is 72px minimum
+        const rowHeight = 72;
+        scroller.scrollTop = 12 * rowHeight;
+      }
+    };
+    
+    // Use setTimeout to ensure DOM is fully rendered
+    const timer = setTimeout(scrollToNoon, 0);
+    return () => clearTimeout(timer);
+  }, [anchorDate]);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, WeekDayEvents>();
@@ -157,7 +177,7 @@ function WeekGrid({
   );
 
   return (
-    <div className="week-grid">
+    <div className="week-grid" ref={gridRef}>
       <div className="week-grid__spacer" />
       {days.map((day, index) => {
         const key = fmtLocal(day);
