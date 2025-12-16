@@ -190,11 +190,6 @@ function MonthGrid({
                       <div className="month-grid__event-title" title={event.title}>
                         {event.title}
                       </div>
-                      {event.start && (
-                        <div className="month-grid__event-time">
-                          {formatTimeLabel(event.start)}
-                        </div>
-                      )}
                     </div>
                   );
                 }
@@ -227,9 +222,7 @@ function MonthGrid({
                     >
                       {task.title}
                     </div>
-                    {timeLabel && (
-                      <div className="month-grid__event-time">{timeLabel}</div>
-                    )}
+
                   </div>
                 );
               })}

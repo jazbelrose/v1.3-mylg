@@ -655,6 +655,7 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
+  max-height: 120px;
 }
 
 .month-grid__event {
