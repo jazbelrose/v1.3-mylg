@@ -572,41 +572,100 @@
   font-weight: 600;
 }
 
-.cardAttachmentList {
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
+.attachmentIconWrapper {
+  position: relative;
+  display: inline-flex;
 }
 
-.cardAttachmentLink {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 0.72rem;
+.attachmentIconButton {
+  border: none;
   background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 4px 8px;
   color: var(--sheet-text-muted);
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
-.cardAttachmentLink:hover,
-.cardAttachmentLink:focus-visible {
+.attachmentIconButton:hover,
+.attachmentIconButton:focus-visible {
   border-color: var(--color-primary, #4b6bff);
   color: #fff;
   transform: translateY(-1px);
 }
 
-.cardAttachmentMore {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin-left: auto;
+.attachmentDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--sheet-bg, #0b0c10);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 26px 44px rgba(0, 0, 0, 0.45);
+  padding: 8px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attachmentDropdownItem {
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  text-align: left;
+  border-radius: 12px;
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.attachmentDropdownItem:hover,
+.attachmentDropdownItem:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.attachmentDropdownThumbnail {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.attachmentDropdownThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachmentDropdownLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.attachmentDropdownFileName {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.attachmentDropdownMeta {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 
@@ -1137,7 +1196,6 @@
   line-height: 1;
   font-size: 6px;
 }
-
 
 
 

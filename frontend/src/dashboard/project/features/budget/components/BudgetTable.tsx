@@ -22,7 +22,6 @@ const MOBILE_BREAKPOINT = 768;
 const PAGINATION_ESTIMATE = 96;
 
 const EMPTY_PLACEHOLDER = "\u2014";
-const ATTACHMENT_PREVIEW_LIMIT = 2;
 
 const toAttachmentPreviewItems = (raw: unknown): AttachmentPreviewItem[] => {
   if (!Array.isArray(raw)) return [];
@@ -106,6 +105,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [attachmentMenuState, setAttachmentMenuState] = useState<{
+    id: string;
+    items: AttachmentPreviewItem[];
+  } | null>(null);
+  const attachmentDropdownRef = useRef<HTMLDivElement | null>(null);
   const [attachmentPreviewItems, setAttachmentPreviewItems] = useState<AttachmentPreviewItem[]>([]);
   const [attachmentPreviewIndex, setAttachmentPreviewIndex] = useState(0);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
@@ -379,7 +383,19 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
 
       document.addEventListener("click", handleDocumentClick);
       return () => document.removeEventListener("click", handleDocumentClick);
-    }, [setOpenMenuId]);
+  }, [setOpenMenuId]);
+
+  useEffect(() => {
+    if (!attachmentMenuState) return undefined;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (target && attachmentDropdownRef.current?.contains(target)) return;
+      setAttachmentMenuState(null);
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [attachmentMenuState]);
 
     useEffect(() => {
       if (typeof document === "undefined") return undefined;
@@ -394,7 +410,16 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       return () => document.removeEventListener("keydown", handleEscape);
     }, [setOpenMenuId]);
 
-    const previewAttachment = attachmentPreviewItems[attachmentPreviewIndex] ?? null;
+  const previewAttachment = attachmentPreviewItems[attachmentPreviewIndex] ?? null;
+
+  const toggleAttachmentMenuForRecord = useCallback(
+    (event: React.SyntheticEvent, recordId: string, attachments: AttachmentPreviewItem[]) => {
+      event.stopPropagation();
+      const isSame = attachmentMenuState?.id === recordId;
+      setAttachmentMenuState(isSame ? null : { id: recordId, items: attachments });
+    },
+    [attachmentMenuState],
+  );
 
     return (
       <>
@@ -440,9 +465,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                 const eventCount = events.length;
                 const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
                 const attachmentCount = attachmentsForRecord.length;
-                const visibleAttachments = attachmentsForRecord.slice(0, ATTACHMENT_PREVIEW_LIMIT);
-                const hiddenAttachmentCount =
-                  Math.max(0, attachmentCount - visibleAttachments.length);
+                const isAttachmentMenuOpen = attachmentMenuState?.id === record.budgetItemId;
+                const menuAttachments = isAttachmentMenuOpen ? attachmentMenuState?.items ?? attachmentsForRecord : attachmentsForRecord;
 
                 return (
                   <article
@@ -503,68 +527,62 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                 : "No description"}
                             </div>
                             {attachmentCount > 0 && (
-                              <>
-                                <div
+                              <div
+                                className={styles.attachmentIconWrapper}
+                              >
+                                <button
+                                  type="button"
+                                  className={styles.attachmentIconButton}
                                   role="button"
-                                  tabIndex={0}
-                                  className={styles.cardAttachmentIndicator}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openAttachmentPreview(attachmentsForRecord, 0);
-                                  }}
+                                  aria-haspopup="menu"
+                                  aria-expanded={isAttachmentMenuOpen}
+                                  onClick={(event) =>
+                                    toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord)
+                                  }
                                   onKeyDown={(event) => {
                                     if (event.key === "Enter" || event.key === " ") {
                                       event.preventDefault();
-                                      event.stopPropagation();
-                                      openAttachmentPreview(attachmentsForRecord, 0);
+                                      toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord);
                                     }
                                   }}
                                 >
                                   <FontAwesomeIcon icon={faPaperclip} />
                                   <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
-                                </div>
-                                <div className={styles.cardAttachmentList}>
-                                  {visibleAttachments.map((attachment, index) => (
-                                    <button
-                                      key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
-                                      type="button"
-                                      className={styles.cardAttachmentLink}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        openAttachmentPreview(attachmentsForRecord, index);
-                                      }}
-                                    >
-                                      {attachment.fileName}
-                                    </button>
-                                  ))}
-                                  {hiddenAttachmentCount > 0 && (
-                                    <span
-                                      className={styles.cardAttachmentMore}
-                                      role="button"
-                                      tabIndex={0}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        openAttachmentPreview(
-                                          attachmentsForRecord,
-                                          visibleAttachments.length,
-                                        );
-                                      }}
-                                      onKeyDown={(event) => {
-                                        if (event.key === "Enter" || event.key === " ") {
-                                          event.preventDefault();
+                                </button>
+                                {isAttachmentMenuOpen && (
+                                  <div
+                                    className={styles.attachmentDropdown}
+                                    ref={attachmentDropdownRef}
+                                  >
+                                    {menuAttachments.map((attachment, index) => (
+                                      <button
+                                        key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
+                                        type="button"
+                                        className={styles.attachmentDropdownItem}
+                                        onClick={(event) => {
                                           event.stopPropagation();
-                                          openAttachmentPreview(
-                                            attachmentsForRecord,
-                                            visibleAttachments.length,
-                                          );
-                                        }
-                                      }}
-                                    >
-                                      +{hiddenAttachmentCount} more
-                                    </span>
-                                  )}
-                                </div>
-                              </>
+                                          openAttachmentPreview(menuAttachments, index);
+                                          setAttachmentMenuState(null);
+                                        }}
+                                      >
+                                        <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
+                                          {attachment.mimeType?.startsWith("image") ? (
+                                            <img src={attachment.url} alt="" />
+                                          ) : (
+                                            <FontAwesomeIcon icon={faPaperclip} />
+                                          )}
+                                        </span>
+                                        <span className={styles.attachmentDropdownLabel}>
+                                          <span className={styles.attachmentDropdownFileName}>{attachment.fileName}</span>
+                                          <span className={styles.attachmentDropdownMeta}>
+                                            {attachment.mimeType || "File"}
+                                          </span>
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             )}
                         </div>
                       </div>
