@@ -1,4 +1,5 @@
 .overlay {
+  overflow: auto;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
@@ -10,8 +11,8 @@
 }
 
 .dialog {
-  width: min(960px, 90vw);
-  max-height: min(80vh, 720px);
+  width: min(1080px, 90vw);
+  max-height: 90vh;
   background: var(--bg3, #0c0c0c);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -67,6 +68,9 @@
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.02);
+  width: min(960px, 88vw);
+  max-height: calc(90vh - 140px);
+  overflow: auto;
 }
 
 .image,
@@ -83,7 +87,7 @@
 
 .pdfPreview {
   width: 100%;
-  min-height: 360px;
+  height: auto;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55);
   border: none;
