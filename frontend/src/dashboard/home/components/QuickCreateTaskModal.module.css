@@ -269,6 +269,12 @@
   opacity: 1;
 }
 
+.textInput[type="time"]::-webkit-calendar-picker-indicator {
+  color: white;
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
 .locationInputWrapper {
   position: relative;
   display: flex;
