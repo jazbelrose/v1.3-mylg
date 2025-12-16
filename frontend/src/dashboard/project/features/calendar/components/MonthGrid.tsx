@@ -184,12 +184,14 @@ function MonthGrid({
                         }
                       }}
                     >
-                      <span className="month-grid__item-icon month-grid__item-icon--event">
-                        <Clock className="month-grid__item-icon-svg" aria-hidden />
-                      </span>
-                      <span className="month-grid__event-title" title={event.title}>
+                      <div className="month-grid__event-title" title={event.title}>
                         {event.title}
-                      </span>
+                      </div>
+                      {event.start && (
+                        <div className="month-grid__event-time">
+                          {formatTimeLabel(event.start)}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -216,18 +218,15 @@ function MonthGrid({
                       }
                     }}
                   >
-                    <span className="month-grid__item-icon month-grid__item-icon--task">
-                      <CheckSquare className="month-grid__item-icon-svg" aria-hidden />
-                    </span>
-                    <span
+                    <div
                       className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
                       title={task.title}
                     >
                       {task.title}
-                    </span>
-                    {timeLabel ? (
-                      <span className="month-grid__event-time">{timeLabel}</span>
-                    ) : null}
+                    </div>
+                    {timeLabel && (
+                      <div className="month-grid__event-time">{timeLabel}</div>
+                    )}
                   </div>
                 );
               })}
