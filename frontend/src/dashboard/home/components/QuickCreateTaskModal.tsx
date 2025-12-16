@@ -320,7 +320,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [startTime, setStartTime] = useState("");
+  const [startTime, setStartTime] = useState("12:00");
   const [endTime, setEndTime] = useState("");
   const [addressSearch, setAddressSearch] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
@@ -879,7 +879,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTitle("");
     setDescription("");
     setDueDate("");
-    setStartTime("");
+    setStartTime("12:00");
     setEndTime("");
     setAddressSearch("");
     setAddressSuggestions([]);
@@ -1702,7 +1702,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setTitle("");
         setDescription("");
         setDueDate("");
-        setStartTime("");
+        setStartTime("12:00");
         setEndTime("");
         setAddressSearch("");
         setAddressSuggestions([]);

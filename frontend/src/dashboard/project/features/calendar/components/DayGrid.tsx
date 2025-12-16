@@ -3,7 +3,15 @@ import { motion } from "framer-motion";
 import { CheckSquare, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
-import { addHoursToTime, categoryColor, fmtLocal, pad, safeDate, setTime } from "../utils";
+import {
+  addHoursToTime,
+  categoryColor,
+  fmtLocal,
+  formatTimeLabel,
+  pad,
+  safeDate,
+  setTime,
+} from "../utils";
 
 export type DayGridProps = {
   date: Date;
@@ -297,53 +305,65 @@ function DayGrid({
                     ))}
                   </div>
                 )}
-              {timedEvents.map((event) => (
-                <motion.div
-                  key={event.id}
-                  initial={{ opacity: 0.4, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`week-grid__event ${categoryColor[event.category]}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onEditEvent(event)}
-                  onKeyDown={(keyboardEvent) => {
-                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                      keyboardEvent.preventDefault();
-                      onEditEvent(event);
-                    }
-                  }}
-                >
-                  <div className="week-grid__event-title">{event.title}</div>
-                  <div className="week-grid__event-time">
-                    {event.start ?? ""}
-                    {event.start && " – "}
-                    {event.end || (event.start ? addHoursToTime(event.start, 1) : "")}
-                  </div>
-                </motion.div>
-              ))}
-              {timedTasks.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  className="week-grid__task"
-                  onClick={() => onEditTask(task)}
-                >
-                  <span className="week-grid__task-icon">
-                    <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-                  </span>
-                  <div className="week-grid__task-body">
-                    <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
-                      {task.title}
-                    </div>
-                    {task.start ? (
-                      <div className="week-grid__task-time">
-                        {task.start}
-                        {task.end ? ` - ${task.end}` : ""}
-                      </div>
+              {timedEvents.map((event) => {
+                const fallbackEnd =
+                  event.end ?? (event.start ? addHoursToTime(event.start, 1) : undefined);
+                const startLabel = formatTimeLabel(event.start) ?? event.start;
+                const endLabel =
+                  fallbackEnd != null ? formatTimeLabel(fallbackEnd) ?? fallbackEnd : undefined;
+                const eventTimeLabel =
+                  startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
+
+                return (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0.4, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`week-grid__event ${categoryColor[event.category]}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onEditEvent(event)}
+                    onKeyDown={(keyboardEvent) => {
+                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                        keyboardEvent.preventDefault();
+                        onEditEvent(event);
+                      }
+                    }}
+                  >
+                    <div className="week-grid__event-title">{event.title}</div>
+                    {eventTimeLabel ? (
+                      <div className="week-grid__event-time">{eventTimeLabel}</div>
                     ) : null}
-                  </div>
-                </button>
-              ))}
+                  </motion.div>
+                );
+              })}
+              {timedTasks.map((task) => {
+                const taskStartLabel = formatTimeLabel(task.start) ?? task.start;
+                const taskEndLabel = task.end ? formatTimeLabel(task.end) ?? task.end : undefined;
+                const taskTimeLabel =
+                  taskStartLabel && taskEndLabel
+                    ? `${taskStartLabel} - ${taskEndLabel}`
+                    : taskStartLabel ?? taskEndLabel;
+
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className="week-grid__task"
+                    onClick={() => onEditTask(task)}
+                  >
+                    <span className="week-grid__task-icon">
+                      <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                    </span>
+                    <div className="week-grid__task-body">
+                      <div className={`week-grid__task-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}>
+                        {task.title}
+                      </div>
+                      {taskTimeLabel ? <div className="week-grid__task-time">{taskTimeLabel}</div> : null}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </React.Fragment>
         );

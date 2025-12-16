@@ -290,30 +290,6 @@ function EventsAndTasks({
                 </div>
               </PopoverContent>
             </Popover>
-            {hasActiveFilters && (
-              <div className="events-tasks__active-filters">
-                {resolvedEventFilter !== "all" && (
-                  <button
-                    type="button"
-                    className="events-tasks__filter-chip"
-                    onClick={() => handleEventFilterChange("all")}
-                    aria-label={`Remove ${EVENT_FILTER_LABELS[resolvedEventFilter]} filter`}
-                  >
-                    {EVENT_FILTER_LABELS[resolvedEventFilter]} ✕
-                  </button>
-                )}
-                {resolvedTaskFilter !== "all" && (
-                  <button
-                    type="button"
-                    className="events-tasks__filter-chip"
-                    onClick={() => handleTaskFilterChange("all")}
-                    aria-label={`Remove ${TASK_FILTER_LABELS[resolvedTaskFilter]} filter`}
-                  >
-                    {TASK_FILTER_LABELS[resolvedTaskFilter]} ✕
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>

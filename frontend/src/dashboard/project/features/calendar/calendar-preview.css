@@ -709,6 +709,12 @@
   opacity: 0.7;
 }
 
+.month-grid__event-time {
+  font-size: 0.6rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
 .month-grid__more {
   font-size: 0.68rem;
   color: rgba(255, 255, 255, 0.6);

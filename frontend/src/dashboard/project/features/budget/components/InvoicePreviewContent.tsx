@@ -633,7 +633,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .brand-section{display:flex;flex-direction:column;align-items:flex-start;gap:12px;}
         .logo-upload{width:100px;height:100px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
         .logo-upload img{max-width:100%;max-height:100%;object-fit:contain;}
-        .brand-name{font-size:1.1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;}
+        .brand-name{font-size:1.1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;}
         .invoice-title{font-size:3rem;color:#FA3356;font-weight:800;text-align:right;margin-left:auto;text-transform:uppercase;letter-spacing:0.14em;}
         .header-divider{border:none;border-top:1px solid #e5e5e5;margin:8px 0 4px;}
         .header-bottom{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;font-size:0.85rem;}

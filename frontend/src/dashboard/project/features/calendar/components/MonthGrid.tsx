@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { CheckSquare, Clock, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
-import { getMonthMatrix, fmtLocal, isSameDay } from "../utils";
+import { getMonthMatrix, fmtLocal, formatTimeLabel, isSameDay } from "../utils";
 
 export type MonthGridProps = {
   viewDate: Date;
@@ -195,7 +195,10 @@ function MonthGrid({
                 }
 
                 const { task } = item;
-                const timePrefix = task.start ? `${task.start}${task.end ? `-${task.end}` : ""} ` : "";
+                const startLabel = formatTimeLabel(task.start) ?? task.start;
+                const endLabel = formatTimeLabel(task.end) ?? task.end;
+                const timeLabel =
+                  startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
                 return (
                   <div
                     key={`task-${task.id}`}
@@ -220,9 +223,11 @@ function MonthGrid({
                       className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
                       title={task.title}
                     >
-                      {timePrefix}
                       {task.title}
                     </span>
+                    {timeLabel ? (
+                      <span className="month-grid__event-time">{timeLabel}</span>
+                    ) : null}
                   </div>
                 );
               })}
