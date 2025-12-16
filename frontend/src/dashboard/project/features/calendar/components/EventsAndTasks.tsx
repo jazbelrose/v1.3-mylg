@@ -215,7 +215,7 @@ function EventsAndTasks({
                   aria-haspopup="menu"
                   aria-expanded={isFilterPopoverOpen}
                   aria-label={filterButtonAriaLabel}
-                  style={{ width: "auto", minWidth: "180px" }}
+                  style={{ width: "100%", display: "flex" }}
                 >
                   <span className={desktopStyles.triggerLabel}>
                     <span className={desktopStyles.triggerLabelText}>
