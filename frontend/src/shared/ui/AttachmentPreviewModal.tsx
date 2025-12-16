@@ -2,6 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 import styles from "./attachment-preview-modal.module.css";
+import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 export type AttachmentPreviewItem = {
   id?: string;
@@ -58,11 +59,10 @@ const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
         </header>
         <div className={styles.preview}>
           {isPdf ? (
-            <iframe
-              src={attachment.url}
+            <PDFPreview
+              url={attachment.url}
+              className={styles.pdfPreview}
               title={previewTitle}
-              className={styles.iframe}
-              sandbox="allow-same-origin allow-scripts allow-popups allow-downloads"
             />
           ) : (
             <img src={attachment.url} alt={previewTitle} className={styles.image} />
