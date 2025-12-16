@@ -269,6 +269,10 @@
   opacity: 1;
 }
 
+.textInput[type="date"] {
+  background: rgba(24, 26, 29, 0.9);
+}
+
 .textInput[type="time"]::-webkit-calendar-picker-indicator {
   color: white;
   filter: brightness(0) invert(1);
