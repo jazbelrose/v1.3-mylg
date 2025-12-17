@@ -52,6 +52,10 @@ const formatHour12 = (hour: number): string => {
 const HOURS_IN_DAY = 24;
 const HOUR_ROW_HEIGHT_PX = 88;
 const ROW_ENTRY_LIMIT = 2;
+const ENTRY_VERTICAL_PADDING_PX = 4;
+const ENTRY_HORIZONTAL_PADDING_PX = 4;
+const ENTRY_MIN_HEIGHT_PX = 24;
+const COLUMN_GAP_PX = 4;
 
 const chunkEntries = <T,>(entries: T[], size: number): T[][] => {
   const chunks: T[][] = [];
@@ -304,14 +308,20 @@ function DayGrid({
     const columns = Math.max(entry.columnCount, 1);
     const entryHeight = Math.max((heightPercent / 100) * HOUR_ROW_HEIGHT_PX, 32);
     const columnWidth = 100 / columns;
+    const verticalPadding = ENTRY_VERTICAL_PADDING_PX;
+    const horizontalPadding = ENTRY_HORIZONTAL_PADDING_PX;
+    const columnSpacingAdjustment = Math.max(COLUMN_GAP_PX - horizontalPadding, 0);
+    const heightWithPadding = stacked
+      ? entryHeight
+      : Math.max(entryHeight - verticalPadding * 2, ENTRY_MIN_HEIGHT_PX);
     const entryStyle = {
-      height: `${entryHeight}px`,
+      height: `${heightWithPadding}px`,
       ...(stacked
         ? {}
         : {
-            top: `${topPercent}%`,
-            left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
-            width: `${columnWidth}%`,
+            top: `calc(${topPercent}% + ${verticalPadding}px)`,
+            left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * columnSpacingAdjustment}px + ${horizontalPadding}px)`,
+            width: `calc(${columnWidth}% - ${horizontalPadding * 2}px)`,
           }),
     };
 
