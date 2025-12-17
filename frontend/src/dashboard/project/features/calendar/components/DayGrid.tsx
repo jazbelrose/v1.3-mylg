@@ -590,7 +590,7 @@ function DayGrid({
                         className="week-grid__overflow-pill"
                         onClick={() => setExpandedHours((prev) => new Set(prev).add(hour))}
                       >
-                        +{overflowCount} more
+                        +{overflowCount}
                       </div>
                     )}
                   </>

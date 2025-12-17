@@ -884,7 +884,6 @@
   bottom: -12px;
   height: 12px;
   pointer-events: none;
-  border-bottom: ;
   
   
 }
@@ -1281,15 +1280,26 @@
 
 .week-grid__overflow-pill {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(148, 163, 184, 0.8);
-  color: rgba(255, 255, 255, 0.9);
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 0.6rem;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  bottom: 9px;
+  right: 9px;
+  height:16px;
+  min-width:20px;
+  padding:0 8px;
+  border-radius:999px;
+  background:rgba(15,15,15,0.50);
+  border:1px solid rgba(255,255,255,0.22);
+  color:#fff;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.2px;
+  line-height:16px;
+  text-align:center;
+  backdrop-filter:saturate(150%) blur(2px);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.35) inset,
+    0 1px 2px rgba(0,0,0,0.35),
+    0 0 3px rgba(0,0,0,0.25);
+  text-shadow:0 1px 1px rgba(0,0,0,0.55);
   cursor: pointer;
 }
 

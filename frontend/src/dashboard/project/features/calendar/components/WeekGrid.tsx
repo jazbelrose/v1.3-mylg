@@ -522,7 +522,7 @@ function WeekGrid({
                 className="week-grid__overflow-pill"
                 onClick={() => setExpandedSlots(prev => new Set(prev).add(`${day.getTime()}-${hour}`))}
               >
-                +{timelineEntries.length - 2} more
+                +{timelineEntries.length - 2}
               </div>
             )}
           </div>
