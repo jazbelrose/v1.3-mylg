@@ -903,7 +903,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             Connected to project data — events & tasks update automatically.
           </div>
           <div className="calendar-footer__timezone">
-            Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+            Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')}
           </div>
         </div>
       </div>

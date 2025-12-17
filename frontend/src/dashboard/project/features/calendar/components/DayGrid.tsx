@@ -132,12 +132,10 @@ function DayGrid({
   );
 
   const timelineEntriesByHour = useMemo(() => {
-    const entries = new Map<number, Array<TimelineHourEntry<CalendarEvent | CalendarTask>>>();
-    const addEntry = (hour: number, entry: TimelineHourEntry<CalendarEvent | CalendarTask>) => {
-      if (hour < 0 || hour > 23) return;
-      const bucket = entries.get(hour) ?? [];
-      bucket.push(entry);
-      entries.set(hour, bucket);
+    const dayEntries: Array<TimelineHourEntry<CalendarEvent | CalendarTask>> = [];
+
+    const pushEntry = (entry: TimelineHourEntry<CalendarEvent | CalendarTask>) => {
+      dayEntries.push(entry);
     };
 
     events.forEach((event) => {
@@ -162,7 +160,7 @@ function DayGrid({
         startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
 
       const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
-      addEntry(hour, {
+      pushEntry({
         id: `event-${event.id}`,
         type: "event",
         payload: event,
@@ -199,7 +197,7 @@ function DayGrid({
 
       const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
       const isComplete = Boolean(task.done || task.status === "archived");
-      addEntry(hour, {
+      pushEntry({
         id: `task-${task.id}`,
         type: "task",
         payload: task,
@@ -213,11 +211,13 @@ function DayGrid({
       });
     });
 
+    const arranged = assignTimelineColumns(dayEntries);
     const layout = new Map<number, ReturnType<typeof assignTimelineColumns>>();
-    entries.forEach((hourEntries, hour) => {
-      if (hourEntries.length) {
-        layout.set(hour, assignTimelineColumns(hourEntries));
-      }
+    arranged.forEach((entry) => {
+      if (entry.hour < 0 || entry.hour > 23) return;
+      const bucket = layout.get(entry.hour) ?? [];
+      bucket.push(entry);
+      layout.set(entry.hour, bucket);
     });
 
     return layout;
@@ -234,7 +234,7 @@ function DayGrid({
   );
 
   const timezone = useMemo(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' '),
     [],
   );
 
@@ -288,23 +288,20 @@ function DayGrid({
     setQuickAddOpen(false);
   }, [canCreateTasks, date, onCreateTask]);
 
-  const renderTimelineEntry = (
-    entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
-    hourValue: number,
-    stacked: boolean,
-  ) => {
-    const hourStart = hourValue * MINUTES_IN_HOUR;
-    const hourEnd = hourStart + MINUTES_IN_HOUR;
-    const startWithinHour = Math.max(
-      0,
-      Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
-    );
-    const entryEnd = Math.max(entry.startMinutes + 1, Math.min(entry.endMinutes, hourEnd));
-    const durationMinutes = Math.max(entryEnd - entry.startMinutes, 5);
-    const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
-    const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
-    const maxHeightPercent = Math.max(4, 100 - topPercent);
-    const heightPercent = Math.min(maxHeightPercent, Math.max(rawHeightPercent, 6));
+    const renderTimelineEntry = (
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+      hourValue: number,
+      stacked: boolean,
+    ) => {
+      const hourStart = hourValue * MINUTES_IN_HOUR;
+      const startWithinHour = Math.max(
+        0,
+        Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
+      );
+      const durationMinutes = Math.max(entry.endMinutes - entry.startMinutes, 5);
+      const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
+      const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
+      const heightPercent = Math.max(rawHeightPercent, 6);
     const columns = Math.max(entry.columnCount, 1);
     const entryHeight = Math.max((heightPercent / 100) * HOUR_ROW_HEIGHT_PX, 32);
     const columnWidth = 100 / columns;

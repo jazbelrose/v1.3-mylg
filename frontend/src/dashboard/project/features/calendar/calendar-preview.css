@@ -1180,6 +1180,7 @@
   box-sizing: border-box;
   min-height: 32px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  z-index: 2;
 }
 
 .week-grid__timeline-entry--task {
@@ -1241,6 +1242,7 @@
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .week-grid__timeline-avatar {

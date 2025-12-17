@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckSquare, Clock, Plus } from "lucide-react";
+import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -147,28 +148,25 @@ function WeekGrid({
 
   const timelineEntriesByDay = useMemo(() => {
     const dayKeys = new Set(days.map((day) => fmtLocal(day)));
-    const entries = new Map<
+    const entriesByDay = new Map<
       string,
-      Map<number, Array<TimelineHourEntry<CalendarEvent | CalendarTask>>>
+      Array<TimelineHourEntry<CalendarEvent | CalendarTask>>
     >();
 
     const addEntry = (
       dayKey: string,
       entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
     ) => {
-      const dayMap = entries.get(dayKey) ?? new Map();
-      const bucket = dayMap.get(entry.hour) ?? [];
+      const bucket = entriesByDay.get(dayKey) ?? [];
       bucket.push(entry);
-      dayMap.set(entry.hour, bucket);
-      entries.set(dayKey, dayMap);
+      entriesByDay.set(dayKey, bucket);
     };
 
     events.forEach((event) => {
       const eventDate = safeDate(event.date);
       if (!eventDate) return;
       const dayKey = fmtLocal(eventDate);
-      if (!dayKeys.has(dayKey)) return;
-      if (event.allDay) return;
+      if (!dayKeys.has(dayKey) || event.allDay) return;
       const startMinutes = parseTimeToMinutes(event.start);
       if (startMinutes == null) return;
       const fallbackEnd =
@@ -239,12 +237,16 @@ function WeekGrid({
     });
 
     const layout = new Map<string, Map<number, ReturnType<typeof assignTimelineColumns>>>();
-    entries.forEach((hourMap, dayKey) => {
+    entriesByDay.forEach((dayEntries, dayKey) => {
+      if (!dayEntries.length) {
+        return;
+      }
+      const arranged = assignTimelineColumns(dayEntries);
       const layoutHour = new Map<number, ReturnType<typeof assignTimelineColumns>>();
-      hourMap.forEach((hourEntries, hour) => {
-        if (hourEntries.length) {
-          layoutHour.set(hour, assignTimelineColumns(hourEntries));
-        }
+      arranged.forEach((entry) => {
+        const bucket = layoutHour.get(entry.hour) ?? [];
+        bucket.push(entry);
+        layoutHour.set(entry.hour, bucket);
       });
       layout.set(dayKey, layoutHour);
     });
@@ -259,7 +261,22 @@ function WeekGrid({
     entryKey?: string,
   ) => {
     const previewTitle = getWeekEntryPreview(entry.title);
-    const tooltipLabel = entry.timeLabel ? `${entry.title} ú ${entry.timeLabel}` : entry.title;
+    const tooltipLabel = entry.timeLabel ? `${entry.title} Ł ${entry.timeLabel}` : entry.title;
+    const avatars =
+      entry.avatars.length > 0 ? (
+        <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
+          {entry.avatars.map((avatar) => (
+            <ProjectAvatar
+              key={avatar.key}
+              className="week-grid__timeline-avatar"
+              thumb={avatar.thumb ?? undefined}
+              name={avatar.name}
+              shape="circle"
+              radius={9}
+            />
+          ))}
+        </div>
+      ) : null;
     const entryClasses = [
       "week-grid__timeline-entry",
       entry.type === "event"
@@ -315,7 +332,10 @@ function WeekGrid({
             }
           }}
         >
-          <div className="week-grid__timeline-entry-main">{content}</div>
+        <div className="week-grid__timeline-entry-main">
+          {content}
+          {avatars}
+        </div>
         </motion.div>
       );
     }
@@ -330,7 +350,10 @@ function WeekGrid({
         aria-label={tooltipLabel}
         onClick={() => onEditTask(entry.payload as CalendarTask)}
       >
-        <div className="week-grid__timeline-entry-main">{content}</div>
+        <div className="week-grid__timeline-entry-main">
+          {content}
+          {avatars}
+        </div>
       </button>
     );
   };
@@ -539,20 +562,14 @@ function WeekGrid({
                     {visibleEntries.map((entry) => {
                       const columns = Math.max(entry.columnCount, 1);
                       const hourStart = hour * MINUTES_IN_HOUR;
-                      const hourEnd = hourStart + MINUTES_IN_HOUR;
                       const startWithinHour = Math.max(
                         0,
                         Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
                       );
-                      const entryEnd = Math.max(
-                        entry.startMinutes + 1,
-                        Math.min(entry.endMinutes, hourEnd),
-                      );
-                      const durationMinutes = Math.max(entryEnd - entry.startMinutes, 5);
+                      const durationMinutes = Math.max(entry.endMinutes - entry.startMinutes, 5);
                       const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
                       const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
-                      const maxHeightPercent = Math.max(4, 100 - topPercent);
-                      const heightPercent = Math.min(maxHeightPercent, Math.max(rawHeightPercent, 6));
+                      const heightPercent = Math.max(rawHeightPercent, 6);
                       const columnWidth = 100 / columns;
                       const entryStyle = {
                         top: `${topPercent}%`,
