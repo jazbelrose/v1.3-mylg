@@ -1081,7 +1081,7 @@
   padding: 6px 4px;
   position: relative;
   cursor: pointer;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .week-grid__all-day {

@@ -900,7 +900,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         <div className="calendar-footer">
           <div className="calendar-footer__note">
             <CheckSquare className="calendar-footer__icon" />
-            Connected to project data — events update automatically.
+            Connected to project data — events & tasks update automatically.
           </div>
           <div className="calendar-footer__timezone">
             Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
