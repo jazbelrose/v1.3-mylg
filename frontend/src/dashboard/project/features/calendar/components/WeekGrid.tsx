@@ -13,7 +13,6 @@ import {
   setTime,
 } from "../utils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
-import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import {
   MINUTES_IN_HOUR,
   assignTimelineColumns,
@@ -51,11 +50,16 @@ const parseHour = (time?: string) => {
   return h;
 };
 
-const formatHour12 = (hour: number): string => {
-  if (hour === 0) return "12 AM";
-  if (hour < 12) return `${hour} AM`;
-  if (hour === 12) return "12 PM";
-  return `${hour - 12} PM`;
+const WEEK_TITLE_WORD_LIMIT = 3;
+
+const getWeekEntryPreview = (text: string): string => {
+  const normalized = text?.trim() ?? "";
+  if (!normalized) return "";
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (words.length <= WEEK_TITLE_WORD_LIMIT) {
+    return normalized;
+  }
+  return `${words.slice(0, WEEK_TITLE_WORD_LIMIT).join(" ")}…`;
 };
 
 function WeekGrid({
@@ -279,7 +283,6 @@ function WeekGrid({
 
   return (
     <div className="week-grid" ref={gridRef}>
-      <div className="week-grid__spacer" />
       {days.map((day, index) => {
         const key = fmtLocal(day);
         const isOpen = quickAddKey === key;
@@ -339,195 +342,191 @@ function WeekGrid({
       })}
       {hours.map((hour, hourIndex) => (
         <React.Fragment key={hour}>
-          <div className="week-grid__hour">{formatHour12(hour)}</div>
           {days.map((day) => {
+            const key = fmtLocal(day);
+            const dayEventBucket = eventsByDay.get(key) ?? { allDay: [] };
+            const dayTaskBucket = tasksByDay.get(key) ?? { allDay: [] };
+            const timelineEntries = timelineEntriesByDay.get(key)?.get(hour) ?? [];
 
-        const key = fmtLocal(day);
-        const dayEventBucket = eventsByDay.get(key) ?? { allDay: [] };
-        const dayTaskBucket = tasksByDay.get(key) ?? { allDay: [] };
-        const timelineEntries = timelineEntriesByDay.get(key)?.get(hour) ?? [];
-
-        return (
-          <div
-            key={`${key}-${hour}`}
-            className="week-grid__cell"
-            role="presentation"
-            onClick={(mouseEvent) => {
-              const target = mouseEvent.target as HTMLElement | null;
-              if (!target) return;
-              if (
-                target.closest(".week-grid__timeline-entry") ||
-                target.closest(".week-grid__all-day") ||
-                target.closest(".week-grid__quick-add-container") ||
-                target.closest(".week-grid__overflow-pill")
-              ) {
-                return;
-              }
-              handleCreateEvent(day, hour);
-            }}
-          >
-            {hourIndex === 0 &&
-              (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0) && (
-                <div className="week-grid__all-day">
-                  {dayEventBucket.allDay.map((event) => (
-                    <div
-                      key={event.id}
-                      className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onEditEvent(event)}
-                      onKeyDown={(keyboardEvent) => {
-                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                          keyboardEvent.preventDefault();
-                          onEditEvent(event);
-                        }
-                      }}
-                    >
-                      <div className="week-grid__event-title">{event.title}</div>
-                      <div className="week-grid__event-time">All day</div>
-                    </div>
-                  ))}
-                  {dayTaskBucket.allDay.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      className="week-grid__task"
-                      onClick={() => onEditTask(task)}
-                    >
-                      <span className="week-grid__task-icon">
-                        <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-                      </span>
-                      <div className="week-grid__task-body">
-                        <div
-                          className={`week-grid__task-title ${
-                            task.done || task.status === "archived" ? "is-complete" : ""
-                          }`}
-                        >
-                          {task.title}
-                        </div>
-                        <div className="week-grid__task-time">All day</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            {timelineEntries.slice(0, expandedSlots.has(`${day.getTime()}-${hour}`) ? undefined : 2).map((entry) => {
-              const columns = Math.max(entry.columnCount, 1);
-              const hourStart = hour * MINUTES_IN_HOUR;
-              const hourEnd = hourStart + MINUTES_IN_HOUR;
-              const startWithinHour = Math.max(
-                0,
-                Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
-              );
-              const entryEnd = Math.max(
-                entry.startMinutes + 1,
-                Math.min(entry.endMinutes, hourEnd),
-              );
-              const durationMinutes = Math.max(entryEnd - entry.startMinutes, 5);
-              const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
-              const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
-              const maxHeightPercent = Math.max(4, 100 - topPercent);
-              const heightPercent = Math.min(maxHeightPercent, Math.max(rawHeightPercent, 6));
-              const columnWidth = 100 / columns;
-              const entryStyle = {
-                top: `${topPercent}%`,
-                height: `${heightPercent}%`,
-                left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
-                width: `${columnWidth}%`,
-              };
-
-              const avatars =
-                entry.avatars.length > 0 ? (
-                  <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-                    {entry.avatars.map((avatar) => (
-                      <ProjectAvatar
-                        key={avatar.key}
-                        className="week-grid__timeline-avatar"
-                        thumb={avatar.thumb ?? undefined}
-                        name={avatar.name}
-                        shape="circle"
-                          radius={9}
-                      />
-                    ))}
-                  </div>
-                ) : null;
-
-              const content = (
-                <div className="week-grid__timeline-entry-content">
-                  <div className="week-grid__timeline-entry-header">
-                    {entry.type === "task" && (
-                      <span className="week-grid__timeline-entry-icon">
-                        <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-                      </span>
-                    )}
-                    {entry.type === "event" && (
-                      <span className="week-grid__timeline-entry-icon">
-                        <Clock className="week-grid__event-icon-svg" aria-hidden />
-                      </span>
-                    )}
-                    <div
-                      className={`week-grid__timeline-entry-title ${
-                        entry.completed ? "is-complete" : ""
-                      }`}
-                    >
-                      {entry.title}
-                    </div>
-                  </div>
-                </div>
-              );
-
-              if (entry.type === "event") {
-                return (
-                  <motion.div
-                    key={entry.id}
-                    initial={{ opacity: 0.4, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`week-grid__timeline-entry week-grid__timeline-entry--event ${entry.colorClass}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onEditEvent(entry.payload as CalendarEvent)}
-                    onKeyDown={(keyboardEvent) => {
-                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                        keyboardEvent.preventDefault();
-                        onEditEvent(entry.payload as CalendarEvent);
-                      }
-                    }}
-                    style={entryStyle}
-                  >
-                    <div className="week-grid__timeline-entry-main">
-                      {content}
-                      {avatars}
-                    </div>
-                  </motion.div>
-                );
-              }
-
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  className="week-grid__timeline-entry week-grid__timeline-entry--task"
-                  onClick={() => onEditTask(entry.payload as CalendarTask)}
-                  style={entryStyle}
-                >
-                  <div className="week-grid__timeline-entry-main">
-                    {content}
-                    {avatars}
-                  </div>
-                </button>
-              );
-            })}
-            {timelineEntries.length > 2 && !expandedSlots.has(`${day.getTime()}-${hour}`) && (
+            return (
               <div
-                className="week-grid__overflow-pill"
-                onClick={() => setExpandedSlots(prev => new Set(prev).add(`${day.getTime()}-${hour}`))}
+                key={`${key}-${hour}`}
+                className="week-grid__cell"
+                role="presentation"
+                onClick={(mouseEvent) => {
+                  const target = mouseEvent.target as HTMLElement | null;
+                  if (!target) return;
+                  if (
+                    target.closest(".week-grid__timeline-entry") ||
+                    target.closest(".week-grid__all-day") ||
+                    target.closest(".week-grid__quick-add-container") ||
+                    target.closest(".week-grid__overflow-pill")
+                  ) {
+                    return;
+                  }
+                  handleCreateEvent(day, hour);
+                }}
               >
-                +{timelineEntries.length - 2}
+                {hourIndex === 0 &&
+                  (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0) && (
+                    <div className="week-grid__all-day">
+                      {dayEventBucket.allDay.map((event) => (
+                        <div
+                          key={event.id}
+                          className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onEditEvent(event)}
+                          onKeyDown={(keyboardEvent) => {
+                            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                              keyboardEvent.preventDefault();
+                              onEditEvent(event);
+                            }
+                          }}
+                        >
+                          <div className="week-grid__event-title">{event.title}</div>
+                          <div className="week-grid__event-time">All day</div>
+                        </div>
+                      ))}
+                      {dayTaskBucket.allDay.map((task) => (
+                        <button
+                          key={task.id}
+                          type="button"
+                          className="week-grid__task"
+                          onClick={() => onEditTask(task)}
+                        >
+                          <span className="week-grid__task-icon">
+                            <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                          </span>
+                          <div className="week-grid__task-body">
+                            <div
+                              className={`week-grid__task-title ${
+                                task.done || task.status === "archived" ? "is-complete" : ""
+                              }`}
+                            >
+                              {task.title}
+                            </div>
+                            <div className="week-grid__task-time">All day</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                {timelineEntries
+                  .slice(0, expandedSlots.has(`${day.getTime()}-${hour}`) ? undefined : 2)
+                  .map((entry) => {
+                    const columns = Math.max(entry.columnCount, 1);
+                    const hourStart = hour * MINUTES_IN_HOUR;
+                    const hourEnd = hourStart + MINUTES_IN_HOUR;
+                    const startWithinHour = Math.max(
+                      0,
+                      Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
+                    );
+                    const entryEnd = Math.max(
+                      entry.startMinutes + 1,
+                      Math.min(entry.endMinutes, hourEnd),
+                    );
+                    const durationMinutes = Math.max(entryEnd - entry.startMinutes, 5);
+                    const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
+                    const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
+                    const maxHeightPercent = Math.max(4, 100 - topPercent);
+                    const heightPercent = Math.min(maxHeightPercent, Math.max(rawHeightPercent, 6));
+                    const columnWidth = 100 / columns;
+                    const entryStyle = {
+                      top: `${topPercent}%`,
+                      height: `${heightPercent}%`,
+                      left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
+                      width: `${columnWidth}%`,
+                    };
+                    const previewTitle = getWeekEntryPreview(entry.title);
+                    const tooltipLabel = entry.timeLabel
+                      ? `${entry.title} · ${entry.timeLabel}`
+                      : entry.title;
+                    const entryClasses = [
+                      "week-grid__timeline-entry",
+                      entry.type === "event"
+                        ? "week-grid__timeline-entry--event"
+                        : "week-grid__timeline-entry--task",
+                      entry.colorClass ?? "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const content = (
+                      <div className="week-grid__timeline-entry-content">
+                        <div className="week-grid__timeline-entry-header">
+                          {entry.type === "task" && (
+                            <span className="week-grid__timeline-entry-icon">
+                              <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                            </span>
+                          )}
+                          {entry.type === "event" && (
+                            <span className="week-grid__timeline-entry-icon">
+                              <Clock className="week-grid__event-icon-svg" aria-hidden />
+                            </span>
+                          )}
+                          <div
+                            className={`week-grid__timeline-entry-title ${
+                              entry.completed ? "is-complete" : ""
+                            }`}
+                          >
+                            {previewTitle}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                    if (entry.type === "event") {
+                      return (
+                        <motion.div
+                          key={entry.id}
+                          initial={{ opacity: 0.4, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={entryClasses}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onEditEvent(entry.payload as CalendarEvent)}
+                          onKeyDown={(keyboardEvent) => {
+                            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                              keyboardEvent.preventDefault();
+                              onEditEvent(entry.payload as CalendarEvent);
+                            }
+                          }}
+                          style={entryStyle}
+                          title={tooltipLabel}
+                          aria-label={tooltipLabel}
+                        >
+                          <div className="week-grid__timeline-entry-main">
+                            {content}
+                          </div>
+                        </motion.div>
+                      );
+                    }
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className={entryClasses}
+                        onClick={() => onEditTask(entry.payload as CalendarTask)}
+                        style={entryStyle}
+                        title={tooltipLabel}
+                        aria-label={tooltipLabel}
+                      >
+                        <div className="week-grid__timeline-entry-main">
+                          {content}
+                        </div>
+                      </button>
+                    );
+                  })}
+                {timelineEntries.length > 2 && !expandedSlots.has(`${day.getTime()}-${hour}`) && (
+                  <div
+                    className="week-grid__overflow-pill"
+                    onClick={() => setExpandedSlots((prev) => new Set(prev).add(`${day.getTime()}-${hour}`))}
+                  >
+                    +{timelineEntries.length - 2}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
         </React.Fragment>
       ))}
     </div>

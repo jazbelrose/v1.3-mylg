@@ -851,42 +851,14 @@
 
 .week-grid {
   display: grid;
-  grid-template-columns: 60px repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(72px, auto);
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.9);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
 }
 
-
-.week-grid__spacer {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--bg2);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-top-left-radius: 20px;
-  border-right: none;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-
-.week-grid__spacer::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -12px;
-  height: 12px;
-  pointer-events: none;
-  
-  
-}
 
 .week-grid__weekday {
   position: sticky;
@@ -1063,24 +1035,16 @@
   cursor: not-allowed;
 }
 
-.week-grid__hour {
-  padding: 12px 8px;
+.week-grid__cell {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 72px;
+  padding: 6px 4px;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
 }
-
-.week-grid__cell {
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.03);
-    min-height: 72px;
-    padding: 8px 6px;
-    position: relative;
-    cursor: pointer;
-    overflow: hidden;
-  }
 
 .week-grid__all-day {
   display: flex;
@@ -1165,24 +1129,24 @@
   position: absolute;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
   align-items: center;
-  gap: 4px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-  font-size: 0.75rem;
-  line-height: 1.2;
-  color: rgba(226, 232, 240, 0.95);
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 10px;
   background: rgba(148, 163, 184, 0.16);
   border: 1px solid rgba(148, 163, 184, 0.32);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: rgba(226, 232, 240, 0.95);
   overflow: hidden;
   box-sizing: border-box;
+  min-height: 32px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 
 .week-grid__timeline-entry--task {
-  background: rgba(154, 160, 166, 0.28);
-  border-color: rgba(154, 160, 166, 0.44);
+  background: rgba(154, 160, 166, 0.25);
+  border-color: rgba(154, 160, 166, 0.38);
   color: var(--muted, #9aa0a6);
 }
 
@@ -1193,22 +1157,26 @@
 
 .week-grid__timeline-entry-main {
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 6px;
   flex: 1;
+  min-width: 0;
 }
 
 .week-grid__timeline-entry-content {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .week-grid__timeline-entry-header {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .week-grid__timeline-entry-title {
@@ -1216,6 +1184,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .week-grid__timeline-entry-title.is-complete {
@@ -1255,7 +1225,6 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  margin-bottom: 2px;
 }
 
 .week-grid__timeline-rows {
