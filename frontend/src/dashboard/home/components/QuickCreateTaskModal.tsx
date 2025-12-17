@@ -199,6 +199,58 @@ function toTimeInputString(value?: string | number | Date | null): string {
   return "";
 }
 
+function parseSimpleTime(value?: string | null): Date | null {
+  if (!value) return null;
+  const match = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+  const result = new Date();
+  result.setHours(hours, minutes, 0, 0);
+  return result;
+}
+
+function formatDateToTimeString(date: Date): string {
+  const padSegment = (segment: number) => `${segment}`.padStart(2, "0");
+  return `${padSegment(date.getHours())}:${padSegment(date.getMinutes())}`;
+}
+
+function addMinutesToTimeString(time: string, minutesToAdd: number): string {
+  const parsed = parseSimpleTime(time);
+  if (!parsed) {
+    return time;
+  }
+  parsed.setMinutes(parsed.getMinutes() + minutesToAdd);
+  return formatDateToTimeString(parsed);
+}
+
+function computeDurationMinutes(start: string, end: string): number | null {
+  const startDate = parseSimpleTime(start);
+  const endDate = parseSimpleTime(end);
+  if (!startDate || !endDate) {
+    return null;
+  }
+  const diff = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+  return Number.isFinite(diff) && diff > 0 ? diff : null;
+}
+
+const DEFAULT_TASK_DURATION_MINUTES = 30;
+const DEFAULT_TASK_START_TIME = "12:00";
+const DEFAULT_TASK_END_TIME = addMinutesToTimeString(
+  DEFAULT_TASK_START_TIME,
+  DEFAULT_TASK_DURATION_MINUTES,
+);
+
 function parseCoordinate(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -323,8 +375,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [startTime, setStartTime] = useState("12:00");
-  const [endTime, setEndTime] = useState("13:00");
+  const [startTime, setStartTime] = useState(DEFAULT_TASK_START_TIME);
+  const [endTime, setEndTime] = useState(DEFAULT_TASK_END_TIME);
+  const [durationMinutes, setDurationMinutes] = useState(DEFAULT_TASK_DURATION_MINUTES);
   const [addressSearch, setAddressSearch] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<NominatimSuggestion[]>([]);
   const [showWorldwideLink, setShowWorldwideLink] = useState(false);
@@ -888,8 +941,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTitle("");
     setDescription("");
     setDueDate("");
-    setStartTime("12:00");
-    setEndTime("13:00");
+    setStartTime(DEFAULT_TASK_START_TIME);
+    setEndTime(DEFAULT_TASK_END_TIME);
+    setDurationMinutes(DEFAULT_TASK_DURATION_MINUTES);
     setAddressSearch("");
     setAddressSuggestions([]);
     setShowWorldwideLink(false);
@@ -935,8 +989,21 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setTitle(typeof taskData.title === "string" ? formatTaskName(taskData.title) : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
       setDueDate(toDateInputString(taskData.dueDate));
-      setStartTime(toTimeInputString(taskData.startAt) || "12:00");
-      setEndTime(toTimeInputString(taskData.endAt) || "13:00");
+      const normalizedStart = toTimeInputString(taskData.startAt);
+      const normalizedEnd = toTimeInputString(taskData.endAt);
+      const resolvedStart = normalizedStart || DEFAULT_TASK_START_TIME;
+      const resolvedEnd =
+        normalizedEnd ||
+        (normalizedStart
+          ? addMinutesToTimeString(normalizedStart, DEFAULT_TASK_DURATION_MINUTES)
+          : DEFAULT_TASK_END_TIME);
+      setStartTime(resolvedStart);
+      setEndTime(resolvedEnd);
+      const nextDuration =
+        normalizedStart && normalizedEnd
+          ? computeDurationMinutes(normalizedStart, normalizedEnd)
+          : DEFAULT_TASK_DURATION_MINUTES;
+      setDurationMinutes(nextDuration ?? DEFAULT_TASK_DURATION_MINUTES);
       const normalizedFormStatus = normalizeStatus(taskData.status);
       setStatus(normalizedFormStatus);
       const providedTokens = Array.isArray(taskData.assigneeTokens)
@@ -1443,17 +1510,35 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   };
 
   const handleStartTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setStartTime(event.target.value);
+    const nextValue = event.target.value;
+    setStartTime(nextValue);
     setSuccessMessage(null);
     setErrorMessage(null);
     setTimeRangeError(null);
+
+    if (!nextValue) {
+      return;
+    }
+
+    const parsedStart = parseSimpleTime(nextValue);
+    if (!parsedStart) {
+      return;
+    }
+
+    setEndTime(addMinutesToTimeString(nextValue, durationMinutes));
   };
 
   const handleEndTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEndTime(event.target.value);
+    const nextValue = event.target.value;
+    setEndTime(nextValue);
     setSuccessMessage(null);
     setErrorMessage(null);
     setTimeRangeError(null);
+
+    const nextDuration = computeDurationMinutes(startTime, nextValue);
+    if (nextDuration !== null) {
+      setDurationMinutes(nextDuration);
+    }
   };
 
   const handleDescriptionChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1783,8 +1868,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setTitle("");
         setDescription("");
         setDueDate("");
-        setStartTime("12:00");
-        setEndTime("13:00");
+        setStartTime(DEFAULT_TASK_START_TIME);
+        setEndTime(DEFAULT_TASK_END_TIME);
+        setDurationMinutes(DEFAULT_TASK_DURATION_MINUTES);
         setAddressSearch("");
         setAddressSuggestions([]);
         setSelectedLocation(null);

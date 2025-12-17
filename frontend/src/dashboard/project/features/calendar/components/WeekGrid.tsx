@@ -50,6 +50,13 @@ const parseHour = (time?: string) => {
   return h;
 };
 
+const formatHour12 = (hour: number): string => {
+  if (hour === 0) return "12 AM";
+  if (hour < 12) return `${hour} AM`;
+  if (hour === 12) return "12 PM";
+  return `${hour - 12} PM`;
+};
+
 const WEEK_TITLE_WORD_LIMIT = 3;
 
 const getWeekEntryPreview = (text: string): string => {
@@ -283,6 +290,7 @@ function WeekGrid({
 
   return (
     <div className="week-grid" ref={gridRef}>
+      <div className="week-grid__spacer" aria-hidden />
       {days.map((day, index) => {
         const key = fmtLocal(day);
         const isOpen = quickAddKey === key;
@@ -342,6 +350,7 @@ function WeekGrid({
       })}
       {hours.map((hour, hourIndex) => (
         <React.Fragment key={hour}>
+          <div className="week-grid__hour">{formatHour12(hour)}</div>
           {days.map((day) => {
             const key = fmtLocal(day);
             const dayEventBucket = eventsByDay.get(key) ?? { allDay: [] };

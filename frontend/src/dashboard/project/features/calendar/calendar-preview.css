@@ -851,12 +851,50 @@
 
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   grid-auto-rows: minmax(72px, auto);
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.9);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
+}
+
+.week-grid__spacer {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg2);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-top-left-radius: 20px;
+  border-right: none;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.week-grid__spacer::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.week-grid__hour {
+  padding: 12px 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.55);
+  position: sticky;
+  left: 0;
+  background: var(--bg2);
+  z-index: 2;
 }
 
 
@@ -1129,9 +1167,9 @@
   position: absolute;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: left;
   gap: 6px;
-  padding: 3px 3px;
+  padding: 6px 6px;
   border-radius: 10px;
   background: rgba(148, 163, 184, 0.16);
   border: 1px solid rgba(148, 163, 184, 0.32);
@@ -1157,7 +1195,7 @@
 
 .week-grid__timeline-entry-main {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: 6px;
   flex: 1;
   min-width: 0;
@@ -1165,7 +1203,7 @@
 
 .week-grid__timeline-entry-content {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: 4px;
   flex: 1;
   min-width: 0;
@@ -1186,6 +1224,7 @@
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  text-align: left;
 }
 
 .week-grid__timeline-entry-title.is-complete {
