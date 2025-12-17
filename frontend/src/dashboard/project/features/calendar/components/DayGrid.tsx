@@ -554,13 +554,14 @@ function DayGrid({
                       {timelineEntries.length > ROW_ENTRY_LIMIT && (
                         <div
                           className="week-grid__collapse-pill"
-                          onClick={() =>
+                          onClick={(event) => {
+                            event.stopPropagation();
                             setExpandedHours((prev) => {
                               const next = new Set(prev);
                               next.delete(hour);
                               return next;
-                            })
-                          }
+                            });
+                          }}
                         >
                           Show less
                         </div>
