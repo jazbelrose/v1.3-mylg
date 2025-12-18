@@ -373,6 +373,20 @@
   outline: none;
 }
 
+.defaultLocationLink {
+  font-size: 0.85rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.defaultLocationLink:hover,
+.defaultLocationLink:focus {
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+  outline: none;
+}
+
 .worldwideLink {
   width: 100%;
   padding: 8px 12px;

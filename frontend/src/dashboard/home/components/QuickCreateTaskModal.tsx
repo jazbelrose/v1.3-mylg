@@ -2618,19 +2618,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 </label>
                 <span className={styles.fieldOptional}>Optional</span>
               </div>
-              {!selectedLocation && userData?.defaultTaskLocation ? (
-                <button
-                  type="button"
-                  className={styles.defaultLocationPill}
-                  onClick={() => {
-                    const coords = { lat: userData.defaultTaskLocation!.lat, lng: userData.defaultTaskLocation!.lon };
-                    setSelectedLocation(coords);
-                    setAddressSearch(userData.defaultTaskLocation!.formattedAddress);
-                  }}
-                >
-                  Use default address — {userData.defaultTaskLocation.formattedAddress}
-                </button>
-              ) : null}
               <div className={styles.locationInputWrapper}>
                 <input
                   ref={locationInputRef}
@@ -2694,6 +2681,18 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               {selectedLocation ? (
                 <span id={locationHintId} className={styles.fieldMeta}>
                   Saved coordinates: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+                </span>
+              ) : userData?.defaultTaskLocation ? (
+                <span
+                  className={styles.defaultLocationLink}
+                  onClick={() => {
+                    const coords = { lat: userData.defaultTaskLocation!.lat, lng: userData.defaultTaskLocation!.lon };
+                    setSelectedLocation(coords);
+                    setAddressSearch(userData.defaultTaskLocation!.formattedAddress);
+                  }}
+                  title={userData.defaultTaskLocation.formattedAddress}
+                >
+                  Use default location
                 </span>
               ) : null}
             </div>
