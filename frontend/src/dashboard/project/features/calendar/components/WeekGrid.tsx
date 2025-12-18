@@ -62,6 +62,8 @@ const formatHour12 = (hour: number): string => {
 
 const WEEK_TITLE_WORD_LIMIT = 3;
 
+const QUICK_ADD_POPOVER_WIDTH = 200;
+const QUICK_ADD_POPOVER_HEIGHT = 140;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
 
@@ -490,28 +492,35 @@ function WeekGrid({
 
   const quickAddPopoverStyle = useMemo(() => {
     if (!pointerQuickAdd) return undefined;
+    const width = QUICK_ADD_POPOVER_WIDTH;
+    const height = QUICK_ADD_POPOVER_HEIGHT;
     const baseTop = pointerQuickAdd.clientY + QUICK_ADD_POPOVER_OFFSET;
-    const baseLeft = pointerQuickAdd.clientX + QUICK_ADD_POPOVER_OFFSET;
+    const baseLeft = pointerQuickAdd.clientX - width / 2;
     if (typeof window === "undefined") {
       return { top: baseTop, left: baseLeft };
     }
-    const maxTop = window.innerHeight - QUICK_ADD_POPOVER_MARGIN;
-    const maxLeft = window.innerWidth - QUICK_ADD_POPOVER_MARGIN;
+    const maxTop = window.innerHeight - height - QUICK_ADD_POPOVER_MARGIN;
+    const maxLeft = window.innerWidth - width - QUICK_ADD_POPOVER_MARGIN;
     return {
-      top: Math.min(Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN), maxTop),
-      left: Math.min(Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN), maxLeft),
+      top: Math.min(Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN), Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN)),
+      left: Math.min(Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN), Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN)),
     };
   }, [pointerQuickAdd]);
 
+  const snappedPointerDate = useMemo(
+    () => (pointerQuickAdd ? snapDateToHalfHour(pointerQuickAdd.date) : null),
+    [pointerQuickAdd],
+  );
+
   const quickAddTimeLabel = useMemo(
     () =>
-      pointerQuickAdd
-        ? pointerQuickAdd.date.toLocaleTimeString(undefined, {
+      snappedPointerDate
+        ? snappedPointerDate.toLocaleTimeString(undefined, {
             hour: "numeric",
             minute: "2-digit",
           })
         : "",
-    [pointerQuickAdd],
+    [snappedPointerDate],
   );
 
   return (

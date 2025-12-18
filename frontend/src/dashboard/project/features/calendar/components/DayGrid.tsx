@@ -58,6 +58,8 @@ const ENTRY_VERTICAL_PADDING_PX = 4;
 const ENTRY_HORIZONTAL_PADDING_PX = 4;
 const ENTRY_MIN_HEIGHT_PX = 24;
 const COLUMN_GAP_PX = 4;
+const QUICK_ADD_POPOVER_WIDTH = 200;
+const QUICK_ADD_POPOVER_HEIGHT = 140;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
 
@@ -374,27 +376,35 @@ function DayGrid({
   const quickAddPopoverStyle = useMemo(() => {
     if (!pointerQuickAdd) return undefined;
     const baseTop = pointerQuickAdd.clientY + QUICK_ADD_POPOVER_OFFSET;
-    const baseLeft = pointerQuickAdd.clientX + QUICK_ADD_POPOVER_OFFSET;
     if (typeof window === "undefined") {
       return { top: baseTop, left: baseLeft };
     }
-    const maxTop = window.innerHeight - QUICK_ADD_POPOVER_MARGIN;
-    const maxLeft = window.innerWidth - QUICK_ADD_POPOVER_MARGIN;
+    const width = QUICK_ADD_POPOVER_WIDTH;
+    const height = QUICK_ADD_POPOVER_HEIGHT;
+    const centeredLeft = pointerQuickAdd.clientX - width / 2;
+    const maxTop = window.innerHeight - height - QUICK_ADD_POPOVER_MARGIN;
+    const maxLeft = window.innerWidth - width - QUICK_ADD_POPOVER_MARGIN;
     return {
-      top: Math.min(Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN), maxTop),
-      left: Math.min(Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN), maxLeft),
+      top: Math.min(Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN), Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN)),
+      left: Math.min(Math.max(centeredLeft, QUICK_ADD_POPOVER_MARGIN), Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN)),
     };
   }, [pointerQuickAdd]);
 
+  const snappedPointerDate = useMemo(
+    () => (pointerQuickAdd ? snapDateToHalfHour(pointerQuickAdd.date) : null),
+    [pointerQuickAdd],
+  );
+
+
   const quickAddTimeLabel = useMemo(
     () =>
-      pointerQuickAdd
-        ? pointerQuickAdd.date.toLocaleTimeString(undefined, {
+      snappedPointerDate
+        ? snappedPointerDate.toLocaleTimeString(undefined, {
             hour: "numeric",
             minute: "2-digit",
           })
         : "",
-    [pointerQuickAdd],
+    [snappedPointerDate],
   );
 
   const renderTimelineEntry = (
