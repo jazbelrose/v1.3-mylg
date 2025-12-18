@@ -2,9 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   patchTask,
-  requestTaskReview,
-  approveTaskReview,
-  requestTaskChanges,
+  reviewTransition,
   archiveTask,
   unarchiveTask
 } from './router.mjs';
@@ -17,26 +15,28 @@ vi.mock('/opt/nodejs/utils/cors.mjs', () => ({
 }));
 
 vi.mock('./tasksDal.mjs', () => ({
-  dalGetTaskById: vi.fn(),
-  dalUpdateTaskStatus: vi.fn(),
-  dalUpdateTaskFields: vi.fn(),
-  dalRequestReview: vi.fn(),
-  dalApproveTask: vi.fn(),
-  dalRequestChanges: vi.fn(),
-  dalSetArchive: vi.fn(),
-  normalizeTaskStatus: vi.fn((status) => status),
+  buildStatusSortKey: vi.fn(),
+  normalizeStatus: vi.fn((status) => status),
+  updateTaskStatus: vi.fn(),
+  setArchive: vi.fn(),
+  requestReview: vi.fn(),
+  approveTask: vi.fn(),
+  requestChanges: vi.fn(),
+  updateTaskFields: vi.fn(),
+  getTaskById: vi.fn(),
 }));
 
 import {
-  dalGetTaskById,
-  dalUpdateTaskStatus,
-  dalUpdateTaskFields,
-  dalRequestReview,
-  dalApproveTask,
-  dalRequestChanges,
-  dalSetArchive,
-  normalizeTaskStatus
+  updateTaskStatus,
+  updateTaskFields,
+  setArchive,
+  getTaskById
 } from './tasksDal.mjs';
+
+const dalGetTaskById = getTaskById;
+const dalUpdateTaskStatus = updateTaskStatus;
+const dalUpdateTaskFields = updateTaskFields;
+const dalSetArchive = setArchive;
 
 describe('patchTask', () => {
   const mockUserId = 'user123';
@@ -427,12 +427,12 @@ describe('patchTask', () => {
   });
 });
 
-describe('Dedicated Status Transition Endpoints', () => {
+describe('Review Transition Endpoint', () => {
   const mockUserId = 'user123';
   const mockProjectId = 'project123';
   const mockTaskId = 'task123';
 
-  const mockEvent = {
+  const baseEvent = {
     body: JSON.stringify({}),
     requestContext: {
       http: { method: 'POST' },
@@ -447,6 +447,21 @@ describe('Dedicated Status Transition Endpoints', () => {
     },
   };
 
+  const adminEvent = {
+    ...baseEvent,
+    requestContext: {
+      ...baseEvent.requestContext,
+      authorizer: {
+        jwt: {
+          claims: {
+            'custom:userId': mockUserId,
+            'cognito:groups': ['admin'],
+          },
+        },
+      },
+    },
+  };
+
   const mockCors = {};
   const mockParams = { projectId: mockProjectId, taskId: mockTaskId };
 
@@ -454,102 +469,102 @@ describe('Dedicated Status Transition Endpoints', () => {
     vi.clearAllMocks();
   });
 
-  describe('requestTaskReview', () => {
-    it('should allow authorized user to request review', async () => {
-      const mockTask = {
-        status: 'in_progress',
-        assigneeIds: [mockUserId],
-        createdById: mockUserId,
-      };
+  it('submits for review for assignee/creator/admin', async () => {
+    const mockTask = {
+      status: 'in_progress',
+      assigneeIds: [mockUserId],
+      createdById: 'otherUser',
+      reviewerId: mockUserId,
+      thread: [],
+    };
 
-      const mockUpdatedTask = { ...mockTask, status: 'in_review' };
+    getTaskById.mockResolvedValue(mockTask);
+    updateTaskStatus.mockResolvedValue({ ...mockTask, status: 'in_review' });
 
-      dalGetTaskById.mockResolvedValue(mockTask);
-      dalRequestReview.mockResolvedValue(mockUpdatedTask);
+    const event = { ...baseEvent, body: JSON.stringify({ action: 'submit_for_review' }) };
+    const result = await reviewTransition(event, mockCors, mockParams);
 
-      const result = await requestTaskReview(mockEvent, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(200);
-      expect(dalRequestReview).toHaveBeenCalledWith({
-        ddb: expect.any(Object),
+    expect(result.statusCode).toBe(200);
+    expect(updateTaskStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
         tableName: 'Tasks',
         projectId: mockProjectId,
         taskId: mockTaskId,
-        reviewerId: mockUserId,
-        note: undefined,
-        actorId: mockUserId,
-        now: expect.any(String),
-      });
-    });
-
-    it('should reject unauthorized user', async () => {
-      const mockTask = {
-        status: 'in_progress',
-        assigneeIds: ['otherUser'],
-        createdById: 'otherUser',
-      };
-
-      dalGetTaskById.mockResolvedValue(mockTask);
-
-      const result = await requestTaskReview(mockEvent, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(403);
-      expect(result.body.error).toBe('Not authorized to submit review');
-    });
+        nextStatus: 'in_review',
+        options: expect.objectContaining({
+          additionalUpdates: expect.objectContaining({
+            reviewState: 'in_review',
+            currentSubmissionId: expect.any(String),
+            thread: expect.any(Array),
+          }),
+        }),
+      }),
+    );
   });
 
-  describe('approveTaskReview', () => {
-    it('should allow authorized user to approve task', async () => {
-      const mockTask = {
-        status: 'in_review',
-        reviewerId: mockUserId,
-      };
+  it('rejects non-admin request_changes', async () => {
+    const mockTask = { status: 'in_review' };
+    getTaskById.mockResolvedValue(mockTask);
 
-      const mockUpdatedTask = { ...mockTask, status: 'done' };
+    const event = { ...baseEvent, body: JSON.stringify({ action: 'request_changes', note: 'Fix this' }) };
+    const result = await reviewTransition(event, mockCors, mockParams);
 
-      dalGetTaskById.mockResolvedValue(mockTask);
-      dalApproveTask.mockResolvedValue(mockUpdatedTask);
-
-      const result = await approveTaskReview(mockEvent, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(200);
-      expect(dalApproveTask).toHaveBeenCalledWith({
-        ddb: expect.any(Object),
-        tableName: 'Tasks',
-        projectId: mockProjectId,
-        taskId: mockTaskId,
-        note: undefined,
-        actorId: mockUserId,
-        now: expect.any(String),
-      });
-    });
+    expect(result.statusCode).toBe(403);
+    expect(updateTaskStatus).not.toHaveBeenCalled();
+    expect(updateTaskFields).not.toHaveBeenCalled();
   });
 
-  describe('requestTaskChanges', () => {
-    it('should allow authorized user to request changes', async () => {
-      const mockTask = {
-        status: 'in_review',
-        reviewerId: mockUserId,
-      };
+  it('approves a task (admin only)', async () => {
+    const mockTask = { status: 'in_review', thread: [] };
+    getTaskById.mockResolvedValue(mockTask);
+    updateTaskFields.mockResolvedValue({ ...mockTask, reviewState: 'approved' });
 
-      const mockUpdatedTask = { ...mockTask, status: 'needs_changes' };
+    const event = { ...adminEvent, body: JSON.stringify({ action: 'approve' }) };
+    const result = await reviewTransition(event, mockCors, mockParams);
 
-      dalGetTaskById.mockResolvedValue(mockTask);
-      dalRequestChanges.mockResolvedValue(mockUpdatedTask);
-
-      const result = await requestTaskChanges(mockEvent, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(200);
-      expect(dalRequestChanges).toHaveBeenCalledWith({
-        ddb: expect.any(Object),
+    expect(result.statusCode).toBe(200);
+    expect(updateTaskFields).toHaveBeenCalledWith(
+      expect.objectContaining({
         tableName: 'Tasks',
         projectId: mockProjectId,
         taskId: mockTaskId,
-        note: undefined,
-        actorId: mockUserId,
-        now: expect.any(String),
-      });
-    });
+        fields: expect.objectContaining({
+          reviewState: 'approved',
+          currentSubmissionId: expect.any(String),
+          thread: expect.any(Array),
+        }),
+      }),
+    );
+  });
+
+  it('marks a task done (admin only)', async () => {
+    const mockTask = { status: 'in_progress', thread: [] };
+    getTaskById.mockResolvedValue(mockTask);
+    updateTaskStatus.mockResolvedValue({ ...mockTask, status: 'done' });
+
+    const event = { ...adminEvent, body: JSON.stringify({ action: 'mark_done' }) };
+    const result = await reviewTransition(event, mockCors, mockParams);
+
+    expect(result.statusCode).toBe(200);
+    expect(updateTaskStatus).toHaveBeenCalledTimes(2);
+    expect(updateTaskStatus).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        tableName: 'Tasks',
+        projectId: mockProjectId,
+        taskId: mockTaskId,
+        nextStatus: 'in_review',
+      }),
+    );
+    expect(updateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        tableName: 'Tasks',
+        projectId: mockProjectId,
+        taskId: mockTaskId,
+        nextStatus: 'done',
+      }),
+    );
   });
 
   describe('archiveTask', () => {
@@ -563,7 +578,7 @@ describe('Dedicated Status Transition Endpoints', () => {
       dalGetTaskById.mockResolvedValue(mockTask);
       dalSetArchive.mockResolvedValue(mockUpdatedTask);
 
-      const result = await archiveTask(mockEvent, mockCors, mockParams);
+      const result = await archiveTask(adminEvent, mockCors, mockParams);
 
       expect(result.statusCode).toBe(200);
       expect(dalSetArchive).toHaveBeenCalledWith({
@@ -589,7 +604,7 @@ describe('Dedicated Status Transition Endpoints', () => {
       dalGetTaskById.mockResolvedValue(mockTask);
       dalSetArchive.mockResolvedValue(mockUpdatedTask);
 
-      const result = await unarchiveTask(mockEvent, mockCors, mockParams);
+      const result = await unarchiveTask(adminEvent, mockCors, mockParams);
 
       expect(result.statusCode).toBe(200);
       expect(dalSetArchive).toHaveBeenCalledWith({

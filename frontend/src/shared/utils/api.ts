@@ -73,6 +73,23 @@ export interface Project {
   [key: string]: unknown;
 }
 
+export type TaskReviewTransitionAction =
+  | 'submit_for_review'
+  | 'request_changes'
+  | 'approve'
+  | 'mark_done';
+
+export interface TaskReviewThreadEntry extends JsonRecord {
+  id?: string;
+  submissionId?: string;
+  action?: TaskReviewTransitionAction | string;
+  note?: string;
+  fromStatus?: string;
+  createdAt?: string;
+  createdById?: string;
+  createdByAdmin?: boolean;
+}
+
 export interface Task extends JsonRecord {
   taskId?: string;
   projectId: string;
@@ -96,6 +113,9 @@ export interface Task extends JsonRecord {
     url?: string;
     uploadedAt?: string;
   }>;
+  reviewState?: string;
+  currentSubmissionId?: string | null;
+  thread?: TaskReviewThreadEntry[];
   createdBy?: string;
   createdById?: string;
   createdByName?: string;
@@ -801,7 +821,7 @@ export async function createTask(task: Task): Promise<Task> {
 }
 
 // IMPORTANT: Do NOT use updateTask() to move a task into in_review, needs_changes,
-// done, or archived. Those transitions must go through the dedicated review /
+// done, or archived. Those transitions must go through the dedicated review-transition /
 // archive endpoints documented in TASK_STATUS_TRANSITIONS.md.
 export async function updateTask(task: Task): Promise<Task> {
   const { projectId, taskId, ...payload } = task;
@@ -828,27 +848,31 @@ export async function deleteTask({ projectId, taskId }: { projectId: string; tas
 
 export async function requestTaskReview(projectId: string, taskId: string, body: { note?: string; reviewerId?: string } = {}): Promise<Task> {
   if (!projectId || !taskId) throw new Error('projectId and taskId are required for requestTaskReview');
-  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review/request`;
-  return apiFetch<Task>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
-
-export async function approveTask(projectId: string, taskId: string, body: { note?: string } = {}): Promise<Task> {
-  if (!projectId || !taskId) throw new Error('projectId and taskId are required for approveTask');
-  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review/approve`;
-  return apiFetch<Task>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  return reviewTransitionTask(projectId, taskId, { action: 'submit_for_review', ...body });
 }
 
 export async function requestTaskChanges(projectId: string, taskId: string, body: { note?: string } = {}): Promise<Task> {
   if (!projectId || !taskId) throw new Error('projectId and taskId are required for requestTaskChanges');
-  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review/request_changes`;
+  return reviewTransitionTask(projectId, taskId, { action: 'request_changes', ...body });
+}
+
+export async function approveTaskReview(projectId: string, taskId: string, body: { note?: string } = {}): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for approveTaskReview');
+  return reviewTransitionTask(projectId, taskId, { action: 'approve', ...body });
+}
+
+export async function approveTask(projectId: string, taskId: string, body: { note?: string } = {}): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for approveTask');
+  return reviewTransitionTask(projectId, taskId, { action: 'mark_done', ...body });
+}
+
+export async function reviewTransitionTask(
+  projectId: string,
+  taskId: string,
+  body: { action: TaskReviewTransitionAction; note?: string; reviewerId?: string },
+): Promise<Task> {
+  if (!projectId || !taskId) throw new Error('projectId and taskId are required for reviewTransitionTask');
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/review-transition`;
   return apiFetch<Task>(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

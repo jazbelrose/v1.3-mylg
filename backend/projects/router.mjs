@@ -67,6 +67,7 @@ const nowISO = () => new Date().toISOString();
 const epochNow = () => Math.floor(Date.now() / 1000);
 
 const makeEventId = (ts = Date.now()) => `E#${String(ts).padStart(13, "0")}#${uuidv4()}`;
+const makeThreadEntryId = () => `RT#${String(epochNow()).padStart(10, "0")}#${uuidv4()}`;
 
 function getUserFromEvent(e) {
   const claims = e?.requestContext?.authorizer?.jwt?.claims || {};
@@ -688,6 +689,253 @@ function isTaskCreator(task, userId) {
   return candidateIds.some((value) => typeof value === "string" && value.trim() === userId);
 }
 
+function normalizeReviewAction(action) {
+  if (typeof action !== "string") return null;
+  const normalized = action.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "submit") return "submit_for_review";
+  if (normalized === "submit_for_review") return "submit_for_review";
+  if (normalized === "request_changes") return "request_changes";
+  if (normalized === "approve") return "approve";
+  if (normalized === "mark_done") return "mark_done";
+  return null;
+}
+
+function getTaskThread(task) {
+  const raw = task?.thread;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((entry) => entry && typeof entry === "object");
+}
+
+function resolveSubmissionId(task, nextAction) {
+  if (nextAction === "submit_for_review") {
+    return uuidv4();
+  }
+  const existing = typeof task?.currentSubmissionId === "string" ? task.currentSubmissionId.trim() : "";
+  return existing || uuidv4();
+}
+
+function buildThreadEntry({ task, action, note, actorId, isAdmin, now }) {
+  const fromStatus = normalizeTaskStatus(task?.status);
+  const submissionId = resolveSubmissionId(task, action);
+  const entry = {
+    id: makeThreadEntryId(),
+    submissionId,
+    action,
+    note: typeof note === "string" ? note : undefined,
+    fromStatus,
+    createdAt: now,
+    createdById: actorId || undefined,
+    createdByAdmin: Boolean(isAdmin),
+  };
+  return { entry, submissionId };
+}
+
+const performReviewTransition = async (e, C, { projectId, taskId }, actionOverride) => {
+  const body = B(e) || {};
+  const action = normalizeReviewAction(actionOverride ?? body.action);
+  if (!action) {
+    return json(400, C, { error: "Invalid review action" });
+  }
+
+  const { userId, isAdmin } = getUserFromEvent(e);
+  if (!userId && !isAdmin) {
+    return json(403, C, { error: "Authentication required" });
+  }
+
+  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
+  if (!task) {
+    return json(404, C, { error: "Task not found" });
+  }
+
+  const actorId = userId || null;
+  const now = nowISO();
+  const status = normalizeTaskStatus(task.status);
+  const assigneeIds = getTaskAssigneeIds(task);
+
+  if (action === "submit_for_review") {
+    const canSubmit =
+      isAdmin ||
+      (actorId && (assigneeIds.has(actorId) || isTaskCreator(task, actorId)));
+    if (!canSubmit) {
+      return json(403, C, { error: "Not authorized to submit review" });
+    }
+    if (!["todo", "in_progress", "needs_changes"].includes(status)) {
+      return json(409, C, { error: "Task is not ready for review submission" });
+    }
+
+    const reviewerCandidate =
+      typeof body.reviewerId === "string" && body.reviewerId.trim()
+        ? body.reviewerId.trim()
+        : task.reviewerId || task.createdById || task.createdBy || actorId;
+
+    const note = typeof body.note === "string" ? body.note : undefined;
+    const { entry, submissionId } = buildThreadEntry({ task, action, note, actorId, isAdmin, now });
+    const thread = [...getTaskThread(task), entry];
+
+    const updated = await dalUpdateTaskStatus({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      nextStatus: "in_review",
+      actorId,
+      now,
+      options: {
+        reviewerId: reviewerCandidate || null,
+        note,
+        reviewRequestedAt: now,
+        clearReviewedTimestamps: true,
+        additionalUpdates: {
+          reviewState: "in_review",
+          currentSubmissionId: submissionId,
+          thread,
+        },
+      },
+    });
+
+    return json(200, C, updated);
+  }
+
+  if (!isAdmin) {
+    return json(403, C, { error: "Not authorized to transition review" });
+  }
+
+  if (action === "request_changes") {
+    const noteRaw = typeof body.note === "string" ? body.note.trim() : "";
+    if (!noteRaw) {
+      return json(400, C, { error: "A note is required when requesting changes" });
+    }
+    if (!["in_review", "done"].includes(status)) {
+      return json(409, C, { error: "Task is not under review" });
+    }
+
+    const { entry, submissionId } = buildThreadEntry({ task, action, note: noteRaw, actorId, isAdmin, now });
+    const thread = [...getTaskThread(task), entry];
+
+    const updated = await dalUpdateTaskStatus({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      nextStatus: "needs_changes",
+      actorId,
+      now,
+      options: {
+        note: noteRaw,
+        additionalUpdates: {
+          reviewState: "needs_changes",
+          currentSubmissionId: submissionId,
+          thread,
+        },
+      },
+    });
+
+    return json(200, C, updated);
+  }
+
+  if (action === "approve") {
+    if (status !== "in_review") {
+      return json(409, C, { error: "Task is not under review" });
+    }
+    const note = typeof body.note === "string" ? body.note : undefined;
+    const { entry, submissionId } = buildThreadEntry({ task, action, note, actorId, isAdmin, now });
+    const thread = [...getTaskThread(task), entry];
+
+    const updated = await dalUpdateTaskFields({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      now,
+      fields: {
+        reviewState: "approved",
+        currentSubmissionId: submissionId,
+        thread,
+        reviewedAt: now,
+      },
+    });
+
+    return json(200, C, updated);
+  }
+
+  if (action === "mark_done") {
+    if (status === "archived") {
+      return json(409, C, { error: "Archived tasks cannot be marked done" });
+    }
+
+    const note = typeof body.note === "string" ? body.note : undefined;
+    const { entry, submissionId } = buildThreadEntry({ task, action, note, actorId, isAdmin, now });
+    const thread = [...getTaskThread(task), entry];
+
+    if (status === "done") {
+      const updated = await dalUpdateTaskFields({
+        ddb,
+        tableName: TASKS_TABLE,
+        projectId,
+        taskId,
+        now,
+        fields: {
+          reviewState: "done",
+          currentSubmissionId: submissionId,
+          thread,
+        },
+      });
+      return json(200, C, updated);
+    }
+
+    if (status !== "in_review") {
+      const reviewerCandidate = task.reviewerId || task.createdById || task.createdBy || actorId;
+      await dalUpdateTaskStatus({
+        ddb,
+        tableName: TASKS_TABLE,
+        projectId,
+        taskId,
+        nextStatus: "in_review",
+        actorId,
+        now,
+        options: {
+          reviewerId: reviewerCandidate || null,
+          reviewRequestedAt: now,
+          clearReviewedTimestamps: true,
+          additionalUpdates: {
+            reviewState: "in_review",
+            currentSubmissionId: submissionId,
+          },
+        },
+      });
+    }
+
+    const updated = await dalUpdateTaskStatus({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      nextStatus: "done",
+      actorId,
+      now,
+      options: {
+        completedAt: now,
+        reviewedAt: now,
+        note,
+        additionalUpdates: {
+          reviewState: "done",
+          currentSubmissionId: submissionId,
+          thread,
+        },
+      },
+    });
+
+    return json(200, C, updated);
+  }
+
+  return json(400, C, { error: "Invalid review action" });
+};
+
+const reviewTransition = async (e, C, { projectId, taskId }) => {
+  return performReviewTransition(e, C, { projectId, taskId });
+};
+
 /* ---------- Tasks (PK=projectId, SK=taskId) ---------- */
 const listTasks = async (_e, C, { projectId }) => {
   const r = await ddb.query({
@@ -710,6 +958,9 @@ const createTask = async (e, C, { projectId }) => {
   delete body.createdByName;
   delete body.createdByUsername;
   delete body.createdByEmail;
+  delete body.thread;
+  delete body.reviewState;
+  delete body.currentSubmissionId;
   const taskId = b.taskId || `T-${uuidv4()}`;
   const ts = nowISO();
   const item = {
@@ -741,6 +992,15 @@ const createTask = async (e, C, { projectId }) => {
   }
   if (item.reviewNote == null) {
     item.reviewNote = "";
+  }
+  if (!Array.isArray(item.thread)) {
+    item.thread = [];
+  }
+  if (item.currentSubmissionId === undefined) {
+    item.currentSubmissionId = null;
+  }
+  if (typeof item.reviewState !== "string" || !item.reviewState.trim()) {
+    item.reviewState = "";
   }
   const statusSortKey = buildStatusSortKey(item.status, item.dueAt, taskId);
   item.statusSortKey = statusSortKey;
@@ -782,6 +1042,9 @@ const patchTask = async (e, C, { projectId, taskId }) => {
   delete updates.archived;
   delete updates.archivedAt;
   delete updates.archivedById;
+  delete updates.thread;
+  delete updates.reviewState;
+  delete updates.currentSubmissionId;
 
   const statusValue = updates.status;
   if (statusValue !== undefined) {
@@ -873,131 +1136,15 @@ const deleteTask = async (_e, C, { projectId, taskId }) => {
 };
 
 const requestTaskReview = async (e, C, { projectId, taskId }) => {
-  const body = B(e) || {};
-  const { userId, isAdmin } = getUserFromEvent(e);
-  if (!userId && !isAdmin) {
-    return json(403, C, { error: "Authentication required" });
-  }
-
-  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
-  if (!task) {
-    return json(404, C, { error: "Task not found" });
-  }
-
-  const assigneeIds = getTaskAssigneeIds(task);
-  const actorId = userId || null;
-  const canSubmit =
-    isAdmin ||
-    (actorId && (assigneeIds.has(actorId) || isTaskCreator(task, actorId)));
-
-  if (!canSubmit) {
-    return json(403, C, { error: "Not authorized to submit review" });
-  }
-
-  const reviewerCandidate =
-    typeof body.reviewerId === "string" && body.reviewerId.trim()
-      ? body.reviewerId.trim()
-      : task.reviewerId || task.createdById || task.createdBy || actorId;
-
-  const note = typeof body.note === "string" ? body.note : undefined;
-
-  const updated = await dalRequestReview({
-    ddb,
-    tableName: TASKS_TABLE,
-    projectId,
-    taskId,
-    reviewerId: reviewerCandidate || null,
-    note,
-    actorId,
-    now: nowISO(),
-  });
-
-  return json(200, C, updated);
+  return performReviewTransition(e, C, { projectId, taskId }, "submit_for_review");
 };
 
 const approveTaskReview = async (e, C, { projectId, taskId }) => {
-  const body = B(e) || {};
-  const { userId, isAdmin } = getUserFromEvent(e);
-  if (!userId && !isAdmin) {
-    return json(403, C, { error: "Authentication required" });
-  }
-
-  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
-  if (!task) {
-    return json(404, C, { error: "Task not found" });
-  }
-
-  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
-  const actorId = userId || null;
-  const isReviewer = reviewerId && actorId && reviewerId === actorId;
-  const canApprove = isAdmin || isReviewer;
-
-  if (!canApprove) {
-    return json(403, C, { error: "Not authorized to approve" });
-  }
-
-  const status = normalizeTaskStatus(task.status);
-  if (status !== "in_review" && !isAdmin) {
-    return json(409, C, { error: "Task is not ready for approval" });
-  }
-
-  const note = typeof body.note === "string" ? body.note : undefined;
-
-  const updated = await dalApproveTask({
-    ddb,
-    tableName: TASKS_TABLE,
-    projectId,
-    taskId,
-    note,
-    actorId,
-    now: nowISO(),
-  });
-
-  return json(200, C, updated);
+  return performReviewTransition(e, C, { projectId, taskId }, "mark_done");
 };
 
 const requestTaskChanges = async (e, C, { projectId, taskId }) => {
-  const body = B(e) || {};
-  const { userId, isAdmin } = getUserFromEvent(e);
-  if (!userId && !isAdmin) {
-    return json(403, C, { error: "Authentication required" });
-  }
-
-  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
-  if (!task) {
-    return json(404, C, { error: "Task not found" });
-  }
-
-  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
-  const actorId = userId || null;
-  const isReviewer = reviewerId && actorId && reviewerId === actorId;
-  const canRequest = isAdmin || isReviewer;
-
-  if (!canRequest) {
-    return json(403, C, { error: "Not authorized to request changes" });
-  }
-
-  const status = normalizeTaskStatus(task.status);
-  if (status !== "in_review" && !isAdmin) {
-    return json(409, C, { error: "Task is not under review" });
-  }
-
-  const noteRaw = typeof body.note === "string" ? body.note.trim() : "";
-  if (!noteRaw) {
-    return json(400, C, { error: "A note is required when requesting changes" });
-  }
-
-  const updated = await dalRequestChanges({
-    ddb,
-    tableName: TASKS_TABLE,
-    projectId,
-    taskId,
-    note: noteRaw,
-    actorId,
-    now: nowISO(),
-  });
-
-  return json(200, C, updated);
+  return performReviewTransition(e, C, { projectId, taskId }, "request_changes");
 };
 
 const archiveTask = async (e, C, { projectId, taskId }) => {
@@ -1620,6 +1767,7 @@ const routes = [
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/tasks$/i,                                h: listTasks },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks$/i,                                h: createTask },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: getTask },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review-transition$/i, h: reviewTransition },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request$/i, h: requestTaskReview },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/approve$/i, h: approveTaskReview },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request_changes$/i, h: requestTaskChanges },
@@ -1673,6 +1821,16 @@ const routes = [
   { m: "GET",    r: /^\/budgets\/byBudgetId\/(?<budgetId>[^/]+)$/i,                             h: listByBudgetId },
   { m: "GET",    r: /^\/budgets\/byItemId\/(?<budgetItemId>[^/]+)$/i,                           h: getByBudgetItemId },
 ];
+
+export {
+  patchTask,
+  requestTaskReview,
+  approveTaskReview,
+  requestTaskChanges,
+  archiveTask,
+  unarchiveTask,
+  reviewTransition,
+};
 
 /* ============== Entrypoint ============== */
 export async function handler(event) {

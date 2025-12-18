@@ -14,6 +14,7 @@ import {
   requestTaskReview,
   fetchTask,
   approveTask,
+  approveTaskReview,
   requestTaskChanges,
 } from "@/shared/utils/api";
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
@@ -36,6 +37,7 @@ import type {
   QuickCreateTaskModalTask,
   QuickCreateTaskLocation,
   TaskNoteAttachment,
+  TaskReviewThreadEntry,
 } from "./QuickCreateTaskModal.types";
 
 export type { QuickCreateTaskModalTask, QuickCreateTaskModalEvent } from "./QuickCreateTaskModal.types";
@@ -1327,8 +1329,12 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const isStatusLocked = READ_ONLY_STATUSES.includes(status);
   const normalizedCurrentUserId = normalizeUserIdentifier(userId);
   const normalizedReviewerId = normalizeUserIdentifier(reviewerId);
+  const normalizedCreatorId = normalizeUserIdentifier(createdById);
   const isReviewer = Boolean(
     normalizedReviewerId && normalizedCurrentUserId && normalizedReviewerId === normalizedCurrentUserId,
+  );
+  const isCreator = Boolean(
+    normalizedCreatorId && normalizedCurrentUserId && normalizedCreatorId === normalizedCurrentUserId,
   );
 
   const statusBadgeData = useMemo(() => {
@@ -1349,13 +1355,23 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     normalizedStatus === "needs_changes";
 
   const isCompleteStatus = normalizedStatus === "done" || normalizedStatus === "archived";
+  const canSubmitForReviewAction = Boolean(isAdmin || isCurrentUserAssigned || isCreator);
   const showSubmitForReviewButton =
-    isEditing && !isBusy && !isAwaitingApproval && !isCompleteStatus && (canSubmitForReview || isAdmin);
-  const showApproveButton = isEditing && !isBusy && isAdmin && !isCompleteStatus;
+    isEditing && !isBusy && !isAwaitingApproval && !isCompleteStatus && canSubmitForReview && canSubmitForReviewAction;
+  const normalizedReviewState = typeof task?.reviewState === "string" ? task.reviewState.trim().toLowerCase() : "";
+  const isReviewApproved = normalizedReviewState === "approved";
+  const showApproveReviewButton = isEditing && !isBusy && isAdmin && isAwaitingApproval && !isCompleteStatus && !isReviewApproved;
+  const showMarkDoneButton = isEditing && !isBusy && isAdmin && !isCompleteStatus;
   const showRequestChangesButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
   const canArchiveTask = Boolean(isEditing && status === "done" && (isAdmin || isReviewer));
   const canUnarchiveTask = Boolean(isEditing && status === "archived" && (isAdmin || isReviewer));
-  const hasAnyStatusAction = showSubmitForReviewButton || showApproveButton || showRequestChangesButton || canArchiveTask || canUnarchiveTask;
+  const hasAnyStatusAction =
+    showSubmitForReviewButton ||
+    showApproveReviewButton ||
+    showMarkDoneButton ||
+    showRequestChangesButton ||
+    canArchiveTask ||
+    canUnarchiveTask;
   const taskNameDescribedBy = [
     showTitleCounter ? titleCounterId : null,
     titleError ? titleErrorId : null,
@@ -1365,6 +1381,71 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     .trim() || undefined;
   const projectDescribedBy = projectError ? projectErrorId : undefined;
   const locationDescribedBy = selectedLocation ? locationHintId : undefined;
+
+  const reviewThreadEntries = useMemo(() => {
+    const raw = task?.thread;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((entry): entry is TaskReviewThreadEntry => Boolean(entry && typeof entry === "object"))
+      .slice()
+      .sort((a, b) => {
+        const aTime = typeof a.createdAt === "string" ? Date.parse(a.createdAt) : Number.NaN;
+        const bTime = typeof b.createdAt === "string" ? Date.parse(b.createdAt) : Number.NaN;
+        if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+        if (Number.isNaN(aTime)) return -1;
+        if (Number.isNaN(bTime)) return 1;
+        return aTime - bTime;
+      });
+  }, [task]);
+
+  const reviewThreadGroups = useMemo(() => {
+    const groups = new Map<string, TaskReviewThreadEntry[]>();
+    const order: string[] = [];
+
+    reviewThreadEntries.forEach((entry) => {
+      const submissionIdRaw = typeof entry.submissionId === "string" ? entry.submissionId.trim() : "";
+      const submissionId = submissionIdRaw || "no-submission";
+      if (!groups.has(submissionId)) {
+        groups.set(submissionId, []);
+        order.push(submissionId);
+      }
+      groups.get(submissionId)?.push(entry);
+    });
+
+    return order.map((submissionId) => ({
+      submissionId,
+      entries: groups.get(submissionId) ?? [],
+    }));
+  }, [reviewThreadEntries]);
+
+  const formatReviewActionLabel = useCallback((action?: string | null) => {
+    const normalized = typeof action === "string" ? action.trim().toLowerCase() : "";
+    if (normalized === "submit_for_review") return "Submitted for review";
+    if (normalized === "request_changes") return "Requested changes";
+    if (normalized === "approve") return "Approved";
+    if (normalized === "mark_done") return "Marked done";
+    return action?.toString?.() || "Review update";
+  }, []);
+
+  const formatReviewEntryTime = useCallback((createdAt?: string | null) => {
+    if (typeof createdAt !== "string" || !createdAt.trim()) return "";
+    const parsed = new Date(createdAt);
+    if (Number.isNaN(parsed.getTime())) return createdAt;
+    return parsed.toLocaleString();
+  }, []);
+
+  const formatReviewEntryActor = useCallback((entry: TaskReviewThreadEntry) => {
+    const actorId = typeof entry.createdById === "string" ? entry.createdById.trim() : "";
+    if (!actorId) {
+      return entry.createdByAdmin ? "Admin" : "System";
+    }
+    const match = allUsers.find((candidate) => candidate.userId?.trim() === actorId);
+    if (match) {
+      const full = `${match.firstName?.trim() ?? ""} ${match.lastName?.trim() ?? ""}`.trim();
+      return full || match.username?.trim() || match.email?.trim() || match.userId?.trim() || actorId;
+    }
+    return actorId;
+  }, [allUsers]);
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (isBusy) return;
@@ -1978,7 +2059,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   };
 
-  const handleApprove = async () => {
+  const handleApproveReview = async () => {
     if (!taskId || !effectiveProjectId) return;
     if (isBusy) return;
 
@@ -1989,8 +2070,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       if (!isAwaitingApproval) {
         await requestTaskReview(effectiveProjectId, taskId, { note: "" });
       }
-      await approveTask(effectiveProjectId, taskId, { note: "" });
-      notify("success", "Task marked as done!");
+      await approveTaskReview(effectiveProjectId, taskId, { note: "" });
+      notify("success", "Task approved!");
       await onUpdated?.();
       onClose();
     } catch (error) {
@@ -2002,6 +2083,33 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         notify("error", "Task is not in the correct state for approval.");
       } else {
         notify("error", "Failed to approve task. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleMarkDone = async () => {
+    if (!taskId || !effectiveProjectId) return;
+    if (isBusy) return;
+
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await approveTask(effectiveProjectId, taskId, { note: "" });
+      notify("success", "Task marked as done!");
+      await onUpdated?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to mark task as done", error);
+      const apiError = error as { status?: number };
+      if (apiError?.status === 403) {
+        notify("error", "Only admins can mark tasks as done.");
+      } else if (apiError?.status === 409) {
+        notify("error", "Task is not in the correct state for completion.");
+      } else {
+        notify("error", "Failed to mark task as done. Please try again.");
       }
     } finally {
       setSubmitting(false);
@@ -2047,6 +2155,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setSubmitting(false);
     }
   };
+
+  const previewAttachment =
+    selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex] : null;
+
+  const previewModal = (
+    <AttachmentPreviewModal
+      attachment={previewAttachment}
+      isOpen={previewOpen}
+      onRequestClose={handleClosePreview}
+    />
+  );
 
   if (!open) {
 
@@ -2173,11 +2292,24 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                           <span>Submit for review</span>
                         </button>
                       )}
-                      {showApproveButton && (
+                      {showApproveReviewButton && (
                         <button
                           type="button"
                           className={styles.statusActionButton}
-                          onClick={handleApprove}
+                          onClick={handleApproveReview}
+                          disabled={isBusy}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                          <span>Approve</span>
+                        </button>
+                      )}
+                      {showMarkDoneButton && (
+                        <button
+                          type="button"
+                          className={styles.statusActionButton}
+                          onClick={handleMarkDone}
                           disabled={isBusy}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2724,6 +2856,58 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 />
               </div>
             </div>
+            {isEditing ? (
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldHeader}>
+                  <label className={styles.fieldLabel}>
+                    <span className={styles.fieldLabelText}>Review thread</span>
+                  </label>
+                </div>
+                {reviewThreadEntries.length === 0 ? (
+                  <p className={styles.helperText}>No review activity yet.</p>
+                ) : (
+                  <div className={styles.reviewThread}>
+                    {reviewThreadGroups.map((group, groupIndex) => {
+                      const currentSubmissionId =
+                        typeof task?.currentSubmissionId === "string" ? task.currentSubmissionId.trim() : "";
+                      const isCurrent = currentSubmissionId && currentSubmissionId === group.submissionId;
+                      return (
+                        <div key={group.submissionId} className={styles.reviewThreadGroup}>
+                          <div className={styles.reviewThreadGroupHeader}>
+                            <span>Submission {groupIndex + 1}</span>
+                            {isCurrent ? <span className={styles.reviewThreadCurrent}>Current</span> : null}
+                          </div>
+                          {group.entries.map((entry, entryIndex) => {
+                            const note = typeof entry.note === "string" ? entry.note.trim() : "";
+                            return (
+                              <div
+                                key={entry.id ?? `${group.submissionId}-${entryIndex}`}
+                                className={styles.reviewThreadEntry}
+                              >
+                                <div className={styles.reviewThreadMeta}>
+                                  <span className={styles.reviewThreadAction}>
+                                    {formatReviewActionLabel(entry.action)}
+                                  </span>
+                                  <span className={styles.reviewThreadBy}>· {formatReviewEntryActor(entry)}</span>
+                                  {entry.createdAt ? (
+                                    <span className={styles.reviewThreadTime}>· {formatReviewEntryTime(entry.createdAt)}</span>
+                                  ) : null}
+                                </div>
+                                {note ? (
+                                  <div className={styles.reviewThreadBubble}>
+                                    {note}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
             <div id={feedbackRegionId} className={styles.feedbackRegion} aria-live="polite">
               {errorMessage ? (
                 <div className={`${styles.feedback} ${styles.feedbackError}`}>{errorMessage}</div>
@@ -2756,17 +2940,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         </form>
       </div>
     );
-
-  const previewAttachment =
-    selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex] : null;
-
-  const previewModal = (
-    <AttachmentPreviewModal
-      attachment={previewAttachment}
-      isOpen={previewOpen}
-      onRequestClose={handleClosePreview}
-    />
-  );
 
   if (embedMode) {
     return (

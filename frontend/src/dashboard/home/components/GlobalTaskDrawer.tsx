@@ -595,6 +595,9 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
       address: task.address ?? undefined,
       location: task.location as QuickCreateTaskModalTask["location"],
       noteAttachments: (task.rawTask as { noteAttachments?: TaskNoteAttachment[] }).noteAttachments ?? undefined,
+      reviewState: (task.rawTask as { reviewState?: string | null }).reviewState ?? undefined,
+      currentSubmissionId: (task.rawTask as { currentSubmissionId?: string | null }).currentSubmissionId ?? undefined,
+      thread: (task.rawTask as { thread?: QuickCreateTaskModalTask["thread"] }).thread ?? undefined,
       reviewerId: (task.rawTask as { reviewerId?: string }).reviewerId ?? undefined,
       createdById: task.createdById ?? undefined,
       createdByName: task.createdByName ?? undefined,
@@ -689,20 +692,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
     async (task: TasksOverviewListItem) => {
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
-      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
-      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
-      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
-      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
-      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
-      const canActOnTask = isAdmin || isAssignee || isCreator;
-      if (!canActOnTask) {
-        notify('error', 'Only the assignee, creator, or an admin can update this task.');
-        return;
-      }
-      const normalizedStatus = typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
-      const isAwaitingApproval = normalizedStatus === "in_review";
-      if (isAwaitingApproval && !isAdmin) {
-        notify('error', 'Only admins can approve tasks that are in review.');
+      if (!isAdmin) {
+        notify('error', 'Only admins can mark tasks as done.');
         return;
       }
       setTaskPending(task.id, true);
@@ -735,14 +726,8 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
       }
       const identifiers = resolveTaskIdentifiers(task);
       if (!identifiers) return;
-      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
-      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
-      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
-      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
-      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
-      const canActOnTask = isAdmin || isAssignee || isCreator;
-      if (!canActOnTask) {
-        notify('error', 'Only the assignee, creator, or an admin can update this task.');
+      if (!isAdmin) {
+        notify("error", "Only admins can request changes.");
         return;
       }
       setTaskPending(task.id, true);
@@ -1530,8 +1515,8 @@ const BADGE_CLASS_BY_TONE = {
                       const canActOnTask = isAdmin || isAssignee || isCreator;
                       const isComplete = isDone || isArchived;
                       const canSubmitForReview = canActOnTask && ["todo", "in_progress", "needs_changes"].includes(normalizedStatus);
-                      const canApprove = Boolean((isAdmin || isReviewer) && isInReview);
-                      const canRequestChanges = canActOnTask && isInReview;
+                      const canApprove = Boolean(isAdmin && !isComplete);
+                      const canRequestChanges = Boolean(isAdmin && isInReview);
                       const canArchive = canActOnTask && isDone;
                       const canUnarchive = canActOnTask && isArchived;
                       const isBusy = pendingTaskIds.has(task.id);

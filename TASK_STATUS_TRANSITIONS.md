@@ -10,9 +10,7 @@ The generic PATCH endpoint (`/projects/{projectId}/tasks/{taskId}`) has strict r
 - `done` ← Any status
 - `archived` ← Any status
 
-> **Reminder:** Do **not** use the generic PATCH endpoint to move a task into
-> `in_review`, `needs_changes`, `done`, or `archived`. Those transitions must go
-> through the dedicated review/archive endpoints defined below.
+Do **not** use the generic PATCH endpoint to move a task into `in_review`, `needs_changes`, `done`, or `archived`. Those transitions must go through the dedicated review/archive endpoints below.
 
 ### Allowed Transitions (via PATCH)
 - `in_progress` ← `todo`, `needs_changes`, `in_progress`
@@ -21,28 +19,26 @@ The generic PATCH endpoint (`/projects/{projectId}/tasks/{taskId}`) has strict r
 Only admins, assignees, or the task creator can move a task to `in_progress`.
 
 ### Error Messages
-- `"Status transition requires a dedicated endpoint"` - for blocked transitions
-- `"Unsupported status transition"` - for any other status change attempt
-- `"Invalid status transition"` - when trying to move from an invalid current state
+- `"Status transition requires a dedicated endpoint"` - blocked transitions
+- `"Unsupported status transition"` - any other disallowed status change attempt
+- `"Invalid status transition"` - invalid current-state → next-state attempt
 
 ## Dedicated Endpoints
 
-All other status transitions must use specific endpoints:
+### Review Transition (Unified)
+- **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/review-transition`
+- **Function**: `reviewTransitionTask(projectId, taskId, { action, note?, reviewerId? })`
+- **Actions**:
+  - `submit_for_review`: moves task into `in_review` and appends to `thread[]`
+  - `request_changes`: moves task into `needs_changes` (requires `note`) and appends to `thread[]`
+  - `approve`: keeps task `in_review` but sets `reviewState = "approved"` (optional `note`) and appends to `thread[]`
+  - `mark_done`: moves task into `done` (optional `note`) and appends to `thread[]` (admins can mark done even if not already `in_review`)
 
-### Request Review
-- **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/review/request`
-- **Function**: `requestTaskReview(projectId, taskId, { note?, reviewerId? })`
-- **Transitions**: `todo` → `in_review`, `in_progress` → `in_review`, `needs_changes` → `in_review`
-
-### Approve Task
-- **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/review/approve`
-- **Function**: `approveTask(projectId, taskId, { note? })`
-- **Transitions**: `in_review` → `done`
-
-### Request Changes
-- **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/review/request_changes`
-- **Function**: `requestTaskChanges(projectId, taskId, { note? })`
-- **Transitions**: `in_review` → `needs_changes`
+### Role Permissions (Review)
+- `submit_for_review`: assignee, creator, or admin
+- `request_changes`: admin only
+- `approve`: admin only
+- `mark_done`: admin only (works even when not already `in_review`)
 
 ### Archive Task
 - **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/archive`
@@ -54,9 +50,9 @@ All other status transitions must use specific endpoints:
 - **Function**: `unarchiveTask(projectId, taskId)`
 - **Transitions**: `archived` → `done`
 
-## Full Allowed Transitions (from tasksDal.mjs)
+## Full Allowed Transitions (from `tasksDal.mjs`)
 
-```javascript
+```js
 const allowedTransitions = {
   todo: ["in_progress", "in_review"],
   in_progress: ["in_review"],
@@ -66,38 +62,3 @@ const allowedTransitions = {
   archived: ["done"],
 };
 ```
-
-## Key Points
-
-1. **PATCH is for field updates only** - use dedicated endpoints for status transitions
-2. **No cross-project moves** - tasks cannot be moved between projects via API
-3. **Server-side enforcement** - all transitions are validated server-side
-4. **Role-based permissions** - only authorized users can trigger certain transitions
-
-## Frontend Implementation
-
-The frontend correctly implements this workflow in most places:
-
-- **Button text is context-aware**: Shows "Done" for reviewers/admins, "Submit for review" for assignees
-- **Proper API calls**: Uses `approveTask()` for reviewers, `requestTaskReview()` for assignees
-- **Error handling**: Now includes user-visible error messages and proper state management
-
-### UI Improvements Made
-
-✅ **Added toast notifications** for success/error feedback  
-✅ **Proper error messages** for different failure scenarios (403, 409, etc.)  
-✅ **Loading state management** - buttons reset on error  
-✅ **Context-aware messaging** - different success messages for assignees vs reviewers  
-
-### Remaining Issues
-
-⚠️ **Calendar component** still uses old `updateTask()` directly and will fail for assignees  
-⚠️ **QuickCreateTaskModal** allows status changes that may be blocked by PATCH restrictions  
-
-### Error Messages Now Shown
-
-- **Success**: "Task marked as done!" or "Task submitted for review!"
-- **403 Forbidden**: "You don't have permission to perform this action."
-- **409 Conflict**: "Task is not in the correct state for this action."
-- **Other errors**: "Failed to update task. Please try again."</content>
-<parameter name="filePath">d:\MYLG\App\v1.3-mylg\TASK_STATUS_TRANSITIONS.md

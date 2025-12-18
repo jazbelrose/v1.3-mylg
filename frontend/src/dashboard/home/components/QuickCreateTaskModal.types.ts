@@ -12,6 +12,18 @@ export type TaskNoteAttachment = {
   uploadedAt?: string;
 };
 
+export type TaskReviewThreadEntry = {
+  id?: string | null;
+  submissionId?: string | null;
+  action?: string | null;
+  note?: string | null;
+  fromStatus?: string | null;
+  createdAt?: string | null;
+  createdById?: string | null;
+  createdByAdmin?: boolean | null;
+  [key: string]: unknown;
+};
+
 export type QuickCreateTaskModalTask = {
   id?: string | null;
   taskId?: string | null;
@@ -29,6 +41,9 @@ export type QuickCreateTaskModalTask = {
   address?: string | null;
   location?: QuickCreateTaskLocation;
   noteAttachments?: TaskNoteAttachment[] | null;
+  reviewState?: string | null;
+  currentSubmissionId?: string | null;
+  thread?: TaskReviewThreadEntry[] | null;
   reviewerId?: string | null;
   createdById?: string | null;
   createdByName?: string | null;
