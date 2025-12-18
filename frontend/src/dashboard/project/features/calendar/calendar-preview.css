@@ -1171,7 +1171,7 @@
   gap: 6px;
   padding: 6px;
   border-radius: 12px;
-  background: #111111 ;
+  background: #2d2d2d ;
   border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.72rem;
   line-height: 1.2;
@@ -1179,9 +1179,7 @@
   overflow: visible;
   box-sizing: border-box;
   min-height: 32px;
-  box-shadow:
-    0 12px 42px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+ 
   z-index: 1;
   backdrop-filter: blur(18px);
 }
@@ -1312,7 +1310,7 @@
   width: max(180px, min(240px, 60vw));
   padding: 10px;
   border-radius: 12px;
-  background: rgba(6, 8, 14, 0.92);
+  background: #111111;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
   opacity: 0;
@@ -1324,6 +1322,9 @@
   gap: 6px;
   color: rgba(255, 255, 255, 0.9);
   z-index: 5;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 
 .week-grid__timeline-entry:hover .week-grid__timeline-entry-tooltip {
@@ -1343,6 +1344,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   line-height: 1.2;
+  margin-bottom: 8px;
 }
 
 .week-grid__timeline-rows {
@@ -2155,4 +2157,3 @@
   }
 
 }
-
