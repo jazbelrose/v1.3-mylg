@@ -20,6 +20,7 @@ import {
   buildTaskAvatars,
   buildTeamMemberLookup,
   parseTimeToMinutes,
+  snapDateToHalfHour,
   type TimelineAvatar,
   type TimelineHourEntry,
 } from "./timelineLayout";
@@ -57,8 +58,6 @@ const ENTRY_VERTICAL_PADDING_PX = 4;
 const ENTRY_HORIZONTAL_PADDING_PX = 4;
 const ENTRY_MIN_HEIGHT_PX = 24;
 const COLUMN_GAP_PX = 4;
-const QUICK_ADD_POPOVER_MAX_WIDTH = 240;
-const QUICK_ADD_POPOVER_MAX_HEIGHT = 150;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
 
@@ -312,7 +311,8 @@ function DayGrid({
   const triggerCreateTask = useCallback(
     (slotDate: Date, startAt?: Date) => {
       if (!canCreateTasks) return;
-      onCreateTask(slotDate, startAt);
+      const normalizedStartAt = startAt ? snapDateToHalfHour(startAt) : undefined;
+      onCreateTask(slotDate, normalizedStartAt);
       setQuickAddOpen(false);
       setPointerQuickAdd(null);
     },
@@ -378,19 +378,11 @@ function DayGrid({
     if (typeof window === "undefined") {
       return { top: baseTop, left: baseLeft };
     }
-    const maxTop =
-      window.innerHeight - QUICK_ADD_POPOVER_MAX_HEIGHT - QUICK_ADD_POPOVER_MARGIN;
-    const maxLeft =
-      window.innerWidth - QUICK_ADD_POPOVER_MAX_WIDTH - QUICK_ADD_POPOVER_MARGIN;
+    const maxTop = window.innerHeight - QUICK_ADD_POPOVER_MARGIN;
+    const maxLeft = window.innerWidth - QUICK_ADD_POPOVER_MARGIN;
     return {
-      top: Math.min(
-        Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN),
-        Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
-      ),
-      left: Math.min(
-        Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN),
-        Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
-      ),
+      top: Math.min(Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN), maxTop),
+      left: Math.min(Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN), maxLeft),
     };
   }, [pointerQuickAdd]);
 

@@ -80,7 +80,7 @@ const ProgressRing: React.FC<{ value: number }> = ({ value }) => {
         fontSize="8"
         fill="#fff"
       >
-        {Math.round(value)}
+        {Math.round(value)}%
       </text>
     </svg>
   );
@@ -477,6 +477,14 @@ const AllProjects: React.FC = () => {
       </div>
     );
   } else {
+    // Helper to parse status to number
+    const parseStatusToNumber = (status: unknown): number => {
+      if (status === undefined || status === null) return 0;
+      const str = typeof status === "string" ? status : String(status);
+      const num = parseFloat(str.replace("%", ""));
+      return Number.isNaN(num) ? 0 : num;
+    };
+
     // Helper to normalize status text (append % if it's a bare number)
     const formatStatus = (s?: string) => {
       const raw = (s || '').trim();
@@ -523,9 +531,8 @@ const AllProjects: React.FC = () => {
         {displayedProjects.map((project: Project) => {
           const statusText = formatStatus(String(project.status || ''));
           const team = normalizeTeam(project.team);
-          const progress = Number(statusText.replace('%', ''));
-          const showProgress =
-            !Number.isNaN(progress) && progress >= 0 && progress <= 100;
+          const progress = parseStatusToNumber(project.status);
+          const showProgress = true; // Always show progress ring
           const dateLabel = formatShortDate(project.dateCreated || project.date);
           const isMenuOpen = menuOpenId === project.projectId;
           return (
@@ -552,10 +559,7 @@ const AllProjects: React.FC = () => {
                 </div>
               </div>
               <div className="project-list-actions">
-                {showProgress && <ProgressRing value={progress} />}
-                {!showProgress && statusText && (
-                  <span className="project-list-status">{statusText}</span>
-                )}
+                <ProgressRing value={progress} />
                 {team.length > 0 && (
                   <div className="project-list-team">
                     <AvatarStack members={team} size={24} />

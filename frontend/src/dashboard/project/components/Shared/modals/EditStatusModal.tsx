@@ -45,7 +45,7 @@ const EditStatusModal = ({ modal }: EditStatusModalProps) => {
           <div className={styles.headerText}>
             <h2 className={styles.title}>Edit status</h2>
             <p className={styles.subtitle}>
-              Update the project progress label that appears across the dashboard and shared views.
+              Update the project progress percentage that appears across the dashboard and shared views.
             </p>
           </div>
           <button
@@ -63,10 +63,21 @@ const EditStatusModal = ({ modal }: EditStatusModalProps) => {
             <span className={styles.label}>Status</span>
             <input
               className={styles.input}
-              type="text"
-              value={modal.updatedStatus}
-              onChange={(event) => modal.setUpdatedStatus(event.target.value)}
-              placeholder="e.g. In production"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              value={modal.updatedStatus.replace('%', '')}
+              onChange={(event) => {
+                const value = event.target.value;
+                const num = parseInt(value, 10);
+                if (!isNaN(num) && num >= 0 && num <= 100) {
+                  modal.setUpdatedStatus(`${num}%`);
+                } else if (value === '') {
+                  modal.setUpdatedStatus('0%');
+                }
+              }}
+              placeholder="Enter progress percentage (0-100)"
             />
           </label>
 

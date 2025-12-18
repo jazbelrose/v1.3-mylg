@@ -225,3 +225,15 @@ export const assignTimelineColumns = <T extends TimelineHourEntry<unknown>>(
 
   return result;
 };
+
+export const snapDateToHalfHour = (date: Date) => {
+  const snapped = new Date(date);
+  const minutes = snapped.getMinutes();
+  const snappedMinutes = Math.round(minutes / 30) * 30;
+  if (snappedMinutes >= MINUTES_IN_HOUR) {
+    snapped.setHours(snapped.getHours() + 1, 0, 0, 0);
+  } else {
+    snapped.setMinutes(snappedMinutes, 0, 0);
+  }
+  return snapped;
+};
