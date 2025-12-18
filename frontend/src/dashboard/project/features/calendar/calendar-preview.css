@@ -1244,13 +1244,14 @@
 
 .week-grid__timeline-entry-avatars {
   position: absolute;
-  top: 6px;
+  top: 50%;
   right: 6px;
   display: flex;
   gap: 0;
   flex-shrink: 0;
   pointer-events: none;
   z-index: 2;
+  transform: translateY(-50%);
 }
 
 .week-grid__timeline-avatar {
