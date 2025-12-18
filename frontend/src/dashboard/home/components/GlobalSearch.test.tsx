@@ -424,6 +424,40 @@ describe('GlobalSearch', () => {
     });
   });
 
+  it('defaults to the project overview when navigating from the calendar view', async () => {
+    renderGlobalSearch(['/dashboard/projects/project-1/Test%20Project/calendar']);
+    const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'demo' } });
+
+    await waitFor(() => {
+      const demoProjectElements = screen.getAllByText((content, element) => {
+        if (!element) return false;
+        const textContent = element.textContent || '';
+        return textContent.includes('Demo Application');
+      });
+      expect(demoProjectElements.length).toBeGreaterThan(0);
+    });
+
+    const allButtons = screen.getAllByRole('button');
+    const demoProjectButton = allButtons.find(button => {
+      const textContent = button.textContent || '';
+      return textContent.includes('Demo Application') && !textContent.includes('Message in');
+    });
+
+    expect(demoProjectButton).toBeDefined();
+
+    fireEvent.click(demoProjectButton!);
+
+    const expectedPath = getProjectDashboardPath('project-2', 'Demo Application');
+
+    await waitFor(() => {
+      expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
+      expect(mockNavigate).toHaveBeenCalledWith(expectedPath);
+    });
+  });
+
   it('supports keyboard navigation', async () => {
     renderGlobalSearch();
     const input = screen.getByPlaceholderText(PLACEHOLDER_TEXT);
@@ -537,7 +571,6 @@ describe('GlobalSearch', () => {
     });
   });
 });
-
 
 
 

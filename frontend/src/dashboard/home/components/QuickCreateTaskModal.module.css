@@ -1248,33 +1248,30 @@
 }
 
 .statusActionButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary, #f6f7fb);
-  font-size: 0.875rem;
-  font-weight: 500;
+  width: 100%;
+  border-radius: 14px;
+  min-height: 48px;
+  padding: 0 18px;
+  font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  border: 1px solid rgba(123, 255, 220, 0.45);
+  background: rgba(123, 255, 220, 0.15);
+  color: #b4ffe7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
   text-align: left;
 }
 
 .statusActionButton:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
 }
 
-.statusActionButton:active:not(:disabled) {
-  transform: translateY(0);
-}
-
 .statusActionButton:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -1295,7 +1292,6 @@
   margin-top: 8px;
   font-weight: 500;
 }
-
 .statusPillContainer {
   display: flex;
   align-items: center;
@@ -1312,33 +1308,30 @@
 }
 
 .statusActionButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary, #f6f7fb);
-  font-size: 0.875rem;
-  font-weight: 500;
+  width: 100%;
+  border-radius: 14px;
+  min-height: 48px;
+  padding: 0 18px;
+  font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  border: 1px solid rgba(123, 255, 220, 0.45);
+  background: rgba(123, 255, 220, 0.15);
+  color: #b4ffe7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
   text-align: left;
 }
 
 .statusActionButton:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
 }
 
-.statusActionButton:active:not(:disabled) {
-  transform: translateY(0);
-}
-
 .statusActionButton:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
