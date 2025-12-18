@@ -100,11 +100,13 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     mode: "create" | "edit";
     date: Date;
     event: CalendarEvent | null;
+    triggeredFromCalendar?: boolean;
   }>({
     open: false,
     mode: "create",
     date: currentDate,
     event: null,
+    triggeredFromCalendar: false,
   });
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -717,10 +719,19 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     setView("day");
   }, []);
 
-  const handleOpenCreate = useCallback((date: Date) => {
-    setInternalDate(date);
-    setModalState({ open: true, mode: "create", date, event: null });
-  }, []);
+  const handleOpenCreate = useCallback(
+    (date: Date, options?: { triggeredFromCalendar?: boolean }) => {
+      setInternalDate(date);
+      setModalState({
+        open: true,
+        mode: "create",
+        date,
+        event: null,
+        triggeredFromCalendar: options?.triggeredFromCalendar ?? false,
+      });
+    },
+    [],
+  );
 
   const handleOpenEditEvent = useCallback((event: CalendarEvent) => {
     const eventDate = safeDate(event.date) ?? new Date(event.date);
@@ -730,6 +741,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       mode: "edit",
       date: eventDate,
       event,
+      triggeredFromCalendar: false,
     });
   }, []);
 
@@ -766,6 +778,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       mode: "create",
       date: previous.date,
       event: null,
+      triggeredFromCalendar: false,
     }));
   }, []);
 
@@ -945,6 +958,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               }
             : undefined
         }
+        triggeredFromCalendar={modalState.triggeredFromCalendar ?? false}
         onClose={handleCloseCreate}
         onCreateEvent={onCreateEvent}
         onUpdateEvent={

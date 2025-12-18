@@ -10,7 +10,7 @@ export type MonthGridProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
   onSelectDate: (d: Date) => void;
-  onOpenCreate: (d: Date) => void;
+  onOpenCreate: (d: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onOpenQuickTask: (d: Date) => void;
   canCreateTasks: boolean;
   onEditEvent: (event: CalendarEvent) => void;
@@ -78,7 +78,7 @@ function MonthGrid({
 
   const handleOpenCreate = (day: Date) => {
     onSelectDate(day);
-    onOpenCreate(day);
+    onOpenCreate(day, { triggeredFromCalendar: true });
     setQuickAddKey(null);
   };
 

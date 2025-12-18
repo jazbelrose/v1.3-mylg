@@ -49,6 +49,7 @@ type FormSnapshot = {
   description: string;
   tags: string[];
   guests: string[];
+  triggeredFromCalendar: boolean;
 };
 
 type BaseProps = {
@@ -61,6 +62,7 @@ type BaseProps = {
   mode?: "create" | "edit";
   initialValues?: EventFormInitialValues;
   teamMembers?: ProjectTeamMember[];
+  triggeredFromCalendar?: boolean;
 };
 
 type Option = {
@@ -130,6 +132,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   onDelete,
   mode = "create",
   initialValues,
+  triggeredFromCalendar = false,
   teamMembers,
 }) => {
   const { userData, updateUserProfile, refreshUser } = useUser();
@@ -140,6 +143,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("11:30");
   const [endTime, setEndTime] = useState<string | undefined>(deriveEndTime("11:30"));
+  const [hasTouchedTime, setHasTouchedTime] = useState(false);
   const [allDay, setAllDay] = useState(false);
   const [eventType, setEventType] = useState(EVENT_TYPE_OPTIONS[0].value);
   const [location, setLocation] = useState("");
@@ -252,6 +256,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setInitialSnapshot(null);
+      setHasTouchedTime(false);
       return;
     }
     const resolvedDate = initialValues?.date ?? formatDateInput(initialDate);
@@ -288,6 +293,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     setError(null);
     setIsSubmitting(false);
     setIsDeleting(false);
+    setHasTouchedTime(false);
     setInitialSnapshot({
       title: resolvedTitle,
       date: resolvedDate,
@@ -299,8 +305,9 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       description: resolvedDescription,
       tags: resolvedTags,
       guests: resolvedGuests,
+      triggeredFromCalendar,
     });
-  }, [initialDate, initialValues, isEditing, isOpen]);
+  }, [initialDate, initialValues, isEditing, isOpen, triggeredFromCalendar]);
 
   useEffect(() => {
     if (guestError && guestQuery) {
@@ -552,7 +559,11 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     if (!initialSnapshot) return false;
     if (title !== initialSnapshot.title) return true;
     if (date !== initialSnapshot.date) return true;
-    if (time !== initialSnapshot.time) return true;
+    const timeChanged =
+      initialSnapshot.triggeredFromCalendar && !hasTouchedTime
+        ? false
+        : time !== initialSnapshot.time;
+    if (timeChanged) return true;
     if (endTime !== initialSnapshot.endTime) return true;
     if (description !== initialSnapshot.description) return true;
     if (location !== initialSnapshot.location) return true;
@@ -573,6 +584,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     allDay,
     tags,
     guests,
+    hasTouchedTime,
   ]);
 
   const confirmDiscardChanges = useCallback(() => {
@@ -772,6 +784,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                       value={time}
                       onChange={(event) => {
                         const nextTime = event.target.value;
+                        setHasTouchedTime(true);
                         setTime(nextTime);
                         setEndTime(deriveEndTime(nextTime));
                       }}

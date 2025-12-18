@@ -1348,9 +1348,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     normalizedStatus === "in_progress" ||
     normalizedStatus === "needs_changes";
 
+  const isCompleteStatus = normalizedStatus === "done" || normalizedStatus === "archived";
   const showSubmitForReviewButton =
-    isEditing && !isBusy && (canSubmitForReview || isAdmin);
-  const showApproveButton = isEditing && !isBusy && isAdmin;
+    isEditing && !isBusy && !isAwaitingApproval && !isCompleteStatus && (canSubmitForReview || isAdmin);
+  const showApproveButton = isEditing && !isBusy && isAdmin && !isCompleteStatus;
   const showRequestChangesButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
   const hasAnyStatusAction = showSubmitForReviewButton || showApproveButton || showRequestChangesButton;
 
@@ -1986,6 +1987,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setErrorMessage(null);
 
     try {
+      if (!isAwaitingApproval) {
+        await requestTaskReview(effectiveProjectId, taskId, { note: "" });
+      }
       await approveTask(effectiveProjectId, taskId, { note: "" });
       notify("success", "Task marked as done!");
       await onUpdated?.();
@@ -2009,11 +2013,24 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     if (!taskId || !effectiveProjectId) return;
     if (isBusy) return;
 
+    const notePrompt = window.prompt(
+      "Enter a short note explaining what needs to change before requesting it.",
+      "Please adjust the scope to ...",
+    );
+    if (notePrompt === null) {
+      return;
+    }
+    const trimmedNote = notePrompt.trim();
+    if (!trimmedNote) {
+      notify("error", "A note is required when requesting changes.");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
-      await requestTaskChanges(effectiveProjectId, taskId, { note: "" });
+      await requestTaskChanges(effectiveProjectId, taskId, { note: trimmedNote });
       notify("success", "Changes requested for this task.");
       await onUpdated?.();
       onClose();

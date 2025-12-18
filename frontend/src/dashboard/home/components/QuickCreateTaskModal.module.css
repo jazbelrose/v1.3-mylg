@@ -1241,7 +1241,7 @@
 
 .statusActions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
   margin-top: 4px;
   margin-bottom: 12px;
@@ -1305,7 +1305,7 @@
 
 .statusActions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
   margin-top: 4px;
   margin-bottom: 12px;
