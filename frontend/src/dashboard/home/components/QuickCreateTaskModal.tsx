@@ -1348,8 +1348,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     normalizedStatus === "in_progress" ||
     normalizedStatus === "needs_changes";
 
-  const showSubmitForReviewButton = isEditing && canSubmitForReview && !isBusy;
-  const showApproveButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
+  const showSubmitForReviewButton =
+    isEditing && !isBusy && (canSubmitForReview || isAdmin);
+  const showApproveButton = isEditing && !isBusy && isAdmin;
   const showRequestChangesButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
   const hasAnyStatusAction = showSubmitForReviewButton || showApproveButton || showRequestChangesButton;
 

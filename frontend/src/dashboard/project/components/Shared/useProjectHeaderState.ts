@@ -215,17 +215,22 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
   // Edit Status Modal
   const [isEditStatusOpen, setIsEditStatusOpen] = useState(false);
   const [editStatusFromSettings, setEditStatusFromSettings] = useState(false);
-  const [updatedStatus, setUpdatedStatus] = useState(
-    localProject?.status?.toString?.() || ""
-  );
+  const [updatedStatus, setUpdatedStatus] = useState(() => {
+    const status = localProject?.status?.toString?.() || "0";
+    return status.endsWith('%') ? status : `${status}%`;
+  });
 
   useEffect(() => {
-    setUpdatedStatus(localProject?.status?.toString?.() || "");
+    const status = localProject?.status?.toString?.() || "0";
+    const normalized = status.endsWith('%') ? status : `${status}%`;
+    setUpdatedStatus(normalized);
   }, [localProject?.status]);
 
   const openEditStatus = (fromSettings = false) => {
     setEditStatusFromSettings(fromSettings);
-    setUpdatedStatus(localProject?.status?.toString?.() || "");
+    const currentStatus = localProject?.status?.toString?.() || "0";
+    const normalized = currentStatus.endsWith('%') ? currentStatus : `${currentStatus}%`;
+    setUpdatedStatus(normalized);
     setIsEditStatusOpen(true);
   };
   const closeEditStatus = () => {

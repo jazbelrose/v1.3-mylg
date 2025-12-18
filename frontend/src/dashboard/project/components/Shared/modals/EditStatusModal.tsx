@@ -60,7 +60,7 @@ const EditStatusModal = ({ modal }: EditStatusModalProps) => {
 
         <form onSubmit={modal.submit} className={styles.form}>
           <label className={styles.field}>
-            <span className={styles.label}>Status</span>
+            <span className={styles.label}>Status - {modal.updatedStatus}</span>
             <input
               className={styles.input}
               type="number"

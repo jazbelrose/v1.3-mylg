@@ -137,6 +137,7 @@ const DesktopProjectHeader = ({
 
           <div className="project-quick-actions">
             <svg
+              key={`status-${progressValue}`}
               id="StatusSVG"
               viewBox="0 0 400 400"
               onClick={onOpenStatus}

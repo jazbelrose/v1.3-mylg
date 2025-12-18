@@ -70,7 +70,6 @@ const ProgressRing: React.FC<{ value: number }> = ({ value }) => {
         cx={radius}
         cy={radius}
         strokeDasharray={`${circumference} ${circumference}`}
-        className="progress-ring-fill"
         style={{ strokeDashoffset: offset }}
       />
       <text
