@@ -492,18 +492,28 @@ function WeekGrid({
 
   const quickAddPopoverStyle = useMemo(() => {
     if (!pointerQuickAdd) return undefined;
+    const grid = gridRef.current;
     const width = QUICK_ADD_POPOVER_WIDTH;
     const height = QUICK_ADD_POPOVER_HEIGHT;
-    const baseTop = pointerQuickAdd.clientY + QUICK_ADD_POPOVER_OFFSET;
-    const baseLeft = pointerQuickAdd.clientX - width / 2;
-    if (typeof window === "undefined") {
-      return { top: baseTop, left: baseLeft };
-    }
-    const maxTop = window.innerHeight - height - QUICK_ADD_POPOVER_MARGIN;
-    const maxLeft = window.innerWidth - width - QUICK_ADD_POPOVER_MARGIN;
+    const gridRect = grid?.getBoundingClientRect();
+    const relativeTop = pointerQuickAdd.clientY - (gridRect?.top ?? 0);
+    const relativeLeft = pointerQuickAdd.clientX - (gridRect?.left ?? 0) - width / 2;
+    const gridHeight = grid?.clientHeight ?? window.innerHeight;
+    const gridWidth = grid?.clientWidth ?? window.innerWidth;
+    const maxTop =
+      gridHeight - height - QUICK_ADD_POPOVER_MARGIN;
+    const maxLeft =
+      gridWidth - width - QUICK_ADD_POPOVER_MARGIN;
     return {
-      top: Math.min(Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN), Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN)),
-      left: Math.min(Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN), Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN)),
+      position: "absolute",
+      top: Math.min(
+        Math.max(relativeTop + QUICK_ADD_POPOVER_OFFSET, QUICK_ADD_POPOVER_MARGIN),
+        Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
+      ),
+      left: Math.min(
+        Math.max(relativeLeft, QUICK_ADD_POPOVER_MARGIN),
+        Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
+      ),
     };
   }, [pointerQuickAdd]);
 

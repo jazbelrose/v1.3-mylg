@@ -297,6 +297,10 @@
   height: 24px;
 }
 
+.progress-ring-fill {
+  transition: stroke-dashoffset 0.3s ease;
+}
+
 .pin-indicator {
   color: var(--brand);
 }
