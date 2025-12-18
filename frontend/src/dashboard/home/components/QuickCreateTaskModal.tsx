@@ -2624,7 +2624,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   id={locationFieldId}
                   aria-label="Task location"
                   type="text"
-                  className={styles.textInput}
+                  className={`${styles.textInput} ${selectedLocation ? styles.textInputWithCoords : ''}`}
                   value={addressSearch}
                   onChange={handleAddressChange}
                   onKeyDown={(e) => {
@@ -2640,6 +2640,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   aria-controls={addressSuggestions.length > 0 ? suggestionsListId : undefined}
                   aria-describedby={locationDescribedBy}
                 />
+                {selectedLocation ? (
+                  <span id={locationHintId} className={styles.coordinatesDisplay}>
+                    {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+                  </span>
+                ) : null}
                 {addressSuggestions.length > 0 ? (
                   <div ref={locationSuggestionsRef} className={styles.locationSuggestions} role="listbox" id={suggestionsListId}>
                     {addressSuggestions.map((suggestion) => (
@@ -2678,11 +2683,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   </div>
                 ) : null}
               </div>
-              {selectedLocation ? (
-                <span id={locationHintId} className={styles.fieldMeta}>
-                  Saved coordinates: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
-                </span>
-              ) : userData?.defaultTaskLocation ? (
+              {!selectedLocation && userData?.defaultTaskLocation ? (
                 <span
                   className={styles.defaultLocationLink}
                   onClick={() => {
