@@ -93,7 +93,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
-  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [view, setView] = useState<"month" | "week" | "day">("week");
   const [internalDate, setInternalDate] = useState<Date>(currentDate);
   const [modalState, setModalState] = useState<{
     open: boolean;

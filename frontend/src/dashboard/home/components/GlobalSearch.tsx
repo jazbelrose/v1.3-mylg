@@ -187,6 +187,12 @@ const getStatusMetadata = (status?: string) => {
   };
 };
 
+interface GlobalSearchProps {
+  className?: string;
+  onNavigate?: () => void;
+  autoFocus?: boolean;
+}
+
 const getProjectThumbnail = (project: Project) => {
   const initial = (project.title || 'Untitled project').trim().charAt(0).toUpperCase() || '#';
   const thumbnails = Array.isArray(project.thumbnails) ? project.thumbnails : [];
@@ -316,14 +322,6 @@ const buildCollaboratorResults = (
   });
 };
 
-interface GlobalSearchProps {
-  className?: string;
-  onNavigate?: () => void;
-  autoFocus?: boolean;
-}
-
-const PROJECT_VIEW_SUFFIXES = new Set(['budget', 'calendar', 'editor']);
-
 const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate, autoFocus = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -349,26 +347,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
 
     return () => clearTimeout(timer);
   }, [autoFocus]);
-
-  const currentProjectViewSuffix = useMemo(() => {
-    const path = location.pathname.split(/[?#]/)[0];
-    if (!path.startsWith('/dashboard/projects/')) {
-      return '';
-    }
-
-    const segments = path.split('/').filter(Boolean);
-    if (segments[0] !== 'dashboard' || segments[1] !== 'projects') {
-      return '';
-    }
-
-    const maybeSuffixIndex = segments.length >= 5 ? 4 : segments.length >= 4 ? 3 : -1;
-    if (maybeSuffixIndex === -1) {
-      return '';
-    }
-
-    const suffixCandidate = segments[maybeSuffixIndex];
-    return PROJECT_VIEW_SUFFIXES.has(suffixCandidate) ? `/${suffixCandidate}` : '';
-  }, [location.pathname]);
 
   const data = useData();
   const projects = useMemo(() => (Array.isArray(data?.projects) ? data.projects : []) as Project[], [data?.projects]);
@@ -583,8 +561,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
           const project = projects?.find((p: Project) => p.projectId === result.projectId);
           const path = getProjectDashboardPath(
             result.projectId,
-            project?.title ?? result.title,
-            currentProjectViewSuffix
+            project?.title ?? result.title
           );
           navigate(path);
           if (fetchPromise) {
@@ -862,10 +839,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
 };
 
 export default GlobalSearch;
-
-
-
-
 
 
 
