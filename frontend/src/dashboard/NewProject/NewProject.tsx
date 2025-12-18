@@ -72,6 +72,7 @@ type CreateProjectPayload = {
   status: string;
   tags: string[];
   team: Array<{ userId: string }>;
+  ownerId?: string;
   revisionHistory: unknown[];
   thumbnails: string[];
   downloads: string[];
@@ -159,6 +160,7 @@ const NewProject: React.FC = () => {
       status: "10%",
       tags: [],
       team,
+      ownerId: userId || null,
       revisionHistory: [],
       thumbnails: [],
       downloads: [],

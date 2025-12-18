@@ -187,6 +187,11 @@ const getStatusMetadata = (status?: string) => {
   };
 };
 
+const buildGlobalSearchState = (extra?: Record<string, unknown>) => ({
+  ...(extra ?? {}),
+  fromGlobalSearch: true,
+});
+
 interface GlobalSearchProps {
   className?: string;
   onNavigate?: () => void;
@@ -563,7 +568,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
             result.projectId,
             project?.title ?? result.title
           );
-          navigate(path);
           if (fetchPromise) {
             try {
               await fetchPromise;
@@ -571,6 +575,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
               console.error('Error fetching project details before navigation:', error);
             }
           }
+          navigate(path, { state: buildGlobalSearchState() });
         } else if (result.type === 'message' && result.projectId) {
           let fetchPromise: Promise<unknown> | null = null;
           if (fetchProjectDetails) {
@@ -578,9 +583,6 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
           }
           const project = projects?.find((p: Project) => p.projectId === result.projectId);
           const path = getProjectDashboardPath(result.projectId, project?.title ?? result.title);
-          navigate(path, {
-            state: { highlightMessage: result.messageId }
-          });
           if (fetchPromise) {
             try {
               await fetchPromise;
@@ -588,6 +590,9 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
               console.error('Error fetching project details before navigating to message:', error);
             }
           }
+          navigate(path, {
+            state: buildGlobalSearchState({ highlightMessage: result.messageId }),
+          });
         } else if (result.type === 'collaborator' && result.userId) {
           const collaborator = allUsers.find(user => user.userId === result.userId);
           const slugSource = collaborator
@@ -839,8 +844,4 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
 };
 
 export default GlobalSearch;
-
-
-
-
 

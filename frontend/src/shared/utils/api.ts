@@ -54,6 +54,7 @@ export interface Project {
   description?: string;
   status?: string;
   team?: TeamMember[];
+  ownerId?: string;
   timelineEvents?: TimelineEvent[];
   thumbnails?: string[];
   color?: string;

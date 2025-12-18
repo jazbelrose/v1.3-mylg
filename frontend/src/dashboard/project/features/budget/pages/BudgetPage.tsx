@@ -138,6 +138,11 @@ const BudgetPageContent = () => {
     const title = activeProject?.title ?? initialActiveProject?.title;
     if (!title) return;
 
+    const locationState = location.state as { fromGlobalSearch?: boolean } | undefined;
+    if (locationState?.fromGlobalSearch) {
+      return;
+    }
+
     const currentPath = location.pathname.split(/[?#]/)[0];
     if (!currentPath.includes("/budget")) return;
 
@@ -150,6 +155,7 @@ const BudgetPageContent = () => {
     activeProject?.title,
     initialActiveProject?.title,
     location.pathname,
+    location.state,
     navigate,
   ]);
 
@@ -979,8 +985,6 @@ const BudgetPage = () => {
 };
 
 export default BudgetPage;
-
-
 
 
 

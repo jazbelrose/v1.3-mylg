@@ -386,7 +386,9 @@ describe('GlobalSearch', () => {
 
     await waitFor(() => {
       expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
-      expect(mockNavigate).toHaveBeenCalledWith(expectedPath);
+      expect(mockNavigate).toHaveBeenCalledWith(expectedPath, {
+        state: { fromGlobalSearch: true },
+      });
     });
   });
 
@@ -420,7 +422,9 @@ describe('GlobalSearch', () => {
 
     await waitFor(() => {
       expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
-      expect(mockNavigate).toHaveBeenCalledWith(expectedPath);
+      expect(mockNavigate).toHaveBeenCalledWith(expectedPath, {
+        state: { fromGlobalSearch: true },
+      });
     });
   });
 
@@ -454,7 +458,9 @@ describe('GlobalSearch', () => {
 
     await waitFor(() => {
       expect(mockUseData.fetchProjectDetails).toHaveBeenCalledWith('project-2');
-      expect(mockNavigate).toHaveBeenCalledWith(expectedPath);
+      expect(mockNavigate).toHaveBeenCalledWith(expectedPath, {
+        state: { fromGlobalSearch: true },
+      });
     });
   });
 
@@ -571,7 +577,6 @@ describe('GlobalSearch', () => {
     });
   });
 });
-
 
 
 

@@ -20,15 +20,27 @@ type ProjectsTableProps = {
 };
 
 const getOwnerName = (project: ProjectWithMeta, usersById: Map<string, UserLite>): string => {
+  // Prefer ownerId if set, otherwise fall back to first team member
+  const ownerId = (project as { ownerId?: string }).ownerId;
   const team = Array.isArray(project.team) ? project.team : [];
-  if (team.length === 0) return "—";
-  const primary = team[0];
-  const user = primary?.userId ? usersById.get(primary.userId) : undefined;
-  const first = user?.firstName ?? primary?.firstName ?? "";
-  const last = user?.lastName ?? primary?.lastName ?? "";
+  
+  let targetUserId: string | undefined;
+  if (ownerId) {
+    targetUserId = ownerId;
+  } else if (team.length > 0) {
+    targetUserId = team[0]?.userId;
+  }
+  
+  if (!targetUserId) return "—";
+  
+  const user = usersById.get(targetUserId);
+  const teamMember = team.find(m => m.userId === targetUserId);
+  
+  const first = user?.firstName ?? teamMember?.firstName ?? "";
+  const last = user?.lastName ?? teamMember?.lastName ?? "";
   const full = `${first} ${last}`.trim();
   if (full) return full;
-  return user?.email || user?.username || primary?.email || primary?.userId || "—";
+  return user?.email || user?.username || teamMember?.email || targetUserId || "—";
 };
 
 const ProjectsTable: FC<ProjectsTableProps> = ({

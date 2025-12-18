@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { HexColorInput, HexColorPicker } from "react-colorful";
-import { Pipette, Trash } from "lucide-react";
+import { Pipette, Trash, Crown } from "lucide-react";
 
 import type { Project } from "@/app/contexts/DataProvider";
 import { generateSequentialPalette } from "@/shared/utils/colorUtils";
 import Modal from "@/shared/ui/ModalWithStack";
+import { updateProjectFields } from "@/shared/utils/api";
+import { useTeamMembers } from "../projectHeaderState/useTeamMembers";
 
 import styles from "./project-identity-modal.module.css";
 
@@ -42,6 +44,10 @@ const ProjectIdentityModal = ({
 }: ProjectIdentityModalProps) => {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
+  const [isUpdatingOwner, setIsUpdatingOwner] = useState(false);
+
+  const teamMembers = useTeamMembers(project);
 
   const resolvedProjectColor = useMemo(() => {
     const color = (project?.color as string | undefined) || "";
@@ -76,6 +82,9 @@ const ProjectIdentityModal = ({
 
     // Only reset color when modal opens, not continuously
     colorModal.setSelectedColor(resolvedProjectColor);
+
+    // Initialize owner selection
+    setSelectedOwnerId(project?.ownerId || "");
 
     setIsConfirmingDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,6 +147,30 @@ const ProjectIdentityModal = ({
   const handleClose = useCallback(() => {
     modal.close();
   }, [modal]);
+
+  const handleUpdateOwnership = useCallback(async () => {
+    if (!project?.projectId || !selectedOwnerId || isUpdatingOwner) return;
+    
+    try {
+      setIsUpdatingOwner(true);
+      await updateProjectFields(project.projectId, { ownerId: selectedOwnerId });
+      // Modal will refresh on next open with updated data
+    } catch (error) {
+      console.error("Failed to update project ownership", error);
+    } finally {
+      setIsUpdatingOwner(false);
+    }
+  }, [project?.projectId, selectedOwnerId, isUpdatingOwner]);
+
+  const currentOwnerId = project?.ownerId || "";
+  const isOwnershipDirty = selectedOwnerId && selectedOwnerId !== currentOwnerId;
+
+  const getOwnerDisplayName = (userId: string) => {
+    const member = teamMembers.find(m => m.userId === userId);
+    if (!member) return userId;
+    const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+    return name || userId;
+  };
 
   return (
     <Modal
@@ -244,6 +277,56 @@ const ProjectIdentityModal = ({
               </div>
             </div>
           </section>
+
+          {isAdmin && teamMembers.length > 0 && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h3 className={styles.sectionTitle}>Project Ownership</h3>
+                <p className={styles.sectionDescription}>
+                  Transfer project ownership to another team member. The owner has full control over the project.
+                </p>
+              </div>
+              <div className={styles.inlineForm}>
+                <label>
+                  <span className={styles.sectionDescription}>Project owner</span>
+                  <select
+                    className={styles.textInput}
+                    value={selectedOwnerId}
+                    onChange={(e) => setSelectedOwnerId(e.target.value)}
+                  >
+                    {!currentOwnerId && <option value="">Select owner...</option>}
+                    {teamMembers.map((member) => (
+                      <option key={member.userId} value={member.userId}>
+                        {getOwnerDisplayName(member.userId)}
+                        {member.userId === currentOwnerId ? " (current)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className={styles.actionsRow}>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={handleUpdateOwnership}
+                    disabled={!isOwnershipDirty || isUpdatingOwner}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                      <Crown size={18} />
+                      {isUpdatingOwner ? "Updating..." : "Transfer ownership"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => setSelectedOwnerId(currentOwnerId)}
+                    disabled={!isOwnershipDirty || isUpdatingOwner}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
 
           {isAdmin && (
             <section className={styles.section}>

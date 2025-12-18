@@ -482,6 +482,7 @@ const createProject = async (e, C) => {
   const body = B(e);
   const projectId = body.projectId || uuidv4();
   const ts = nowISO();
+  const { userId } = getUserFromEvent(e);
 
   const team = body.team || [];
   const teamUserIds = body.teamUserIds || team.map((m) => m.userId).filter(Boolean);
@@ -491,6 +492,7 @@ const createProject = async (e, C) => {
     status: body.status || "new",
     team,
     teamUserIds,
+    ownerId: body.ownerId || userId || null,
     visibility: body.visibility || "admin",
     color: body.color,
     description: body.description,
@@ -516,6 +518,7 @@ const createProject = async (e, C) => {
     color: item.color,
     status: item.status,
     team: item.team,
+    ownerId: item.ownerId,
     thumbnail: item.thumbnails[0],
     dateCreated: item.dateCreated,
     finishline: item.finishLine || item.finishline,
@@ -540,6 +543,7 @@ const patchProject = async (e, C, { projectId }) => {
     "dateCreated",
     "finishLine",
     "finishline",
+    "ownerId",
     "slug",
     "status",
     "team",
@@ -560,6 +564,7 @@ const patchProject = async (e, C, { projectId }) => {
       color: r.Attributes.color,
       dateCreated: r.Attributes.dateCreated,
       finishline: r.Attributes.finishLine || r.Attributes.finishline,
+      ownerId: r.Attributes.ownerId,
       slug: r.Attributes.slug,
       status: r.Attributes.status,
       team: r.Attributes.team,

@@ -120,6 +120,11 @@ const CalendarPage: React.FC = () => {
     const title = activeProject?.title;
     if (!title) return;
 
+    const locationState = location.state as { fromGlobalSearch?: boolean } | undefined;
+    if (locationState?.fromGlobalSearch) {
+      return;
+    }
+
     const currentPath = location.pathname.split(/[?#]/)[0];
     if (!currentPath.includes("/calendar")) return;
 
@@ -127,7 +132,13 @@ const CalendarPage: React.FC = () => {
     if (currentPath === canonicalPath) return;
 
     navigate(canonicalPath, { replace: true });
-  }, [projectId, activeProject?.title, location.pathname, navigate]);
+  }, [
+    projectId,
+    activeProject?.title,
+    location.pathname,
+    location.state,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (!ws || !activeProject?.projectId) return;
