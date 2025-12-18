@@ -32,7 +32,7 @@ export type WeekGridProps = {
   tasks: CalendarTask[];
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
-  onCreateEvent: (date: Date) => void;
+  onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
@@ -417,8 +417,8 @@ function WeekGrid({
   }, [quickAddKey]);
 
   const triggerCreateEvent = useCallback(
-    (date: Date) => {
-      onCreateEvent(date);
+    (date: Date, options?: { triggeredFromCalendar?: boolean }) => {
+      onCreateEvent(date, options);
       setQuickAddKey(null);
       setPointerQuickAdd(null);
     },
@@ -744,7 +744,9 @@ function WeekGrid({
           <button
             type="button"
             className="week-grid__action-popover-option"
-            onClick={() => triggerCreateEvent(pointerQuickAdd.date)}
+            onClick={() =>
+              triggerCreateEvent(pointerQuickAdd.date, { triggeredFromCalendar: true })
+            }
           >
             Event
           </button>

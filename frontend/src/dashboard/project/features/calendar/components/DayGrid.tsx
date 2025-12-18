@@ -31,7 +31,7 @@ export type DayGridProps = {
   tasks: CalendarTask[];
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
-  onCreateEvent: (date: Date) => void;
+  onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
@@ -302,8 +302,8 @@ function DayGrid({
   }, [quickAddOpen]);
 
   const triggerCreateEvent = useCallback(
-    (slotDate: Date) => {
-      onCreateEvent(slotDate);
+    (slotDate: Date, options?: { triggeredFromCalendar?: boolean }) => {
+      onCreateEvent(slotDate, options);
       setQuickAddOpen(false);
       setPointerQuickAdd(null);
     },
@@ -748,7 +748,9 @@ function DayGrid({
           <button
             type="button"
             className="week-grid__action-popover-option"
-            onClick={() => triggerCreateEvent(pointerQuickAdd.date)}
+            onClick={() =>
+              triggerCreateEvent(pointerQuickAdd.date, { triggeredFromCalendar: true })
+            }
           >
             Event
           </button>
