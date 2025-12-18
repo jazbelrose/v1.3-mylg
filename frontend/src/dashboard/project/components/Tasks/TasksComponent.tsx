@@ -10,6 +10,7 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalTask,
   type TaskNoteAttachment,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
+import CalendarTaskDrawer from "@/dashboard/project/features/calendar/components/CalendarTaskDrawer";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -802,17 +803,16 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
      
       </div>
 
-      <QuickCreateTaskModal
+      <CalendarTaskDrawer
         open={quickCreateOpen}
-        onClose={handleCloseQuickCreate}
+        task={taskToEdit}
         projects={quickCreateProjects}
+        activeProjectId={projectId}
+        activeProjectName={projectName}
+        onClose={handleCloseQuickCreate}
         onCreated={() => refreshTasks()}
         onUpdated={() => refreshTasks()}
         onDeleted={() => refreshTasks()}
-        task={taskToEdit}
-        activeProjectId={projectId}
-        activeProjectName={projectName}
-        scopedProjectId={projectId ?? null}
       />
     </section>
   );
