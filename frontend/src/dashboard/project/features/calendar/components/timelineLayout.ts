@@ -163,6 +163,7 @@ export type TimelineBaseEntry<T> = {
   endMinutes: number;
   avatars: TimelineAvatar[];
   colorClass?: string;
+  projectColor?: string;
   completed?: boolean;
 };
 

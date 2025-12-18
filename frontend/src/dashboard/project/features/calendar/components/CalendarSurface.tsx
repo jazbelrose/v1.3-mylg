@@ -896,6 +896,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onCreateTask={handleOpenQuickTaskModal}
                       canCreateTasks={canCreateTasks}
                       teamMembers={teamMembers}
+                      activeProjectId={activeProjectId}
+                      activeProjectColor={activeProjectColor}
                     />
                   </div>
                 )}
@@ -911,6 +913,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onCreateTask={handleOpenQuickTaskModal}
                       canCreateTasks={canCreateTasks}
                       teamMembers={teamMembers}
+                      activeProjectId={activeProjectId}
+                      activeProjectColor={activeProjectColor}
                     />
                   </div>
                 )}

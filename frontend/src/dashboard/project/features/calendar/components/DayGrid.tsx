@@ -6,12 +6,13 @@ import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
   addHoursToTime,
-  categoryColor,
   fmtLocal,
   formatTimeLabel,
   safeDate,
   setTime,
+  getProjectColor,
 } from "../utils";
+import { hexToRgba } from "@/shared/utils/colorUtils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import {
@@ -36,6 +37,8 @@ export type DayGridProps = {
   onCreateTask: (date: Date, startAt?: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
+  activeProjectId?: string | null;
+  activeProjectColor?: string | null;
 };
 
 const parseHour = (time?: string) => {
@@ -99,9 +102,17 @@ function DayGrid({
   onCreateTask,
   canCreateTasks,
   teamMembers,
+  activeProjectId,
+  activeProjectColor,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
+  
+  const projectColor = useMemo(
+    () => getProjectColor(activeProjectId, activeProjectColor),
+    [activeProjectId, activeProjectColor]
+  );
+  
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
   const [pointerQuickAdd, setPointerQuickAdd] = useState<{
@@ -208,7 +219,8 @@ function DayGrid({
         startMinutes,
         endMinutes,
         avatars: buildEventAvatars(event, teamMemberLookup),
-        colorClass: categoryColor[event.category],
+        colorClass: undefined,
+        projectColor,
         hour,
       });
     });
@@ -245,8 +257,7 @@ function DayGrid({
         startMinutes,
         endMinutes,
         avatars: buildTaskAvatars(task, teamMemberLookup),
-        completed: isComplete,
-        hour,
+        completed: isComplete,        projectColor,        hour,
       });
     });
 
@@ -588,10 +599,16 @@ function DayGrid({
         ? "week-grid__timeline-entry--event"
         : "week-grid__timeline-entry--task",
       stacked ? "week-grid__timeline-entry--stacked" : "",
-      entry.colorClass ?? "",
     ]
       .filter(Boolean)
       .join(" ");
+
+    const color = entry.projectColor || projectColor;
+    const pillStyle = {
+      ...entryStyle,
+      background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
+      border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
+    };
 
     if (entry.type === "event") {
       return (
@@ -609,7 +626,7 @@ function DayGrid({
               onEditEvent(entry.payload as CalendarEvent);
             }
           }}
-          style={entryStyle}
+          style={pillStyle}
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
@@ -627,7 +644,7 @@ function DayGrid({
         type="button"
         className={className}
         onClick={() => onEditTask(entry.payload as CalendarTask)}
-        style={entryStyle}
+        style={pillStyle}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
@@ -722,10 +739,16 @@ function DayGrid({
               {hourIndex === 0 &&
                 (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0) && (
                   <div className="week-grid__all-day day-grid__all-day">
-                    {dayAllDayEvents.map((event) => (
+                    {dayAllDayEvents.map((event) => {
+                      const eventPillStyle = {
+                        background: hexToRgba(projectColor).replace(/[\d.]+\)$/, '0.18)'),
+                        border: `1px solid ${hexToRgba(projectColor).replace(/[\d.]+\)$/, '0.32)')}`,
+                      };
+                      return (
                       <div
                         key={event.id}
-                        className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
+                        className="week-grid__all-day-pill"
+                        style={eventPillStyle}
                         role="button"
                         tabIndex={0}
                         onClick={() => onEditEvent(event)}
@@ -739,7 +762,8 @@ function DayGrid({
                         <div className="week-grid__event-title">{event.title}</div>
                         <div className="week-grid__event-time">All day</div>
                       </div>
-                    ))}
+                    );
+                    })}
                     {dayFloatingTasks.map((task) => (
                       <button
                         key={task.id}

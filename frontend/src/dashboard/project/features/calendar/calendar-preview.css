@@ -2055,11 +2055,14 @@
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.45);
 }
+
+/* Base pill styling - colors applied via inline styles based on project color */
 .calendar-pill-work,
 .calendar-pill-education,
-.calendar-pill-personal {
-  background: rgba(148, 163, 184, 0.18);
-  border: 1px solid rgba(148, 163, 184, 0.32);
+.calendar-pill-personal,
+.week-grid__all-day-pill,
+.week-grid__timeline-entry {
+  /* Default fallback styling if inline styles not applied */
   color: rgba(226, 232, 240, 0.95);
   box-shadow: none;
 }

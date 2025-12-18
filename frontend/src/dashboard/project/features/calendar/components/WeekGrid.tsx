@@ -8,12 +8,13 @@ import type { CalendarEvent, CalendarTask } from "../utils";
 import {
   addDays,
   addHoursToTime,
-  categoryColor,
   fmtLocal,
   formatTimeLabel,
   safeDate,
   setTime,
+  getProjectColor,
 } from "../utils";
+import { hexToRgba } from "@/shared/utils/colorUtils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import {
   MINUTES_IN_HOUR,
@@ -37,6 +38,8 @@ export type WeekGridProps = {
   onCreateTask: (date: Date, startAt?: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
+  activeProjectId?: string | null;
+  activeProjectColor?: string | null;
 };
 
 type WeekDayEvents = {
@@ -105,10 +108,17 @@ function WeekGrid({
   onCreateTask,
   canCreateTasks,
   teamMembers,
+  activeProjectId,
+  activeProjectColor,
 }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []); // 24-hour day
+  
+  const projectColor = useMemo(
+    () => getProjectColor(activeProjectId, activeProjectColor),
+    [activeProjectId, activeProjectColor]
+  );
 
   const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
@@ -236,7 +246,8 @@ function WeekGrid({
         startMinutes,
         endMinutes,
         avatars: buildEventAvatars(event, teamMemberLookup),
-        colorClass: categoryColor[event.category],
+        colorClass: undefined,
+        projectColor,
         hour,
       });
     });
@@ -404,10 +415,16 @@ function WeekGrid({
         ? "week-grid__timeline-entry--event"
         : "week-grid__timeline-entry--task",
       stacked ? "week-grid__timeline-entry--stacked" : "",
-      entry.colorClass ?? "",
     ]
       .filter(Boolean)
       .join(" ");
+    
+    const color = entry.projectColor || projectColor;
+    const pillStyle = {
+      ...entryStyle,
+      background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
+      border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
+    };
     const content = (
       <div className="week-grid__timeline-entry-content">
         <div className="week-grid__timeline-entry-header">
@@ -440,7 +457,7 @@ function WeekGrid({
           initial={stacked ? undefined : { opacity: 0.4, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           className={entryClasses}
-          style={stacked ? undefined : entryStyle}
+          style={pillStyle}
           title={tooltipLabel}
           aria-label={tooltipLabel}
           role="button"
@@ -468,7 +485,7 @@ function WeekGrid({
         key={resolvedKey}
         type="button"
         className={entryClasses}
-        style={stacked ? undefined : entryStyle}
+        style={pillStyle}
         title={tooltipLabel}
         aria-label={tooltipLabel}
         onClick={() => onEditTask(entry.payload as CalendarTask)}
@@ -725,10 +742,16 @@ function WeekGrid({
                 {hourIndex === 0 &&
                   (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0) && (
                     <div className="week-grid__all-day">
-                      {dayEventBucket.allDay.map((event) => (
+                      {dayEventBucket.allDay.map((event) => {
+                        const eventPillStyle = {
+                          background: hexToRgba(projectColor).replace(/[\d.]+\)$/, '0.18)'),
+                          border: `1px solid ${hexToRgba(projectColor).replace(/[\d.]+\)$/, '0.32)')}`,
+                        };
+                        return (
                         <div
                           key={event.id}
-                          className={`week-grid__all-day-pill ${categoryColor[event.category]}`}
+                          className="week-grid__all-day-pill"
+                          style={eventPillStyle}
                           role="button"
                           tabIndex={0}
                           onClick={() => onEditEvent(event)}
@@ -742,7 +765,8 @@ function WeekGrid({
                           <div className="week-grid__event-title">{event.title}</div>
                           <div className="week-grid__event-time">All day</div>
                         </div>
-                      ))}
+                      );
+                      })}
                       {dayTaskBucket.allDay.map((task) => (
                         <button
                           key={task.id}

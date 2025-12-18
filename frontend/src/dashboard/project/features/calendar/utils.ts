@@ -1,4 +1,5 @@
 import type { Task as ApiTask, TimelineEvent as ApiTimelineEvent } from "@/shared/utils/api";
+import { getColor } from "@/shared/utils/colorUtils";
 
 export type CalendarCategory = "Work" | "Education" | "Personal";
 
@@ -36,10 +37,12 @@ export type CalendarTask = {
   source: ApiTask;
 };
 
-export const categoryColor: Record<CalendarCategory, string> = {
-  Work: "calendar-pill-work",
-  Education: "calendar-pill-education",
-  Personal: "calendar-pill-personal",
+// Get project color with fallback to deterministic generation
+export const getProjectColor = (projectId?: string | null, projectColor?: string | null): string => {
+  if (projectColor && typeof projectColor === "string" && projectColor.trim() !== "") {
+    return projectColor;
+  }
+  return getColor(projectId || "default-project");
 };
 
 export const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
