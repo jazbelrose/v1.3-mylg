@@ -1306,32 +1306,26 @@
 }
 
 .week-grid__timeline-entry-tooltip {
-  position: absolute;
-  top: -68px;
-  right: 0;
   width: max(180px, min(240px, 60vw));
   padding: 10px;
   border-radius: 12px;
   background: #111111;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
   display: flex;
   flex-direction: column;
   gap: 6px;
   color: rgba(255, 255, 255, 0.9);
-  z-index: 5;
+  z-index: 5000;
   justify-content: center;
   align-items: center;
   text-align: center;
+  transition: opacity 0.15s ease;
 }
 
-.week-grid__timeline-entry:hover .week-grid__timeline-entry-tooltip {
-  opacity: 1;
-  transform: translateY(0);
+/* Portal-based tooltip uses fixed positioning with dynamic calculation */
+.week-grid__timeline-entry-tooltip--portal {
+  position: fixed;
   pointer-events: auto;
 }
 

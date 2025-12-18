@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion";
 import { CheckSquare, Clock, Plus } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
+import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -119,6 +120,14 @@ function WeekGrid({
       }
     | null
   >(null);
+  const [hoveredEntry, setHoveredEntry] = useState<{
+    id: string;
+    anchorElement: HTMLElement;
+    avatars: React.ReactNode;
+    timeText: string;
+    title: string;
+  } | null>(null);
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -286,6 +295,62 @@ function WeekGrid({
     return layout;
   }, [days, events, tasks, teamMemberLookup]);
 
+  const handleEntryMouseEnter = useCallback(
+    (
+      event: React.MouseEvent<HTMLElement>,
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    ) => {
+      // Clear any pending hide timer
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+
+      const anchorElement = event.currentTarget;
+      const tooltipAvatars =
+        entry.avatars.length > 0 ? (
+          <div className="week-grid__timeline-tooltip-avatars" aria-hidden="true">
+            {buildAvatarStack(entry.avatars, "week-grid__timeline-tooltip-avatar", 14, "tooltip")}
+          </div>
+        ) : null;
+      const tooltipTimeText =
+        entry.timeLabel ?? (entry.type === "event" ? "All day" : "Scheduled task");
+
+      // Delay showing tooltip slightly to prevent flicker on quick mouse movement
+      hoverTimerRef.current = setTimeout(() => {
+        setHoveredEntry({
+          id: entry.id,
+          anchorElement,
+          avatars: tooltipAvatars,
+          timeText: tooltipTimeText,
+          title: entry.title,
+        });
+      }, 150);
+    },
+    [],
+  );
+
+  const handleEntryMouseLeave = useCallback(() => {
+    // Clear any pending show timer
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+
+    // Delay hiding to allow moving cursor to tooltip
+    hoverTimerRef.current = setTimeout(() => {
+      setHoveredEntry(null);
+    }, 100);
+  }, []);
+
+  const handleTooltipClose = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoveredEntry(null);
+  }, []);
+
   const renderWeekTimelineEntry = (
     entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
     entryStyle?: React.CSSProperties,
@@ -300,21 +365,6 @@ function WeekGrid({
           {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
-    const tooltipAvatars =
-      entry.avatars.length > 0 ? (
-        <div className="week-grid__timeline-tooltip-avatars" aria-hidden="true">
-          {buildAvatarStack(entry.avatars, "week-grid__timeline-tooltip-avatar", 14, "tooltip")}
-        </div>
-      ) : null;
-    const tooltipTimeText =
-      entry.timeLabel ?? (entry.type === "event" ? "All day" : "Scheduled task");
-    const tooltipContent = (
-      <div className="week-grid__timeline-entry-tooltip" role="tooltip">
-        {tooltipAvatars}
-        <div className="week-grid__timeline-tooltip-time">{tooltipTimeText}</div>
-        <div className="week-grid__timeline-tooltip-title">{entry.title}</div>
-      </div>
-    );
     const entryClasses = [
       "week-grid__timeline-entry",
       entry.type === "event"
@@ -369,12 +419,13 @@ function WeekGrid({
               onEditEvent(entry.payload as CalendarEvent);
             }
           }}
+          onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
+          onMouseLeave={handleEntryMouseLeave}
         >
           <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
           </div>
-          {tooltipContent}
         </motion.div>
       );
     }
@@ -388,12 +439,13 @@ function WeekGrid({
         title={tooltipLabel}
         aria-label={tooltipLabel}
         onClick={() => onEditTask(entry.payload as CalendarTask)}
+        onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
+        onMouseLeave={handleEntryMouseLeave}
       >
         <div className="week-grid__timeline-entry-main">
           {content}
           {inlineAvatars}
         </div>
-        {tooltipContent}
       </button>
     );
   };
@@ -759,6 +811,15 @@ function WeekGrid({
             Task
           </button>
         </div>
+      )}
+      {hoveredEntry && (
+        <TimelineTooltipPortal
+          anchorElement={hoveredEntry.anchorElement}
+          avatars={hoveredEntry.avatars}
+          timeText={hoveredEntry.timeText}
+          title={hoveredEntry.title}
+          onClose={handleTooltipClose}
+        />
       )}
     </div>
   );
