@@ -2658,16 +2658,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                         >
                           {suggestion.display_name}
                         </button>
-                        {suggestion.place_id !== 'current' && suggestion.place_id !== 'default' ? (
-                          <button
-                            type="button"
-                            className={styles.setDefaultLink}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => handleSetAsDefault(suggestion)}
-                          >
-                            Set as default
-                          </button>
-                        ) : null}
                       </div>
                     ))}
                     {showWorldwideLink ? (
@@ -2694,6 +2684,23 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   title={userData.defaultTaskLocation.formattedAddress}
                 >
                   Use default location
+                </span>
+              ) : selectedLocation && (!userData?.defaultTaskLocation || selectedLocation.lat !== userData.defaultTaskLocation.lat || selectedLocation.lng !== userData.defaultTaskLocation.lon) ? (
+                <span
+                  className={styles.defaultLocationLink}
+                  onClick={() => {
+                    const suggestion: NominatimSuggestion = {
+                      place_id: 'selected',
+                      display_name: addressSearch,
+                      lat: selectedLocation.lat.toString(),
+                      lon: selectedLocation.lng.toString(),
+                      type: 'selected',
+                      importance: 0,
+                    };
+                    handleSetAsDefault(suggestion);
+                  }}
+                >
+                  Set as default
                 </span>
               ) : null}
             </div>
