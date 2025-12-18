@@ -128,6 +128,8 @@ function WeekGrid({
     title: string;
   } | null>(null);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isAnchorHoverRef = useRef(false);
+  const isTooltipHoverRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -300,6 +302,9 @@ function WeekGrid({
       event: React.MouseEvent<HTMLElement>,
       entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
     ) => {
+      // Mark anchor as hovered
+      isAnchorHoverRef.current = true;
+
       // Clear any pending hide timer
       if (hoverTimerRef.current) {
         clearTimeout(hoverTimerRef.current);
@@ -331,16 +336,42 @@ function WeekGrid({
   );
 
   const handleEntryMouseLeave = useCallback(() => {
+    // Mark anchor as not hovered
+    isAnchorHoverRef.current = false;
+
     // Clear any pending show timer
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
 
-    // Delay hiding to allow moving cursor to tooltip
+    // Hover bridge: only close if BOTH anchor and tooltip are not hovered
+    // This allows moving cursor from anchor to tooltip without closing
     hoverTimerRef.current = setTimeout(() => {
-      setHoveredEntry(null);
-    }, 100);
+      if (!isAnchorHoverRef.current && !isTooltipHoverRef.current) {
+        setHoveredEntry(null);
+      }
+    }, 150);
+  }, []);
+
+  const handleTooltipHover = useCallback((isHovering: boolean) => {
+    // Track tooltip hover state for hover bridge
+    isTooltipHoverRef.current = isHovering;
+
+    // Clear any pending timers
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+
+    // If we just left the tooltip, check if we should close
+    if (!isHovering) {
+      hoverTimerRef.current = setTimeout(() => {
+        if (!isAnchorHoverRef.current && !isTooltipHoverRef.current) {
+          setHoveredEntry(null);
+        }
+      }, 150);
+    }
   }, []);
 
   const handleTooltipClose = useCallback(() => {
@@ -348,6 +379,8 @@ function WeekGrid({
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
+    isAnchorHoverRef.current = false;
+    isTooltipHoverRef.current = false;
     setHoveredEntry(null);
   }, []);
 
@@ -819,6 +852,7 @@ function WeekGrid({
           timeText={hoveredEntry.timeText}
           title={hoveredEntry.title}
           onClose={handleTooltipClose}
+          onTooltipHover={handleTooltipHover}
         />
       )}
     </div>

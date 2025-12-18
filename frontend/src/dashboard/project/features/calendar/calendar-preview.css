@@ -1316,17 +1316,24 @@
   flex-direction: column;
   gap: 6px;
   color: rgba(255, 255, 255, 0.9);
-  z-index: 5000;
   justify-content: center;
   align-items: center;
   text-align: center;
   transition: opacity 0.15s ease;
 }
 
-/* Portal-based tooltip uses fixed positioning with dynamic calculation */
+/**
+ * Portal-based tooltip positioning
+ * - Uses fixed positioning with JS-calculated top/left
+ * - Positioned relative to viewport, not parent
+ * - z-index: 1000 ensures it's above all calendar content
+ * - pointer-events: auto allows hover bridge (moving from anchor to tooltip)
+ * - No transform needed (position calculated directly)
+ */
 .week-grid__timeline-entry-tooltip--portal {
   position: fixed;
   pointer-events: auto;
+  z-index: 1000;
 }
 
 .week-grid__timeline-tooltip-time {

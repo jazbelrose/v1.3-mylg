@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { calculateTooltipPosition, type PositionPreference } from "@/shared/utils/positioning";
+import { calculateTooltipPosition, isTouchDevice, type PositionPreference } from "@/shared/utils/positioning";
 
 export interface TimelineTooltipPortalProps {
   anchorElement: HTMLElement;
@@ -8,7 +8,9 @@ export interface TimelineTooltipPortalProps {
   timeText: string;
   title: string;
   onClose: () => void;
+  onTooltipHover?: (isHovering: boolean) => void;
   preference?: PositionPreference;
+  tooltipId?: string;
 }
 
 export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
@@ -17,8 +19,14 @@ export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
   timeText,
   title,
   onClose,
+  onTooltipHover,
   preference = "top",
+  tooltipId = "timeline-tooltip",
 }) => {
+  // Don't show tooltips on touch devices (mobile)
+  // Touch users can tap to access details via other UI patterns
+  if (isTouchDevice()) return null;
+
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [ready, setReady] = useState(false);
@@ -45,7 +53,15 @@ export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
 
     assignPosition();
 
-    // Observe size changes
+    // Tier 1 strategy: Dismiss on scroll/resize (simplest, prevents floating tooltips)
+    // We don't reposition because it's simpler and avoids listener overhead
+    const handleDismiss = () => onClose();
+
+    // Use capture phase to catch scroll in any container
+    window.addEventListener("scroll", handleDismiss, true);
+    window.addEventListener("resize", handleDismiss);
+
+    // Observe size changes for dynamic content
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(assignPosition);
@@ -53,14 +69,10 @@ export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
       resizeObserver.observe(anchorElement);
     }
 
-    // Handle scroll and resize
-    window.addEventListener("scroll", assignPosition, true);
-    window.addEventListener("resize", assignPosition);
-
     return () => {
       resizeObserver?.disconnect();
-      window.removeEventListener("scroll", assignPosition, true);
-      window.removeEventListener("resize", assignPosition);
+      window.removeEventListener("scroll", handleDismiss, true);
+      window.removeEventListener("resize", handleDismiss);
     };
   }, [anchorElement, preference]);
 
@@ -103,21 +115,27 @@ export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
   return createPortal(
     <div
       ref={tooltipRef}
+      id={tooltipId}
       className="week-grid__timeline-entry-tooltip week-grid__timeline-entry-tooltip--portal"
       role="tooltip"
+      aria-live="polite"
       style={{
         position: "fixed" as const,
         top: `${style.top}px`,
         left: `${style.left}px`,
         opacity: ready ? 1 : 0,
         pointerEvents: "auto" as const,
+        zIndex: 1000,
       }}
       onMouseEnter={(event) => {
-        // Keep tooltip open when hovering over it
+        // Hover bridge: notify parent we're hovering the tooltip
+        // This prevents premature close when moving cursor from anchor to tooltip
         event.stopPropagation();
+        onTooltipHover?.(true);
       }}
       onMouseLeave={() => {
-        // Close when leaving tooltip
+        // Notify parent we've left the tooltip
+        onTooltipHover?.(false);
         onClose();
       }}
     >

@@ -1,10 +1,16 @@
 /**
  * Positioning utility for tooltips and popovers
  * Provides viewport-aware, direction-aware positioning with boundary detection
+ * 
+ * Strategy: Top-first bias with smart flipping based on available space
+ * - Prefers 'top' placement unless space is clearly insufficient (< MIN_SPACE_THRESHOLD)
+ * - Flip priority: top → bottom → right → left
+ * - Chooses direction with most free space to avoid covering dense content
  */
 
 export const POPPER_GAP = 8;
 export const VIEWPORT_PADDING = 16;
+export const MIN_SPACE_THRESHOLD = 140; // Minimum viable space for a direction (px)
 
 export type TooltipPosition = {
   top: number;
@@ -59,22 +65,23 @@ export function calculateTooltipPosition({
   }
 
   // Try preferred direction first, flip if insufficient space
+  // Top-first bias: prefer 'top' unless space is clearly worse
   if (preference === "top" || preference === "bottom") {
     // Vertical positioning
-    if (preference === "top" && spaceAbove >= tooltipRect.height + gap) {
-      // Show above
+    if (preference === "top" && spaceAbove >= Math.max(tooltipRect.height + gap, MIN_SPACE_THRESHOLD)) {
+      // Show above (preferred)
       placement = "top";
       top = anchorRect.top - tooltipRect.height - gap;
-    } else if (preference === "bottom" && spaceBelow >= tooltipRect.height + gap) {
-      // Show below
+    } else if (preference === "bottom" && spaceBelow >= Math.max(tooltipRect.height + gap, MIN_SPACE_THRESHOLD)) {
+      // Show below (preferred)
       placement = "bottom";
       top = anchorRect.bottom + gap;
-    } else if (spaceBelow >= tooltipRect.height + gap) {
-      // Flip to below if space available
+    } else if (spaceBelow >= Math.max(tooltipRect.height + gap, MIN_SPACE_THRESHOLD)) {
+      // Flip to below if good space available
       placement = "bottom";
       top = anchorRect.bottom + gap;
     } else if (spaceAbove >= tooltipRect.height + gap) {
-      // Flip to above if space available
+      // Flip to above even with less space
       placement = "top";
       top = anchorRect.top - tooltipRect.height - gap;
     } else {
@@ -144,4 +151,13 @@ export function calculateTooltipPosition({
   }
 
   return { top, left, placement };
+}
+
+/**
+ * Detect if device has coarse pointer (touch) or no hover capability
+ * Used to disable hover tooltips on mobile devices
+ */
+export function isTouchDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(hover: none), (pointer: coarse)").matches;
 }
