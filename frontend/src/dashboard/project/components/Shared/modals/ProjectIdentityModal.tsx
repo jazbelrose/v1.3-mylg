@@ -190,7 +190,7 @@ const ProjectIdentityModal = ({
           <div className={styles.headerText}>
             <h2 className={styles.title}>Project Identity</h2>
             <p className={styles.subtitle}>
-              Customize how your project appears across the dashboard by updating its name and accent color.
+              Customize how your project appears across the dashboard by updating its properties.<br />Update the project name and color accent that appear across dashboards and shared views.
             </p>
           </div>
           <button type="button" className={styles.closeButton} onClick={handleClose} aria-label="Close settings">
@@ -200,12 +200,7 @@ const ProjectIdentityModal = ({
 
         <div className={styles.body}>
           <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>Project Identity</h3>
-              <p className={styles.sectionDescription}>
-                Update the project name and visual accent that appear across dashboards and shared views.
-              </p>
-            </div>
+          
 
             <div className={styles.identityGrid}>
               <form className={styles.inlineForm} onSubmit={editNameModal.submit}>
