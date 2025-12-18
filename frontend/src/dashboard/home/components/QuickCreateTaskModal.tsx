@@ -1353,10 +1353,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     isEditing && !isBusy && !isAwaitingApproval && !isCompleteStatus && (canSubmitForReview || isAdmin);
   const showApproveButton = isEditing && !isBusy && isAdmin && !isCompleteStatus;
   const showRequestChangesButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
-  const hasAnyStatusAction = showSubmitForReviewButton || showApproveButton || showRequestChangesButton;
-
   const canArchiveTask = Boolean(isEditing && status === "done" && (isAdmin || isReviewer));
   const canUnarchiveTask = Boolean(isEditing && status === "archived" && (isAdmin || isReviewer));
+  const hasAnyStatusAction = showSubmitForReviewButton || showApproveButton || showRequestChangesButton || canArchiveTask || canUnarchiveTask;
   const taskNameDescribedBy = [
     showTitleCounter ? titleCounterId : null,
     titleError ? titleErrorId : null,
@@ -2049,10 +2048,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   };
 
-  if (!open) {
-    if (!previewOpen) return null;
-    return previewModal;
-  }
+  if (!open) {
+
+    if (!previewOpen) return null;
+
+    return previewModal;
+
+  }
+
 
 
   const modalContent = (
@@ -2195,6 +2198,21 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                           </svg>
                           <span>Request changes</span>
+                        </button>
+                      )}
+                      {(canArchiveTask || canUnarchiveTask) && (
+                        <button
+                          type="button"
+                          className={styles.statusActionButton}
+                          onClick={handleArchiveToggle}
+                          disabled={isBusy}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                            <rect x="1" y="3" width="22" height="5"></rect>
+                            <line x1="10" y1="12" x2="14" y2="12"></line>
+                          </svg>
+                          <span>{archiving ? "Working…" : canUnarchiveTask ? "Unarchive task" : "Archive task"}</span>
                         </button>
                       )}
                     </div>
@@ -2715,16 +2733,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               ) : null}
             </div>
             <div className={styles.actionBar}>
-              {isEditing && (canArchiveTask || canUnarchiveTask) ? (
-                <button
-                  type="button"
-                  className={styles.archiveToggleButton}
-                  onClick={handleArchiveToggle}
-                  disabled={isBusy}
-                >
-                  {archiving ? "Working…" : canUnarchiveTask ? "Unarchive task" : "Archive task"}
-                </button>
-              ) : null}
               {isEditing ? (
                 <button
                   type="button"
