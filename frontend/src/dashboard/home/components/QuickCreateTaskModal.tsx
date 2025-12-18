@@ -2264,17 +2264,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <label className={styles.fieldLabel}>
                   <span className={styles.fieldLabelText}>Status</span>
                 </label>
+                {isEditing && (
+                  <span
+                    className={`${styles.StatusBadge} ${styles[`StatusBadge${statusTone.charAt(0).toUpperCase() + statusTone.slice(1)}`]}`}
+                  >
+                    {statusBadgeData.label}
+                  </span>
+                )}
               </div>
               
               {isEditing ? (
                 <>
-                  <div className={styles.statusPillContainer}>
-                    <span
-                      className={`${styles.StatusBadge} ${styles[`StatusBadge${statusTone.charAt(0).toUpperCase() + statusTone.slice(1)}`]}`}
-                    >
-                      {statusBadgeData.label}
-                    </span>
-                  </div>
 
                   {hasAnyStatusAction && (
                     <div className={styles.statusActions}>
