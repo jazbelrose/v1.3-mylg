@@ -28,6 +28,11 @@ export type CalendarTask = {
   description?: string;
   status?: ApiTask["status"];
   assignedTo?: string;
+  assigneeIds?: string[];
+  createdById?: string;
+  createdByName?: string;
+  createdByUsername?: string;
+  createdByEmail?: string;
   source: ApiTask;
 };
 
@@ -423,6 +428,21 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
       : typeof (task as { assignedTo?: string }).assignedTo === "string"
          ? (task as { assignedTo?: string }).assignedTo
          : undefined;
+  const assigneeSet = new Set<string>();
+  const addAssigneeValue = (value?: unknown) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    assigneeSet.add(trimmed);
+  };
+  addAssigneeValue(rawAssignedTo);
+  const assigneeCandidates =
+    Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0
+      ? task.assigneeIds
+      : typeof task.assigneeIds === "string"
+        ? [task.assigneeIds]
+        : [];
+  assigneeCandidates.forEach((candidate) => addAssigneeValue(candidate));
 
   const parseDateTimeCandidate = (value: unknown): Date | null => {
     if (value == null || value === "") return null;
@@ -499,6 +519,30 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
     (task as { end?: unknown }).end ??
     undefined;
 
+  const createdByCandidate =
+    typeof task.createdById === "string"
+      ? task.createdById
+      : typeof task.createdBy === "string"
+      ? task.createdBy
+      : undefined;
+  const createdById =
+    typeof createdByCandidate === "string" && createdByCandidate.trim()
+      ? createdByCandidate.trim()
+      : undefined;
+  const createdByName =
+    task.createdByName ??
+    task.createdByUsername ??
+    (typeof task.createdBy === "string" ? task.createdBy : undefined);
+  const createdByUsername =
+    typeof task.createdByUsername === "string"
+      ? task.createdByUsername
+      : undefined;
+  const createdByEmail =
+    typeof task.createdByEmail === "string" ? task.createdByEmail : undefined;
+
+  const assigneeIds = Array.from(assigneeSet);
+  const normalizedAssignedTo = assigneeIds[0] ?? undefined;
+
   const start = formatLocalTime(startCandidate) ?? dueTime;
   const end = formatLocalTime(endCandidate);
   if (!due) {
@@ -520,7 +564,12 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
     done: task.status === "done",
     description: task.description ?? undefined,
     status: task.status,
-    assignedTo: rawAssignedTo,
+    assignedTo: normalizedAssignedTo,
+    assigneeIds,
+    createdById,
+    createdByName,
+    createdByUsername,
+    createdByEmail,
     source: task,
   };
 };

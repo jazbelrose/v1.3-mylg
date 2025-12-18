@@ -93,31 +93,36 @@ export const getAvatarForAssignee = (
   return null;
 };
 
-export const getAvatarForGuest = (
-  guest: string | undefined,
-  lookup?: MemberLookup,
-  keyPrefix = "guest",
-): TimelineAvatar | null => {
-  const normalized = normalizeLabel(guest);
-  if (!normalized) return null;
-  if (lookup) {
-    const member =
-      lookup.byDisplayName.get(normalized.toLowerCase()) ??
-      lookup.byId.get(normalized) ??
-      lookup.byDisplayName.get(normalized);
-    if (member) {
-      return buildAvatarFromMember(member, `${keyPrefix}-${member.userId}`);
-    }
-  }
-  return buildAvatarFromLabel(normalized, `${keyPrefix}-${normalized}`);
+const collectAssigneeCandidates = (task: CalendarTask): string[] => {
+  const seen = new Set<string>();
+  const entries: string[] = [];
+  const push = (value?: string | null) => {
+    if (!value) return;
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    entries.push(normalized);
+  };
+
+  push(task.assignedTo ?? undefined);
+  task.assigneeIds?.forEach((candidate) => push(candidate));
+  return entries;
 };
 
 export const buildTaskAvatars = (
   task: CalendarTask,
   lookup?: MemberLookup,
 ): TimelineAvatar[] => {
-  const avatar = getAvatarForAssignee(task.assignedTo, lookup, task.id);
-  return avatar ? [avatar] : [];
+  const candidates = collectAssigneeCandidates(task);
+  const avatars: TimelineAvatar[] = [];
+  candidates.forEach((candidate, index) => {
+    if (avatars.length >= 3) return;
+    const avatar = getAvatarForAssignee(candidate, lookup, `${task.id}-${index}`);
+    if (avatar) {
+      avatars.push(avatar);
+    }
+  });
+  return avatars;
 };
 
 export const buildEventAvatars = (

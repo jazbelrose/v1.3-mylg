@@ -20,6 +20,7 @@ import {
   buildTaskAvatars,
   buildTeamMemberLookup,
   parseTimeToMinutes,
+  type TimelineAvatar,
   type TimelineHourEntry,
 } from "./timelineLayout";
 
@@ -56,6 +57,23 @@ const ENTRY_VERTICAL_PADDING_PX = 4;
 const ENTRY_HORIZONTAL_PADDING_PX = 4;
 const ENTRY_MIN_HEIGHT_PX = 24;
 const COLUMN_GAP_PX = 4;
+
+const buildAvatarStack = (
+  avatars: TimelineAvatar[],
+  avatarClassName: string,
+  radius: number,
+  keyPrefix: string,
+) =>
+  avatars.map((avatar) => (
+    <ProjectAvatar
+      key={`${keyPrefix}-${avatar.key}`}
+      className={avatarClassName}
+      thumb={avatar.thumb ?? undefined}
+      name={avatar.name}
+      shape="circle"
+      radius={radius}
+    />
+  ));
 
 const chunkEntries = <T,>(entries: T[], size: number): T[][] => {
   const chunks: T[][] = [];
@@ -288,20 +306,20 @@ function DayGrid({
     setQuickAddOpen(false);
   }, [canCreateTasks, date, onCreateTask]);
 
-    const renderTimelineEntry = (
-      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
-      hourValue: number,
-      stacked: boolean,
-    ) => {
-      const hourStart = hourValue * MINUTES_IN_HOUR;
-      const startWithinHour = Math.max(
-        0,
-        Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
-      );
-      const durationMinutes = Math.max(entry.endMinutes - entry.startMinutes, 5);
-      const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
-      const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
-      const heightPercent = Math.max(rawHeightPercent, 6);
+  const renderTimelineEntry = (
+    entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    hourValue: number,
+    stacked: boolean,
+  ) => {
+    const hourStart = hourValue * MINUTES_IN_HOUR;
+    const startWithinHour = Math.max(
+      0,
+      Math.min(MINUTES_IN_HOUR, entry.startMinutes - hourStart),
+    );
+    const durationMinutes = Math.max(entry.endMinutes - entry.startMinutes, 5);
+    const topPercent = (startWithinHour / MINUTES_IN_HOUR) * 100;
+    const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
+    const heightPercent = Math.max(rawHeightPercent, 6);
     const columns = Math.max(entry.columnCount, 1);
     const entryHeight = Math.max((heightPercent / 100) * HOUR_ROW_HEIGHT_PX, 32);
     const columnWidth = 100 / columns;
@@ -322,20 +340,27 @@ function DayGrid({
           }),
     };
 
-    const avatars = entry.avatars.length > 0 ? (
-      <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-        {entry.avatars.map((avatar) => (
-          <ProjectAvatar
-            key={avatar.key}
-            className="week-grid__timeline-avatar"
-            thumb={avatar.thumb ?? undefined}
-            name={avatar.name}
-            shape="circle"
-            radius={9}
-          />
-        ))}
+    const inlineAvatars =
+      entry.avatars.length > 0 ? (
+        <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
+          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "inline")}
+        </div>
+      ) : null;
+    const tooltipAvatars =
+      entry.avatars.length > 0 ? (
+        <div className="week-grid__timeline-tooltip-avatars" aria-hidden="true">
+          {buildAvatarStack(entry.avatars, "week-grid__timeline-tooltip-avatar", 14, "tooltip")}
+        </div>
+      ) : null;
+    const tooltipTimeText =
+      entry.timeLabel ?? (entry.type === "event" ? "All day" : "Scheduled task");
+    const tooltipContent = (
+      <div className="week-grid__timeline-entry-tooltip" role="tooltip">
+        {tooltipAvatars}
+        <div className="week-grid__timeline-tooltip-time">{tooltipTimeText}</div>
+        <div className="week-grid__timeline-tooltip-title">{entry.title}</div>
       </div>
-    ) : null;
+    );
 
     const content = (
       <div className="week-grid__timeline-entry-content">
@@ -392,8 +417,9 @@ function DayGrid({
         >
           <div className="week-grid__timeline-entry-main">
             {content}
-            {avatars}
+            {inlineAvatars}
           </div>
+          {tooltipContent}
         </motion.div>
       );
     }
@@ -408,8 +434,9 @@ function DayGrid({
       >
         <div className="week-grid__timeline-entry-main">
           {content}
-          {avatars}
+          {inlineAvatars}
         </div>
+        {tooltipContent}
       </button>
     );
   };

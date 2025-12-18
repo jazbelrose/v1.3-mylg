@@ -21,6 +21,7 @@ import {
   buildTaskAvatars,
   buildTeamMemberLookup,
   parseTimeToMinutes,
+  type TimelineAvatar,
   type TimelineHourEntry,
 } from "./timelineLayout";
 
@@ -59,6 +60,23 @@ const formatHour12 = (hour: number): string => {
 };
 
 const WEEK_TITLE_WORD_LIMIT = 3;
+
+const buildAvatarStack = (
+  avatars: TimelineAvatar[],
+  avatarClassName: string,
+  radius: number,
+  keyPrefix: string,
+) =>
+  avatars.map((avatar) => (
+    <ProjectAvatar
+      key={`${keyPrefix}-${avatar.key}`}
+      className={avatarClassName}
+      thumb={avatar.thumb ?? undefined}
+      name={avatar.name}
+      shape="circle"
+      radius={radius}
+    />
+  ));
 
 const getWeekEntryPreview = (text: string): string => {
   const normalized = text?.trim() ?? "";
@@ -261,22 +279,28 @@ function WeekGrid({
     entryKey?: string,
   ) => {
     const previewTitle = getWeekEntryPreview(entry.title);
-    const tooltipLabel = entry.timeLabel ? `${entry.title} Ł ${entry.timeLabel}` : entry.title;
-    const avatars =
+    const tooltipLabel = entry.timeLabel ? `${entry.title} · ${entry.timeLabel}` : entry.title;
+    const inlineAvatars =
       entry.avatars.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-          {entry.avatars.map((avatar) => (
-            <ProjectAvatar
-              key={avatar.key}
-              className="week-grid__timeline-avatar"
-              thumb={avatar.thumb ?? undefined}
-              name={avatar.name}
-              shape="circle"
-              radius={9}
-            />
-          ))}
+          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
+    const tooltipAvatars =
+      entry.avatars.length > 0 ? (
+        <div className="week-grid__timeline-tooltip-avatars" aria-hidden="true">
+          {buildAvatarStack(entry.avatars, "week-grid__timeline-tooltip-avatar", 14, "tooltip")}
+        </div>
+      ) : null;
+    const tooltipTimeText =
+      entry.timeLabel ?? (entry.type === "event" ? "All day" : "Scheduled task");
+    const tooltipContent = (
+      <div className="week-grid__timeline-entry-tooltip" role="tooltip">
+        {tooltipAvatars}
+        <div className="week-grid__timeline-tooltip-time">{tooltipTimeText}</div>
+        <div className="week-grid__timeline-tooltip-title">{entry.title}</div>
+      </div>
+    );
     const entryClasses = [
       "week-grid__timeline-entry",
       entry.type === "event"
@@ -332,10 +356,11 @@ function WeekGrid({
             }
           }}
         >
-        <div className="week-grid__timeline-entry-main">
-          {content}
-          {avatars}
-        </div>
+          <div className="week-grid__timeline-entry-main">
+            {content}
+            {inlineAvatars}
+          </div>
+          {tooltipContent}
         </motion.div>
       );
     }
@@ -352,8 +377,9 @@ function WeekGrid({
       >
         <div className="week-grid__timeline-entry-main">
           {content}
-          {avatars}
+          {inlineAvatars}
         </div>
+        {tooltipContent}
       </button>
     );
   };
