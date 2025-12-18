@@ -31,7 +31,7 @@ export type DayGridProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onCreateEvent: (date: Date) => void;
-  onCreateTask: (date: Date) => void;
+  onCreateTask: (date: Date, startAt?: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
 };
@@ -57,6 +57,10 @@ const ENTRY_VERTICAL_PADDING_PX = 4;
 const ENTRY_HORIZONTAL_PADDING_PX = 4;
 const ENTRY_MIN_HEIGHT_PX = 24;
 const COLUMN_GAP_PX = 4;
+const QUICK_ADD_POPOVER_MAX_WIDTH = 240;
+const QUICK_ADD_POPOVER_MAX_HEIGHT = 150;
+const QUICK_ADD_POPOVER_OFFSET = 12;
+const QUICK_ADD_POPOVER_MARGIN = 8;
 
 const buildAvatarStack = (
   avatars: TimelineAvatar[],
@@ -98,6 +102,11 @@ function DayGrid({
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
+  const [pointerQuickAdd, setPointerQuickAdd] = useState<{
+    date: Date;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -291,20 +300,110 @@ function DayGrid({
     };
   }, [quickAddOpen]);
 
+  const triggerCreateEvent = useCallback(
+    (slotDate: Date) => {
+      onCreateEvent(slotDate);
+      setQuickAddOpen(false);
+      setPointerQuickAdd(null);
+    },
+    [onCreateEvent],
+  );
+
+  const triggerCreateTask = useCallback(
+    (slotDate: Date, startAt?: Date) => {
+      if (!canCreateTasks) return;
+      onCreateTask(slotDate, startAt);
+      setQuickAddOpen(false);
+      setPointerQuickAdd(null);
+    },
+    [canCreateTasks, onCreateTask],
+  );
+
   const handleCreateEvent = useCallback(
     (hour?: number) => {
       const baseDate = hour == null ? setTime(date, 9) : setTime(date, hour);
-      onCreateEvent(baseDate);
-      setQuickAddOpen(false);
+      triggerCreateEvent(baseDate);
     },
-    [date, onCreateEvent],
+    [date, triggerCreateEvent],
   );
 
   const handleCreateTask = useCallback(() => {
-    if (!canCreateTasks) return;
-    onCreateTask(new Date(date));
-    setQuickAddOpen(false);
-  }, [canCreateTasks, date, onCreateTask]);
+    triggerCreateTask(new Date(date));
+  }, [date, triggerCreateTask]);
+
+  const openPointerQuickAdd = useCallback(
+    (hourValue: number, mouseEvent: React.MouseEvent<HTMLDivElement>) => {
+      const cell = mouseEvent.currentTarget;
+      const rect = cell.getBoundingClientRect();
+      const ratio = Math.min(
+        Math.max((mouseEvent.clientY - rect.top) / rect.height, 0),
+        1,
+      );
+      const minutes = Math.min(
+        Math.max(Math.round(ratio * MINUTES_IN_HOUR), 0),
+        MINUTES_IN_HOUR - 1,
+      );
+      const slotDate = setTime(date, hourValue, minutes);
+      setPointerQuickAdd({
+        date: slotDate,
+        clientX: mouseEvent.clientX,
+        clientY: mouseEvent.clientY,
+      });
+    },
+    [date],
+  );
+
+  useEffect(() => {
+    if (!pointerQuickAdd) return undefined;
+    if (typeof document === "undefined") return undefined;
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".day-grid__action-popover")) {
+        return;
+      }
+      setPointerQuickAdd(null);
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
+  }, [pointerQuickAdd]);
+
+  const quickAddPopoverStyle = useMemo(() => {
+    if (!pointerQuickAdd) return undefined;
+    const baseTop = pointerQuickAdd.clientY + QUICK_ADD_POPOVER_OFFSET;
+    const baseLeft = pointerQuickAdd.clientX + QUICK_ADD_POPOVER_OFFSET;
+    if (typeof window === "undefined") {
+      return { top: baseTop, left: baseLeft };
+    }
+    const maxTop =
+      window.innerHeight - QUICK_ADD_POPOVER_MAX_HEIGHT - QUICK_ADD_POPOVER_MARGIN;
+    const maxLeft =
+      window.innerWidth - QUICK_ADD_POPOVER_MAX_WIDTH - QUICK_ADD_POPOVER_MARGIN;
+    return {
+      top: Math.min(
+        Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN),
+        Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
+      ),
+      left: Math.min(
+        Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN),
+        Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
+      ),
+    };
+  }, [pointerQuickAdd]);
+
+  const quickAddTimeLabel = useMemo(
+    () =>
+      pointerQuickAdd
+        ? pointerQuickAdd.date.toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "",
+    [pointerQuickAdd],
+  );
 
   const renderTimelineEntry = (
     entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
@@ -518,7 +617,7 @@ function DayGrid({
                 ) {
                   return;
                 }
-                handleCreateEvent(hour);
+                openPointerQuickAdd(hour, mouseEvent);
               }}
             >
               {hourIndex === 0 &&
@@ -624,6 +723,33 @@ function DayGrid({
           </React.Fragment>
         );
       })}
+      {pointerQuickAdd && (
+        <div
+          className="day-grid__action-popover"
+          role="dialog"
+          aria-label="Quick add calendar entry"
+          style={quickAddPopoverStyle}
+        >
+          <div className="week-grid__action-popover-time" aria-hidden>
+            {quickAddTimeLabel}
+          </div>
+          <button
+            type="button"
+            className="week-grid__action-popover-option"
+            onClick={() => triggerCreateEvent(pointerQuickAdd.date)}
+          >
+            Event
+          </button>
+          <button
+            type="button"
+            className="week-grid__action-popover-option week-grid__action-popover-option--task"
+            onClick={() => triggerCreateTask(pointerQuickAdd.date, pointerQuickAdd.date)}
+            disabled={!canCreateTasks}
+          >
+            Task
+          </button>
+        </div>
+      )}
     </div>
   );
 }

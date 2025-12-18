@@ -32,7 +32,7 @@ export type WeekGridProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onCreateEvent: (date: Date) => void;
-  onCreateTask: (date: Date) => void;
+  onCreateTask: (date: Date, startAt?: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
 };
@@ -60,6 +60,11 @@ const formatHour12 = (hour: number): string => {
 };
 
 const WEEK_TITLE_WORD_LIMIT = 3;
+
+const QUICK_ADD_POPOVER_MAX_WIDTH = 240;
+const QUICK_ADD_POPOVER_MAX_HEIGHT = 150;
+const QUICK_ADD_POPOVER_OFFSET = 12;
+const QUICK_ADD_POPOVER_MARGIN = 8;
 
 const buildAvatarStack = (
   avatars: TimelineAvatar[],
@@ -105,6 +110,14 @@ function WeekGrid({
 
   const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
+  const [pointerQuickAdd, setPointerQuickAdd] = useState<
+    | {
+        date: Date;
+        clientX: number;
+        clientY: number;
+      }
+    | null
+  >(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -402,22 +415,111 @@ function WeekGrid({
     };
   }, [quickAddKey]);
 
-  const handleCreateEvent = useCallback(
-    (day: Date, hour?: number) => {
-      const baseDate = hour == null ? setTime(day, 9) : setTime(day, hour);
-      onCreateEvent(baseDate);
+  const triggerCreateEvent = useCallback(
+    (date: Date) => {
+      onCreateEvent(date);
       setQuickAddKey(null);
+      setPointerQuickAdd(null);
     },
     [onCreateEvent],
   );
 
-  const handleCreateTask = useCallback(
-    (day: Date) => {
+  const triggerCreateTask = useCallback(
+    (date: Date, startAt?: Date) => {
       if (!canCreateTasks) return;
-      onCreateTask(new Date(day));
+      onCreateTask(date, startAt);
       setQuickAddKey(null);
+      setPointerQuickAdd(null);
     },
     [canCreateTasks, onCreateTask],
+  );
+
+  const handleCreateEvent = useCallback(
+    (day: Date, hour?: number) => {
+      const baseDate = hour == null ? setTime(day, 9) : setTime(day, hour);
+      triggerCreateEvent(baseDate);
+    },
+    [triggerCreateEvent],
+  );
+
+  const handleCreateTask = useCallback(
+    (day: Date) => {
+      triggerCreateTask(new Date(day));
+    },
+    [triggerCreateTask],
+  );
+
+  const openPointerQuickAdd = useCallback(
+    (day: Date, hour: number, mouseEvent: React.MouseEvent<HTMLDivElement>) => {
+      const cell = mouseEvent.currentTarget;
+      const rect = cell.getBoundingClientRect();
+      const ratio = Math.min(
+        Math.max((mouseEvent.clientY - rect.top) / rect.height, 0),
+        1,
+      );
+      const minutes = Math.min(
+        Math.max(Math.round(ratio * MINUTES_IN_HOUR), 0),
+        MINUTES_IN_HOUR - 1,
+      );
+      const slotDate = setTime(day, hour, minutes);
+      setPointerQuickAdd({
+        date: slotDate,
+        clientX: mouseEvent.clientX,
+        clientY: mouseEvent.clientY,
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!pointerQuickAdd) return undefined;
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".week-grid__action-popover")) {
+        return;
+      }
+      setPointerQuickAdd(null);
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
+  }, [pointerQuickAdd]);
+
+  const quickAddPopoverStyle = useMemo(() => {
+    if (!pointerQuickAdd) return undefined;
+    const baseTop = pointerQuickAdd.clientY + QUICK_ADD_POPOVER_OFFSET;
+    const baseLeft = pointerQuickAdd.clientX + QUICK_ADD_POPOVER_OFFSET;
+    if (typeof window === "undefined") {
+      return { top: baseTop, left: baseLeft };
+    }
+    const maxTop =
+      window.innerHeight - QUICK_ADD_POPOVER_MAX_HEIGHT - QUICK_ADD_POPOVER_MARGIN;
+    const maxLeft =
+      window.innerWidth - QUICK_ADD_POPOVER_MAX_WIDTH - QUICK_ADD_POPOVER_MARGIN;
+    return {
+      top: Math.min(
+        Math.max(baseTop, QUICK_ADD_POPOVER_MARGIN),
+        Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
+      ),
+      left: Math.min(
+        Math.max(baseLeft, QUICK_ADD_POPOVER_MARGIN),
+        Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
+      ),
+    };
+  }, [pointerQuickAdd]);
+
+  const quickAddTimeLabel = useMemo(
+    () =>
+      pointerQuickAdd
+        ? pointerQuickAdd.date.toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "",
+    [pointerQuickAdd],
   );
 
   return (
@@ -506,24 +608,24 @@ function WeekGrid({
             };
 
             return (
-              <div
-                key={`${key}-${hour}`}
-                className="week-grid__cell"
-                role="presentation"
-                onClick={(mouseEvent) => {
-                  const target = mouseEvent.target as HTMLElement | null;
-                  if (!target) return;
-                  if (
-                    target.closest(".week-grid__timeline-entry") ||
-                    target.closest(".week-grid__all-day") ||
-                    target.closest(".week-grid__quick-add-container") ||
-                    target.closest(".week-grid__overflow-pill")
-                  ) {
-                    return;
-                  }
-                  handleCreateEvent(day, hour);
-                }}
-              >
+                <div
+                  key={`${key}-${hour}`}
+                  className="week-grid__cell"
+                  role="presentation"
+                  onClick={(mouseEvent) => {
+                    const target = mouseEvent.target as HTMLElement | null;
+                    if (!target) return;
+                    if (
+                      target.closest(".week-grid__timeline-entry") ||
+                      target.closest(".week-grid__all-day") ||
+                      target.closest(".week-grid__quick-add-container") ||
+                      target.closest(".week-grid__overflow-pill")
+                    ) {
+                      return;
+                    }
+                    openPointerQuickAdd(day, hour, mouseEvent);
+                  }}
+                >
                 {hourIndex === 0 &&
                   (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0) && (
                     <div className="week-grid__all-day">
@@ -618,6 +720,33 @@ function WeekGrid({
           })}
         </React.Fragment>
       ))}
+      {pointerQuickAdd && (
+        <div
+          className="week-grid__action-popover"
+          role="dialog"
+          aria-label="Quick add calendar entry"
+          style={quickAddPopoverStyle}
+        >
+          <div className="week-grid__action-popover-time" aria-hidden>
+            {quickAddTimeLabel}
+          </div>
+          <button
+            type="button"
+            className="week-grid__action-popover-option"
+            onClick={() => triggerCreateEvent(pointerQuickAdd.date)}
+          >
+            Event
+          </button>
+          <button
+            type="button"
+            className="week-grid__action-popover-option week-grid__action-popover-option--task"
+            onClick={() => triggerCreateTask(pointerQuickAdd.date, pointerQuickAdd.date)}
+            disabled={!canCreateTasks}
+          >
+            Task
+          </button>
+        </div>
+      )}
     </div>
   );
 }

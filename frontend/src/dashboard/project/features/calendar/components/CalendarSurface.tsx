@@ -48,6 +48,8 @@ import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay, formatTimeLabel 
 
 import "../calendar-preview.css";
 
+const POINTER_TASK_DEFAULT_DURATION_MINUTES = 30;
+
 export type CalendarSurfaceProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
@@ -654,7 +656,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   );
 
   const handleOpenQuickTaskModal = useCallback(
-    (date: Date) => {
+    (date: Date, startAt?: Date) => {
       setInternalDate(date);
       const fallbackProjectId = activeProjectId ?? taskProjects[0]?.id ?? null;
       if (!fallbackProjectId) {
@@ -667,10 +669,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
         null;
 
+      const resolvedStartAt = startAt ?? null;
+      const draftEndAt =
+        resolvedStartAt != null
+          ? new Date(resolvedStartAt.getTime() + POINTER_TASK_DEFAULT_DURATION_MINUTES * 60000)
+          : null;
+
       const draft: QuickCreateTaskModalTask = {
         projectId: fallbackProjectId,
         projectName: fallbackProjectName ?? null,
         dueDate: date,
+        startAt: resolvedStartAt ?? undefined,
+        endAt: draftEndAt ?? undefined,
         status: "todo",
       };
 
@@ -854,7 +864,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     tasks={visibleTasks}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
-                    onOpenQuickTask={handleOpenQuickTaskModal}
+                    onOpenQuickTask={(date) => handleOpenQuickTaskModal(date)}
                     canCreateTasks={canCreateTasks}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}

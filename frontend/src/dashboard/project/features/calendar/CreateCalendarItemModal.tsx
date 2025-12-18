@@ -38,6 +38,19 @@ type EventFormInitialValues = Partial<{
   guests?: string[];
 }>;
 
+type FormSnapshot = {
+  title: string;
+  date: string;
+  time: string;
+  endTime?: string;
+  allDay: boolean;
+  eventType: string;
+  location: string;
+  description: string;
+  tags: string[];
+  guests: string[];
+};
+
 type BaseProps = {
   isOpen: boolean;
   initialDate: Date;
@@ -105,6 +118,9 @@ const deriveEndTime = (time?: string) => {
   return `${endHours}:${endMinutes}`;
 };
 
+const areStringArraysEqual = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
 const CreateCalendarItemModal: React.FC<BaseProps> = ({
   isOpen,
   initialDate,
@@ -136,6 +152,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [guestError, setGuestError] = useState<string | null>(null);
+  const [initialSnapshot, setInitialSnapshot] = useState<FormSnapshot | null>(null);
 
   const guestOptions = useMemo(() => {
     if (!teamMembers || teamMembers.length === 0) return [];
@@ -233,36 +250,56 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   );
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setInitialSnapshot(null);
+      return;
+    }
     const resolvedDate = initialValues?.date ?? formatDateInput(initialDate);
     const resolvedTime = initialValues?.time ?? formatTimeInput(initialDate);
-    setDate(resolvedDate);
-    setTime(resolvedTime);
-    setEndTime(initialValues?.endTime ?? deriveEndTime(resolvedTime));
-    setTitle(initialValues?.title ?? "");
-    setDescription(initialValues?.description ?? "");
-    setGuestQuery("");
-    setGuestError(null);
-    setTags(
+    const resolvedEndTime = initialValues?.endTime ?? deriveEndTime(resolvedTime);
+    const resolvedTags =
       initialValues?.tags && initialValues.tags.length > 0
-        ? initialValues.tags
+        ? [...initialValues.tags]
         : isEditing
           ? []
-          : ["Meeting"]
-    );
-    setGuests(
+          : ["Meeting"];
+    const resolvedGuests =
       initialValues?.guests && initialValues.guests.length > 0
-        ? initialValues.guests
-        : []
-    );
+        ? [...initialValues.guests]
+        : [];
+    const resolvedEventType = initialValues?.eventType ?? EVENT_TYPE_OPTIONS[0].value;
+    const resolvedLocation = initialValues?.location ?? "";
+    const resolvedDescription = initialValues?.description ?? "";
+    const resolvedTitle = initialValues?.title ?? "";
+    setDate(resolvedDate);
+    setTime(resolvedTime);
+    setEndTime(resolvedEndTime);
+    setTitle(resolvedTitle);
+    setDescription(resolvedDescription);
+    setGuestQuery("");
+    setGuestError(null);
+    setTags(resolvedTags);
+    setGuests(resolvedGuests);
     setAllDay(initialValues?.allDay ?? false);
-    setEventType(initialValues?.eventType ?? EVENT_TYPE_OPTIONS[0].value);
-    setLocation(initialValues?.location ?? "");
+    setEventType(resolvedEventType);
+    setLocation(resolvedLocation);
     setLocationSuggestions([]);
     setShowWorldwideLink(false);
     setError(null);
     setIsSubmitting(false);
     setIsDeleting(false);
+    setInitialSnapshot({
+      title: resolvedTitle,
+      date: resolvedDate,
+      time: resolvedTime,
+      endTime: resolvedEndTime,
+      allDay: initialValues?.allDay ?? false,
+      eventType: resolvedEventType,
+      location: resolvedLocation,
+      description: resolvedDescription,
+      tags: resolvedTags,
+      guests: resolvedGuests,
+    });
   }, [initialDate, initialValues, isEditing, isOpen]);
 
   useEffect(() => {
@@ -511,15 +548,48 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     }
   };
 
+  const hasChanges = useMemo(() => {
+    if (!initialSnapshot) return false;
+    if (title !== initialSnapshot.title) return true;
+    if (date !== initialSnapshot.date) return true;
+    if (time !== initialSnapshot.time) return true;
+    if (endTime !== initialSnapshot.endTime) return true;
+    if (description !== initialSnapshot.description) return true;
+    if (location !== initialSnapshot.location) return true;
+    if (eventType !== initialSnapshot.eventType) return true;
+    if (allDay !== initialSnapshot.allDay) return true;
+    if (!areStringArraysEqual(tags, initialSnapshot.tags)) return true;
+    if (!areStringArraysEqual(guests, initialSnapshot.guests)) return true;
+    return false;
+  }, [
+    initialSnapshot,
+    title,
+    date,
+    time,
+    endTime,
+    description,
+    location,
+    eventType,
+    allDay,
+    tags,
+    guests,
+  ]);
+
+  const confirmDiscardChanges = useCallback(() => {
+    if (!hasChanges) return true;
+    if (typeof window === "undefined") return true;
+    return window.confirm("Discard unsaved changes?");
+  }, [hasChanges]);
+
   const handleRequestClose = useCallback(() => {
     if (isSubmitting || isDeleting) return;
+    if (!confirmDiscardChanges()) return;
     onClose();
-  }, [isDeleting, isSubmitting, onClose]);
+  }, [confirmDiscardChanges, isDeleting, isSubmitting, onClose]);
 
   const handleCancel = useCallback(() => {
-    if (isSubmitting || isDeleting) return;
-    onClose();
-  }, [isDeleting, isSubmitting, onClose]);
+    handleRequestClose();
+  }, [handleRequestClose]);
 
   return (
     <Modal
