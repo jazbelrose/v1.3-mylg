@@ -2276,80 +2276,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               {isEditing ? (
                 <>
 
-                  {hasAnyStatusAction && (
-                    <div className={styles.statusActions}>
-                      {showSubmitForReviewButton && (
-                        <button
-                          type="button"
-                          className={styles.statusActionButton}
-                          onClick={handleSubmitForReview}
-                          disabled={isBusy}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="9 11 12 14 22 4"></polyline>
-                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                          </svg>
-                          <span>Submit for review</span>
-                        </button>
-                      )}
-                      {showApproveReviewButton && (
-                        <button
-                          type="button"
-                          className={styles.statusActionButton}
-                          onClick={handleApproveReview}
-                          disabled={isBusy}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                          <span>Approve</span>
-                        </button>
-                      )}
-                      {showMarkDoneButton && (
-                        <button
-                          type="button"
-                          className={styles.statusActionButton}
-                          onClick={handleMarkDone}
-                          disabled={isBusy}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
-                          <span>Mark as done</span>
-                        </button>
-                      )}
-                      {showRequestChangesButton && (
-                        <button
-                          type="button"
-                          className={styles.statusActionButton}
-                          onClick={handleRequestChanges}
-                          disabled={isBusy}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                          </svg>
-                          <span>Request changes</span>
-                        </button>
-                      )}
-                      {(canArchiveTask || canUnarchiveTask) && (
-                        <button
-                          type="button"
-                          className={styles.statusActionButton}
-                          onClick={handleArchiveToggle}
-                          disabled={isBusy}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="21 8 21 21 3 21 3 8"></polyline>
-                            <rect x="1" y="3" width="22" height="5"></rect>
-                            <line x1="10" y1="12" x2="14" y2="12"></line>
-                          </svg>
-                          <span>{archiving ? "Working…" : canUnarchiveTask ? "Unarchive task" : "Archive task"}</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
                   {!hasAnyStatusAction && isStatusLocked && (
                     <p className={styles.helperText}>
                       Status changes to {formatStatusLabel(status)} happen in the task view.
@@ -2932,6 +2858,79 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 {deleting ? "Deleting…" : "Delete task"}
               </button>
             ) : null}
+            {isEditing && hasAnyStatusAction && (
+              <>
+                {showSubmitForReviewButton && (
+                  <button
+                    type="button"
+                    className={styles.statusActionButton}
+                    onClick={handleSubmitForReview}
+                    disabled={isBusy}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 11 12 14 22 4"></polyline>
+                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    <span>Submit for review</span>
+                  </button>
+                )}
+                {showApproveReviewButton && (
+                  <button
+                    type="button"
+                    className={styles.statusActionButton}
+                    onClick={handleApproveReview}
+                    disabled={isBusy}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Approve</span>
+                  </button>
+                )}
+                {showMarkDoneButton && (
+                  <button
+                    type="button"
+                    className={styles.statusActionButton}
+                    onClick={handleMarkDone}
+                    disabled={isBusy}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Mark as done</span>
+                  </button>
+                )}
+                {showRequestChangesButton && (
+                  <button
+                    type="button"
+                    className={styles.statusActionButton}
+                    onClick={handleRequestChanges}
+                    disabled={isBusy}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <span>Request changes</span>
+                  </button>
+                )}
+                {(canArchiveTask || canUnarchiveTask) && (
+                  <button
+                    type="button"
+                    className={styles.statusActionButton}
+                    onClick={handleArchiveToggle}
+                    disabled={isBusy}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                      <rect x="1" y="3" width="22" height="5"></rect>
+                      <line x1="10" y1="12" x2="14" y2="12"></line>
+                    </svg>
+                    <span>{archiving ? "Working…" : canUnarchiveTask ? "Unarchive task" : "Archive task"}</span>
+                  </button>
+                )}
+              </>
+            )}
             <button
               type="submit"
               className={styles.submitButton}
