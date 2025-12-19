@@ -2613,65 +2613,67 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               ) : null}
             </div>
             <div className={styles.fieldGroup}>
-              <textarea
-                id={notesFieldId}
-                aria-label="Assignment"
-                className={styles.textarea}
-                value={description}
-                onChange={handleDescriptionChange}
-                placeholder="Assignment"
-                disabled={isBusy}
-                rows={4}
-                ref={notesRef}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              />
-              {noteAttachments.length > 0 && (
-                <div className={styles.attachmentChips}>
-                  {noteAttachments.map((attachment, index) => {
-                    const isPdf = attachment.mimeType === 'application/pdf' || 
-                                  attachment.fileName.toLowerCase().endsWith('.pdf');
-                    
-                    return (
-                      <div 
-                        key={attachment.id} 
-                        className={styles.attachmentChip}
-                        onClick={(e) => handleAttachmentClick(index, e)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {isPdf ? (
-                          <FileText size={16} style={{ flexShrink: 0, color: 'var(--muted, #9aa0a6)' }} />
-                        ) : (
-                          <img src={attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
-                        )}
-                        <span>{attachment.fileName}</span>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveAttachment(attachment.id);
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div className={styles.notesFooter}>
-                <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
-                  <span className={styles.attachmentIcon}>📎</span>
-                  <span>Add files</span>
-                </label>
-                <input
-                  id={attachmentsFieldId}
-                  className={styles.fileInput}
-                  type="file"
-                  accept="image/*,.pdf"
-                  multiple
-                  onChange={handleAttachmentInputChange}
+              <div className={styles.notesContainer}>
+                <textarea
+                  id={notesFieldId}
+                  aria-label="Assignment"
+                  className={styles.textarea}
+                  value={description}
+                  onChange={handleDescriptionChange}
+                  placeholder="Assignment"
                   disabled={isBusy}
+                  rows={4}
+                  ref={notesRef}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
                 />
+                {noteAttachments.length > 0 && (
+                  <div className={styles.attachmentChips}>
+                    {noteAttachments.map((attachment, index) => {
+                      const isPdf = attachment.mimeType === 'application/pdf' || 
+                                    attachment.fileName.toLowerCase().endsWith('.pdf');
+                      
+                      return (
+                        <div 
+                          key={attachment.id} 
+                          className={styles.attachmentChip}
+                          onClick={(e) => handleAttachmentClick(index, e)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {isPdf ? (
+                            <FileText size={16} style={{ flexShrink: 0, color: 'var(--muted, #9aa0a6)' }} />
+                          ) : (
+                            <img src={attachment.url} alt={attachment.fileName} className={styles.chipPreview} />
+                          )}
+                          <span>{attachment.fileName}</span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveAttachment(attachment.id);
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className={styles.attachmentButtonOverlay}>
+                  <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
+                    <span className={styles.attachmentIcon}>📎</span>
+                    <span>Add files</span>
+                  </label>
+                  <input
+                    id={attachmentsFieldId}
+                    className={styles.fileInput}
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    onChange={handleAttachmentInputChange}
+                    disabled={isBusy}
+                  />
+                </div>
               </div>
             </div>
             <div className={styles.fieldGroup}>
