@@ -412,6 +412,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [isDueOpen, setIsDueOpen] = useState(false);
+  const [showQuickDateChips, setShowQuickDateChips] = useState(false);
+  const [dateFieldFocused, setDateFieldFocused] = useState(false);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
   const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);
@@ -1312,6 +1315,27 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   }, [dueDate]);
 
+  // Set default collapsed state based on mode
+  useEffect(() => {
+    if (!open) return;
+    
+    if (isEditing) {
+      // Edit mode: collapsed unless missing due date/time (prompt completion)
+      const hasDueDate = Boolean(dueDate && dueDate.trim());
+      setIsDueOpen(!hasDueDate);
+      setShowQuickDateChips(false);
+    } else {
+      // Create mode: expanded by default (scheduling is important)
+      setIsDueOpen(true);
+      setShowQuickDateChips(true);
+    }
+  }, [open, isEditing, dueDate]);
+
+  // Show quick date chips when date field is focused
+  useEffect(() => {
+    setShowQuickDateChips(dateFieldFocused || (isDueOpen && !isEditing));
+  }, [dateFieldFocused, isDueOpen, isEditing]);
+
 
   const descriptionCopy = (activeProjectId || scopedProjectId)
     ? `Launch work for ${resolvedActiveProjectName || "this project"}.`
@@ -1582,12 +1606,92 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTimeRangeError(null);
   };
 
+  const handleDueDateFocus = () => {
+    setIsDueOpen(true);
+    setDateFieldFocused(true);
+  };
+
+  const handleDueDateBlur = () => {
+    setDateFieldFocused(false);
+  };
+
+  const handleStartTimeFocus = () => {
+    setIsDueOpen(true);
+  };
+
+  const handleEndTimeFocus = () => {
+    setIsDueOpen(true);
+  };
+
+  const toggleDueSection = () => {
+    setIsDueOpen(!isDueOpen);
+  };
+
+  const formatDueSummary = (): string => {
+    if (!dueDate && !startTime && !endTime) {
+      return "Not scheduled";
+    }
+
+    const parts: string[] = [];
+
+    // Format date
+    if (dueDate) {
+      const dateObj = new Date(dueDate + "T00:00:00");
+      if (!isNaN(dateObj.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dueDateObj = new Date(dueDate + "T00:00:00");
+        dueDateObj.setHours(0, 0, 0, 0);
+
+        if (dueDateObj.getTime() === today.getTime()) {
+          parts.push("Today");
+        } else if (dueDateObj.getTime() === tomorrow.getTime()) {
+          parts.push("Tomorrow");
+        } else {
+          parts.push(dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+        }
+      }
+    }
+
+    // Format time range
+    if (startTime && endTime) {
+      const formatTime = (time: string) => {
+        const [hours, minutes] = time.split(":");
+        const h = parseInt(hours, 10);
+        const ampm = h >= 12 ? "PM" : "AM";
+        const h12 = h % 12 || 12;
+        return `${h12}${minutes !== "00" ? ":" + minutes : ""} ${ampm}`;
+      };
+      parts.push(`${formatTime(startTime)}–${formatTime(endTime)}`);
+    } else if (startTime) {
+      const formatTime = (time: string) => {
+        const [hours, minutes] = time.split(":");
+        const h = parseInt(hours, 10);
+        const ampm = h >= 12 ? "PM" : "AM";
+        const h12 = h % 12 || 12;
+        return `${h12}${minutes !== "00" ? ":" + minutes : ""} ${ampm}`;
+      };
+      parts.push(formatTime(startTime));
+    }
+
+    return parts.join(" · ") || "Not scheduled";
+  };
+
   const handleDueDateQuickSelect = (value: string) => {
     setDueDate(value);
     setSuccessMessage(null);
     setErrorMessage(null);
     setDueDateError(null);
     setTimeRangeError(null);
+    // Keep section open so user can set time immediately
+    setIsDueOpen(true);
+    // Focus start time field for smooth continuation
+    requestAnimationFrame(() => {
+      const startTimeField = document.getElementById(startTimeFieldId) as HTMLInputElement;
+      startTimeField?.focus();
+    });
   };
 
   const handleStartTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2588,7 +2692,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <div className={styles.attachmentButtonOverlay}>
                   <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
                     <span className={styles.attachmentIcon}>📎</span>
-                    <span>Add files</span>
+                    
                   </label>
                   <input
                     id={attachmentsFieldId}
@@ -2696,95 +2800,145 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               ) : null}
             </div>
             <div className={styles.fieldGroup}>
-              <div className={styles.fieldHeader}>
-                <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
-                  <span className={styles.fieldLabelText}>Due date</span>
-                </label>
-                <div className={styles.quickChipsSmall} role="group" aria-label="Quick due date shortcuts">
-                  <button
-                    type="button"
-                    className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
-                    onClick={() => handleDueDateQuickSelect(todayValue)}
-                    disabled={isBusy}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.quickChip} ${dueDate === tomorrowValue ? styles.quickChipActive : ""}`}
-                    onClick={() => handleDueDateQuickSelect(tomorrowValue)}
-                    disabled={isBusy}
-                  >
-                    +1
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.quickChip} ${dueDate === nextWeekValue ? styles.quickChipActive : ""}`}
-                    onClick={() => handleDueDateQuickSelect(nextWeekValue)}
-                    disabled={isBusy}
-                  >
-                    +7
-                  </button>
+              {/* Collapsible Due DateTime Section */}
+              <div 
+                className={styles.collapsibleHeader}
+                onClick={toggleDueSection}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleDueSection();
+                  }
+                }}
+                aria-expanded={isDueOpen}
+                aria-controls="due-datetime-content"
+              >
+                <div className={styles.collapsibleHeaderLeft}>
+                  <span className={styles.fieldLabelText}>Due datetime</span>
+                  <span className={styles.collapsibleSummary}>{formatDueSummary()}</span>
                 </div>
+                <svg
+                  className={`${styles.chevronIcon} ${isDueOpen ? styles.chevronOpen : ''}`}
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 6L8 10L12 6"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
-              <input
-                id={dueDateFieldId}
-                aria-label="Task due date"
-                type="date"
-                className={styles.textInput}
-                value={dueDate}
-                onChange={handleDueDateInputChange}
-                disabled={isBusy}
-                aria-describedby={dueDateError ? dueDateErrorId : undefined}
-              />
-              {dueDateError ? (
-                <p id={dueDateErrorId} className={styles.fieldError} aria-live="polite">
-                  {dueDateError}
-                </p>
-              ) : null}
-              <div className={styles.timeRangeRow}>
-                <div className={styles.timeRangeField}>
+              
+              {isDueOpen && (
+                <div id="due-datetime-content" className={styles.collapsibleContent}>
+                  {showQuickDateChips && (
+                    <div className={styles.quickChipsSmall} role="group" aria-label="Quick due date shortcuts">
+                      <button
+                        type="button"
+                        className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
+                        onClick={() => handleDueDateQuickSelect(todayValue)}
+                        disabled={isBusy}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.quickChip} ${dueDate === tomorrowValue ? styles.quickChipActive : ""}`}
+                        onClick={() => handleDueDateQuickSelect(tomorrowValue)}
+                        disabled={isBusy}
+                      >
+                        +1
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.quickChip} ${dueDate === nextWeekValue ? styles.quickChipActive : ""}`}
+                        onClick={() => handleDueDateQuickSelect(nextWeekValue)}
+                        disabled={isBusy}
+                      >
+                        +7
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className={styles.fieldHeader}>
-                    <label className={styles.fieldLabel} htmlFor={startTimeFieldId}>
-                      <span className={styles.fieldLabelText}>Start time</span>
+                    <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
+                      <span className={styles.fieldLabelText}>Date</span>
                     </label>
-                    <span className={styles.fieldOptional}>Optional</span>
                   </div>
                   <input
-                    id={startTimeFieldId}
-                    aria-label="Task start time"
-                    type="time"
+                    id={dueDateFieldId}
+                    aria-label="Task due date"
+                    type="date"
                     className={styles.textInput}
-                    value={startTime}
-                    onChange={handleStartTimeChange}
+                    value={dueDate}
+                    onChange={handleDueDateInputChange}
+                    onFocus={handleDueDateFocus}
+                    onBlur={handleDueDateBlur}
                     disabled={isBusy}
-                    aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
+                    aria-describedby={dueDateError ? dueDateErrorId : undefined}
                   />
-                </div>
-                <div className={styles.timeRangeField}>
-                  <div className={styles.fieldHeader}>
-                    <label className={styles.fieldLabel} htmlFor={endTimeFieldId}>
-                      <span className={styles.fieldLabelText}>End time</span>
-                    </label>
-                    <span className={styles.fieldOptional}>Optional</span>
+                  {dueDateError ? (
+                    <p id={dueDateErrorId} className={styles.fieldError} aria-live="polite">
+                      {dueDateError}
+                    </p>
+                  ) : null}
+                  
+                  <div className={styles.timeRangeRow}>
+                    <div className={styles.timeRangeField}>
+                      <div className={styles.fieldHeader}>
+                        <label className={styles.fieldLabel} htmlFor={startTimeFieldId}>
+                          <span className={styles.fieldLabelText}>Start time</span>
+                        </label>
+                        <span className={styles.fieldOptional}>Optional</span>
+                      </div>
+                      <input
+                        id={startTimeFieldId}
+                        aria-label="Task start time"
+                        type="time"
+                        className={styles.textInput}
+                        value={startTime}
+                        onChange={handleStartTimeChange}
+                        onFocus={handleStartTimeFocus}
+                        disabled={isBusy}
+                        aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
+                      />
+                    </div>
+                    <div className={styles.timeRangeField}>
+                      <div className={styles.fieldHeader}>
+                        <label className={styles.fieldLabel} htmlFor={endTimeFieldId}>
+                          <span className={styles.fieldLabelText}>End time</span>
+                        </label>
+                        <span className={styles.fieldOptional}>Optional</span>
+                      </div>
+                      <input
+                        id={endTimeFieldId}
+                        aria-label="Task end time"
+                        type="time"
+                        className={styles.textInput}
+                        value={endTime}
+                        onChange={handleEndTimeChange}
+                        onFocus={handleEndTimeFocus}
+                        disabled={isBusy}
+                        aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
+                      />
+                    </div>
                   </div>
-                  <input
-                    id={endTimeFieldId}
-                    aria-label="Task end time"
-                    type="time"
-                    className={styles.textInput}
-                    value={endTime}
-                    onChange={handleEndTimeChange}
-                    disabled={isBusy}
-                    aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
-                  />
+                  {timeRangeError ? (
+                    <p id={timeRangeErrorId} className={styles.fieldError} aria-live="polite">
+                      {timeRangeError}
+                    </p>
+                  ) : null}
                 </div>
-              </div>
-              {timeRangeError ? (
-                <p id={timeRangeErrorId} className={styles.fieldError} aria-live="polite">
-                  {timeRangeError}
-                </p>
-              ) : null}
+              )}
             </div>
             {isEditing ? (
               <div className={styles.fieldGroup}>
