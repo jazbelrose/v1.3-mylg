@@ -17,6 +17,7 @@ def count_functions(content: str, file_ext: str) -> int:
             r'^export\s+(default\s+)?function\s+\w+',
             r'^function\s+\w+',
             r'^export\s+const\s+\w+\s*=\s*\(',
+            r'^export\s+const\s+\w+\s*=',  # All const exports
             r'^const\s+\w+\s*:\s*React\.FC',
             r'^const\s+\w+\s*=\s*\([^)]*\)\s*=>',
         ]
@@ -61,11 +62,14 @@ def calculate_complexity_score(
     export_score = exports / 5
     
     # Combine scores (weighted)
+    # Lower function density = larger functions (capped at 0 to avoid negative values)
+    density_score = max(0, (10 - function_density)) * 0.1
+    
     complexity = (
         line_score * 0.4 +
         export_score * 0.3 +
         import_score * 0.2 +
-        (10 - function_density) * 0.1  # Lower function density = larger functions
+        density_score
     )
     
     return round(complexity, 2)

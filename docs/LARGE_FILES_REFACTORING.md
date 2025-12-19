@@ -30,8 +30,8 @@ The following files have been identified as monolithic and difficult to maintain
 
 5. **api.ts** - 1,115 lines
    - Location: `frontend/src/shared/utils/`
-   - Main Issues: 50+ API functions, types, configs mixed
-   - Recommended Split: 15+ files organized by domain
+   - Main Issues: 69+ exports (types, functions, constants), mixed concerns
+   - Recommended Split: 20+ files organized by domain (types, clients, utils, config)
 
 6. **HeaderStats.tsx** - 1,114 lines
    - Location: `frontend/src/dashboard/project/features/budget/components/`
