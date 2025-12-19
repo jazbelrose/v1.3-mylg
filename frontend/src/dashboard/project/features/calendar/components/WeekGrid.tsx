@@ -78,6 +78,7 @@ const SNAP_INTERVAL_MINUTES = 30;
 const MIN_DURATION_MINUTES = SNAP_INTERVAL_MINUTES;
 const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
+const ENTRY_MIN_HEIGHT_PX = 24;
 
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
 
@@ -211,6 +212,27 @@ function WeekGrid({
   const [dragPreviewTransforms, setDragPreviewTransforms] = useState<
     Record<string, { translateX: number; translateY: number }>
   >({});
+  const resizePreviewStylesRef = useRef<Record<string, true>>({});
+  const applyResizePreview = useCallback((entryKey: string, top: number, height: number) => {
+    const element = document.querySelector(
+      `[data-entry-key="${entryKey}"]`,
+    ) as HTMLElement | null;
+    if (!element) return;
+    resizePreviewStylesRef.current[entryKey] = true;
+    element.style.top = `${top}px`;
+    element.style.height = `${Math.max(height, ENTRY_MIN_HEIGHT_PX)}px`;
+  }, []);
+  const clearResizePreviews = useCallback(() => {
+    Object.keys(resizePreviewStylesRef.current).forEach((entryKey) => {
+      const element = document.querySelector(
+        `[data-entry-key="${entryKey}"]`,
+      ) as HTMLElement | null;
+      if (!element) return;
+      element.style.top = "";
+      element.style.height = "";
+    });
+    resizePreviewStylesRef.current = {};
+  }, []);
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
@@ -471,6 +493,8 @@ function WeekGrid({
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
+      clearResizePreviews();
+      setDragPreviewTransforms({});
       if (wasDragging) {
         suppressClickRef.current = true;
         setTimeout(() => {
@@ -501,22 +525,47 @@ function WeekGrid({
       if (moved) {
         isDraggingRef.current = true;
       }
-      if (state.mode !== "drag") return;
-      const transforms: Record<string, { translateX: number; translateY: number }> = {};
-      state.targets.forEach((target) => {
-        transforms[`${target.entry.type}:${target.entry.id}`] = {
-          translateX: deltaX,
-          translateY: deltaY,
-        };
-      });
-      setDragPreviewTransforms(transforms);
+
+      if (state.mode === "drag") {
+        const transforms: Record<string, { translateX: number; translateY: number }> = {};
+        state.targets.forEach((target) => {
+          transforms[`${target.entry.type}:${target.entry.id}`] = {
+            translateX: deltaX,
+            translateY: deltaY,
+          };
+        });
+        setDragPreviewTransforms(transforms);
+        clearResizePreviews();
+      } else {
+        setDragPreviewTransforms({});
+        state.targets.forEach((target) => {
+          const entryKey = `${target.entry.type}:${target.entry.id}`;
+          const durationMinutes = target.endMinutes - target.startMinutes;
+          const deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
+          let newStart = target.startMinutes;
+          let newEnd = target.endMinutes;
+          if (state.mode === "resizeTop") {
+            newStart = Math.max(0, Math.min(target.endMinutes - MIN_DURATION_MINUTES, target.startMinutes + deltaMinutes));
+          } else if (state.mode === "resizeBottom") {
+            newEnd = Math.min(MAX_MINUTES, Math.max(target.startMinutes + MIN_DURATION_MINUTES, target.endMinutes + deltaMinutes));
+          }
+          const [clampedStart, clampedEnd] = snapAndClampRange(newStart, newEnd);
+          const topChangePx = minutesToPxWeek(clampedStart - target.startMinutes);
+          const durationChangePx = minutesToPxWeek((clampedEnd - clampedStart) - durationMinutes);
+          const newTop = (target.initialTop ?? 0) + topChangePx;
+          const newHeight = (target.initialHeight ?? 0) + durationChangePx;
+          if (clampedEnd - clampedStart > 0) {
+            applyResizePreview(entryKey, newTop, newHeight);
+          }
+        });
+      }
     };
 
     document.addEventListener("pointermove", handlePointerMove);
     return () => {
       document.removeEventListener("pointermove", handlePointerMove);
     };
-  }, []);
+  }, [applyResizePreview, clearResizePreviews]);
 
   const createTarget = useCallback(
     (entry: TimelineHourEntry<CalendarEvent | CalendarTask>, dayKey: string): InteractionTarget => ({
@@ -568,6 +617,16 @@ function WeekGrid({
       if (!targets.length) {
         return;
       }
+      const gridRect = gridRef.current?.getBoundingClientRect();
+      targets.forEach((target) => {
+        const element = document.querySelector(
+          `[data-entry-key="${target.entry.type}:${target.entry.id}"]`,
+        ) as HTMLElement | null;
+        if (!element) return;
+        const rectElement = element.getBoundingClientRect();
+        target.initialTop = rectElement.top - (gridRect?.top ?? 0);
+        target.initialHeight = rectElement.height;
+      });
 
       const rect = pointerEvent.currentTarget.getBoundingClientRect();
       const relativeY = pointerEvent.clientY - rect.top;
