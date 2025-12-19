@@ -22,13 +22,17 @@ The codebase contains several large monolithic files that should be broken down 
 
 **Key Findings:**
 - 10 files identified over 800 lines of code
-- Top file: `api.ts` with 1,115 lines and 69 exports (complexity score: 9.57)
+- Top file: `api.ts` with 1,115 lines and 69 exports (complexity score: 9.53)
 - Total of 10,927 lines across top 10 files
 - Average complexity score: 6.18 (indicating high maintenance burden)
 
 **Run the analysis:**
 ```bash
+# Analyze default top 10 large files
 python3 docs/scripts/analyze_file_complexity.py
+
+# Or analyze specific files
+python3 docs/scripts/analyze_file_complexity.py frontend/src/shared/utils/api.ts
 ```
 
 ## Development Guides

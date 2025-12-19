@@ -1,7 +1,29 @@
 #!/usr/bin/env python3
 """
 File Complexity Analysis Script
+
 Generates metrics for large files in the codebase to aid in refactoring decisions.
+
+Usage:
+    # Analyze default set of top 10 large files
+    python3 docs/scripts/analyze_file_complexity.py
+    
+    # Analyze specific files
+    python3 docs/scripts/analyze_file_complexity.py frontend/src/shared/utils/api.ts
+    
+    # Analyze multiple specific files
+    python3 docs/scripts/analyze_file_complexity.py \
+        frontend/src/shared/utils/api.ts \
+        frontend/src/dashboard/features/messages/ProjectMessagesThread.tsx
+
+The script calculates a complexity score based on:
+- File size (lines of code)
+- Number of exports (more = more responsibilities)
+- Number of imports (more = more dependencies)
+- Function density (lower = larger functions)
+
+Higher complexity scores indicate files that are harder to maintain and should
+be prioritized for refactoring.
 """
 
 import os
@@ -16,8 +38,8 @@ def count_functions(content: str, file_ext: str) -> int:
         patterns = [
             r'^export\s+(default\s+)?function\s+\w+',
             r'^function\s+\w+',
-            r'^export\s+const\s+\w+\s*=\s*\(',
-            r'^export\s+const\s+\w+\s*=',  # All const exports
+            r'^export\s+const\s+\w+\s*=\s*\(',  # Functions starting with (
+            r'^export\s+const\s+\w+\s*=\s*[^(]', # Non-function const exports
             r'^const\s+\w+\s*:\s*React\.FC',
             r'^const\s+\w+\s*=\s*\([^)]*\)\s*=>',
         ]
@@ -107,12 +129,15 @@ def analyze_file(file_path: Path, base_path: Path) -> Dict:
 
 def main():
     """Main analysis function."""
+    import sys
+    
     # Get the repository root (2 levels up from docs/scripts)
     script_dir = Path(__file__).parent
     repo_root = script_dir.parent.parent
     
-    # Files to analyze (top 10 from our list)
-    files_to_analyze = [
+    # Default files to analyze (top 10 from our analysis)
+    # Can be overridden by providing file paths as command-line arguments
+    default_files = [
         'frontend/src/dashboard/features/messages/ProjectMessagesThread.tsx',
         'frontend/src/dashboard/home/components/QuickCreateTaskModal.tsx',
         'frontend/src/dashboard/project/features/budget/components/CreateLineItemModal.tsx',
@@ -125,6 +150,12 @@ def main():
         'frontend/src/dashboard/home/components/Collaborators.tsx',
     ]
     
+    # Use command-line arguments if provided, otherwise use defaults
+    if len(sys.argv) > 1:
+        files_to_analyze = sys.argv[1:]
+    else:
+        files_to_analyze = default_files
+    
     results = []
     for file_path in files_to_analyze:
         path = repo_root / file_path
@@ -132,6 +163,8 @@ def main():
             result = analyze_file(path, repo_root)
             if result:
                 results.append(result)
+        else:
+            print(f"Warning: File not found: {file_path}")
     
     # Sort by complexity score
     results.sort(key=lambda x: x['complexity_score'], reverse=True)
