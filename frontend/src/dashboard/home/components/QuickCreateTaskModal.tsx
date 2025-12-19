@@ -2923,26 +2923,26 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <div className={`${styles.feedback} ${styles.feedbackSuccess}`}>{successMessage}</div>
               ) : null}
             </div>
-            <div className={styles.actionBar}>
-              {isEditing ? (
-                <button
-                  type="button"
-                  className={styles.deleteButton}
-                  onClick={handleDelete}
-                  disabled={isBusy}
-                >
-                  {deleting ? "Deleting…" : "Delete task"}
-                </button>
-              ) : null}
+          </div>
+          <div className={styles.actionBar}>
+            {isEditing ? (
               <button
-                type="submit"
-                className={styles.submitButton}
-                disabled={isSubmitDisabled}
+                type="button"
+                className={styles.deleteButton}
+                onClick={handleDelete}
+                disabled={isBusy}
               >
-                {submitting ? <span className={styles.spinner} aria-hidden="true" /> : null}
-                <span>{isEditing ? "Save changes" : "Save task"}</span>
+                {deleting ? "Deleting…" : "Delete task"}
               </button>
-            </div>
+            ) : null}
+            <button
+              type="submit"
+              className={styles.submitButton}
+              disabled={isSubmitDisabled}
+            >
+              {submitting ? <span className={styles.spinner} aria-hidden="true" /> : null}
+              <span>{isEditing ? "Save changes" : "Save task"}</span>
+            </button>
           </div>
         </form>
       </div>
