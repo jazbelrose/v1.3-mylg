@@ -2772,6 +2772,32 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
                   <span className={styles.fieldLabelText}>Due date</span>
                 </label>
+                <div className={styles.quickChipsSmall} role="group" aria-label="Quick due date shortcuts">
+                  <button
+                    type="button"
+                    className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
+                    onClick={() => handleDueDateQuickSelect(todayValue)}
+                    disabled={isBusy}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.quickChip} ${dueDate === tomorrowValue ? styles.quickChipActive : ""}`}
+                    onClick={() => handleDueDateQuickSelect(tomorrowValue)}
+                    disabled={isBusy}
+                  >
+                    +1
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.quickChip} ${dueDate === nextWeekValue ? styles.quickChipActive : ""}`}
+                    onClick={() => handleDueDateQuickSelect(nextWeekValue)}
+                    disabled={isBusy}
+                  >
+                    +7
+                  </button>
+                </div>
               </div>
               <input
                 id={dueDateFieldId}
@@ -2788,32 +2814,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   {dueDateError}
                 </p>
               ) : null}
-              <div className={styles.quickChips} role="group" aria-label="Quick due date shortcuts">
-                <button
-                  type="button"
-                  className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
-                  onClick={() => handleDueDateQuickSelect(todayValue)}
-                  disabled={isBusy}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.quickChip} ${dueDate === tomorrowValue ? styles.quickChipActive : ""}`}
-                  onClick={() => handleDueDateQuickSelect(tomorrowValue)}
-                  disabled={isBusy}
-                >
-                  +1
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.quickChip} ${dueDate === nextWeekValue ? styles.quickChipActive : ""}`}
-                  onClick={() => handleDueDateQuickSelect(nextWeekValue)}
-                  disabled={isBusy}
-                >
-                  +7
-                </button>
-              </div>
               <div className={styles.timeRangeRow}>
                 <div className={styles.timeRangeField}>
                   <div className={styles.fieldHeader}>
