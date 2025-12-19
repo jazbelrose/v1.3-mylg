@@ -2848,16 +2848,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
             </div>
           </div>
           <div className={styles.actionBar}>
-            {isEditing ? (
-              <button
-                type="button"
-                className={styles.deleteButton}
-                onClick={handleDelete}
-                disabled={isBusy}
-              >
-                {deleting ? "Deleting…" : "Delete task"}
-              </button>
-            ) : null}
             {isEditing && hasAnyStatusAction && (
               <>
                 {showSubmitForReviewButton && (
@@ -2939,6 +2929,16 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               {submitting ? <span className={styles.spinner} aria-hidden="true" /> : null}
               <span>{isEditing ? "Save changes" : "Save task"}</span>
             </button>
+            {isEditing ? (
+              <button
+                type="button"
+                className={styles.deleteButton}
+                onClick={handleDelete}
+                disabled={isBusy}
+              >
+                {deleting ? "Deleting…" : "Delete task"}
+              </button>
+            ) : null}
           </div>
         </form>
       </div>
