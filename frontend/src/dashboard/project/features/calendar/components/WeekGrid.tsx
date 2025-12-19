@@ -27,6 +27,11 @@ import {
   type TimelineAvatar,
   type TimelineHourEntry,
 } from "./timelineLayout";
+import {
+  CalendarEntryChanges,
+  CalendarEntryType,
+  formatTimeFromMinutes,
+} from "./calendarInteractions";
 
 export type WeekGridProps = {
   anchorDate: Date;
@@ -40,6 +45,9 @@ export type WeekGridProps = {
   teamMembers?: ProjectTeamMember[];
   activeProjectId?: string | null;
   activeProjectColor?: string | null;
+  selectedEntryKeys: Set<string>;
+  onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
+  onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
 };
 
 type WeekDayEvents = {
@@ -65,6 +73,54 @@ const formatHour12 = (hour: number): string => {
 };
 
 const WEEK_TITLE_WORD_LIMIT = 3;
+const WEEK_ROW_HEIGHT_PX = 72;
+const SNAP_INTERVAL_MINUTES = 30;
+const MIN_DURATION_MINUTES = SNAP_INTERVAL_MINUTES;
+const RESIZE_HANDLE_THRESHOLD_PX = 10;
+const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
+
+const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
+
+const snapToInterval = (value: number) =>
+  Math.round(value / SNAP_INTERVAL_MINUTES) * SNAP_INTERVAL_MINUTES;
+
+const snapAndClampRange = (start: number, end: number): [number, number] => {
+  let snappedStart = clampMinutes(snapToInterval(start));
+  let snappedEnd = clampMinutes(snapToInterval(end));
+
+  if (snappedEnd <= snappedStart) {
+    snappedEnd = Math.min(MAX_MINUTES, snappedStart + SNAP_INTERVAL_MINUTES);
+    if (snappedEnd <= snappedStart) {
+      snappedStart = Math.max(0, MAX_MINUTES - SNAP_INTERVAL_MINUTES);
+      snappedEnd = MAX_MINUTES;
+    }
+  }
+
+  if (snappedEnd - snappedStart < MIN_DURATION_MINUTES) {
+    snappedEnd = Math.min(MAX_MINUTES, snappedStart + MIN_DURATION_MINUTES);
+    snappedStart = Math.max(0, snappedEnd - MIN_DURATION_MINUTES);
+  }
+
+  return [snappedStart, snappedEnd];
+};
+
+type InteractionMode = "drag" | "resizeTop" | "resizeBottom";
+
+type InteractionTarget = {
+  entry: TimelineHourEntry<CalendarEvent | CalendarTask>;
+  dayKey: string;
+  dayIndex: number;
+  startMinutes: number;
+  endMinutes: number;
+};
+
+type InteractionState = {
+  mode: InteractionMode;
+  startX: number;
+  startY: number;
+  targets: InteractionTarget[];
+  duplicate: boolean;
+};
 
 const QUICK_ADD_POPOVER_WIDTH = 200;
 const QUICK_ADD_POPOVER_HEIGHT = 140;
@@ -110,10 +166,20 @@ function WeekGrid({
   teamMembers,
   activeProjectId,
   activeProjectColor,
+  selectedEntryKeys,
+  onEntrySelect,
+  onRescheduleEntries,
 }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []); // 24-hour day
+  const dayIndexLookup = useMemo(() => {
+    const map = new Map<string, number>();
+    days.forEach((day, index) => {
+      map.set(fmtLocal(day), index);
+    });
+    return map;
+  }, [days]);
   
   const projectColor = useMemo(
     () => getProjectColor(activeProjectId, activeProjectColor),
@@ -141,6 +207,21 @@ function WeekGrid({
   const isAnchorHoverRef = useRef(false);
   const isTooltipHoverRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
+  const interactionRef = useRef<InteractionState | null>(null);
+  const [dragPreviewTransforms, setDragPreviewTransforms] = useState<
+    Record<string, { translateX: number; translateY: number }>
+  >({});
+  const isDraggingRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const rescheduleEntriesRef = useRef(onRescheduleEntries);
+
+  useEffect(() => {
+    rescheduleEntriesRef.current = onRescheduleEntries;
+  }, [onRescheduleEntries]);
+
+  useEffect(() => {
+    setDragPreviewTransforms({});
+  }, [events, tasks]);
 
   useEffect(() => {
     // Find the scrollable parent container
@@ -308,6 +389,207 @@ function WeekGrid({
     return layout;
   }, [days, events, tasks, teamMemberLookup]);
 
+  const entryLookup = useMemo(() => {
+    const map = new Map<
+      string,
+      { entry: TimelineHourEntry<CalendarEvent | CalendarTask>; dayKey: string }
+    >();
+    timelineEntriesByDay.forEach((hourMap, dayKey) => {
+      hourMap.forEach((entries) => {
+        entries.forEach((entry) => {
+          map.set(`${entry.type}:${entry.id}`, { entry, dayKey });
+        });
+      });
+    });
+    return map;
+  }, [timelineEntriesByDay]);
+
+  useEffect(() => {
+    const handlePointerUp = (event: PointerEvent) => {
+      const state = interactionRef.current;
+      if (!state) return;
+      const grid = gridRef.current;
+      const gridRect = grid?.getBoundingClientRect();
+      const spacer = grid?.querySelector(".week-grid__spacer") as HTMLElement | null;
+      const spacerWidth = spacer?.getBoundingClientRect().width ?? 0;
+      const columnWidth =
+        gridRect && days.length > 0 ? (gridRect.width - spacerWidth) / days.length : 0;
+      const deltaX = columnWidth > 0 && state.mode === "drag" ? event.clientX - state.startX : 0;
+      const deltaDays =
+        columnWidth > 0 && state.mode === "drag" ? Math.round(deltaX / columnWidth) : 0;
+      const deltaY = event.clientY - state.startY;
+      const deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
+
+      const changes: CalendarEntryChanges[] = [];
+
+      state.targets.forEach((target) => {
+        let newDayIndex = target.dayIndex;
+        let newStart = target.startMinutes;
+        let newEnd = target.endMinutes;
+
+        if (state.mode === "drag") {
+          newDayIndex = Math.max(0, Math.min(days.length - 1, target.dayIndex + deltaDays));
+          newStart = target.startMinutes + deltaMinutes;
+          newEnd = target.endMinutes + deltaMinutes;
+          const duration = target.endMinutes - target.startMinutes;
+          if (newStart < 0) {
+            newStart = 0;
+            newEnd = Math.min(MAX_MINUTES, duration);
+          }
+          if (newEnd > MAX_MINUTES) {
+            newEnd = MAX_MINUTES;
+            newStart = Math.max(0, newEnd - duration);
+          }
+        } else if (state.mode === "resizeTop") {
+          newStart = target.startMinutes + deltaMinutes;
+          newStart = Math.max(0, Math.min(newStart, target.endMinutes - MIN_DURATION_MINUTES));
+        } else if (state.mode === "resizeBottom") {
+          newEnd = target.endMinutes + deltaMinutes;
+          newEnd = Math.min(MAX_MINUTES, Math.max(newEnd, target.startMinutes + MIN_DURATION_MINUTES));
+        }
+
+        const [finalStart, finalEnd] = snapAndClampRange(newStart, newEnd);
+
+        const hadChange =
+          finalStart !== target.startMinutes ||
+          finalEnd !== target.endMinutes ||
+          newDayIndex !== target.dayIndex;
+        if (!hadChange) {
+          return;
+        }
+
+        const change: CalendarEntryChanges = {
+          type: target.entry.type === "event" ? "event" : "task",
+          entry: target.entry.payload,
+          date: fmtLocal(days[newDayIndex]),
+          start: formatTimeFromMinutes(finalStart),
+          end: formatTimeFromMinutes(finalEnd),
+          duplicate: state.duplicate && target.entry.type === "task",
+        };
+        changes.push(change);
+      });
+
+      const wasDragging = isDraggingRef.current;
+      interactionRef.current = null;
+      if (wasDragging) {
+        suppressClickRef.current = true;
+        setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 0);
+      }
+      isDraggingRef.current = false;
+
+      const onReschedule = rescheduleEntriesRef.current;
+      if (changes.length && onReschedule) {
+        onReschedule(changes);
+      }
+    };
+
+    document.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [days]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const state = interactionRef.current;
+      if (!state) return;
+      const deltaX = event.clientX - state.startX;
+      const deltaY = event.clientY - state.startY;
+      const moved = Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2;
+      if (moved) {
+        isDraggingRef.current = true;
+      }
+      if (state.mode !== "drag") return;
+      const transforms: Record<string, { translateX: number; translateY: number }> = {};
+      state.targets.forEach((target) => {
+        transforms[`${target.entry.type}:${target.entry.id}`] = {
+          translateX: deltaX,
+          translateY: deltaY,
+        };
+      });
+      setDragPreviewTransforms(transforms);
+    };
+
+    document.addEventListener("pointermove", handlePointerMove);
+    return () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, []);
+
+  const createTarget = useCallback(
+    (entry: TimelineHourEntry<CalendarEvent | CalendarTask>, dayKey: string): InteractionTarget => ({
+      entry,
+      dayKey,
+      dayIndex: dayIndexLookup.get(dayKey) ?? 0,
+      startMinutes: entry.startMinutes,
+      endMinutes: entry.endMinutes,
+    }),
+    [dayIndexLookup],
+  );
+
+  const gatherTargets = useCallback(
+    (entryKey: string, baseTarget: InteractionTarget) => {
+      if (!selectedEntryKeys.has(entryKey)) {
+        return [baseTarget];
+      }
+      const targets: InteractionTarget[] = [];
+      selectedEntryKeys.forEach((key) => {
+        const lookup = entryLookup.get(key);
+        if (!lookup) return;
+        targets.push(createTarget(lookup.entry, lookup.dayKey));
+      });
+      if (!targets.length) {
+        return [baseTarget];
+      }
+      return targets;
+    },
+    [entryLookup, createTarget, selectedEntryKeys],
+  );
+
+  const handleEntryPointerDown = useCallback(
+    (
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+      dayKey: string,
+      pointerEvent: React.PointerEvent<HTMLElement>,
+    ) => {
+      if (pointerEvent.button !== 0) {
+        return;
+      }
+      isDraggingRef.current = false;
+      suppressClickRef.current = false;
+      const entryKey = `${entry.type}:${entry.id}`;
+      const entryType: CalendarEntryType = entry.type === "event" ? "event" : "task";
+      const additive = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
+      onEntrySelect?.(entryType, entry.id, additive);
+      const baseTarget = createTarget(entry, dayKey);
+      const targets = gatherTargets(entryKey, baseTarget);
+      if (!targets.length) {
+        return;
+      }
+
+      const rect = pointerEvent.currentTarget.getBoundingClientRect();
+      const relativeY = pointerEvent.clientY - rect.top;
+      const mode: InteractionMode =
+        relativeY <= RESIZE_HANDLE_THRESHOLD_PX
+          ? "resizeTop"
+          : relativeY >= rect.height - RESIZE_HANDLE_THRESHOLD_PX
+          ? "resizeBottom"
+          : "drag";
+
+      interactionRef.current = {
+        mode,
+        startX: pointerEvent.clientX,
+        startY: pointerEvent.clientY,
+        targets,
+        duplicate: additive,
+      };
+      pointerEvent.preventDefault();
+    },
+    [createTarget, gatherTargets, onEntrySelect],
+  );
+
   const handleEntryMouseEnter = useCallback(
     (
       event: React.MouseEvent<HTMLElement>,
@@ -397,10 +679,13 @@ function WeekGrid({
 
   const renderWeekTimelineEntry = (
     entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    dayKey: string,
     entryStyle?: React.CSSProperties,
     stacked = false,
-    entryKey?: string,
+    entryKeyOverride?: string,
   ) => {
+    const entrySelectionKey = `${entry.type}:${entry.id}`;
+    const isEntrySelected = selectedEntryKeys.has(entrySelectionKey);
     const previewTitle = getWeekEntryPreview(entry.title);
     const tooltipLabel = entry.timeLabel ? `${entry.title} · ${entry.timeLabel}` : entry.title;
     const inlineAvatars =
@@ -415,6 +700,7 @@ function WeekGrid({
         ? "week-grid__timeline-entry--event"
         : "week-grid__timeline-entry--task",
       stacked ? "week-grid__timeline-entry--stacked" : "",
+      isEntrySelected ? "week-grid__timeline-entry--selected" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -425,6 +711,15 @@ function WeekGrid({
       background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
       border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
     };
+    const previewTransform = dragPreviewTransforms[entrySelectionKey];
+    const entryStyleWithPreview = previewTransform
+      ? {
+          ...pillStyle,
+          transform: `translate(${previewTransform.translateX}px, ${previewTransform.translateY}px)`,
+          transition: "none",
+          zIndex: 2,
+        }
+      : pillStyle;
     const content = (
       <div className="week-grid__timeline-entry-content">
         <div className="week-grid__timeline-entry-header">
@@ -448,7 +743,7 @@ function WeekGrid({
         </div>
       </div>
     );
-    const resolvedKey = entryKey ?? entry.id;
+    const resolvedKey = entryKeyOverride ?? entry.id;
 
     if (entry.type === "event") {
       return (
@@ -457,12 +752,20 @@ function WeekGrid({
           initial={stacked ? undefined : { opacity: 0.4, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           className={entryClasses}
-          style={pillStyle}
+          data-entry-key={entrySelectionKey}
+          data-entry-type={entry.type}
+          onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
+          style={entryStyleWithPreview}
           title={tooltipLabel}
           aria-label={tooltipLabel}
           role="button"
           tabIndex={0}
-          onClick={() => onEditEvent(entry.payload as CalendarEvent)}
+          onClick={() => {
+            if (suppressClickRef.current) {
+              return;
+            }
+            onEditEvent(entry.payload as CalendarEvent);
+          }}
           onKeyDown={(keyboardEvent) => {
             if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
               keyboardEvent.preventDefault();
@@ -485,10 +788,18 @@ function WeekGrid({
         key={resolvedKey}
         type="button"
         className={entryClasses}
-        style={pillStyle}
+        data-entry-key={entrySelectionKey}
+        data-entry-type={entry.type}
+        style={entryStyleWithPreview}
         title={tooltipLabel}
         aria-label={tooltipLabel}
-        onClick={() => onEditTask(entry.payload as CalendarTask)}
+        onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
+        onClick={() => {
+          if (suppressClickRef.current) {
+            return;
+          }
+          onEditTask(entry.payload as CalendarTask);
+        }}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
@@ -796,7 +1107,7 @@ function WeekGrid({
                   <div className="week-grid__timeline-rows">
                     {timelineEntries.map((entry) => (
                       <div key={`${entry.id}-stacked`} className="week-grid__timeline-row">
-                        {renderWeekTimelineEntry(entry, undefined, true)}
+                    {renderWeekTimelineEntry(entry, key, undefined, true)}
                       </div>
                     ))}
                     {overflowCount > 0 && (
@@ -825,7 +1136,7 @@ function WeekGrid({
                         left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
                         width: `${columnWidth}%`,
                       };
-                      return renderWeekTimelineEntry(entry, entryStyle, false, entry.id);
+                      return renderWeekTimelineEntry(entry, key, entryStyle, false, entry.id);
                     })}
                     {overflowCount > 0 && (
                       <div className="week-grid__overflow-pill" onClick={expandSlot}>

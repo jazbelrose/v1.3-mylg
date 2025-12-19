@@ -30,10 +30,18 @@ import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/compon
 import {
   requestTaskReview,
   approveTask,
+  createTask,
+  updateTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
+import type { Task } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
+import {
+  CalendarEntryChanges,
+  CalendarEntryType,
+  buildIsoDateTime,
+} from "./calendarInteractions";
 import { useUser } from "@/app/contexts/useUser";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
@@ -49,6 +57,16 @@ import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay, formatTimeLabel 
 import "../calendar-preview.css";
 
 const POINTER_TASK_DEFAULT_DURATION_MINUTES = 30;
+
+const resolveTaskIdentifier = (task: CalendarTask) => {
+  const source = task.source as ApiTask;
+  return (
+    source.taskId ??
+    (source as { id?: string }).id ??
+    task.id ??
+    null
+  );
+};
 
 export type CalendarSurfaceProps = {
   events: CalendarEvent[];
@@ -113,6 +131,32 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(() => new Set());
+  const buildSelectionKey = useCallback(
+    (type: CalendarEntryType, id: string) => `${type}:${id}`,
+    [],
+  );
+  const handleEntrySelect = useCallback(
+    (type: CalendarEntryType, id: string, additive: boolean) => {
+      const key = buildSelectionKey(type, id);
+      setSelectedEntries((prev) => {
+        if (!additive) {
+          if (prev.size === 1 && prev.has(key)) {
+            return prev;
+          }
+          return new Set([key]);
+        }
+        const next = new Set(prev);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        return next;
+      });
+    },
+    [buildSelectionKey],
+  );
 
 
   const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
@@ -711,6 +755,87 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     handleRefreshTasks();
   }, [handleRefreshTasks]);
 
+  const handleRescheduleEntries = useCallback(
+    async (changes: CalendarEntryChanges[]) => {
+      if (!changes.length) return;
+
+      const eventChanges = changes.filter((change) => change.type === "event");
+      const taskChanges = changes.filter((change) => change.type === "task");
+      const operations: Promise<unknown>[] = [];
+
+      if (eventChanges.length) {
+        eventChanges.forEach((change) => {
+          const event = change.entry as CalendarEvent;
+          const payload: CreateEventRequest = {
+            title: event.title || "Untitled event",
+            date: change.date,
+            time: change.start,
+            endTime: change.end,
+            allDay: event.allDay,
+            eventType: event.eventType ?? event.category ?? "",
+            location: event.location ?? undefined,
+            description: event.description ?? event.title ?? undefined,
+            tags: event.tags ?? [],
+            guests: event.guests ?? [],
+          };
+          operations.push(onUpdateEvent(event.source, payload));
+        });
+      }
+
+      if (taskChanges.length) {
+        taskChanges.forEach((change) => {
+          const task = change.entry as CalendarTask;
+          const source = task.source as ApiTask;
+          const projectId = source.projectId ?? activeProjectId ?? undefined;
+          const taskId = resolveTaskIdentifier(task);
+
+          if (!projectId) return;
+
+          const dueDate = change.date;
+          const startIso = buildIsoDateTime(dueDate, change.start);
+          const endIso = buildIsoDateTime(dueDate, change.end);
+
+          if (change.duplicate) {
+            const payload: Task = {
+              projectId,
+              title: task.title ?? "Untitled task",
+              description: task.description ?? undefined,
+              dueDate,
+              startAt: startIso,
+              endAt: endIso,
+              assigneeId: source.assigneeId,
+              assigneeIds: source.assigneeIds,
+              address: source.address,
+              location: source.location,
+            };
+            operations.push(createTask(payload));
+          } else if (taskId) {
+            const payload: Task = {
+              projectId,
+              taskId,
+              dueDate,
+              ...(startIso !== null ? { startAt: startIso } : {}),
+              ...(endIso !== null ? { endAt: endIso } : {}),
+            };
+            operations.push(updateTask(payload));
+          }
+        });
+      }
+
+      try {
+        await Promise.all(operations);
+        const refreshResult = onRefreshTasks?.();
+        if (refreshResult) {
+          await refreshResult;
+        }
+      } catch (error) {
+        console.error("Failed to reschedule calendar entries", error);
+        notify("error", "Unable to save calendar changes. Please try again.");
+      }
+    },
+    [activeProjectId, onRefreshTasks, onUpdateEvent],
+  );
+
   const handleSelectDate = useCallback((date: Date) => {
     setInternalDate(date);
   }, []);
@@ -898,6 +1023,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       teamMembers={teamMembers}
                       activeProjectId={activeProjectId}
                       activeProjectColor={activeProjectColor}
+                      selectedEntryKeys={selectedEntries}
+                      onEntrySelect={handleEntrySelect}
+                      onRescheduleEntries={handleRescheduleEntries}
                     />
                   </div>
                 )}
@@ -915,6 +1043,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       teamMembers={teamMembers}
                       activeProjectId={activeProjectId}
                       activeProjectColor={activeProjectColor}
+                      selectedEntryKeys={selectedEntries}
+                      onEntrySelect={handleEntrySelect}
+                      onRescheduleEntries={handleRescheduleEntries}
                     />
                   </div>
                 )}
