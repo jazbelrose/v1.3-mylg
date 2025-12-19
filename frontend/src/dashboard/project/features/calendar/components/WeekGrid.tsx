@@ -628,7 +628,7 @@ function WeekGrid({
     [],
   );
 
-  const handleEntryMouseLeave = useCallback(() => {
+  const handleEntryMouseLeave = useCallback((event: React.MouseEvent<HTMLElement>) => {
     // Mark anchor as not hovered
     isAnchorHoverRef.current = false;
 
@@ -645,6 +645,22 @@ function WeekGrid({
         setHoveredEntry(null);
       }
     }, 150);
+    event.currentTarget.style.cursor = "";
+  }, []);
+
+  const updateResizeCursor = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    const element = event.currentTarget;
+    const rect = element.getBoundingClientRect();
+    const relativeY = event.clientY - rect.top;
+    const isTopHandle = relativeY <= RESIZE_HANDLE_THRESHOLD_PX;
+    const isBottomHandle = relativeY >= rect.height - RESIZE_HANDLE_THRESHOLD_PX;
+    if (isTopHandle || isBottomHandle) {
+      if (element.style.cursor !== "ns-resize") {
+        element.style.cursor = "ns-resize";
+      }
+    } else if (element.style.cursor === "ns-resize") {
+      element.style.cursor = "";
+    }
   }, []);
 
   const handleTooltipHover = useCallback((isHovering: boolean) => {
@@ -772,6 +788,7 @@ function WeekGrid({
               onEditEvent(entry.payload as CalendarEvent);
             }
           }}
+          onMouseMove={updateResizeCursor}
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
@@ -800,6 +817,7 @@ function WeekGrid({
           }
           onEditTask(entry.payload as CalendarTask);
         }}
+        onMouseMove={updateResizeCursor}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >

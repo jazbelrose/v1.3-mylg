@@ -729,7 +729,8 @@ function DayGrid({
     [],
   );
 
-  const handleEntryMouseLeave = useCallback(() => {
+  const handleEntryMouseLeave = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
     // Mark anchor as not hovered
     isAnchorHoverRef.current = false;
 
@@ -745,6 +746,23 @@ function DayGrid({
         setHoveredEntry(null);
       }
     }, 150);
+    event.currentTarget.style.cursor = "";
+  }, []);
+
+  const updateResizeCursor = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    const element = event.currentTarget;
+    const rect = element.getBoundingClientRect();
+    const relativeY = event.clientY - rect.top;
+    const isTopHandle = relativeY <= RESIZE_HANDLE_THRESHOLD_PX;
+    const isBottomHandle = relativeY >= rect.height - RESIZE_HANDLE_THRESHOLD_PX;
+    const isResize = isTopHandle || isBottomHandle;
+    if (isResize) {
+      if (element.style.cursor !== "ns-resize") {
+        element.style.cursor = "ns-resize";
+      }
+    } else if (element.style.cursor === "ns-resize") {
+      element.style.cursor = "";
+    }
   }, []);
 
   const handleTooltipHover = useCallback((isHovering: boolean) => {
@@ -900,6 +918,7 @@ function DayGrid({
             }
           }}
           style={entryStyleWithPreview}
+          onMouseMove={updateResizeCursor}
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
@@ -926,6 +945,7 @@ function DayGrid({
           }
           onEditTask(entry.payload as CalendarTask);
         }}
+        onMouseMove={updateResizeCursor}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
