@@ -22,7 +22,7 @@ The codebase contains several large monolithic files that should be broken down 
 
 **Key Findings:**
 - 10 files identified over 800 lines of code
-- Top file: `api.ts` with 1,115 lines and 69 exports (complexity score: 9.53)
+- Top file: `api.ts` with 1,115 lines and 69 exports (complexity score: 9.57)
 - Total of 10,927 lines across top 10 files
 - Average complexity score: 6.18 (indicating high maintenance burden)
 

@@ -31,17 +31,28 @@ import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+# Complexity scoring constants
+# These weights determine how different factors contribute to the overall complexity score
+WEIGHT_LINE_COUNT = 0.4      # 40% - File size is a major indicator of complexity
+WEIGHT_EXPORTS = 0.3          # 30% - More exports = more responsibilities (SRP violation)
+WEIGHT_IMPORTS = 0.2          # 20% - More imports = more dependencies
+WEIGHT_FUNCTION_DENSITY = 0.1 # 10% - Lower density = larger, more complex functions
+
+# Optimal function density threshold (functions per 100 lines)
+# Below this value indicates functions are getting too large
+OPTIMAL_FUNCTION_DENSITY = 10.0
+
 def count_functions(content: str, file_ext: str) -> int:
     """Count function/component definitions in a file."""
     if file_ext in ['.ts', '.tsx', '.js', '.jsx']:
-        # Match function declarations, arrow functions, and const/let assignments
+        # Count exported functions and arrow functions
+        # Note: This is a heuristic count and may not be 100% accurate
         patterns = [
-            r'^export\s+(default\s+)?function\s+\w+',
-            r'^function\s+\w+',
-            r'^export\s+const\s+\w+\s*=\s*\(',  # Functions starting with (
-            r'^export\s+const\s+\w+\s*=\s*[^(]', # Non-function const exports
-            r'^const\s+\w+\s*:\s*React\.FC',
-            r'^const\s+\w+\s*=\s*\([^)]*\)\s*=>',
+            r'^export\s+(default\s+)?function\s+\w+',  # export function foo
+            r'^function\s+\w+',                         # function foo
+            r'^export\s+const\s+\w+\s*=\s*\(',         # export const foo = (
+            r'^const\s+\w+\s*:\s*React\.FC',           # const Foo: React.FC
+            r'^const\s+\w+\s*=\s*\([^)]*\)\s*=>',      # const foo = () =>
         ]
         count = 0
         for pattern in patterns:
@@ -70,28 +81,35 @@ def calculate_complexity_score(
     """
     Calculate a complexity score.
     Higher score = more complex and harder to maintain.
+    
+    The score is based on weighted factors:
+    - Line count (40%): More lines = more complexity
+    - Export count (30%): More exports = violates Single Responsibility Principle
+    - Import count (20%): More imports = more dependencies
+    - Function density (10%): Lower density = larger, more complex functions
     """
-    # Base score from lines (normalized)
+    # Base score from lines (normalized to per-100-lines scale)
     line_score = lines / 100
     
     # Function density (functions per 100 lines)
     function_density = (functions / lines * 100) if lines > 0 else 0
     
-    # Import density (more imports = more dependencies)
+    # Import density (normalized to per-10-imports scale)
     import_score = imports / 10
     
-    # Export score (more exports = more responsibilities)
+    # Export score (normalized to per-5-exports scale)
     export_score = exports / 5
     
-    # Combine scores (weighted)
-    # Lower function density = larger functions (capped at 0 to avoid negative values)
-    density_score = max(0, (10 - function_density)) * 0.1
+    # Density score: reward files with good function density, penalize large functions
+    # Using max(0, ...) to avoid negative values when density is very high
+    density_penalty = max(0, (OPTIMAL_FUNCTION_DENSITY - function_density))
     
+    # Combine scores using defined weights
     complexity = (
-        line_score * 0.4 +
-        export_score * 0.3 +
-        import_score * 0.2 +
-        density_score
+        line_score * WEIGHT_LINE_COUNT +
+        export_score * WEIGHT_EXPORTS +
+        import_score * WEIGHT_IMPORTS +
+        density_penalty * WEIGHT_FUNCTION_DENSITY
     )
     
     return round(complexity, 2)
