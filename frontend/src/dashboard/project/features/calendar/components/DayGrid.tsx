@@ -754,6 +754,7 @@ function DayGrid({
       event: React.MouseEvent<HTMLElement>,
       entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
     ) => {
+      setPointerQuickAdd(null);
       // Mark anchor as hovered
       isAnchorHoverRef.current = true;
 
@@ -805,7 +806,7 @@ function DayGrid({
       }
     }, 150);
     event.currentTarget.style.cursor = "";
-  }, []);
+  }, [setPointerQuickAdd]);
 
   const updateResizeCursor = useCallback((event: React.MouseEvent<HTMLElement>) => {
     const element = event.currentTarget;
