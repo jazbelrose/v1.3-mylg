@@ -2816,7 +2816,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 aria-controls="due-datetime-content"
               >
                 <div className={styles.collapsibleHeaderLeft}>
-                  <span className={styles.fieldLabelText}>Due datetime</span>
+                  <span className={styles.fieldLabelText}>Due </span>
                   <span className={styles.collapsibleSummary}>{formatDueSummary()}</span>
                 </div>
                 <svg
