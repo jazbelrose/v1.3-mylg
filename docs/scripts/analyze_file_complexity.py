@@ -213,10 +213,12 @@ def main():
     if results:
         total_lines = sum(r['lines'] for r in results)
         total_functions = sum(r['functions'] for r in results)
+        total_exports = sum(r['exports'] for r in results)
         avg_complexity = sum(r['complexity_score'] for r in results) / len(results)
         
-        print(f"Total lines across top 10 files: {total_lines:,}")
-        print(f"Total functions/exports: {total_functions}")
+        print(f"Total lines across analyzed files: {total_lines:,}")
+        print(f"Total functions: {total_functions}")
+        print(f"Total exports: {total_exports}")
         print(f"Average complexity score: {avg_complexity:.2f}")
         print(f"\nNote: Complexity score is based on file size, export count, imports, and function density.")
         print(f"Higher score = more complex and harder to maintain.\n")
