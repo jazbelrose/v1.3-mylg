@@ -553,10 +553,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const renderCanvasContext = () => (
     <div className="context-panel">
       <div className="context-controls compact">
-        <button type="button" className="toolbar-item" onClick={() => handleInsert(onInsertTextBox)} title="Add Text Box">
-          <Type size={18} />
-          <span>Add Text Box</span>
-        </button>
         
       </div>
     </div>
@@ -809,7 +805,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           ref={insertButtonRef}
           title="Insert content"
         >
-          <LayoutIcon size={18} />
           <span className="toolbar-item__label">Insert</span>
         </button>
         {activeDropdown === insertDropdownId &&
