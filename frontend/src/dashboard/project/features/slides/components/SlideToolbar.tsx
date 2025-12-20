@@ -604,7 +604,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             title="New slide"
           >
             <Plus size={18} />
-            <span className="toolbar-item__label">New Slide</span>
           </button>
         )}
 
