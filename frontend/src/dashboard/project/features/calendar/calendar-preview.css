@@ -37,18 +37,82 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 385px 1fr;
   gap: 24px;
   padding: 24px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.calendar-body.calendar-body--sidebar-collapsed {
+  grid-template-columns: 72px 1fr;
 }
 
 .calendar-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   min-height: 0;
+  position: relative;
+}
+
+.calendar-sidebar__collapse-toggle {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  width: max-content;
+}
+
+.calendar-sidebar__collapse-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.65);
+  outline-offset: 2px;
+}
+
+.calendar-sidebar__collapse-toggle:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.calendar-sidebar__collapse-label {
+  display: inline;
+}
+
+.calendar-sidebar__collapse-toggle.is-collapsed .calendar-sidebar__collapse-label {
+  display: none;
+}
+
+.calendar-sidebar__collapse-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+.calendar-sidebar__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+.calendar-sidebar--collapsed {
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-sidebar--collapsed .calendar-sidebar__inner {
+  display: none;
 }
 
 .calendar-main {

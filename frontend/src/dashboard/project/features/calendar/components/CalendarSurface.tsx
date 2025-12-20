@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, Menu, Search } from "lucide-react";
+import { CheckSquare, ChevronLeft, ChevronRight, Menu, Search } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   buildMapMarkers as buildTaskMapMarkers,
@@ -157,6 +157,16 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     },
     [buildSelectionKey],
   );
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarCollapsed(false);
+    }
+  }, [isMobile]);
 
 
   const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
@@ -912,41 +922,69 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     <div className="calendar-surface">
       <div className="calendar-shell">
         <div className="calendar-card">
-          <div className="calendar-body">
-            <div className="calendar-sidebar">
-              <MiniCalendar
-                value={internalDate}
-                onChange={setInternalDate}
-                rangeStart={projectRange?.start ?? null}
-                rangeEnd={projectRange?.end ?? null}
-                rangeColor={activeProjectColor ?? null}
-                finishLineDate={activeProjectEndDate ?? null}
-                activityDates={miniCalendarActivityDates}
-                activityMap={miniCalendarActivityMap}
-                indicatorColor={activeProjectColor ?? null}
-                isMobile={isMobile}
-                onOpenEvent={handleOpenMiniCalendarEvent}
-                onOpenTask={handleOpenMiniCalendarTask}
-              />
-              {isMobile ? (
+          <div
+            className={`calendar-body${isSidebarCollapsed ? " calendar-body--sidebar-collapsed" : ""}`}
+          >
+            <div
+              className={`calendar-sidebar${isSidebarCollapsed ? " calendar-sidebar--collapsed" : ""}`}
+            >
+              {!isMobile && (
                 <button
                   type="button"
-                  className="calendar-mobile-toggle"
-                  onClick={handleOpenMobileDrawer}
+                  className={`calendar-sidebar__collapse-toggle${
+                    isSidebarCollapsed ? " is-collapsed" : ""
+                  }`}
+                  onClick={handleToggleSidebar}
+                  aria-expanded={!isSidebarCollapsed}
+                  aria-label={
+                    isSidebarCollapsed ? "Expand calendar sidebar" : "Collapse calendar sidebar"
+                  }
                 >
-                  <Menu className="calendar-mobile-toggle__icon" aria-hidden />
-                  <span>View events & tasks</span>
+                  {isSidebarCollapsed ? (
+                    <ChevronRight size={16} aria-hidden />
+                  ) : (
+                    <ChevronLeft size={16} aria-hidden />
+                  )}
+                  <span className="calendar-sidebar__collapse-label">
+                    {isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+                  </span>
                 </button>
-              ) : (
-                <EventsAndTasks
-                  events={visibleEvents}
-                  tasks={visibleTasks}
-                  onToggleTask={onToggleTask}
-                  onEditEvent={handleOpenEditEvent}
-                  onEditTask={handleOpenEditTask}
-                  onOpenTasksOverview={handleOpenTasksOverview}
-                />
               )}
+              <div className="calendar-sidebar__inner">
+                <MiniCalendar
+                  value={internalDate}
+                  onChange={setInternalDate}
+                  rangeStart={projectRange?.start ?? null}
+                  rangeEnd={projectRange?.end ?? null}
+                  rangeColor={activeProjectColor ?? null}
+                  finishLineDate={activeProjectEndDate ?? null}
+                  activityDates={miniCalendarActivityDates}
+                  activityMap={miniCalendarActivityMap}
+                  indicatorColor={activeProjectColor ?? null}
+                  isMobile={isMobile}
+                  onOpenEvent={handleOpenMiniCalendarEvent}
+                  onOpenTask={handleOpenMiniCalendarTask}
+                />
+                {isMobile ? (
+                  <button
+                    type="button"
+                    className="calendar-mobile-toggle"
+                    onClick={handleOpenMobileDrawer}
+                  >
+                    <Menu className="calendar-mobile-toggle__icon" aria-hidden />
+                    <span>View events & tasks</span>
+                  </button>
+                ) : (
+                  <EventsAndTasks
+                    events={visibleEvents}
+                    tasks={visibleTasks}
+                    onToggleTask={onToggleTask}
+                    onEditEvent={handleOpenEditEvent}
+                    onEditTask={handleOpenEditTask}
+                    onOpenTasksOverview={handleOpenTasksOverview}
+                  />
+                )}
+              </div>
             </div>
 
             {!isMobile && (
