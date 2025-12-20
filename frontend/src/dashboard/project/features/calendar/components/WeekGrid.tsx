@@ -240,6 +240,21 @@ function WeekGrid({
     });
     resizePreviewStylesRef.current = {};
   }, []);
+  const resizePreviewRafRef = useRef<number | null>(null);
+  const scheduleClearResizePreviews = useCallback(() => {
+    if (resizePreviewRafRef.current !== null && typeof window !== "undefined") {
+      window.cancelAnimationFrame(resizePreviewRafRef.current);
+    }
+    if (typeof window === "undefined") {
+      clearResizePreviews();
+      resizePreviewRafRef.current = null;
+      return;
+    }
+    resizePreviewRafRef.current = window.requestAnimationFrame(() => {
+      resizePreviewRafRef.current = null;
+      clearResizePreviews();
+    });
+  }, [clearResizePreviews]);
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
@@ -251,6 +266,14 @@ function WeekGrid({
   useEffect(() => {
     setDragPreviewTransforms({});
   }, [events, tasks]);
+
+  useEffect(() => {
+    return () => {
+      if (resizePreviewRafRef.current !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(resizePreviewRafRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Find the scrollable parent container
@@ -538,7 +561,7 @@ function WeekGrid({
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
-      clearResizePreviews();
+      scheduleClearResizePreviews();
       if (!changes.length) {
         setDragPreviewTransforms({});
       }
@@ -565,7 +588,7 @@ function WeekGrid({
     return () => {
       document.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [days]);
+  }, [days, scheduleClearResizePreviews]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
