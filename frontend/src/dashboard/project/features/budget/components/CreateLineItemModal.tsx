@@ -4,6 +4,10 @@ import { faPaperclip, faXmark } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
+import FileManagerComponent, {
+  type FileItem,
+  type FileManagerRef,
+} from "@/dashboard/project/components/FileManager/FileManager";
 import styles from "./create-line-item-modal.module.css";
 import { parseBudget, formatUSD } from "@/shared/utils/budgetUtils";
 import { uploadFile } from "@/shared/utils/api";
@@ -189,6 +193,23 @@ const generateAttachmentId = (): string => {
   return `budget-attachment-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 };
 
+const getFilenameExtension = (fileName: string): string => {
+  const parts = fileName.split(".");
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+};
+
+const guessBudgetMimeTypeFromExtension = (extension: string): string | undefined => {
+  switch (extension) {
+    case "pdf":
+      return "application/pdf";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    default:
+      return undefined;
+  }
+};
+
 const fields: FieldDef[] = [
   { name: "category", label: "Category", type: "select", options: CATEGORY_OPTIONS },
   { name: "elementKey", label: "Element Key" },
@@ -333,6 +354,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const attachmentsFieldId = useId();
   const attachmentsHintId = `${attachmentsFieldId}-hint`;
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const fileManagerRef = useRef<FileManagerRef | null>(null);
 
   const resetSwipeState = useCallback(() => {
     setSwipeOffset(0);
@@ -834,6 +856,53 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     }
   };
 
+  const handleBudgetFilesSelected = useCallback((files: FileItem[]) => {
+    if (!files.length) return;
+    setAttachmentError(null);
+
+    const attachments: BudgetAttachment[] = [];
+    let invalidSelection = false;
+
+    files.forEach((file) => {
+      if (!file.url) return;
+      const extension = getFilenameExtension(file.fileName || "");
+      if (!extension || !ATTACHMENT_EXTENSIONS.has(extension)) {
+        invalidSelection = true;
+        return;
+      }
+      attachments.push({
+        id: generateAttachmentId(),
+        fileName: file.fileName || "Receipt",
+        mimeType: guessBudgetMimeTypeFromExtension(extension),
+        url: file.url,
+        uploadedAt: new Date().toISOString(),
+        size: typeof file.size === "number" ? file.size : undefined,
+      });
+    });
+
+    if (invalidSelection) {
+      setAttachmentError("Only JPEG or PDF receipts can be attached.");
+    }
+
+    if (!attachments.length) return;
+
+    setItem((prev) => {
+      const existingUrls = new Set((prev.attachments ?? []).map((attachment) => attachment.url));
+      const toAdd = attachments.filter((attachment) => !existingUrls.has(attachment.url));
+      if (!toAdd.length) return prev;
+      return { ...prev, attachments: [...(prev.attachments ?? []), ...toAdd] };
+    });
+  }, []);
+
+  const handleOpenBudgetFiles = useCallback(() => {
+    if (!activeProject?.projectId) {
+      setAttachmentError("Open a project to browse its files.");
+      return;
+    }
+    setAttachmentError(null);
+    fileManagerRef.current?.open();
+  }, [activeProject?.projectId]);
+
   const handleRemoveAttachment = (attachmentId: string) => {
     setItem((prev) => {
       const remaining = (prev.attachments ?? []).filter((attachment) => attachment.id !== attachmentId);
@@ -1141,6 +1210,16 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const previewAttachment =
     selectedAttachmentIndex !== null ? item.attachments?.[selectedAttachmentIndex] ?? null : null;
 
+  const budgetFilesPicker = (
+    <FileManagerComponent
+      ref={fileManagerRef}
+      showTrigger={false}
+      selectionMode="multi"
+      fileTypeFilter="all"
+      onFileSelect={handleBudgetFilesSelected}
+    />
+  );
+
   return (
     <>
       <Modal
@@ -1248,6 +1327,16 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
                   </div>
                 </div>
               </div>
+              <div className={styles.attachmentsActions}>
+                <button
+                  type="button"
+                  className={styles.attachmentsFromProjectButton}
+                  onClick={handleOpenBudgetFiles}
+                  disabled={!activeProject?.projectId}
+                >
+                  Attach from project files
+                </button>
+              </div>
               <p className={styles.attachmentsHint}>
                 Files are stored with the line item for easy reference later.
               </p>
@@ -1324,6 +1413,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
           </form>
         </div>
       </Modal>
+      {budgetFilesPicker}
 
       <AttachmentPreviewModal
         attachment={previewAttachment}

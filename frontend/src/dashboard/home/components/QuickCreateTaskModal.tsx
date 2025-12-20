@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FileText } from "lucide-react";
+import { FileText, Folder, Upload } from "lucide-react";
 
 import type { Task } from "@/shared/utils/api";
 import {
@@ -18,6 +18,7 @@ import {
   requestTaskChanges,
 } from "@/shared/utils/api";
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
+import { useData } from "@/app/contexts/useData";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
@@ -29,6 +30,10 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
+import FileManagerComponent, {
+  type FileItem,
+  type FileManagerRef,
+} from "@/dashboard/project/components/FileManager/FileManager";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -93,6 +98,49 @@ function generateAttachmentId(): string {
   }
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+const TASK_ATTACHMENT_EXTENSIONS = new Set([
+  "jpeg",
+  "jpg",
+  "png",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "tif",
+  "tiff",
+  "pdf",
+]);
+
+const getFileExtension = (fileName: string): string => {
+  const parts = fileName.split(".");
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+};
+
+const guessMimeTypeFromExtension = (extension: string): string | undefined => {
+  switch (extension) {
+    case "pdf":
+      return "application/pdf";
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "bmp":
+      return "image/bmp";
+    case "tif":
+    case "tiff":
+      return "image/tiff";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    default:
+      return undefined;
+  }
+};
 
 function sanitizeIncomingAttachments(
   attachments: TaskNoteAttachment[] | null | undefined,
@@ -372,6 +420,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   embedMode = false,
 }) => {
   const { userData, allUsers, userId, isAdmin, updateUserProfile, refreshUser } = useUser();
+  const { activeProject } = useData();
   useModalStack(open);
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
@@ -429,6 +478,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const formRef = useRef<HTMLFormElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const fileManagerRef = useRef<FileManagerRef | null>(null);
+  const attachmentPopoverRef = useRef<HTMLDivElement | null>(null);
+  const attachmentPopoverButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastAppliedTaskRef = useRef<string | null>(null);
   const successMessageRef = useRef<string | null>(null);
   const initialTaskRef = useRef<QuickCreateTaskModalTask | null>(null);
@@ -1834,6 +1887,93 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   }, []);
 
+  const handleProjectFilesSelected = useCallback((files: FileItem[]) => {
+    if (!files.length) return;
+
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    const attachments: TaskNoteAttachment[] = [];
+    let invalidFiles = false;
+
+    files.forEach((file) => {
+      if (!file.url) return;
+      const extension = getFileExtension(file.fileName || "");
+      if (!TASK_ATTACHMENT_EXTENSIONS.has(extension)) {
+        invalidFiles = true;
+        return;
+      }
+      attachments.push({
+        id: generateAttachmentId(),
+        fileName: file.fileName || "Attachment",
+        mimeType: guessMimeTypeFromExtension(extension),
+        url: file.url,
+      });
+    });
+
+    if (invalidFiles) {
+      setErrorMessage("Only images and PDF files can be attached.");
+    }
+
+    if (!attachments.length) return;
+
+    setNoteAttachments((prev) => {
+      const existingUrls = new Set(prev.map((attachment) => attachment.url));
+      const toAdd = attachments.filter((attachment) => !existingUrls.has(attachment.url));
+      return toAdd.length ? [...prev, ...toAdd] : prev;
+    });
+  }, []);
+
+  const canBrowseProjectFiles = Boolean(projectId && activeProject?.projectId === projectId);
+
+  const handleOpenProjectFiles = useCallback(() => {
+    if (!projectId) {
+      notify("warning", "Select a project before browsing its files.");
+      return;
+    }
+    if (!activeProject || activeProject.projectId !== projectId) {
+      notify("warning", "Set this project as active to access its files.");
+      return;
+    }
+    fileManagerRef.current?.open();
+  }, [projectId, activeProject]);
+
+  const [attachmentPopoverOpen, setAttachmentPopoverOpen] = useState(false);
+
+  const closeAttachmentPopover = useCallback(() => {
+    setAttachmentPopoverOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!attachmentPopoverOpen) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (attachmentPopoverRef.current?.contains(target)) return;
+      if (attachmentPopoverButtonRef.current?.contains(target)) return;
+      setAttachmentPopoverOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [attachmentPopoverOpen]);
+
+  useEffect(() => {
+    if (!open) {
+      closeAttachmentPopover();
+    }
+  }, [open, closeAttachmentPopover]);
+
+  const handleUploadFromComputer = () => {
+    attachmentInputRef.current?.click();
+    closeAttachmentPopover();
+  };
+
+  const handleProjectFilesOption = () => {
+    if (!canBrowseProjectFiles) return;
+    handleOpenProjectFiles();
+    closeAttachmentPopover();
+  };
+
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
     setNoteAttachments((prev) => prev.filter((attachment) => attachment.id !== attachmentId));
     setSuccessMessage(null);
@@ -2269,6 +2409,15 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       onRequestClose={handleClosePreview}
     />
   );
+  const projectFilesPicker = (
+    <FileManagerComponent
+      ref={fileManagerRef}
+      showTrigger={false}
+      selectionMode="multi"
+      fileTypeFilter="all"
+      onFileSelect={handleProjectFilesSelected}
+    />
+  );
 
   if (!open) {
 
@@ -2690,13 +2839,46 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   </div>
                 )}
                 <div className={styles.attachmentButtonOverlay}>
-                  <label htmlFor={attachmentsFieldId} className={styles.attachmentInputLabel}>
-                    <span className={styles.attachmentIcon}>📎</span>
-                    
-                  </label>
+                  <button
+                    type="button"
+                    ref={attachmentPopoverButtonRef}
+                    className={styles.attachmentIconButton}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setAttachmentPopoverOpen((current) => !current);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={attachmentPopoverOpen}
+                    disabled={isBusy}
+                  >
+                    <Upload className={styles.attachmentIcon} size={16} aria-hidden="true" />
+                  </button>
+                  {attachmentPopoverOpen && (
+                    <div className={styles.attachmentPopover} ref={attachmentPopoverRef} role="menu">
+                      <button
+                        type="button"
+                        className={styles.attachmentPopoverItem}
+                        onClick={handleUploadFromComputer}
+                      >
+                        Upload from computer
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.attachmentPopoverItem}
+                        onClick={handleProjectFilesOption}
+                        disabled={!canBrowseProjectFiles}
+                      >
+                        <span className={styles.attachmentPopoverItemIcon}>
+                          <Folder size={14} aria-hidden="true" />
+                        </span>
+                        Choose from project files
+                      </button>
+                    </div>
+                  )}
                   <input
                     id={attachmentsFieldId}
                     className={styles.fileInput}
+                    ref={attachmentInputRef}
                     type="file"
                     accept="image/*,.pdf"
                     multiple
@@ -3103,6 +3285,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       <>
         {modalContent}
         {previewModal}
+        {projectFilesPicker}
         <ConfirmModal
           isOpen={showConfirmClose}
           onRequestClose={() => setShowConfirmClose(false)}
@@ -3127,6 +3310,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         document.body
       )}
       {previewModal}
+      {projectFilesPicker}
       <ConfirmModal
         isOpen={showConfirmClose}
         onRequestClose={() => setShowConfirmClose(false)}
