@@ -258,8 +258,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
             event.preventDefault();
             // Set this slide as active first
             onSlideSelect(slide.id);
-            // Open context menu
-            openDropdown(contextMenuDropdownId, event.currentTarget);
+            // Open context menu at mouse coordinates
+            openDropdown(contextMenuDropdownId, event.currentTarget, { x: event.clientX, y: event.clientY });
           };
 
           return (

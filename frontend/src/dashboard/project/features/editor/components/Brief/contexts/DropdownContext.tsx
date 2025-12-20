@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 
 interface DropdownContextValue {
   activeDropdown: string | null;
-  openDropdown: (dropdownId: string, ref: HTMLElement | null) => void;
+  openDropdown: (dropdownId: string, ref: HTMLElement | null, coordinates?: { x: number; y: number }) => void;
   closeDropdown: () => void;
   dropdownRef: (node: HTMLElement | null) => void;
   isDropdownOpen: boolean;
@@ -15,10 +15,12 @@ export const DropdownProvider: React.FC<React.PropsWithChildren> = ({ children }
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const dropdownElementRef = useRef<HTMLElement | null>(null);
   const triggerRefsMap = useRef<Map<string, HTMLElement | null>>(new Map());
+  const coordinatesMap = useRef<Map<string, { x: number; y: number } | null>>(new Map());
 
-  const openDropdown = (dropdownId: string, ref: HTMLElement | null) => {
+  const openDropdown = (dropdownId: string, ref: HTMLElement | null, coordinates?: { x: number; y: number }) => {
     setActiveDropdown(dropdownId);
     triggerRefsMap.current.set(dropdownId, ref);
+    coordinatesMap.current.set(dropdownId, coordinates || null);
   };
 
   const closeDropdown = () => {
@@ -54,14 +56,18 @@ export const DropdownProvider: React.FC<React.PropsWithChildren> = ({ children }
   
   const positionDropdown = (node: HTMLElement, trigger: HTMLElement) => {
     const triggerRect = trigger.getBoundingClientRect();
+    const coordinates = activeDropdown ? coordinatesMap.current.get(activeDropdown) : null;
     
     // Position the dropdown
     node.style.position = 'fixed';
     node.style.zIndex = '1000';
     node.style.visibility = 'visible';
     
-    // Check if this is a nested dropdown (has dropdown--nested class)
-    if (node.classList.contains('dropdown--nested')) {
+    if (coordinates) {
+      // Position at exact coordinates (for context menus)
+      node.style.left = `${coordinates.x}px`;
+      node.style.top = `${coordinates.y}px`;
+    } else if (node.classList.contains('dropdown--nested')) {
       // Position to the right of the trigger for nested dropdowns
       node.style.left = `${triggerRect.right + 8}px`;
       node.style.top = `${triggerRect.top}px`;
