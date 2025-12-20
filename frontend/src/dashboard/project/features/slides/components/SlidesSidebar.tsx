@@ -297,7 +297,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
       {activeDropdown === contextMenuDropdownId &&
         ReactDOM.createPortal(
-          <div className="dropdown dropdown--right" ref={dropdownRef}>
+          <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
             {onDuplicateSlide && (
               <button
                 type="button"
