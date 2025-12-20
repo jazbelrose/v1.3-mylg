@@ -116,6 +116,8 @@ type InteractionTarget = {
   dayIndex: number;
   startMinutes: number;
   endMinutes: number;
+  initialTop?: number;
+  initialHeight?: number;
 };
 
 type InteractionState = {
@@ -667,15 +669,13 @@ function WeekGrid({
       if (!targets.length) {
         return;
       }
-      const gridRect = gridRef.current?.getBoundingClientRect();
       targets.forEach((target) => {
         const element = document.querySelector(
           `[data-entry-key="${target.entry.type}:${target.entry.id}"]`,
         ) as HTMLElement | null;
         if (!element) return;
-        const rectElement = element.getBoundingClientRect();
-        target.initialTop = rectElement.top - (gridRect?.top ?? 0);
-        target.initialHeight = rectElement.height;
+        target.initialTop = element.offsetTop;
+        target.initialHeight = element.offsetHeight;
       });
 
       const rect = pointerEvent.currentTarget.getBoundingClientRect();
