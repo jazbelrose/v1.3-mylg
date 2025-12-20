@@ -2,7 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Calendar, CheckSquare, Clock, Plus } from "lucide-react";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
-import { getMonthMatrix, fmtLocal, formatTimeLabel, isSameDay } from "../utils";
+import {
+  getMonthMatrix,
+  fmtLocal,
+  formatTimeLabel,
+  isSameDay,
+  safeDate,
+} from "../utils";
 
 export type MonthGridProps = {
   viewDate: Date;
@@ -16,6 +22,73 @@ export type MonthGridProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onSwitchToDayView?: () => void;
+};
+
+type DayEntryType = "event" | "task";
+
+type DayEntry = {
+  id: string;
+  type: DayEntryType;
+  sortKey: string;
+  title: string;
+  note?: string;
+  spanStart: Date;
+  spanEnd: Date;
+  event?: CalendarEvent;
+  task?: CalendarTask;
+};
+
+const MAX_VISIBLE_ENTRIES = 3;
+
+const parseDateCandidate = (...candidates: Array<string | undefined | null>) => {
+  for (const candidate of candidates) {
+    const parsed = safeDate(candidate ?? undefined);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return undefined;
+};
+
+const buildDateRange = (
+  startCandidates: Array<string | undefined | null>,
+  endCandidates: Array<string | undefined | null>,
+  fallback?: string,
+) => {
+  const fallbackDate = fallback ? safeDate(fallback) : undefined;
+  const start = parseDateCandidate(...startCandidates) ?? fallbackDate;
+  const end =
+    parseDateCandidate(...endCandidates) ?? fallbackDate ?? (start ? new Date(start.getTime()) : undefined);
+  if (!start || !end) return null;
+  if (start.getTime() <= end.getTime()) {
+    return { start, end };
+  }
+  return { start: end, end: start };
+};
+
+const formatSpanLabel = (date: Date) =>
+  date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+const buildTooltipTimeLabel = (entry: DayEntry) => {
+  const { spanStart, spanEnd, event, task } = entry;
+  if (!isSameDay(spanStart, spanEnd)) {
+    return `${formatSpanLabel(spanStart)} – ${formatSpanLabel(spanEnd)}`;
+  }
+
+  if (event && event.allDay) {
+    return "All day";
+  }
+
+  const startTime = event?.start ?? task?.start;
+  const endTime = event?.end ?? task?.end;
+
+  const startLabel = formatTimeLabel(startTime) ?? startTime;
+  const endLabel = formatTimeLabel(endTime) ?? endTime;
+
+  if (startLabel && endLabel) {
+    return `${startLabel} – ${endLabel}`;
+  }
+  return startLabel ?? endLabel;
 };
 
 function MonthGrid({
@@ -33,23 +106,81 @@ function MonthGrid({
 }: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
-  const eventsByDate = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
+  const entriesByDate = useMemo(() => {
+    const map = new Map<string, DayEntry[]>();
+
+    const addToMap = (day: Date, entry: DayEntry) => {
+      const key = fmtLocal(day);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(entry);
+    };
+
+    const addRangeToMap = ({ start, end }: { start: Date; end: Date }, entry: DayEntry) => {
+      for (
+        let cursor = new Date(start.getTime());
+        cursor.getTime() <= end.getTime();
+        cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000)
+      ) {
+        addToMap(cursor, entry);
+      }
+    };
+
     events.forEach((event) => {
-      if (!map.has(event.date)) map.set(event.date, []);
-      map.get(event.date)!.push(event);
+      const range = buildDateRange(
+        [event.source.startAt, event.source.start, event.date],
+        [event.source.endAt, event.source.end, event.date],
+        event.date,
+      );
+      if (!range) return;
+
+      const entry: DayEntry = {
+        id: event.id,
+        type: "event",
+        sortKey: event.start ?? "99:99",
+        title: event.title,
+        note: event.description,
+        spanStart: range.start,
+        spanEnd: range.end,
+        event,
+      };
+
+      addRangeToMap(range, entry);
     });
-    return map;
-  }, [events]);
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, CalendarTask[]>();
+
     tasks.forEach((task) => {
-      if (!task.due) return;
-      if (!map.has(task.due)) map.set(task.due, []);
-      map.get(task.due)!.push(task);
+      const range = buildDateRange(
+        [
+          task.source.startAt,
+          (task.source as { start?: string }).start,
+          task.source.dueDate,
+          task.due,
+        ],
+        [
+          task.source.endAt,
+          (task.source as { end?: string }).end,
+          task.source.dueDate,
+          task.due,
+        ],
+        task.due,
+      );
+      if (!range) return;
+
+      const entry: DayEntry = {
+        id: task.id,
+        type: "task",
+        sortKey: task.start ?? "99:99",
+        title: task.title,
+        note: task.description,
+        spanStart: range.start,
+        spanEnd: range.end,
+        task,
+      };
+
+      addRangeToMap(range, entry);
     });
+
     return map;
-  }, [tasks]);
+  }, [events, tasks]);
 
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
@@ -110,32 +241,16 @@ function MonthGrid({
           const isCurrentMonth = day.getMonth() === month;
           const key = fmtLocal(day);
           const isSelected = isSameDay(day, selectedDate);
-          const dayEvents = eventsByDate.get(key) || [];
-          const dayTasks = tasksByDate.get(key) || [];
-          const combined = [
-            ...dayEvents.map((event) => ({
-              type: "event" as const,
-              sortKey: event.start ?? "99:99",
-              event,
-            })),
-            ...dayTasks.map((task) => ({
-              type: "task" as const,
-              sortKey: task.start ?? "99:99",
-              task,
-            })),
-          ].sort((a, b) => {
+          const dayEntries = entriesByDate.get(key) || [];
+          const sortedEntries = [...dayEntries].sort((a, b) => {
             const timeCompare = a.sortKey.localeCompare(b.sortKey);
             if (timeCompare !== 0) return timeCompare;
-            if (a.type === b.type) {
-              const titleA = a.type === "event" ? a.event.title : a.task.title;
-              const titleB = b.type === "event" ? b.event.title : b.task.title;
-              return titleA.localeCompare(titleB);
-            }
-            return a.type === "event" ? -1 : 1;
+            return a.title.localeCompare(b.title);
           });
 
-          const visible = combined.slice(0, 4);
-          const remaining = combined.length - visible.length;
+          const visibleEntries = sortedEntries.slice(0, MAX_VISIBLE_ENTRIES);
+          const overflowCount = Math.max(0, sortedEntries.length - visibleEntries.length);
+          const tooltipItems = visibleEntries;
 
           const className = [
             "month-grid__cell",
@@ -146,6 +261,7 @@ function MonthGrid({
             .join(" ");
 
           const isHovered = hoveredKey === key;
+          const tooltipOverflowCount = overflowCount;
 
           return (
             <div
@@ -167,76 +283,125 @@ function MonthGrid({
                 {day.getDate()}
               </button>
               <div className="month-grid__events">
-              {visible.map((item) => {
-                if (item.type === "event") {
-                  const { event } = item;
-                  return (
-                    <div
-                      key={`event-${event.id}`}
-                      className="month-grid__event"
-                      role="button"
-                      tabIndex={0}
-                      onClick={(mouseEvent) => {
-                        mouseEvent.stopPropagation();
-                        onEditEvent(event);
-                      }}
-                      onKeyDown={(keyboardEvent) => {
-                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                          keyboardEvent.preventDefault();
-                          onEditEvent(event);
-                        }
-                      }}
-                    >
-                      <div className="month-grid__event-content">
-                        <div className="month-grid__item-icon month-grid__item-icon--event">
-                          <Calendar size={10} className="month-grid__item-icon-svg" />
-                        </div>
-                        <div className="month-grid__event-title" title={event.title}>
-                          {event.title}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                const { task } = item;
-                const startLabel = formatTimeLabel(task.start) ?? task.start;
-                const endLabel = formatTimeLabel(task.end) ?? task.end;
-                const timeLabel =
-                  startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
-                return (
-                  <div
-                    key={`task-${task.id}`}
-                    className="month-grid__event month-grid__event--task"
-                    role="button"
-                    tabIndex={0}
-                    onClick={(mouseEvent) => {
-                      mouseEvent.stopPropagation();
-                      onEditTask(task);
-                    }}
-                    onKeyDown={(keyboardEvent) => {
-                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                        keyboardEvent.preventDefault();
-                        onEditTask(task);
-                      }
-                    }}
-                  >
-                    <div className="month-grid__event-content">
-                      <div className="month-grid__item-icon month-grid__item-icon--task">
-                        <CheckSquare size={10} className="month-grid__item-icon-svg" />
-                      </div>
+                {visibleEntries.map((item) => {
+                  if (item.type === "event" && item.event) {
+                    return (
                       <div
-                        className={`month-grid__event-title ${(task.done || task.status === 'archived') ? "is-complete" : ""}`}
-                        title={task.title}
+                        key={`event-${item.event.id}`}
+                        className="month-grid__event"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onEditEvent(item.event!);
+                        }}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                            keyboardEvent.preventDefault();
+                            onEditEvent(item.event!);
+                          }
+                        }}
                       >
-                        {task.title}
+                        <div className="month-grid__event-content">
+                          <div className="month-grid__item-icon month-grid__item-icon--event">
+                            <Calendar size={10} className="month-grid__item-icon-svg" />
+                          </div>
+                          <div className="month-grid__event-title" title={item.title}>
+                            {item.title}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {remaining > 0 && <div className="month-grid__more">+{remaining} more</div>}
-            </div>
+                    );
+                  }
+
+                  if (item.task) {
+                    return (
+                      <div
+                        key={`task-${item.task.id}`}
+                        className="month-grid__event month-grid__event--task"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(mouseEvent) => {
+                          mouseEvent.stopPropagation();
+                          onEditTask(item.task!);
+                        }}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                            keyboardEvent.preventDefault();
+                            onEditTask(item.task!);
+                          }
+                        }}
+                      >
+                        <div className="month-grid__event-content">
+                          <div className="month-grid__item-icon month-grid__item-icon--task">
+                            <CheckSquare size={10} className="month-grid__item-icon-svg" />
+                          </div>
+                          <div
+                            className={`month-grid__event-title ${
+                              (item.task.done || item.task.status === "archived") ? "is-complete" : ""
+                            }`}
+                            title={item.title}
+                          >
+                            {item.title}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+                {overflowCount > 0 && <div className="month-grid__more-pill">+{overflowCount} more</div>}
+              </div>
+              {isHovered && tooltipItems.length > 0 && (
+                <div
+                  className={`month-grid__tooltip${
+                    tooltipOverflowCount > 0 ? " month-grid__tooltip--has-overflow" : ""
+                  }`}
+                >
+                  {tooltipItems.map((item) => {
+                    const timeLabel = buildTooltipTimeLabel(item);
+                    const triggerTooltipAction = () => {
+                      if (item.type === "event" && item.event) {
+                        onEditEvent(item.event);
+                      } else if (item.type === "task" && item.task) {
+                        onEditTask(item.task);
+                      }
+                    };
+                    const handleAction = (event: React.MouseEvent<HTMLButtonElement>) => {
+                      event.stopPropagation();
+                      triggerTooltipAction();
+                    };
+                    return (
+                      <button
+                        key={`${item.type}-${item.id}`}
+                        type="button"
+                        className="month-grid__tooltip-item"
+                        onClick={handleAction}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                            keyboardEvent.preventDefault();
+                            triggerTooltipAction();
+                          }
+                        }}
+                      >
+                        <span
+                          className={`month-grid__tooltip-dot month-grid__tooltip-dot--${item.type}`}
+                          aria-hidden="true"
+                        />
+                        <div className="month-grid__tooltip-body">
+                          <span className="month-grid__tooltip-title">{item.title}</span>
+                          {timeLabel && <span className="month-grid__tooltip-time">{timeLabel}</span>}
+                          {item.note && <span className="month-grid__tooltip-note">{item.note}</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {tooltipOverflowCount > 0 && (
+                    <span className="month-grid__tooltip-pill">+{tooltipOverflowCount}</span>
+                  )}
+                </div>
+              )}
             <div className="month-grid__quick-add-container">
               <button
                 type="button"

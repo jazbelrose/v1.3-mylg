@@ -136,10 +136,24 @@
   font-size: 6px;
 }
 
-.all-projects-calendar-wrapper .event-overflow {
-  font-size: 0.5rem;
-  margin-left: 2px;
-  color: #ccc;
+.all-projects-calendar-wrapper .tile-dot-more-pill {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  min-height: 18px;
+  line-height: 18px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: rgba(15, 15, 15, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  backdrop-filter: saturate(140%) blur(2px);
 }
 
 .all-projects-calendar-wrapper .timeline-bars {
@@ -327,56 +341,49 @@
   margin-bottom: 6px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: rgba(30, 30, 30, 0.9);
-  padding: 4px 8px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
+  background-color: rgba(30, 30, 30, 0.95);
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
   opacity: 0;
   transition: opacity 0.2s ease;
   z-index: 1000;
-  width: max-content;
-  max-width: 160px;
+  min-width: 200px;
+  max-width: 260px;
+  width: min(260px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-
 
 .all-projects-calendar-wrapper .tile-tooltip.visible {
   opacity: 1;
   transform: translateX(-50%) translateY(-4px);
 }
 
-.all-projects-calendar-wrapper .tooltip-item {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 4px;
-  font-size: 0.7rem;
-  margin-bottom: 2px;
-  cursor: pointer;
-  width: 100%;
+.all-projects-calendar-wrapper .tile-tooltip.tile-tooltip--has-overflow {
+  padding-bottom: 32px;
 }
 
-
-.all-projects-calendar-wrapper .tooltip-thumb,
-.all-projects-calendar-wrapper .tooltip-initial {
-  width: 16px;
-  height: 16px;
-  object-fit: cover;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
-  font-size: 0.6rem;
-}
-
-.all-projects-calendar-wrapper .tooltip-thumb-image,
-.all-projects-calendar-wrapper .tooltip-thumb-placeholder {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
+.all-projects-calendar-wrapper .tile-tooltip-more-pill {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  height: 20px;
+  line-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(15, 15, 15, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+  backdrop-filter: saturate(140%) blur(2px);
 }
 
 .all-projects-calendar-wrapper .tooltip-text {
@@ -386,6 +393,25 @@
   align-items: flex-start;
   text-align: left;
   width: 100%;
+}
+
+.all-projects-calendar-wrapper .tooltip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  width: 100%;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.8rem;
+}
+.all-projects-calendar-wrapper .tooltip-item:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.7);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .all-projects-calendar-wrapper .tooltip-header {
@@ -406,19 +432,18 @@
 }
 
 .all-projects-calendar-wrapper .tooltip-dot {
-  font-size: 7.5px;
-}
-.all-projects-calendar-wrapper .tooltip-icon {
-  font-size: 0.55rem;
-  color: inherit;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  margin-top: 4px;
 }
 
-.all-projects-calendar-wrapper .tooltip-date {
+.all-projects-calendar-wrapper .tooltip-time {
   font-size: 0.6rem;
-  color: #FA3356;
+  color: rgba(255, 255, 255, 0.75);
   white-space: nowrap;
-  margin-left: auto;
-  align-self: center;
 }
 
 

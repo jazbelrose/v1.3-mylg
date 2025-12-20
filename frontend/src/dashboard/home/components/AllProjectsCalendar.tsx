@@ -15,10 +15,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { TimelineEvent } from "@/shared/utils/api";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 import { WeekWidget } from "./WeekWidget";
-import { getFileUrl } from "../../../shared/utils/api";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
-import Squircle from "@/shared/ui/Squircle";
-import SVGThumbnail from "./SvgThumbnail";
 
 // --- Types ---
 type Project = {
@@ -33,16 +30,14 @@ type Project = {
   lane?: number;
 };
 
-type CombinedTooltipItem = {
-  projectId: string;
-  title?: string;
-  thumbnail?: string;
-  finishline?: string;
-  events: TimelineEvent[];
-};
-
 type RangeMap = Record<string, Project[]>;
-type EventsMap = Record<string, (TimelineEvent & { projectId: string; title?: string })[]>;
+type CalendarEvent = TimelineEvent & {
+  projectId: string;
+  projectTitle?: string;
+  spanStart?: Date;
+  spanEnd?: Date;
+};
+type EventsMap = Record<string, CalendarEvent[]>;
 
 // --- Helpers ---
 function safeParseDate(dateStr?: string | null): Date | null {
@@ -66,7 +61,67 @@ function getDateKey(date: Date | null | undefined): string | null {
   return utc.toISOString().slice(0, 10);
 }
 
-const titleKey = (t?: string) => (t ?? "").toString();
+function isSameDay(a?: Date | null, b?: Date | null) {
+  return !!(
+    a &&
+    b &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function parseInstant(value?: string | null): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatTimeString(date: Date) {
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatDayLabel(date: Date) {
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getTooltipTimeLabel(event: CalendarEvent): string | undefined {
+  const startInstant = parseInstant(event.startAt ?? event.date ?? null);
+  const endInstant = parseInstant(event.endAt ?? event.date ?? event.startAt ?? null);
+  const resolvedEnd = endInstant && startInstant && endInstant < startInstant ? startInstant : endInstant;
+
+  if (startInstant && resolvedEnd) {
+    if (isSameDay(startInstant, resolvedEnd)) {
+      return `${formatTimeString(startInstant)} – ${formatTimeString(resolvedEnd)}`;
+    }
+    return `${formatDayLabel(startInstant)} – ${formatDayLabel(resolvedEnd)}`;
+  }
+
+  if (startInstant) {
+    return event.allDay ? formatDayLabel(startInstant) : formatTimeString(startInstant);
+  }
+
+  if (event.spanStart && event.spanEnd && event.spanEnd > event.spanStart) {
+    return `${formatDayLabel(event.spanStart)} – ${formatDayLabel(event.spanEnd)}`;
+  }
+
+  if (event.spanStart) {
+    return formatDayLabel(event.spanStart);
+  }
+
+  return undefined;
+}
+
+function getEventSortValue(event: CalendarEvent) {
+  const instant = parseInstant(event.startAt ?? event.date ?? event.endAt ?? null);
+  return event.spanStart?.getTime() ?? (instant ? instant.getTime() : 0);
+}
 
 // --- Component ---
 const AllProjectsCalendar: React.FC = () => {
@@ -181,14 +236,37 @@ const AllProjectsCalendar: React.FC = () => {
     projects.forEach((project) => {
       if (!Array.isArray(project.timelineEvents)) return;
       project.timelineEvents.forEach((ev) => {
-        const key = getDateKey(safeParseDate((ev?.date as string | undefined) ?? null));
-        if (!key) return;
-        if (!map[key]) map[key] = [];
-        map[key].push({
-          ...ev,
-          projectId: project.projectId,
-          title: project.title,
-        });
+        const start = safeParseDate(
+          (ev?.startAt as string | undefined) ??
+            (ev?.date as string | undefined) ??
+            (ev?.endAt as string | undefined) ??
+            null
+        );
+        if (!start) return;
+        const endCandidate = safeParseDate(
+          (ev?.endAt as string | undefined) ??
+            (ev?.date as string | undefined) ??
+            (ev?.startAt as string | undefined) ??
+            null
+        );
+        const end = endCandidate && endCandidate >= start ? endCandidate : start;
+
+        for (
+          let cursor = new Date(start.getTime());
+          cursor.getTime() <= end.getTime();
+          cursor.setUTCDate(cursor.getUTCDate() + 1)
+        ) {
+          const key = getDateKey(cursor);
+          if (!key) continue;
+          if (!map[key]) map[key] = [];
+          map[key].push({
+            ...ev,
+            projectId: project.projectId,
+            projectTitle: project.title,
+            spanStart: start,
+            spanEnd: end,
+          });
+        }
       });
     });
 
@@ -243,34 +321,58 @@ const AllProjectsCalendar: React.FC = () => {
     const activeProjects = dayKey ? rangeMap[dayKey] ?? [] : [];
     const dayEvents = dayKey ? eventsMap[dayKey] ?? [] : [];
 
-    // Merge projects + events (dedupe by projectId)
-    const combined: Record<string, CombinedTooltipItem> = {};
-    activeProjects.forEach((p) => {
-      combined[p.projectId] = {
-        projectId: p.projectId,
-        title: p.title,
-        thumbnail: p.thumbnail,
-        finishline: p.finishline,
-        events: [],
-      };
-    });
-    dayEvents.forEach((ev) => {
-      if (!combined[ev.projectId]) {
-        combined[ev.projectId] = {
-          projectId: ev.projectId,
-          title: ev.title,
-          thumbnail: undefined,
-          finishline: undefined,
-          events: [],
-        };
-      }
-      combined[ev.projectId].events.push(ev);
+    const uniqueEvents = (() => {
+      const seen = new Set<string>();
+      const list: CalendarEvent[] = [];
+      dayEvents.forEach((ev, idx) => {
+        const dedupeKey =
+          ev.id ??
+          ev.eventId ??
+          `${ev.projectId}-${idx}-${dayKey ?? date.toISOString()}`;
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+        list.push(ev);
+      });
+      return list;
+    })();
+
+    const sortedEvents = [...uniqueEvents].sort(
+      (a, b) => getEventSortValue(a) - getEventSortValue(b)
+    );
+
+    type TooltipEntry = {
+      id: string;
+      title: string;
+      note?: string;
+      time?: string;
+      color: string;
+      onSelect: () => void;
+    };
+
+    const tooltipItems: TooltipEntry[] = sortedEvents.map((event, idx) => {
+      const id =
+        event.id ??
+        event.eventId ??
+        `${event.projectId}-${idx}-${dayKey ?? date.toISOString()}`;
+      const title = event.title ?? event.projectTitle ?? "Untitled";
+      const note =
+        event.description ??
+        (event.payload && typeof event.payload.description === "string"
+          ? event.payload.description
+          : undefined);
+      const time = getTooltipTimeLabel(event);
+      const color = colorMap[event.projectId] || getColor(event.projectId);
+      const onSelect = () =>
+        handleProjectClick(
+          { projectId: event.projectId, title: event.projectTitle } as Project,
+          dayKey ?? undefined
+        );
+      return { id, title, note, time, color, onSelect };
     });
 
-    // SAFE sort (prevents undefined.localeCompare crash)
-    const tooltipItems = Object.values(combined).sort((a, b) =>
-      titleKey(a.title).localeCompare(titleKey(b.title), undefined, { sensitivity: "base" })
-    );
+    const MAX_TOOLTIP_ITEMS = 3;
+    const tooltipOverflowCount = Math.max(0, tooltipItems.length - MAX_TOOLTIP_ITEMS);
+    const visibleTooltipItems = tooltipItems.slice(0, MAX_TOOLTIP_ITEMS);
 
     const showHover = () => {
       if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
@@ -288,10 +390,9 @@ const AllProjectsCalendar: React.FC = () => {
     const isHovered = hoverDate && getDateKey(hoverDate) === dayKey;
 
     // Dots (events)
-    const MAX_DOTS = 6;
-    const showOverflow = dayEvents.length > MAX_DOTS;
-    const dotsToRender = showOverflow ? dayEvents.slice(0, 2) : dayEvents.slice(0, MAX_DOTS);
-    const overflowCount = showOverflow ? dayEvents.length - 2 : 0;
+    const MAX_DOTS = 3;
+    const dotsToRender = uniqueEvents.slice(0, MAX_DOTS);
+    const overflowCount = Math.max(0, uniqueEvents.length - MAX_DOTS);
 
     return (
       <div
@@ -302,16 +403,20 @@ const AllProjectsCalendar: React.FC = () => {
         onClick={handleClick}
       >
         <div className="tile-dots">
-          {dotsToRender.map((e, idx) => (
+          {dotsToRender.map((event, idx) => (
             <FontAwesomeIcon
               key={`e-${idx}`}
               icon={faClock}
               className="event-dot"
-              style={{ color: colorMap[e.projectId] || getColor(e.projectId) }}
-              title={e.description}
+              style={{ color: colorMap[event.projectId] || getColor(event.projectId) }}
+              title={event.description}
             />
           ))}
-          {overflowCount > 0 && <span className="event-overflow">+{overflowCount}</span>}
+          {overflowCount > 0 && (
+            <span className="tile-dot-more-pill" aria-label={`${overflowCount} more events`}>
+              +{overflowCount}
+            </span>
+          )}
         </div>
 
         <div className="tile-date-number">{date.getDate()}</div>
@@ -372,53 +477,35 @@ const AllProjectsCalendar: React.FC = () => {
         {isHovered && tooltipItems.length > 0 && (
           <div
             ref={tooltipRef}
-            className="tile-tooltip visible"
+            className={`tile-tooltip visible${tooltipOverflowCount > 0 ? " tile-tooltip--has-overflow" : ""}`}
             style={{
               transform: `translateX(calc(-50% + ${tooltipOffset}px)) translateY(-4px)`,
             }}
           >
-            {tooltipItems.slice(0, 3).map((item) => {
-              const events = Array.isArray(item.events) ? item.events : [];
-              return (
-                <div
-                  key={item.projectId}
-                  className="tooltip-item"
-                  onClick={() => handleProjectClick({ projectId: item.projectId, title: item.title } as Project)}
-                >
-                  <Squircle as="span" className="tooltip-thumb" aria-hidden radius={6}>
-                    {item.thumbnail ? (
-                      <img
-                        src={getFileUrl(item.thumbnail)}
-                        alt={item.title ?? "thumbnail"}
-                        className="tooltip-thumb-image"
-                      />
-                    ) : (
-                      <SVGThumbnail
-                        initial={(item.title ?? "Untitled").trim().charAt(0).toUpperCase() || "#"}
-                        className="tooltip-thumb-placeholder"
-                      />
-                    )}
-                  </Squircle>
-                  <div className="tooltip-text">
-                    <div className="tooltip-header">
-                      <span className="tooltip-title">{item.title ?? "Untitled"}</span>
-                      {item.finishline && (
-                        <span className="tooltip-date">
-                          {new Date(String(item.finishline)).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    {events.map((ev, idx) => (
-                      <span key={idx} className="tooltip-info">
-                        {(ev.description ?? "").toUpperCase()}
-                      </span>
-                    ))}
+            {visibleTooltipItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="tooltip-item"
+                onClick={() => {
+                  item.onSelect();
+                  setHoverDate(null);
+                }}
+              >
+                <span className="tooltip-dot" style={{ background: item.color }} aria-hidden="true" />
+                <div className="tooltip-text">
+                  <div className="tooltip-header">
+                    <span className="tooltip-title">{item.title}</span>
+                    {item.time && <span className="tooltip-time">{item.time}</span>}
                   </div>
+                  {item.note && <span className="tooltip-info">{item.note}</span>}
                 </div>
-              );
-            })}
-            {tooltipItems.length > 3 && (
-              <div className="tooltip-more">+{tooltipItems.length - 3} more</div>
+              </button>
+            ))}
+            {tooltipOverflowCount > 0 && (
+              <span className="tile-tooltip-more-pill" aria-label={`+${tooltipOverflowCount} more events`}>
+                +{tooltipOverflowCount}
+              </span>
             )}
           </div>
         )}
