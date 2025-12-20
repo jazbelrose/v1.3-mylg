@@ -4,6 +4,7 @@ import { addDays, startOfWeek } from "@/dashboard/home/utils/dateUtils";
 import { getColor } from "@/shared/utils/colorUtils";
 import { DayPopover, DaySheet } from "./DayOverlay";
 import { useCalendarController } from "./useCalendarController";
+import { useProjectTasks } from "./useProjectTasks";
 import type { CalendarBaseProps } from "./CalendarBase";
 import { formatHours, getDateKey, safeParse } from "./utils";
 import "./project-week-widget.css";
@@ -35,6 +36,8 @@ const ProjectWeekWidget: React.FC<ProjectWeekWidgetProps> = ({
   showEventList = false,
   className = "",
 }) => {
+  const tasks = useProjectTasks(project?.projectId ?? null);
+
   const controller = useCalendarController({
     project,
     initialFlashDate,
@@ -42,6 +45,7 @@ const ProjectWeekWidget: React.FC<ProjectWeekWidgetProps> = ({
     onWrapperClick,
     dayHeaderIdPrefix: "project-week-widget-day",
     showEventList,
+    tasks,
   });
 
   const { wrapperHandlers, startDate, endDate, projectColor, selectedKey, eventsByDate, openDay, overlayState, modal } =

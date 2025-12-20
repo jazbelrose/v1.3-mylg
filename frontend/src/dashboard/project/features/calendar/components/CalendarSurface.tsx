@@ -1046,6 +1046,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
                     onSwitchToDayView={handleSwitchToDayView}
+                    teamMembers={teamMembers}
                   />
                 )}
                 {view === "week" && (

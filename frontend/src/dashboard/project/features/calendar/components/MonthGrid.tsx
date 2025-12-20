@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Calendar, CheckSquare, Clock, Plus } from "lucide-react";
+import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
+import {
+  buildEventAvatars,
+  buildTaskAvatars,
+  buildTeamMemberLookup,
+  type TimelineAvatar,
+} from "./timelineLayout";
 import {
   getMonthMatrix,
   fmtLocal,
@@ -22,6 +30,7 @@ export type MonthGridProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onSwitchToDayView?: () => void;
+  teamMembers?: ProjectTeamMember[];
 };
 
 type DayEntryType = "event" | "task";
@@ -36,6 +45,7 @@ type DayEntry = {
   spanEnd: Date;
   event?: CalendarEvent;
   task?: CalendarTask;
+  avatars: TimelineAvatar[];
 };
 
 const MAX_VISIBLE_ENTRIES = 3;
@@ -68,6 +78,23 @@ const buildDateRange = (
 
 const formatSpanLabel = (date: Date) =>
   date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+const buildAvatarStack = (
+  avatars: TimelineAvatar[],
+  avatarClassName: string,
+  radius: number,
+  keyPrefix: string,
+) =>
+  avatars.map((avatar) => (
+    <ProjectAvatar
+      key={`${keyPrefix}-${avatar.key}`}
+      className={avatarClassName}
+      thumb={avatar.thumb ?? undefined}
+      name={avatar.name}
+      shape="circle"
+      radius={radius}
+    />
+  ));
 
 const buildTooltipTimeLabel = (entry: DayEntry) => {
   const { spanStart, spanEnd, event, task } = entry;
@@ -103,9 +130,16 @@ function MonthGrid({
   onEditEvent,
   onEditTask,
   onSwitchToDayView,
+  teamMembers,
 }: MonthGridProps) {
   const days = useMemo(() => getMonthMatrix(viewDate), [viewDate]);
   const month = viewDate.getMonth();
+  
+  const memberLookup = useMemo(
+    () => (teamMembers ? buildTeamMemberLookup(teamMembers) : undefined),
+    [teamMembers],
+  );
+  
   const entriesByDate = useMemo(() => {
     const map = new Map<string, DayEntry[]>();
 
@@ -142,6 +176,7 @@ function MonthGrid({
         spanStart: range.start,
         spanEnd: range.end,
         event,
+        avatars: buildEventAvatars(event, memberLookup),
       };
 
       addRangeToMap(range, entry);
@@ -174,13 +209,14 @@ function MonthGrid({
         spanStart: range.start,
         spanEnd: range.end,
         task,
+        avatars: buildTaskAvatars(task, memberLookup),
       };
 
       addRangeToMap(range, entry);
     });
 
     return map;
-  }, [events, tasks]);
+  }, [events, tasks, memberLookup]);
 
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [quickAddKey, setQuickAddKey] = useState<string | null>(null);
@@ -386,14 +422,29 @@ function MonthGrid({
                         }}
                       >
                         <span
-                          className={`month-grid__tooltip-dot month-grid__tooltip-dot--${item.type}`}
+                          className={`month-grid__tooltip-icon month-grid__tooltip-icon--${item.type}`}
                           aria-hidden="true"
-                        />
+                        >
+                          {item.type === "task" ? (
+                            <CheckSquare className="month-grid__tooltip-icon-svg" />
+                          ) : (
+                            <Clock className="month-grid__tooltip-icon-svg" />
+                          )}
+                        </span>
                         <div className="month-grid__tooltip-body">
                           <span className="month-grid__tooltip-title">{item.title}</span>
                           {timeLabel && <span className="month-grid__tooltip-time">{timeLabel}</span>}
-                          {item.note && <span className="month-grid__tooltip-note">{item.note}</span>}
                         </div>
+                        {item.avatars.length > 0 && (
+                          <div className="month-grid__tooltip-avatars" aria-hidden="true">
+                            {buildAvatarStack(
+                              item.avatars,
+                              "month-grid__tooltip-avatar",
+                              12,
+                              `tooltip-${item.id}`,
+                            )}
+                          </div>
+                        )}
                       </button>
                     );
                   })}

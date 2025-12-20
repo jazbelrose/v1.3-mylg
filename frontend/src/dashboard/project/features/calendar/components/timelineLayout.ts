@@ -191,9 +191,9 @@ export type TimelineHourEntry<T> = TimelineBaseEntry<T> & {
   hour: number;
 };
 
-export const assignTimelineColumns = <T extends TimelineHourEntry<unknown>>(
-  entries: readonly T[],
-): Array<T & { columnIndex: number; columnCount: number }> => {
+export const assignTimelineColumns = <T>(
+  entries: readonly TimelineHourEntry<T>[],
+): Array<TimelineHourEntry<T> & { columnIndex: number; columnCount: number }> => {
   const sorted = [...entries].sort((a, b) => {
     if (a.startMinutes !== b.startMinutes) {
       return a.startMinutes - b.startMinutes;
@@ -201,8 +201,8 @@ export const assignTimelineColumns = <T extends TimelineHourEntry<unknown>>(
     return a.endMinutes - b.endMinutes;
   });
 
-  const active: Array<T & { columnIndex: number; columnCount: number }> = [];
-  const result: Array<T & { columnIndex: number; columnCount: number }> = [];
+  const active: Array<TimelineHourEntry<T> & { columnIndex: number; columnCount: number }> = [];
+  const result: Array<TimelineHourEntry<T> & { columnIndex: number; columnCount: number }> = [];
 
   sorted.forEach((entry) => {
     for (let i = active.length - 1; i >= 0; i -= 1) {
@@ -220,7 +220,7 @@ export const assignTimelineColumns = <T extends TimelineHourEntry<unknown>>(
       columnIndex = 1; // Force to second column or something, but since we limit, maybe skip or stack
     }
 
-    const layoutEntry: T & { columnIndex: number; columnCount: number } = {
+    const layoutEntry: TimelineHourEntry<T> & { columnIndex: number; columnCount: number } = {
       ...entry,
       columnIndex,
       columnCount: 1,

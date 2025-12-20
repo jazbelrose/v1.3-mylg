@@ -2,6 +2,7 @@ import React from "react";
 import { DayPopover, DaySheet } from "./DayOverlay";
 import CalendarGrid from "./CalendarGrid";
 import { useCalendarController } from "./useCalendarController";
+import { useProjectTasks } from "./useProjectTasks";
 import type { Project } from "./types";
 export type { Project, TimelineEvent } from "./types";
 
@@ -24,6 +25,8 @@ const CalendarBase: React.FC<CalendarBaseProps> = ({
   dayHeaderIdPrefix,
   showEventList = false,
 }) => {
+  const tasks = useProjectTasks(project?.projectId ?? null);
+
   const controller = useCalendarController({
     project,
     initialFlashDate,
@@ -31,6 +34,7 @@ const CalendarBase: React.FC<CalendarBaseProps> = ({
     onWrapperClick,
     dayHeaderIdPrefix,
     showEventList,
+    tasks,
   });
 
   const overlay = controller.overlayState;
