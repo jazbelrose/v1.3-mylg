@@ -1,5 +1,6 @@
 // components/SlideEditor.tsx - Editor for a single slide
 import React, { useCallback, useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import SlideToolbar from "./SlideToolbar";
 import { Slide } from "@/app/contexts/DataProvider";
@@ -32,6 +33,8 @@ interface SlideEditorProps {
   onZoomOut?: () => void;
   onResetZoom?: () => void;
   onSetZoom?: (level: number) => void;
+  onNewSlide?: () => void;
+  toolbarPortalContainer?: HTMLElement | null;
 }
 
 // Fixed stage dimensions (16:9 aspect ratio) - never changes
@@ -55,6 +58,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onZoomOut,
   onResetZoom,
   onSetZoom,
+  onNewSlide,
+  toolbarPortalContainer,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -212,8 +217,14 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onDeleteSelection={toolbarActions.onDeleteSelection}
       onBringToFront={toolbarActions.onBringToFront}
       onSendToBack={toolbarActions.onSendToBack}
+      onNewSlide={onNewSlide}
     />
   ) : null;
+
+  const toolbarOutput =
+    customToolbar && toolbarPortalContainer
+      ? ReactDOM.createPortal(customToolbar, toolbarPortalContainer)
+      : customToolbar;
 
   const scale = zoom / 100;
   const appliedScale = Math.max(scale * fitScale, 0.01);
@@ -227,7 +238,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
           data-canvas-width={STAGE_WIDTH}
           data-canvas-height={STAGE_HEIGHT}
         >
-          {customToolbar}
+          {toolbarOutput}
 
           {zoom !== 100 && (
             <div className="slide-editor__zoom-warning">

@@ -5,7 +5,15 @@
   flex-direction: column;
   background: var(--bg, #0c0c0c);
   min-height: 0;
-  padding-left: 12px;
+  padding: 0 12px 12px;
+  gap: 12px;
+}
+
+.slides-toolbar-shell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
 }
 
 .slides-workspace {

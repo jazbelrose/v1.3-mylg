@@ -94,6 +94,10 @@ const SlidesPage: React.FC = () => {
   const [zoom, setZoom] = useState(100);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
+  const [toolbarPortalNode, setToolbarPortalNode] = useState<HTMLDivElement | null>(null);
+  const toolbarPortalRef = useCallback((node: HTMLDivElement | null) => {
+    setToolbarPortalNode(node);
+  }, []);
   // Flag indicating a thumbnail changed and needs persistence.
   // Note: thumbnails are intentionally *not* regenerated on every keystroke.
   // We mark the thumbnail as dirty and generate/persist it once after the autosave/save
@@ -729,12 +733,12 @@ const SlidesPage: React.FC = () => {
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div className="slides-shell">
+        <div className="slides-toolbar-shell" ref={toolbarPortalRef} />
         <div className="slides-workspace">
           <SlidesSidebar
             slides={slides}
             activeSlideId={activeSlideId}
             onSlideSelect={handleSlideSelect}
-            onNewSlide={handleNewSlide}
             onReorderSlides={handleReorderSlides}
             projectId={projectId || ""}
           />
@@ -742,24 +746,26 @@ const SlidesPage: React.FC = () => {
           <section className="slides-main" aria-live="polite">
             <div className="slides-main__content">
               {activeSlide ? (
-                <SlideEditor
-                  projectId={projectId}
-                  slide={activeSlide}
-                  onContentChange={(content) =>
-                    handleContentChange(activeSlide.id, content)
-                  }
-                  onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
-                  onDuplicate={handleDuplicateSlide}
-                  onDelete={handleDeleteSlide}
-                  onExport={handleExport}
-                  isSaving={isSaving}
-                  isDirty={isDirty}
-                  zoom={zoom}
-                  onZoomIn={handleZoomIn}
-                  onZoomOut={handleZoomOut}
-                  onResetZoom={handleResetZoom}
-                  onSetZoom={handleSetZoom}
-                />
+              <SlideEditor
+                projectId={projectId}
+                slide={activeSlide}
+                onContentChange={(content) =>
+                  handleContentChange(activeSlide.id, content)
+                }
+                onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
+                onDuplicate={handleDuplicateSlide}
+                onDelete={handleDeleteSlide}
+                onExport={handleExport}
+                isSaving={isSaving}
+                isDirty={isDirty}
+                zoom={zoom}
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetZoom={handleResetZoom}
+                onSetZoom={handleSetZoom}
+                onNewSlide={handleNewSlide}
+                toolbarPortalContainer={toolbarPortalNode}
+              />
               ) : (
                 <div className="slides-main__empty">No slide selected</div>
               )}

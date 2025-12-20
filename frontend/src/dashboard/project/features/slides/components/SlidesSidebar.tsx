@@ -1,6 +1,6 @@
 // components/SlidesSidebar.tsx - Sidebar with slide thumbnails
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, GripVertical } from "lucide-react";
+import { GripVertical } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
@@ -177,7 +177,6 @@ interface SlidesSidebarProps {
   slides: Slide[];
   activeSlideId: string | null;
   onSlideSelect: (slideId: string) => void;
-  onNewSlide: () => void;
   onReorderSlides?: (slides: Slide[]) => void;
   projectId: string;
 }
@@ -186,7 +185,6 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   slides,
   activeSlideId,
   onSlideSelect,
-  onNewSlide,
   onReorderSlides,
   projectId,
 }) => {
@@ -234,11 +232,6 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
   return (
     <aside className="slides-sidebar">
-      <button type="button" onClick={onNewSlide} className="slides-sidebar__new">
-        <Plus size={18} />
-        New Slide
-      </button>
-
       <div className="slides-sidebar__list" role="list">
         {slides.map((slide, index) => {
           const isActive = activeSlideId === slide.id;

@@ -25,6 +25,7 @@ import {
   RotateCcw,
   MoreHorizontal,
   Type,
+  Plus,
   Layout as LayoutIcon,
   BringToFront,
   SendToBack,
@@ -77,6 +78,7 @@ interface SlideToolbarProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
+  onNewSlide?: () => void;
   onMicToggle?: () => void;
   onSave?: () => void;
   onPreview?: () => void;
@@ -126,6 +128,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDuplicate,
   onDelete,
   onExport,
+  onNewSlide,
   onMicToggle,
   onSave,
   onPreview,
@@ -604,6 +607,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             title="Save slide"
           >
             <Save size={18} />
+          </button>
+        )}
+        {onNewSlide && (
+          <button
+            type="button"
+            className="toolbar-item"
+            onClick={onNewSlide}
+            title="New slide"
+          >
+            <Plus size={18} />
+            <span className="toolbar-item__label">New Slide</span>
           </button>
         )}
 
