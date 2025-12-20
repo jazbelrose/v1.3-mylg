@@ -47,7 +47,7 @@ export type WeekGridProps = {
   activeProjectColor?: string | null;
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
-  onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void | Promise<void>;
+  onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
 };
 
 type WeekDayEvents = {
@@ -79,9 +79,6 @@ const MIN_DURATION_MINUTES = SNAP_INTERVAL_MINUTES;
 const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
 const ENTRY_MIN_HEIGHT_PX = 24;
-
-// Convert minute deltas to pixels for resize operations
-const minutesToPxWeek = (minutes: number) => (minutes / MINUTES_IN_HOUR) * WEEK_ROW_HEIGHT_PX;
 
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
 
@@ -116,8 +113,6 @@ type InteractionTarget = {
   dayIndex: number;
   startMinutes: number;
   endMinutes: number;
-  initialTop?: number;
-  initialHeight?: number;
 };
 
 type InteractionState = {
@@ -219,52 +214,27 @@ function WeekGrid({
   const [dragPreviewTransforms, setDragPreviewTransforms] = useState<
     Record<string, { translateX: number; translateY: number }>
   >({});
-  const resizePreviewStylesRef = useRef<Record<string, { top: number; height: number }>>({});
-  const pendingRescheduleEntriesRef = useRef<Set<string>>(new Set());
+  const resizePreviewStylesRef = useRef<Record<string, true>>({});
   const applyResizePreview = useCallback((entryKey: string, top: number, height: number) => {
     const element = document.querySelector(
       `[data-entry-key="${entryKey}"]`,
     ) as HTMLElement | null;
     if (!element) return;
-    const finalHeight = Math.max(height, ENTRY_MIN_HEIGHT_PX);
-    resizePreviewStylesRef.current[entryKey] = { top, height: finalHeight };
+    resizePreviewStylesRef.current[entryKey] = true;
     element.style.top = `${top}px`;
-    element.style.height = `${finalHeight}px`;
+    element.style.height = `${Math.max(height, ENTRY_MIN_HEIGHT_PX)}px`;
   }, []);
-  const clearResizePreviews = useCallback((excludeKeys?: Set<string>) => {
+  const clearResizePreviews = useCallback(() => {
     Object.keys(resizePreviewStylesRef.current).forEach((entryKey) => {
-      // Skip entries that should keep their inline styles
-      if (excludeKeys?.has(entryKey)) return;
-      
       const element = document.querySelector(
         `[data-entry-key="${entryKey}"]`,
       ) as HTMLElement | null;
       if (!element) return;
       element.style.top = "";
       element.style.height = "";
-      delete resizePreviewStylesRef.current[entryKey];
     });
-    
-    // Only clear the entire ref if no exclusions
-    if (!excludeKeys || excludeKeys.size === 0) {
-      resizePreviewStylesRef.current = {};
-    }
+    resizePreviewStylesRef.current = {};
   }, []);
-  const resizePreviewRafRef = useRef<number | null>(null);
-  const scheduleClearResizePreviews = useCallback((excludeKeys?: Set<string>) => {
-    if (resizePreviewRafRef.current !== null && typeof window !== "undefined") {
-      window.cancelAnimationFrame(resizePreviewRafRef.current);
-    }
-    if (typeof window === "undefined") {
-      clearResizePreviews(excludeKeys);
-      resizePreviewRafRef.current = null;
-      return;
-    }
-    resizePreviewRafRef.current = window.requestAnimationFrame(() => {
-      resizePreviewRafRef.current = null;
-      clearResizePreviews(excludeKeys);
-    });
-  }, [clearResizePreviews]);
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
@@ -276,83 +246,6 @@ function WeekGrid({
   useEffect(() => {
     setDragPreviewTransforms({});
   }, [events, tasks]);
-
-  useEffect(() => {
-    // Clean up inline resize styles when data updates match the pending changes
-    const pendingKeys = pendingRescheduleEntriesRef.current;
-    if (pendingKeys.size === 0) return;
-
-    // Use RAF to avoid flickering during modal open
-    requestAnimationFrame(() => {
-      // Check each pending entry to see if the data has updated to match the inline styles
-      pendingKeys.forEach((key) => {
-        const resizePreview = resizePreviewStylesRef.current[key];
-        if (!resizePreview) {
-          pendingKeys.delete(key);
-          return;
-        }
-
-        // Parse the key to find the entry
-        const [type, id] = key.split(':');
-        
-        // Find the entry in the current data
-        let entryStartMinutes: number | undefined;
-        let entryEndMinutes: number | undefined;
-        
-        if (type === 'event') {
-          const event = events.find(e => `event-${e.id}` === key);
-          if (event) {
-            entryStartMinutes = parseTimeToMinutes(event.start);
-            const fallbackEnd = event.end ?? (event.start ? addHoursToTime(event.start, 1) : undefined);
-            const rawEndMinutes = parseTimeToMinutes(fallbackEnd) ?? (entryStartMinutes ?? 0) + MINUTES_IN_HOUR;
-            entryEndMinutes = Math.max((entryStartMinutes ?? 0) + 5, Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR));
-          }
-        } else if (type === 'task') {
-          const task = tasks.find(t => `task-${t.id}` === key);
-          if (task) {
-            entryStartMinutes = parseTimeToMinutes(task.start);
-            const fallbackEnd = task.end ?? (task.start ? addHoursToTime(task.start, 1) : undefined);
-            const rawEndMinutes = parseTimeToMinutes(fallbackEnd) ?? (entryStartMinutes ?? 0) + MINUTES_IN_HOUR;
-            entryEndMinutes = Math.max((entryStartMinutes ?? 0) + 5, Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR));
-          }
-        }
-        
-        if (entryStartMinutes == null || entryEndMinutes == null) {
-          // Entry no longer exists or invalid, clean up
-          delete resizePreviewStylesRef.current[key];
-          pendingKeys.delete(key);
-          return;
-        }
-
-        // Get the cell element to calculate expected position
-        const element = document.querySelector(`[data-entry-key="${key}"]`) as HTMLElement | null;
-        const cell = element?.closest('.week-grid__cell') as HTMLElement | null;
-        const rowHeightPx = cell?.getBoundingClientRect().height ?? WEEK_ROW_HEIGHT_PX;
-        
-        // Calculate expected position from data
-        const expectedTop = minutesToPxWeek(entryStartMinutes, rowHeightPx);
-        const expectedHeight = minutesToPxWeek(entryEndMinutes - entryStartMinutes, rowHeightPx);
-        
-        // Check if data matches the resize preview (within 2px tolerance for rounding)
-        if (
-          Math.abs(expectedTop - resizePreview.top) <= 2 &&
-          Math.abs(expectedHeight - resizePreview.height) <= 2
-        ) {
-          // Data has been updated to match preview, clean up
-          delete resizePreviewStylesRef.current[key];
-          pendingKeys.delete(key);
-        }
-      });
-    });
-  }, [events, tasks]);
-
-  useEffect(() => {
-    return () => {
-      if (resizePreviewRafRef.current !== null && typeof window !== "undefined") {
-        window.cancelAnimationFrame(resizePreviewRafRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     // Find the scrollable parent container
@@ -542,53 +435,18 @@ function WeekGrid({
       const grid = gridRef.current;
       const gridRect = grid?.getBoundingClientRect();
       const spacer = grid?.querySelector(".week-grid__spacer") as HTMLElement | null;
-      
-      // Validate spacer width measurement - fallback to 60px if measurement fails
-      let spacerWidth = spacer?.getBoundingClientRect().width ?? 60;
-      // Ensure spacer width is reasonable (CSS defines 60px)
-      if (spacerWidth < 40 || spacerWidth > 100) {
-        spacerWidth = 60;
-      }
-      
+      const spacerWidth = spacer?.getBoundingClientRect().width ?? 0;
       const columnWidth =
         gridRect && days.length > 0 ? (gridRect.width - spacerWidth) / days.length : 0;
-      const weekdayEls = grid
-        ? (Array.from(grid.querySelectorAll(".week-grid__weekday")) as HTMLDivElement[])
-        : [];
       let dropDayIndex = state.startDayIndex;
-
-      if (weekdayEls.length === days.length) {
-        const hitIndex = weekdayEls.findIndex((element) => {
-          const rect = element.getBoundingClientRect();
-          return event.clientX >= rect.left && event.clientX <= rect.right;
-        });
-        if (hitIndex !== -1) {
-          dropDayIndex = hitIndex;
-        } else if (weekdayEls.length > 0) {
-          const firstRect = weekdayEls[0].getBoundingClientRect();
-          const lastRect = weekdayEls[weekdayEls.length - 1].getBoundingClientRect();
-          if (event.clientX < firstRect.left) {
-            dropDayIndex = 0;
-          } else if (event.clientX > lastRect.right) {
-            dropDayIndex = weekdayEls.length - 1;
-          }
-        }
-      } else if (columnWidth > 0 && gridRect) {
+      if (columnWidth > 0 && gridRect) {
         const relativeX = event.clientX - (gridRect.left + spacerWidth);
-        
-        // Clamp relativeX to valid range (0 to total columns width)
-        const maxX = gridRect.width - spacerWidth;
-        const clampedX = Math.max(0, Math.min(maxX, relativeX));
-        
-        // Calculate drop day index from clamped position
-        dropDayIndex = Math.floor(clampedX / columnWidth);
-        // Double-check bounds
+        dropDayIndex = Math.floor(relativeX / columnWidth);
         dropDayIndex = Math.max(0, Math.min(days.length - 1, dropDayIndex));
       }
       const deltaDays = state.mode === "drag" ? dropDayIndex - state.startDayIndex : 0;
       const deltaY = event.clientY - state.startY;
-      const rowHeightPx = state.rowHeightPx || WEEK_ROW_HEIGHT_PX;
-      const deltaMinutes = Math.round(deltaY / (rowHeightPx / MINUTES_IN_HOUR));
+      const deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
 
       const changes: CalendarEntryChanges[] = [];
 
@@ -641,24 +499,7 @@ function WeekGrid({
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
-      
-      // Collect entry keys that were resized - keep their inline styles during API update
-      const resizedEntryKeys = new Set<string>();
-      if (state.mode === "resizeTop" || state.mode === "resizeBottom") {
-        state.targets.forEach((target) => {
-          const entryKey = `${target.entry.type}:${target.entry.id}`;
-          resizedEntryKeys.add(entryKey);
-        });
-      }
-      
-      // Store pending reschedule entries to keep their inline styles
-      if (resizedEntryKeys.size > 0) {
-        pendingRescheduleEntriesRef.current = resizedEntryKeys;
-      }
-      
-      // Clear previews but exclude resized entries
-      scheduleClearResizePreviews(resizedEntryKeys.size > 0 ? resizedEntryKeys : undefined);
-      
+      clearResizePreviews();
       if (!changes.length) {
         setDragPreviewTransforms({});
       }
@@ -673,30 +514,10 @@ function WeekGrid({
       const onReschedule = rescheduleEntriesRef.current;
       if (changes.length && onReschedule) {
         const result = onReschedule(changes);
-        
-        // Handle promise-based reschedule
-        if (result && typeof result === "object" && "then" in result) {
-          result
-            .then(() => {
-              // Clear pending entries - styles will be removed when component re-renders with new data
-              pendingRescheduleEntriesRef.current = new Set();
-            })
-            .catch(() => {
-              setDragPreviewTransforms({});
-              // Clear pending entries and force style cleanup on error
-              const pendingKeys = pendingRescheduleEntriesRef.current;
-              if (pendingKeys.size > 0) {
-                pendingKeys.forEach((key) => {
-                  const element = document.querySelector(`[data-entry-key="${key}"]`) as HTMLElement | null;
-                  if (element) {
-                    element.style.top = "";
-                    element.style.height = "";
-                  }
-                  delete resizePreviewStylesRef.current[key];
-                });
-                pendingRescheduleEntriesRef.current = new Set();
-              }
-            });
+        if (result && typeof (result as Promise<unknown>).catch === "function") {
+          (result as Promise<unknown>).catch(() => {
+            setDragPreviewTransforms({});
+          });
         }
       }
     };
@@ -705,7 +526,7 @@ function WeekGrid({
     return () => {
       document.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [days, scheduleClearResizePreviews]);
+  }, [days]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -809,13 +630,15 @@ function WeekGrid({
       if (!targets.length) {
         return;
       }
+      const gridRect = gridRef.current?.getBoundingClientRect();
       targets.forEach((target) => {
         const element = document.querySelector(
           `[data-entry-key="${target.entry.type}:${target.entry.id}"]`,
         ) as HTMLElement | null;
         if (!element) return;
-        target.initialTop = element.offsetTop;
-        target.initialHeight = element.offsetHeight;
+        const rectElement = element.getBoundingClientRect();
+        target.initialTop = rectElement.top - (gridRect?.top ?? 0);
+        target.initialHeight = rectElement.height;
       });
 
       const rect = pointerEvent.currentTarget.getBoundingClientRect();
@@ -979,28 +802,14 @@ function WeekGrid({
       border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
     };
     const previewTransform = dragPreviewTransforms[entrySelectionKey];
-    
-    // Preserve inline resize preview styles during re-renders
-    const resizePreview = resizePreviewStylesRef.current[entrySelectionKey];
-    const resizePreviewStyles = resizePreview
-      ? {
-          top: `${resizePreview.top}px`,
-          height: `${resizePreview.height}px`,
-        }
-      : {};
-    
     const entryStyleWithPreview = previewTransform
       ? {
           ...pillStyle,
-          ...resizePreviewStyles,
           transform: `translate(${previewTransform.translateX}px, ${previewTransform.translateY}px)`,
           transition: "none",
           zIndex: 2,
         }
-      : {
-          ...pillStyle,
-          ...resizePreviewStyles,
-        };
+      : pillStyle;
     const content = (
       <div className="week-grid__timeline-entry-content">
         <div className="week-grid__timeline-entry-header">
@@ -1413,13 +1222,11 @@ function WeekGrid({
                       const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
                       const heightPercent = Math.max(rawHeightPercent, 6);
                       const columnWidth = 100 / columns;
-                      const horizontalPadding = 4;
-                      const columnSpacingAdjustment = 0;
                       const entryStyle = {
                         top: `${topPercent}%`,
                         height: `${heightPercent}%`,
-                        left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * columnSpacingAdjustment}px + ${horizontalPadding}px)`,
-                        width: `calc(${columnWidth}% - ${horizontalPadding * 2}px)`,
+                        left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
+                        width: `${columnWidth}%`,
                       };
                       return renderWeekTimelineEntry(entry, key, entryStyle, false, entry.id);
                     })}
