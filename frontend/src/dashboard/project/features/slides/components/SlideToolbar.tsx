@@ -521,11 +521,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             <>
               <button type="button" className="toolbar-item" onClick={onBringToFront} title="Bring to Front">
                 <BringToFront size={18} />
-                <span>Bring Front</span>
               </button>
               <button type="button" className="toolbar-item" onClick={onSendToBack} title="Send to Back">
                 <SendToBack size={18} />
-                <span>Send Back</span>
               </button>
             </>
           )}
@@ -543,7 +541,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           )}
           <button type="button" className="toolbar-item danger" onClick={onDeleteSelection} title="Delete">
             <Trash2 size={18} />
-            <span>Delete</span>
           </button>
         </div>
       </div>
