@@ -41,12 +41,31 @@
   gap: 24px;
   padding: 24px;
   overflow-y: auto;
+  position: relative;
   overscroll-behavior-y: contain;
   transition: grid-template-columns 0.2s ease;
 }
 
 .calendar-body.calendar-body--sidebar-collapsed {
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.calendar-body.calendar-body--sidebar-collapsed .calendar-sidebar {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  width: 72px;
+  z-index: 1;
+}
+
+.calendar-body.calendar-body--sidebar-collapsed .calendar-main {
+  margin: 0;
+  padding: 0;
+}
+
+.calendar-body.calendar-body--sidebar-collapsed .calendar-controls {
+  padding-left: 120px;
 }
 
 .calendar-sidebar {
