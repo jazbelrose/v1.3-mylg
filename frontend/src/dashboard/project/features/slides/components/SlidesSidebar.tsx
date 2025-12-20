@@ -307,8 +307,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                   closeDropdown();
                 }}
               >
-                <Copy size={16} className="dropdown-icon" />
-                <span className="text">Duplicate Slide</span>
+                <Copy size={24} className="dropdown-icon" />
+                <span className="text">Duplicate</span>
               </button>
             )}
             {onExportSlide && (
@@ -320,7 +320,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                   closeDropdown();
                 }}
               >
-                <Download size={16} className="dropdown-icon" />
+                <Download size={24} className="dropdown-icon" />
                 <span className="text">Export</span>
               </button>
             )}
@@ -335,8 +335,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                     closeDropdown();
                   }}
                 >
-                  <Trash2 size={16} className="dropdown-icon" />
-                  <span className="text">Delete Slide</span>
+                  <Trash2 size={24} className="dropdown-icon" />
+                  <span className="text">Delete</span>
                 </button>
               </>
             )}
