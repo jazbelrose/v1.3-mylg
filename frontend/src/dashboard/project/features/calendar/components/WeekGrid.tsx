@@ -121,12 +121,14 @@ type InteractionState = {
   startY: number;
   targets: InteractionTarget[];
   duplicate: boolean;
+  startDayIndex: number;
 };
 
 const QUICK_ADD_POPOVER_WIDTH = 200;
 const QUICK_ADD_POPOVER_HEIGHT = 140;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
+const WEEK_GRID_SPACER_PX = 60;
 
 const buildAvatarStack = (
   avatars: TimelineAvatar[],
@@ -436,9 +438,13 @@ function WeekGrid({
       const spacerWidth = spacer?.getBoundingClientRect().width ?? 0;
       const columnWidth =
         gridRect && days.length > 0 ? (gridRect.width - spacerWidth) / days.length : 0;
-      const deltaX = columnWidth > 0 && state.mode === "drag" ? event.clientX - state.startX : 0;
-      const deltaDays =
-        columnWidth > 0 && state.mode === "drag" ? Math.round(deltaX / columnWidth) : 0;
+      let dropDayIndex = state.startDayIndex;
+      if (columnWidth > 0 && gridRect) {
+        const relativeX = event.clientX - (gridRect.left + spacerWidth);
+        dropDayIndex = Math.floor(relativeX / columnWidth);
+        dropDayIndex = Math.max(0, Math.min(days.length - 1, dropDayIndex));
+      }
+      const deltaDays = state.mode === "drag" ? dropDayIndex - state.startDayIndex : 0;
       const deltaY = event.clientY - state.startY;
       const deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
 
@@ -650,6 +656,7 @@ function WeekGrid({
         startY: pointerEvent.clientY,
         targets,
         duplicate: additive,
+        startDayIndex: baseTarget.dayIndex,
       };
       pointerEvent.preventDefault();
     },

@@ -585,19 +585,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   return (
     <div className="slide-toolbar" ref={toolbarRef}>
       <div className="toolbar-left">
-        <div className="save-status">
-          {isSaving ? (
-            <>
-              <Clock size={16} />
-              <span className="save-status__text">Saving…</span>
-            </>
-          ) : isDirty ? (
-            <span className="save-status__text save-status__text--dirty">Unsaved</span>
-          ) : (
-            <span className="save-status__text save-status__text--clean">Saved</span>
-          )}
-        </div>
-
         {onSave && (
           <button
             type="button"
@@ -909,6 +896,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       </div>
 
       <div className="toolbar-right">
+        <div className="save-status">
+          {isSaving ? (
+            <>
+              <Clock size={16} />
+              <span className="save-status__text">Saving…</span>
+            </>
+          ) : isDirty ? (
+            <span className="save-status__text save-status__text--dirty">Unsaved</span>
+          ) : (
+            <span className="save-status__text save-status__text--clean">Saved</span>
+          )}
+        </div>
       </div>
     </div>
   );
