@@ -166,6 +166,16 @@
   display: none;
 }
 
+/* But show the insert button label in image context */
+.slide-toolbar--image-context .insert-trigger .toolbar-item__label {
+  display: block;
+}
+
+/* And show the zoom button label in image context */
+.slide-toolbar--image-context .zoom-trigger .toolbar-item__label {
+  display: block;
+}
+
 .divider {
   width: 1px;
   height: 26px;

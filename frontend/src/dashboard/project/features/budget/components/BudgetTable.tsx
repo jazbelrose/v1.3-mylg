@@ -47,7 +47,7 @@ const toAttachmentPreviewItems = (raw: unknown): AttachmentPreviewItem[] => {
         url: urlCandidate,
       } satisfies AttachmentPreviewItem;
     })
-    .filter((attachment): attachment is AttachmentPreviewItem => Boolean(attachment));
+    .filter(Boolean) as AttachmentPreviewItem[];
 };
 
 type NormalizedPaymentStatus = "PAID" | "PARTIAL" | "UNPAID";

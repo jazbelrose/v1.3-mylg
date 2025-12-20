@@ -93,20 +93,24 @@ export const getAvatarForAssignee = (
   return null;
 };
 
-const collectAssigneeCandidates = (task: CalendarTask): string[] => {
-  const seen = new Set<string>();
-  const entries: string[] = [];
-  const push = (value?: string | null) => {
-    if (!value) return;
-    const normalized = value.trim();
-    if (!normalized || seen.has(normalized)) return;
-    seen.add(normalized);
-    entries.push(normalized);
-  };
-
-  push(task.assignedTo ?? undefined);
-  task.assigneeIds?.forEach((candidate) => push(candidate));
-  return entries;
+export const getAvatarForGuest = (
+  guest?: string,
+  lookup?: MemberLookup,
+  keyPrefix = "guest",
+): TimelineAvatar | null => {
+  if (!guest) return null;
+  const userId = parseAssigneeUserId(guest);
+  if (lookup && userId) {
+    const member = lookup.byId.get(userId);
+    if (member) {
+      return buildAvatarFromMember(member, `${keyPrefix}-${member.userId}`);
+    }
+  }
+  const fallback = formatFallbackName(guest);
+  if (fallback) {
+    return buildAvatarFromLabel(fallback, `${keyPrefix}-${fallback}`);
+  }
+  return null;
 };
 
 export const buildTaskAvatars = (

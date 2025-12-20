@@ -68,13 +68,13 @@ export class TextBoxNode extends ElementNode {
   }
 
   setPosition(x: number, y: number): void {
-    const writable = this.getWritable<TextBoxNode>();
+    const writable = this.getWritable();
     writable.__x = x;
     writable.__y = y;
   }
 
   setSize(width: number, height: number): void {
-    const writable = this.getWritable<TextBoxNode>();
+    const writable = this.getWritable();
     writable.__width = width;
     writable.__height = height;
   }
@@ -85,7 +85,7 @@ export class TextBoxNode extends ElementNode {
   }
 
   setRotation(rotation: number): void {
-    const writable = this.getWritable<TextBoxNode>();
+    const writable = this.getWritable();
     writable.__rotation = rotation;
   }
 

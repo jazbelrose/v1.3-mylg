@@ -73,6 +73,8 @@ const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
 
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
 
+const minutesToPxDay = (minutes: number) => (minutes / MINUTES_IN_HOUR) * HOUR_ROW_HEIGHT_PX;
+
 const snapToInterval = (value: number) =>
   Math.round(value / SNAP_INTERVAL_MINUTES) * SNAP_INTERVAL_MINUTES;
 
@@ -110,6 +112,8 @@ type InteractionTarget = {
   entry: TimelineHourEntry<CalendarEvent | CalendarTask>;
   startMinutes: number;
   endMinutes: number;
+  initialTop?: number;
+  initialHeight?: number;
 };
 
 type InteractionState = {
@@ -366,7 +370,7 @@ function DayGrid({
   }, [events, tasks, key, teamMemberLookup]);
 
   const entryLookup = useMemo(() => {
-    const map = new Map<string, TimelineHourEntry<CalendarEvent | CalendarTask>>();
+    const map = new Map<string, TimelineHourEntry<CalendarEvent | CalendarTask> & { columnIndex: number; columnCount: number; }>();
     timelineEntriesByHour.forEach((entries) => {
       entries.forEach((entry) => {
         map.set(`${entry.type}:${entry.id}`, entry);
@@ -443,12 +447,7 @@ function DayGrid({
 
       const onReschedule = rescheduleEntriesRef.current;
       if (changes.length && onReschedule) {
-        const result = onReschedule(changes);
-        if (result && typeof (result as Promise<unknown>).catch === "function") {
-          (result as Promise<unknown>).catch(() => {
-            setDragPreviewTransforms({});
-          });
-        }
+        onReschedule(changes);
       }
     };
 
@@ -727,7 +726,7 @@ function DayGrid({
     const maxLeft =
       gridWidth - width - QUICK_ADD_POPOVER_MARGIN;
     return {
-      position: "absolute",
+      position: "absolute" as const,
       top: Math.min(
         Math.max(relativeTop + QUICK_ADD_POPOVER_OFFSET, QUICK_ADD_POPOVER_MARGIN),
         Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
@@ -736,7 +735,7 @@ function DayGrid({
         Math.max(relativeLeft, QUICK_ADD_POPOVER_MARGIN),
         Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
       ),
-    };
+    } as React.CSSProperties;
   }, [pointerQuickAdd]);
 
   const snappedPointerDate = useMemo(

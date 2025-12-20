@@ -84,7 +84,7 @@ const ProjectIdentityModal = ({
     colorModal.setSelectedColor(resolvedProjectColor);
 
     // Initialize owner selection
-    setSelectedOwnerId(project?.ownerId || "");
+    setSelectedOwnerId(String(project?.ownerId || ""));
 
     setIsConfirmingDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -313,7 +313,7 @@ const ProjectIdentityModal = ({
                   <button
                     type="button"
                     className={styles.secondaryButton}
-                    onClick={() => setSelectedOwnerId(currentOwnerId)}
+                    onClick={() => setSelectedOwnerId(String(currentOwnerId))}
                     disabled={!isOwnershipDirty || isUpdatingOwner}
                   >
                     Reset

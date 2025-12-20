@@ -143,7 +143,7 @@ const guessMimeTypeFromExtension = (extension: string): string | undefined => {
 };
 
 function sanitizeIncomingAttachments(
-  attachments: TaskNoteAttachment[] | null | undefined,
+  attachments: { id: string; fileName: string; mimeType?: string; dataUrl?: string; url?: string; uploadedAt?: string; }[] | null | undefined,
 ): TaskNoteAttachment[] {
   if (!Array.isArray(attachments)) return [];
   return attachments
@@ -1164,10 +1164,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         if (cancelled || !taskDetails) return;
         const attachments = sanitizeIncomingAttachments(taskDetails.noteAttachments);
         setNoteAttachments(attachments);
-        initialTaskRef.current = {
-          ...(initialTaskRef.current ?? {}),
-          noteAttachments: attachments,
-        };
+        initialTaskRef.current = initialTaskRef.current
+          ? { ...initialTaskRef.current, noteAttachments: attachments }
+          : { noteAttachments: attachments } as QuickCreateTaskModalTask;
       } catch (error) {
         console.error("Failed to refresh task attachments", error);
       }
@@ -2973,8 +2972,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                       display_name: addressSearch,
                       lat: selectedLocation.lat.toString(),
                       lon: selectedLocation.lng.toString(),
-                      type: 'selected',
-                      importance: 0,
                     };
                     handleSetAsDefault(suggestion);
                   }}

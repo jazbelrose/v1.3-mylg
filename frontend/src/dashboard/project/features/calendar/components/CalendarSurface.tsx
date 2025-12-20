@@ -813,6 +813,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             const payload: Task = {
               projectId,
               taskId,
+              title: task.title,
               dueDate,
               ...(startIso !== null ? { startAt: startIso } : {}),
               ...(endIso !== null ? { endAt: endIso } : {}),

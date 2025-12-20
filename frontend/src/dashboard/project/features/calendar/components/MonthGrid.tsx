@@ -127,7 +127,7 @@ function MonthGrid({
 
     events.forEach((event) => {
       const range = buildDateRange(
-        [event.source.startAt, event.source.start, event.date],
+        [event.source.startAt, event.source.start as string | undefined | null, event.date],
         [event.source.endAt, event.source.end, event.date],
         event.date,
       );

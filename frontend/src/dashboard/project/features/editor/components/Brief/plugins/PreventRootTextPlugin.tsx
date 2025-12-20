@@ -194,7 +194,7 @@ export default function PreventRootTextPlugin(): null {
         // Check if clicking on textbox or its handles
         const textboxElement = htmlTarget.closest('[data-lexical-textbox]');
         if (textboxElement) {
-          const interactionType = getInteractionType(textboxElement as HTMLElement, event);
+          const interactionType = getInteractionType(textboxElement as HTMLElement, event as PointerEvent);
           if (interactionType !== null) {
             const nodeKey = textboxElement.getAttribute('data-lexical-node-key');
             if (nodeKey) {

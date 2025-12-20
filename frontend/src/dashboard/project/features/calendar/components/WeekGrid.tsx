@@ -78,6 +78,8 @@ const SNAP_INTERVAL_MINUTES = 30;
 const MIN_DURATION_MINUTES = SNAP_INTERVAL_MINUTES;
 const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
+
+const minutesToPxWeek = (minutes: number) => (minutes / MINUTES_IN_HOUR) * WEEK_ROW_HEIGHT_PX;
 const ENTRY_MIN_HEIGHT_PX = 24;
 
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
@@ -113,6 +115,8 @@ type InteractionTarget = {
   dayIndex: number;
   startMinutes: number;
   endMinutes: number;
+  initialTop?: number;
+  initialHeight?: number;
 };
 
 type InteractionState = {
@@ -416,7 +420,7 @@ function WeekGrid({
   const entryLookup = useMemo(() => {
     const map = new Map<
       string,
-      { entry: TimelineHourEntry<CalendarEvent | CalendarTask>; dayKey: string }
+      { entry: TimelineHourEntry<CalendarEvent | CalendarTask> & { columnIndex: number; columnCount: number; }; dayKey: string }
     >();
     timelineEntriesByDay.forEach((hourMap, dayKey) => {
       hourMap.forEach((entries) => {
@@ -513,12 +517,7 @@ function WeekGrid({
 
       const onReschedule = rescheduleEntriesRef.current;
       if (changes.length && onReschedule) {
-        const result = onReschedule(changes);
-        if (result && typeof (result as Promise<unknown>).catch === "function") {
-          (result as Promise<unknown>).catch(() => {
-            setDragPreviewTransforms({});
-          });
-        }
+        onReschedule(changes);
       }
     };
 
@@ -1010,7 +1009,7 @@ function WeekGrid({
     const maxLeft =
       gridWidth - width - QUICK_ADD_POPOVER_MARGIN;
     return {
-      position: "absolute",
+      position: "absolute" as const,
       top: Math.min(
         Math.max(relativeTop + QUICK_ADD_POPOVER_OFFSET, QUICK_ADD_POPOVER_MARGIN),
         Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
@@ -1019,7 +1018,7 @@ function WeekGrid({
         Math.max(relativeLeft, QUICK_ADD_POPOVER_MARGIN),
         Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
       ),
-    };
+    } as React.CSSProperties;
   }, [pointerQuickAdd]);
 
   const snappedPointerDate = useMemo(
