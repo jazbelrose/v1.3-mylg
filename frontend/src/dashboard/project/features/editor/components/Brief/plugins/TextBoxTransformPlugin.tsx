@@ -591,7 +591,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (!origin) {
               return;
             }
-            const targetNode = $getNodeByKey(key);
+            const targetNode = $getNodeByKey(key as string);
             if (!targetNode) {
               return;
             }
