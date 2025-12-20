@@ -27,25 +27,14 @@ import desktopStyles from './ProjectsPanelDesktop.module.css';
 import mobileStyles from '@/dashboard/home/components/projects-panel.module.css';
 import { MICRO_WOBBLE_SCALE, SPRING_FAST } from '@/shared/ui/motionTokens';
 import Squircle from '@/shared/ui/Squircle';
+import {
+  readPinnedOrder,
+  reconcilePinnedOrder,
+  writePinnedOrder,
+} from '@/dashboard/home/utils/pinnedOrder';
 
 const DEFAULT_RECENTS_LIMIT = 12;
 const VIEW_MODE_STORAGE_KEY = 'all-projects-view-mode';
-const PIN_ORDER_STORAGE_KEY = 'all-projects-pinned-order';
-
-const readPinnedOrder = (): string[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = window.localStorage.getItem(PIN_ORDER_STORAGE_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item) => typeof item === 'string');
-    }
-  } catch {
-    // ignore invalid data
-  }
-  return [];
-};
 
 interface Project extends ProjectLike {
   pinned?: boolean;
@@ -398,12 +387,7 @@ const AllProjects: React.FC = () => {
   }, [menuOpenId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(PIN_ORDER_STORAGE_KEY, JSON.stringify(pinnedOrder));
-    } catch {
-      // ignore storage errors
-    }
+    writePinnedOrder(pinnedOrder);
   }, [pinnedOrder]);
 
   useEffect(() => {
@@ -411,9 +395,7 @@ const AllProjects: React.FC = () => {
       .filter((project) => project.pinned)
       .map((project) => project.projectId);
     setPinnedOrder((prev) => {
-      const filtered = prev.filter((id) => pinnedIds.includes(id));
-      const extras = pinnedIds.filter((id) => !filtered.includes(id));
-      const next = [...filtered, ...extras];
+      const next = reconcilePinnedOrder(prev, pinnedIds);
       if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
         return prev;
       }

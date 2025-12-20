@@ -63,6 +63,7 @@ export interface Project {
   projectId: string;
   title?: string;
   status?: string;
+  pinned?: boolean;
   team?: TeamMember[];
   timelineEvents?: TimelineEvent[];
   thumbnails?: string[];

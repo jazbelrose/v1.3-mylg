@@ -886,7 +886,10 @@ function WeekGrid({
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
-          <div className="week-grid__timeline-entry-main">
+          <div 
+            className="week-grid__timeline-entry-main"
+            style={resizeTransform ? { transform: `scaleY(${1 / resizeTransform.scaleY})`, transformOrigin: "top" } : undefined}
+          >
             {content}
             {inlineAvatars}
           </div>
@@ -915,7 +918,10 @@ function WeekGrid({
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
-        <div className="week-grid__timeline-entry-main">
+        <div 
+          className="week-grid__timeline-entry-main"
+          style={resizeTransform ? { transform: `scaleY(${1 / resizeTransform.scaleY})`, transformOrigin: "top" } : undefined}
+        >
           {content}
           {inlineAvatars}
         </div>

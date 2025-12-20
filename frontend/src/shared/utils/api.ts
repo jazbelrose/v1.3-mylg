@@ -53,6 +53,7 @@ export interface Project {
   title?: string;
   description?: string;
   status?: string;
+  pinned?: boolean;
   team?: TeamMember[];
   ownerId?: string;
   timelineEvents?: TimelineEvent[];

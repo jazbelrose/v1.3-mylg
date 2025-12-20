@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { DragEvent as ReactDragEvent } from "react";
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +21,11 @@ import ProjectsTable from "./ProjectsTable";
 import { ProjectsFilterMenu } from "./ProjectsFilterMenu";
 import { useProjectFilters } from "./hooks/useProjectFilters";
 import type { ProjectWithMeta } from "../utils/types";
+import {
+  readPinnedOrder,
+  reconcilePinnedOrder,
+  writePinnedOrder,
+} from "@/dashboard/home/utils/pinnedOrder";
 
 import "@/dashboard/home/components/week-widget.css";
 
@@ -31,23 +37,51 @@ export type ProjectsPanelDesktopProps = {
 
 const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProject }) => {
   const reduceMotion = useReducedMotion();
-  const { projects = [], isLoading, projectsError, fetchProjects, allUsers } = useData() as {
+  const {
+    projects = [],
+    isLoading,
+    projectsError,
+    fetchProjects,
+    allUsers,
+    updateProjectFields,
+  } = useData() as {
     projects: ProjectLike[];
     isLoading: boolean;
     projectsError: boolean;
     fetchProjects: () => Promise<void> | void;
     allUsers: UserLite[];
+    updateProjectFields: (projectId: string, fields: Record<string, unknown>) => Promise<void>;
   };
   const navigate = useNavigate();
 
   const [imgError, setImgError] = useState<Record<string, boolean>>({});
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [pinnedOrder, setPinnedOrder] = useState<string[]>(readPinnedOrder);
+  const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && projects.length === 0 && !projectsError) {
       fetchProjects();
     }
   }, [isLoading, projects.length, projectsError, fetchProjects]);
+
+  useEffect(() => {
+    writePinnedOrder(pinnedOrder);
+  }, [pinnedOrder]);
+
+  useEffect(() => {
+    const pinnedIds = (projects as ProjectWithMeta[])
+      .filter((project) => project.pinned)
+      .map((project) => project.projectId);
+    setPinnedOrder((prev) => {
+      const next = reconcilePinnedOrder(prev, pinnedIds);
+      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [projects]);
 
   const handleImageError = useCallback((projectId: string) => {
     setImgError((prev) => {
@@ -74,6 +108,113 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
       navigate("/dashboard/projects/allprojects");
     },
     [onOpenProject, navigate, projects]
+  );
+
+  const movePinnedOrder = useCallback((sourceId: string, targetId?: string) => {
+    setPinnedOrder((prev) => {
+      const withoutSource = prev.filter((id) => id !== sourceId);
+      if (!targetId) {
+        return [...withoutSource, sourceId];
+      }
+      const insertIndex = withoutSource.indexOf(targetId);
+      if (insertIndex === -1) {
+        return [...withoutSource, sourceId];
+      }
+      const next = [...withoutSource];
+      next.splice(insertIndex, 0, sourceId);
+      return next;
+    });
+  }, []);
+
+  const toggleProjectPin = useCallback(
+    (project: ProjectWithMeta) => {
+      const nextPinned = !project.pinned;
+      setPinnedOrder((prev) => {
+        if (nextPinned) {
+          return [project.projectId, ...prev.filter((id) => id !== project.projectId)];
+        }
+        return prev.filter((id) => id !== project.projectId);
+      });
+      void updateProjectFields(project.projectId, { pinned: nextPinned }).catch((err) => {
+        console.error("Failed to update pinned state", err);
+      });
+    },
+    [updateProjectFields],
+  );
+
+  const handleRowDragStart = useCallback(
+    (projectId: string) => (event: ReactDragEvent<HTMLTableRowElement>) => {
+      if (!projectId) return;
+      event.stopPropagation();
+      event.dataTransfer?.setData("text/plain", projectId);
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      setDraggedProjectId(projectId);
+    },
+    [],
+  );
+
+  const handleRowDragOver = useCallback(
+    (projectId: string) => (event: ReactDragEvent<HTMLTableRowElement>) => {
+      if (!projectId || projectId === draggedProjectId) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      setDragOverProjectId(projectId);
+    },
+    [draggedProjectId],
+  );
+
+  const handleRowDragLeave = useCallback(
+    (projectId: string) => () => {
+      if (dragOverProjectId === projectId) {
+        setDragOverProjectId(null);
+      }
+    },
+    [dragOverProjectId],
+  );
+
+  const handleRowDrop = useCallback(
+    (project: ProjectWithMeta) => (event: ReactDragEvent<HTMLTableRowElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!draggedProjectId || project.projectId === draggedProjectId || !project.pinned) {
+        return;
+      }
+      movePinnedOrder(draggedProjectId, project.projectId);
+      setDragOverProjectId(null);
+    },
+    [draggedProjectId, movePinnedOrder],
+  );
+
+  const handleRowDragEnd = useCallback(() => {
+    setDraggedProjectId(null);
+    setDragOverProjectId(null);
+  }, []);
+
+  const handleTableDragOver = useCallback(
+    (event: ReactDragEvent<HTMLTableSectionElement>) => {
+      if (!draggedProjectId) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+    },
+    [draggedProjectId],
+  );
+
+  const handleTableDrop = useCallback(
+    (event: ReactDragEvent<HTMLTableSectionElement>) => {
+      event.preventDefault();
+      if (!draggedProjectId) return;
+      if (event.currentTarget === event.target) {
+        movePinnedOrder(draggedProjectId);
+        setDragOverProjectId(null);
+      }
+    },
+    [draggedProjectId, movePinnedOrder],
   );
 
   const {
@@ -124,6 +265,24 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
       parseProjectStatusToNumber(project.status) < 100
     );
   }, [filteredProjects, showPendingOnly]);
+
+  const orderedProjectsToDisplay = useMemo(() => {
+    const pinnedSet = new Set(pinnedOrder);
+    const orderedPinned = pinnedOrder
+      .map((id) =>
+        (filteredProjectsToDisplay as ProjectWithMeta[]).find(
+          (project) => project.projectId === id && project.pinned,
+        ),
+      )
+      .filter((project): project is ProjectWithMeta => Boolean(project));
+    const extras = (filteredProjectsToDisplay as ProjectWithMeta[]).filter(
+      (project) => project.pinned && !pinnedSet.has(project.projectId),
+    );
+    const rest = (filteredProjectsToDisplay as ProjectWithMeta[]).filter(
+      (project) => !project.pinned,
+    );
+    return [...orderedPinned, ...extras, ...rest];
+  }, [filteredProjectsToDisplay, pinnedOrder]);
 
   const handleNavigateToAllProjects = useCallback(() => {
     setShowPendingOnly(false);
@@ -233,13 +392,23 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
 
       <div className={desktopStyles.content}>
         <ProjectsTable
-          projects={filteredProjectsToDisplay as ProjectWithMeta[]}
+          projects={orderedProjectsToDisplay}
           isLoading={isLoading}
           projectsError={projectsError}
           onOpenProject={handleOpen}
           onImageError={handleImageError}
           imgError={imgError}
           usersById={usersById}
+          draggedProjectId={draggedProjectId}
+          dragOverProjectId={dragOverProjectId}
+          onPinToggle={toggleProjectPin}
+          onRowDragStart={handleRowDragStart}
+          onRowDragOver={handleRowDragOver}
+          onRowDragLeave={handleRowDragLeave}
+          onRowDrop={handleRowDrop}
+          onRowDragEnd={handleRowDragEnd}
+          onTableDragOver={handleTableDragOver}
+          onTableDrop={handleTableDrop}
         />
       </div>
 

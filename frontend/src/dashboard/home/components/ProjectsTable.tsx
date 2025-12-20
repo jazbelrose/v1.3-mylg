@@ -1,10 +1,15 @@
-import type { FC, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  FC,
+  DragEvent as ReactDragEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import desktopStyles from "./ProjectsPanelDesktop.module.css";
 import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
 import SVGThumbnail from "@/dashboard/home/components/SvgThumbnail";
 import Squircle from "@/shared/ui/Squircle";
 import { getFileUrl } from "@/shared/utils/api";
+import { Pin, PinOff } from "lucide-react";
 import type { UserLite } from "@/app/contexts/DataProvider";
 import type { ProjectWithMeta } from "../utils/types";
 import { formatShortDate } from "../utils/utils";
@@ -17,6 +22,16 @@ type ProjectsTableProps = {
   onImageError: (projectId: string) => void;
   imgError: Record<string, boolean>;
   usersById: Map<string, UserLite>;
+  draggedProjectId: string | null;
+  dragOverProjectId: string | null;
+  onPinToggle: (project: ProjectWithMeta) => void;
+  onRowDragStart: (projectId: string) => (event: ReactDragEvent<HTMLTableRowElement>) => void;
+  onRowDragOver: (projectId: string) => (event: ReactDragEvent<HTMLTableRowElement>) => void;
+  onRowDragLeave: (projectId: string) => () => void;
+  onRowDrop: (project: ProjectWithMeta) => (event: ReactDragEvent<HTMLTableRowElement>) => void;
+  onRowDragEnd: () => void;
+  onTableDragOver: (event: ReactDragEvent<HTMLTableSectionElement>) => void;
+  onTableDrop: (event: ReactDragEvent<HTMLTableSectionElement>) => void;
 };
 
 const getOwnerName = (project: ProjectWithMeta, usersById: Map<string, UserLite>): string => {
@@ -51,6 +66,16 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
   onImageError,
   imgError,
   usersById,
+  draggedProjectId,
+  dragOverProjectId,
+  onPinToggle,
+  onRowDragStart,
+  onRowDragOver,
+  onRowDragLeave,
+  onRowDrop,
+  onRowDragEnd,
+  onTableDragOver,
+  onTableDrop,
 }) => {
   const handleRowKeyDown = (
     event: ReactKeyboardEvent<HTMLTableRowElement>,
@@ -80,6 +105,7 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
             <div className={desktopStyles.skeletonHeadCol} />
             <div className={desktopStyles.skeletonHeadCol} />
             <div className={desktopStyles.skeletonHeadCol} />
+            <div className={desktopStyles.skeletonHeadCol} />
           </div>
           {skeletonRows.map((_, index) => (
             <div className={desktopStyles.skeletonRow} key={index}>
@@ -91,6 +117,7 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
               <div className={desktopStyles.skeletonLineShort} />
               <div className={desktopStyles.skeletonLine} />
               <div className={desktopStyles.skeletonPill} />
+              <div className={desktopStyles.skeletonPin} />
             </div>
           ))}
         </div>
@@ -105,9 +132,10 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
               <th scope="col">Deadline</th>
               <th scope="col">Owner</th>
               <th scope="col">Unread</th>
+              <th scope="col">Pin</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody onDragOver={onTableDragOver} onDrop={onTableDrop}>
             {projects.map((project) => {
               const id = project.projectId;
               const title = (project.title || "Untitled project").trim();
@@ -116,16 +144,30 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
                   ? project.thumbnails[0]
                   : undefined;
               const deadline = formatShortDate(project.finishline);
-              const status = project.status ? String(project.status) : "—";
+              const status = project.status ? String(project.status) : "-";
               const unread = Number.isFinite(project.unreadCount as number)
                 ? Number(project.unreadCount)
                 : Number((project as { unreadCount?: number }).unreadCount ?? 0);
               const owner = getOwnerName(project, usersById);
+              const isPinned = Boolean(project.pinned);
+              const rowClasses = [
+                draggedProjectId === id ? desktopStyles.rowDragging : "",
+                dragOverProjectId === id ? desktopStyles.rowDragOver : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
 
               return (
                 <tr
                   key={id}
+                  className={rowClasses}
                   tabIndex={0}
+                  draggable={isPinned}
+                  onDragStart={isPinned ? onRowDragStart(id) : undefined}
+                  onDragOver={isPinned ? onRowDragOver(id) : undefined}
+                  onDragLeave={isPinned ? onRowDragLeave(id) : undefined}
+                  onDrop={isPinned ? onRowDrop(project) : undefined}
+                  onDragEnd={isPinned ? onRowDragEnd : undefined}
                   onClick={() => onOpenProject(id)}
                   onKeyDown={(event) => handleRowKeyDown(event, id)}
                   aria-label={`Open project ${title}`}
@@ -144,6 +186,7 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
                             src={getFileUrl(thumb)}
                             alt=""
                             onError={() => onImageError(id)}
+                            draggable={false}
                           />
                         ) : (
                           <SVGThumbnail
@@ -159,13 +202,33 @@ const ProjectsTable: FC<ProjectsTableProps> = ({
                     <span className={desktopStyles.statusBadge}>{status}</span>
                   </td>
                   <td>
-                    <span className={desktopStyles.deadline}>{deadline ?? "—"}</span>
+                    <span className={desktopStyles.deadline}>{deadline ?? "-"}</span>
                   </td>
                   <td>
                     <span className={desktopStyles.owner}>{owner}</span>
                   </td>
                   <td>
                     <span className={desktopStyles.unreadPill}>{unread}</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className={[
+                        desktopStyles.pinButton,
+                        isPinned ? desktopStyles.pinButtonActive : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      aria-pressed={isPinned}
+                      aria-label={isPinned ? "Unpin project" : "Pin project"}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        onPinToggle(project);
+                      }}
+                    >
+                      {isPinned ? <PinOff size={16} /> : <Pin size={16} />}
+                    </button>
                   </td>
                 </tr>
               );

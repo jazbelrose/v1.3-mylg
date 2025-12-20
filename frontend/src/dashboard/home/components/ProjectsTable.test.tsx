@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { DragEvent as ReactDragEvent } from "react";
 
 import ProjectsTable from "./ProjectsTable";
 import type { ProjectWithMeta } from "../utils/types";
@@ -20,6 +21,21 @@ const createProject = (overrides: Partial<ProjectWithMeta> = {}): ProjectWithMet
   ...overrides,
 });
 
+const noopRowDrag = () => (_event: ReactDragEvent<HTMLTableRowElement>) => {};
+const noopRowDrop = () => (_event: ReactDragEvent<HTMLTableRowElement>) => {};
+const getDragProps = () => ({
+  draggedProjectId: null,
+  dragOverProjectId: null,
+  onPinToggle: vi.fn(),
+  onRowDragStart: noopRowDrag,
+  onRowDragOver: noopRowDrag,
+  onRowDragLeave: () => () => {},
+  onRowDrop: noopRowDrop,
+  onRowDragEnd: vi.fn(),
+  onTableDragOver: vi.fn(),
+  onTableDrop: vi.fn(),
+});
+
 describe("ProjectsTable", () => {
   const usersById = new Map<string, UserLite>([
     [
@@ -37,6 +53,7 @@ describe("ProjectsTable", () => {
     render(
       <ProjectsTable
         projects={[]}
+        {...getDragProps()}
         isLoading={false}
         projectsError
         onOpenProject={vi.fn()}
@@ -52,6 +69,7 @@ describe("ProjectsTable", () => {
   it("shows loading placeholder", () => {
     render(
       <ProjectsTable
+        {...getDragProps()}
         projects={[]}
         isLoading
         projectsError={false}
@@ -73,6 +91,7 @@ describe("ProjectsTable", () => {
 
     render(
       <ProjectsTable
+        {...getDragProps()}
         projects={[project]}
         isLoading={false}
         projectsError={false}

@@ -20,6 +20,7 @@ export interface ProjectLike {
   lastModified?: string;
   thumbnails?: string[];
   timelineEvents?: ProjectTimelineEvent[];
+  pinned?: boolean;
 }
 
 interface KPIs {
