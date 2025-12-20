@@ -1385,10 +1385,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   }, [open, isEditing, dueDate]);
 
-  // Show quick date chips when date field is focused
+  // Show quick date chips when date section is open
   useEffect(() => {
-    setShowQuickDateChips(dateFieldFocused || (isDueOpen && !isEditing));
-  }, [dateFieldFocused, isDueOpen, isEditing]);
+    setShowQuickDateChips(isDueOpen);
+  }, [isDueOpen]);
 
 
   const descriptionCopy = (activeProjectId || scopedProjectId)
@@ -1679,6 +1679,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const toggleDueSection = () => {
     setIsDueOpen(!isDueOpen);
+  };
+
+  const handleCalendarIconClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isDueOpen) {
+      setIsDueOpen(true);
+      // Focus date field after state update
+      setTimeout(() => {
+        document.getElementById(dueDateFieldId)?.focus();
+      }, 100);
+    }
   };
 
   const formatDueSummary = (): string => {
@@ -2998,8 +3009,27 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               >
                 <div className={styles.collapsibleHeaderLeft}>
                   <span className={styles.fieldLabelText}>Due </span>
-                  <span className={styles.collapsibleSummary}>{formatDueSummary()}</span>
+                  {!isDueOpen && <span className={styles.collapsibleSummary}>{formatDueSummary()}</span>}
                 </div>
+                <button
+                  type="button"
+                  className={styles.calendarIconButton}
+                  onClick={handleCalendarIconClick}
+                  aria-label="Open date picker"
+                  tabIndex={-1}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M2 6h12" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M5 1.5v3M11 1.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
                 <svg
                   className={`${styles.chevronIcon} ${isDueOpen ? styles.chevronOpen : ''}`}
                   width="16"
@@ -3021,39 +3051,40 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               
               {isDueOpen && (
                 <div id="due-datetime-content" className={styles.collapsibleContent}>
-                  {showQuickDateChips && (
-                    <div className={styles.quickChipsSmall} role="group" aria-label="Quick due date shortcuts">
-                      <button
-                        type="button"
-                        className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
-                        onClick={() => handleDueDateQuickSelect(todayValue)}
-                        disabled={isBusy}
-                      >
-                        Today
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.quickChip} ${dueDate === tomorrowValue ? styles.quickChipActive : ""}`}
-                        onClick={() => handleDueDateQuickSelect(tomorrowValue)}
-                        disabled={isBusy}
-                      >
-                        +1
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.quickChip} ${dueDate === nextWeekValue ? styles.quickChipActive : ""}`}
-                        onClick={() => handleDueDateQuickSelect(nextWeekValue)}
-                        disabled={isBusy}
-                      >
-                        +7
-                      </button>
+                  <div className={styles.dateHeaderRow}>
+                    <div className={styles.fieldHeader}>
+                      <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
+                        <span className={styles.fieldLabelText}>Date</span>
+                      </label>
                     </div>
-                  )}
-                  
-                  <div className={styles.fieldHeader}>
-                    <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
-                      <span className={styles.fieldLabelText}>Date</span>
-                    </label>
+                    {showQuickDateChips && (
+                      <div className={styles.quickChipsSmall} role="group" aria-label="Quick due date shortcuts">
+                        <button
+                          type="button"
+                          className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
+                          onClick={() => handleDueDateQuickSelect(todayValue)}
+                          disabled={isBusy}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.quickChip} ${dueDate === tomorrowValue ? styles.quickChipActive : ""}`}
+                          onClick={() => handleDueDateQuickSelect(tomorrowValue)}
+                          disabled={isBusy}
+                        >
+                          +1
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.quickChip} ${dueDate === nextWeekValue ? styles.quickChipActive : ""}`}
+                          onClick={() => handleDueDateQuickSelect(nextWeekValue)}
+                          disabled={isBusy}
+                        >
+                          +7
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <input
                     id={dueDateFieldId}

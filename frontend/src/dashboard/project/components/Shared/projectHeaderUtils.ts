@@ -103,7 +103,7 @@ export function normalizeProjectFromProps(project: Project | null): Project {
     : (({} as unknown) as Project);
 }
 
-export function useRangeLabels(project: Project) {
+export function useRangeLabels(project: Project, taskHours = 0) {
   const startDate = useMemo(
     () =>
       safeParse(
@@ -121,8 +121,8 @@ export function useRangeLabels(project: Project) {
       (project?.timelineEvents || []).reduce(
         (sum, event) => sum + Number(event.hours || 0),
         0
-      ),
-    [project?.timelineEvents]
+      ) + taskHours,
+    [project?.timelineEvents, taskHours]
   );
 
   const hoursLabel = useMemo(() => `${totalHours} hrs`, [totalHours]);

@@ -11,7 +11,7 @@ import {
   useRangeLabels,
 } from "../projectHeaderUtils";
 
-export function useLocalProjectState(activeProject: Project | null) {
+export function useLocalProjectState(activeProject: Project | null, taskHours: number) {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId = "" } = useParams<{ projectId: string }>();
@@ -46,7 +46,7 @@ export function useLocalProjectState(activeProject: Project | null) {
   );
 
   const { rangeLabel, mobileRangeLabel, dateRangeLabel, hoursLabel } =
-    useRangeLabels(localProject);
+    useRangeLabels(localProject, taskHours);
 
   const resolvedProjectId = (localProject?.projectId as string | undefined) || projectId;
 

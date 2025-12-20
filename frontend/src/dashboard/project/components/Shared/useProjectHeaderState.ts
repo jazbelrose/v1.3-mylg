@@ -37,6 +37,8 @@ import type {
   IdentityModalState,
   TeamModalState,
 } from "./projectHeaderTypes";
+import { useProjectTasks } from "./calendar/useProjectTasks";
+import { getTaskDurationHours } from "./calendar/taskTimeUtils";
 
 function createNavigationState(
   projectTitle: string | undefined,
@@ -77,6 +79,12 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     userId,
   } = props;
 
+  const tasks = useProjectTasks(activeProject?.projectId ?? null);
+  const taskHours = useMemo(
+    () => tasks.reduce((sum, task) => sum + getTaskDurationHours(task), 0),
+    [tasks]
+  );
+
   const isMobile = useResponsiveLayout();
   const [saving, setSaving] = useState(false);
 
@@ -96,7 +104,7 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     dateRangeLabel: rangeDateLabel,
     hoursLabel: rangeHoursLabel,
     resolvedProjectId,
-  } = useLocalProjectState(activeProject);
+  } = useLocalProjectState(activeProject, taskHours);
 
   const progressValue = useMemo(
     () => parseStatusToNumber(localProject?.status),
