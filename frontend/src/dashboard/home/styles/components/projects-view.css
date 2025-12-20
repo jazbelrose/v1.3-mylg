@@ -296,9 +296,37 @@
   width: 24px;
   height: 24px;
 }
+.project-list-pin-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
 
-.pin-indicator {
+.project-list-pin-btn--active {
   color: var(--brand);
+}
+
+.project-list-pin-btn:hover,
+.project-list-pin-btn:focus-visible {
+  color: var(--brand);
+}
+
+.project-list-item.is-dragging {
+  opacity: 0.7;
+  transform: scale(0.99);
+}
+
+.project-list-item.is-drag-over {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
 }
 
 .project-menu {

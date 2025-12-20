@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { LayoutGrid, List, MoreVertical, Pin } from 'lucide-react';
+import { LayoutGrid, List, MoreVertical, Pin, PinOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import SVGThumbnail from './SvgThumbnail';
@@ -30,6 +30,22 @@ import Squircle from '@/shared/ui/Squircle';
 
 const DEFAULT_RECENTS_LIMIT = 12;
 const VIEW_MODE_STORAGE_KEY = 'all-projects-view-mode';
+const PIN_ORDER_STORAGE_KEY = 'all-projects-pinned-order';
+
+const readPinnedOrder = (): string[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = window.localStorage.getItem(PIN_ORDER_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item) => typeof item === 'string');
+    }
+  } catch {
+    // ignore invalid data
+  }
+  return [];
+};
 
 interface Project extends ProjectLike {
   pinned?: boolean;
@@ -94,6 +110,7 @@ const AllProjects: React.FC = () => {
     projectsError,
     fetchProjects,
     allUsers,
+    updateProjectFields,
   } = useData();
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
@@ -106,6 +123,9 @@ const AllProjects: React.FC = () => {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [pinnedOrder, setPinnedOrder] = useState<string[]>(readPinnedOrder);
+  const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -167,6 +187,18 @@ const AllProjects: React.FC = () => {
         : filteredProjects,
     [filteredProjects, showPendingOnly],
   );
+
+  const orderedDisplayedProjects = useMemo(() => {
+    const pinnedSet = new Set(pinnedOrder);
+    const orderedPinned = pinnedOrder
+      .map((id) => displayedProjects.find((project) => project.projectId === id && project.pinned))
+      .filter((project): project is Project => Boolean(project));
+    const extras = displayedProjects.filter(
+      (project) => project.pinned && !pinnedSet.has(project.projectId),
+    );
+    const rest = displayedProjects.filter((project) => !project.pinned);
+    return [...orderedPinned, ...extras, ...rest];
+  }, [displayedProjects, pinnedOrder]);
 
   const kpis = useProjectKpis(projects as ProjectLike[]);
 
@@ -254,6 +286,104 @@ const AllProjects: React.FC = () => {
     [projects, handleProjectClick],
   );
 
+  const movePinnedOrder = useCallback((sourceId: string, targetId?: string) => {
+    setPinnedOrder((prev) => {
+      const withoutSource = prev.filter((id) => id !== sourceId);
+      if (!targetId) {
+        return [...withoutSource, sourceId];
+      }
+      const insertIndex = withoutSource.indexOf(targetId);
+      if (insertIndex === -1) {
+        return [...withoutSource, sourceId];
+      }
+      const next = [...withoutSource];
+      next.splice(insertIndex, 0, sourceId);
+      return next;
+    });
+  }, []);
+
+  const toggleProjectPin = useCallback(
+    (project: Project) => {
+      const nextPinned = !project.pinned;
+      setPinnedOrder((prev) => {
+        if (nextPinned) {
+          return [project.projectId, ...prev.filter((id) => id !== project.projectId)];
+        }
+        return prev.filter((id) => id !== project.projectId);
+      });
+      void updateProjectFields(project.projectId, { pinned: nextPinned }).catch((err) => {
+        console.error('Failed to update pinned state', err);
+      });
+    },
+    [updateProjectFields],
+  );
+
+  const handleDragStart = useCallback(
+    (projectId: string) => (event: React.DragEvent<HTMLLIElement>) => {
+      if (!projectId) return;
+      event.stopPropagation();
+      event.dataTransfer?.setData('text/plain', projectId);
+      setDraggedProjectId(projectId);
+    },
+    [],
+  );
+
+  const handleDragOver = useCallback(
+    (projectId: string) => (event: React.DragEvent<HTMLLIElement>) => {
+      if (!projectId || projectId === draggedProjectId) return;
+      event.preventDefault();
+      setDragOverProjectId(projectId);
+    },
+    [draggedProjectId],
+  );
+
+  const handleDragLeave = useCallback(
+    (projectId: string) => () => {
+      if (dragOverProjectId === projectId) {
+        setDragOverProjectId(null);
+      }
+    },
+    [dragOverProjectId],
+  );
+
+  const handleDrop = useCallback(
+    (project: Project) => (event: React.DragEvent<HTMLLIElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!draggedProjectId || project.projectId === draggedProjectId || !project.pinned) {
+        return;
+      }
+      movePinnedOrder(draggedProjectId, project.projectId);
+      setDragOverProjectId(null);
+    },
+    [draggedProjectId, movePinnedOrder],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedProjectId(null);
+    setDragOverProjectId(null);
+  }, []);
+
+  const handleListDragOver = useCallback(
+    (event: React.DragEvent<HTMLUListElement>) => {
+      if (!draggedProjectId) return;
+      event.preventDefault();
+    },
+    [draggedProjectId],
+  );
+
+  const handleListDrop = useCallback(
+    (event: React.DragEvent<HTMLUListElement>) => {
+      event.preventDefault();
+      if (!draggedProjectId) return;
+      if (event.currentTarget === event.target) {
+        movePinnedOrder(draggedProjectId);
+        setDragOverProjectId(null);
+      }
+    },
+    [draggedProjectId, movePinnedOrder],
+  );
+
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (menuOpenId) {
@@ -267,6 +397,30 @@ const AllProjects: React.FC = () => {
     return () => document.removeEventListener('click', onDocClick);
   }, [menuOpenId]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(PIN_ORDER_STORAGE_KEY, JSON.stringify(pinnedOrder));
+    } catch {
+      // ignore storage errors
+    }
+  }, [pinnedOrder]);
+
+  useEffect(() => {
+    const pinnedIds = projects
+      .filter((project) => project.pinned)
+      .map((project) => project.projectId);
+    setPinnedOrder((prev) => {
+      const filtered = prev.filter((id) => pinnedIds.includes(id));
+      const extras = pinnedIds.filter((id) => !filtered.includes(id));
+      const next = [...filtered, ...extras];
+      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+      return next;
+    });
+  }, [projects]);
+
   const toggleMenu = (id: string) =>
     setMenuOpenId((prev) => (prev === id ? null : id));
 
@@ -276,6 +430,12 @@ const AllProjects: React.FC = () => {
   ) => {
     if (action === 'open') {
       handleOpenProject(id);
+    }
+    if (action === 'pin' || action === 'unpin') {
+      const project = projects.find((p: Project) => p.projectId === id);
+      if (project) {
+        toggleProjectPin(project);
+      }
     }
     console.log(`Project ${id}: ${action}`);
     setMenuOpenId(null);
@@ -319,7 +479,7 @@ const AllProjects: React.FC = () => {
     onSelectProject(nextDueProject);
   }, [nextDueProject, onSelectProject]);
 
-  const isSingleProject = displayedProjects.length === 1;
+  const isSingleProject = orderedDisplayedProjects.length === 1;
 
   const renderProjectThumbnail = useCallback(
     (project: Project, variant: 'grid' | 'list') => {
@@ -352,6 +512,7 @@ const AllProjects: React.FC = () => {
               loading="lazy"
               decoding="async"
               onError={() => handleThumbnailError(project.projectId)}
+              draggable={false}
             />
           ) : (
             <SVGThumbnail
@@ -431,7 +592,7 @@ const AllProjects: React.FC = () => {
         </p>
       </div>
     );
-  } else if (showPendingOnly && displayedProjects.length === 0) {
+  } else if (showPendingOnly && orderedDisplayedProjects.length === 0) {
     content = (
       <div
         style={{
@@ -454,7 +615,7 @@ const AllProjects: React.FC = () => {
           isSingleProject ? 'single-item' : ''
         }`}
       >
-        {displayedProjects.map((project: Project) => (
+        {orderedDisplayedProjects.map((project: Project) => (
           <div
             key={project.projectId}
             className={`project-container-welcome ${
@@ -527,8 +688,12 @@ const AllProjects: React.FC = () => {
     };
 
     content = (
-      <ul className="projects-list">
-        {displayedProjects.map((project: Project) => {
+      <ul
+        className="projects-list"
+        onDragOver={handleListDragOver}
+        onDrop={handleListDrop}
+      >
+        {orderedDisplayedProjects.map((project: Project) => {
           const statusText = formatStatus(String(project.status || ''));
           const team = normalizeTeam(project.team);
           const progress = parseStatusToNumber(project.status);
@@ -538,9 +703,21 @@ const AllProjects: React.FC = () => {
           return (
             <li
               key={project.projectId}
-              className="project-list-item"
+              className={[
+                'project-list-item',
+                draggedProjectId === project.projectId ? 'is-dragging' : '',
+                dragOverProjectId === project.projectId ? 'is-drag-over' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               role="button"
               tabIndex={0}
+              draggable={Boolean(project.pinned)}
+              onDragStart={project.pinned ? handleDragStart(project.projectId) : undefined}
+              onDragOver={project.pinned ? handleDragOver(project.projectId) : undefined}
+              onDragLeave={project.pinned ? handleDragLeave(project.projectId) : undefined}
+              onDrop={project.pinned ? handleDrop(project) : undefined}
+              onDragEnd={project.pinned ? handleDragEnd : undefined}
               onClick={() => handleProjectClick(project)}
               onKeyDown={(e) => handleKeyDown(e, project)}
               aria-label={`Open project ${
@@ -565,7 +742,25 @@ const AllProjects: React.FC = () => {
                     <AvatarStack members={team} size={24} />
                   </div>
                 )}
-                {project.pinned && <Pin size={14} className="pin-indicator" />}
+                <button
+                  type="button"
+                  className={`project-list-pin-btn ${
+                    project.pinned ? 'project-list-pin-btn--active' : ''
+                  }`}
+                  aria-pressed={project.pinned}
+                  aria-label={project.pinned ? 'Unpin project' : 'Pin project'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    toggleProjectPin(project);
+                  }}
+                >
+                  {project.pinned ? (
+                    <PinOff size={16} />
+                  ) : (
+                    <Pin size={16} />
+                  )}
+                </button>
               </div>
               <div
                 className="project-menu"
