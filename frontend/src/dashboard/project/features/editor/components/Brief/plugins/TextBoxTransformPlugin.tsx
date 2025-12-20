@@ -5,6 +5,7 @@ import {
   $getNodeByKey,
   $getSelection,
   $isNodeSelection,
+  $isRangeSelection,
   $setSelection,
   ElementNode,
   type LexicalNode,
@@ -283,12 +284,43 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
       editorState.read(() => {
         const selection = $getSelection();
         const keys = new Set<string>();
-        if ($isNodeSelection(selection)) {
-          selection.getNodes().forEach((node) => {
-            if (node instanceof TextBoxNode) {
-              keys.add(node.getKey());
+        if (selection) {
+          if ($isNodeSelection(selection)) {
+            selection.getNodes().forEach((node) => {
+              if (node instanceof TextBoxNode) {
+                keys.add(node.getKey());
+              }
+            });
+          } else if ($isRangeSelection(selection)) {
+            // Check if the range selection is inside a text box
+            const anchorNode = selection.anchor.getNode();
+            const focusNode = selection.focus.getNode();
+            
+            // Find the nearest TextBoxNode ancestor for both anchor and focus
+            let anchorTextBox: TextBoxNode | null = null;
+            let focusTextBox: TextBoxNode | null = null;
+            
+            let current: LexicalNode | null = anchorNode;
+            while (current && !anchorTextBox) {
+              if (current instanceof TextBoxNode) {
+                anchorTextBox = current;
+              }
+              current = current.getParent();
             }
-          });
+            
+            current = focusNode;
+            while (current && !focusTextBox) {
+              if (current instanceof TextBoxNode) {
+                focusTextBox = current;
+              }
+              current = current.getParent();
+            }
+            
+            // If both anchor and focus are in the same text box, select it
+            if (anchorTextBox && focusTextBox && anchorTextBox.getKey() === focusTextBox.getKey()) {
+              keys.add(anchorTextBox.getKey());
+            }
+          }
         }
         syncSelectedElements(keys);
       });

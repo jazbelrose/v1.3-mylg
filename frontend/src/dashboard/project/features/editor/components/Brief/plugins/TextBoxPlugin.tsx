@@ -28,9 +28,10 @@ export default function TextBoxPlugin(): null {
           const defaultX = (1920 - 480) / 2; // Center horizontally
           const defaultY = (1080 - 160) / 2; // Center vertically
           const textBox = $createTextBoxNode(defaultX, defaultY, 480, 160);
-          textBox.append($createParagraphNode());
+          const paragraph = $createParagraphNode();
+          textBox.append(paragraph);
           $insertNodeToNearestRoot(textBox);
-          textBox.selectEnd();
+          paragraph.selectEnd();
         });
         return true;
       },
