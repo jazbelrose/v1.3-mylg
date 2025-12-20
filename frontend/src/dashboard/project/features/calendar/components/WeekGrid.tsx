@@ -282,45 +282,67 @@ function WeekGrid({
     const pendingKeys = pendingRescheduleEntriesRef.current;
     if (pendingKeys.size === 0) return;
 
-    // Check each pending entry to see if the data has updated to match the inline styles
-    pendingKeys.forEach((key) => {
-      const element = document.querySelector(`[data-entry-key="${key}"]`) as HTMLElement | null;
-      if (!element) {
-        // Element removed, clean up tracking
-        delete resizePreviewStylesRef.current[key];
-        pendingKeys.delete(key);
-        return;
-      }
+    // Use RAF to avoid flickering during modal open
+    requestAnimationFrame(() => {
+      // Check each pending entry to see if the data has updated to match the inline styles
+      pendingKeys.forEach((key) => {
+        const resizePreview = resizePreviewStylesRef.current[key];
+        if (!resizePreview) {
+          pendingKeys.delete(key);
+          return;
+        }
 
-      // If element still has inline styles, check if data has updated
-      if (element.style.top || element.style.height) {
-        const inlineTop = parseFloat(element.style.top) || 0;
-        const inlineHeight = parseFloat(element.style.height) || 0;
+        // Parse the key to find the entry
+        const [type, id] = key.split(':');
         
-        // Remove inline styles temporarily to check computed position
-        const savedTop = element.style.top;
-        const savedHeight = element.style.height;
-        element.style.top = "";
-        element.style.height = "";
+        // Find the entry in the current data
+        let entryStartMinutes: number | undefined;
+        let entryEndMinutes: number | undefined;
         
-        const computedTop = element.offsetTop;
-        const computedHeight = element.offsetHeight;
+        if (type === 'event') {
+          const event = events.find(e => `event-${e.id}` === key);
+          if (event) {
+            entryStartMinutes = parseTimeToMinutes(event.start);
+            const fallbackEnd = event.end ?? (event.start ? addHoursToTime(event.start, 1) : undefined);
+            const rawEndMinutes = parseTimeToMinutes(fallbackEnd) ?? (entryStartMinutes ?? 0) + MINUTES_IN_HOUR;
+            entryEndMinutes = Math.max((entryStartMinutes ?? 0) + 5, Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR));
+          }
+        } else if (type === 'task') {
+          const task = tasks.find(t => `task-${t.id}` === key);
+          if (task) {
+            entryStartMinutes = parseTimeToMinutes(task.start);
+            const fallbackEnd = task.end ?? (task.start ? addHoursToTime(task.start, 1) : undefined);
+            const rawEndMinutes = parseTimeToMinutes(fallbackEnd) ?? (entryStartMinutes ?? 0) + MINUTES_IN_HOUR;
+            entryEndMinutes = Math.max((entryStartMinutes ?? 0) + 5, Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR));
+          }
+        }
         
-        // If computed values match inline values (within 1px tolerance), data has updated
-        if (Math.abs(computedTop - inlineTop) <= 1 && Math.abs(computedHeight - inlineHeight) <= 1) {
-          // Data matches, can remove inline styles permanently
+        if (entryStartMinutes == null || entryEndMinutes == null) {
+          // Entry no longer exists or invalid, clean up
           delete resizePreviewStylesRef.current[key];
           pendingKeys.delete(key);
-        } else {
-          // Data hasn't updated yet, restore inline styles
-          element.style.top = savedTop;
-          element.style.height = savedHeight;
+          return;
         }
-      } else {
-        // No inline styles, clean up tracking
-        delete resizePreviewStylesRef.current[key];
-        pendingKeys.delete(key);
-      }
+
+        // Get the cell element to calculate expected position
+        const element = document.querySelector(`[data-entry-key="${key}"]`) as HTMLElement | null;
+        const cell = element?.closest('.week-grid__cell') as HTMLElement | null;
+        const rowHeightPx = cell?.getBoundingClientRect().height ?? WEEK_ROW_HEIGHT_PX;
+        
+        // Calculate expected position from data
+        const expectedTop = minutesToPxWeek(entryStartMinutes, rowHeightPx);
+        const expectedHeight = minutesToPxWeek(entryEndMinutes - entryStartMinutes, rowHeightPx);
+        
+        // Check if data matches the resize preview (within 2px tolerance for rounding)
+        if (
+          Math.abs(expectedTop - resizePreview.top) <= 2 &&
+          Math.abs(expectedHeight - resizePreview.height) <= 2
+        ) {
+          // Data has been updated to match preview, clean up
+          delete resizePreviewStylesRef.current[key];
+          pendingKeys.delete(key);
+        }
+      });
     });
   }, [events, tasks]);
 
