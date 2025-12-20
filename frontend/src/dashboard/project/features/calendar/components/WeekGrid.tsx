@@ -494,7 +494,9 @@ function WeekGrid({
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
       clearResizePreviews();
-      setDragPreviewTransforms({});
+      if (!changes.length) {
+        setDragPreviewTransforms({});
+      }
       if (wasDragging) {
         suppressClickRef.current = true;
         setTimeout(() => {
@@ -505,7 +507,12 @@ function WeekGrid({
 
       const onReschedule = rescheduleEntriesRef.current;
       if (changes.length && onReschedule) {
-        onReschedule(changes);
+        const result = onReschedule(changes);
+        if (result && typeof (result as Promise<unknown>).catch === "function") {
+          (result as Promise<unknown>).catch(() => {
+            setDragPreviewTransforms({});
+          });
+        }
       }
     };
 
