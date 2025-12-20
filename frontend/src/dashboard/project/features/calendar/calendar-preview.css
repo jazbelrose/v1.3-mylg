@@ -53,10 +53,17 @@
 
 .calendar-body.calendar-body--sidebar-collapsed .calendar-sidebar {
   position: absolute;
-  top: 24px;
+  top: calc(24px + (var(--calendar-search-height, 40px) / 2));
   left: 24px;
   width: 72px;
+  height: var(--calendar-search-height, 40px);
   z-index: 1;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .calendar-body.calendar-body--sidebar-collapsed .calendar-main {
@@ -66,6 +73,12 @@
 
 .calendar-body.calendar-body--sidebar-collapsed .calendar-controls {
   padding-left: 120px;
+}
+
+.calendar-body.calendar-body--sidebar-collapsed .calendar-sidebar__collapse-toggle {
+  height: 100%;
+  padding: 0 12px;
+  border-radius: 999px;
 }
 
 .calendar-sidebar {
@@ -179,6 +192,7 @@
 }
 
 .calendar-controls__search {
+  --calendar-search-height: 40px;
   position: relative;
   flex: 1 0 220px;
   min-width: 200px;
@@ -187,6 +201,8 @@
 }
 
 .calendar-controls__search-input {
+  height: var(--calendar-search-height);
+  box-sizing: border-box;
   width: 100%;
   padding: 8px 12px 8px 36px;
   border-radius: 14px;
