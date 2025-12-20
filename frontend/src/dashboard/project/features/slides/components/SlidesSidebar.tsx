@@ -297,7 +297,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
       {activeDropdown === contextMenuDropdownId &&
         ReactDOM.createPortal(
-          <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+          <div className="dropdown dropdown--context-menu" data-slide-dropdown ref={dropdownRef}>
             {onDuplicateSlide && (
               <button
                 type="button"
@@ -307,7 +307,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                   closeDropdown();
                 }}
               >
-                <Copy size={18} className="dropdown-icon" />
+                <Copy size={16} className="dropdown-icon" />
                 <span className="text">Duplicate Slide</span>
               </button>
             )}
@@ -320,7 +320,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                   closeDropdown();
                 }}
               >
-                <Download size={18} className="dropdown-icon" />
+                <Download size={16} className="dropdown-icon" />
                 <span className="text">Export</span>
               </button>
             )}
@@ -335,7 +335,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                     closeDropdown();
                   }}
                 >
-                  <Trash2 size={18} className="dropdown-icon" />
+                  <Trash2 size={16} className="dropdown-icon" />
                   <span className="text">Delete Slide</span>
                 </button>
               </>

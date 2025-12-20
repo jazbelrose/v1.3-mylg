@@ -235,6 +235,29 @@
   opacity: 1;
 }
 
+/* Context menu specific compact styling */
+.dropdown--context-menu {
+  min-width: 140px !important;
+  padding: 4px !important;
+  border-radius: 8px !important;
+  gap: 2px !important;
+}
+
+.dropdown--context-menu .item {
+  padding: 6px 6px !important;
+  gap: 6px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+}
+
+.dropdown--context-menu .dropdown-divider {
+  margin: 2px 0 !important;
+}
+
+.dropdown--context-menu .dropdown-icon {
+  width: 16px !important;
+}
+
 .dropdown[data-slide-dropdown] .item {
   display: flex;
   align-items: center;
