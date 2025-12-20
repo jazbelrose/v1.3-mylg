@@ -150,15 +150,20 @@ export function parseDueDate(value: unknown): Date | null {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) return null;
+    const dateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateMatch) {
+      const [, year, month, day] = dateMatch;
+      const normalized = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+      );
+      return Number.isNaN(normalized.getTime()) ? null : normalized;
+    }
 
     const direct = new Date(trimmed);
     if (!Number.isNaN(direct.getTime())) {
       return direct;
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      const iso = new Date(`${trimmed}T00:00:00`);
-      return Number.isNaN(iso.getTime()) ? null : iso;
     }
   }
 

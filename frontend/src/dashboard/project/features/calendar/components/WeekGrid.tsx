@@ -80,6 +80,9 @@ const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
 const ENTRY_MIN_HEIGHT_PX = 24;
 
+// Convert minute deltas to pixels for resize operations
+const minutesToPxWeek = (minutes: number) => (minutes / MINUTES_IN_HOUR) * WEEK_ROW_HEIGHT_PX;
+
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
 
 const snapToInterval = (value: number) =>
@@ -435,13 +438,47 @@ function WeekGrid({
       const grid = gridRef.current;
       const gridRect = grid?.getBoundingClientRect();
       const spacer = grid?.querySelector(".week-grid__spacer") as HTMLElement | null;
-      const spacerWidth = spacer?.getBoundingClientRect().width ?? 0;
+      
+      // Validate spacer width measurement - fallback to 60px if measurement fails
+      let spacerWidth = spacer?.getBoundingClientRect().width ?? 60;
+      // Ensure spacer width is reasonable (CSS defines 60px)
+      if (spacerWidth < 40 || spacerWidth > 100) {
+        spacerWidth = 60;
+      }
+      
       const columnWidth =
         gridRect && days.length > 0 ? (gridRect.width - spacerWidth) / days.length : 0;
+      const weekdayEls = grid
+        ? (Array.from(grid.querySelectorAll(".week-grid__weekday")) as HTMLDivElement[])
+        : [];
       let dropDayIndex = state.startDayIndex;
-      if (columnWidth > 0 && gridRect) {
+
+      if (weekdayEls.length === days.length) {
+        const hitIndex = weekdayEls.findIndex((element) => {
+          const rect = element.getBoundingClientRect();
+          return event.clientX >= rect.left && event.clientX <= rect.right;
+        });
+        if (hitIndex !== -1) {
+          dropDayIndex = hitIndex;
+        } else if (weekdayEls.length > 0) {
+          const firstRect = weekdayEls[0].getBoundingClientRect();
+          const lastRect = weekdayEls[weekdayEls.length - 1].getBoundingClientRect();
+          if (event.clientX < firstRect.left) {
+            dropDayIndex = 0;
+          } else if (event.clientX > lastRect.right) {
+            dropDayIndex = weekdayEls.length - 1;
+          }
+        }
+      } else if (columnWidth > 0 && gridRect) {
         const relativeX = event.clientX - (gridRect.left + spacerWidth);
-        dropDayIndex = Math.floor(relativeX / columnWidth);
+        
+        // Clamp relativeX to valid range (0 to total columns width)
+        const maxX = gridRect.width - spacerWidth;
+        const clampedX = Math.max(0, Math.min(maxX, relativeX));
+        
+        // Calculate drop day index from clamped position
+        dropDayIndex = Math.floor(clampedX / columnWidth);
+        // Double-check bounds
         dropDayIndex = Math.max(0, Math.min(days.length - 1, dropDayIndex));
       }
       const deltaDays = state.mode === "drag" ? dropDayIndex - state.startDayIndex : 0;
@@ -1222,11 +1259,13 @@ function WeekGrid({
                       const rawHeightPercent = (durationMinutes / MINUTES_IN_HOUR) * 100;
                       const heightPercent = Math.max(rawHeightPercent, 6);
                       const columnWidth = 100 / columns;
+                      const horizontalPadding = 4;
+                      const columnSpacingAdjustment = 0;
                       const entryStyle = {
                         top: `${topPercent}%`,
                         height: `${heightPercent}%`,
-                        left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * 4}px)`,
-                        width: `${columnWidth}%`,
+                        left: `calc(${columnWidth * entry.columnIndex}% + ${entry.columnIndex * columnSpacingAdjustment}px + ${horizontalPadding}px)`,
+                        width: `calc(${columnWidth}% - ${horizontalPadding * 2}px)`,
                       };
                       return renderWeekTimelineEntry(entry, key, entryStyle, false, entry.id);
                     })}
