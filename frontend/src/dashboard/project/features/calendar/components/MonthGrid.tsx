@@ -286,7 +286,7 @@ function MonthGrid({
 
           const visibleEntries = sortedEntries.slice(0, MAX_VISIBLE_ENTRIES);
           const overflowCount = Math.max(0, sortedEntries.length - visibleEntries.length);
-          const tooltipItems = visibleEntries;
+          const tooltipItems = sortedEntries;
 
           const className = [
             "month-grid__cell",
@@ -297,7 +297,6 @@ function MonthGrid({
             .join(" ");
 
           const isHovered = hoveredKey === key;
-          const tooltipOverflowCount = overflowCount;
 
           return (
             <div
@@ -390,11 +389,8 @@ function MonthGrid({
                 {overflowCount > 0 && <div className="month-grid__more-pill">+{overflowCount} more</div>}
               </div>
               {isHovered && tooltipItems.length > 0 && (
-                <div
-                  className={`month-grid__tooltip${
-                    tooltipOverflowCount > 0 ? " month-grid__tooltip--has-overflow" : ""
-                  }`}
-                >
+                <div className="month-grid__tooltip">
+                
                   {tooltipItems.map((item) => {
                     const timeLabel = buildTooltipTimeLabel(item);
                     const triggerTooltipAction = () => {
@@ -448,9 +444,6 @@ function MonthGrid({
                       </button>
                     );
                   })}
-                  {tooltipOverflowCount > 0 && (
-                    <span className="month-grid__tooltip-pill">+{tooltipOverflowCount}</span>
-                  )}
                 </div>
               )}
             <div className="month-grid__quick-add-container">
