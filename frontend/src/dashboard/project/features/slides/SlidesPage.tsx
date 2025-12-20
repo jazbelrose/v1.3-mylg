@@ -18,6 +18,7 @@ import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { getFileUrl } from "@/shared/utils/api";
+import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
@@ -477,14 +478,15 @@ const SlidesPage: React.FC = () => {
     saveSlides(reorderedSlides);
   }, [saveSlides]);
 
-  const handleDuplicateSlide = useCallback(() => {
-    const activeSlide = slides.find((s) => s.id === activeSlideId);
-    if (!activeSlide) return;
+  const handleDuplicateSlide = useCallback((slideId?: string) => {
+    const targetSlideId = slideId || activeSlideId;
+    const targetSlide = slides.find((s) => s.id === targetSlideId);
+    if (!targetSlide) return;
 
     const duplicatedSlide: Slide = {
-      ...activeSlide,
+      ...targetSlide,
       id: uuidv4(),
-      title: `${activeSlide.title} (Copy)`,
+      title: `${targetSlide.title} (Copy)`,
       order: slides.length,
     };
 
@@ -497,14 +499,15 @@ const SlidesPage: React.FC = () => {
     notify("success", "Slide duplicated");
   }, [slides, activeSlideId, saveSlides]);
 
-  const handleDeleteSlide = useCallback(() => {
+  const handleDeleteSlide = useCallback((slideId?: string) => {
+    const targetSlideId = slideId || activeSlideId;
     if (slides.length === 1) {
       notify("warning", "Cannot delete the last slide");
       return;
     }
 
-    const updatedSlides = slides.filter((s) => s.id !== activeSlideId);
-    
+    const updatedSlides = slides.filter((s) => s.id !== targetSlideId);
+
     // Reorder remaining slides
     const reorderedSlides = updatedSlides.map((slide, idx) => ({
       ...slide,
@@ -512,12 +515,12 @@ const SlidesPage: React.FC = () => {
     }));
 
     setSlides(reorderedSlides);
-    
+
     // Select the previous slide or the first one
-    const deletedIndex = slides.findIndex((s) => s.id === activeSlideId);
+    const deletedIndex = slides.findIndex((s) => s.id === targetSlideId);
     const newActiveIndex = Math.max(0, deletedIndex - 1);
     setActiveSlideId(reorderedSlides[newActiveIndex]?.id || null);
-    
+
     setIsDirty(true);
     saveSlides(reorderedSlides);
     notify("success", "Slide deleted");
@@ -678,7 +681,7 @@ const SlidesPage: React.FC = () => {
     sanitizeThumbnailForPersist,
   ]);
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback((slideId?: string) => {
     notify("info", "Export feature coming soon");
     // TODO: Implement PDF export with jsPDF
   }, []);
@@ -734,44 +737,46 @@ const SlidesPage: React.FC = () => {
       
       <div className="slides-shell">
         <div className="slides-toolbar-shell" ref={toolbarPortalRef} />
-        <div className="slides-workspace">
-          <SlidesSidebar
-            slides={slides}
-            activeSlideId={activeSlideId}
-            onSlideSelect={handleSlideSelect}
-            onReorderSlides={handleReorderSlides}
-            projectId={projectId || ""}
-          />
+        <DropdownProvider>
+          <div className="slides-workspace">
+            <SlidesSidebar
+              slides={slides}
+              activeSlideId={activeSlideId}
+              onSlideSelect={handleSlideSelect}
+              onReorderSlides={handleReorderSlides}
+              projectId={projectId || ""}
+              onDuplicateSlide={handleDuplicateSlide}
+              onDeleteSlide={handleDeleteSlide}
+              onExportSlide={handleExport}
+            />
 
-          <section className="slides-main" aria-live="polite">
-            <div className="slides-main__content">
-              {activeSlide ? (
-              <SlideEditor
-                projectId={projectId}
-                slide={activeSlide}
-                onContentChange={(content) =>
-                  handleContentChange(activeSlide.id, content)
-                }
-                onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
-                onDuplicate={handleDuplicateSlide}
-                onDelete={handleDeleteSlide}
-                onExport={handleExport}
-                isSaving={isSaving}
-                isDirty={isDirty}
-                zoom={zoom}
-                onZoomIn={handleZoomIn}
-                onZoomOut={handleZoomOut}
-                onResetZoom={handleResetZoom}
-                onSetZoom={handleSetZoom}
-                onNewSlide={handleNewSlide}
-                toolbarPortalContainer={toolbarPortalNode}
-              />
-              ) : (
-                <div className="slides-main__empty">No slide selected</div>
-              )}
-            </div>
-          </section>
-        </div>
+            <section className="slides-main" aria-live="polite">
+              <div className="slides-main__content">
+                {activeSlide ? (
+                <SlideEditor
+                  projectId={projectId}
+                  slide={activeSlide}
+                  onContentChange={(content) =>
+                    handleContentChange(activeSlide.id, content)
+                  }
+                  onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
+                  isSaving={isSaving}
+                  isDirty={isDirty}
+                  zoom={zoom}
+                  onZoomIn={handleZoomIn}
+                  onZoomOut={handleZoomOut}
+                  onResetZoom={handleResetZoom}
+                  onSetZoom={handleSetZoom}
+                  onNewSlide={handleNewSlide}
+                  toolbarPortalContainer={toolbarPortalNode}
+                />
+                ) : (
+                  <div className="slides-main__empty">No slide selected</div>
+                )}
+              </div>
+            </section>
+          </div>
+        </DropdownProvider>
       </div>
     </ProjectPageLayout>
   );

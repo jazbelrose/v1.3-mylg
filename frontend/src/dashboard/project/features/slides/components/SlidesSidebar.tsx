@@ -1,10 +1,13 @@
 // components/SlidesSidebar.tsx - Sidebar with slide thumbnails
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { GripVertical } from "lucide-react";
+import { Copy, Download, Trash2 } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
+import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import "./SlidesSidebar.css";
 
 interface SlideThumbnailProps {
@@ -179,6 +182,9 @@ interface SlidesSidebarProps {
   onSlideSelect: (slideId: string) => void;
   onReorderSlides?: (slides: Slide[]) => void;
   projectId: string;
+  onDuplicateSlide?: (slideId: string) => void;
+  onDeleteSlide?: (slideId: string) => void;
+  onExportSlide?: (slideId: string) => void;
 }
 
 const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
@@ -187,8 +193,13 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onSlideSelect,
   onReorderSlides,
   projectId,
+  onDuplicateSlide,
+  onDeleteSlide,
+  onExportSlide,
 }) => {
   const uiThumbsEnabled = isUiThumbsEnabled();
+  const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
+  const contextMenuDropdownId = "slide-context-menu";
 
   useEffect(() => {
     if (!uiThumbsEnabled || !projectId || slides.length === 0) {
@@ -243,6 +254,14 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
             }
           };
 
+          const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            // Set this slide as active first
+            onSlideSelect(slide.id);
+            // Open context menu
+            openDropdown(contextMenuDropdownId, event.currentTarget);
+          };
+
           return (
             <div
               key={slide.id}
@@ -253,6 +272,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, index)}
               onClick={() => onSlideSelect(slide.id)}
+              onContextMenu={handleContextMenu}
               onKeyDown={handleKeySelect}
               tabIndex={0}
             >
@@ -274,6 +294,55 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
           );
         })}
       </div>
+
+      {activeDropdown === contextMenuDropdownId &&
+        ReactDOM.createPortal(
+          <div className="dropdown dropdown--right" ref={dropdownRef}>
+            {onDuplicateSlide && (
+              <button
+                type="button"
+                className="item"
+                onClick={() => {
+                  if (activeSlideId) onDuplicateSlide(activeSlideId);
+                  closeDropdown();
+                }}
+              >
+                <Copy size={18} className="dropdown-icon" />
+                <span className="text">Duplicate Slide</span>
+              </button>
+            )}
+            {onExportSlide && (
+              <button
+                type="button"
+                className="item"
+                onClick={() => {
+                  if (activeSlideId) onExportSlide(activeSlideId);
+                  closeDropdown();
+                }}
+              >
+                <Download size={18} className="dropdown-icon" />
+                <span className="text">Export</span>
+              </button>
+            )}
+            {onDeleteSlide && (
+              <>
+                <div className="dropdown-divider" />
+                <button
+                  type="button"
+                  className="item item--danger"
+                  onClick={() => {
+                    if (activeSlideId) onDeleteSlide(activeSlideId);
+                    closeDropdown();
+                  }}
+                >
+                  <Trash2 size={18} className="dropdown-icon" />
+                  <span className="text">Delete Slide</span>
+                </button>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
     </aside>
   );
 };
