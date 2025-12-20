@@ -595,8 +595,8 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (!targetNode) {
               return;
             }
-            const nextX = origin.x + dx;
-            const nextY = origin.y + dy;
+            const nextX = (origin as { x: number; y: number }).x + dx;
+            const nextY = (origin as { x: number; y: number }).y + dy;
             if (targetNode instanceof TextBoxNode) {
               targetNode.setPosition(nextX, nextY);
             } else if (targetNode instanceof ResizableImageNode) {

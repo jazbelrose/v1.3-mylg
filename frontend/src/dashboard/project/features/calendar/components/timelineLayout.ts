@@ -113,6 +113,22 @@ export const getAvatarForGuest = (
   return null;
 };
 
+const collectAssigneeCandidates = (task: CalendarTask): string[] => {
+  const seen = new Set<string>();
+  const entries: string[] = [];
+  const push = (value?: string | null) => {
+    if (!value) return;
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    entries.push(normalized);
+  };
+
+  push(task.assignedTo ?? undefined);
+  task.assigneeIds?.forEach((candidate) => push(candidate));
+  return entries;
+};
+
 export const buildTaskAvatars = (
   task: CalendarTask,
   lookup?: MemberLookup,
