@@ -197,27 +197,9 @@ function DayGrid({
   const [dragPreviewTransforms, setDragPreviewTransforms] = useState<
     Record<string, { translateX: number; translateY: number }>
   >({});
-  const resizePreviewStylesRef = useRef<Record<string, true>>({});
-  const applyResizePreview = useCallback((entryKey: string, top: number, height: number) => {
-    const element = document.querySelector(
-      `[data-entry-key="${entryKey}"]`,
-    ) as HTMLElement | null;
-    if (!element) return;
-    resizePreviewStylesRef.current[entryKey] = true;
-    element.style.top = `${top}px`;
-    element.style.height = `${Math.max(height, ENTRY_MIN_HEIGHT_PX)}px`;
-  }, []);
-  const clearResizePreviews = useCallback(() => {
-    Object.keys(resizePreviewStylesRef.current).forEach((entryKey) => {
-      const element = document.querySelector(
-        `[data-entry-key="${entryKey}"]`,
-      ) as HTMLElement | null;
-      if (!element) return;
-      element.style.top = "";
-      element.style.height = "";
-    });
-    resizePreviewStylesRef.current = {};
-  }, []);
+  const [resizePreviewTransforms, setResizePreviewTransforms] = useState<
+    Record<string, { translateY: number; scaleY: number; initialHeight: number }>
+  >({});
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
 
   useEffect(() => {
@@ -226,6 +208,7 @@ function DayGrid({
 
   useEffect(() => {
     setDragPreviewTransforms({});
+    setResizePreviewTransforms({});
   }, [events, tasks]);
 
   useEffect(() => {
@@ -433,9 +416,9 @@ function DayGrid({
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
-      clearResizePreviews();
       if (!changes.length) {
         setDragPreviewTransforms({});
+        setResizePreviewTransforms({});
       }
       if (wasDragging) {
         suppressClickRef.current = true;
@@ -478,29 +461,42 @@ function DayGrid({
           };
         });
         setDragPreviewTransforms(transforms);
-        clearResizePreviews();
+        setResizePreviewTransforms({});
       } else {
         setDragPreviewTransforms({});
+        const resizeTransforms: Record<string, { translateY: number; scaleY: number; initialHeight: number }> = {};
         state.targets.forEach((target) => {
           const entryKey = `${target.entry.type}:${target.entry.id}`;
           const durationMinutes = target.endMinutes - target.startMinutes;
           const deltaMinutes = Math.round(deltaY / (HOUR_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
           let newStart = target.startMinutes;
           let newEnd = target.endMinutes;
+          
           if (state.mode === "resizeTop") {
             newStart = Math.max(0, Math.min(target.endMinutes - MIN_DURATION_MINUTES, target.startMinutes + deltaMinutes));
           } else if (state.mode === "resizeBottom") {
             newEnd = Math.min(MAX_MINUTES, Math.max(target.startMinutes + MIN_DURATION_MINUTES, target.endMinutes + deltaMinutes));
           }
+          
           const [clampedStart, clampedEnd] = snapAndClampRange(newStart, newEnd);
-          const topChangePx = minutesToPxDay(clampedStart - target.startMinutes);
-          const durationChangePx = minutesToPxDay((clampedEnd - clampedStart) - durationMinutes);
-          const newTop = (target.initialTop ?? 0) + topChangePx;
-          const newHeight = (target.initialHeight ?? 0) + durationChangePx;
+          const initialHeight = target.initialHeight ?? minutesToPxDay(durationMinutes);
+          const newHeight = minutesToPxDay(clampedEnd - clampedStart);
+          const scaleY = Math.max(ENTRY_MIN_HEIGHT_PX / initialHeight, newHeight / initialHeight);
+          
+          // Calculate translateY for resizeTop to move the element up/down as it resizes
+          const translateY = state.mode === "resizeTop" 
+            ? minutesToPxDay(clampedStart - target.startMinutes)
+            : 0;
+          
           if (clampedEnd - clampedStart > 0) {
-            applyResizePreview(entryKey, newTop, newHeight);
+            resizeTransforms[entryKey] = {
+              translateY,
+              scaleY,
+              initialHeight,
+            };
           }
         });
+        setResizePreviewTransforms(resizeTransforms);
       }
     };
 
@@ -508,7 +504,7 @@ function DayGrid({
     return () => {
       document.removeEventListener("pointermove", handlePointerMove);
     };
-  }, [applyResizePreview, clearResizePreviews]);
+  }, []);
 
   const createTarget = useCallback(
     (entry: TimelineHourEntry<CalendarEvent | CalendarTask>): InteractionTarget => ({
@@ -948,15 +944,26 @@ function DayGrid({
       background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
       border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
     };
-    const previewTransform = dragPreviewTransforms[entrySelectionKey];
-    const entryStyleWithPreview = previewTransform
-      ? {
-          ...pillStyle,
-          transform: `translate(${previewTransform.translateX}px, ${previewTransform.translateY}px)`,
-          transition: "none",
-          zIndex: 2,
-        }
-      : pillStyle;
+    const dragTransform = dragPreviewTransforms[entrySelectionKey];
+    const resizeTransform = resizePreviewTransforms[entrySelectionKey];
+    
+    let entryStyleWithPreview: React.CSSProperties = pillStyle;
+    if (dragTransform) {
+      entryStyleWithPreview = {
+        ...pillStyle,
+        transform: `translate(${dragTransform.translateX}px, ${dragTransform.translateY}px)`,
+        transition: "none",
+        zIndex: 2,
+      };
+    } else if (resizeTransform) {
+      entryStyleWithPreview = {
+        ...pillStyle,
+        transform: `translateY(${resizeTransform.translateY}px) scaleY(${resizeTransform.scaleY})`,
+        transformOrigin: "top",
+        transition: "none",
+        zIndex: 2,
+      };
+    }
 
     if (entry.type === "event") {
       return (
