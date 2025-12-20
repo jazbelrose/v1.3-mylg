@@ -160,6 +160,12 @@
   font-weight: 600;
 }
 
+/* Hide labels in image context to save space */
+.slide-toolbar--image-context .toolbar-item__label,
+.slide-toolbar--image-context .toolbar-item span {
+  display: none;
+}
+
 .divider {
   width: 1px;
   height: 26px;

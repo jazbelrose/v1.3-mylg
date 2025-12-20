@@ -511,6 +511,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               type="button"
               className="toolbar-item"
               onClick={() => handleInsert(onInsertImage)}
+              title="Replace Image"
             >
               <FileImageOutlined className="dropdown-icon" />
               <span>Replace</span>
@@ -518,11 +519,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           )}
           {hasArrange && (
             <>
-              <button type="button" className="toolbar-item" onClick={onBringToFront}>
+              <button type="button" className="toolbar-item" onClick={onBringToFront} title="Bring to Front">
                 <BringToFront size={18} />
                 <span>Bring Front</span>
               </button>
-              <button type="button" className="toolbar-item" onClick={onSendToBack}>
+              <button type="button" className="toolbar-item" onClick={onSendToBack} title="Send to Back">
                 <SendToBack size={18} />
                 <span>Send Back</span>
               </button>
@@ -530,17 +531,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           )}
           {label === "Image" && (
             <>
-              <button type="button" className="toolbar-item" onClick={onDuplicateSelection}>
+              <button type="button" className="toolbar-item" onClick={onDuplicateSelection} title="Duplicate">
                 <Copy size={18} />
                 <span>Duplicate</span>
               </button>
-              <button type="button" className="toolbar-item" onClick={onLockSelection}>
+              <button type="button" className="toolbar-item" onClick={onLockSelection} title="Lock">
                 <Lock size={18} />
                 <span>Lock</span>
               </button>
             </>
           )}
-          <button type="button" className="toolbar-item danger" onClick={onDeleteSelection}>
+          <button type="button" className="toolbar-item danger" onClick={onDeleteSelection} title="Delete">
             <Trash2 size={18} />
             <span>Delete</span>
           </button>
@@ -552,7 +553,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const renderCanvasContext = () => (
     <div className="context-panel">
       <div className="context-controls compact">
-        <button type="button" className="toolbar-item" onClick={() => handleInsert(onInsertTextBox)}>
+        <button type="button" className="toolbar-item" onClick={() => handleInsert(onInsertTextBox)} title="Add Text Box">
           <Type size={18} />
           <span>Add Text Box</span>
         </button>
@@ -572,7 +573,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       case "text":
         return renderTextContext();
       case "image":
-        return renderObjectContext("Image");
+        return renderObjectContext("Image", { showReplace: false });
       case "textbox":
         return renderObjectContext("Text Box", { showReplace: false });
       case "mixed":
@@ -583,7 +584,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   };
 
   return (
-    <div className="slide-toolbar" ref={toolbarRef}>
+    <div className={`slide-toolbar${ctx.type === "image" ? " slide-toolbar--image-context" : ""}`} ref={toolbarRef}>
       <div className="toolbar-left">
         {onSave && (
           <button
