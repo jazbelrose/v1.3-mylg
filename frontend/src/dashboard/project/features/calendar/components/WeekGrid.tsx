@@ -47,7 +47,7 @@ export type WeekGridProps = {
   activeProjectColor?: string | null;
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
-  onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
+  onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void | Promise<void>;
 };
 
 type WeekDayEvents = {
@@ -220,6 +220,7 @@ function WeekGrid({
     Record<string, { translateX: number; translateY: number }>
   >({});
   const resizePreviewStylesRef = useRef<Record<string, true>>({});
+  const pendingRescheduleEntriesRef = useRef<Set<string>>(new Set());
   const applyResizePreview = useCallback((entryKey: string, top: number, height: number) => {
     const element = document.querySelector(
       `[data-entry-key="${entryKey}"]`,
@@ -229,30 +230,38 @@ function WeekGrid({
     element.style.top = `${top}px`;
     element.style.height = `${Math.max(height, ENTRY_MIN_HEIGHT_PX)}px`;
   }, []);
-  const clearResizePreviews = useCallback(() => {
+  const clearResizePreviews = useCallback((excludeKeys?: Set<string>) => {
     Object.keys(resizePreviewStylesRef.current).forEach((entryKey) => {
+      // Skip entries that should keep their inline styles
+      if (excludeKeys?.has(entryKey)) return;
+      
       const element = document.querySelector(
         `[data-entry-key="${entryKey}"]`,
       ) as HTMLElement | null;
       if (!element) return;
       element.style.top = "";
       element.style.height = "";
+      delete resizePreviewStylesRef.current[entryKey];
     });
-    resizePreviewStylesRef.current = {};
+    
+    // Only clear the entire ref if no exclusions
+    if (!excludeKeys || excludeKeys.size === 0) {
+      resizePreviewStylesRef.current = {};
+    }
   }, []);
   const resizePreviewRafRef = useRef<number | null>(null);
-  const scheduleClearResizePreviews = useCallback(() => {
+  const scheduleClearResizePreviews = useCallback((excludeKeys?: Set<string>) => {
     if (resizePreviewRafRef.current !== null && typeof window !== "undefined") {
       window.cancelAnimationFrame(resizePreviewRafRef.current);
     }
     if (typeof window === "undefined") {
-      clearResizePreviews();
+      clearResizePreviews(excludeKeys);
       resizePreviewRafRef.current = null;
       return;
     }
     resizePreviewRafRef.current = window.requestAnimationFrame(() => {
       resizePreviewRafRef.current = null;
-      clearResizePreviews();
+      clearResizePreviews(excludeKeys);
     });
   }, [clearResizePreviews]);
   const isDraggingRef = useRef(false);
@@ -561,7 +570,25 @@ function WeekGrid({
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
-      scheduleClearResizePreviews();
+      
+      // Collect entry keys that were resized - keep their inline styles during API update
+      const resizedEntryKeys = new Set<string>();
+      if (state.mode === "resizeTop" || state.mode === "resizeBottom") {
+        state.targets.forEach((target) => {
+          const dayKey = fmtLocal(days[target.dayIndex]);
+          const entryKey = `${dayKey}:${target.entry.type}:${target.entry.id}`;
+          resizedEntryKeys.add(entryKey);
+        });
+      }
+      
+      // Store pending reschedule entries to keep their inline styles
+      if (resizedEntryKeys.size > 0) {
+        pendingRescheduleEntriesRef.current = resizedEntryKeys;
+      }
+      
+      // Clear previews but exclude resized entries
+      scheduleClearResizePreviews(resizedEntryKeys.size > 0 ? resizedEntryKeys : undefined);
+      
       if (!changes.length) {
         setDragPreviewTransforms({});
       }
@@ -576,10 +603,42 @@ function WeekGrid({
       const onReschedule = rescheduleEntriesRef.current;
       if (changes.length && onReschedule) {
         const result = onReschedule(changes);
-        if (result && typeof (result as Promise<unknown>).catch === "function") {
-          (result as Promise<unknown>).catch(() => {
-            setDragPreviewTransforms({});
-          });
+        
+        // Handle promise-based reschedule
+        if (result && typeof result === "object" && "then" in result) {
+          result
+            .then(() => {
+              // Use RAF to ensure this happens after the component re-renders with new data
+              requestAnimationFrame(() => {
+                const pendingKeys = pendingRescheduleEntriesRef.current;
+                if (pendingKeys.size > 0) {
+                  pendingKeys.forEach((key) => {
+                    const element = document.querySelector(`[data-entry-key="${key}"]`) as HTMLElement | null;
+                    if (element) {
+                      element.style.top = "";
+                      element.style.height = "";
+                    }
+                    delete resizePreviewStylesRef.current[key];
+                  });
+                  pendingRescheduleEntriesRef.current = new Set();
+                }
+              });
+            })
+            .catch(() => {
+              setDragPreviewTransforms({});
+              // Clear pending entries on error
+              const pendingKeys = pendingRescheduleEntriesRef.current;
+              if (pendingKeys.size > 0) {
+                pendingKeys.forEach((key) => {
+                  const element = document.querySelector(`[data-entry-key="${key}"]`) as HTMLElement | null;
+                  if (element) {
+                    element.style.top = "";
+                    element.style.height = "";
+                  }
+                });
+                pendingRescheduleEntriesRef.current = new Set();
+              }
+            });
         }
       }
     };
