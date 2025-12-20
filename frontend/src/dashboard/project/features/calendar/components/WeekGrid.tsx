@@ -218,27 +218,10 @@ function WeekGrid({
   const [dragPreviewTransforms, setDragPreviewTransforms] = useState<
     Record<string, { translateX: number; translateY: number }>
   >({});
-  const resizePreviewStylesRef = useRef<Record<string, true>>({});
-  const applyResizePreview = useCallback((entryKey: string, top: number, height: number) => {
-    const element = document.querySelector(
-      `[data-entry-key="${entryKey}"]`,
-    ) as HTMLElement | null;
-    if (!element) return;
-    resizePreviewStylesRef.current[entryKey] = true;
-    element.style.top = `${top}px`;
-    element.style.height = `${Math.max(height, ENTRY_MIN_HEIGHT_PX)}px`;
-  }, []);
-  const clearResizePreviews = useCallback(() => {
-    Object.keys(resizePreviewStylesRef.current).forEach((entryKey) => {
-      const element = document.querySelector(
-        `[data-entry-key="${entryKey}"]`,
-      ) as HTMLElement | null;
-      if (!element) return;
-      element.style.top = "";
-      element.style.height = "";
-    });
-    resizePreviewStylesRef.current = {};
-  }, []);
+  const [resizePreviewTransforms, setResizePreviewTransforms] = useState<
+    Record<string, { translateY: number; scaleY: number; initialHeight: number }>
+  >({});
+  const previewCleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
@@ -249,6 +232,12 @@ function WeekGrid({
 
   useEffect(() => {
     setDragPreviewTransforms({});
+    setResizePreviewTransforms({});
+    gridRef.current?.classList.remove("is-interacting");
+    if (previewCleanupTimerRef.current) {
+      clearTimeout(previewCleanupTimerRef.current);
+      previewCleanupTimerRef.current = null;
+    }
   }, [events, tasks]);
 
   useEffect(() => {
@@ -503,10 +492,18 @@ function WeekGrid({
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
-      clearResizePreviews();
-      if (!changes.length) {
-        setDragPreviewTransforms({});
+      gridRef.current?.classList.remove("is-interacting");
+      
+      // Clear previews after a brief delay to allow visual feedback
+      if (previewCleanupTimerRef.current) {
+        clearTimeout(previewCleanupTimerRef.current);
       }
+      previewCleanupTimerRef.current = setTimeout(() => {
+        setDragPreviewTransforms({});
+        setResizePreviewTransforms({});
+        previewCleanupTimerRef.current = null;
+      }, 50);
+      
       if (wasDragging) {
         suppressClickRef.current = true;
         setTimeout(() => {
@@ -547,29 +544,42 @@ function WeekGrid({
           };
         });
         setDragPreviewTransforms(transforms);
-        clearResizePreviews();
+        setResizePreviewTransforms({});
       } else {
         setDragPreviewTransforms({});
+        const resizeTransforms: Record<string, { translateY: number; scaleY: number; initialHeight: number }> = {};
         state.targets.forEach((target) => {
           const entryKey = `${target.entry.type}:${target.entry.id}`;
           const durationMinutes = target.endMinutes - target.startMinutes;
           const deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
           let newStart = target.startMinutes;
           let newEnd = target.endMinutes;
+          
           if (state.mode === "resizeTop") {
             newStart = Math.max(0, Math.min(target.endMinutes - MIN_DURATION_MINUTES, target.startMinutes + deltaMinutes));
           } else if (state.mode === "resizeBottom") {
             newEnd = Math.min(MAX_MINUTES, Math.max(target.startMinutes + MIN_DURATION_MINUTES, target.endMinutes + deltaMinutes));
           }
-          const [clampedStart, clampedEnd] = snapAndClampRange(newStart, newEnd);
-          const topChangePx = minutesToPxWeek(clampedStart - target.startMinutes);
-          const durationChangePx = minutesToPxWeek((clampedEnd - clampedStart) - durationMinutes);
-          const newTop = (target.initialTop ?? 0) + topChangePx;
-          const newHeight = (target.initialHeight ?? 0) + durationChangePx;
-          if (clampedEnd - clampedStart > 0) {
-            applyResizePreview(entryKey, newTop, newHeight);
+          
+          const initialHeight = target.initialHeight ?? minutesToPxWeek(durationMinutes);
+          const newDuration = newEnd - newStart;
+          const newHeight = minutesToPxWeek(newDuration);
+          const scaleY = Math.max(ENTRY_MIN_HEIGHT_PX / initialHeight, newHeight / initialHeight);
+          
+          // Calculate translateY for resizeTop to move the element up/down as it resizes
+          const translateY = state.mode === "resizeTop" 
+            ? minutesToPxWeek(newStart - target.startMinutes)
+            : 0;
+          
+          if (newDuration > 0) {
+            resizeTransforms[entryKey] = {
+              translateY,
+              scaleY,
+              initialHeight,
+            };
           }
         });
+        setResizePreviewTransforms(resizeTransforms);
       }
     };
 
@@ -577,7 +587,7 @@ function WeekGrid({
     return () => {
       document.removeEventListener("pointermove", handlePointerMove);
     };
-  }, [applyResizePreview, clearResizePreviews]);
+  }, []);
 
   const createTarget = useCallback(
     (entry: TimelineHourEntry<CalendarEvent | CalendarTask>, dayKey: string): InteractionTarget => ({
@@ -800,15 +810,26 @@ function WeekGrid({
       background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
       border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
     };
-    const previewTransform = dragPreviewTransforms[entrySelectionKey];
-    const entryStyleWithPreview = previewTransform
-      ? {
-          ...pillStyle,
-          transform: `translate(${previewTransform.translateX}px, ${previewTransform.translateY}px)`,
-          transition: "none",
-          zIndex: 2,
-        }
-      : pillStyle;
+    const dragTransform = dragPreviewTransforms[entrySelectionKey];
+    const resizeTransform = resizePreviewTransforms[entrySelectionKey];
+    
+    let entryStyleWithPreview = pillStyle;
+    if (dragTransform) {
+      entryStyleWithPreview = {
+        ...pillStyle,
+        transform: `translate(${dragTransform.translateX}px, ${dragTransform.translateY}px)`,
+        transition: "none",
+        zIndex: 2,
+      };
+    } else if (resizeTransform) {
+      entryStyleWithPreview = {
+        ...pillStyle,
+        transform: `translateY(${resizeTransform.translateY}px) scaleY(${resizeTransform.scaleY})`,
+        transformOrigin: "top",
+        transition: "none",
+        zIndex: 2,
+      };
+    }
     const content = (
       <div className="week-grid__timeline-entry-content">
         <div className="week-grid__timeline-entry-header">
