@@ -529,7 +529,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
             <DraggableBlockPlugin anchorElem={editorContainerRef.current} />
           )}
 
-          <DragAndDropPlugin />
+          <DragAndDropPlugin slidesMode={slidesMode} />
           <ImageCopyPastePlugin />
           <DeleteImagePlugin />
 

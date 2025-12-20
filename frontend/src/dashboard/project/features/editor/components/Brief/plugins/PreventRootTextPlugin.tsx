@@ -15,7 +15,9 @@ import {
   $setSelection,
   $createNodeSelection,
   $getNodeByKey,
+  $getRoot,
 } from "lexical";
+import { LinkNode } from "@lexical/link";
 import { $isTextBoxNode } from "./nodes/TextBoxNode";
 import { applyModifierNodeSelection } from "./slides/slideSelectionUtils";
 import { getInteractionType } from "./TextBoxTransformPlugin";
@@ -43,6 +45,18 @@ export default function PreventRootTextPlugin(): null {
      * Check if the current selection is inside a TextBoxNode.
      * If inside a textbox, allow the operation; otherwise block it.
      */
+    const isNodeInsideTextBox = (node: LexicalNode | null): boolean => {
+      let currentNode = node;
+      while (currentNode) {
+        if ($isTextBoxNode(currentNode)) {
+          return true;
+        }
+        currentNode = currentNode.getParent();
+      }
+
+      return false;
+    };
+
     const isInsideTextBox = (): boolean => {
       const selection = $getSelection();
       
@@ -56,13 +70,7 @@ export default function PreventRootTextPlugin(): null {
         const anchorNode = selection.anchor.getNode();
         
         // Walk up the tree to check if any ancestor is a TextBoxNode
-        let currentNode: LexicalNode | null = anchorNode;
-        while (currentNode) {
-          if ($isTextBoxNode(currentNode)) {
-            return true;
-          }
-          currentNode = currentNode.getParent();
-        }
+        return isNodeInsideTextBox(anchorNode);
       }
 
       return false;
@@ -342,6 +350,7 @@ export default function PreventRootTextPlugin(): null {
     );
 
     let isCleaning = false;
+    let isCleaningLinks = false;
 
     const unregisterUpdate = editor.registerUpdateListener(() => {
       if (isCleaning) {
@@ -360,6 +369,71 @@ export default function PreventRootTextPlugin(): null {
         }
       });
     });
+
+    const unregisterLinkMutation = editor.registerMutationListener(
+      LinkNode,
+      (mutations) => {
+        if (isCleaningLinks) {
+          return;
+        }
+
+        let shouldClean = false;
+        mutations.forEach((mutation) => {
+          if (mutation === "created" || mutation === "updated") {
+            shouldClean = true;
+          }
+        });
+
+        if (!shouldClean) {
+          return;
+        }
+
+        isCleaningLinks = true;
+        try {
+          editor.update(() => {
+            const root = $getRoot();
+            mutations.forEach((mutation, nodeKey) => {
+              if (mutation !== "created" && mutation !== "updated") {
+                return;
+              }
+
+              const node = $getNodeByKey(nodeKey);
+              if (!node) {
+                return;
+              }
+
+              if (isNodeInsideTextBox(node)) {
+                return;
+              }
+
+              const parent = node.getParent();
+              if (!parent) {
+                return;
+              }
+
+              const parentIsRoot = parent === root;
+              const grandparentIsRoot = parent.getParent() === root;
+
+              if (!parentIsRoot && !grandparentIsRoot) {
+                return;
+              }
+
+              if (!node.getTextContent().trim()) {
+                return;
+              }
+
+              node.remove();
+
+              if (!parentIsRoot && parent.getChildrenSize() === 0) {
+                parent.remove();
+              }
+            });
+          });
+        } finally {
+          isCleaningLinks = false;
+        }
+      }
+    );
 
     const onDeleteKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
@@ -400,6 +474,7 @@ export default function PreventRootTextPlugin(): null {
       unregisterInsertText();
       unregisterPaste();
       unregisterUpdate();
+      unregisterLinkMutation();
       if (detachBackgroundGuards) {
         detachBackgroundGuards();
       }

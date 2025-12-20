@@ -12,9 +12,13 @@ import { uploadData } from "aws-amplify/storage";
 import { useData } from "@/app/contexts/useData";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
+import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "svg"] as const;
+const DEFAULT_IMAGE_WIDTH = 400;
+const DEFAULT_IMAGE_HEIGHT = 300;
+const DEFAULT_IMAGE_RATIO = DEFAULT_IMAGE_WIDTH / DEFAULT_IMAGE_HEIGHT;
 
 type ResizableImagePayload = {
   src: string;
@@ -29,6 +33,14 @@ type ProjectLike = { projectId?: string | null } | null;
 const isImageFileLike = (file: File): boolean => {
   const ext = file.name.split(".").pop()?.toLowerCase();
   return (file.type && file.type.startsWith("image/")) || (ext && IMAGE_EXTENSIONS.includes(ext as (typeof IMAGE_EXTENSIONS)[number]));
+};
+
+const isImageUrl = (url: string): boolean => {
+  if (!url) return false;
+  if (url.startsWith("data:image/")) return true;
+  const cleanUrl = url.split("?")[0]?.split("#")[0] ?? "";
+  const ext = cleanUrl.split(".").pop()?.toLowerCase();
+  return !!ext && IMAGE_EXTENSIONS.includes(ext as (typeof IMAGE_EXTENSIONS)[number]);
 };
 
 const encodeS3Key = (key: string = "") =>
@@ -89,7 +101,11 @@ function moveCaretToPoint(editor: LexicalEditor, x: number, y: number) {
   }
 }
 
-export default function DragAndDropPlugin() {
+type DragAndDropPluginProps = {
+  slidesMode?: boolean;
+};
+
+export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPluginProps) {
   const [editor] = useLexicalComposerContext();
   const { activeProject } = useData() as { activeProject: ProjectLike };
   const [isLoading, setIsLoading] = useState(false);
@@ -97,6 +113,13 @@ export default function DragAndDropPlugin() {
   const processFile = useCallback(
     async (file: File | null, directUrl?: string) => {
       if (!file && !directUrl) return;
+      const isImageDrop = file ? isImageFileLike(file) : !!directUrl && isImageUrl(directUrl);
+
+      if (slidesMode && !isImageDrop) {
+        notify("error", "Only image files can be dropped on slides.");
+        return;
+      }
+
       setIsLoading(true);
 
       let src = directUrl ?? "";
@@ -111,11 +134,14 @@ export default function DragAndDropPlugin() {
       }
 
       if (!src) {
+        if (file) {
+          notify("error", isImageDrop ? "Image upload failed." : "File upload failed.");
+        }
         setIsLoading(false);
         return;
       }
 
-      const insertAsLink = () => {
+      const insertLinkNode = () => {
         // Avoid scheduling updates if the editor is unmounted
         if (!editor.getRootElement()) {
           setIsLoading(false);
@@ -135,45 +161,62 @@ export default function DragAndDropPlugin() {
         setIsLoading(false);
       };
 
-      if (file && isImageFileLike(file)) {
+      const insertImageNode = (payload: ResizableImagePayload) => {
+        if (!editor.getRootElement()) {
+          setIsLoading(false);
+          return;
+        }
+
+        editor.update(() => {
+          const node = $createResizableImageNode(payload);
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            selection.insertNodes([node]);
+          } else {
+            $insertNodes([node]);
+          }
+        });
+        setIsLoading(false);
+      };
+
+      if (isImageDrop) {
         // slight delay for S3/CDN eventual consistency
         setTimeout(() => {
           const img = new Image();
           img.src = src;
           img.onload = () => {
-            if (!editor.getRootElement()) {
-              setIsLoading(false);
-              return;
-            }
-
-            editor.update(() => {
-              const payload: ResizableImagePayload = {
-                src,
-                altText: file?.name || "Image",
-                width: 400,
-                height: 300,
-                originalAspectRatio: img.naturalWidth / img.naturalHeight,
-              };
-              const node = $createResizableImageNode(payload);
-              const selection = $getSelection();
-              if ($isRangeSelection(selection)) {
-                selection.insertNodes([node]);
-              } else {
-                $insertNodes([node]);
-              }
+            const ratio =
+              img.naturalWidth && img.naturalHeight
+                ? img.naturalWidth / img.naturalHeight
+                : DEFAULT_IMAGE_RATIO;
+            insertImageNode({
+              src,
+              altText: file?.name || "Image",
+              width: DEFAULT_IMAGE_WIDTH,
+              height: DEFAULT_IMAGE_HEIGHT,
+              originalAspectRatio: ratio,
             });
-            setIsLoading(false);
           };
           img.onerror = () => {
             console.error("Failed to load image:", src);
-            insertAsLink();
+            notify("error", "Image failed to load. Inserted a placeholder.");
+            insertImageNode({
+              src,
+              altText: file?.name || "Image",
+              width: DEFAULT_IMAGE_WIDTH,
+              height: DEFAULT_IMAGE_HEIGHT,
+              originalAspectRatio: DEFAULT_IMAGE_RATIO,
+            });
           };
         }, 500);
+      } else if (!slidesMode) {
+        insertLinkNode();
       } else {
-        insertAsLink();
+        notify("error", "Only image files can be dropped on slides.");
+        setIsLoading(false);
       }
     },
-    [editor, activeProject]
+    [editor, activeProject, slidesMode]
   );
 
   const onDrop = useCallback(
@@ -185,7 +228,9 @@ export default function DragAndDropPlugin() {
         return;
       }
 
-      moveCaretToPoint(editor, e.clientX, e.clientY);
+      if (!slidesMode) {
+        moveCaretToPoint(editor, e.clientX, e.clientY);
+      }
 
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
@@ -193,7 +238,7 @@ export default function DragAndDropPlugin() {
         await processFile(f);
       }
     },
-    [editor, processFile]
+    [editor, processFile, slidesMode]
   );
 
   useEffect(() => {
