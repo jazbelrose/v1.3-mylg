@@ -2099,12 +2099,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         : undefined
       : normalizedStatusForPayload;
 
-    let dueDateIso: string | undefined;
-    if (dueDate) {
-      const parsed = new Date(`${dueDate}T00:00:00`);
-      dueDateIso = Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-    }
-
     const startAtIso = startTimeValue ? `${dueDate}T${startTimeValue}:00` : undefined;
     const endAtIso = endTimeValue ? `${dueDate}T${endTimeValue}:00` : undefined;
 
@@ -2135,7 +2129,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         projectId: resolvedProjectId,
         title: formattedTitle,
         description: description.trim() || undefined,
-        dueDate: dueDateIso,
+        dueDate: dueDate || undefined,
         ...(startAtIso
           ? { startAt: startAtIso }
           : isEditing && initialTaskRef.current?.startAt != null && initialTaskRef.current?.startAt !== ""
