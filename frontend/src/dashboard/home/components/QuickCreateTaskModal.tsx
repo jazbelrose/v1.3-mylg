@@ -465,7 +465,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [isDueOpen, setIsDueOpen] = useState(false);
   const [showQuickDateChips, setShowQuickDateChips] = useState(false);
-  const [dateFieldFocused, setDateFieldFocused] = useState(false);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
   const assigneeFieldRef = useRef<HTMLDivElement | null>(null);
   const assigneeSearchRef = useRef<HTMLInputElement | null>(null);

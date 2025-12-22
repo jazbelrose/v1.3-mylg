@@ -21,8 +21,10 @@ const createProject = (overrides: Partial<ProjectWithMeta> = {}): ProjectWithMet
   ...overrides,
 });
 
-const noopRowDrag = () => (_event: ReactDragEvent<HTMLTableRowElement>) => {};
-const noopRowDrop = () => (_event: ReactDragEvent<HTMLTableRowElement>) => {};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const noopRowDrag = () => (_: ReactDragEvent<HTMLTableRowElement>) => {};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const noopRowDrop = () => (_: ReactDragEvent<HTMLTableRowElement>) => {};
 const getDragProps = () => ({
   draggedProjectId: null,
   dragOverProjectId: null,

@@ -628,16 +628,6 @@ const AllProjects: React.FC = () => {
       return Number.isNaN(num) ? 0 : num;
     };
 
-    // Helper to normalize status text (append % if it's a bare number)
-    const formatStatus = (s?: string) => {
-      const raw = (s || '').trim();
-      if (!raw) return '';
-      const num = Number(raw);
-      if (!Number.isNaN(num) && /%/.test(raw) === false && num >= 0 && num <= 100) {
-        return `${num}%`;
-      }
-      return raw;
-    };
 
     const normalizeTeam = (team?: Project['team']) => {
       if (!Array.isArray(team)) return [] as NonNullable<Project['team']>;
@@ -676,10 +666,8 @@ const AllProjects: React.FC = () => {
         onDrop={handleListDrop}
       >
         {orderedDisplayedProjects.map((project: Project) => {
-          const statusText = formatStatus(String(project.status || ''));
           const team = normalizeTeam(project.team);
           const progress = parseStatusToNumber(project.status);
-          const showProgress = true; // Always show progress ring
           const dateLabel = formatShortDate(project.dateCreated || project.date);
           const isMenuOpen = menuOpenId === project.projectId;
           return (

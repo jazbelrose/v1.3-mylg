@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  MapPin,
   Plus,
 } from "lucide-react";
 
@@ -15,7 +14,6 @@ import { useTasksOverview } from "../hooks/useTasksOverview";
 import QuickCreateTaskModal, {
   type QuickCreateTaskModalTask,
 } from "./QuickCreateTaskModal";
-import GlobalTaskDrawer from "./GlobalTaskDrawer";
 import styles from "./TasksOverviewCard.module.css";
 
 type TasksOverviewCardProps = {

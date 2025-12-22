@@ -1499,14 +1499,6 @@ const BADGE_CLASS_BY_TONE = {
                       const badgeLabel = isArchived ? "Archived" : isInReview ? "In Review" : label;
                       const normalizedUserId = normalizeUserId(user?.userId);
                       const normalizedAssignee = normalizeUserId(task.assigneeId);
-                      const reviewerId =
-                        task.reviewerId ?? (task.rawTask as { reviewerId?: string })?.reviewerId;
-                      const normalizedReviewerId = normalizeUserId(reviewerId);
-                      const isReviewer = Boolean(
-                        normalizedReviewerId &&
-                          normalizedUserId &&
-                          normalizedReviewerId === normalizedUserId,
-                      );
                       const isDone = normalizedStatus === "done";
                       const isNeedsChanges = normalizedStatus === "needs_changes";
                       const normalizedCreatorId = normalizeUserId(task.createdById);

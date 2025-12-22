@@ -1,21 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckSquare, ChevronLeft, ChevronRight, Menu, Search } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  buildMapMarkers as buildTaskMapMarkers,
   buildMarkerThumbnail as buildTaskMarkerThumbnail,
   computeStats as computeTaskStats,
-  formatDueLabel as formatDrawerDueLabel,
   formatDueDate as formatDrawerDueDate,
-  getViewportHeight as getTaskViewportHeight,
   normalizeTask as normalizeQuickTask,
   sortTasksForDrawer,
   DEFAULT_LOCATION as TASKS_DEFAULT_LOCATION,
-  DRAWER_SNAP_POINTS,
   type QuickTask,
-  type TaskMapMarker,
   type TaskStats,
-  type SnapIndex,
   isSameDay as isSameDayTask,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
@@ -181,7 +175,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     });
   }, []);
 
-  const isTaskMarking = useCallback((taskId: string) => markingTaskIds.has(taskId), [markingTaskIds]);
   useEffect(() => {
     setInternalDate((previous) =>
       isSameDay(previous, currentDate) ? previous : new Date(currentDate),
@@ -452,54 +445,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       ),
     [drawerTasks],
   );
-
-  const stats = useMemo<TaskStats>(() => computeTaskStats(quickTasks), [quickTasks]);
-
-  const statusMessage = useMemo(() => {
-    if (!quickTasks.length) return "No tasks for this project yet.";
-
-    const openTasks = quickTasks.filter((task) => task.status !== "done" && task.status !== "archived");
-    if (!openTasks.length) return "You're all caught up.";
-
-    const datedTasks = openTasks.filter(
-      (task): task is QuickTask & { dueDate: Date } => Boolean(task.dueDate),
-    );
-
-    if (!datedTasks.length) {
-      const noun = openTasks.length === 1 ? "task" : "tasks";
-      return `${openTasks.length} open ${noun} with no due date yet.`;
-    }
-
-    const sorted = datedTasks
-      .slice()
-      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
-    const nextDue = sorted[0];
-    const sameDayCount = sorted.filter((task) => isSameDayTask(task.dueDate, nextDue.dueDate)).length;
-    const noun = sameDayCount === 1 ? "task" : "tasks";
-    return `${sameDayCount} ${noun} due ${formatDrawerDueDate(nextDue.dueDate)}.`;
-  }, [quickTasks]);
-
-  const mapStatusMessage = useMemo(() => {
-    if (!mapTasks.length) {
-      return "Add locations to your tasks to see them appear here.";
-    }
-
-    return `${mapTasks.length === 1 ? "One" : mapTasks.length} task${
-      mapTasks.length === 1 ? "" : "s"
-    } showing on the map.`;
-  }, [mapTasks.length]);
-
-  const hasQuickCreateProject = taskProjects.length > 0;
-
-  const markerThumbnail = useMemo(
-    () => buildTaskMarkerThumbnail(activeProjectColor ?? undefined),
-    [activeProjectColor],
-  );
-
-  const mapLocation = mapTasks[0]?.location ?? TASKS_DEFAULT_LOCATION;
-  const mapAddress = mapTasks[0]?.address ?? activeProjectName ?? "Project";
-
-  const formatStatValue = useCallback((value: number) => value, []);
 
   const canCreateTasks = useMemo(
     () => taskProjects.length > 0 || Boolean(activeProjectId),

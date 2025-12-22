@@ -1,6 +1,6 @@
 import type React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck, faDownload, faTrash, faUpload, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faDownload, faTrash, faUpload } from "@fortawesome/free-solid-svg-icons";
 import styles from "./file-manager.module.css";
 
 interface FileManagerFooterProps {
@@ -12,7 +12,6 @@ interface FileManagerFooterProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
   onFileSelect: React.ChangeEventHandler<HTMLInputElement>;
   onToggleSelectMode: () => void;
-  onConfirmSelection?: () => void;
   onBulkDownload: () => void;
   onDeleteSelected: () => void;
   onCancelSelection: () => void;
@@ -27,7 +26,6 @@ export const FileManagerFooter = ({
   fileInputRef,
   onFileSelect,
   onToggleSelectMode,
-  onConfirmSelection,
   onBulkDownload,
   onDeleteSelected,
   onCancelSelection,

@@ -15,7 +15,6 @@ import type {
   Project,
   SortOption,
   ViewMode,
-  FileSelectionMode,
 } from "../../FileManager/FileManagerTypes";
 
 interface UseFileManagerStateParams

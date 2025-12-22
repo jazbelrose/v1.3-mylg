@@ -95,7 +95,6 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
 
     const canUpload = isAdmin || isBuilder || isDesigner || folder === "uploads";
     const canDelete = isAdmin || isBuilder || isDesigner;
-    const isSelectionEnabled = selectionMode && selectionMode !== 'none';
 
     const state = useFileManagerState({
       folder,

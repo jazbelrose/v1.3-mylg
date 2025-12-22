@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import GlobalTaskDrawer from "../components/GlobalTaskDrawer";
+import type { QuickCreateTaskModalTask } from "../components/QuickCreateTaskModal";
 
 /**
  * TasksPage - Route wrapper for GlobalTaskDrawer
@@ -24,7 +25,7 @@ const TasksPage: React.FC = () => {
   const returnPath = (location.state as { from?: string })?.from;
   const fromContext = (location.state as { fromContext?: string })?.fromContext;
   const openInCreateMode = (location.state as { openInCreateMode?: boolean })?.openInCreateMode;
-  const taskDraft = (location.state as { taskDraft?: any })?.taskDraft;
+  const taskDraft = (location.state as { taskDraft?: QuickCreateTaskModalTask })?.taskDraft;
 
   /**
    * Handle drawer close - navigate back to previous location or dashboard

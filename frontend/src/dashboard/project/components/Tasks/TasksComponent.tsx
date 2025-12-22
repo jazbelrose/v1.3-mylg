@@ -5,11 +5,6 @@ import { Button } from "@/components/ui";
 import { fetchTasks, requestTaskReview, approveTask } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
-import QuickCreateTaskModal, {
-  type QuickCreateTaskModalProject,
-  type QuickCreateTaskModalTask,
-  type TaskNoteAttachment,
-} from "@/dashboard/home/components/QuickCreateTaskModal";
 import CalendarTaskDrawer from "@/dashboard/project/features/calendar/components/CalendarTaskDrawer";
 import {
   AlertTriangle,
@@ -24,10 +19,7 @@ import {
 
 import styles from "./TasksComponent.module.css";
 import {
-  DEFAULT_LOCATION,
   DRAWER_SNAP_POINTS,
-  buildMapMarkers,
-  buildMarkerThumbnail,
   computeStats,
   createTaskStatusContext,
   formatDueDate,
@@ -40,7 +32,6 @@ import {
   sortTasksForDrawer,
   type QuickTask,
   type RawTask,
-  type TaskMapMarker,
   type TaskStats,
   type SnapIndex,
   type TaskStatusContext,
@@ -210,13 +201,11 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
 export type TasksComponentProps = {
   projectId?: string;
   projectName?: string;
-  projectColor?: string;
 };
 
 const TasksComponent: React.FC<TasksComponentProps> = ({
   projectId = "",
   projectName,
-  projectColor,
 }) => {
   const navigate = useNavigate();
   const { isAdmin } = useUser();
@@ -229,14 +218,8 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
   const [snapIndex, setSnapIndex] = useState<SnapIndex>(2);
   const [viewportHeight, setViewportHeight] = useState(() => getViewportHeight());
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
-  const [currentDragY, setCurrentDragY] = useState(0);
-  const [isDesktop, setIsDesktop] = useState(false);
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
-  const sheetRef = useRef<HTMLDivElement | null>(null);
   const initialScrollDoneRef = useRef(false);
   const hasFocusedTaskRef = useRef(false);
 
@@ -376,16 +359,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
     [tasks],
   );
 
-  const mapLocation = mapTasks[0]?.location ?? DEFAULT_LOCATION;
-  const mapAddress = mapTasks[0]?.address ?? projectName ?? "Project";
-
-  const markerThumbnail = useMemo(() => buildMarkerThumbnail(projectColor), [projectColor]);
-
-  const mapMarkers = useMemo<TaskMapMarker[]>(
-    () => buildMapMarkers(mapTasks, markerThumbnail, activeTaskId),
-    [mapTasks, markerThumbnail, activeTaskId],
-  );
-
   useEffect(() => {
     if (!drawerOpen) return;
     const update = () => setViewportHeight(getViewportHeight());
@@ -469,34 +442,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
     };
   }, [drawerOpen]);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      setIsDesktop(false);
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateMatch = () => setIsDesktop(mediaQuery.matches);
-    updateMatch();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", updateMatch);
-      return () => mediaQuery.removeEventListener("change", updateMatch);
-    }
-
-    mediaQuery.addListener(updateMatch);
-    return () => mediaQuery.removeListener(updateMatch);
-  }, []);
-
   const sheetHeights = useMemo(() => DRAWER_SNAP_POINTS.map((point) => viewportHeight * point), [viewportHeight]);
-  const baseTargetY = viewportHeight ? viewportHeight - sheetHeights[snapIndex] : 0;
-  const targetY = isDragging ? baseTargetY + currentDragY : baseTargetY;
-
-  const selectedTask = useMemo(
-    () => drawerTasks.find((task) => task.id === activeTaskId) ?? null,
-    [drawerTasks, activeTaskId],
-  );
-  const selectedAssigneeName = formatAssigneeDisplay(selectedTask?.assignedTo);
 
   const openTaskEditor = useCallback(
     (taskId: string, overrides?: Partial<QuickCreateTaskModalTask>) => {
@@ -604,20 +550,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
     [tasks, projectId, openTaskEditor, setTaskMarkingState, refreshTasks, isAdmin],
   );
 
-  const handleMarkerClick = useCallback(
-    (markerId: string) => {
-      handleTaskSelect(markerId);
-    },
-    [handleTaskSelect],
-  );
-
-  const handleOpenDrawer = useCallback(() => {
-    setDrawerOpen(true);
-    setSnapIndex(2);
-    initialScrollDoneRef.current = false;
-    setViewportHeight(getViewportHeight());
-  }, []);
-
   const handleCloseDrawer = useCallback(() => {
     setDrawerOpen(false);
     setSnapIndex(2);
@@ -636,48 +568,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [drawerOpen, handleCloseDrawer]);
-
-  const handleHandleClick = useCallback(() => {
-    setSnapIndex((current) => {
-      if (current === 2) return 1;
-      if (current === 1) return 2;
-      return 1;
-    });
-  }, []);
-
-  const handleTouchStart = useCallback((event: React.TouchEvent) => {
-    if (event.touches.length === 1) {
-      setIsDragging(true);
-      setDragStartY(event.touches[0].clientY);
-      setCurrentDragY(0);
-    }
-  }, []);
-
-  const handleTouchMove = useCallback((event: React.TouchEvent) => {
-    if (isDragging && dragStartY !== null && event.touches.length === 1) {
-      const deltaY = event.touches[0].clientY - dragStartY;
-      setCurrentDragY(deltaY);
-      event.preventDefault();
-    }
-  }, [isDragging, dragStartY]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (isDragging) {
-      setIsDragging(false);
-      setDragStartY(null);
-
-      const threshold = viewportHeight * 0.15;
-      if (Math.abs(currentDragY) > threshold) {
-        if (currentDragY > 0) {
-          setSnapIndex((current) => Math.max(0, current - 1) as SnapIndex);
-        } else {
-          setSnapIndex((current) => Math.min(2, current + 1) as SnapIndex);
-        }
-      }
-
-      setCurrentDragY(0);
-    }
-  }, [isDragging, currentDragY, viewportHeight]);
 
   const statusMessage = useMemo(() => {
     if (error) return "We couldn’t load tasks right now.";
