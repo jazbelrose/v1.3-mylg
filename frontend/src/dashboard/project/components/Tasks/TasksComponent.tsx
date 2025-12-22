@@ -215,7 +215,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
-  const [snapIndex, setSnapIndex] = useState<SnapIndex>(2);
   const [viewportHeight, setViewportHeight] = useState(() => getViewportHeight());
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
@@ -442,8 +441,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
     };
   }, [drawerOpen]);
 
-  const sheetHeights = useMemo(() => DRAWER_SNAP_POINTS.map((point) => viewportHeight * point), [viewportHeight]);
-
   const openTaskEditor = useCallback(
     (taskId: string, overrides?: Partial<QuickCreateTaskModalTask>) => {
       const match = drawerTasks.find((task) => task.id === taskId) ?? tasks.find((task) => task.id === taskId);
@@ -462,7 +459,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
         openTaskEditor(taskId);
       } else {
         setActiveTaskId(taskId);
-        setSnapIndex((current) => (current === 0 ? 1 : current));
       }
     },
     [activeTaskId, openTaskEditor],
@@ -552,7 +548,6 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
 
   const handleCloseDrawer = useCallback(() => {
     setDrawerOpen(false);
-    setSnapIndex(2);
     setMapFocus(null);
     initialScrollDoneRef.current = false;
   }, []);

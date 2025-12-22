@@ -208,19 +208,15 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 }) => {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
-  const alignButtonRef = useRef<HTMLButtonElement | null>(null);
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
   const fontButtonRef = useRef<HTMLButtonElement | null>(null);
   const colorButtonRef = useRef<HTMLButtonElement | null>(null);
-  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const blockDropdownId = "block-dropdown";
-  const alignDropdownId = "align-dropdown";
   const insertDropdownId = "insert-dropdown";
   const fontDropdownId = "font-dropdown";
   const colorDropdownId = "color-dropdown";
-  const moreDropdownId = "more-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
 

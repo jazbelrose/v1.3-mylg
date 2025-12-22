@@ -681,7 +681,7 @@ const SlidesPage: React.FC = () => {
     sanitizeThumbnailForPersist,
   ]);
 
-  const handleExport = useCallback((_slideId?: string) => {
+  const handleExport = useCallback(() => {
     notify("info", "Export feature coming soon");
     // TODO: Implement PDF export with jsPDF
   }, []);

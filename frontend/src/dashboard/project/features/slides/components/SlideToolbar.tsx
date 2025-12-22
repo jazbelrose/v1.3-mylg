@@ -26,7 +26,6 @@ import {
   MoreHorizontal,
   Type,
   Plus,
-  Layout as LayoutIcon,
   BringToFront,
   SendToBack,
   Lock,

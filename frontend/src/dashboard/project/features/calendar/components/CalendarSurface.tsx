@@ -2,14 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckSquare, ChevronLeft, ChevronRight, Menu, Search } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  buildMarkerThumbnail as buildTaskMarkerThumbnail,
-  computeStats as computeTaskStats,
-  formatDueDate as formatDrawerDueDate,
   normalizeTask as normalizeQuickTask,
   sortTasksForDrawer,
-  DEFAULT_LOCATION as TASKS_DEFAULT_LOCATION,
   type QuickTask,
-  type TaskStats,
   isSameDay as isSameDayTask,
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
@@ -22,8 +17,6 @@ import CreateCalendarItemModal, {
 } from "../CreateCalendarItemModal";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import {
-  requestTaskReview,
-  approveTask,
   createTask,
   updateTask,
   type Task as ApiTask,
@@ -101,7 +94,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   activeProjectStartDate,
   activeProjectEndDate,
 }) => {
-  const { isAdmin } = useUser();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
@@ -122,7 +114,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   });
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(() => new Set());
@@ -162,18 +153,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     }
   }, [isMobile]);
 
-
-  const setTaskMarkingState = useCallback((taskId: string, marking: boolean) => {
-    setMarkingTaskIds((current) => {
-      const next = new Set(current);
-      if (marking) {
-        next.add(taskId);
-      } else {
-        next.delete(taskId);
-      }
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     setInternalDate((previous) =>
@@ -435,15 +414,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const miniCalendarActivityDates = useMemo(
     () => Object.keys(miniCalendarActivityMap),
     [miniCalendarActivityMap],
-  );
-
-  const mapTasks = useMemo(
-    () =>
-      drawerTasks.filter(
-        (task): task is QuickTask & { location: { lat: number; lng: number } } =>
-          Boolean(task.location && !Number.isNaN(task.location.lat) && !Number.isNaN(task.location.lng)),
-      ),
-    [drawerTasks],
   );
 
   const canCreateTasks = useMemo(

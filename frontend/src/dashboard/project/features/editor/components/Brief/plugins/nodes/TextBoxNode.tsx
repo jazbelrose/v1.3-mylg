@@ -3,7 +3,6 @@ import type {
   DOMConversionMap,
   DOMExportOutput,
   EditorConfig,
-  LexicalEditor,
   NodeKey,
   SerializedElementNode,
 } from "lexical";

@@ -78,7 +78,7 @@ function hasCopyModifier(event?: CopyModifiers | null): boolean {
 
 
 function deepCloneNode(node: LexicalNode): LexicalNode | null {
-  const Ctor = node.constructor as any;
+  const Ctor = node.constructor as new (data: unknown) => LexicalNode;
 
   if (typeof Ctor.importJSON !== "function") {
     return null;
