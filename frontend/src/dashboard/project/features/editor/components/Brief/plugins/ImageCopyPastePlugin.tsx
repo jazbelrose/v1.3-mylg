@@ -20,6 +20,10 @@ import {
   ResizableImageNode,
   $createResizableImageNode,
 } from "./nodes/ResizableImageNode";
+import {
+  DEFAULT_IMAGE_BORDER_RADIUS,
+  type ImageBorderRadiusState,
+} from "./nodes/imageBorderRadius";
 
 type ImageLikeNode = ImageNode | ResizableImageNode;
 
@@ -40,6 +44,7 @@ type ResizableImageNodeProperties = {
   __width: number;
   __height: number;
   __originalAspectRatio: number;
+  __borderRadius: ImageBorderRadiusState;
 };
 
 // Fallback serialized shapes if your nodes don't export types:
@@ -63,6 +68,7 @@ type SerializedResizableImageNode = {
   width: number;
   height: number;
   originalAspectRatio: number;
+  borderRadius: ImageBorderRadiusState;
 };
 
 type FallbackSerializedImage = {
@@ -71,6 +77,7 @@ type FallbackSerializedImage = {
   width?: number;
   height?: number;
   originalAspectRatio?: number;
+  borderRadius?: ImageBorderRadiusState;
 };
 
 type ClipboardImageItem =
@@ -116,6 +123,7 @@ export default function ImageCopyPastePlugin(): null {
                       width: (n as ImageLikeNode & ImageNodeProperties & ResizableImageNodeProperties).__width,
                       height: (n as ImageLikeNode & ImageNodeProperties & ResizableImageNodeProperties).__height,
                       originalAspectRatio: (n as ImageLikeNode & ResizableImageNodeProperties).__originalAspectRatio,
+                      borderRadius: (n as ImageLikeNode & ImageNodeProperties & ResizableImageNodeProperties).__borderRadius,
                     } as FallbackSerializedImage);
 
               images.push({
@@ -169,12 +177,16 @@ export default function ImageCopyPastePlugin(): null {
                 }
                 if (item.type === "resizable-image") {
                   const data = item.data;
+                  const borderRadius =
+                    (data as SerializedResizableImageNode).borderRadius ??
+                    DEFAULT_IMAGE_BORDER_RADIUS;
                   return $createResizableImageNode({
                     src: data.src,
                     altText: data.altText || "",
                     width: data.width ?? 300,
                     height: data.height ?? 200,
                     originalAspectRatio: data.originalAspectRatio ?? ((data.width ?? 300) / (data.height ?? 200)),
+                    borderRadius,
                   });
                 }
                 return null;

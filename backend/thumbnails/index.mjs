@@ -231,6 +231,23 @@ function renderTextBoxLayer(node, textColor) {
   return `<div class="text-layer" style="${style}">${inner}</div>`;
 }
 
+function formatBorderRadius(node) {
+  if (!node || typeof node.borderRadius !== "object") {
+    return "0px";
+  }
+  const topLeft = Number(node.borderRadius.topLeft) || 0;
+  const topRight = Number(node.borderRadius.topRight) || 0;
+  const bottomRight = Number(node.borderRadius.bottomRight) || 0;
+  const bottomLeft = Number(node.borderRadius.bottomLeft) || 0;
+  const allSame =
+    topLeft === topRight &&
+    topLeft === bottomRight &&
+    topLeft === bottomLeft;
+  return allSame
+    ? `${topLeft}px`
+    : `${topLeft}px ${topRight}px ${bottomRight}px ${bottomLeft}px`;
+}
+
 function renderImageLayer(node) {
   const x = Number(node.x) || 0;
   const y = Number(node.y) || 0;
@@ -240,6 +257,7 @@ function renderImageLayer(node) {
   const src = resolveAssetUrl(node.src || node.fileKey || '');
   if (!src) return '';
   const alt = escapeHtml(node.altText || 'Image');
+  const borderRadiusStyle = formatBorderRadius(node);
   const style = [
     'position:absolute',
     'left:0',
@@ -251,7 +269,7 @@ function renderImageLayer(node) {
   ].join('; ');
 
   return `<div class="image-layer" style="${style}">
-    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" />
+    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:cover;border-radius:${borderRadiusStyle};" />
   </div>`;
 }
 

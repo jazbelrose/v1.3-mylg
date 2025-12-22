@@ -14,6 +14,10 @@ import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
+import {
+  DEFAULT_IMAGE_BORDER_RADIUS,
+  type ImageBorderRadiusState,
+} from "./nodes/imageBorderRadius";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "svg"] as const;
 const DEFAULT_IMAGE_WIDTH = 400;
@@ -26,6 +30,7 @@ type ResizableImagePayload = {
   width?: number;
   height?: number;
   originalAspectRatio: number;
+  borderRadius?: ImageBorderRadiusState;
 };
 
 type ProjectLike = { projectId?: string | null } | null;
@@ -168,7 +173,10 @@ export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPlu
         }
 
         editor.update(() => {
-          const node = $createResizableImageNode(payload);
+        const node = $createResizableImageNode({
+          ...payload,
+          borderRadius: payload.borderRadius ?? DEFAULT_IMAGE_BORDER_RADIUS,
+        });
           const selection = $getSelection();
           if ($isRangeSelection(selection)) {
             selection.insertNodes([node]);

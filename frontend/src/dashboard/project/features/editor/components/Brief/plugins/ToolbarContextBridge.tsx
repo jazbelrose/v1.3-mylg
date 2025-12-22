@@ -8,11 +8,18 @@ import {
   type FontSize,
   type TextBlockType,
 } from "./toolbarShared";
+import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 
 export type ToolbarContext =
   | { type: "none" }
   | { type: "text"; isRange: boolean }
-  | { type: "image"; nodeKey: string }
+  | {
+      type: "image";
+      nodeKey: string;
+      borderRadius: ImageBorderRadiusState;
+      width: number;
+      height: number;
+    }
   | { type: "textbox"; nodeKey: string }
   | { type: "mixed" };
 

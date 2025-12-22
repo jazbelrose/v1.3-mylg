@@ -145,7 +145,13 @@ export default function ToolbarContextPlugin() {
 
           const imageNode = nodes.find((node) => node instanceof ResizableImageNode);
           if (imageNode) {
-            setCtx({ type: "image", nodeKey: imageNode.getKey() });
+            setCtx({
+              type: "image",
+              nodeKey: imageNode.getKey(),
+              borderRadius: imageNode.getBorderRadius(),
+              width: imageNode.getWidth(),
+              height: imageNode.getHeight(),
+            });
             return;
           }
 

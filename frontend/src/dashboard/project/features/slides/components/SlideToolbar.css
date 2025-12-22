@@ -221,6 +221,166 @@
   padding: 6px 12px;
 }
 
+.corner-controls {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.corner-controls__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.corner-controls__header-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.corner-controls__value {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.corner-controls__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.corner-controls__slider-input {
+  width: 100%;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.corner-controls__slider-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.corner-controls__slider-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.corner-controls__slider-input::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a5c9ff;
+  border: 2px solid #1a1c1f;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.corner-controls__slider-input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a5c9ff;
+  border: 2px solid #1a1c1f;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.corner-controls__popup {
+  position: absolute;
+  top: 110%;
+  right: 0;
+  width: min(320px, 100%);
+  padding: 10px;
+  background: rgba(17, 18, 19, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+
+.corner-controls__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.corner-controls__cell {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.corner-controls__cell span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.corner-controls__cell input {
+  width: 100%;
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  font-size: 14px;
+  padding: 4px 6px;
+}
+
+.corner-controls__link-button {
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.corner-controls__link-button.active {
+  background: rgba(86, 160, 255, 0.2);
+  color: #a9d6ff;
+}
+
+.corner-controls__advanced-toggle {
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.corner-controls__advanced-toggle.active,
+.corner-controls__advanced-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
 .context-hint {
   color: rgba(255, 255, 255, 0.5);
   font-size: 13px;

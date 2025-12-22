@@ -29,6 +29,9 @@ import {
   BringToFront,
   SendToBack,
   Lock,
+  Link,
+  SlidersHorizontal,
+  Unlink,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -39,6 +42,12 @@ import ColorPicker from "@/shared/ui/ColorPicker";
 import {
   useToolbarContextBridge,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
+import {
+  DEFAULT_IMAGE_BORDER_RADIUS,
+  IMAGE_BORDER_RADIUS_KEYS,
+  type ImageBorderRadiusKey,
+  type ImageBorderRadiusState,
+} from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/imageBorderRadius";
 import {
   BLOCK_TYPE_LABELS,
   FONT_FAMILIES,
@@ -72,6 +81,13 @@ function Select({ onChange, className, options, value }: SelectProps) {
     </select>
   );
 }
+
+const CORNER_LABELS: Record<ImageBorderRadiusKey, string> = {
+  topLeft: "Top Left",
+  topRight: "Top Right",
+  bottomRight: "Bottom Right",
+  bottomLeft: "Bottom Left",
+};
 
 interface SlideToolbarProps {
   onDuplicate?: () => void;
@@ -121,6 +137,7 @@ interface SlideToolbarProps {
   onSendToBack?: () => void;
   onDuplicateSelection?: () => void;
   onLockSelection?: () => void;
+  onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -170,9 +187,14 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSendToBack,
   onDuplicateSelection,
   onLockSelection,
+  onUpdateImageBorderRadius,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const [cornersLinked, setCornersLinked] = useState(true);
+  const [showCornerPopup, setShowCornerPopup] = useState(false);
+  const cornerPopupRef = useRef<HTMLDivElement | null>(null);
+  const cornerPopupToggleRef = useRef<HTMLButtonElement | null>(null);
   const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
   const alignButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -196,6 +218,81 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const zoomDropdownId = "zoom-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
+  const isImageContext = ctx.type === "image";
+  const currentImageKey = isImageContext ? ctx.nodeKey : null;
+  const imageBorderRadius = isImageContext
+    ? ctx.borderRadius
+    : DEFAULT_IMAGE_BORDER_RADIUS;
+
+  useEffect(() => {
+    setCornersLinked(true);
+    setShowCornerPopup(false);
+  }, [currentImageKey]);
+
+  const handleCornerChange = (corner: ImageBorderRadiusKey, value: string) => {
+    if (!onUpdateImageBorderRadius) {
+      return;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+    const updates: Partial<ImageBorderRadiusState> = {};
+    if (cornersLinked) {
+      IMAGE_BORDER_RADIUS_KEYS.forEach((key) => {
+        updates[key] = parsed;
+      });
+    } else {
+      updates[corner] = parsed;
+    }
+    onUpdateImageBorderRadius(updates);
+  };
+
+  const getMaxUniformCornerRadius = () => {
+    if (ctx.type !== "image") return 0;
+    const minDimension = Math.min(ctx.width, ctx.height);
+    return minDimension > 0 ? minDimension / 2 : 0;
+  };
+
+  const maxUniformCornerRadius = getMaxUniformCornerRadius();
+  const averageCornerRadius = Math.round(
+    IMAGE_BORDER_RADIUS_KEYS.reduce(
+      (total, key) => total + imageBorderRadius[key],
+      0
+    ) / IMAGE_BORDER_RADIUS_KEYS.length
+  );
+  const normalizedCornerRadius =
+    maxUniformCornerRadius > 0
+      ? Math.min(averageCornerRadius, maxUniformCornerRadius)
+      : averageCornerRadius;
+  const sliderPercent =
+    maxUniformCornerRadius > 0
+      ? Math.round((normalizedCornerRadius / maxUniformCornerRadius) * 100)
+      : 0;
+  const sliderValue = Math.min(100, Math.max(0, sliderPercent));
+  const sliderDisabled =
+    !onUpdateImageBorderRadius || maxUniformCornerRadius <= 0;
+
+  const handleUniformRadiusSliderChange = (percent: number) => {
+    if (!onUpdateImageBorderRadius) {
+      return;
+    }
+    const maxRadius = getMaxUniformCornerRadius();
+    if (maxRadius <= 0) return;
+
+    const clampedPercent = Math.min(100, Math.max(0, percent));
+    const radiusPx = Math.round((clampedPercent / 100) * maxRadius);
+    const updates: Partial<ImageBorderRadiusState> = {};
+    IMAGE_BORDER_RADIUS_KEYS.forEach((key) => {
+      updates[key] = radiusPx;
+    });
+    setCornersLinked(true);
+    onUpdateImageBorderRadius(updates);
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -210,6 +307,22 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!showCornerPopup) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        cornerPopupRef.current?.contains(target) ||
+        cornerPopupToggleRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowCornerPopup(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCornerPopup]);
 
   const handleDropdownToggle = (
     dropdownId: string,
@@ -542,6 +655,73 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             <Trash2 size={18} />
           </button>
         </div>
+        {label === "Image" && isImageContext && (
+          <div className="corner-controls">
+            <div className="corner-controls__header">
+              <div className="corner-controls__header-labels">
+                <span>Corners</span>
+                <span className="corner-controls__value">
+                  {sliderValue}% · {Math.round(normalizedCornerRadius)}px
+                </span>
+              </div>
+              <div className="corner-controls__actions">
+                <button
+                  type="button"
+                  className={`corner-controls__link-button${cornersLinked ? " active" : ""}`}
+                  onClick={() => setCornersLinked((prev) => !prev)}
+                  title={cornersLinked ? "Edit corners independently" : "Link corners together"}
+                >
+                  {cornersLinked ? <Link size={16} /> : <Unlink size={16} />}
+                </button>
+                <button
+                  type="button"
+                  className={`corner-controls__advanced-toggle${showCornerPopup ? " active" : ""}`}
+                  onClick={() => setShowCornerPopup((prev) => !prev)}
+                  title={
+                    showCornerPopup
+                      ? "Hide per-corner controls"
+                      : "Edit corners independently"
+                  }
+                  ref={cornerPopupToggleRef}
+                >
+                  <SlidersHorizontal size={16} />
+                </button>
+              </div>
+            </div>
+            <input
+              className="corner-controls__slider-input"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={sliderValue}
+              onChange={(event) =>
+                handleUniformRadiusSliderChange(Number(event.target.value))
+              }
+              disabled={sliderDisabled}
+            />
+            {showCornerPopup && (
+              <div className="corner-controls__popup" ref={cornerPopupRef}>
+                <div className="corner-controls__grid">
+                  {IMAGE_BORDER_RADIUS_KEYS.map((cornerKey) => (
+                    <div key={cornerKey} className="corner-controls__cell">
+                      <span>{CORNER_LABELS[cornerKey]}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={imageBorderRadius[cornerKey]}
+                        onChange={(event) =>
+                          handleCornerChange(cornerKey, event.target.value)
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };

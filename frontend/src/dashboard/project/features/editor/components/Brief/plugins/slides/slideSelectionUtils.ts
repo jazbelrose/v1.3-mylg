@@ -156,6 +156,7 @@ function cloneResizableImageNode(node: ResizableImageNode): ResizableImageNode {
     x: node.getX(),
     y: node.getY(),
     rotation: node.getRotation(),
+    borderRadius: node.getBorderRadius(),
   });
 }
 

@@ -12,6 +12,7 @@ import {
   type LexicalCommand,
 } from "lexical";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
+import { DEFAULT_IMAGE_BORDER_RADIUS } from "./nodes/imageBorderRadius";
 import { useData } from "@/app/contexts/useData";
 import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
 import { OPEN_IMAGE_COMMAND } from "../commands";
@@ -111,6 +112,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
         width,
         height,
         originalAspectRatio: width / height,
+        borderRadius: DEFAULT_IMAGE_BORDER_RADIUS,
       });
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {

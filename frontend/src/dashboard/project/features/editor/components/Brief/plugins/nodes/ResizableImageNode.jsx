@@ -5,6 +5,11 @@ import React, { useRef, useState, useEffect } from "react";
 import { useData } from "@/app/contexts/useData";
 import { useImageLocks } from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockContext";
 import { TextBoxNode } from "./TextBoxNode";
+import {
+  DEFAULT_IMAGE_BORDER_RADIUS,
+  mergeBorderRadius,
+  borderRadiusToCss,
+} from "./imageBorderRadius";
 import { getFileUrl } from "@/shared/utils/api";
 import {
   applyModifierNodeSelection,
@@ -28,11 +33,23 @@ export class ResizableImageNode extends DecoratorNode {
       node.__key,
       node.__x,
       node.__y,
-      node.__rotation
+      node.__rotation,
+      node.__borderRadius
     );
   }
 
-  constructor(src, altText, width, height, originalAspectRatio, key, x = 0, y = 0, rotation = 0) {
+  constructor(
+    src,
+    altText,
+    width,
+    height,
+    originalAspectRatio,
+    key,
+    x = 0,
+    y = 0,
+    rotation = 0,
+    borderRadius
+  ) {
     super(key);
     this.__src = src;
     this.__altText = altText;
@@ -43,6 +60,10 @@ export class ResizableImageNode extends DecoratorNode {
     this.__x = x;
     this.__y = y;
     this.__rotation = rotation;
+    this.__borderRadius = mergeBorderRadius(
+      DEFAULT_IMAGE_BORDER_RADIUS,
+      borderRadius
+    );
   }
 
   getOriginalAspectRatio() {
@@ -105,6 +126,18 @@ export class ResizableImageNode extends DecoratorNode {
     return this.__rotation;
   }
 
+  getBorderRadius() {
+    return { ...this.__borderRadius };
+  }
+
+  setBorderRadius(borderRadius) {
+    const writable = this.getWritable();
+    writable.__borderRadius = mergeBorderRadius(
+      writable.__borderRadius,
+      borderRadius
+    );
+  }
+
   createDOM() {
     const elem = document.createElement("span");
     Object.assign(elem.style, {
@@ -130,8 +163,29 @@ export class ResizableImageNode extends DecoratorNode {
   }
 
   static importJSON(serializedNode) {
-    const { src, altText, width, height, originalAspectRatio, x, y, rotation } = serializedNode;
-    return new ResizableImageNode(src, altText, width, height, originalAspectRatio, undefined, x, y, rotation);
+    const {
+      src,
+      altText,
+      width,
+      height,
+      originalAspectRatio,
+      x,
+      y,
+      rotation,
+      borderRadius,
+    } = serializedNode;
+    return new ResizableImageNode(
+      src,
+      altText,
+      width,
+      height,
+      originalAspectRatio,
+      undefined,
+      x,
+      y,
+      rotation,
+      borderRadius
+    );
   }
 
   exportJSON() {
@@ -146,21 +200,23 @@ export class ResizableImageNode extends DecoratorNode {
       x: this.__x,
       y: this.__y,
       rotation: this.__rotation,
+      borderRadius: this.__borderRadius,
     };
   }
 
   decorate() {
     return (
-      <ResizableImageComponent
-        src={getFileUrl(this.__src)}
-        altText={this.__altText}
-        width={this.__width}
-        height={this.__height}
-        x={this.__x}
-        y={this.__y}
-        rotation={this.__rotation}
-        nodeKey={this.__key}
-      />
+        <ResizableImageComponent
+          src={getFileUrl(this.__src)}
+          altText={this.__altText}
+          width={this.__width}
+          height={this.__height}
+          x={this.__x}
+          y={this.__y}
+          rotation={this.__rotation}
+          borderRadius={this.__borderRadius}
+          nodeKey={this.__key}
+        />
     );
   }
 }
@@ -178,6 +234,7 @@ export function $createResizableImageNode({
   x = 0,
   y = 0,
   rotation = 0,
+  borderRadius,
 }) {
   return new ResizableImageNode(
     src,
@@ -188,7 +245,8 @@ export function $createResizableImageNode({
     undefined,
     x,
     y,
-    rotation
+    rotation,
+    borderRadius
   );
 }
 
@@ -196,7 +254,17 @@ export function $createResizableImageNode({
  * The DecoratorNode's React component that handles display and resizing.
  * This version always locks the aspect ratio.
  */
-function ResizableImageComponent({ src, altText, width, height, x, y, rotation, nodeKey }) {
+function ResizableImageComponent({
+  src,
+  altText,
+  width,
+  height,
+  x,
+  y,
+  rotation,
+  nodeKey,
+  borderRadius,
+}) {
   const [editor] = useLexicalComposerContext();
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
   const containerRef = useRef(null);
@@ -205,6 +273,9 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
   const { provider, locks } = useImageLocks();
   const lockedBy = locks[nodeKey];
   const isLocked = lockedBy && lockedBy !== userName;
+  const borderRadiusStyle = borderRadiusToCss(
+    borderRadius || DEFAULT_IMAGE_BORDER_RADIUS
+  );
   const [isResizing, setIsResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
@@ -605,6 +676,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
             left: 0,
             width: "100%",
             height: "100%",
+            borderRadius: borderRadiusStyle,
             objectFit: "contain",
             cursor: isSelected && !isLocked ? "move" : "pointer",
             pointerEvents: isLocked ? "none" : "auto",
@@ -621,6 +693,7 @@ function ResizableImageComponent({ src, altText, width, height, x, y, rotation, 
               height: "100%",
               border: isResizing || isDragging || isRotating ? "2px solid blue" : "1px solid blue",
               boxSizing: "border-box",
+              borderRadius: borderRadiusStyle,
               pointerEvents: "none",
             }}
           >

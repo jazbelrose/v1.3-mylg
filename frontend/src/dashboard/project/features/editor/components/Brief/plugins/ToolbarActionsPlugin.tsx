@@ -30,6 +30,8 @@ import {
   INSERT_TEXTBOX_COMMAND,
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
+import { ResizableImageNode } from "./nodes/ResizableImageNode";
+import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 
 type BlockType = "paragraph" | "h1" | "h2" | "quote" | "code" | "ul" | "ol";
 
@@ -70,6 +72,7 @@ export type ToolbarActions = {
   onDeleteSelection: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  onUpdateImageBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
 };
 
 type Props = {
@@ -204,6 +207,12 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             firstChild.insertBefore(node);
           } else {
             parent.append(node);
+          }
+        }),
+      onUpdateImageBorderRadius: (updates) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof ResizableImageNode) {
+            node.setBorderRadius(updates);
           }
         }),
     };
