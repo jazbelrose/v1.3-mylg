@@ -1235,7 +1235,7 @@ i.bg-color::before {
   background: #4c9aff;
   opacity: 0;
   transition: opacity 0.15s ease;
-  pointer-events: auto;
+  pointer-events: none;
   z-index: 30;
 }
 
@@ -1243,12 +1243,13 @@ i.bg-color::before {
 .editor-textbox.editor-textbox-selected .textbox-resize-handle,
 .editor-textbox.editor-textbox-focused .textbox-resize-handle {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .textbox-move-handle {
   position: absolute;
   opacity: 0;
-  pointer-events: auto;
+  pointer-events: none;
   z-index: 10;
   background: transparent;
 }
@@ -1257,6 +1258,7 @@ i.bg-color::before {
 .editor-textbox.editor-textbox-selected .textbox-move-handle,
 .editor-textbox.editor-textbox-focused .textbox-move-handle {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .textbox-move-handle-top {
@@ -1309,6 +1311,7 @@ i.bg-color::before {
   color: #4c9aff;
   opacity: 0;
   cursor: grab;
+  pointer-events: none;
   z-index: 20;
 }
 
@@ -1316,6 +1319,7 @@ i.bg-color::before {
 .editor-textbox.editor-textbox-selected .textbox-rotate-handle,
 .editor-textbox.editor-textbox-focused .textbox-rotate-handle {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .textbox-rotate-handle:active {
