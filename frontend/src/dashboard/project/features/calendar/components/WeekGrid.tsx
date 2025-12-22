@@ -132,7 +132,6 @@ const QUICK_ADD_POPOVER_WIDTH = 200;
 const QUICK_ADD_POPOVER_HEIGHT = 140;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
-const WEEK_GRID_SPACER_PX = 60;
 
 const buildAvatarStack = (
   avatars: TimelineAvatar[],

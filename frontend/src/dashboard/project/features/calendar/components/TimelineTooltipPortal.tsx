@@ -23,13 +23,13 @@ export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
   preference = "top",
   tooltipId = "timeline-tooltip",
 }) => {
-  // Don't show tooltips on touch devices (mobile)
-  // Touch users can tap to access details via other UI patterns
-  if (isTouchDevice()) return null;
-
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [ready, setReady] = useState(false);
+
+  // Don't show tooltips on touch devices (mobile)
+  // Touch users can tap to access details via other UI patterns
+  if (isTouchDevice()) return null;
 
   useLayoutEffect(() => {
     const node = tooltipRef.current;
@@ -74,9 +74,11 @@ export const TimelineTooltipPortal: React.FC<TimelineTooltipPortalProps> = ({
       window.removeEventListener("scroll", handleDismiss, true);
       window.removeEventListener("resize", handleDismiss);
     };
-  }, [anchorElement, preference]);
+  }, [anchorElement, preference, onClose]);
 
   useLayoutEffect(() => {
+    if (isTouchDevice()) return;
+
     const handlePointer = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
       const node = tooltipRef.current;

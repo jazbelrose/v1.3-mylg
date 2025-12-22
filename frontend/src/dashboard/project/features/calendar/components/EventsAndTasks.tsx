@@ -162,9 +162,6 @@ function EventsAndTasks({
   }, [normalizedTasks, resolvedTaskFilter]);
 
   const hasActiveFilters = resolvedEventFilter !== "all" || resolvedTaskFilter !== "all";
-  const filterButtonLabel = hasActiveFilters
-    ? `Filter: ${EVENT_FILTER_SUMMARY[resolvedEventFilter]} · ${TASK_FILTER_SUMMARY[resolvedTaskFilter]} ▾`
-    : "Filters ▾";
   const filterButtonAriaLabel = hasActiveFilters
     ? `Filtering by ${EVENT_FILTER_LABELS[resolvedEventFilter]} and ${TASK_FILTER_LABELS[resolvedTaskFilter]}`
     : "Filter events and tasks";
@@ -389,8 +386,6 @@ function EventsAndTasks({
               const dueLabel = dueDate ? scheduleDateFormatter.format(dueDate) : undefined;
               const startLabel = formatTimeLabel(task.start);
               const endLabel = formatTimeLabel(task.end);
-              const timeLabel =
-                startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? undefined;
               const assignedLabel = quickTask?.assignedTo
                 ? formatAssigneeDisplay(quickTask.assignedTo)
                 : formatAssigneeDisplay(task.assignedTo);
