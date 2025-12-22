@@ -1224,7 +1224,8 @@ i.bg-color::before {
 }
 
 .editor-textbox:hover,
-.editor-textbox.editor-textbox-selected {
+.editor-textbox.editor-textbox-selected,
+.editor-textbox.editor-textbox-focused {
   border-color: #4c9aff;
   overflow: visible;
 }
@@ -1239,7 +1240,8 @@ i.bg-color::before {
 }
 
 .editor-textbox:hover .textbox-resize-handle,
-.editor-textbox.editor-textbox-selected .textbox-resize-handle {
+.editor-textbox.editor-textbox-selected .textbox-resize-handle,
+.editor-textbox.editor-textbox-focused .textbox-resize-handle {
   opacity: 1;
 }
 
@@ -1252,7 +1254,8 @@ i.bg-color::before {
 }
 
 .editor-textbox:hover .textbox-move-handle,
-.editor-textbox.editor-textbox-selected .textbox-move-handle {
+.editor-textbox.editor-textbox-selected .textbox-move-handle,
+.editor-textbox.editor-textbox-focused .textbox-move-handle {
   opacity: 1;
 }
 
@@ -1310,7 +1313,8 @@ i.bg-color::before {
 }
 
 .editor-textbox:hover .textbox-rotate-handle,
-.editor-textbox.editor-textbox-selected .textbox-rotate-handle {
+.editor-textbox.editor-textbox-selected .textbox-rotate-handle,
+.editor-textbox.editor-textbox-focused .textbox-rotate-handle {
   opacity: 1;
 }
 

@@ -258,24 +258,40 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
     let hoverTextbox: HTMLElement | null = null;
     const selectedElementMap = new Map<string, HTMLElement>();
 
-    const syncSelectedElements = (keys: Set<string>) => {
+    const syncSelectedElements = (nodeKeys: Set<string>, focusKeys: Set<string>) => {
+      const desiredKeys = new Set<string>([...nodeKeys, ...focusKeys]);
+
+      const keysToRemove: string[] = [];
       selectedElementMap.forEach((element, key) => {
-        if (!keys.has(key)) {
-          element.classList.remove("editor-textbox-selected");
-          selectedElementMap.delete(key);
+        if (!desiredKeys.has(key)) {
+          element.classList.remove("editor-textbox-selected", "editor-textbox-focused");
+          keysToRemove.push(key);
         }
       });
+      keysToRemove.forEach((key) => selectedElementMap.delete(key));
 
-      keys.forEach((key) => {
-        if (selectedElementMap.has(key)) {
-          return;
-        }
-        const element = root.querySelector<HTMLElement>(
-          `[data-lexical-textbox="true"][data-lexical-node-key="${key}"]`
-        );
-        if (element) {
-          element.classList.add("editor-textbox-selected");
+      desiredKeys.forEach((key) => {
+        let element = selectedElementMap.get(key);
+        if (!element) {
+          element = root.querySelector<HTMLElement>(
+            `[data-lexical-textbox="true"][data-lexical-node-key="${key}"]`
+          );
+          if (!element) {
+            return;
+          }
           selectedElementMap.set(key, element);
+        }
+
+        if (nodeKeys.has(key)) {
+          element.classList.add("editor-textbox-selected");
+        } else {
+          element.classList.remove("editor-textbox-selected");
+        }
+
+        if (focusKeys.has(key)) {
+          element.classList.add("editor-textbox-focused");
+        } else {
+          element.classList.remove("editor-textbox-focused");
         }
       });
     };
@@ -283,23 +299,20 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
     const unregisterSelectionSync = editor.registerUpdateListener(({ editorState }) => {
       editorState.read(() => {
         const selection = $getSelection();
-        const keys = new Set<string>();
+        const nodeSelectionKeys = new Set<string>();
+        const focusSelectionKeys = new Set<string>();
         if (selection) {
           if ($isNodeSelection(selection)) {
             selection.getNodes().forEach((node) => {
               if (node instanceof TextBoxNode) {
-                keys.add(node.getKey());
+                nodeSelectionKeys.add(node.getKey());
               }
             });
           } else if ($isRangeSelection(selection)) {
-            // Check if the range selection is inside a text box
             const anchorNode = selection.anchor.getNode();
             const focusNode = selection.focus.getNode();
-            
-            // Find the nearest TextBoxNode ancestor for both anchor and focus
             let anchorTextBox: TextBoxNode | null = null;
             let focusTextBox: TextBoxNode | null = null;
-            
             let current: LexicalNode | null = anchorNode;
             while (current && !anchorTextBox) {
               if (current instanceof TextBoxNode) {
@@ -307,7 +320,6 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
               }
               current = current.getParent();
             }
-            
             current = focusNode;
             while (current && !focusTextBox) {
               if (current instanceof TextBoxNode) {
@@ -315,14 +327,16 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
               }
               current = current.getParent();
             }
-            
-            // If both anchor and focus are in the same text box, select it
-            if (anchorTextBox && focusTextBox && anchorTextBox.getKey() === focusTextBox.getKey()) {
-              keys.add(anchorTextBox.getKey());
+            if (
+              anchorTextBox &&
+              focusTextBox &&
+              anchorTextBox.getKey() === focusTextBox.getKey()
+            ) {
+              focusSelectionKeys.add(anchorTextBox.getKey());
             }
           }
         }
-        syncSelectedElements(keys);
+        syncSelectedElements(nodeSelectionKeys, focusSelectionKeys);
       });
     });
 
@@ -730,7 +744,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
       if (hoverTextbox) {
         hoverTextbox.classList.remove("editor-textbox-border-hover");
       }
-      syncSelectedElements(new Set());
+      syncSelectedElements(new Set(), new Set());
       selectedElementMap.clear();
       unregisterSelectionSync();
     };
