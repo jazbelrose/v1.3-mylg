@@ -140,7 +140,7 @@ function cloneTextBoxNode(node: TextBoxNode): TextBoxNode {
   const clone = $createTextBoxNode(x, y, width, height, rotation);
 
   node.getChildren().forEach((child) => {
-    clone.append((child as any).clone());
+    clone.append((child as LexicalNode).clone());
   });
 
   return clone;

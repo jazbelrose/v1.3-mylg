@@ -1,7 +1,6 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Folder,
   Bell,
   Layers,
   MessageSquare,

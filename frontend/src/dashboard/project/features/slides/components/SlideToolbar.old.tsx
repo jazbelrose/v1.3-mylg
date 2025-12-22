@@ -10,7 +10,6 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
-  List,
   Undo2,
   Redo2,
   Eye,
@@ -23,7 +22,6 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  MoreHorizontal,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -238,10 +236,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     handleDropdownToggle(blockDropdownId, blockButtonRef);
   };
 
-  const handleAlignDropdownToggle = () => {
-    handleDropdownToggle(alignDropdownId, alignButtonRef);
-  };
-
   const handleInsertDropdownToggle = () => {
     handleDropdownToggle(insertDropdownId, insertButtonRef);
   };
@@ -252,10 +246,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleColorDropdownToggle = () => {
     handleDropdownToggle(colorDropdownId, colorButtonRef);
-  };
-
-  const handleMoreDropdownToggle = () => {
-    handleDropdownToggle(moreDropdownId, moreButtonRef);
   };
 
   const handleDropdownItemClick = (type: BlockType) => {
@@ -298,36 +288,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleInsertLayout = () => {
     onInsertLayout?.();
-    closeDropdown();
-  };
-
-  const handleAlignLeftClick = () => {
-    onAlignLeft?.();
-    closeDropdown();
-  };
-
-  const handleAlignCenterClick = () => {
-    onAlignCenter?.();
-    closeDropdown();
-  };
-
-  const handleAlignRightClick = () => {
-    onAlignRight?.();
-    closeDropdown();
-  };
-
-  const handleAlignJustifyClick = () => {
-    onAlignJustify?.();
-    closeDropdown();
-  };
-
-  const handleListUlClick = () => {
-    onSetBlockType?.("ul");
-    closeDropdown();
-  };
-
-  const handleListOlClick = () => {
-    onSetBlockType?.("ol");
     closeDropdown();
   };
 

@@ -66,7 +66,7 @@ export function formatNotification(msg: string): string {
           if (count === 1) return 'Edited 1 slide.';
           
           // If slides have IDs, list them; otherwise, just the count
-          const slideIds = slides.map((slide: any) => slide?.id || slide?.slideId).filter(Boolean);
+          const slideIds = slides.map((slide: { id?: string; slideId?: string }) => slide?.id || slide?.slideId).filter(Boolean);
           if (slideIds.length === count) {
             return `Edited slides ${slideIds.join(', ')}.`;
           } else {

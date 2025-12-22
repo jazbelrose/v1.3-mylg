@@ -158,7 +158,7 @@ export class TextBoxNode extends ElementNode {
     return false;
   }
 
-  exportDOM(_: LexicalEditor): DOMExportOutput {
+  exportDOM(): DOMExportOutput {
     const element = document.createElement("div");
     element.setAttribute("data-lexical-textbox", "true");
     element.style.position = "absolute";

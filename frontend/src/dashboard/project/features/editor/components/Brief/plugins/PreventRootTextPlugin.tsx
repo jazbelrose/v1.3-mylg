@@ -13,7 +13,6 @@ import {
   CONTROLLED_TEXT_INSERTION_COMMAND,
   CLICK_COMMAND,
   $setSelection,
-  $createNodeSelection,
   $getNodeByKey,
   $getRoot,
 } from "lexical";
