@@ -30,7 +30,7 @@ import {
   SendToBack,
   Lock,
   Link,
-  SlidersHorizontal,
+  ChevronDown,
   Unlink,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
@@ -657,67 +657,104 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
         </div>
         {label === "Image" && isImageContext && (
           <div className="corner-controls">
-            <div className="corner-controls__header">
-              <div className="corner-controls__header-labels">
-                <span>Corners</span>
-                <span className="corner-controls__value">
-                  {sliderValue}% · {Math.round(normalizedCornerRadius)}px
-                </span>
-              </div>
-              <div className="corner-controls__actions">
-                <button
-                  type="button"
-                  className={`corner-controls__link-button${cornersLinked ? " active" : ""}`}
-                  onClick={() => setCornersLinked((prev) => !prev)}
-                  title={cornersLinked ? "Edit corners independently" : "Link corners together"}
-                >
-                  {cornersLinked ? <Link size={16} /> : <Unlink size={16} />}
-                </button>
-                <button
-                  type="button"
-                  className={`corner-controls__advanced-toggle${showCornerPopup ? " active" : ""}`}
-                  onClick={() => setShowCornerPopup((prev) => !prev)}
-                  title={
-                    showCornerPopup
-                      ? "Hide per-corner controls"
-                      : "Edit corners independently"
-                  }
-                  ref={cornerPopupToggleRef}
-                >
-                  <SlidersHorizontal size={16} />
-                </button>
-              </div>
-            </div>
-            <input
-              className="corner-controls__slider-input"
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={sliderValue}
-              onChange={(event) =>
-                handleUniformRadiusSliderChange(Number(event.target.value))
-              }
-              disabled={sliderDisabled}
-            />
+            <button
+              type="button"
+              className={`corner-pill${showCornerPopup ? " active" : ""}`}
+              onMouseDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowCornerPopup((prev) => !prev);
+              }}
+              ref={cornerPopupToggleRef}
+              aria-expanded={showCornerPopup}
+            >
+              <span className="corner-pill__label">Corners: {sliderValue}%</span>
+              <ChevronDown size={14} />
+            </button>
             {showCornerPopup && (
-              <div className="corner-controls__popup" ref={cornerPopupRef}>
-                <div className="corner-controls__grid">
-                  {IMAGE_BORDER_RADIUS_KEYS.map((cornerKey) => (
-                    <div key={cornerKey} className="corner-controls__cell">
-                      <span>{CORNER_LABELS[cornerKey]}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={imageBorderRadius[cornerKey]}
-                        onChange={(event) =>
-                          handleCornerChange(cornerKey, event.target.value)
-                        }
-                      />
-                    </div>
-                  ))}
+              <div
+                className="corner-dropdown"
+                ref={cornerPopupRef}
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                <div className="corner-dropdown__header">
+                  <span className="corner-dropdown__title">Corner radius</span>
+                  <span className="corner-dropdown__header-value">
+                    {Math.round(normalizedCornerRadius)}px
+                  </span>
                 </div>
+                <div
+                  className="corner-dropdown__slider-row"
+                  onMouseDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={sliderValue}
+                    onChange={(event) =>
+                      handleUniformRadiusSliderChange(Number(event.target.value))
+                    }
+                    disabled={sliderDisabled}
+                    className="corner-dropdown__slider"
+                    aria-label="Uniform corner radius"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className={`corner-dropdown__toggle${cornersLinked ? "" : " active"}`}
+                  onMouseDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setCornersLinked((prev) => !prev);
+                  }}
+                >
+                  {cornersLinked ? (
+                    <>
+                      <Unlink size={12} />
+                      <span>Edit corners independently</span>
+                    </>
+                  ) : (
+                    <>
+                      <Link size={12} />
+                      <span>Link corners together</span>
+                    </>
+                  )}
+                </button>
+                {!cornersLinked && (
+                  <div className="corner-dropdown__grid">
+                    {IMAGE_BORDER_RADIUS_KEYS.map((cornerKey) => (
+                      <label key={cornerKey} className="corner-dropdown__cell">
+                        <span>{CORNER_LABELS[cornerKey]}</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={Math.max(maxUniformCornerRadius, 1)}
+                          step={1}
+                          value={imageBorderRadius[cornerKey]}
+                          onMouseDown={(event) => {
+                            event.stopPropagation();
+                          }}
+                          onChange={(event) =>
+                            handleCornerChange(cornerKey, event.target.value)
+                          }
+                          className="corner-dropdown__range"
+                          disabled={maxUniformCornerRadius <= 0}
+                          aria-label={`${CORNER_LABELS[cornerKey]} radius`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
