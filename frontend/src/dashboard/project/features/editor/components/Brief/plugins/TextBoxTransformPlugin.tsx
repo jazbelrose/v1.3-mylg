@@ -29,6 +29,12 @@ type InteractionType =
   | "resize-bottom-right"
   | "rotate";
 
+type SelectionSnapshot = {
+  x: number;
+  y: number;
+  rotation: number;
+};
+
 type Interaction = {
   type: InteractionType;
   nodeKey: string;
@@ -48,7 +54,7 @@ type Interaction = {
   copyGesture: boolean;
   didDuplicate: boolean;
   didInteract: boolean;
-  selectionSnapshots: Map<string, { x: number; y: number }>;
+  selectionSnapshots: Map<string, SelectionSnapshot>;
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
@@ -132,16 +138,20 @@ function duplicateTextBoxes(
 
 function captureNodePositions(
   keys: string[],
-  update: (snapshots: Map<string, { x: number; y: number }>) => void
+  update: (snapshots: Map<string, SelectionSnapshot>) => void
 ) {
-  const snapshot = new Map<string, { x: number; y: number }>();
+  const snapshot = new Map<string, SelectionSnapshot>();
   keys.forEach((key) => {
     const node = $getNodeByKey(key);
     if (node instanceof TextBoxNode) {
       const { x, y } = node.getPosition();
-      snapshot.set(key, { x, y });
+      snapshot.set(key, { x, y, rotation: node.getRotation() });
     } else if (node instanceof ResizableImageNode) {
-      snapshot.set(key, { x: node.getX(), y: node.getY() });
+      snapshot.set(key, {
+        x: node.getX(),
+        y: node.getY(),
+        rotation: node.getRotation(),
+      });
     }
   });
   update(snapshot);
@@ -599,7 +609,16 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
           const entries =
             snapshots.size > 0
               ? Array.from(snapshots.entries())
-              : [[interaction!.nodeKey, { x: interaction!.originX, y: interaction!.originY }]];
+              : [
+                  [
+                    interaction!.nodeKey,
+                    {
+                      x: interaction!.originX,
+                      y: interaction!.originY,
+                      rotation: interaction!.originRotation,
+                    },
+                  ],
+                ];
 
           entries.forEach(([key, origin]) => {
             if (!origin) {
@@ -609,8 +628,8 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (!targetNode) {
               return;
             }
-            const nextX = (origin as { x: number; y: number }).x + dx;
-            const nextY = (origin as { x: number; y: number }).y + dy;
+            const nextX = origin.x + dx;
+            const nextY = origin.y + dy;
             if (targetNode instanceof TextBoxNode) {
               targetNode.setPosition(nextX, nextY);
             } else if (targetNode instanceof ResizableImageNode) {
@@ -671,8 +690,33 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             );
             const deltaRad = currentAngle - interaction!.startAngle;
             const deltaDeg = (deltaRad * 180) / Math.PI;
-            const nextRotation = interaction!.originRotation + deltaDeg;
-            node.setRotation(nextRotation);
+            const rotationSnapshots =
+              interaction!.selectionSnapshots.size > 0
+                ? interaction!.selectionSnapshots
+                : new Map<string, SelectionSnapshot>([
+                    [
+                      interaction!.nodeKey,
+                      {
+                        x: interaction!.originX,
+                        y: interaction!.originY,
+                        rotation: interaction!.originRotation,
+                      },
+                    ],
+                  ]);
+
+            rotationSnapshots.forEach((snapshot, key) => {
+              const targetNode = $getNodeByKey(key);
+              if (!targetNode) {
+                return;
+              }
+              const nextRotation = snapshot.rotation + deltaDeg;
+              if (targetNode instanceof TextBoxNode) {
+                targetNode.setRotation(nextRotation);
+              } else if (targetNode instanceof ResizableImageNode) {
+                targetNode.setRotation(nextRotation);
+              }
+            });
+
             return;
           }
         }
