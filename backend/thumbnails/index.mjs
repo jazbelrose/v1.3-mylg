@@ -396,96 +396,9 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
   <html>
     <head>
       <meta charset="utf-8" />
+      <link rel="stylesheet" href="${FILE_CDN || 'https://d3kix94vejprx7.cloudfront.net'}/public/styles/index.css">
+      <link rel="stylesheet" href="${FILE_CDN || 'https://d3kix94vejprx7.cloudfront.net'}/public/styles/typography.css">
       <style>
-        :root {
-          --font-base-url: ${FILE_CDN ? `'${FILE_CDN.replace(/\/$/, '')}/public/fonts'` : "'/fonts'"};
-        }
-
-        /* Font Faces */
-        @font-face {
-          font-family: 'Helvetica Special';
-          src: url(var(--font-base-url)/Helvetica-Display.woff2) format('woff2');
-          font-weight: 700;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Special';
-          src: url(var(--font-base-url)/Helvetica-Display.woff2) format('woff2');
-          font-weight: normal;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Black';
-          src: url(var(--font-base-url)/Helvetica-Black.woff2) format('woff2');
-          font-weight: 900;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Black';
-          src: url(var(--font-base-url)/Helvetica-Black.woff2) format('woff2');
-          font-weight: normal;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Light';
-          src: url(var(--font-base-url)/Helvetica-Light.woff2) format('woff2');
-          font-weight: 300;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Light';
-          src: url(var(--font-base-url)/Helvetica-Light.woff2) format('woff2');
-          font-weight: normal;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Neue';
-          src: url(var(--font-base-url)/Helvetica-Neue.woff2) format('woff2');
-          font-weight: 400;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Neue';
-          src: url(var(--font-base-url)/Helvetica-Neue.woff2) format('woff2');
-          font-weight: normal;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Medium';
-          src: url(var(--font-base-url)/Helvetica-Medium.woff2) format('woff2');
-          font-weight: 500;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'Helvetica Medium';
-          src: url(var(--font-base-url)/Helvetica-Medium.woff2) format('woff2');
-          font-weight: normal;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'mylg-serif';
-          src: url(var(--font-base-url)/mylg-serif.woff2) format('woff2');
-          font-weight: 500;
-          font-style: normal;
-        }
-
-        @font-face {
-          font-family: 'mylg-serif';
-          src: url(var(--font-base-url)/mylg-serif.woff2) format('woff2');
-          font-weight: normal;
-          font-style: normal;
-        }
-
         html,
         body {
           margin: 0;
@@ -494,7 +407,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           height: ${targetHeight}px;
           background: ${background};
           overflow: hidden;
-          font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          font-family: var(--font-family-primary, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif);
         }
         body {
           position: relative;
@@ -614,6 +527,11 @@ async function generateThumbnail(html, width, height) {
     const page = await browser.newPage();
     await page.setViewport(viewport);
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    
+    // Wait for fonts to load (prevents text reflow)
+    await page.waitForFunction(() => {
+      return document.fonts.ready;
+    }, { timeout: 5000 });
     
     // Wait longer for images to load
     await page.waitForTimeout(2000);
