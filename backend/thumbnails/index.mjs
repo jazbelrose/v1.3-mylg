@@ -396,8 +396,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
   <html>
     <head>
       <meta charset="utf-8" />
-      <link rel="stylesheet" href="${FILE_CDN || 'https://d3kix94vejprx7.cloudfront.net'}/public/styles/index.css">
-      <link rel="stylesheet" href="${FILE_CDN || 'https://d3kix94vejprx7.cloudfront.net'}/public/styles/typography.css">
+      <link rel="stylesheet" href="${FILE_CDN || 'https://d3kix94vejprx7.cloudfront.net'}/public/styles/thumbnail.css">
       <style>
         html,
         body {
@@ -525,13 +524,36 @@ async function generateThumbnail(html, width, height) {
     });
 
     const page = await browser.newPage();
+    
+    // Add logging for debugging font/CSS loading
+    page.on('requestfailed', r =>
+      console.log('REQ_FAIL', r.resourceType(), r.url(), r.failure()?.errorText)
+    );
+
+    page.on('response', async r => {
+      const type = r.request().resourceType();
+      if (type === 'stylesheet' || type === 'font') {
+        if (!r.ok()) console.log('ASSET_BAD', type, r.status(), r.url());
+      }
+    });
+    
     await page.setViewport(viewport);
     await page.setContent(html, { waitUntil: 'networkidle0' });
     
     // Wait for fonts to load (prevents text reflow)
-    await page.waitForFunction(() => {
-      return document.fonts.ready;
-    }, { timeout: 5000 });
+    await page.evaluate(async () => {
+      if (!document.fonts) return;
+      await document.fonts.ready;
+    });
+    await page.waitForFunction(() => !document.fonts || document.fonts.status === "loaded", { timeout: 15000 });
+    
+    // Log font status for debugging
+    await page.evaluate(() => {
+      console.log('FONT_STATUS', document.fonts?.status);
+      console.log('FONT_FACES', [...(document.fonts?.values?.() ?? [])].map(f => ({
+        family: f.family, weight: f.weight, style: f.style, status: f.status
+      })));
+    });
     
     // Wait longer for images to load
     await page.waitForTimeout(2000);
