@@ -1,85 +1,87 @@
 /* Design Tokens - Font Faces */
 
+/* Design Tokens - Font Faces */
+
 @font-face {
   font-family: 'Helvetica Special';
-  src: url('/fonts/Helvetica-Display.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Display.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Special';
-  src: url('/fonts/Helvetica-Display.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Display.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Black';
-  src: url('/fonts/Helvetica-Black.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Black.woff2') format('woff2');
   font-weight: 900;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Black';
-  src: url('/fonts/Helvetica-Black.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Black.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Light';
-  src: url('/fonts/Helvetica-Light.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Light.woff2') format('woff2');
   font-weight: 300;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Light';
-  src: url('/fonts/Helvetica-Light.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Light.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('/fonts/Helvetica-Neue.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Neue.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Neue';
-  src: url('/fonts/Helvetica-Neue.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Neue.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Medium';
-  src: url('/fonts/Helvetica-Medium.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Helvetica Medium';
-  src: url('/fonts/Helvetica-Medium.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Medium.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'mylg-serif';
-  src: url('/fonts/mylg-serif.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/mylg-serif.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'mylg-serif';
-  src: url('/fonts/mylg-serif.woff2') format('woff2');
+  src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/mylg-serif.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }

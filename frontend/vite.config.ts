@@ -8,7 +8,7 @@ const devCsp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.amazonaws.com *.amplify.aws",
   "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-  "font-src 'self' data: fonts.gstatic.com",
+  "font-src 'self' data: fonts.gstatic.com https://d3kix94vejprx7.cloudfront.net",
   "img-src 'self' data: blob: *.amazonaws.com *.cloudfront.net https://tiles.stadiamaps.com https://www.google.com https://icons.duckduckgo.com",
   "media-src 'self' https: blob:",
   // ⬇️ allow LAN fetch + HMR over WS on 3000 (and any port if you change later) + ws/wss for Yjs
@@ -22,7 +22,7 @@ const prodCsp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' *.amazonaws.com *.amplify.aws",
   "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-  "font-src 'self' data: fonts.gstatic.com",
+  "font-src 'self' data: fonts.gstatic.com https://d3kix94vejprx7.cloudfront.net",
   "img-src 'self' data: https://d1cazymewvlm0k.cloudfront.net https://d2qb21tb4meex0.cloudfront.net *.amazonaws.com https://tiles.stadiamaps.com https://www.google.com https://icons.duckduckgo.com",
   "media-src 'self' https://d1cazymewvlm0k.cloudfront.net https://d2qb21tb4meex0.cloudfront.net *.amazonaws.com",
   "connect-src 'self' https://*.amazonaws.com https://*.amplify.aws wss://*.amazonaws.com https://*.cloudfront.net https://nominatim.openstreetmap.org ws: wss:",

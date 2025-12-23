@@ -34,8 +34,11 @@ function prepareNodeForThumbnailCapture(root: HTMLElement) {
   // also ensure the root itself doesn't show scrollbars in the snapshot
   const rootPrevOverflow = root.style.overflow;
   root.style.overflow = 'hidden';
+  const body = typeof document !== "undefined" ? document.body : null;
+  body?.classList.add("thumbnail-capture");
 
   return () => {
+    body?.classList.remove("thumbnail-capture");
     root.style.overflow = rootPrevOverflow;
     for (const t of touched) {
       t.el.style.overflow = t.overflow;
@@ -43,6 +46,75 @@ function prepareNodeForThumbnailCapture(root: HTMLElement) {
       t.el.scrollLeft = t.scrollLeft;
     }
   };
+}
+
+const SLIDE_CAPTURE_SELECTORS = [
+  ".slide-editor__canvas-inner",
+  ".slide-editor__slide-frame",
+  ".ContentEditable__root",
+  ".editor-input",
+  "[contenteditable=\"true\"]",
+];
+
+type SlideCaptureResult = {
+  element: HTMLElement | null;
+  container: HTMLElement | null;
+};
+
+async function locateSlideCaptureElement(
+  slideId: string,
+  attempts = 6,
+  delay = 50
+): Promise<SlideCaptureResult> {
+  if (typeof document === "undefined") {
+    return { element: null, container: null };
+  }
+
+  const rootSelector = `[data-slide-id="${slideId}"]`;
+  const container = document.querySelector(rootSelector) as HTMLElement | null;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    for (const selector of SLIDE_CAPTURE_SELECTORS) {
+      const target = document.querySelector(`${rootSelector} ${selector}`) as HTMLElement | null;
+      if (target) {
+        return { element: target, container };
+      }
+    }
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  return { element: container, container };
+}
+
+async function captureElementBlob(
+  element: HTMLElement,
+  width: number,
+  height: number,
+  backgroundColor: string
+): Promise<Blob | null> {
+  if (!element) return null;
+
+  const restore = prepareNodeForThumbnailCapture(element);
+  try {
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+    const blob = await toBlob(element, {
+      canvasWidth: width,
+      canvasHeight: height,
+      backgroundColor,
+      quality: 0.92,
+      includeQueryParams: true,
+    });
+    return blob;
+  } catch (error) {
+    console.error("Failed to capture thumbnail element:", error);
+    return null;
+  } finally {
+    restore();
+  }
 }
 
 // Local thumbnail cache using IndexedDB
@@ -295,7 +367,23 @@ async function renderThumbnailOffscreen(
   height: number = 1080,
   backgroundColor: string = '#101112'
 ): Promise<Blob | null> {
-  // Create offscreen container with fixed dimensions
+  if (typeof document === "undefined") {
+    return null;
+  }
+  if (typeof document !== "undefined") {
+    const { element, container: slideContainer } = await locateSlideCaptureElement(slideId);
+    if (element) {
+      const capturedBlob = await captureElementBlob(element, width, height, backgroundColor);
+      if (capturedBlob) {
+        return capturedBlob;
+      }
+      console.warn(`Thumbnail capture: failed to capture slide ${slideId}, falling back to placeholder render.`);
+    } else if (slideContainer) {
+      console.warn(`Thumbnail capture: editor element not found for slide ${slideId}, falling back to placeholder render.`);
+    }
+  }
+
+  // Fallback to simple text representation if capturing the DOM failed
   const container = document.createElement('div');
   container.style.position = 'fixed';
   container.style.left = '-10000px';
@@ -305,17 +393,11 @@ async function renderThumbnailOffscreen(
   container.style.backgroundColor = backgroundColor;
   container.style.overflow = 'hidden';
   container.style.zIndex = '-1';
-  
-  // Add data attribute for targeting
   container.setAttribute('data-slide-id', slideId);
-  
-  // Try to render slide content, fallback to simple text if parsing fails
+
   try {
-    // For now, create a simple text representation
-    // In a real implementation, you'd parse and render the Lexical content
     const titleMatch = content.match(/"text":"([^"]+)"/);
     const slideText = titleMatch ? titleMatch[1] : 'Slide content';
-    
     container.innerHTML = `
       <div style="width: 100%; height: 100%; padding: 40px; font-family: Arial, sans-serif; font-size: 24px; line-height: 1.4; display: flex; align-items: center; justify-content: center; text-align: center;">
         <div style="max-width: 1600px;">
@@ -331,13 +413,11 @@ async function renderThumbnailOffscreen(
       </div>
     `;
   }
-  
+
   document.body.appendChild(container);
-  
+
   try {
-    // Wait for fonts to load
     await document.fonts.ready;
-    
     const blob = await toBlob(container, {
       canvasWidth: width,
       canvasHeight: height,
@@ -345,13 +425,11 @@ async function renderThumbnailOffscreen(
       quality: 0.92,
       includeQueryParams: true,
     });
-    
     return blob;
   } catch (error) {
     console.error('Failed to render thumbnail offscreen:', error);
     return null;
   } finally {
-    // Clean up
     if (document.body.contains(container)) {
       document.body.removeChild(container);
     }
@@ -661,48 +739,21 @@ export async function generateSlideThumbnail(
 
   // Fallback to client-side generation
   try {
-    // Find the editor content for this slide. Different builds/styles may use
-    // different class names for the editable root (e.g. `ContentEditable__root`
-    // from some Lexical builds, or our local `editor-input`). Try multiple
-    // selectors and do a short retry loop to handle timing/race conditions
-    // where the editor hasn't mounted yet when thumbnailing is triggered.
-    const selectors = [
-      `.ContentEditable__root`,
-      `.editor-input`,
-      `[contenteditable="true"]`,
-    ];
-
-    let editorElement: HTMLElement | null = null;
-    const rootSelector = `[data-slide-id="${slideId}"]`;
-
-    // Try immediately and then a few short retries
-    for (let attempt = 0; attempt < 6; attempt++) {
-      for (const sel of selectors) {
-        const q = document.querySelector(`${rootSelector} ${sel}`) as HTMLElement | null;
-        if (q) {
-          editorElement = q;
-          break;
-        }
-      }
-      if (editorElement) break;
-      // small backoff before retrying
-      await new Promise((res) => setTimeout(res, 50));
-    }
-
+    const { element: editorElement, container: slideContainer } = await locateSlideCaptureElement(slideId);
     if (!editorElement) {
-      // If we couldn't find the inner editor node, try to capture the
-      // whole slide container which should have `data-slide-id` applied.
-      const container = document.querySelector(rootSelector) as HTMLElement | null;
-        if (container) {
-        console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
-        return await generateAndUploadThumbnail(container, projectId, slideId, backgroundColor);
+      if (slideContainer) {
+        console.warn(`Editor element not found for slide ${slideId}, falling back to slide container`);
+        return await generateAndUploadThumbnail(slideContainer, projectId, slideId, backgroundColor);
       }
-
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
     }
 
-  return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
+    if (editorElement === slideContainer && slideContainer) {
+      console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
+    }
+
+    return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
@@ -745,37 +796,18 @@ export async function generateSlideThumbnailWithSize(
 
   // Fallback to client-side generation
   try {
-    const selectors = [
-      `.ContentEditable__root`,
-      `.editor-input`,
-      `[contenteditable="true"]`,
-    ];
-
-    let editorElement: HTMLElement | null = null;
-    const rootSelector = `[data-slide-id="${slideId}"]`;
-
-    for (let attempt = 0; attempt < 6; attempt++) {
-      for (const sel of selectors) {
-        const q = document.querySelector(`${rootSelector} ${sel}`) as HTMLElement | null;
-        if (q) {
-          editorElement = q;
-          break;
-        }
-      }
-      if (editorElement) break;
-      await new Promise((res) => setTimeout(res, 50));
-    }
-
+    const { element: editorElement, container: slideContainer } = await locateSlideCaptureElement(slideId);
     if (!editorElement) {
-      // Fallback to container capture when inner editor missing
-      const container = document.querySelector(rootSelector) as HTMLElement | null;
-      if (container) {
-        console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
-        return await generateAndUploadThumbnail(container, projectId, slideId, backgroundColor);
+      if (slideContainer) {
+        console.warn(`Editor element not found for slide ${slideId}, falling back to slide container`);
+        return await generateAndUploadThumbnail(slideContainer, projectId, slideId, backgroundColor);
       }
-
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
+    }
+
+    if (editorElement === slideContainer && slideContainer) {
+      console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
     }
 
     return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);

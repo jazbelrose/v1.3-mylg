@@ -38,7 +38,7 @@ resources:
       Properties:
         ResponseHeadersPolicyConfig:
           Name: mylg-cors-policy
-          Comment: "CORS policy for MYLG assets"
+          Comment: "CORS policy for MYLG assets with font support"
           CorsConfig:
             AccessControlAllowCredentials: false
             AccessControlAllowHeaders:

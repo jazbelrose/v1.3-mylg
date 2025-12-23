@@ -1326,6 +1326,18 @@ i.bg-color::before {
   cursor: grabbing;
 }
 
+body.thumbnail-capture .editor-textbox {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+body.thumbnail-capture .editor-textbox .textbox-resize-handle,
+body.thumbnail-capture .editor-textbox .textbox-move-handle,
+body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Center handles on edges */
 .textbox-resize-handle-top {
   top: -4px;

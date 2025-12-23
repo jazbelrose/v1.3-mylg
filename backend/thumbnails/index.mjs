@@ -397,6 +397,95 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     <head>
       <meta charset="utf-8" />
       <style>
+        :root {
+          --font-base-url: ${FILE_CDN ? `'${FILE_CDN.replace(/\/$/, '')}/public/fonts'` : "'/fonts'"};
+        }
+
+        /* Font Faces */
+        @font-face {
+          font-family: 'Helvetica Special';
+          src: url(var(--font-base-url)/Helvetica-Display.woff2) format('woff2');
+          font-weight: 700;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Special';
+          src: url(var(--font-base-url)/Helvetica-Display.woff2) format('woff2');
+          font-weight: normal;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Black';
+          src: url(var(--font-base-url)/Helvetica-Black.woff2) format('woff2');
+          font-weight: 900;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Black';
+          src: url(var(--font-base-url)/Helvetica-Black.woff2) format('woff2');
+          font-weight: normal;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Light';
+          src: url(var(--font-base-url)/Helvetica-Light.woff2) format('woff2');
+          font-weight: 300;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Light';
+          src: url(var(--font-base-url)/Helvetica-Light.woff2) format('woff2');
+          font-weight: normal;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Neue';
+          src: url(var(--font-base-url)/Helvetica-Neue.woff2) format('woff2');
+          font-weight: 400;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Neue';
+          src: url(var(--font-base-url)/Helvetica-Neue.woff2) format('woff2');
+          font-weight: normal;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Medium';
+          src: url(var(--font-base-url)/Helvetica-Medium.woff2) format('woff2');
+          font-weight: 500;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'Helvetica Medium';
+          src: url(var(--font-base-url)/Helvetica-Medium.woff2) format('woff2');
+          font-weight: normal;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'mylg-serif';
+          src: url(var(--font-base-url)/mylg-serif.woff2) format('woff2');
+          font-weight: 500;
+          font-style: normal;
+        }
+
+        @font-face {
+          font-family: 'mylg-serif';
+          src: url(var(--font-base-url)/mylg-serif.woff2) format('woff2');
+          font-weight: normal;
+          font-style: normal;
+        }
+
         html,
         body {
           margin: 0;
