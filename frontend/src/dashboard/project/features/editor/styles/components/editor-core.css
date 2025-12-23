@@ -1,5 +1,8 @@
 /* Editor Core Component Styles */
 
+/* Import shared render-core styles for consistent typography */
+@import '@/shared/styles/render-core.css';
+
 .editor-inner {
   background: #fff;
   position: relative;
