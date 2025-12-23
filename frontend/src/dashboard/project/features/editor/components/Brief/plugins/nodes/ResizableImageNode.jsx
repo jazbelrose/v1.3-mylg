@@ -404,9 +404,18 @@ function ResizableImageComponent({
   };
 
   useEffect(() => {
-  const root = editor.getRootElement();
+    const root = editor.getRootElement();
     const onFocus = () => setIsFocused(true);
-    const onBlur = () => setIsFocused(false);
+    const onBlur = (event) => {
+      const toolbar = document.querySelector(".slide-toolbar");
+      const relatedTarget =
+        event.relatedTarget instanceof Node ? event.relatedTarget : null;
+      if (toolbar?.contains(relatedTarget)) {
+        setIsFocused(true);
+        return;
+      }
+      setIsFocused(false);
+    };
     root.addEventListener("focusin", onFocus);
     root.addEventListener("focusout", onBlur);
     
@@ -421,6 +430,7 @@ function ResizableImageComponent({
       }
       const toolbar = document.querySelector(".slide-toolbar");
       if (toolbar?.contains(target)) {
+        setIsFocused(true);
         return;
       }
       if (containerRef.current && !containerRef.current.contains(target)) {
