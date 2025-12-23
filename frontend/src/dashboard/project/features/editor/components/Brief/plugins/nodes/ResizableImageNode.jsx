@@ -415,7 +415,15 @@ function ResizableImageComponent({
         skipClickClearRef.current = false;
         return;
       }
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      const target = e.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      const toolbar = document.querySelector(".slide-toolbar");
+      if (toolbar?.contains(target)) {
+        return;
+      }
+      if (containerRef.current && !containerRef.current.contains(target)) {
         clearSelection();
       }
     };
