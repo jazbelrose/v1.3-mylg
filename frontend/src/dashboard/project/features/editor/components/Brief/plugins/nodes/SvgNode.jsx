@@ -357,14 +357,10 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           renderDirections: ["nw", "ne", "sw", "se"],
           keepRatio: true,
         }}
-        rotatable={{
-          rotateAroundControls: true,
-          // Important: don't render rotatable corner handles; we want:
-          // - resize when the pointer is directly on the corner handle (moveable-control)
-          // - rotate when the pointer is just outside it (moveable-around-control)
-          // But we do want a visible rotate affordance.
-          renderDirections: ["top"],
-        }}
+        rotatable={true}
+        // Resize when pointer is directly on the corner handle (moveable-control),
+        // rotate when pointer is just outside it (moveable-around-control).
+        rotateAroundControls={true}
         origin={false}
         edge={false}
         useResizeObserver={false}
@@ -374,7 +370,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
         throttleRotate={0}
         zoom={zoom}
         className="moveable-no-border svg-moveable"
-        style={{ display: isSelected ? "block" : "none", "--moveable-control-padding": 18 }}
+        controlPadding={32}
         onDragStart={(e) => {
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
