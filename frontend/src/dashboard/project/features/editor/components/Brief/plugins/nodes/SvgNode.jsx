@@ -8,7 +8,7 @@ import {
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import Moveable from "react-moveable";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useLayoutEffect } from "react";
 
 export class SvgNode extends DecoratorNode {
   constructor(svg, x = 0, y = 0, width = 300, height = 200, key) {
@@ -109,66 +109,97 @@ export class SvgNode extends DecoratorNode {
 
 function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const [editor] = useLexicalComposerContext();
-  const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
+  const [isSelected, setSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef(null);
-  const start = useRef({});
-  const copyOnDragRef = useRef(false);
-  const [localFrame, setLocalFrame] = useState(null);
 
-  const frame = localFrame || { x, y, width, height };
+  const copyOnDragRef = useRef(false);
+
+  // live frame (no React state)
+  const frameRef = useRef({ x, y, width, height });
+  const startRef = useRef({ x, y, width, height });
+
+  // keep ref synced when Lexical updates props
+  useLayoutEffect(() => {
+    frameRef.current = { x, y, width, height };
+    const el = ref.current;
+    if (!el) return;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.width = `${width}px`;
+    el.style.height = `${height}px`;
+  }, [x, y, width, height]);
+
+  // keep svg sized to box (and don’t rerun on every pixel move)
+  useLayoutEffect(() => {
+    const svgEl = ref.current?.querySelector("svg");
+    if (!svgEl) return;
+    svgEl.setAttribute("width", "100%");
+    svgEl.setAttribute("height", "100%");
+    svgEl.style.width = "100%";
+    svgEl.style.height = "100%";
+    svgEl.style.display = "block";
+    if (!svgEl.hasAttribute("preserveAspectRatio")) {
+      svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    }
+  }, [svg]);
+
+  const applyFrame = (f) => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.left = `${f.x}px`;
+    el.style.top = `${f.y}px`;
+    el.style.width = `${f.width}px`;
+    el.style.height = `${f.height}px`;
+  };
 
   return (
     <>
       <div
         ref={ref}
-        draggable
-        onDragStart={(e) => {
-          copyOnDragRef.current = e.ctrlKey || e.metaKey;
-          e.dataTransfer.setData("lexical-image-drag", nodeKey);
-          e.dataTransfer.setData(
-            "lexical-image-copy",
-            copyOnDragRef.current ? "1" : "0",
-          );
-          e.dataTransfer.effectAllowed = copyOnDragRef.current ? "copy" : "move";
-        }}
         onClick={(e) => {
-          e.stopPropagation();
-          if (e.shiftKey) {
-            setSelected(!isSelected);
-          } else {
-            
-            setSelected(true);
-          }
+          if (e.shiftKey) setSelected(!isSelected);
+          else setSelected(true);
         }}
         style={{
           position: "absolute",
-          left: frame.x,
-          top: frame.y,
-          width: frame.width,
-          height: frame.height,
-          border: isSelected ? "2px solid blue" : "none",
+          left: x,
+          top: y,
+          width,
+          height,
+          outline: isSelected ? "2px solid blue" : "none", // no layout shift
+          boxSizing: "border-box",
+          overflow: "hidden",
+          userSelect: "none",
+          touchAction: "none",
         }}
         dangerouslySetInnerHTML={{ __html: svg }}
       />
+
       <Moveable
         target={ref}
         draggable
         resizable
-        keepRatio={false}
+        keepRatio={true}              // <-- constrained to original ratio
+        origin={false}
+        edge={false}
+        renderDirections={["nw", "ne", "sw", "se"]}
+        useResizeObserver={false}
+        useMutationObserver={false}
+        throttleDrag={0}
+        throttleResize={0}
         onDragStart={(e) => {
-          copyOnDragRef.current = e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey;
-          start.current = { x, y };
-          setLocalFrame({ x, y, width, height });
+          copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
+          startRef.current = { ...frameRef.current };
         }}
         onDrag={({ beforeTranslate }) => {
           const [dx, dy] = beforeTranslate;
-          const newX = start.current.x + dx;
-          const newY = start.current.y + dy;
-          setLocalFrame((f) => ({ ...f, x: newX, y: newY }));
+          const f0 = startRef.current;
+          const next = { ...frameRef.current, x: f0.x + dx, y: f0.y + dy };
+          frameRef.current = next;
+          applyFrame(next);
         }}
         onDragEnd={() => {
-          const finalFrame = localFrame || { x, y };
-          setLocalFrame(null);
+          const finalFrame = frameRef.current;
           editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             if (!node) return;
@@ -177,9 +208,9 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
               clone.setX(finalFrame.x);
               clone.setY(finalFrame.y);
               node.insertAfter(clone);
-              const nodeSelection = $createNodeSelection();
-              nodeSelection.add(clone.getKey());
-              $setSelection(nodeSelection);
+              const sel = $createNodeSelection();
+              sel.add(clone.getKey());
+              $setSelection(sel);
             } else {
               node.setX(finalFrame.x);
               node.setY(finalFrame.y);
@@ -188,25 +219,30 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
           copyOnDragRef.current = false;
         }}
         onResizeStart={() => {
-          start.current = { x, y, width, height };
-          setLocalFrame({ x, y, width, height });
+          startRef.current = { ...frameRef.current };
         }}
         onResize={({ width: w, height: h, drag }) => {
           const [dx, dy] = drag.beforeTranslate;
-          const newX = start.current.x + dx;
-          const newY = start.current.y + dy;
-          setLocalFrame((f) => ({ ...f, x: newX, y: newY, width: w, height: h }));
+          const f0 = startRef.current;
+          const next = {
+            ...frameRef.current,
+            x: f0.x + dx,
+            y: f0.y + dy,
+            width: w,
+            height: h,
+          };
+          frameRef.current = next;
+          applyFrame(next);
         }}
         onResizeEnd={() => {
-          const finalFrame = localFrame || { x, y, width, height };
-          setLocalFrame(null);
+          const finalFrame = frameRef.current;
           editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             if (!node) return;
-            node.setWidth(finalFrame.width);
-            node.setHeight(finalFrame.height);
             node.setX(finalFrame.x);
             node.setY(finalFrame.y);
+            node.setWidth(finalFrame.width);
+            node.setHeight(finalFrame.height);
           });
         }}
       />

@@ -9,9 +9,13 @@ import {
   FORMAT_TEXT_COMMAND,
   SELECTION_CHANGE_COMMAND,
   type RangeSelection,
+  $isNodeSelection,
+  $getNodeByKey,
 } from "lexical";
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import { mergeRegister } from "@lexical/utils";
+
+import { $isSvgNode, $createSvgNode } from "./nodes/SvgNode";
 
 import {
   BoldOutlined,
@@ -50,6 +54,10 @@ const FloatingToolbar: React.FC<Props> = ({ editorRef }) => {
   const [isLinkEditMode, setIsLinkEditMode] = useState(false);
   const [tempLinkUrl, setTempLinkUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+
+  const [isNodeToolbar, setIsNodeToolbar] = useState(false);
+  const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
+  const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
 
   const [isInputFocused, setIsInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -101,9 +109,34 @@ const FloatingToolbar: React.FC<Props> = ({ editorRef }) => {
       if (isInputFocused || isDropdownOpen) return;
 
       if (!$isRangeSelection(selection)) {
+        if ($isNodeSelection(selection)) {
+          const nodes = selection.getNodes();
+          const svgNode = nodes.find((node) => $isSvgNode(node));
+          if (svgNode) {
+            const element = editor.getElementByKey(svgNode.getKey());
+            if (element) {
+              const rect = element.getBoundingClientRect();
+              setPosition({
+                top: window.scrollY + rect.top - 40,
+                left: window.scrollX + rect.left + rect.width / 2 - 100,
+              });
+              setIsNodeToolbar(true);
+              setSelectedNodeKey(svgNode.getKey());
+              setSelectedNodeType("svg");
+              return;
+            }
+          }
+        }
         setPosition(null);
+        setIsNodeToolbar(false);
+        setSelectedNodeKey(null);
+        setSelectedNodeType(null);
         return;
       }
+
+      setIsNodeToolbar(false);
+      setSelectedNodeKey(null);
+      setSelectedNodeType(null);
 
       const selectedText = selection?.getTextContent() || "";
       if (selectedText.trim().length === 0) {
@@ -192,9 +225,65 @@ const FloatingToolbar: React.FC<Props> = ({ editorRef }) => {
     // tempLinkUrl is reverted to current linkUrl by caller if needed
   };
 
+  const handleBringFront = useCallback(() => {
+    if (!selectedNodeKey) return;
+    editor.update(() => {
+      const node = $getNodeByKey(selectedNodeKey);
+      if (node && $isSvgNode(node)) {
+        const parent = node.getParent();
+        if (parent) {
+          parent.append(node);
+        }
+      }
+    });
+  }, [editor, selectedNodeKey]);
+
+  const handleSendBack = useCallback(() => {
+    if (!selectedNodeKey) return;
+    editor.update(() => {
+      const node = $getNodeByKey(selectedNodeKey);
+      if (node && $isSvgNode(node)) {
+        const parent = node.getParent();
+        if (parent) {
+          parent.insertBefore(node, parent.getFirstChild());
+        }
+      }
+    });
+  }, [editor, selectedNodeKey]);
+
+  const handleDuplicate = useCallback(() => {
+    if (!selectedNodeKey) return;
+    editor.update(() => {
+      const node = $getNodeByKey(selectedNodeKey);
+      if (node && $isSvgNode(node)) {
+        const parent = node.getParent();
+        if (parent) {
+          const newNode = $createSvgNode({
+            svg: node.__svg,
+            x: node.__x + 10,
+            y: node.__y + 10,
+            width: node.__width,
+            height: node.__height,
+          });
+          parent.append(newNode);
+        }
+      }
+    });
+  }, [editor, selectedNodeKey]);
+
+  const handleDelete = useCallback(() => {
+    if (!selectedNodeKey) return;
+    editor.update(() => {
+      const node = $getNodeByKey(selectedNodeKey);
+      if (node) {
+        node.remove();
+      }
+    });
+  }, [editor, selectedNodeKey]);
+
   // Hide toolbar entirely when nothing to show, or when a dropdown is open
   const shouldHide =
-    (!position && !isEditMode && !isLinkEditMode && !isInputFocused) ||
+    (!position && !isEditMode && !isLinkEditMode && !isInputFocused && !isNodeToolbar) ||
     isDropdownOpen;
 
   useEffect(() => {
@@ -206,6 +295,9 @@ const FloatingToolbar: React.FC<Props> = ({ editorRef }) => {
           setIsEditMode(false);
           setIsLinkEditMode(false);
           setIsInputFocused(false);
+          setIsNodeToolbar(false);
+          setSelectedNodeKey(null);
+          setSelectedNodeType(null);
 
           editor.update(() => {
             const selection = $getSelection();
@@ -258,158 +350,197 @@ const FloatingToolbar: React.FC<Props> = ({ editorRef }) => {
 
       }}
     >
-      {/* Bold */}
-      <button
-        type="button"
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")}
-        aria-label="Format Bold"
-        style={formatButtonStyle(isBold)}
-      >
-        <BoldOutlined style={iconStyle(isBold)} />
-      </button>
-
-      {/* Italic */}
-      <button
-        type="button"
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic")}
-        aria-label="Format Italic"
-        style={formatButtonStyle(isItalic)}
-      >
-        <ItalicOutlined style={iconStyle(isItalic)} />
-      </button>
-
-      {/* Underline */}
-      <button
-        type="button"
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline")}
-        aria-label="Format Underline"
-        style={formatButtonStyle(isUnderline)}
-      >
-        <UnderlineOutlined style={iconStyle(isUnderline)} />
-      </button>
-
-      {/* Strikethrough */}
-      <button
-        type="button"
-        onClick={() =>
-          editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
-        }
-        aria-label="Format Strikethrough"
-        style={formatButtonStyle(isStrikethrough)}
-      >
-        <StrikethroughOutlined style={iconStyle(isStrikethrough)} />
-      </button>
-
-      {/* Link UI */}
-      {isLinkEditMode ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={tempLinkUrl}
-            onChange={(e) => setTempLinkUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSubmitLink(tempLinkUrl);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                // Revert to last known linkUrl
-                setTempLinkUrl(linkUrl);
-                handleCancelEdit();
-              }
-            }}
-            placeholder="Enter a URL"
-            style={inputStyle}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={(e) => {
-              // allow time for button click within toolbar
-              setTimeout(() => {
-                const related = e.relatedTarget as Node | null;
-                if (
-                  toolbarRef.current &&
-                  related &&
-                  toolbarRef.current.contains(related)
-                ) {
-                  return;
-                }
-                setIsInputFocused(false);
-              }, 100);
-            }}
-          />
+      {isNodeToolbar ? (
+        <>
           <button
             type="button"
-            onClick={() => handleSubmitLink(tempLinkUrl)}
-            aria-label="Submit Link"
-            style={smallButtonStyle}
-            disabled={!tempLinkUrl.trim()}
+            onClick={handleBringFront}
+            aria-label="Bring to Front"
+            style={buttonStyle(true)}
           >
-            <CheckOutlined style={iconStyle(!!tempLinkUrl.trim())} />
+            Front
           </button>
           <button
             type="button"
-            onClick={() => {
-              setTempLinkUrl(linkUrl);
-              handleCancelEdit();
-            }}
-            aria-label="Cancel Link Editing"
-            style={smallButtonStyle}
+            onClick={handleSendBack}
+            aria-label="Send to Back"
+            style={buttonStyle(true)}
           >
-            <CloseOutlined style={iconStyle(true)} />
-          </button>
-        </div>
-      ) : linkUrl ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            padding: "4px 8px",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-          }}
-        >
-          <a
-            href={linkUrl.startsWith("http") ? linkUrl : `https://${linkUrl}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ textDecoration: "underline", color: "#007bff" }}
-          >
-            {linkUrl}
-          </a>
-          <button
-            type="button"
-            onClick={() => {
-              setIsLinkEditMode(true);
-              setTempLinkUrl(linkUrl);
-            }}
-            aria-label="Edit Link"
-            style={smallButtonStyle}
-          >
-            <EditOutlined style={iconStyle(true)} />
+            Back
           </button>
           <button
             type="button"
-            onClick={handleRemoveLink}
-            aria-label="Remove Link"
-            style={smallButtonStyle}
+            onClick={handleDuplicate}
+            aria-label="Duplicate"
+            style={buttonStyle(true)}
           >
-            <DeleteOutlined style={iconStyle(true)} />
+            Duplicate
           </button>
-        </div>
+          <button
+            type="button"
+            onClick={handleDelete}
+            aria-label="Delete"
+            style={buttonStyle(true)}
+          >
+            Delete
+          </button>
+        </>
       ) : (
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()} // keep selection
-          onClick={() => {
-            setIsLinkEditMode(true);
-            setTempLinkUrl("");
-          }}
-          aria-label="Insert Link"
-          style={buttonStyle(!!linkUrl)}
-        >
-          <LinkOutlined style={iconStyle(!!linkUrl)} />
-        </button>
+        <>
+          {/* Bold */}
+          <button
+            type="button"
+            onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")}
+            aria-label="Format Bold"
+            style={formatButtonStyle(isBold)}
+          >
+            <BoldOutlined style={iconStyle(isBold)} />
+          </button>
+
+          {/* Italic */}
+          <button
+            type="button"
+            onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic")}
+            aria-label="Format Italic"
+            style={formatButtonStyle(isItalic)}
+          >
+            <ItalicOutlined style={iconStyle(isItalic)} />
+          </button>
+
+          {/* Underline */}
+          <button
+            type="button"
+            onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline")}
+            aria-label="Format Underline"
+            style={formatButtonStyle(isUnderline)}
+          >
+            <UnderlineOutlined style={iconStyle(isUnderline)} />
+          </button>
+
+          {/* Strikethrough */}
+          <button
+            type="button"
+            onClick={() =>
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
+            }
+            aria-label="Format Strikethrough"
+            style={formatButtonStyle(isStrikethrough)}
+          >
+            <StrikethroughOutlined style={iconStyle(isStrikethrough)} />
+          </button>
+
+          {/* Link UI */}
+          {isLinkEditMode ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={tempLinkUrl}
+                onChange={(e) => setTempLinkUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSubmitLink(tempLinkUrl);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    // Revert to last known linkUrl
+                    setTempLinkUrl(linkUrl);
+                    handleCancelEdit();
+                  }
+                }}
+                placeholder="Enter a URL"
+                style={inputStyle}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={(e) => {
+                  // allow time for button click within toolbar
+                  setTimeout(() => {
+                    const related = e.relatedTarget as Node | null;
+                    if (
+                      toolbarRef.current &&
+                      related &&
+                      toolbarRef.current.contains(related)
+                    ) {
+                      return;
+                    }
+                    setIsInputFocused(false);
+                  }, 100);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleSubmitLink(tempLinkUrl)}
+                aria-label="Submit Link"
+                style={smallButtonStyle}
+                disabled={!tempLinkUrl.trim()}
+              >
+                <CheckOutlined style={iconStyle(!!tempLinkUrl.trim())} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempLinkUrl(linkUrl);
+                  handleCancelEdit();
+                }}
+                aria-label="Cancel Link Editing"
+                style={smallButtonStyle}
+              >
+                <CloseOutlined style={iconStyle(true)} />
+              </button>
+            </div>
+          ) : linkUrl ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "4px 8px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+              }}
+            >
+              <a
+                href={linkUrl.startsWith("http") ? linkUrl : `https://${linkUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "underline", color: "#007bff" }}
+              >
+                {linkUrl}
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLinkEditMode(true);
+                  setTempLinkUrl(linkUrl);
+                }}
+                aria-label="Edit Link"
+                style={smallButtonStyle}
+              >
+                <EditOutlined style={iconStyle(true)} />
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveLink}
+                aria-label="Remove Link"
+                style={smallButtonStyle}
+              >
+                <DeleteOutlined style={iconStyle(true)} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()} // keep selection
+              onClick={() => {
+                setIsLinkEditMode(true);
+                setTempLinkUrl("");
+              }}
+              aria-label="Insert Link"
+              style={buttonStyle(!!linkUrl)}
+            >
+              <LinkOutlined style={iconStyle(!!linkUrl)} />
+            </button>
+          )}
+        </>
       )}
     </div>,
     document.body
