@@ -30,6 +30,8 @@ import {
   type FontSize,
   type TextBlockType,
 } from "./toolbarShared";
+import { DEFAULT_IMAGE_BORDER_RADIUS } from "./nodes/imageBorderRadius";
+import { SvgNode } from "./nodes/SvgNode";
 import { useOptionalToolbarContext } from "./ToolbarContextBridge";
 
 function getBlockTypeFromSelection(selection: RangeSelection): {
@@ -151,6 +153,18 @@ export default function ToolbarContextPlugin() {
               borderRadius: imageNode.getBorderRadius(),
               width: imageNode.getWidth(),
               height: imageNode.getHeight(),
+            });
+            return;
+          }
+
+          const svgNode = nodes.find((node) => node instanceof SvgNode);
+          if (svgNode) {
+            setCtx({
+              type: "image",
+              nodeKey: svgNode.getKey(),
+              borderRadius: DEFAULT_IMAGE_BORDER_RADIUS,
+              width: svgNode.getWidth(),
+              height: svgNode.getHeight(),
             });
             return;
           }

@@ -21,7 +21,6 @@ import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 
 import TextStylePlugin from "./plugins/TextStylePlugin";
 import DraggableBlockPlugin from "./plugins/DraggableBlockPlugin";
-import FloatingToolbar from "./plugins/FloatingToolbar";
 import { DropdownProvider } from "./contexts/DropdownContext";
 import { CollaborationPlugin } from "@lexical/react/LexicalCollaborationPlugin";
 import DragAndDropPlugin from "./plugins/DragAndDropPlugin";
@@ -465,8 +464,6 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <TextBoxTransformPlugin scale={scale} />
         <DeleteTextBoxPlugin />
         <TextBoxKeyboardShortcutsPlugin />
-
-        <FloatingToolbar editorRef={editorRef} />
 
         <div
           className="content-container"

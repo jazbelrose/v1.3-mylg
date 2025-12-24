@@ -9,6 +9,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import Moveable from "react-moveable";
 import React, { useRef, useState, useLayoutEffect } from "react";
+import { applyModifierNodeSelection } from "../slides/slideSelectionUtils";
 
 export class SvgNode extends DecoratorNode {
   constructor(svg, x = 0, y = 0, width = 300, height = 200, key) {
@@ -109,7 +110,7 @@ export class SvgNode extends DecoratorNode {
 
 function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const [editor] = useLexicalComposerContext();
-  const [isSelected, setSelected] = useLexicalNodeSelection(nodeKey);
+  const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef(null);
 
   const copyOnDragRef = useRef(false);
@@ -119,6 +120,22 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const startRef = useRef({ x, y, width, height });
 
   const [zoom, setZoom] = useState(1);
+  const handlePointerDown = (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.stopPropagation();
+    const modifiers = {
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+    };
+    editor.focus();
+    editor.update(() => {
+      applyModifierNodeSelection(nodeKey, modifiers);
+    });
+  };
 
   // keep ref synced when Lexical updates props
   useLayoutEffect(() => {
@@ -174,10 +191,8 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
     <>
       <div
         ref={ref}
-        onClick={(e) => {
-          if (e.shiftKey) setSelected(!isSelected);
-          else setSelected(true);
-        }}
+        onMouseDown={handlePointerDown}
+        onClick={(e) => e.stopPropagation()}
         style={{
           position: "absolute",
           left: x,
