@@ -1006,6 +1006,14 @@ i.bg-color::before {
   display: none !important;
 }
 
+/* Use when we want handles but not Moveable's border/lines */
+.moveable-no-border .moveable-control-box {
+  border: none !important;
+}
+.moveable-no-border .moveable-line {
+  display: none !important;
+}
+
 /* Ensure editor content area respects theme */
 .editor-input {
   background: transparent !important;

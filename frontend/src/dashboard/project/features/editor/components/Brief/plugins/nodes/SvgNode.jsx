@@ -10,6 +10,11 @@ import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 import Moveable from "react-moveable";
 import React, { useRef, useState, useLayoutEffect } from "react";
 import { applyModifierNodeSelection } from "../slides/slideSelectionUtils";
+import {
+  DEFAULT_SVG_HEIGHT,
+  DEFAULT_SVG_WIDTH,
+  resolveSvgScaledToWidth,
+} from "./svgDimensions";
 
 export class SvgNode extends DecoratorNode {
   constructor(svg, x = 0, y = 0, width = 300, height = 200, key) {
@@ -114,6 +119,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const ref = useRef(null);
 
   const copyOnDragRef = useRef(false);
+  const didAutoSizeRef = useRef(false);
 
   // live frame (no React state)
   const frameRef = useRef({ x, y, width, height });
@@ -148,7 +154,29 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
     el.style.height = `${height}px`;
   }, [x, y, width, height]);
 
-  // keep svg sized to box (and don’t rerun on every pixel move)
+  // Auto-size legacy nodes created with default 300x200 so the box matches the SVG viewBox ratio.
+  useLayoutEffect(() => {
+    if (didAutoSizeRef.current) return;
+    if (width !== DEFAULT_SVG_WIDTH || height !== DEFAULT_SVG_HEIGHT) return;
+
+    const next = resolveSvgScaledToWidth(svg, DEFAULT_SVG_WIDTH, DEFAULT_SVG_HEIGHT);
+    const nextWidth = Math.round(next.width);
+    const nextHeight = Math.round(next.height);
+    if (nextWidth === Math.round(width) && nextHeight === Math.round(height)) {
+      didAutoSizeRef.current = true;
+      return;
+    }
+
+    didAutoSizeRef.current = true;
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if (!node) return;
+      node.setWidth(nextWidth);
+      node.setHeight(nextHeight);
+    });
+  }, [editor, nodeKey, svg, width, height]);
+
+  // keep svg sized to box (and don't rerun on every pixel move)
   useLayoutEffect(() => {
     const svgEl = ref.current?.querySelector("svg");
     if (!svgEl) return;
@@ -199,7 +227,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
           top: y,
           width,
           height,
-          outline: isSelected ? "2px solid blue" : "none", // no layout shift
+          boxShadow: isSelected ? "0 0 0 2px rgba(76,154,255,1)" : "none", // no layout shift
           boxSizing: "border-box",
           overflow: "hidden",
           userSelect: "none",
@@ -209,7 +237,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
       />
 
       <Moveable
-        target={ref}
+        target={isSelected ? ref : null}
         draggable
         resizable
         keepRatio={true}              // <-- constrained to original ratio
@@ -221,6 +249,8 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
         throttleDrag={0}
         throttleResize={0}
         zoom={zoom}
+        className="moveable-no-border"
+        style={{ display: isSelected ? "block" : "none" }}
         onDragStart={(e) => {
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };

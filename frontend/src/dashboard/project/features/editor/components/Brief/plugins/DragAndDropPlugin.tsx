@@ -15,6 +15,7 @@ import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { $createSvgNode } from "./nodes/SvgNodeUtils";
+import { resolveSvgDimensions } from "./nodes/svgDimensions";
 import {
   DEFAULT_IMAGE_BORDER_RADIUS,
   type ImageBorderRadiusState,
@@ -24,8 +25,6 @@ const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "svg"] as const;
 const DEFAULT_IMAGE_WIDTH = 400;
 const DEFAULT_IMAGE_HEIGHT = 300;
 const DEFAULT_IMAGE_RATIO = DEFAULT_IMAGE_WIDTH / DEFAULT_IMAGE_HEIGHT;
-const DEFAULT_SVG_WIDTH = 300;
-const DEFAULT_SVG_HEIGHT = 200;
 
 type ResizableImagePayload = {
   src: string;
@@ -49,62 +48,6 @@ const isImageUrl = (url: string): boolean => {
   const cleanUrl = url.split("?")[0]?.split("#")[0] ?? "";
   const ext = cleanUrl.split(".").pop()?.toLowerCase();
   return !!ext && IMAGE_EXTENSIONS.includes(ext as (typeof IMAGE_EXTENSIONS)[number]);
-};
-
-const parseNumericDimension = (value: string | null): number | null => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (trimmed.endsWith("%")) return null;
-  const parsed = parseFloat(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const parseViewBoxDimensions = (value: string | null) => {
-  if (!value) return null;
-  const tokens = value
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token));
-  if (tokens.length < 4) return null;
-  const [ , , width, height ] = tokens;
-  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-  return { width, height };
-};
-
-const resolveSvgDimensions = (svgText: string) => {
-  let width = DEFAULT_SVG_WIDTH;
-  let height = DEFAULT_SVG_HEIGHT;
-
-  if (typeof DOMParser === "undefined") {
-    return { width, height };
-  }
-
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, "image/svg+xml");
-    const svgElement = doc.documentElement;
-    if (!svgElement || svgElement.nodeName.toLowerCase() !== "svg") {
-      return { width, height };
-    }
-
-    const widthAttr = parseNumericDimension(svgElement.getAttribute("width"));
-    const heightAttr = parseNumericDimension(svgElement.getAttribute("height"));
-    if (widthAttr && heightAttr) {
-      width = widthAttr;
-      height = heightAttr;
-      return { width, height };
-    }
-
-    const viewBox = parseViewBoxDimensions(svgElement.getAttribute("viewBox"));
-    if (viewBox) {
-      width = viewBox.width;
-      height = viewBox.height;
-    }
-  } catch (error) {
-    console.warn("Failed to derive SVG extents", error);
-  }
-
-  return { width, height };
 };
 
 const SVG_EXTENSIONS = ["svg"] as const;
