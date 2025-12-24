@@ -19,13 +19,14 @@ import {
 } from "./svgDimensions";
 
 export class SvgNode extends DecoratorNode {
-  constructor(svg, x = 0, y = 0, width = 300, height = 200, key) {
+  constructor(svg, x = 0, y = 0, width = 300, height = 200, rotation = 0, key) {
     super(key);
     this.__svg = svg;
     this.__x = x;
     this.__y = y;
     this.__width = width;
     this.__height = height;
+    this.__rotation = rotation;
   }
 
   static getType() {
@@ -39,6 +40,7 @@ export class SvgNode extends DecoratorNode {
       node.__y,
       node.__width,
       node.__height,
+      node.__rotation,
       node.__key
     );
   }
@@ -84,6 +86,14 @@ export class SvgNode extends DecoratorNode {
     return this.__height;
   }
 
+  setRotation(rotation) {
+    const writable = this.getWritable();
+    writable.__rotation = rotation;
+  }
+  getRotation() {
+    return this.__rotation;
+  }
+
   createDOM() {
     return document.createElement("div");
   }
@@ -93,8 +103,8 @@ export class SvgNode extends DecoratorNode {
   }
 
   static importJSON(serializedNode) {
-    const { svg, x, y, width, height } = serializedNode;
-    return new SvgNode(svg, x, y, width, height);
+    const { svg, x, y, width, height, rotation = 0 } = serializedNode;
+    return new SvgNode(svg, x, y, width, height, rotation);
   }
 
   exportJSON() {
@@ -106,6 +116,7 @@ export class SvgNode extends DecoratorNode {
       y: this.__y,
       width: this.__width,
       height: this.__height,
+      rotation: this.__rotation,
     };
   }
 
@@ -117,13 +128,14 @@ export class SvgNode extends DecoratorNode {
         y={this.__y}
         width={this.__width}
         height={this.__height}
+        rotation={this.__rotation}
         nodeKey={this.__key}
       />
     );
   }
 }
 
-function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
+function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef(null);
@@ -132,8 +144,8 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const didNormalizeRef = useRef(false);
 
   // live frame (no React state)
-  const frameRef = useRef({ x, y, width, height });
-  const startRef = useRef({ x, y, width, height });
+  const frameRef = useRef({ x, y, width, height, rotation });
+  const startRef = useRef({ x, y, width, height, rotation });
 
   const [zoom, setZoom] = useState(1);
   const handlePointerDown = (event) => {
@@ -155,14 +167,16 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
 
   // keep ref synced when Lexical updates props
   useLayoutEffect(() => {
-    frameRef.current = { x, y, width, height };
+    frameRef.current = { x, y, width, height, rotation };
     const el = ref.current;
     if (!el) return;
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
-  }, [x, y, width, height]);
+    el.style.transform = `rotate(${rotation}deg)`;
+    el.style.transformOrigin = "center center";
+  }, [x, y, width, height, rotation]);
 
   // Crop the SVG to its visible geometry and fit the node box to the resulting aspect ratio.
   useLayoutEffect(() => {
@@ -309,6 +323,8 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
     el.style.top = `${f.y}px`;
     el.style.width = `${f.width}px`;
     el.style.height = `${f.height}px`;
+    el.style.transform = `rotate(${f.rotation || 0}deg)`;
+    el.style.transformOrigin = "center center";
   };
 
   return (
@@ -323,6 +339,8 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
           top: y,
           width,
           height,
+          transform: `rotate(${rotation}deg)`,
+          transformOrigin: "center center",
           boxShadow: isSelected ? "0 0 0 2px rgba(76,154,255,1)" : "none", // no layout shift
           boxSizing: "border-box",
           overflow: "hidden",
@@ -336,6 +354,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
         target={isSelected ? ref : null}
         draggable
         resizable
+        rotatable
         keepRatio={true}              // <-- constrained to original ratio
         origin={false}
         edge={false}
@@ -344,6 +363,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
         useMutationObserver={false}
         throttleDrag={0}
         throttleResize={0}
+        throttleRotate={0}
         zoom={zoom}
         className="moveable-no-border"
         style={{ display: isSelected ? "block" : "none" }}
@@ -367,6 +387,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
               const clone = $copyNode(node);
               clone.setX(finalFrame.x);
               clone.setY(finalFrame.y);
+              clone.setRotation(finalFrame.rotation || 0);
               node.insertAfter(clone);
               const sel = $createNodeSelection();
               sel.add(clone.getKey());
@@ -374,6 +395,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
             } else {
               node.setX(finalFrame.x);
               node.setY(finalFrame.y);
+              node.setRotation(finalFrame.rotation || 0);
             }
           });
           copyOnDragRef.current = false;
@@ -403,6 +425,32 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
             node.setY(finalFrame.y);
             node.setWidth(finalFrame.width);
             node.setHeight(finalFrame.height);
+            node.setRotation(finalFrame.rotation || 0);
+          });
+        }}
+        onRotateStart={() => {
+          startRef.current = { ...frameRef.current };
+        }}
+        onRotate={({ beforeRotate, drag }) => {
+          const [dx, dy] = drag?.beforeTranslate ?? [0, 0];
+          const f0 = startRef.current;
+          const next = {
+            ...frameRef.current,
+            x: f0.x + dx,
+            y: f0.y + dy,
+            rotation: beforeRotate,
+          };
+          frameRef.current = next;
+          applyFrame(next);
+        }}
+        onRotateEnd={() => {
+          const finalFrame = frameRef.current;
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            if (!node) return;
+            node.setX(finalFrame.x);
+            node.setY(finalFrame.y);
+            node.setRotation(finalFrame.rotation || 0);
           });
         }}
       />
