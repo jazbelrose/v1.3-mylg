@@ -14,7 +14,7 @@ import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
-import { $createSvgNode } from "./nodes/SvgNode";
+import { $createSvgNode } from "./nodes/SvgNodeUtils";
 import {
   DEFAULT_IMAGE_BORDER_RADIUS,
   type ImageBorderRadiusState,

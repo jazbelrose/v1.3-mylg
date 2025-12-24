@@ -805,6 +805,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
         return renderTextContext();
       case "image":
         return renderObjectContext("Image", { showReplace: false });
+      case "svg":
+        return renderObjectContext("Vector", { showReplace: false });
       case "textbox":
         return renderObjectContext("Text Box", { showReplace: false });
       case "mixed":

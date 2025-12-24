@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import ReactModal from "react-modal";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $insertNodes, $getSelection, $isRangeSelection, COMMAND_PRIORITY_EDITOR, type LexicalCommand } from "lexical";
-import { $createSvgNode } from "./nodes/SvgNode";
+import { $createSvgNode } from "./nodes/SvgNodeUtils";
 import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
 import { OPEN_VECTOR_COMMAND } from "../commands";
 

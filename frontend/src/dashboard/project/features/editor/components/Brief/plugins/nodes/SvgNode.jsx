@@ -79,7 +79,7 @@ export class SvgNode extends DecoratorNode {
 
   static importJSON(serializedNode) {
     const { svg, x, y, width, height } = serializedNode;
-    return $createSvgNode({ svg, x, y, width, height });
+    return new SvgNode(svg, x, y, width, height);
   }
 
   exportJSON() {
@@ -283,15 +283,6 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
     </>
   );
 }
-
-export function $createSvgNode({ svg, x = 0, y = 0, width = 300, height = 200 }) {
-  return new SvgNode(svg, x, y, width, height);
-}
-
-export function $isSvgNode(node) {
-  return node instanceof SvgNode;
-}
-
 
 
 

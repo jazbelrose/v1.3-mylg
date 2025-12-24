@@ -20,6 +20,12 @@ export type ToolbarContext =
       width: number;
       height: number;
     }
+  | {
+      type: "svg";
+      nodeKey: string;
+      width: number;
+      height: number;
+    }
   | { type: "textbox"; nodeKey: string }
   | { type: "mixed" };
 

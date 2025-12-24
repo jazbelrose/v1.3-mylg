@@ -15,7 +15,7 @@ import {
 import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import { mergeRegister } from "@lexical/utils";
 
-import { $isSvgNode, $createSvgNode } from "./nodes/SvgNode";
+import { $isSvgNode, $createSvgNode } from "./nodes/SvgNodeUtils";
 
 import {
   BoldOutlined,

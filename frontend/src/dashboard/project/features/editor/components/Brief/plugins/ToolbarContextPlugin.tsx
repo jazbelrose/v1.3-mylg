@@ -160,9 +160,8 @@ export default function ToolbarContextPlugin() {
           const svgNode = nodes.find((node) => node instanceof SvgNode);
           if (svgNode) {
             setCtx({
-              type: "image",
+              type: "svg",
               nodeKey: svgNode.getKey(),
-              borderRadius: DEFAULT_IMAGE_BORDER_RADIUS,
               width: svgNode.getWidth(),
               height: svgNode.getHeight(),
             });
