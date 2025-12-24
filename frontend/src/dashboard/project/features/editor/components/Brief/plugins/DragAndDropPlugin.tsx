@@ -15,7 +15,7 @@ import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { $createSvgNode } from "./nodes/SvgNodeUtils";
-import { resolveSvgDimensions } from "./nodes/svgDimensions";
+import { cropSvgToVisibleBounds, resolveSvgDimensions } from "./nodes/svgDimensions";
 import {
   DEFAULT_IMAGE_BORDER_RADIUS,
   type ImageBorderRadiusState,
@@ -141,9 +141,11 @@ export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPlu
         return;
       }
 
-      const { width, height } = resolveSvgDimensions(svgMarkup);
+      const cropped = cropSvgToVisibleBounds(svgMarkup, { pad: 1, markAttr: true });
+      const finalSvg = cropped?.svg ?? svgMarkup;
+      const { width, height } = resolveSvgDimensions(finalSvg);
       editor.update(() => {
-        const node = $createSvgNode({ svg: svgMarkup, width, height });
+        const node = $createSvgNode({ svg: finalSvg, width, height });
         const selection = $getSelection();
         if ($isRangeSelection(selection)) {
           selection.insertNodes([node]);

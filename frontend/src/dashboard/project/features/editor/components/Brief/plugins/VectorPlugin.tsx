@@ -3,7 +3,12 @@ import ReactModal from "react-modal";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $insertNodes, $getSelection, $isRangeSelection, COMMAND_PRIORITY_EDITOR, type LexicalCommand } from "lexical";
 import { $createSvgNode } from "./nodes/SvgNodeUtils";
-import { DEFAULT_SVG_HEIGHT, DEFAULT_SVG_WIDTH, resolveSvgScaledToWidth } from "./nodes/svgDimensions";
+import {
+  DEFAULT_SVG_HEIGHT,
+  DEFAULT_SVG_WIDTH,
+  cropSvgToVisibleBounds,
+  resolveSvgScaledToWidth,
+} from "./nodes/svgDimensions";
 import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
 import { OPEN_VECTOR_COMMAND } from "../commands";
 
@@ -47,8 +52,10 @@ export default function VectorPlugin({ showToolbarButton = true }: Props) {
     if (!raw) return;
 
     editor.update(() => {
-      const { width, height } = resolveSvgScaledToWidth(raw, DEFAULT_SVG_WIDTH, DEFAULT_SVG_HEIGHT);
-      const node = $createSvgNode({ svg: raw, width, height });
+      const cropped = cropSvgToVisibleBounds(raw, { pad: 1, markAttr: true });
+      const finalSvg = cropped?.svg ?? raw;
+      const { width, height } = resolveSvgScaledToWidth(finalSvg, DEFAULT_SVG_WIDTH, DEFAULT_SVG_HEIGHT);
+      const node = $createSvgNode({ svg: finalSvg, width, height });
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
         selection.insertNodes([node]);

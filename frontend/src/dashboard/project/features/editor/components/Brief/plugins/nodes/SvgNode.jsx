@@ -13,6 +13,8 @@ import { applyModifierNodeSelection } from "../slides/slideSelectionUtils";
 import {
   DEFAULT_SVG_HEIGHT,
   DEFAULT_SVG_WIDTH,
+  cropSvgElementToVisibleBounds,
+  getSvgIntrinsicDimensions,
   resolveSvgScaledToWidth,
 } from "./svgDimensions";
 
@@ -42,6 +44,14 @@ export class SvgNode extends DecoratorNode {
   }
 
   // getters and setters
+  setSvg(svg) {
+    const writable = this.getWritable();
+    writable.__svg = svg;
+  }
+  getSvg() {
+    return this.__svg;
+  }
+
   setX(x) {
     const writable = this.getWritable();
     writable.__x = x;
@@ -119,7 +129,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const ref = useRef(null);
 
   const copyOnDragRef = useRef(false);
-  const didAutoSizeRef = useRef(false);
+  const didNormalizeRef = useRef(false);
 
   // live frame (no React state)
   const frameRef = useRef({ x, y, width, height });
@@ -154,23 +164,109 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
     el.style.height = `${height}px`;
   }, [x, y, width, height]);
 
-  // Auto-size legacy nodes created with default 300x200 so the box matches the SVG viewBox ratio.
+  // Crop the SVG to its visible geometry and fit the node box to the resulting aspect ratio.
   useLayoutEffect(() => {
-    if (didAutoSizeRef.current) return;
-    if (width !== DEFAULT_SVG_WIDTH || height !== DEFAULT_SVG_HEIGHT) return;
+    if (didNormalizeRef.current) return;
 
-    const next = resolveSvgScaledToWidth(svg, DEFAULT_SVG_WIDTH, DEFAULT_SVG_HEIGHT);
-    const nextWidth = Math.round(next.width);
-    const nextHeight = Math.round(next.height);
-    if (nextWidth === Math.round(width) && nextHeight === Math.round(height)) {
-      didAutoSizeRef.current = true;
+    const el = ref.current?.querySelector("svg");
+    if (!el) {
+      didNormalizeRef.current = true;
       return;
     }
 
-    didAutoSizeRef.current = true;
+    const svgEl = el;
+    const alreadyCropped =
+      svgEl.getAttribute("data-mylg-crop") === "visible-2" ||
+      svg.includes('data-mylg-crop="visible-2"');
+
+    let desired = null;
+    let didCrop = false;
+
+    if (!alreadyCropped) {
+      const bounds = cropSvgElementToVisibleBounds(svgEl, { pad: 1, markAttr: true });
+      if (bounds) {
+        desired = { width: bounds.width, height: bounds.height };
+        didCrop = true;
+      }
+    }
+
+    if (!desired) {
+      const intrinsic = getSvgIntrinsicDimensions(svg);
+      if (intrinsic && intrinsic.width > 0 && intrinsic.height > 0) {
+        desired = intrinsic;
+      }
+    }
+
+    if (!desired) {
+      didNormalizeRef.current = true;
+      return;
+    }
+
+    const desiredRatio = desired.width / desired.height;
+    const currentRatio = width > 0 && height > 0 ? width / height : NaN;
+    if (!Number.isFinite(desiredRatio) || !Number.isFinite(currentRatio)) {
+      didNormalizeRef.current = true;
+      return;
+    }
+
+    // If already close enough, don't touch it (avoid unexpected tiny nudges).
+    const ratioDelta = Math.abs(currentRatio - desiredRatio) / desiredRatio;
+    if (ratioDelta < 0.01) {
+      didNormalizeRef.current = true;
+      if (didCrop) {
+        const serialized = new XMLSerializer().serializeToString(svgEl);
+        editor.update(() => {
+          const node = $getNodeByKey(nodeKey);
+          if (!node) return;
+          node.setSvg(serialized);
+        });
+      }
+      return;
+    }
+
+    // Prefer the smaller change: adjust height based on width, or width based on height.
+    const nextHeightFromWidth = width / desiredRatio;
+    const nextWidthFromHeight = height * desiredRatio;
+    const changeHeight = Math.abs(nextHeightFromWidth - height);
+    const changeWidth = Math.abs(nextWidthFromHeight - width);
+
+    let nextWidth = width;
+    let nextHeight = height;
+    if (changeHeight <= changeWidth) {
+      nextHeight = nextHeightFromWidth;
+    } else {
+      nextWidth = nextWidthFromHeight;
+    }
+
+    nextWidth = Math.max(1, Math.round(nextWidth));
+    nextHeight = Math.max(1, Math.round(nextHeight));
+
+    // If we're still on the legacy default, prefer scaling from a sane default width.
+    if (width === DEFAULT_SVG_WIDTH && height === DEFAULT_SVG_HEIGHT) {
+      const scaled = resolveSvgScaledToWidth(svg, DEFAULT_SVG_WIDTH, DEFAULT_SVG_HEIGHT);
+      nextWidth = Math.max(1, Math.round(scaled.width));
+      nextHeight = Math.max(1, Math.round(scaled.height));
+    }
+
+    if (nextWidth === Math.round(width) && nextHeight === Math.round(height)) {
+      didNormalizeRef.current = true;
+      return;
+    }
+
+    didNormalizeRef.current = true;
+
+    // Update DOM immediately to keep Moveable + border aligned in the same frame.
+    const immediate = { ...frameRef.current, width: nextWidth, height: nextHeight };
+    frameRef.current = immediate;
+    applyFrame(immediate);
+
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
       if (!node) return;
+      if (didCrop) {
+        const serialized = new XMLSerializer().serializeToString(svgEl);
+        node.setSvg(serialized);
+      }
       node.setWidth(nextWidth);
       node.setHeight(nextHeight);
     });
