@@ -118,6 +118,8 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
   const frameRef = useRef({ x, y, width, height });
   const startRef = useRef({ x, y, width, height });
 
+  const [zoom, setZoom] = useState(1);
+
   // keep ref synced when Lexical updates props
   useLayoutEffect(() => {
     frameRef.current = { x, y, width, height };
@@ -142,6 +144,22 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
       svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
     }
   }, [svg]);
+
+  // compute zoom from canvas scaler
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const scaler = el.closest('.slide-editor__canvas-scaler');
+    if (!scaler) return;
+    const transform = getComputedStyle(scaler).transform;
+    if (transform && transform !== 'none') {
+      const matrix = new DOMMatrix(transform);
+      const scale = matrix.a; // assuming uniform scale
+      setZoom(1 / scale);
+    } else {
+      setZoom(1);
+    }
+  });
 
   const applyFrame = (f) => {
     const el = ref.current;
@@ -187,6 +205,7 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
         useMutationObserver={false}
         throttleDrag={0}
         throttleResize={0}
+        zoom={zoom}
         onDragStart={(e) => {
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
