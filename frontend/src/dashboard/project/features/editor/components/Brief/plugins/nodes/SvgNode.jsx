@@ -353,20 +353,28 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
       <Moveable
         target={isSelected ? ref : null}
         draggable
-        resizable
-        rotatable
-        keepRatio={true}              // <-- constrained to original ratio
+        resizable={{
+          renderDirections: ["nw", "ne", "sw", "se"],
+          keepRatio: true,
+        }}
+        rotatable={{
+          rotateAroundControls: true,
+          // Important: don't render rotatable corner handles; we want:
+          // - resize when the pointer is directly on the corner handle (moveable-control)
+          // - rotate when the pointer is just outside it (moveable-around-control)
+          // But we do want a visible rotate affordance.
+          renderDirections: ["top"],
+        }}
         origin={false}
         edge={false}
-        renderDirections={["nw", "ne", "sw", "se"]}
         useResizeObserver={false}
         useMutationObserver={false}
         throttleDrag={0}
         throttleResize={0}
         throttleRotate={0}
         zoom={zoom}
-        className="moveable-no-border"
-        style={{ display: isSelected ? "block" : "none" }}
+        className="moveable-no-border svg-moveable"
+        style={{ display: isSelected ? "block" : "none", "--moveable-control-padding": 18 }}
         onDragStart={(e) => {
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
@@ -400,8 +408,12 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           });
           copyOnDragRef.current = false;
         }}
-        onResizeStart={() => {
+        onResizeStart={(e) => {
           startRef.current = { ...frameRef.current };
+          // Default is proportional (keepRatio: true), but allow free resize via Alt.
+          if (e?.inputEvent?.altKey && typeof e.setKeepRatio === "function") {
+            e.setKeepRatio(false);
+          }
         }}
         onResize={({ width: w, height: h, drag }) => {
           const [dx, dy] = drag.beforeTranslate;

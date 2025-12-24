@@ -1013,6 +1013,18 @@ i.bg-color::before {
 .moveable-no-border .moveable-line {
   display: none !important;
 }
+.moveable-no-border .moveable-rotation-line,
+.moveable-no-border .moveable-rotation-control {
+  display: none !important;
+}
+.moveable-no-border.svg-moveable .moveable-rotation-line,
+.moveable-no-border.svg-moveable .moveable-rotation-control {
+  display: block !important;
+}
+.moveable-no-border .moveable-around-control {
+  /* Curved-arrow rotate cursor */
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M26 16a10 10 0 1 1-3.2-7.3' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'/><path d='M26 16a10 10 0 1 1-3.2-7.3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/><path d='M24.5 4.8h6v6' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/><path d='M24.5 4.8h6v6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") 16 16, grab;
+}
 
 /* Ensure editor content area respects theme */
 .editor-input {
