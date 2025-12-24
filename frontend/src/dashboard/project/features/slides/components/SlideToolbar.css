@@ -252,6 +252,40 @@
   font-weight: 600;
 }
 
+.corner-pill__input {
+  all: unset;
+  width: 2.5ch;
+  text-align: right;
+  font-weight: 600;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: inherit;
+  letter-spacing: inherit;
+  cursor: text;
+  -moz-appearance: textfield;
+}
+
+.corner-pill__input::-webkit-outer-spin-button,
+.corner-pill__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.corner-pill__input:focus {
+  outline: 1px solid rgba(255, 255, 255, 0.3);
+  outline-offset: 1px;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.corner-pill__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .corner-dropdown {
   position: absolute;
   top: calc(100% + 6px);

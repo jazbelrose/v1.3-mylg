@@ -644,7 +644,29 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 ref={cornerPopupToggleRef}
                 aria-expanded={showCornerPopup}
               >
-                <span className="corner-pill__label">Corners: {sliderValue}%</span>
+                <span className="corner-pill__label">Corners:&nbsp;</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={sliderValue}
+                  onChange={(event) => {
+                    const val = Number(event.target.value);
+                    if (!Number.isNaN(val)) {
+                      handleUniformRadiusSliderChange(Math.min(100, Math.max(0, val)));
+                    }
+                  }}
+                  onMouseDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                  className="corner-pill__input"
+                  aria-label="Corner radius percentage"
+                  disabled={sliderDisabled}
+                />
+                <span>%</span>
                 <ChevronDown size={14} />
               </button>
               {showCornerPopup && (

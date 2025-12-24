@@ -1,4 +1,9 @@
-import { DecoratorNode, $getNodeByKey } from "lexical";
+import {
+  DecoratorNode,
+  $getNodeByKey,
+  $createNodeSelection,
+  $setSelection,
+} from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import React, { useRef, useState, useEffect } from "react";
@@ -308,6 +313,7 @@ function ResizableImageComponent({
     activeNodeKey: nodeKey,
     selectionBefore: [],
     wasSelectedBefore: false,
+    cloneKeys: [],
   });
 
   // Read the original aspect ratio from the node.
@@ -364,11 +370,12 @@ function ResizableImageComponent({
       copyGesture: isCopyGesture(e),
       didDuplicate: false,
       activeNodeKey: nodeKey,
-    selectionBefore,
-    wasSelectedBefore: selectionBefore.includes(nodeKey),
-  };
-  captureSelectionSnapshot(selectionBefore.length > 0 ? selectionBefore : [nodeKey]);
-  skipClickClearRef.current = true;
+      selectionBefore,
+      wasSelectedBefore: selectionBefore.includes(nodeKey),
+      cloneKeys: [],
+    };
+    captureSelectionSnapshot(selectionBefore.length > 0 ? selectionBefore : [nodeKey]);
+    skipClickClearRef.current = true;
     
     if (handleType === 'rotate') {
       setIsRotating(true);
@@ -540,11 +547,15 @@ function ResizableImageComponent({
               ? keysBefore
               : [nodeKey];
           const { clones, cloneKeys } = duplicateSlideNodes(keysToClone);
+          dragMetaRef.current.cloneKeys = cloneKeys;
           dragMetaRef.current.didDuplicate = true;
           if (cloneKeys.length > 0) {
-            const mapping = new Map(clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey]));
+            const mapping = new Map(
+              clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey])
+            );
             const replacementKey =
-              mapping.get(dragMetaRef.current.activeNodeKey) ?? cloneKeys[cloneKeys.length - 1];
+              mapping.get(dragMetaRef.current.activeNodeKey) ??
+              cloneKeys[cloneKeys.length - 1];
             dragMetaRef.current.activeNodeKey = replacementKey;
             refreshDragSnapshot(replacementKey);
             captureSelectionSnapshot(cloneKeys, { defer: true });
@@ -629,15 +640,28 @@ function ResizableImageComponent({
       setIsDragging(false);
       setIsRotating(false);
       setCurrentHandle(null);
+
+      const { didDuplicate, cloneKeys } = dragMetaRef.current;
+
+      endEdit();
+
+      if (didDuplicate && cloneKeys.length > 0) {
+        editor.update(() => {
+          const nodeSelection = $createNodeSelection();
+          cloneKeys.forEach((key) => nodeSelection.add(key));
+          $setSelection(nodeSelection);
+        });
+      } else {
+        setSelected(true);
+      }
+
       dragMetaRef.current.copyGesture = false;
       dragMetaRef.current.didDuplicate = false;
+      dragMetaRef.current.cloneKeys = [];
       dragMetaRef.current.activeNodeKey = nodeKey;
       dragMetaRef.current.selectionBefore = [];
       dragMetaRef.current.wasSelectedBefore = false;
       selectionSnapshotRef.current = new Map();
-      endEdit();
-      // keep the image selected after interaction ends
-      setSelected(true);
     }
 
     window.addEventListener("mousemove", onMouseMove);

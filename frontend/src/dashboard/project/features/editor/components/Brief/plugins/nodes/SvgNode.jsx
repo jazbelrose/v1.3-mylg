@@ -1,4 +1,10 @@
-import { DecoratorNode, $getNodeByKey, $copyNode } from "lexical";
+import {
+  DecoratorNode,
+  $getNodeByKey,
+  $copyNode,
+  $createNodeSelection,
+  $setSelection,
+} from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import Moveable from "react-moveable";
@@ -171,6 +177,9 @@ function MoveableSvg({ svg, x, y, width, height, nodeKey }) {
               clone.setX(finalFrame.x);
               clone.setY(finalFrame.y);
               node.insertAfter(clone);
+              const nodeSelection = $createNodeSelection();
+              nodeSelection.add(clone.getKey());
+              $setSelection(nodeSelection);
             } else {
               node.setX(finalFrame.x);
               node.setY(finalFrame.y);

@@ -14,6 +14,7 @@ import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
+import { $createSvgNode } from "./nodes/SvgNode";
 import {
   DEFAULT_IMAGE_BORDER_RADIUS,
   type ImageBorderRadiusState,
@@ -23,6 +24,8 @@ const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "svg"] as const;
 const DEFAULT_IMAGE_WIDTH = 400;
 const DEFAULT_IMAGE_HEIGHT = 300;
 const DEFAULT_IMAGE_RATIO = DEFAULT_IMAGE_WIDTH / DEFAULT_IMAGE_HEIGHT;
+const DEFAULT_SVG_WIDTH = 300;
+const DEFAULT_SVG_HEIGHT = 200;
 
 type ResizableImagePayload = {
   src: string;
@@ -46,6 +49,79 @@ const isImageUrl = (url: string): boolean => {
   const cleanUrl = url.split("?")[0]?.split("#")[0] ?? "";
   const ext = cleanUrl.split(".").pop()?.toLowerCase();
   return !!ext && IMAGE_EXTENSIONS.includes(ext as (typeof IMAGE_EXTENSIONS)[number]);
+};
+
+const parseNumericDimension = (value: string | null): number | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (trimmed.endsWith("%")) return null;
+  const parsed = parseFloat(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseViewBoxDimensions = (value: string | null) => {
+  if (!value) return null;
+  const tokens = value
+    .trim()
+    .split(/[\s,]+/)
+    .map((token) => Number(token));
+  if (tokens.length < 4) return null;
+  const [ , , width, height ] = tokens;
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return { width, height };
+};
+
+const resolveSvgDimensions = (svgText: string) => {
+  let width = DEFAULT_SVG_WIDTH;
+  let height = DEFAULT_SVG_HEIGHT;
+
+  if (typeof DOMParser === "undefined") {
+    return { width, height };
+  }
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, "image/svg+xml");
+    const svgElement = doc.documentElement;
+    if (!svgElement || svgElement.nodeName.toLowerCase() !== "svg") {
+      return { width, height };
+    }
+
+    const widthAttr = parseNumericDimension(svgElement.getAttribute("width"));
+    const heightAttr = parseNumericDimension(svgElement.getAttribute("height"));
+    if (widthAttr && heightAttr) {
+      width = widthAttr;
+      height = heightAttr;
+      return { width, height };
+    }
+
+    const viewBox = parseViewBoxDimensions(svgElement.getAttribute("viewBox"));
+    if (viewBox) {
+      width = viewBox.width;
+      height = viewBox.height;
+    }
+  } catch (error) {
+    console.warn("Failed to derive SVG extents", error);
+  }
+
+  return { width, height };
+};
+
+const SVG_EXTENSIONS = ["svg"] as const;
+
+const isSvgFileLike = (file: File): boolean => {
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  return (
+    file.type === "image/svg+xml" ||
+    (!!ext && SVG_EXTENSIONS.includes(ext as (typeof SVG_EXTENSIONS)[number]))
+  );
+};
+
+const isSvgUrl = (url: string): boolean => {
+  if (!url) return false;
+  const cleanUrl = url.split("?")[0]?.split("#")[0] ?? "";
+  const ext = cleanUrl.split(".").pop()?.toLowerCase();
+  return !!ext && SVG_EXTENSIONS.includes(ext as (typeof SVG_EXTENSIONS)[number]);
 };
 
 const encodeS3Key = (key: string = "") =>
@@ -115,17 +191,61 @@ export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPlu
   const { activeProject } = useData() as { activeProject: ProjectLike };
   const [isLoading, setIsLoading] = useState(false);
 
+  const insertSvgNode = useCallback(
+    (svgMarkup: string) => {
+      if (!editor.getRootElement()) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { width, height } = resolveSvgDimensions(svgMarkup);
+      editor.update(() => {
+        const node = $createSvgNode({ svg: svgMarkup, width, height });
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          selection.insertNodes([node]);
+        } else {
+          $insertNodes([node]);
+        }
+      });
+      setIsLoading(false);
+    },
+    [editor]
+  );
+
   const processFile = useCallback(
     async (file: File | null, directUrl?: string) => {
       if (!file && !directUrl) return;
-      const isImageDrop = file ? isImageFileLike(file) : !!directUrl && isImageUrl(directUrl);
+      const isSvgDrop = !!file && isSvgFileLike(file);
+      const isSvgDirectUrl = !!directUrl && isSvgUrl(directUrl);
+      const isImageDrop =
+        !!file && isImageFileLike(file) && !isSvgDrop
+          ? true
+          : !!directUrl && isImageUrl(directUrl) && !isSvgDirectUrl;
+      const allowedForSlides = isImageDrop || isSvgDrop || isSvgDirectUrl;
 
-      if (slidesMode && !isImageDrop) {
+      if (slidesMode && !allowedForSlides) {
         notify("error", "Only image files can be dropped on slides.");
         return;
       }
 
       setIsLoading(true);
+
+      if (isSvgDrop && file) {
+        let svgContent = "";
+        try {
+          svgContent = await file.text();
+        } catch (err) {
+          console.error("Failed to read SVG file:", err);
+        }
+        if (!svgContent.trim()) {
+          notify("error", "SVG file could not be read.");
+          setIsLoading(false);
+          return;
+        }
+        insertSvgNode(svgContent.trim());
+        return;
+      }
 
       let src = directUrl ?? "";
 
@@ -224,7 +344,7 @@ export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPlu
         setIsLoading(false);
       }
     },
-    [editor, activeProject, slidesMode]
+    [editor, activeProject, insertSvgNode, slidesMode]
   );
 
   const onDrop = useCallback(

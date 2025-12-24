@@ -26,6 +26,7 @@ import {
   SET_BG_COLOR_COMMAND,
   OPEN_IMAGE_COMMAND,
   OPEN_FIGMA_COMMAND,
+  OPEN_VECTOR_COMMAND,
   TOGGLE_SPEECH_COMMAND,
   INSERT_TEXTBOX_COMMAND,
 } from "../commands";
@@ -60,6 +61,7 @@ export type ToolbarActions = {
   onAlignJustify: () => void;
 
   onAddImage: () => void;
+  onInsertVector: () => void;
   onFigma: () => void;
   onVoice: () => void;
   onInsertTextBox: () => void;
@@ -177,6 +179,7 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "justify"),
 
       onAddImage: () => editor.dispatchCommand(OPEN_IMAGE_COMMAND, undefined),
+      onInsertVector: () => editor.dispatchCommand(OPEN_VECTOR_COMMAND, undefined),
       onFigma: () => editor.dispatchCommand(OPEN_FIGMA_COMMAND, undefined),
       onVoice: () => editor.dispatchCommand(TOGGLE_SPEECH_COMMAND, undefined),
       onInsertTextBox: () => editor.dispatchCommand(INSERT_TEXTBOX_COMMAND, undefined),
