@@ -196,10 +196,86 @@ function lexicalNodeToHtml(node) {
     case 'text-box':
     case 'resizable-image':
     case 'image':
+    case 'svg':
       return '';
     default:
       return children;
   }
+}
+
+function sanitizeSvgMarkup(svg = '') {
+  if (typeof svg !== 'string' || svg.trim().length === 0) return '';
+
+  let out = svg;
+
+  // Remove XML/doctype headers which can confuse HTML parsers.
+  out = out.replace(/<\?xml[\s\S]*?\?>/gi, '');
+  out = out.replace(/<!doctype[\s\S]*?>/gi, '');
+
+  // Drop scripts and inline event handlers (conservative).
+  out = out.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+  out = out.replace(/\son[a-z]+\s*=\s*(['"])[\s\S]*?\1/gi, '');
+
+  // Prevent javascript: URLs in common href attributes.
+  out = out.replace(/\s(?:href|xlink:href)\s*=\s*(['"])\s*javascript:[\s\S]*?\1/gi, '');
+
+  return out.trim();
+}
+
+function ensureSvgSizingAttributes(svgMarkup) {
+  if (typeof svgMarkup !== 'string' || svgMarkup.length === 0) return svgMarkup;
+
+  const match = svgMarkup.match(/<svg\b([^>]*)>/i);
+  if (!match) return svgMarkup;
+
+  const attrs = match[1] || '';
+  const hasWidth = /\bwidth\s*=\s*['"]/i.test(attrs);
+  const hasHeight = /\bheight\s*=\s*['"]/i.test(attrs);
+  const hasPreserve = /\bpreserveAspectRatio\s*=\s*['"]/i.test(attrs);
+  const hasStyle = /\bstyle\s*=\s*['"]/i.test(attrs);
+
+  let injected = attrs;
+  if (!hasWidth) injected += ' width="100%"';
+  if (!hasHeight) injected += ' height="100%"';
+  if (!hasPreserve) injected += ' preserveAspectRatio="xMidYMid meet"';
+
+  if (hasStyle) {
+    injected = injected.replace(/\bstyle\s*=\s*(['"])([\s\S]*?)\1/i, (_m, q, styleValue) => {
+      const nextStyle = `${styleValue};width:100%;height:100%;display:block;`;
+      return `style=${q}${nextStyle}${q}`;
+    });
+  } else {
+    injected += ' style="width:100%;height:100%;display:block;"';
+  }
+
+  return svgMarkup.replace(/<svg\b[^>]*>/i, `<svg${injected}>`);
+}
+
+function renderSvgLayer(node, textColor) {
+  const x = Number(node.x) || 0;
+  const y = Number(node.y) || 0;
+  const width = Number(node.width) || 300;
+  const height = Number(node.height) || 200;
+  const rotation = Number(node.rotation) || 0;
+
+  const sanitized = sanitizeSvgMarkup(node.svg || '');
+  if (!sanitized || !/<svg\b/i.test(sanitized)) return '';
+
+  const svgMarkup = ensureSvgSizingAttributes(sanitized);
+
+  const style = [
+    'position:absolute',
+    'left:0',
+    'top:0',
+    `transform: translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+    'transform-origin:center center',
+    `width:${width}px`,
+    `height:${height}px`,
+    'overflow:hidden',
+    'color:' + (textColor || '#f5f5f5'),
+  ].join('; ');
+
+  return `<div class="svg-layer" style="${style}">${svgMarkup}</div>`;
 }
 
 function renderTextBoxLayer(node, textColor) {
@@ -284,6 +360,10 @@ function gatherLayerHtml(nodes, textColor, layers) {
         layers.push(renderTextBoxLayer(node, textColor));
         handled = true;
         break;
+      case 'svg':
+        layers.push(renderSvgLayer(node, textColor));
+        handled = true;
+        break;
       case 'resizable-image':
       case 'image':
         layers.push(renderImageLayer(node));
@@ -355,6 +435,14 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
 
       if (el.type === 'image' && el.src) {
         return `<img src="${escapeHtml(el.src)}" style="${style}" alt="" />`;
+      }
+
+      if (el.type === 'svg' && el.svg) {
+        const sanitized = ensureSvgSizingAttributes(sanitizeSvgMarkup(el.svg));
+        if (!sanitized || !/<svg\b/i.test(sanitized)) {
+          return '';
+        }
+        return `<div class="svg-layer" style="${style};color:${escapeHtml(textColor)}">${sanitized}</div>`;
       }
 
       const content = escapeHtml(el.content || '');
@@ -458,6 +546,11 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        .svg-layer svg {
+          display: block;
+          width: 100%;
+          height: 100%;
         }
         img {
           object-fit: contain;

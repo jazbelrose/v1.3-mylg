@@ -12,6 +12,12 @@ function prepareNodeForThumbnailCapture(root: HTMLElement) {
     scrollLeft: number;
   }> = [];
 
+  const svgReplacements: Array<{
+    parent: Node;
+    original: SVGElement;
+    replacement: HTMLImageElement;
+  }> = [];
+
   // Target textbox elements which have overflow: auto by default
   const nodes = root.querySelectorAll<HTMLElement>('.editor-textbox');
 
@@ -37,9 +43,40 @@ function prepareNodeForThumbnailCapture(root: HTMLElement) {
   const body = typeof document !== "undefined" ? document.body : null;
   body?.classList.add("thumbnail-capture");
 
+  // Workaround: html-to-image can fail to rasterize inline <svg> reliably across browsers.
+  // Convert them to <img src="data:image/svg+xml,..."> for the duration of the capture.
+  const svgs = root.querySelectorAll<SVGElement>('svg');
+  svgs.forEach((svgEl) => {
+    const parent = svgEl.parentNode;
+    if (!parent) return;
+    try {
+      const serialized = new XMLSerializer().serializeToString(svgEl);
+      if (!serialized || !serialized.includes('<svg')) return;
+      const img = document.createElement('img');
+      img.decoding = 'async';
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.display = 'block';
+      parent.replaceChild(img, svgEl);
+      svgReplacements.push({ parent, original: svgEl, replacement: img });
+    } catch {
+      // If serialization fails, keep the original SVG.
+    }
+  });
+
   return () => {
     body?.classList.remove("thumbnail-capture");
     root.style.overflow = rootPrevOverflow;
+    for (const { parent, original, replacement } of svgReplacements) {
+      try {
+        if (parent.contains(replacement)) {
+          parent.replaceChild(original, replacement);
+        }
+      } catch {
+        // ignore best-effort restore
+      }
+    }
     for (const t of touched) {
       t.el.style.overflow = t.overflow;
       t.el.scrollTop = t.scrollTop;
