@@ -8,7 +8,7 @@ import {
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import Moveable from "react-moveable";
-import React, { useRef, useState, useLayoutEffect } from "react";
+import React, { useCallback, useRef, useState, useLayoutEffect } from "react";
 import { applyModifierNodeSelection } from "../slides/slideSelectionUtils";
 import {
   DEFAULT_SVG_HEIGHT,
@@ -139,6 +139,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef(null);
+  const moveableRef = useRef(null);
 
   const copyOnDragRef = useRef(false);
   const didNormalizeRef = useRef(false);
@@ -148,6 +149,62 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const startRef = useRef({ x, y, width, height, rotation });
 
   const [zoom, setZoom] = useState(1);
+
+  const rotateCursorCacheRef = useRef(new Map());
+  const rotateCursorRafRef = useRef(0);
+
+  const getRotateCornerCursor = useCallback((angleDeg) => {
+    const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+    const cached = rotateCursorCacheRef.current.get(normalized);
+    if (cached) return cached;
+
+    const svgMarkup =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
+      `<g transform="rotate(${normalized} 16 16)">` +
+      `<path d="M16 6 A10 10 0 0 1 26 16" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>` +
+      `<path d="M16 6 A10 10 0 0 1 26 16" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"/>` +
+      `<path d="M23.2 13.2 L26 16 L28.8 13.2" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="M23.2 13.2 L26 16 L28.8 13.2" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `</g></svg>`;
+
+    const encoded = encodeURIComponent(svgMarkup);
+    const cursorValue = `url("data:image/svg+xml,${encoded}") 16 16, grab`;
+
+    rotateCursorCacheRef.current.set(normalized, cursorValue);
+    return cursorValue;
+  }, []);
+
+  const updateRotateCornerCursors = useCallback(() => {
+    const moveable = moveableRef.current;
+    const controlBox = moveable?.controlBox || moveable?.getControlBoxElement?.();
+    if (!controlBox) return;
+
+    const cornerOffsets = {
+      ne: 0,
+      se: 90,
+      sw: 180,
+      nw: 270,
+    };
+
+    controlBox.querySelectorAll(".moveable-around-control").forEach((el) => {
+      const dir = el.getAttribute("data-direction");
+      const offset = cornerOffsets[dir];
+      if (offset == null) return;
+
+      const cursorRotation = (frameRef.current.rotation || 0) + offset;
+      el.style.cursor = getRotateCornerCursor(cursorRotation);
+    });
+  }, [getRotateCornerCursor]);
+
+  const scheduleRotateCornerCursorUpdate = useCallback(() => {
+    if (rotateCursorRafRef.current) {
+      cancelAnimationFrame(rotateCursorRafRef.current);
+    }
+    rotateCursorRafRef.current = requestAnimationFrame(() => {
+      rotateCursorRafRef.current = 0;
+      updateRotateCornerCursors();
+    });
+  }, [updateRotateCornerCursors]);
   const handlePointerDown = (event) => {
     if (event.button !== 0) {
       return;
@@ -176,7 +233,20 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     el.style.height = `${height}px`;
     el.style.transform = `rotate(${rotation}deg)`;
     el.style.transformOrigin = "center center";
-  }, [x, y, width, height, rotation]);
+
+    if (isSelected) {
+      scheduleRotateCornerCursorUpdate();
+    }
+  }, [x, y, width, height, rotation, isSelected, scheduleRotateCornerCursorUpdate]);
+
+  useLayoutEffect(() => {
+    return () => {
+      if (rotateCursorRafRef.current) {
+        cancelAnimationFrame(rotateCursorRafRef.current);
+        rotateCursorRafRef.current = 0;
+      }
+    };
+  }, []);
 
   // Crop the SVG to its visible geometry and fit the node box to the resulting aspect ratio.
   useLayoutEffect(() => {
@@ -351,6 +421,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
       />
 
       <Moveable
+        ref={moveableRef}
         target={isSelected ? ref : null}
         draggable
         resizable={{
@@ -450,6 +521,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           };
           frameRef.current = next;
           applyFrame(next);
+          scheduleRotateCornerCursorUpdate();
         }}
         onRotateEnd={() => {
           const finalFrame = frameRef.current;

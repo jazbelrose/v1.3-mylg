@@ -1028,8 +1028,8 @@ i.bg-color::before {
 }
 .moveable-no-border.moveable-control-box .moveable-around-control,
 .moveable-no-border .moveable-control-box .moveable-around-control {
-  /* Curved-arrow rotate cursor */
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M26 16a10 10 0 1 1-3.2-7.3' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'/><path d='M26 16a10 10 0 1 1-3.2-7.3' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/><path d='M24.5 4.8h6v6' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/><path d='M24.5 4.8h6v6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") 16 16, grab;
+  /* Fallback rotate cursor (JS overrides per-corner + per-rotation for SvgNode) */
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'/><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/><path d='M23.2 13.2 L26 16 L28.8 13.2' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/><path d='M23.2 13.2 L26 16 L28.8 13.2' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") 16 16, grab;
 }
 
 /* Ensure editor content area respects theme */
