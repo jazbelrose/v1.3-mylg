@@ -627,6 +627,10 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           };
           frameRef.current = next;
           applyFrame(next);
+          // Force immediate control box update to prevent lag
+          if (moveableRef.current) {
+            moveableRef.current.updateRect();
+          }
           scheduleMoveableSync({ resizeCursors: true });
         }}
         onResizeEnd={() => {
@@ -655,7 +659,12 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           };
           frameRef.current = next;
           applyTransform(next);
-          scheduleMoveableSync({ rotateCursors: true });
+          // Force immediate control box update to prevent handle lag
+          if (moveableRef.current) {
+            moveableRef.current.updateRect();
+            // Also update cursors synchronously during rotation
+            updateRotateCornerCursors();
+          }
         }}
         onRotateEnd={() => {
           const finalFrame = frameRef.current;
