@@ -1021,10 +1021,12 @@ i.bg-color::before {
   display: none !important;
 }
 .moveable-no-border.moveable-control-box .moveable-rotation-line,
-.moveable-no-border .moveable-control-box .moveable-rotation-line,
+.moveable-no-border .moveable-control-box .moveable-rotation-line {
+  display: block !important;
+}
 .moveable-no-border.moveable-control-box .moveable-rotation-control,
 .moveable-no-border .moveable-control-box .moveable-rotation-control {
-  display: none !important;
+  display: flex !important;
 }
 .moveable-no-border.moveable-control-box .moveable-around-control,
 .moveable-no-border .moveable-control-box .moveable-around-control {
@@ -1032,9 +1034,42 @@ i.bg-color::before {
   cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'/><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/><path d='M26 20 L22 13 L30 13 Z' fill='white'/><path d='M26 19 L23 14 L29 14 Z' fill='black'/><g transform='rotate(180 16 16)'><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='white' stroke-width='4' stroke-linecap='round'/><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/><path d='M26 20 L22 13 L30 13 Z' fill='white'/><path d='M26 19 L23 14 L29 14 Z' fill='black'/></g></svg>") 16 16, grab;
 }
 
+/* Top-center rotation line + handle */
+.svg-moveable {
+  --svg-rotation-handle-distance: 36px;
+  --svg-rotation-handle-size: 14px;
+}
+.svg-moveable .moveable-rotation-line {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--svg-rotation-handle-distance));
+  width: 2px;
+  height: var(--svg-rotation-handle-distance);
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 999px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.svg-moveable .moveable-rotation-control {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--svg-rotation-handle-distance));
+  transform: translate(-50%, -50%);
+  width: var(--svg-rotation-handle-size) !important;
+  height: var(--svg-rotation-handle-size) !important;
+  border-radius: 50% !important;
+  background: #fff;
+  border: 2px solid #000 !important;
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  cursor: grab !important;
+}
+.svg-moveable .moveable-rotation-control:active {
+  cursor: grabbing !important;
+}
+
 /* SvgNode (react-moveable) resize handles */
 .svg-moveable.moveable-control-box .moveable-control {
-  --svg-handle-size: 8px;
+  --svg-handle-size: 12px;
   width: var(--svg-handle-size) !important;
   height: var(--svg-handle-size) !important;
   margin-left: calc(var(--svg-handle-size) / -2) !important;
@@ -1049,8 +1084,15 @@ i.bg-color::before {
 .svg-moveable.moveable-control-box .moveable-control[data-direction="e"],
 .svg-moveable.moveable-control-box .moveable-control[data-direction="s"],
 .svg-moveable.moveable-control-box .moveable-control[data-direction="w"] {
-  --svg-handle-size: 6px;
+  --svg-handle-size: 8px;
   border-width: 1.5px !important;
+}
+/* Hide rotate handles when hovering along the cardinal sides */
+.svg-moveable.moveable-control-box .moveable-around-control[data-direction="n"],
+.svg-moveable.moveable-control-box .moveable-around-control[data-direction="e"],
+.svg-moveable.moveable-control-box .moveable-around-control[data-direction="s"],
+.svg-moveable.moveable-control-box .moveable-around-control[data-direction="w"] {
+  display: none !important;
 }
 
 /* Ensure editor content area respects theme */
