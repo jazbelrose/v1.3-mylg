@@ -652,6 +652,11 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           const next = { ...frameRef.current, x: f0.x + dx, y: f0.y + dy };
           frameRef.current = next;
           applyTransform(next);
+          // Update rotation handle wrapper to follow
+          if (rotateHandleWrapperRef.current) {
+            rotateHandleWrapperRef.current.style.transform = 
+              `translate3d(${next.x}px, ${next.y}px, 0) rotate(${next.rotation || 0}deg)`;
+          }
         }}
         onDragEnd={() => {
           const finalFrame = frameRef.current;
@@ -697,6 +702,13 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           // Force immediate control box update to prevent lag
           if (moveableRef.current) {
             moveableRef.current.updateRect();
+          }
+          // Update rotation handle wrapper to follow
+          if (rotateHandleWrapperRef.current) {
+            rotateHandleWrapperRef.current.style.transform = 
+              `translate3d(${next.x}px, ${next.y}px, 0) rotate(${next.rotation || 0}deg)`;
+            rotateHandleWrapperRef.current.style.width = `${next.width}px`;
+            rotateHandleWrapperRef.current.style.height = `${next.height}px`;
           }
           scheduleMoveableSync({ resizeCursors: true });
         }}
