@@ -140,9 +140,11 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef(null);
   const moveableRef = useRef(null);
+  const rotateHandleWrapperRef = useRef(null);
 
   const copyOnDragRef = useRef(false);
   const didNormalizeRef = useRef(false);
+  const [isRotating, setIsRotating] = useState(false);
 
   // live frame (no React state)
   const frameRef = useRef({ x, y, width, height, rotation });
@@ -529,6 +531,74 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     applyTransform(f);
   };
 
+  const initialAngleRef = useRef(0);
+
+  const handleRotateStart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const el = ref.current;
+    if (!el) return;
+    
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+    initialAngleRef.current = (angle * 180) / Math.PI;
+    
+    setIsRotating(true);
+    startRef.current = { ...frameRef.current };
+  };
+
+  // Handle rotation via mouse move
+  useLayoutEffect(() => {
+    if (!isRotating) return;
+
+    function onMouseMove(e) {
+      const el = ref.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+      const currentDegrees = (currentAngle * 180) / Math.PI;
+      
+      // Calculate delta from initial angle
+      const deltaRotation = currentDegrees - initialAngleRef.current;
+      const newRotation = startRef.current.rotation + deltaRotation;
+
+      const next = { ...frameRef.current, rotation: newRotation };
+      frameRef.current = next;
+      applyTransform(next);
+      
+      // Also update rotation handle wrapper to follow the border
+      if (rotateHandleWrapperRef.current) {
+        rotateHandleWrapperRef.current.style.transform = 
+          `translate3d(${next.x}px, ${next.y}px, 0) rotate(${next.rotation}deg)`;
+      }
+    }
+
+    function onMouseUp() {
+      setIsRotating(false);
+      const finalFrame = frameRef.current;
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (!node) return;
+        node.setX(finalFrame.x);
+        node.setY(finalFrame.y);
+        node.setRotation(finalFrame.rotation || 0);
+      });
+    }
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isRotating, editor, nodeKey]);
+
   return (
     <>
       <div
@@ -561,10 +631,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
           keepRatio: true,
         }}
-        rotatable={true}
-        // Resize when pointer is directly on the corner handle (moveable-control),
-        // rotate when pointer is just outside it (moveable-around-control).
-        rotateAroundControls={true}
+        rotatable={false}
         origin={false}
         edge={false}
         useResizeObserver={isSelected}
@@ -645,38 +712,52 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
             node.setRotation(finalFrame.rotation || 0);
           });
         }}
-        onRotateStart={() => {
-          startRef.current = { ...frameRef.current };
-        }}
-        onRotate={({ beforeRotate, drag }) => {
-          const [dx, dy] = drag?.beforeTranslate ?? [0, 0];
-          const f0 = startRef.current;
-          const next = {
-            ...frameRef.current,
-            x: f0.x + dx,
-            y: f0.y + dy,
-            rotation: beforeRotate,
-          };
-          frameRef.current = next;
-          applyTransform(next);
-          // Force immediate control box update to prevent handle lag
-          if (moveableRef.current) {
-            moveableRef.current.updateRect();
-            // Also update cursors synchronously during rotation
-            updateRotateCornerCursors();
-          }
-        }}
-        onRotateEnd={() => {
-          const finalFrame = frameRef.current;
-          editor.update(() => {
-            const node = $getNodeByKey(nodeKey);
-            if (!node) return;
-            node.setX(finalFrame.x);
-            node.setY(finalFrame.y);
-            node.setRotation(finalFrame.rotation || 0);
-          });
-        }}
       />
+
+      {/* Custom rotation handle */}
+      {isSelected && (
+        <div
+          ref={rotateHandleWrapperRef}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: width,
+            height: height,
+            transform: `translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+            transformOrigin: "center center",
+            pointerEvents: "none",
+            zIndex: 1001,
+            overflow: "visible",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "-36px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "14px",
+              height: "14px",
+              backgroundColor: "#fff",
+              border: "2px solid #000",
+              borderRadius: "50%",
+              cursor: "grab",
+              pointerEvents: "all",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "10px",
+              color: "#000",
+              fontWeight: "bold",
+            }}
+            onMouseDown={handleRotateStart}
+            title="Rotate"
+          >
+            ↻
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -306,6 +306,7 @@ function ResizableImageComponent({
   const initialPosXRef = useRef(x);
   const initialPosYRef = useRef(y);
   const initialRotationRef = useRef(rotation);
+  const initialAngleRef = useRef(0);
   const selectionSnapshotRef = useRef(new Map());
   const dragMetaRef = useRef({
     copyGesture: false,
@@ -378,6 +379,14 @@ function ResizableImageComponent({
     skipClickClearRef.current = true;
     
     if (handleType === 'rotate') {
+      // Capture initial mouse angle for rotation
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (containerRect) {
+        const centerX = containerRect.left + containerRect.width / 2;
+        const centerY = containerRect.top + containerRect.height / 2;
+        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+        initialAngleRef.current = (angle * 180) / Math.PI;
+      }
       setIsRotating(true);
     } else if (handleType === 'move') {
       setIsDragging(true);
@@ -598,9 +607,14 @@ function ResizableImageComponent({
           if (containerRect) {
             const centerX = containerRect.left + containerRect.width / 2;
             const centerY = containerRect.top + containerRect.height / 2;
-            const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-            const degrees = (angle * 180) / Math.PI;
-            node.setRotation(degrees);
+            const currentAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+            const currentDegrees = (currentAngle * 180) / Math.PI;
+            
+            // Calculate delta from initial angle
+            const deltaRotation = currentDegrees - initialAngleRef.current;
+            const newRotation = initialRotationRef.current + deltaRotation;
+            
+            node.setRotation(newRotation);
           }
         } else if (isResizing) {
           // Handle resizing (existing logic)
