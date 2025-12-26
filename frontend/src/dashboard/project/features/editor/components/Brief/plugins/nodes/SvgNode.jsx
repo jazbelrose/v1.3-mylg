@@ -152,6 +152,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
 
   const rotateCursorCacheRef = useRef(new Map());
   const rotateCursorRafRef = useRef(0);
+  const resizeCursorCacheRef = useRef(new Map());
 
   const getRotateCornerCursor = useCallback((angleDeg) => {
     const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
@@ -180,6 +181,68 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     return cursorValue;
   }, []);
 
+  const getResizeCursor = useCallback((angleDeg, fallback = "auto") => {
+    const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+    const key = `${normalized}:${fallback}`;
+    const cached = resizeCursorCacheRef.current.get(key);
+    if (cached) return cached;
+
+    const svgMarkup =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
+      `<g transform="rotate(${normalized} 16 16)">` +
+      `<path d="M16 7 L16 25" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>` +
+      `<path d="M16 7 L16 25" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"/>` +
+      `<path d="M16 3 L11 10 L21 10 Z" fill="white"/>` +
+      `<path d="M16 4 L12 9 L20 9 Z" fill="black"/>` +
+      `<path d="M16 29 L11 22 L21 22 Z" fill="white"/>` +
+      `<path d="M16 28 L12 23 L20 23 Z" fill="black"/>` +
+      `</g></svg>`;
+
+    const encoded = encodeURIComponent(svgMarkup);
+    const cursorValue = `url("data:image/svg+xml,${encoded}") 16 16, ${fallback}`;
+
+    resizeCursorCacheRef.current.set(key, cursorValue);
+    return cursorValue;
+  }, []);
+
+  const updateResizeHandleCursors = useCallback(() => {
+    const moveable = moveableRef.current;
+    const controlBox = moveable?.controlBox || moveable?.getControlBoxElement?.();
+    if (!controlBox) return;
+
+    const offsets = {
+      n: 0,
+      s: 0,
+      e: 90,
+      w: 90,
+      // Corner resize cursors: "\" is +45° from vertical, "/" is -45°.
+      nw: 45,
+      se: 45,
+      ne: 315,
+      sw: 315,
+    };
+
+    const fallbacks = {
+      n: "ns-resize",
+      s: "ns-resize",
+      e: "ew-resize",
+      w: "ew-resize",
+      nw: "nwse-resize",
+      se: "nwse-resize",
+      ne: "nesw-resize",
+      sw: "nesw-resize",
+    };
+
+    controlBox.querySelectorAll(".moveable-control").forEach((el) => {
+      const dir = el.getAttribute("data-direction");
+      const offset = offsets[dir];
+      if (offset == null) return;
+
+      const cursorRotation = (frameRef.current.rotation || 0) + offset;
+      el.style.cursor = getResizeCursor(cursorRotation, fallbacks[dir] || "auto");
+    });
+  }, [getResizeCursor]);
+
   const updateRotateCornerCursors = useCallback(() => {
     const moveable = moveableRef.current;
     const controlBox = moveable?.controlBox || moveable?.getControlBoxElement?.();
@@ -200,7 +263,9 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
       const cursorRotation = (frameRef.current.rotation || 0) + offset;
       el.style.cursor = getRotateCornerCursor(cursorRotation);
     });
-  }, [getRotateCornerCursor]);
+
+    updateResizeHandleCursors();
+  }, [getRotateCornerCursor, updateResizeHandleCursors]);
 
   const scheduleRotateCornerCursorUpdate = useCallback(() => {
     if (rotateCursorRafRef.current) {
@@ -431,7 +496,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
         target={isSelected ? ref : null}
         draggable
         resizable={{
-          renderDirections: ["nw", "ne", "sw", "se"],
+          renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
           keepRatio: true,
         }}
         rotatable={true}
