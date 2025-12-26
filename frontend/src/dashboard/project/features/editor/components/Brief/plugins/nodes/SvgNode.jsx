@@ -17,9 +17,58 @@ import {
   getSvgIntrinsicDimensions,
   resolveSvgScaledToWidth,
 } from "./svgDimensions";
-import rotateArrowCursor from "@/assets/svg/rotate arrow.svg";
+import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
-const ROTATE_CURSOR = `url("${rotateArrowCursor}") 16 16, grab`;
+const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 };
+const rotateCursorCache = new Map();
+
+function getSvgInner(svgText) {
+  const svgStart = svgText.indexOf("<svg");
+  if (svgStart < 0) return "";
+  const openEnd = svgText.indexOf(">", svgStart);
+  if (openEnd < 0) return "";
+  const closeStart = svgText.lastIndexOf("</svg>");
+  if (closeStart < 0) return "";
+  return svgText.slice(openEnd + 1, closeStart);
+}
+
+const rotateArrowInnerSvg = getSvgInner(rotateArrowSvgRaw);
+
+function getRotateCursor(angleDeg, fallback = "grab") {
+  const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+  const key = `${normalized}:${fallback}`;
+  const cached = rotateCursorCache.get(key);
+  if (cached) return cached;
+
+  const svgMarkup =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-50 -50 400 400">` +
+    `<g transform="rotate(${normalized} 150 150)">` +
+    rotateArrowInnerSvg +
+    `</g></svg>`;
+
+  const encoded = encodeURIComponent(svgMarkup)
+    .replace(/'/g, "%27")
+    .replace(/"/g, "%22");
+  const cursorValue = `url("data:image/svg+xml,${encoded}") ${ROTATE_CURSOR_HOTSPOT.x} ${ROTATE_CURSOR_HOTSPOT.y}, ${fallback}`;
+
+  rotateCursorCache.set(key, cursorValue);
+  return cursorValue;
+}
+
+function setForcedRotateCursor(angleDeg) {
+  const root = document.documentElement;
+  root.style.setProperty("--mylg-rotate-cursor", getRotateCursor(angleDeg, "grab"));
+  root.style.setProperty(
+    "--mylg-rotate-cursor-grabbing",
+    getRotateCursor(angleDeg, "grabbing")
+  );
+}
+
+function clearForcedRotateCursor() {
+  const root = document.documentElement;
+  root.style.removeProperty("--mylg-rotate-cursor");
+  root.style.removeProperty("--mylg-rotate-cursor-grabbing");
+}
 
 export class SvgNode extends DecoratorNode {
   constructor(svg, x = 0, y = 0, width = 300, height = 200, rotation = 0, key) {
@@ -159,7 +208,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const moveableSyncFlagsRef = useRef({ rotateCursors: false, resizeCursors: false });
   const resizeCursorCacheRef = useRef(new Map());
 
-  const getRotateCornerCursor = useCallback(() => ROTATE_CURSOR, []);
+  const getRotateCornerCursor = useCallback((angleDeg) => getRotateCursor(angleDeg), []);
 
   const getResizeCursor = useCallback((angleDeg, fallback = "auto") => {
     const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
@@ -232,19 +281,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     const controlBox = moveable?.controlBox || moveable?.getControlBoxElement?.();
     if (!controlBox) return;
 
-    const cornerOffsets = {
-      ne: 0,
-      se: 90,
-      sw: 180,
-      nw: 270,
-    };
-
     controlBox.querySelectorAll(".moveable-around-control").forEach((el) => {
-      const dir = el.getAttribute("data-direction");
-      const offset = cornerOffsets[dir];
-      if (offset == null) return;
-
-      const cursorRotation = (frameRef.current.rotation || 0) + offset;
+      const cursorRotation = frameRef.current.rotation || 0;
       el.style.cursor = getRotateCornerCursor(cursorRotation);
     });
 
@@ -524,9 +562,12 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     const centerY = rect.top + rect.height / 2;
     const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
     initialAngleRef.current = (angle * 180) / Math.PI;
-    
+
     setIsRotating(true);
     startRef.current = { ...frameRef.current };
+
+    setForcedRotateCursor(frameRef.current.rotation || 0);
+    document.body.classList.add("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
   };
 
   // Handle rotation via mouse move
@@ -550,6 +591,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
       const next = { ...frameRef.current, rotation: newRotation };
       frameRef.current = next;
       applyTransform(next);
+      setForcedRotateCursor(next.rotation || 0);
       
       // Also update rotation handle wrapper to follow the border
       if (rotateHandleWrapperRef.current) {
@@ -560,6 +602,11 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
 
     function onMouseUp() {
       setIsRotating(false);
+      document.body.classList.remove(
+        "mylg-force-rotate-cursor",
+        "mylg-force-rotate-cursor-grabbing"
+      );
+      clearForcedRotateCursor();
       const finalFrame = frameRef.current;
       editor.update(() => {
         const node = $getNodeByKey(nodeKey);
@@ -575,6 +622,11 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      document.body.classList.remove(
+        "mylg-force-rotate-cursor",
+        "mylg-force-rotate-cursor-grabbing"
+      );
+      clearForcedRotateCursor();
     };
   }, [isRotating, editor, nodeKey]);
 
@@ -748,6 +800,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
               backgroundColor: "#fff",
               border: "2px solid #4C9AFF",
               borderRadius: "50%",
+              cursor: getRotateCursor(rotation || 0),
               pointerEvents: "all",
             }}
             onMouseDown={handleRotateStart}

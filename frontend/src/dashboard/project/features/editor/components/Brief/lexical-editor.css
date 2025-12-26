@@ -1061,14 +1061,13 @@ i.bg-color::before {
   background: #fff;
   border: 2px solid #000 !important;
   box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
-  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grab !important;
   background-image: url("../../../../../../assets/svg/rotate%20arrow.svg");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 10px 10px;
+  background-size: 8px 8px;
 }
 .svg-moveable .moveable-rotation-control:active {
-  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grabbing !important;
+  cursor: grabbing !important;
 }
 
 /* SvgNode (react-moveable) resize handles */
@@ -1407,13 +1406,19 @@ i.bg-color::before {
   border: 2px solid #4c9aff;
   color: #4c9aff;
   opacity: 0;
-  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grab;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.textbox-rotate-handle::before {
+  content: "";
+  width: 8px;
+  height: 8px;
   background-image: url("../../../../../../assets/svg/rotate%20arrow.svg");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 10px 10px;
-  pointer-events: none;
-  z-index: 20;
+  background-size: contain;
+  display: block;
 }
 
 .textbox-rotate-handle-line {
@@ -1444,19 +1449,39 @@ i.bg-color::before {
 }
 
 .textbox-rotate-handle:active {
-  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grabbing;
+  cursor: grabbing;
 }
 
 .mylg-rotate-handle {
-  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mylg-rotate-handle::before {
+  content: "";
+  width: 8px;
+  height: 8px;
   background-image: url("../../../../../../assets/svg/rotate%20arrow.svg");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 10px 10px;
+  background-size: contain;
+  display: block;
 }
 
-.mylg-rotate-handle:active {
-  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grabbing;
+:root {
+  --mylg-rotate-cursor: grab;
+  --mylg-rotate-cursor-grabbing: grabbing;
+}
+
+body.mylg-force-rotate-cursor,
+body.mylg-force-rotate-cursor * {
+  cursor: var(--mylg-rotate-cursor) !important;
+}
+
+body.mylg-force-rotate-cursor.mylg-force-rotate-cursor-grabbing,
+body.mylg-force-rotate-cursor.mylg-force-rotate-cursor-grabbing * {
+  cursor: var(--mylg-rotate-cursor-grabbing) !important;
 }
 
 body.thumbnail-capture .editor-textbox {

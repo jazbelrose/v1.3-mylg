@@ -103,6 +103,7 @@ export class TextBoxNode extends ElementNode {
     dom.style.boxSizing = "border-box";
     dom.style.margin = "0";
     dom.style.willChange = "transform, width, height";
+    dom.style.setProperty("--mylg-selection-rotation", `${this.__rotation}deg`);
 
     // Add move handles (thin edge strips) first so resize handles sit on top
     const moveHandles = ["top", "right", "bottom", "left"];
@@ -148,6 +149,7 @@ export class TextBoxNode extends ElementNode {
       prevNode.__rotation !== this.__rotation
     ) {
       dom.style.transform = `translate3d(${this.__x}px, ${this.__y}px, 0) rotate(${this.__rotation}deg)`;
+      dom.style.setProperty("--mylg-selection-rotation", `${this.__rotation}deg`);
     }
 
     if (prevNode.__width !== this.__width) {

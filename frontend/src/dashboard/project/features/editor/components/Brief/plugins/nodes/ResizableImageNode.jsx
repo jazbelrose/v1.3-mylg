@@ -22,6 +22,58 @@ import {
   getSlideNodeSelectionKeys,
   isCopyGesture,
 } from "../slides/slideSelectionUtils";
+import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
+
+const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 };
+const rotateCursorCache = new Map();
+
+function getSvgInner(svgText) {
+  const svgStart = svgText.indexOf("<svg");
+  if (svgStart < 0) return "";
+  const openEnd = svgText.indexOf(">", svgStart);
+  if (openEnd < 0) return "";
+  const closeStart = svgText.lastIndexOf("</svg>");
+  if (closeStart < 0) return "";
+  return svgText.slice(openEnd + 1, closeStart);
+}
+
+const rotateArrowInnerSvg = getSvgInner(rotateArrowSvgRaw);
+
+function getRotateCursor(angleDeg, fallback = "grab") {
+  const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+  const key = `${normalized}:${fallback}`;
+  const cached = rotateCursorCache.get(key);
+  if (cached) return cached;
+
+  const svgMarkup =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-50 -50 400 400">` +
+    `<g transform="rotate(${normalized} 150 150)">` +
+    rotateArrowInnerSvg +
+    `</g></svg>`;
+
+  const encoded = encodeURIComponent(svgMarkup)
+    .replace(/'/g, "%27")
+    .replace(/"/g, "%22");
+  const cursorValue = `url("data:image/svg+xml,${encoded}") ${ROTATE_CURSOR_HOTSPOT.x} ${ROTATE_CURSOR_HOTSPOT.y}, ${fallback}`;
+
+  rotateCursorCache.set(key, cursorValue);
+  return cursorValue;
+}
+
+function setForcedRotateCursor(angleDeg) {
+  const root = document.documentElement;
+  root.style.setProperty("--mylg-rotate-cursor", getRotateCursor(angleDeg, "grab"));
+  root.style.setProperty(
+    "--mylg-rotate-cursor-grabbing",
+    getRotateCursor(angleDeg, "grabbing")
+  );
+}
+
+function clearForcedRotateCursor() {
+  const root = document.documentElement;
+  root.style.removeProperty("--mylg-rotate-cursor");
+  root.style.removeProperty("--mylg-rotate-cursor-grabbing");
+}
 
 export class ResizableImageNode extends DecoratorNode {
   static getType() {
@@ -388,6 +440,8 @@ function ResizableImageComponent({
         initialAngleRef.current = (angle * 180) / Math.PI;
       }
       setIsRotating(true);
+      setForcedRotateCursor(rotation || 0);
+      document.body.classList.add("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
     } else if (handleType === 'move') {
       setIsDragging(true);
     } else {
@@ -613,6 +667,7 @@ function ResizableImageComponent({
             // Calculate delta from initial angle
             const deltaRotation = currentDegrees - initialAngleRef.current;
             const newRotation = initialRotationRef.current + deltaRotation;
+            setForcedRotateCursor(newRotation || 0);
             
             node.setRotation(newRotation);
           }
@@ -654,6 +709,8 @@ function ResizableImageComponent({
       setIsDragging(false);
       setIsRotating(false);
       setCurrentHandle(null);
+      document.body.classList.remove("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      clearForcedRotateCursor();
 
       const { didDuplicate, cloneKeys } = dragMetaRef.current;
 
@@ -683,6 +740,11 @@ function ResizableImageComponent({
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      document.body.classList.remove(
+        "mylg-force-rotate-cursor",
+        "mylg-force-rotate-cursor-grabbing"
+      );
+      clearForcedRotateCursor();
     };
   }, [isResizing, isDragging, isRotating, editor, nodeKey, currentHandle]);
 
@@ -779,7 +841,7 @@ function ResizableImageComponent({
               }}
             />
             {/* Rotation handle dot */}
-            <div
+            <div 
               className="mylg-rotate-handle"
               style={{
                 position: "absolute",
@@ -791,6 +853,7 @@ function ResizableImageComponent({
                 backgroundColor: "#fff",
                 border: "2px solid blue",
                 borderRadius: "50%",
+                cursor: getRotateCursor(rotation || 0),
                 zIndex: 1,
                 pointerEvents: "all",
               }}

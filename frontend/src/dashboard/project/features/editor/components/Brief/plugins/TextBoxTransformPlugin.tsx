@@ -16,9 +16,55 @@ import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
 } from "./slides/slideSelectionUtils";
-import rotateArrowCursor from "@/assets/svg/rotate arrow.svg";
+import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
-const ROTATE_CURSOR = `url("${rotateArrowCursor}") 16 16, grab`;
+const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 };
+const rotateCursorCache = new Map<string, string>();
+
+function getSvgInner(svgText: string): string {
+  const svgStart = svgText.indexOf("<svg");
+  if (svgStart < 0) return "";
+  const openEnd = svgText.indexOf(">", svgStart);
+  if (openEnd < 0) return "";
+  const closeStart = svgText.lastIndexOf("</svg>");
+  if (closeStart < 0) return "";
+  return svgText.slice(openEnd + 1, closeStart);
+}
+
+const rotateArrowInnerSvg = getSvgInner(rotateArrowSvgRaw);
+
+function getRotateCursor(angleDeg: number, fallback: "grab" | "grabbing" = "grab"): string {
+  const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+  const key = `${normalized}:${fallback}`;
+  const cached = rotateCursorCache.get(key);
+  if (cached) return cached;
+
+  const svgMarkup =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-50 -50 400 400">` +
+    `<g transform="rotate(${normalized} 150 150)">` +
+    rotateArrowInnerSvg +
+    `</g></svg>`;
+
+  const encoded = encodeURIComponent(svgMarkup)
+    .replace(/'/g, "%27")
+    .replace(/"/g, "%22");
+  const cursorValue = `url("data:image/svg+xml,${encoded}") ${ROTATE_CURSOR_HOTSPOT.x} ${ROTATE_CURSOR_HOTSPOT.y}, ${fallback}`;
+
+  rotateCursorCache.set(key, cursorValue);
+  return cursorValue;
+}
+
+function setForcedRotateCursor(angleDeg: number) {
+  const root = document.documentElement;
+  root.style.setProperty("--mylg-rotate-cursor", getRotateCursor(angleDeg, "grab"));
+  root.style.setProperty("--mylg-rotate-cursor-grabbing", getRotateCursor(angleDeg, "grabbing"));
+}
+
+function clearForcedRotateCursor() {
+  const root = document.documentElement;
+  root.style.removeProperty("--mylg-rotate-cursor");
+  root.style.removeProperty("--mylg-rotate-cursor-grabbing");
+}
 
 type InteractionType =
   | "move"
@@ -339,7 +385,7 @@ function getCursorForInteraction(type: InteractionType | null): string {
     case "resize-bottom-left":
     case "resize-bottom-right":
       return getFallbackResizeCursor(getResizeAxisAngleDeg(type) ?? 0);
-    case "rotate": return ROTATE_CURSOR;
+    case "rotate": return getRotateCursor(0);
     default: return "text";
   }
 }
@@ -350,7 +396,7 @@ function getCursorForInteractionWithRotation(
 ): string {
   if (!type) return "text";
   if (type === "move") return "move";
-  if (type === "rotate") return ROTATE_CURSOR;
+  if (type === "rotate") return getRotateCursor(rotationDeg);
 
   const axisAngleDeg = getResizeAxisAngleDeg(type);
   if (axisAngleDeg == null) {
@@ -621,6 +667,14 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
         return;
       }
 
+      if (interactionType === "rotate") {
+        setForcedRotateCursor(getElementRotationDeg(textbox));
+        document.body.classList.add(
+          "mylg-force-rotate-cursor",
+          "mylg-force-rotate-cursor-grabbing"
+        );
+      }
+
       const nodeKey = textbox.getAttribute("data-lexical-node-key");
       if (!nodeKey) return;
 
@@ -801,6 +855,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             );
             const deltaRad = currentAngle - interaction!.startAngle;
             const deltaDeg = (deltaRad * 180) / Math.PI;
+            setForcedRotateCursor(interaction!.originRotation + deltaDeg);
             const rotationSnapshots =
               interaction!.selectionSnapshots.size > 0
                 ? interaction!.selectionSnapshots
@@ -846,6 +901,13 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
     const onPointerUp = () => {
       if (interaction) {
         wasInteracted = interaction.didInteract || interaction.didDuplicate;
+        if (interaction.type === "rotate") {
+          document.body.classList.remove(
+            "mylg-force-rotate-cursor",
+            "mylg-force-rotate-cursor-grabbing"
+          );
+          clearForcedRotateCursor();
+        }
       }
       interaction = null;
     };
@@ -899,6 +961,11 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
       if (hoverTextbox) {
         hoverTextbox.classList.remove("editor-textbox-border-hover");
       }
+      document.body.classList.remove(
+        "mylg-force-rotate-cursor",
+        "mylg-force-rotate-cursor-grabbing"
+      );
+      clearForcedRotateCursor();
       syncSelectedElements(new Set(), new Set());
       selectedElementMap.clear();
       unregisterSelectionSync();
