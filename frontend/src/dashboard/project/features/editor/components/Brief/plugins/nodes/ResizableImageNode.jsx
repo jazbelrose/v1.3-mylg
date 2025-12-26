@@ -774,6 +774,7 @@ function ResizableImageComponent({
                 height: "60px",
                 backgroundColor: "blue",
                 transform: "translateX(-50%) translateY(-100%)",
+                zIndex: 1,
                 pointerEvents: "none",
               }}
             />
@@ -790,6 +791,7 @@ function ResizableImageComponent({
                 border: "2px solid blue",
                 borderRadius: "50%",
                 cursor: "grab",
+                zIndex: 1,
                 pointerEvents: "all",
               }}
               onMouseDown={(e) => handleMouseDown(e, "rotate")}
@@ -817,6 +819,7 @@ function handleStyle(vertical, horizontal) {
     borderRadius: "999px",
     boxSizing: "border-box",
     pointerEvents: "all",
+    zIndex: 2,
     cursor: getResizeCursor(vertical, horizontal),
   };
 
