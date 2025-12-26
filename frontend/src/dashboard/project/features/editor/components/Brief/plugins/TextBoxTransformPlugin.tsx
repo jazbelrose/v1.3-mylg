@@ -82,6 +82,97 @@ function hasCopyModifier(event?: CopyModifiers | null): boolean {
   return false;
 }
 
+const resizeCursorCache = new Map<number, string>();
+
+function getElementRotationDeg(element: HTMLElement): number {
+  const inlineTransform = element.style.transform || "";
+  const inlineMatch = inlineTransform.match(/rotate\(([-\d.]+)deg\)/);
+  const inlineRotation = inlineMatch ? parseFloat(inlineMatch[1]) : 0;
+
+  const computedTransform = getComputedStyle(element).transform;
+  if (!computedTransform || computedTransform === "none") {
+    return Number.isFinite(inlineRotation) ? inlineRotation : 0;
+  }
+
+  try {
+    const matrix = new DOMMatrixReadOnly(computedTransform);
+    const angleDeg = (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI;
+    return Number.isFinite(angleDeg) ? angleDeg : 0;
+  } catch {
+    return Number.isFinite(inlineRotation) ? inlineRotation : 0;
+  }
+}
+
+function normalizeAxisAngleDeg(angleDeg: number): number {
+  let normalized = angleDeg % 180;
+  if (normalized < 0) normalized += 180;
+  return normalized;
+}
+
+function getResizeAxisAngleDeg(type: InteractionType): number | null {
+  switch (type) {
+    case "resize-left":
+    case "resize-right":
+      return 0;
+    case "resize-top":
+    case "resize-bottom":
+      return 90;
+    case "resize-top-left":
+    case "resize-bottom-right":
+      return 45;
+    case "resize-top-right":
+    case "resize-bottom-left":
+      return 135;
+    default:
+      return null;
+  }
+}
+
+function getFallbackResizeCursor(axisAngleDeg: number): string {
+  const normalized = normalizeAxisAngleDeg(axisAngleDeg);
+  const bucket = Math.round(normalized / 45) * 45;
+
+  switch (bucket % 180) {
+    case 0:
+      return "ew-resize";
+    case 45:
+      return "nwse-resize";
+    case 90:
+      return "ns-resize";
+    case 135:
+      return "nesw-resize";
+    default:
+      return "auto";
+  }
+}
+
+function getRotatedResizeCursor(axisAngleDeg: number): string {
+  const normalized = normalizeAxisAngleDeg(axisAngleDeg);
+  const key = Math.round(normalized);
+  const cached = resizeCursorCache.get(key);
+  if (cached) return cached;
+
+  const fallback = getFallbackResizeCursor(normalized);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+<g transform="rotate(${normalized} 16 16)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="6" y1="16" x2="26" y2="16" stroke="black" stroke-width="4"/>
+  <polyline points="10,12 6,16 10,20" stroke="black" stroke-width="4"/>
+  <polyline points="22,12 26,16 22,20" stroke="black" stroke-width="4"/>
+  <line x1="6" y1="16" x2="26" y2="16" stroke="white" stroke-width="2"/>
+  <polyline points="10,12 6,16 10,20" stroke="white" stroke-width="2"/>
+  <polyline points="22,12 26,16 22,20" stroke="white" stroke-width="2"/>
+</g>
+</svg>`;
+
+  const encoded = encodeURIComponent(svg)
+    .replace(/'/g, "%27")
+    .replace(/\"/g, "%22");
+
+  const cursor = `url("data:image/svg+xml,${encoded}") 16 16, ${fallback}`;
+  resizeCursorCache.set(key, cursor);
+  return cursor;
+}
+
 
 function deepCloneNode(node: LexicalNode): LexicalNode | null {
   const Ctor = node.constructor as new (data: unknown) => LexicalNode;
@@ -239,18 +330,33 @@ function getCursorForInteraction(type: InteractionType | null): string {
   switch (type) {
     case "move": return "move";
     case "resize-left":
-    case "resize-right": return "ew-resize";
+    case "resize-right":
     case "resize-top":
-    case "resize-bottom": return "ns-resize";
+    case "resize-bottom":
     case "resize-top-left":
-    case "resize-bottom-right":
-      return "nwse-resize";
     case "resize-top-right":
     case "resize-bottom-left":
-      return "nesw-resize";
+    case "resize-bottom-right":
+      return getFallbackResizeCursor(getResizeAxisAngleDeg(type) ?? 0);
     case "rotate": return "grab";
     default: return "text";
   }
+}
+
+function getCursorForInteractionWithRotation(
+  type: InteractionType | null,
+  rotationDeg: number
+): string {
+  if (!type) return "text";
+  if (type === "move") return "move";
+  if (type === "rotate") return "grab";
+
+  const axisAngleDeg = getResizeAxisAngleDeg(type);
+  if (axisAngleDeg == null) {
+    return getCursorForInteraction(type);
+  }
+
+  return getRotatedResizeCursor(axisAngleDeg + rotationDeg);
 }
 
 export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }): null {
@@ -475,7 +581,11 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
           clearHover();
           hoverTextbox = textbox;
         }
-        hoverTextbox.style.cursor = getCursorForInteraction(interactionType);
+        const rotationDeg = getElementRotationDeg(textbox);
+        hoverTextbox.style.cursor = getCursorForInteractionWithRotation(
+          interactionType,
+          rotationDeg
+        );
       } else {
         if (hoverTextbox === textbox) {
           clearHover();

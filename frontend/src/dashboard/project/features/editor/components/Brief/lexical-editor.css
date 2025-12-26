@@ -1325,6 +1325,7 @@ i.bg-color::before {
   border: 2px solid #000;
   border-radius: 999px;
   box-sizing: border-box;
+  cursor: inherit;
   opacity: 0;
   transition: opacity 0.15s ease;
   pointer-events: none;
@@ -1459,7 +1460,6 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle-line {
   width: 10px;
   height: 10px;
   border-width: 1.5px;
-  cursor: ns-resize;
 }
 
 .textbox-resize-handle-bottom {
@@ -1469,7 +1469,6 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle-line {
   width: 10px;
   height: 10px;
   border-width: 1.5px;
-  cursor: ns-resize;
 }
 
 .textbox-resize-handle-left {
@@ -1479,7 +1478,6 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle-line {
   width: 10px;
   height: 10px;
   border-width: 1.5px;
-  cursor: ew-resize;
 }
 
 .textbox-resize-handle-right {
@@ -1489,7 +1487,6 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle-line {
   width: 10px;
   height: 10px;
   border-width: 1.5px;
-  cursor: ew-resize;
 }
 
 .textbox-resize-handle-top-left,
@@ -1498,31 +1495,26 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle-line {
 .textbox-resize-handle-bottom-right {
   width: 10px;
   height: 10px;
-  cursor: nwse-resize;
 }
 
 .textbox-resize-handle-top-left {
   top: -5px;
   left: -5px;
-  cursor: nwse-resize;
 }
 
 .textbox-resize-handle-top-right {
   top: -5px;
   right: -5px;
-  cursor: nesw-resize;
 }
 
 .textbox-resize-handle-bottom-left {
   bottom: -5px;
   left: -5px;
-  cursor: nesw-resize;
 }
 
 .textbox-resize-handle-bottom-right {
   bottom: -5px;
   right: -5px;
-  cursor: nwse-resize;
 }
 
 /* You can keep this or remove it; it’s unused by the new plugin */
