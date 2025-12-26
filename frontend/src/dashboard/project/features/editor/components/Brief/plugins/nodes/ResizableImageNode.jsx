@@ -804,13 +804,9 @@ function ResizableImageComponent({
 }
 
 function handleStyle(vertical, horizontal) {
-  const isEdgeHandle =
-    (vertical === "middle" && (horizontal === "left" || horizontal === "right")) ||
-    (horizontal === "center" && (vertical === "top" || vertical === "bottom"));
-
-  // Match Moveable (ImageNode) handle sizing.
-  const size = isEdgeHandle ? 10 : 14;  // Smaller size for edge handles, larger for corners
-  const borderWidth = isEdgeHandle ? 1.5 : 2;
+  // All handles same size
+  const size = 12;
+  const borderWidth = 2;
   const offset = -size / 2;
   const style = {
     position: "absolute",
