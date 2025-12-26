@@ -210,11 +210,13 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     const controlBox = moveable?.controlBox || moveable?.getControlBoxElement?.();
     if (!controlBox) return;
 
+    // Our custom resize cursor SVG is drawn horizontally (↔) at 0deg.
+    // So: top/bottom need a 90deg rotation (↕) and left/right keep 0deg (↔).
     const offsets = {
-      n: 0,
-      s: 0,
-      e: 90,
-      w: 90,
+      n: 90,
+      s: 90,
+      e: 0,
+      w: 0,
       // Corner resize cursors: "\" is +45° from vertical, "/" is -45°.
       nw: 45,
       se: 45,
