@@ -1321,7 +1321,10 @@ i.bg-color::before {
 
 .textbox-resize-handle {
   position: absolute;
-  background: #4c9aff;
+  background: #fff;
+  border: 2px solid #000;
+  border-radius: 999px;
+  box-sizing: border-box;
   opacity: 0;
   transition: opacity 0.15s ease;
   pointer-events: none;
@@ -1384,20 +1387,20 @@ i.bg-color::before {
 
 .textbox-rotate-handle {
   position: absolute;
-  top: -26px;
+  top: -36px;
   left: 50%;
   transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 10px;
   line-height: 1;
-  background: #0f1113;
-  border: 1px solid #4c9aff;
-  color: #4c9aff;
+  background: #fff;
+  border: 2px solid #000;
+  color: #000;
   opacity: 0;
   cursor: grab;
   pointer-events: none;
@@ -1432,8 +1435,9 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
   top: -4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 24px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
   cursor: ns-resize;
 }
 
@@ -1441,8 +1445,9 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
   bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 24px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
   cursor: ns-resize;
 }
 
@@ -1450,8 +1455,9 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
   left: -4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 6px;
-  height: 24px;
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
   cursor: ew-resize;
 }
 
@@ -1459,8 +1465,9 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
   right: -4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 6px;
-  height: 24px;
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
   cursor: ew-resize;
 }
 
@@ -1470,9 +1477,7 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
 .textbox-resize-handle-bottom-right {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
   cursor: nwse-resize;
-  background: #4c9aff;
 }
 
 .textbox-resize-handle-top-left {
