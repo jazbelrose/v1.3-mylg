@@ -17,6 +17,9 @@ import {
   getSvgIntrinsicDimensions,
   resolveSvgScaledToWidth,
 } from "./svgDimensions";
+import rotateArrowCursor from "@/assets/svg/rotate arrow.svg";
+
+const ROTATE_CURSOR = `url("${rotateArrowCursor}") 16 16, grab`;
 
 export class SvgNode extends DecoratorNode {
   constructor(svg, x = 0, y = 0, width = 300, height = 200, rotation = 0, key) {
@@ -152,37 +155,11 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
 
   const [zoom, setZoom] = useState(1);
 
-  const rotateCursorCacheRef = useRef(new Map());
   const moveableSyncRafRef = useRef(0);
   const moveableSyncFlagsRef = useRef({ rotateCursors: false, resizeCursors: false });
   const resizeCursorCacheRef = useRef(new Map());
 
-  const getRotateCornerCursor = useCallback((angleDeg) => {
-    const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
-    const cached = rotateCursorCacheRef.current.get(normalized);
-    if (cached) return cached;
-
-    const svgMarkup =
-      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
-      `<g transform="rotate(${normalized} 16 16)">` +
-      `<path d="M16 6 A10 10 0 0 1 26 16" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>` +
-      `<path d="M16 6 A10 10 0 0 1 26 16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>` +
-      `<path d="M26 20 L22 13 L30 13 Z" fill="black"/>` +
-      `<path d="M26 19 L23 14 L29 14 Z" fill="white"/>` +
-      `<g transform="rotate(180 16 16)">` +
-      `<path d="M16 6 A10 10 0 0 1 26 16" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>` +
-      `<path d="M16 6 A10 10 0 0 1 26 16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>` +
-      `<path d="M26 20 L22 13 L30 13 Z" fill="black"/>` +
-      `<path d="M26 19 L23 14 L29 14 Z" fill="white"/>` +
-      `</g>` +
-      `</g></svg>`;
-
-    const encoded = encodeURIComponent(svgMarkup);
-    const cursorValue = `url("data:image/svg+xml,${encoded}") 16 16, grab`;
-
-    rotateCursorCacheRef.current.set(normalized, cursorValue);
-    return cursorValue;
-  }, []);
+  const getRotateCornerCursor = useCallback(() => ROTATE_CURSOR, []);
 
   const getResizeCursor = useCallback((angleDeg, fallback = "auto") => {
     const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
@@ -203,7 +180,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
 
     const encoded = encodeURIComponent(svgMarkup)
       .replace(/'/g, "%27")
-      .replace(/\"/g, "%22");
+      .replace(/"/g, "%22");
     const cursorValue = `url("data:image/svg+xml,${encoded}") 16 16, ${fallback}`;
 
     resizeCursorCacheRef.current.set(key, cursorValue);
@@ -760,6 +737,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           />
           {/* Rotation handle dot */}
           <div
+            className="mylg-rotate-handle"
             style={{
               position: "absolute",
               top: "-60px",
@@ -770,7 +748,6 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
               backgroundColor: "#fff",
               border: "2px solid #4C9AFF",
               borderRadius: "50%",
-              cursor: "grab",
               pointerEvents: "all",
             }}
             onMouseDown={handleRotateStart}

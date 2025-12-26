@@ -16,6 +16,9 @@ import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
 } from "./slides/slideSelectionUtils";
+import rotateArrowCursor from "@/assets/svg/rotate arrow.svg";
+
+const ROTATE_CURSOR = `url("${rotateArrowCursor}") 16 16, grab`;
 
 type InteractionType =
   | "move"
@@ -164,9 +167,7 @@ function getRotatedResizeCursor(axisAngleDeg: number): string {
 </g>
 </svg>`;
 
-  const encoded = encodeURIComponent(svg)
-    .replace(/'/g, "%27")
-    .replace(/\"/g, "%22");
+  const encoded = encodeURIComponent(svg).replace(/'/g, "%27").replace(/"/g, "%22");
 
   const cursor = `url("data:image/svg+xml,${encoded}") 16 16, ${fallback}`;
   resizeCursorCache.set(key, cursor);
@@ -338,7 +339,7 @@ function getCursorForInteraction(type: InteractionType | null): string {
     case "resize-bottom-left":
     case "resize-bottom-right":
       return getFallbackResizeCursor(getResizeAxisAngleDeg(type) ?? 0);
-    case "rotate": return "grab";
+    case "rotate": return ROTATE_CURSOR;
     default: return "text";
   }
 }
@@ -349,7 +350,7 @@ function getCursorForInteractionWithRotation(
 ): string {
   if (!type) return "text";
   if (type === "move") return "move";
-  if (type === "rotate") return "grab";
+  if (type === "rotate") return ROTATE_CURSOR;
 
   const axisAngleDeg = getResizeAxisAngleDeg(type);
   if (axisAngleDeg == null) {

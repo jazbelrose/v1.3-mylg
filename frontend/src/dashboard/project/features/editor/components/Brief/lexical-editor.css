@@ -1031,7 +1031,7 @@ i.bg-color::before {
 .moveable-no-border.moveable-control-box .moveable-around-control,
 .moveable-no-border .moveable-control-box .moveable-around-control {
   /* Fallback rotate cursor (JS overrides per-corner + per-rotation for SvgNode) */
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='black' stroke-width='4' stroke-linecap='round'/><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/><path d='M26 20 L22 13 L30 13 Z' fill='black'/><path d='M26 19 L23 14 L29 14 Z' fill='white'/><g transform='rotate(180 16 16)'><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='black' stroke-width='4' stroke-linecap='round'/><path d='M16 6 A10 10 0 0 1 26 16' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/><path d='M26 20 L22 13 L30 13 Z' fill='black'/><path d='M26 19 L23 14 L29 14 Z' fill='white'/></g></svg>") 16 16, grab;
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 10 10, grab;
 }
 
 /* Top-center rotation line + handle */
@@ -1061,10 +1061,14 @@ i.bg-color::before {
   background: #fff;
   border: 2px solid #000 !important;
   box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
-  cursor: grab !important;
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grab !important;
+  background-image: url("../../../../../../assets/svg/rotate%20arrow.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 10px;
 }
 .svg-moveable .moveable-rotation-control:active {
-  cursor: grabbing !important;
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grabbing !important;
 }
 
 /* SvgNode (react-moveable) resize handles */
@@ -1403,7 +1407,11 @@ i.bg-color::before {
   border: 2px solid #4c9aff;
   color: #4c9aff;
   opacity: 0;
-  cursor: grab;
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grab;
+  background-image: url("../../../../../../assets/svg/rotate%20arrow.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 10px;
   pointer-events: none;
   z-index: 20;
 }
@@ -1436,7 +1444,19 @@ i.bg-color::before {
 }
 
 .textbox-rotate-handle:active {
-  cursor: grabbing;
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grabbing;
+}
+
+.mylg-rotate-handle {
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grab;
+  background-image: url("../../../../../../assets/svg/rotate%20arrow.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 10px;
+}
+
+.mylg-rotate-handle:active {
+  cursor: url("../../../../../../assets/svg/rotate%20arrow.svg") 16 16, grabbing;
 }
 
 body.thumbnail-capture .editor-textbox {

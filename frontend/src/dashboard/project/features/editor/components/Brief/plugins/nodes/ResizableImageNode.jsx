@@ -754,14 +754,14 @@ function ResizableImageComponent({
             }}
           >
             {/* Resize handles */}
-            <div style={handleStyle("top", "left")} onMouseDown={(e) => handleMouseDown(e, "top-left")} />
-            <div style={handleStyle("top", "center")} onMouseDown={(e) => handleMouseDown(e, "top")} />
-            <div style={handleStyle("top", "right")} onMouseDown={(e) => handleMouseDown(e, "top-right")} />
-            <div style={handleStyle("middle", "right")} onMouseDown={(e) => handleMouseDown(e, "right")} />
-            <div style={handleStyle("bottom", "right")} onMouseDown={(e) => handleMouseDown(e, "bottom-right")} />
-            <div style={handleStyle("bottom", "center")} onMouseDown={(e) => handleMouseDown(e, "bottom")} />
-            <div style={handleStyle("bottom", "left")} onMouseDown={(e) => handleMouseDown(e, "bottom-left")} />
-            <div style={handleStyle("middle", "left")} onMouseDown={(e) => handleMouseDown(e, "left")} />
+            <div style={handleStyle("top", "left", rotation)} onMouseDown={(e) => handleMouseDown(e, "top-left")} />
+            <div style={handleStyle("top", "center", rotation)} onMouseDown={(e) => handleMouseDown(e, "top")} />
+            <div style={handleStyle("top", "right", rotation)} onMouseDown={(e) => handleMouseDown(e, "top-right")} />
+            <div style={handleStyle("middle", "right", rotation)} onMouseDown={(e) => handleMouseDown(e, "right")} />
+            <div style={handleStyle("bottom", "right", rotation)} onMouseDown={(e) => handleMouseDown(e, "bottom-right")} />
+            <div style={handleStyle("bottom", "center", rotation)} onMouseDown={(e) => handleMouseDown(e, "bottom")} />
+            <div style={handleStyle("bottom", "left", rotation)} onMouseDown={(e) => handleMouseDown(e, "bottom-left")} />
+            <div style={handleStyle("middle", "left", rotation)} onMouseDown={(e) => handleMouseDown(e, "left")} />
             
             {/* Rotation handle */}
             {/* Line connecting to handle */}
@@ -779,7 +779,8 @@ function ResizableImageComponent({
               }}
             />
             {/* Rotation handle dot */}
-            <div 
+            <div
+              className="mylg-rotate-handle"
               style={{
                 position: "absolute",
                 top: "-60px",
@@ -790,7 +791,6 @@ function ResizableImageComponent({
                 backgroundColor: "#fff",
                 border: "2px solid blue",
                 borderRadius: "50%",
-                cursor: "grab",
                 zIndex: 1,
                 pointerEvents: "all",
               }}
@@ -805,11 +805,91 @@ function ResizableImageComponent({
   );
 }
 
-function handleStyle(vertical, horizontal) {
+const resizeCursorCache = new Map();
+
+function normalizeAxisAngleDeg(angleDeg) {
+  let normalized = angleDeg % 180;
+  if (normalized < 0) normalized += 180;
+  return normalized;
+}
+
+function getRotatedResizeCursor(axisAngleDeg, fallback = "auto") {
+  const normalized = normalizeAxisAngleDeg(axisAngleDeg);
+  const key = `${Math.round(normalized)}:${fallback}`;
+  const cached = resizeCursorCache.get(key);
+  if (cached) return cached;
+
+  const svgMarkup =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
+    `<g transform="rotate(${normalized} 16 16)" fill="none" stroke-linecap="round" stroke-linejoin="round">` +
+    `<line x1="6" y1="16" x2="26" y2="16" stroke="black" stroke-width="4"/>` +
+    `<polyline points="10,12 6,16 10,20" stroke="black" stroke-width="4"/>` +
+    `<polyline points="22,12 26,16 22,20" stroke="black" stroke-width="4"/>` +
+    `<line x1="6" y1="16" x2="26" y2="16" stroke="white" stroke-width="2"/>` +
+    `<polyline points="10,12 6,16 10,20" stroke="white" stroke-width="2"/>` +
+    `<polyline points="22,12 26,16 22,20" stroke="white" stroke-width="2"/>` +
+    `</g></svg>`;
+
+  const encoded = encodeURIComponent(svgMarkup)
+    .replace(/'/g, "%27")
+    .replace(/"/g, "%22");
+  const cursorValue = `url("data:image/svg+xml,${encoded}") 16 16, ${fallback}`;
+
+  resizeCursorCache.set(key, cursorValue);
+  return cursorValue;
+}
+
+function getResizeAxisAngleDeg(vertical, horizontal) {
+  if (vertical === "middle" && (horizontal === "left" || horizontal === "right")) {
+    return 0;
+  }
+  if ((vertical === "top" || vertical === "bottom") && horizontal === "center") {
+    return 90;
+  }
+  if (
+    (vertical === "top" && horizontal === "left") ||
+    (vertical === "bottom" && horizontal === "right")
+  ) {
+    return 45;
+  }
+  if (
+    (vertical === "top" && horizontal === "right") ||
+    (vertical === "bottom" && horizontal === "left")
+  ) {
+    return 135;
+  }
+  return 0;
+}
+
+function getResizeCursorFallback(vertical, horizontal) {
+  if (vertical === "middle" && (horizontal === "left" || horizontal === "right")) {
+    return "ew-resize";
+  }
+  if ((vertical === "top" || vertical === "bottom") && horizontal === "center") {
+    return "ns-resize";
+  }
+  if (
+    (vertical === "top" && horizontal === "left") ||
+    (vertical === "bottom" && horizontal === "right")
+  ) {
+    return "nwse-resize";
+  }
+  if (
+    (vertical === "top" && horizontal === "right") ||
+    (vertical === "bottom" && horizontal === "left")
+  ) {
+    return "nesw-resize";
+  }
+  return "auto";
+}
+
+function handleStyle(vertical, horizontal, rotationDeg = 0) {
   // All handles same size
   const size = 12;
   const borderWidth = 2;
   const offset = -size / 2;
+  const axisAngleDeg = getResizeAxisAngleDeg(vertical, horizontal);
+  const fallback = getResizeCursorFallback(vertical, horizontal);
   const style = {
     position: "absolute",
     width: `${size}px`,
@@ -820,7 +900,7 @@ function handleStyle(vertical, horizontal) {
     boxSizing: "border-box",
     pointerEvents: "all",
     zIndex: 2,
-    cursor: getResizeCursor(vertical, horizontal),
+    cursor: getRotatedResizeCursor(axisAngleDeg + (rotationDeg || 0), fallback),
   };
 
   // Set vertical position.
@@ -844,18 +924,6 @@ function handleStyle(vertical, horizontal) {
   }
 
   return style;
-}
-
-function getResizeCursor(vertical, horizontal) {
-  if (vertical === "top" && horizontal === "left") return "nw-resize";
-  if (vertical === "top" && horizontal === "center") return "n-resize";
-  if (vertical === "top" && horizontal === "right") return "ne-resize";
-  if (vertical === "middle" && horizontal === "left") return "w-resize";
-  if (vertical === "middle" && horizontal === "right") return "e-resize";
-  if (vertical === "bottom" && horizontal === "left") return "sw-resize";
-  if (vertical === "bottom" && horizontal === "center") return "s-resize";
-  if (vertical === "bottom" && horizontal === "right") return "se-resize";
-  return "pointer";
 }
 
 
