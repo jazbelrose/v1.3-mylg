@@ -192,16 +192,18 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
 
     const svgMarkup =
       `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
-      `<g transform="rotate(${normalized} 16 16)">` +
-      `<path d="M7 16 L25 16" fill="none" stroke="black" stroke-width="4" stroke-linecap="round"/>` +
-      `<path d="M7 16 L25 16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>` +
-      `<path d="M3 16 L10 11 L10 21 Z" fill="black"/>` +
-      `<path d="M4 16 L9 12 L9 20 Z" fill="white"/>` +
-      `<path d="M29 16 L22 11 L22 21 Z" fill="black"/>` +
-      `<path d="M28 16 L23 12 L23 20 Z" fill="white"/>` +
+      `<g transform="rotate(${normalized} 16 16)" fill="none" stroke-linecap="round" stroke-linejoin="round">` +
+      `<line x1="6" y1="16" x2="26" y2="16" stroke="black" stroke-width="4"/>` +
+      `<polyline points="10,12 6,16 10,20" stroke="black" stroke-width="4"/>` +
+      `<polyline points="22,12 26,16 22,20" stroke="black" stroke-width="4"/>` +
+      `<line x1="6" y1="16" x2="26" y2="16" stroke="white" stroke-width="2"/>` +
+      `<polyline points="10,12 6,16 10,20" stroke="white" stroke-width="2"/>` +
+      `<polyline points="22,12 26,16 22,20" stroke="white" stroke-width="2"/>` +
       `</g></svg>`;
 
-    const encoded = encodeURIComponent(svgMarkup);
+    const encoded = encodeURIComponent(svgMarkup)
+      .replace(/'/g, "%27")
+      .replace(/\"/g, "%22");
     const cursorValue = `url("data:image/svg+xml,${encoded}") 16 16, ${fallback}`;
 
     resizeCursorCacheRef.current.set(key, cursorValue);
