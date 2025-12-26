@@ -753,13 +753,13 @@ function ResizableImageComponent({
             <div 
               style={{
                 position: "absolute",
-                top: "-30px",
+                top: "-36px",
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: "20px",
-                height: "20px",
-                backgroundColor: "green",
-                border: "2px solid white",
+                width: "14px",
+                height: "14px",
+                backgroundColor: "#fff",
+                border: "2px solid #000",
                 borderRadius: "50%",
                 cursor: "grab",
                 pointerEvents: "all",
@@ -767,7 +767,7 @@ function ResizableImageComponent({
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "10px",
-                color: "white",
+                color: "#000",
                 fontWeight: "bold",
               }}
               onMouseDown={(e) => handleMouseDown(e, "rotate")}
@@ -784,14 +784,20 @@ function ResizableImageComponent({
 }
 
 function handleStyle(vertical, horizontal) {
-  const size = 8;
+  const isEdgeHandle =
+    (vertical === "middle" && (horizontal === "left" || horizontal === "right")) ||
+    (horizontal === "center" && (vertical === "top" || vertical === "bottom"));
+
+  const size = isEdgeHandle ? 8 : 12;
+  const borderWidth = isEdgeHandle ? 1.5 : 2;
   const offset = -size / 2;
   const style = {
     position: "absolute",
     width: `${size}px`,
     height: `${size}px`,
-    backgroundColor: "white",
-    border: "1px solid blue",
+    backgroundColor: "#fff",
+    border: `${borderWidth}px solid #000`,
+    borderRadius: "999px",
     boxSizing: "border-box",
     pointerEvents: "all",
     cursor: getResizeCursor(vertical, horizontal),
