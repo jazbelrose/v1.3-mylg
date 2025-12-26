@@ -190,12 +190,12 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     const svgMarkup =
       `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
       `<g transform="rotate(${normalized} 16 16)">` +
-      `<path d="M16 7 L16 25" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>` +
-      `<path d="M16 7 L16 25" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"/>` +
-      `<path d="M16 3 L11 10 L21 10 Z" fill="white"/>` +
-      `<path d="M16 4 L12 9 L20 9 Z" fill="black"/>` +
-      `<path d="M16 29 L11 22 L21 22 Z" fill="white"/>` +
-      `<path d="M16 28 L12 23 L20 23 Z" fill="black"/>` +
+      `<path d="M7 16 L25 16" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>` +
+      `<path d="M7 16 L25 16" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"/>` +
+      `<path d="M3 16 L10 11 L10 21 Z" fill="white"/>` +
+      `<path d="M4 16 L9 12 L9 20 Z" fill="black"/>` +
+      `<path d="M29 16 L22 11 L22 21 Z" fill="white"/>` +
+      `<path d="M28 16 L23 12 L23 20 Z" fill="black"/>` +
       `</g></svg>`;
 
     const encoded = encodeURIComponent(svgMarkup);
