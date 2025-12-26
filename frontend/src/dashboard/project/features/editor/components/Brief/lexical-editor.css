@@ -1387,11 +1387,11 @@ i.bg-color::before {
 
 .textbox-rotate-handle {
   position: absolute;
-  top: -36px;
+  top: -60px;
   left: 50%;
   transform: translateX(-50%);
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -1399,12 +1399,26 @@ i.bg-color::before {
   font-size: 10px;
   line-height: 1;
   background: #fff;
-  border: 2px solid #000;
-  color: #000;
+  border: 2px solid #4c9aff;
+  color: #4c9aff;
   opacity: 0;
   cursor: grab;
   pointer-events: none;
   z-index: 20;
+}
+
+.textbox-rotate-handle-line {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 60px;
+  background: #4c9aff;
+  border-radius: 999px;
+  transform: translateX(-50%) translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 19;
 }
 
 .editor-textbox:hover .textbox-rotate-handle,
@@ -1412,6 +1426,12 @@ i.bg-color::before {
 .editor-textbox.editor-textbox-focused .textbox-rotate-handle {
   opacity: 1;
   pointer-events: auto;
+}
+
+.editor-textbox:hover .textbox-rotate-handle-line,
+.editor-textbox.editor-textbox-selected .textbox-rotate-handle-line,
+.editor-textbox.editor-textbox-focused .textbox-rotate-handle-line {
+  opacity: 1;
 }
 
 .textbox-rotate-handle:active {
@@ -1425,7 +1445,8 @@ body.thumbnail-capture .editor-textbox {
 
 body.thumbnail-capture .editor-textbox .textbox-resize-handle,
 body.thumbnail-capture .editor-textbox .textbox-move-handle,
-body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
+body.thumbnail-capture .editor-textbox .textbox-rotate-handle,
+body.thumbnail-capture .editor-textbox .textbox-rotate-handle-line {
   opacity: 0 !important;
   pointer-events: none !important;
 }

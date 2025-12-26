@@ -129,10 +129,13 @@ export class TextBoxNode extends ElementNode {
       dom.appendChild(handle);
     });
 
+    const rotateLine = document.createElement("div");
+    rotateLine.className = "textbox-rotate-handle-line";
+    dom.appendChild(rotateLine);
+
     const rotateHandle = document.createElement("div");
     rotateHandle.className = "textbox-rotate-handle";
     rotateHandle.setAttribute("aria-label", "Rotate text box");
-    rotateHandle.textContent = "⟲";
     dom.appendChild(rotateHandle);
 
     return dom;
