@@ -789,7 +789,7 @@ function handleStyle(vertical, horizontal) {
     (horizontal === "center" && (vertical === "top" || vertical === "bottom"));
 
   // Match Moveable (ImageNode) handle sizing.
-  const size = 10;
+  const size = isEdgeHandle ? 10 : 14;  // Smaller size for edge handles, larger for corners
   const borderWidth = isEdgeHandle ? 1.5 : 2;
   const offset = -size / 2;
   const style = {

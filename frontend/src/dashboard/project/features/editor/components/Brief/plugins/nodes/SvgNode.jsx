@@ -151,7 +151,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const [zoom, setZoom] = useState(1);
 
   const rotateCursorCacheRef = useRef(new Map());
-  const rotateCursorRafRef = useRef(0);
+  const moveableSyncRafRef = useRef(0);
+  const moveableSyncFlagsRef = useRef({ rotateCursors: false, resizeCursors: false });
   const resizeCursorCacheRef = useRef(new Map());
 
   const getRotateCornerCursor = useCallback((angleDeg) => {
@@ -269,15 +270,28 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     updateResizeHandleCursors();
   }, [getRotateCornerCursor, updateResizeHandleCursors]);
 
-  const scheduleRotateCornerCursorUpdate = useCallback(() => {
-    if (rotateCursorRafRef.current) {
-      cancelAnimationFrame(rotateCursorRafRef.current);
-    }
-    rotateCursorRafRef.current = requestAnimationFrame(() => {
-      rotateCursorRafRef.current = 0;
-      updateRotateCornerCursors();
-    });
-  }, [updateRotateCornerCursors]);
+  const scheduleMoveableSync = useCallback(
+    ({ rotateCursors = false, resizeCursors = false } = {}) => {
+      const flags = moveableSyncFlagsRef.current;
+      flags.rotateCursors = flags.rotateCursors || rotateCursors;
+      flags.resizeCursors = flags.resizeCursors || resizeCursors;
+
+      if (moveableSyncRafRef.current) return;
+      moveableSyncRafRef.current = requestAnimationFrame(() => {
+        moveableSyncRafRef.current = 0;
+        const { rotateCursors: doRotateCursors, resizeCursors: doResizeCursors } =
+          moveableSyncFlagsRef.current;
+        moveableSyncFlagsRef.current = { rotateCursors: false, resizeCursors: false };
+
+        if (doRotateCursors) {
+          updateRotateCornerCursors();
+        } else if (doResizeCursors) {
+          updateResizeHandleCursors();
+        }
+      });
+    },
+    [updateRotateCornerCursors, updateResizeHandleCursors]
+  );
   const handlePointerDown = (event) => {
     if (event.button !== 0) {
       return;
@@ -300,23 +314,21 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     frameRef.current = { x, y, width, height, rotation };
     const el = ref.current;
     if (!el) return;
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
     el.style.width = `${width}px`;
     el.style.height = `${height}px`;
-    el.style.transform = `rotate(${rotation}deg)`;
+    el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`;
     el.style.transformOrigin = "center center";
 
     if (isSelected) {
-      scheduleRotateCornerCursorUpdate();
+      scheduleMoveableSync({ rotateCursors: true });
     }
-  }, [x, y, width, height, rotation, isSelected, scheduleRotateCornerCursorUpdate]);
+  }, [x, y, width, height, rotation, isSelected, scheduleMoveableSync]);
 
   useLayoutEffect(() => {
     return () => {
-      if (rotateCursorRafRef.current) {
-        cancelAnimationFrame(rotateCursorRafRef.current);
-        rotateCursorRafRef.current = 0;
+      if (moveableSyncRafRef.current) {
+        cancelAnimationFrame(moveableSyncRafRef.current);
+        moveableSyncRafRef.current = 0;
       }
     };
   }, []);
@@ -416,6 +428,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     const immediate = { ...frameRef.current, width: nextWidth, height: nextHeight };
     frameRef.current = immediate;
     applyFrame(immediate);
+    scheduleMoveableSync({ rotateCursors: true });
 
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
@@ -443,31 +456,77 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     }
   }, [svg]);
 
-  // compute zoom from canvas scaler
+  // compute zoom from canvas scaler (and avoid rerender loops during interactions)
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const scaler = el.closest('.slide-editor__canvas-scaler');
-    if (!scaler) return;
-    const transform = getComputedStyle(scaler).transform;
-    if (transform && transform !== 'none') {
-      const matrix = new DOMMatrix(transform);
-      const scale = matrix.a; // assuming uniform scale
-      setZoom(1 / scale);
-    } else {
-      setZoom(1);
+    if (!isSelected) {
+      setZoom((prev) => (prev === 1 ? prev : 1));
+      return;
     }
-  });
 
-  const applyFrame = (f) => {
     const el = ref.current;
     if (!el) return;
-    el.style.left = `${f.x}px`;
-    el.style.top = `${f.y}px`;
+    const scaler = el.closest(".slide-editor__canvas-scaler");
+    if (!scaler) return;
+
+    let rafId = 0;
+    const compute = () => {
+      const transform = getComputedStyle(scaler).transform;
+      let nextZoom = 1;
+      if (transform && transform !== "none") {
+        try {
+          const matrix = new DOMMatrix(transform);
+          const scale = matrix.a; // assuming uniform scale
+          if (scale) nextZoom = 1 / scale;
+        } catch {
+          nextZoom = 1;
+        }
+      }
+      setZoom((prev) => (Math.abs(prev - nextZoom) < 1e-6 ? prev : nextZoom));
+    };
+
+    const schedule = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        compute();
+      });
+    };
+
+    compute();
+
+    const mo = new MutationObserver(schedule);
+    mo.observe(scaler, { attributes: true, attributeFilter: ["style", "class"] });
+    window.addEventListener("resize", schedule);
+
+    return () => {
+      mo.disconnect();
+      window.removeEventListener("resize", schedule);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isSelected]);
+
+  useLayoutEffect(() => {
+    if (!isSelected) return;
+    scheduleMoveableSync({ rotateCursors: true });
+  }, [isSelected, zoom, scheduleMoveableSync]);
+
+  const applyTransform = (f) => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = `translate3d(${f.x}px, ${f.y}px, 0) rotate(${f.rotation || 0}deg)`;
+    el.style.transformOrigin = "center center";
+  };
+
+  const applySize = (f) => {
+    const el = ref.current;
+    if (!el) return;
     el.style.width = `${f.width}px`;
     el.style.height = `${f.height}px`;
-    el.style.transform = `rotate(${f.rotation || 0}deg)`;
-    el.style.transformOrigin = "center center";
+  };
+
+  const applyFrame = (f) => {
+    applySize(f);
+    applyTransform(f);
   };
 
   return (
@@ -478,24 +537,25 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "absolute",
-          left: x,
-          top: y,
+          left: 0,
+          top: 0,
           width,
           height,
-          transform: `rotate(${rotation}deg)`,
+          transform: `translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
           transformOrigin: "center center",
           boxShadow: isSelected ? "0 0 0 2px rgba(76,154,255,1)" : "none", // no layout shift
           boxSizing: "border-box",
           overflow: "hidden",
           userSelect: "none",
           touchAction: "none",
+          willChange: "transform, width, height",
         }}
         dangerouslySetInnerHTML={{ __html: svg }}
       />
 
       <Moveable
         ref={moveableRef}
-        target={isSelected ? ref : null}
+        target={isSelected ? ref.current : null}
         draggable
         resizable={{
           renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
@@ -507,14 +567,14 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
         rotateAroundControls={true}
         origin={false}
         edge={false}
-        useResizeObserver={false}
-        useMutationObserver={false}
+        useResizeObserver={isSelected}
+        useMutationObserver={isSelected}
         throttleDrag={0}
         throttleResize={0}
         throttleRotate={0}
         zoom={zoom}
         className="moveable-no-border svg-moveable"
-        controlPadding={32}
+        controlPadding={16}
         onDragStart={(e) => {
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
@@ -524,7 +584,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           const f0 = startRef.current;
           const next = { ...frameRef.current, x: f0.x + dx, y: f0.y + dy };
           frameRef.current = next;
-          applyFrame(next);
+          applyTransform(next);
         }}
         onDragEnd={() => {
           const finalFrame = frameRef.current;
@@ -567,6 +627,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
           };
           frameRef.current = next;
           applyFrame(next);
+          scheduleMoveableSync({ resizeCursors: true });
         }}
         onResizeEnd={() => {
           const finalFrame = frameRef.current;
@@ -593,8 +654,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
             rotation: beforeRotate,
           };
           frameRef.current = next;
-          applyFrame(next);
-          scheduleRotateCornerCursorUpdate();
+          applyTransform(next);
+          scheduleMoveableSync({ rotateCursors: true });
         }}
         onRotateEnd={() => {
           const finalFrame = frameRef.current;
