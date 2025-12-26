@@ -731,31 +731,37 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
             overflow: "visible",
           }}
         >
+          {/* Line connecting to handle */}
           <div
             style={{
               position: "absolute",
-              top: "-36px",
+              top: "0",
+              left: "50%",
+              width: "2px",
+              height: "60px",
+              backgroundColor: "#4C9AFF",
+              transform: "translateX(-50%) translateY(-100%)",
+              pointerEvents: "none",
+            }}
+          />
+          {/* Rotation handle dot */}
+          <div
+            style={{
+              position: "absolute",
+              top: "-60px",
               left: "50%",
               transform: "translateX(-50%)",
-              width: "14px",
-              height: "14px",
+              width: "12px",
+              height: "12px",
               backgroundColor: "#fff",
-              border: "2px solid #000",
+              border: "2px solid #4C9AFF",
               borderRadius: "50%",
               cursor: "grab",
               pointerEvents: "all",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "10px",
-              color: "#000",
-              fontWeight: "bold",
             }}
             onMouseDown={handleRotateStart}
             title="Rotate"
-          >
-            ↻
-          </div>
+          />
         </div>
       )}
     </>

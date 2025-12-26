@@ -764,31 +764,37 @@ function ResizableImageComponent({
             <div style={handleStyle("middle", "left")} onMouseDown={(e) => handleMouseDown(e, "left")} />
             
             {/* Rotation handle */}
+            {/* Line connecting to handle */}
+            <div
+              style={{
+                position: "absolute",
+                top: "0",
+                left: "50%",
+                width: "2px",
+                height: "60px",
+                backgroundColor: "blue",
+                transform: "translateX(-50%) translateY(-100%)",
+                pointerEvents: "none",
+              }}
+            />
+            {/* Rotation handle dot */}
             <div 
               style={{
                 position: "absolute",
-                top: "-36px",
+                top: "-60px",
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: "14px",
-                height: "14px",
+                width: "12px",
+                height: "12px",
                 backgroundColor: "#fff",
-                border: "2px solid #000",
+                border: "2px solid blue",
                 borderRadius: "50%",
                 cursor: "grab",
                 pointerEvents: "all",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "10px",
-                color: "#000",
-                fontWeight: "bold",
               }}
               onMouseDown={(e) => handleMouseDown(e, "rotate")}
               title="Rotate"
-            >
-              ↻
-            </div>
+            />
           
           </div>
         )}
