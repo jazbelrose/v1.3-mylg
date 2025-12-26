@@ -788,7 +788,8 @@ function handleStyle(vertical, horizontal) {
     (vertical === "middle" && (horizontal === "left" || horizontal === "right")) ||
     (horizontal === "center" && (vertical === "top" || vertical === "bottom"));
 
-  const size = isEdgeHandle ? 8 : 12;
+  // Match Moveable (ImageNode) handle sizing.
+  const size = 10;
   const borderWidth = isEdgeHandle ? 1.5 : 2;
   const offset = -size / 2;
   const style = {

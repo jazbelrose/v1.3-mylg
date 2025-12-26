@@ -1069,7 +1069,7 @@ i.bg-color::before {
 
 /* SvgNode (react-moveable) resize handles */
 .svg-moveable.moveable-control-box .moveable-control {
-  --svg-handle-size: 12px;
+  --svg-handle-size: 10px;
   width: var(--svg-handle-size) !important;
   height: var(--svg-handle-size) !important;
   margin-left: calc(var(--svg-handle-size) / -2) !important;
@@ -1084,7 +1084,7 @@ i.bg-color::before {
 .svg-moveable.moveable-control-box .moveable-control[data-direction="e"],
 .svg-moveable.moveable-control-box .moveable-control[data-direction="s"],
 .svg-moveable.moveable-control-box .moveable-control[data-direction="w"] {
-  --svg-handle-size: 8px;
+  --svg-handle-size: 10px;
   border-width: 1.5px !important;
 }
 /* Hide rotate handles when hovering along the cardinal sides */
@@ -1432,41 +1432,41 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
 
 /* Center handles on edges */
 .textbox-resize-handle-top {
-  top: -4px;
+  top: -5px;
   left: 50%;
   transform: translateX(-50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-width: 1.5px;
   cursor: ns-resize;
 }
 
 .textbox-resize-handle-bottom {
-  bottom: -4px;
+  bottom: -5px;
   left: 50%;
   transform: translateX(-50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-width: 1.5px;
   cursor: ns-resize;
 }
 
 .textbox-resize-handle-left {
-  left: -4px;
+  left: -5px;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-width: 1.5px;
   cursor: ew-resize;
 }
 
 .textbox-resize-handle-right {
-  right: -4px;
+  right: -5px;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-width: 1.5px;
   cursor: ew-resize;
 }
@@ -1475,32 +1475,32 @@ body.thumbnail-capture .editor-textbox .textbox-rotate-handle {
 .textbox-resize-handle-top-right,
 .textbox-resize-handle-bottom-left,
 .textbox-resize-handle-bottom-right {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   cursor: nwse-resize;
 }
 
 .textbox-resize-handle-top-left {
-  top: -6px;
-  left: -6px;
+  top: -5px;
+  left: -5px;
   cursor: nwse-resize;
 }
 
 .textbox-resize-handle-top-right {
-  top: -6px;
-  right: -6px;
+  top: -5px;
+  right: -5px;
   cursor: nesw-resize;
 }
 
 .textbox-resize-handle-bottom-left {
-  bottom: -6px;
-  left: -6px;
+  bottom: -5px;
+  left: -5px;
   cursor: nesw-resize;
 }
 
 .textbox-resize-handle-bottom-right {
-  bottom: -6px;
-  right: -6px;
+  bottom: -5px;
+  right: -5px;
   cursor: nwse-resize;
 }
 
