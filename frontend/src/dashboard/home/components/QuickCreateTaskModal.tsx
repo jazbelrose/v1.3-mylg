@@ -3149,37 +3149,13 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               
               {isDueOpen && (
                 <div id="due-datetime-content" className={styles.collapsibleContent}>
-                  <div className={styles.fieldHeader}>
-                    <label className={styles.fieldLabel} htmlFor={startDateFieldId}>
-                      <span className={styles.fieldLabelText}>Start date</span>
-                    </label>
-                  </div>
-                  <input
-                    id={startDateFieldId}
-                    aria-label="Task start date"
-                    type="date"
-                    className={styles.textInput}
-                    value={startDate}
-                    onChange={handleStartDateInputChange}
-                    onFocus={handleDueDateFocus}
-                    onBlur={handleDueDateBlur}
-                    disabled={isBusy}
-                    aria-describedby={startDateError ? startDateErrorId : undefined}
-                  />
-                  {startDateError ? (
-                    <p id={startDateErrorId} className={styles.fieldError} aria-live="polite">
-                      {startDateError}
-                    </p>
-                  ) : null}
-
-                  <div className={styles.dateHeaderRow}>
-                    <div className={styles.fieldHeader}>
-                      <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
-                        <span className={styles.fieldLabelText}>End date</span>
-                      </label>
-                    </div>
-                    {showQuickDateChips && (
-                      <div className={styles.quickChipsSmall} role="group" aria-label="Quick end date shortcuts">
+                  {showQuickDateChips && (
+                    <div className={styles.scheduleQuickRow}>
+                      <div
+                        className={styles.quickChipsSmall}
+                        role="group"
+                        aria-label="Quick date shortcuts"
+                      >
                         <button
                           type="button"
                           className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
@@ -3205,28 +3181,34 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                           +7
                         </button>
                       </div>
-                    )}
-                  </div>
-                  <input
-                    id={dueDateFieldId}
-                    aria-label="Task end date"
-                    type="date"
-                    className={styles.textInput}
-                    value={dueDate}
-                    onChange={handleDueDateInputChange}
-                    onFocus={handleDueDateFocus}
-                    onBlur={handleDueDateBlur}
-                    disabled={isBusy}
-                    aria-describedby={dueDateError ? dueDateErrorId : undefined}
-                  />
-                  {dueDateError ? (
-                    <p id={dueDateErrorId} className={styles.fieldError} aria-live="polite">
-                      {dueDateError}
-                    </p>
-                  ) : null}
-                  
-                  <div className={styles.timeRangeRow}>
-                    <div className={styles.timeRangeField}>
+                    </div>
+                  )}
+
+                  <div className={styles.scheduleGrid}>
+                    <div className={styles.scheduleColumn}>
+                      <div className={styles.fieldHeader}>
+                        <label className={styles.fieldLabel} htmlFor={startDateFieldId}>
+                          <span className={styles.fieldLabelText}>Start date</span>
+                        </label>
+                      </div>
+                      <input
+                        id={startDateFieldId}
+                        aria-label="Task start date"
+                        type="date"
+                        className={styles.textInput}
+                        value={startDate}
+                        onChange={handleStartDateInputChange}
+                        onFocus={handleDueDateFocus}
+                        onBlur={handleDueDateBlur}
+                        disabled={isBusy}
+                        aria-describedby={startDateError ? startDateErrorId : undefined}
+                      />
+                      {startDateError ? (
+                        <p id={startDateErrorId} className={styles.fieldError} aria-live="polite">
+                          {startDateError}
+                        </p>
+                      ) : null}
+
                       <div className={styles.fieldHeader}>
                         <label className={styles.fieldLabel} htmlFor={startTimeFieldId}>
                           <span className={styles.fieldLabelText}>Start time</span>
@@ -3245,7 +3227,31 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                         aria-describedby={timeRangeError ? timeRangeErrorId : undefined}
                       />
                     </div>
-                    <div className={styles.timeRangeField}>
+
+                    <div className={styles.scheduleColumn}>
+                      <div className={styles.fieldHeader}>
+                        <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
+                          <span className={styles.fieldLabelText}>End date</span>
+                        </label>
+                      </div>
+                      <input
+                        id={dueDateFieldId}
+                        aria-label="Task end date"
+                        type="date"
+                        className={styles.textInput}
+                        value={dueDate}
+                        onChange={handleDueDateInputChange}
+                        onFocus={handleDueDateFocus}
+                        onBlur={handleDueDateBlur}
+                        disabled={isBusy}
+                        aria-describedby={dueDateError ? dueDateErrorId : undefined}
+                      />
+                      {dueDateError ? (
+                        <p id={dueDateErrorId} className={styles.fieldError} aria-live="polite">
+                          {dueDateError}
+                        </p>
+                      ) : null}
+
                       <div className={styles.fieldHeader}>
                         <label className={styles.fieldLabel} htmlFor={endTimeFieldId}>
                           <span className={styles.fieldLabelText}>End time</span>

@@ -501,11 +501,40 @@
   gap: 12px;
 }
 
+.scheduleQuickRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.scheduleGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.scheduleColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
 .timeRangeField {
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .scheduleGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .scheduleQuickRow {
+    justify-content: flex-start;
+  }
 }
 
 .quickChip {
