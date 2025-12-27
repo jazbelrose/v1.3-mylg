@@ -10,6 +10,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { useData } from "@/app/contexts/useData";
 import { useImageLocks } from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockContext";
 import { TextBoxNode } from "./TextBoxNode";
+import { SvgNode } from "./SvgNode";
 import {
   DEFAULT_IMAGE_BORDER_RADIUS,
   mergeBorderRadius,
@@ -389,6 +390,8 @@ function ResizableImageComponent({
           } else if (targetNode instanceof TextBoxNode) {
             const { x: tx, y: ty } = targetNode.getPosition();
             snapshot.set(key, { x: tx, y: ty });
+          } else if (targetNode instanceof SvgNode) {
+            snapshot.set(key, { x: targetNode.getX(), y: targetNode.getY() });
           }
         });
         selectionSnapshotRef.current = snapshot;
@@ -653,6 +656,9 @@ function ResizableImageComponent({
               targetNode.setY(nextY);
             } else if (targetNode instanceof TextBoxNode) {
               targetNode.setPosition(nextX, nextY);
+            } else if (targetNode instanceof SvgNode) {
+              targetNode.setX(nextX);
+              targetNode.setY(nextY);
             }
           });
         } else if (isRotating) {

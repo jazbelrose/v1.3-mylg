@@ -11,6 +11,8 @@ import {
   ResizableImageNode,
   $createResizableImageNode,
 } from "../nodes/ResizableImageNode";
+import { SvgNode } from "../nodes/SvgNode";
+import { $createSvgNode } from "../nodes/SvgNodeUtils";
 
 export type ModifierKeys = Pick<MouseEvent, "shiftKey" | "ctrlKey" | "metaKey" | "altKey">;
 
@@ -130,6 +132,10 @@ function cloneSlideNode(node: LexicalNode): LexicalNode | null {
     return cloneResizableImageNode(node);
   }
 
+  if (node instanceof SvgNode) {
+    return cloneSvgNode(node);
+  }
+
   return null;
 }
 
@@ -160,11 +166,25 @@ function cloneResizableImageNode(node: ResizableImageNode): ResizableImageNode {
   });
 }
 
+function cloneSvgNode(node: SvgNode): SvgNode {
+  return $createSvgNode({
+    svg: node.getSvg(),
+    x: node.getX(),
+    y: node.getY(),
+    width: node.getWidth(),
+    height: node.getHeight(),
+    rotation: node.getRotation(),
+  });
+}
+
 function bumpClonePosition(node: LexicalNode, dx: number, dy: number): void {
   if ($isTextBoxNode(node)) {
     const { x, y } = node.getPosition();
     node.setPosition(x + dx, y + dy);
   } else if (node instanceof ResizableImageNode) {
+    node.setX(node.getX() + dx);
+    node.setY(node.getY() + dy);
+  } else if (node instanceof SvgNode) {
     node.setX(node.getX() + dx);
     node.setY(node.getY() + dy);
   }

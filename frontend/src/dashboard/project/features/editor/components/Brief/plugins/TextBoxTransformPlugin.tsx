@@ -12,6 +12,7 @@ import {
 } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
+import { SvgNode } from "./nodes/SvgNode";
 import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
@@ -285,6 +286,12 @@ function captureNodePositions(
       const { x, y } = node.getPosition();
       snapshot.set(key, { x, y, rotation: node.getRotation() });
     } else if (node instanceof ResizableImageNode) {
+      snapshot.set(key, {
+        x: node.getX(),
+        y: node.getY(),
+        rotation: node.getRotation(),
+      });
+    } else if (node instanceof SvgNode) {
       snapshot.set(key, {
         x: node.getX(),
         y: node.getY(),
@@ -800,6 +807,9 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (targetNode instanceof TextBoxNode) {
               targetNode.setPosition(nextX, nextY);
             } else if (targetNode instanceof ResizableImageNode) {
+              targetNode.setX(nextX);
+              targetNode.setY(nextY);
+            } else if (targetNode instanceof SvgNode) {
               targetNode.setX(nextX);
               targetNode.setY(nextY);
             }

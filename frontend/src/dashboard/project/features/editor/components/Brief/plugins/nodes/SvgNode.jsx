@@ -9,7 +9,9 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 import Moveable from "react-moveable";
 import React, { useCallback, useRef, useState, useLayoutEffect } from "react";
-import { applyModifierNodeSelection } from "../slides/slideSelectionUtils";
+import { applyModifierNodeSelection, getSlideNodeSelectionKeys } from "../slides/slideSelectionUtils";
+import { TextBoxNode } from "./TextBoxNode";
+import { ResizableImageNode } from "./ResizableImageNode";
 import {
   DEFAULT_SVG_HEIGHT,
   DEFAULT_SVG_WIDTH,
@@ -195,6 +197,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
   const rotateHandleWrapperRef = useRef(null);
 
   const copyOnDragRef = useRef(false);
+  const dragSelectionKeysRef = useRef([]);
+  const dragSelectionSnapshotRef = useRef(new Map());
   const didNormalizeRef = useRef(false);
   const [isRotating, setIsRotating] = useState(false);
 
@@ -327,6 +331,32 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
       applyModifierNodeSelection(nodeKey, modifiers);
     });
   };
+
+  const captureDragSelectionSnapshot = useCallback(() => {
+    editor.getEditorState().read(() => {
+      const selectionKeys = getSlideNodeSelectionKeys();
+      const keys =
+        selectionKeys.length > 0 && selectionKeys.includes(nodeKey)
+          ? selectionKeys
+          : [nodeKey];
+
+      const snapshot = new Map();
+      keys.forEach((key) => {
+        const node = $getNodeByKey(key);
+        if (node instanceof TextBoxNode) {
+          const { x: tx, y: ty } = node.getPosition();
+          snapshot.set(key, { x: tx, y: ty });
+        } else if (node instanceof ResizableImageNode) {
+          snapshot.set(key, { x: node.getX(), y: node.getY() });
+        } else if (node instanceof SvgNode) {
+          snapshot.set(key, { x: node.getX(), y: node.getY() });
+        }
+      });
+
+      dragSelectionKeysRef.current = keys;
+      dragSelectionSnapshotRef.current = snapshot;
+    });
+  }, [editor, nodeKey]);
 
   // keep ref synced when Lexical updates props
   useLayoutEffect(() => {
@@ -676,6 +706,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
         onDragStart={(e) => {
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
+          captureDragSelectionSnapshot();
         }}
         onDrag={({ beforeTranslate }) => {
           const [dx, dy] = beforeTranslate;
@@ -688,8 +719,45 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
             rotateHandleWrapperRef.current.style.transform = 
               `translate3d(${next.x}px, ${next.y}px, 0) rotate(${next.rotation || 0}deg)`;
           }
+
+          const dragKeys = dragSelectionKeysRef.current;
+          if (Array.isArray(dragKeys) && dragKeys.length > 1) {
+            const snapshots = dragSelectionSnapshotRef.current;
+            editor.update(() => {
+              const entries =
+                snapshots && snapshots.size > 0
+                  ? Array.from(snapshots.entries())
+                  : [[nodeKey, { x: f0.x, y: f0.y }]];
+
+              entries.forEach(([key, origin]) => {
+                if (!origin) return;
+                const targetNode = $getNodeByKey(key);
+                if (!targetNode) return;
+                const nextX = origin.x + dx;
+                const nextY = origin.y + dy;
+                if (targetNode instanceof TextBoxNode) {
+                  targetNode.setPosition(nextX, nextY);
+                } else if (targetNode instanceof ResizableImageNode) {
+                  targetNode.setX(nextX);
+                  targetNode.setY(nextY);
+                } else if (targetNode instanceof SvgNode) {
+                  targetNode.setX(nextX);
+                  targetNode.setY(nextY);
+                }
+              });
+            });
+          }
         }}
         onDragEnd={() => {
+          const dragKeys = dragSelectionKeysRef.current;
+          dragSelectionKeysRef.current = [];
+          dragSelectionSnapshotRef.current = new Map();
+
+          if (Array.isArray(dragKeys) && dragKeys.length > 1) {
+            copyOnDragRef.current = false;
+            return;
+          }
+
           const finalFrame = frameRef.current;
           editor.update(() => {
             const node = $getNodeByKey(nodeKey);
