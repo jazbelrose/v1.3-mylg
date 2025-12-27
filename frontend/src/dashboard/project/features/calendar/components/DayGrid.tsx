@@ -100,6 +100,7 @@ const snapAndClampRange = (start: number, end: number): [number, number] => {
 const ENTRY_VERTICAL_PADDING_PX = 4;
 const ENTRY_HORIZONTAL_PADDING_PX = 4;
 const ENTRY_MIN_HEIGHT_PX = 24;
+const ENTRY_RADIUS_PX = 12;
 const COLUMN_GAP_PX = 4;
 const QUICK_ADD_POPOVER_WIDTH = 200;
 const QUICK_ADD_POPOVER_HEIGHT = 140;
@@ -956,12 +957,14 @@ function DayGrid({
         zIndex: 2,
       };
     } else if (resizeTransform) {
+      const previewHeightPx = Math.max(ENTRY_MIN_HEIGHT_PX, resizeTransform.initialHeight * resizeTransform.scaleY);
       entryStyleWithPreview = {
         ...pillStyle,
-        transform: `translateY(${resizeTransform.translateY}px) scaleY(${resizeTransform.scaleY})`,
-        transformOrigin: "top",
+        transform: `translateY(${resizeTransform.translateY}px)`,
         transition: "none",
         zIndex: 2,
+        height: `${previewHeightPx}px`,
+        borderRadius: `${ENTRY_RADIUS_PX}px`,
       };
     }
 
@@ -994,10 +997,7 @@ function DayGrid({
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
-          <div 
-            className="week-grid__timeline-entry-main"
-            style={resizeTransform ? { transform: `scaleY(${1 / resizeTransform.scaleY})`, transformOrigin: "top" } : undefined}
-          >
+          <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
           </div>
@@ -1024,10 +1024,7 @@ function DayGrid({
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
-        <div 
-          className="week-grid__timeline-entry-main"
-          style={resizeTransform ? { transform: `scaleY(${1 / resizeTransform.scaleY})`, transformOrigin: "top" } : undefined}
-        >
+        <div className="week-grid__timeline-entry-main">
           {content}
           {inlineAvatars}
         </div>

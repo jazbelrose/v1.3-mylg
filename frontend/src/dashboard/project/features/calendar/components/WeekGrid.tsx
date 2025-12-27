@@ -128,6 +128,7 @@ const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
 
 const minutesToPxWeek = (minutes: number) => (minutes / MINUTES_IN_HOUR) * WEEK_ROW_HEIGHT_PX;
 const ENTRY_MIN_HEIGHT_PX = 24;
+const ENTRY_RADIUS_PX = 12;
 
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
 
@@ -947,12 +948,14 @@ function WeekGrid({
         zIndex: 2,
       };
     } else if (resizeTransform) {
+      const previewHeightPx = Math.max(ENTRY_MIN_HEIGHT_PX, resizeTransform.initialHeight * resizeTransform.scaleY);
       entryStyleWithPreview = {
         ...pillStyle,
-        transform: `translateY(${resizeTransform.translateY}px) scaleY(${resizeTransform.scaleY})`,
-        transformOrigin: "top",
+        transform: `translateY(${resizeTransform.translateY}px)`,
         transition: "none",
         zIndex: 2,
+        height: `${previewHeightPx}px`,
+        borderRadius: `${ENTRY_RADIUS_PX}px`,
       };
     }
     const content = (
@@ -1011,10 +1014,7 @@ function WeekGrid({
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
-          <div 
-            className="week-grid__timeline-entry-main"
-            style={resizeTransform ? { transform: `scaleY(${1 / resizeTransform.scaleY})`, transformOrigin: "top" } : undefined}
-          >
+          <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
           </div>
@@ -1043,10 +1043,7 @@ function WeekGrid({
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
-        <div 
-          className="week-grid__timeline-entry-main"
-          style={resizeTransform ? { transform: `scaleY(${1 / resizeTransform.scaleY})`, transformOrigin: "top" } : undefined}
-        >
+        <div className="week-grid__timeline-entry-main">
           {content}
           {inlineAvatars}
         </div>
