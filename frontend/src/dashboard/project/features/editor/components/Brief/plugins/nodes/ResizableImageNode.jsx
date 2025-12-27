@@ -773,6 +773,7 @@ function ResizableImageComponent({
   return (
     <div
       ref={containerRef}
+      data-lexical-node-key={nodeKey}
       style={{
         position: "absolute",
         left: x,
@@ -781,7 +782,6 @@ function ResizableImageComponent({
         height,
         transform: `rotate(${rotation}deg)`,
         transformOrigin: "center center",
-        zIndex: isSelected ? 1000 : 1,
       }}
     >
       <div style={{ position: "relative", width: "100%", height: "100%" }}>

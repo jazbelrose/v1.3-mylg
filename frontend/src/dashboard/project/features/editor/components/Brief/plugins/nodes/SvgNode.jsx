@@ -664,6 +664,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
     <>
       <div
         ref={ref}
+        data-lexical-node-key={nodeKey}
         onMouseDown={handlePointerDown}
         onClick={(e) => e.stopPropagation()}
         style={{

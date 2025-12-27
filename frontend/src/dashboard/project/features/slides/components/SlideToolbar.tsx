@@ -135,6 +135,8 @@ interface SlideToolbarProps {
   onDeleteSelection?: () => void;
   onBringToFront?: () => void;
   onSendToBack?: () => void;
+  onBringForward?: () => void;
+  onSendBackward?: () => void;
   onDuplicateSelection?: () => void;
   onLockSelection?: () => void;
   onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
@@ -185,6 +187,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDeleteSelection,
   onBringToFront,
   onSendToBack,
+  onBringForward,
+  onSendBackward,
   onDuplicateSelection,
   onLockSelection,
   onUpdateImageBorderRadius,
@@ -614,7 +618,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   };
 
   const renderObjectContext = (label: string, options: { showReplace?: boolean } = { showReplace: true }) => {
-    const hasArrange = Boolean(onBringToFront || onSendToBack);
+    const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
     return (
       <div className="context-panel">
         <div className="context-controls compact">
@@ -759,6 +763,12 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             <>
               <button type="button" className="toolbar-item" onClick={onBringToFront} title="Bring to Front">
                 <BringToFront size={18} />
+              </button>
+              <button type="button" className="toolbar-item" onClick={onBringForward} title="Bring Forward">
+                <span>Forward</span>
+              </button>
+              <button type="button" className="toolbar-item" onClick={onSendBackward} title="Send Backward">
+                <span>Backward</span>
               </button>
               <button type="button" className="toolbar-item" onClick={onSendToBack} title="Send to Back">
                 <SendToBack size={18} />

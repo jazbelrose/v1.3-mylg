@@ -70,6 +70,7 @@ import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPl
 import PreventRootTextPlugin from "./plugins/PreventRootTextPlugin";
 import ClickAwayDeselectPlugin from "./plugins/ClickAwayDeselectPlugin";
 import SlidesUndoHotkeysPlugin from "./plugins/SlidesUndoHotkeysPlugin";
+import SlideZIndexSyncPlugin from "./plugins/slides/SlideZIndexSyncPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
 
 type LexicalEditorProps = {
@@ -502,6 +503,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           {slidesMode && <PreventRootTextPlugin />}
           {slidesMode && <ClickAwayDeselectPlugin />}
           {slidesMode && <SlidesUndoHotkeysPlugin />}
+          {slidesMode && <SlideZIndexSyncPlugin />}
 
           <CollaborationPlugin
             id={resolvedDocId}

@@ -33,6 +33,7 @@ import {
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
 import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
+import { reorderSlideStackablesInRoot } from "./slides/slideStackingUtils";
 
 type BlockType = "paragraph" | "h1" | "h2" | "quote" | "code" | "ul" | "ol";
 
@@ -74,6 +75,8 @@ export type ToolbarActions = {
   onDeleteSelection: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  onBringForward: () => void;
+  onSendBackward: () => void;
   onUpdateImageBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
 };
 
@@ -194,24 +197,30 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         mutateSelectedNodes((node) => {
           node.remove();
         }),
-      onBringToFront: () =>
-        mutateSelectedNodes((node) => {
-          const parent = node.getParent();
-          if (parent) {
-            parent.append(node);
-          }
-        }),
-      onSendToBack: () =>
-        mutateSelectedNodes((node) => {
-          const parent = node.getParent();
-          if (!parent) return;
-          const firstChild = parent.getFirstChild();
-          if (firstChild) {
-            firstChild.insertBefore(node);
-          } else {
-            parent.append(node);
-          }
-        }),
+      onBringToFront: () => {
+        console.log('[toolbar] onBringToFront clicked');
+        editor.update(() => {
+          reorderSlideStackablesInRoot("bringToFront");
+        });
+      },
+      onSendToBack: () => {
+        console.log('[toolbar] onSendToBack clicked');
+        editor.update(() => {
+          reorderSlideStackablesInRoot("sendToBack");
+        });
+      },
+      onBringForward: () => {
+        console.log('[toolbar] onBringForward clicked');
+        editor.update(() => {
+          reorderSlideStackablesInRoot("bringForward");
+        });
+      },
+      onSendBackward: () => {
+        console.log('[toolbar] onSendBackward clicked');
+        editor.update(() => {
+          reorderSlideStackablesInRoot("sendBackward");
+        });
+      },
       onUpdateImageBorderRadius: (updates) =>
         mutateSelectedNodes((node) => {
           if (node instanceof ResizableImageNode) {

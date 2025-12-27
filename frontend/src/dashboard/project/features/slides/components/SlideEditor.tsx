@@ -218,6 +218,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onDeleteSelection={toolbarActions.onDeleteSelection}
       onBringToFront={toolbarActions.onBringToFront}
       onSendToBack={toolbarActions.onSendToBack}
+      onBringForward={toolbarActions.onBringForward}
+      onSendBackward={toolbarActions.onSendBackward}
       onUpdateImageBorderRadius={toolbarActions.onUpdateImageBorderRadius}
       onNewSlide={onNewSlide}
     />
