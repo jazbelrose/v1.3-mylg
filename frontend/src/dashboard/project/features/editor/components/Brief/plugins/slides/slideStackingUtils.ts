@@ -1,5 +1,6 @@
 import {
   $createNodeSelection,
+  $createParagraphNode,
   $getNodeByKey,
   $getRoot,
   $getSelection,
@@ -26,6 +27,14 @@ export function isSlideStackableNode(node: LexicalNode): boolean {
     node instanceof ResizableImageNode ||
     node instanceof SvgNode
   );
+}
+
+function isDebugEnabled(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem("debugSlidesStacking") === "1";
+  } catch {
+    return false;
+  }
 }
 
 function collectStackableKeysInSubtree(node: LexicalNode, out: string[]): void {
@@ -109,14 +118,102 @@ function restoreNodeSelection(keys: string[]): void {
 }
 
 /**
+ * Normalizes content so each root child that participates in stacking contains at most
+ * one stackable *direct* child. This avoids "group" behavior when multiple images/SVGs
+ * live inside the same paragraph.
+ *
+ * Must be called inside `editor.update()`.
+ */
+function normalizeRootChildrenForStacking(debug: boolean): void {
+  const root = $getRoot();
+  const rootChildren = root.getChildren();
+
+  const isIgnorableParagraphChild = (node: LexicalNode): boolean => {
+    const type = node.getType();
+    if (type === "linebreak") {
+      return true;
+    }
+    if (type === "text") {
+      return node.getTextContent().trim() === "";
+    }
+    return false;
+  };
+
+  for (const child of rootChildren) {
+    if (child.getType() !== "paragraph") {
+      continue;
+    }
+
+    const maybeChildren = (child as unknown as { getChildren?: () => LexicalNode[] }).getChildren;
+    if (typeof maybeChildren !== "function") {
+      continue;
+    }
+
+    const directChildren = maybeChildren.call(child);
+    if (directChildren.length <= 1) {
+      continue;
+    }
+
+    const stackableDirectChildren = directChildren.filter(isSlideStackableNode);
+    if (stackableDirectChildren.length <= 1) {
+      continue;
+    }
+
+    // Only split paragraphs that are "pure stacking wrappers" to avoid surprising text edits.
+    const hasNonIgnorableNonStackables = directChildren.some(
+      (node) => !isSlideStackableNode(node) && !isIgnorableParagraphChild(node)
+    );
+    if (hasNonIgnorableNonStackables) {
+      continue;
+    }
+
+    // Strip empty text/linebreak nodes before splitting to keep the shape predictable.
+    for (const node of directChildren) {
+      if (!isSlideStackableNode(node) && isIgnorableParagraphChild(node)) {
+        node.remove();
+      }
+    }
+
+    let insertAfter: LexicalNode = child;
+    for (let i = 1; i < stackableDirectChildren.length; i++) {
+      const stackable = stackableDirectChildren[i];
+      const paragraph = $createParagraphNode();
+      paragraph.append(stackable);
+      insertAfter.insertAfter(paragraph);
+      insertAfter = paragraph;
+    }
+
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.log("[slides stacking] normalized paragraph into", stackableDirectChildren.length, "containers");
+    }
+  }
+}
+
+/**
  * Reorders only stackable nodes among the root children.
  * Must be called inside `editor.update()`.
  */
 export function reorderSlideStackablesInRoot(action: SlideStackingAction): void {
-  console.log('[slideStacking] reorder called:', action);
+  const debug = isDebugEnabled();
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.log("[slides stacking] reorder called:", action);
+  }
+
+  normalizeRootChildrenForStacking(debug);
+
   const root = $getRoot();
   const rootChildren = root.getChildren();
-  console.log('[slideStacking] root children count:', rootChildren.length, 'types:', rootChildren.map(n => n.getType()));
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[slides stacking] root children count:",
+      rootChildren.length,
+      "types:",
+      rootChildren.map((n) => n.getType())
+    );
+  }
 
   // Treat each root child as a "container". If it either is a stackable itself (TextBox)
   // or contains a stackable descendant (Image/Svg typically live inside paragraphs),
@@ -136,14 +233,23 @@ export function reorderSlideStackablesInRoot(action: SlideStackingAction): void 
     }
   }
 
-  console.log('[slideStacking] stacking containers found:', stackingContainers.length);
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.log("[slides stacking] stacking containers found:", stackingContainers.length);
+  }
   if (stackingContainers.length <= 1) {
-    console.log('[slideStacking] not enough containers to reorder, exiting');
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.log("[slides stacking] not enough containers to reorder, exiting");
+    }
     return;
   }
 
   const { keys: selectedKeys, snapshot } = getSelectedKeysForStacking();
-  console.log('[slideStacking] selected keys:', selectedKeys, 'snapshot:', snapshot.kind);
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.log("[slides stacking] selected keys:", selectedKeys, "snapshot:", snapshot.kind);
+  }
 
   const selectedContainerSet = new Set<number>();
   for (let i = 0; i < containerKeySets.length; i++) {
@@ -157,10 +263,19 @@ export function reorderSlideStackablesInRoot(action: SlideStackingAction): void 
   }
 
   if (selectedContainerSet.size === 0) {
-    console.log('[slideStacking] no selected containers, exiting');
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.log("[slides stacking] no selected containers, exiting");
+    }
     return;
   }
-  console.log('[slideStacking] selected container indices:', Array.from(selectedContainerSet));
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[slides stacking] selected container indices:",
+      Array.from(selectedContainerSet)
+    );
+  }
 
   const nextContainers = [...stackingContainers];
 
@@ -227,7 +342,10 @@ export function reorderSlideStackablesInRoot(action: SlideStackingAction): void 
     rebuiltChildren[containerIndices[i]] = nextContainers[i];
   }
 
-  console.log('[slideStacking] reordering complete, updating root');
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.log("[slides stacking] reordering complete, updating root");
+  }
   root.clear();
   root.append(...rebuiltChildren);
 
