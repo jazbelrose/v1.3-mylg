@@ -483,6 +483,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           quickTask?.description ?? sourceTask?.description ?? null,
         dueDate:
           quickTask?.dueDate ??
+          sourceTask?.endAt ??
+          (sourceTask as { end_at?: string | null })?.end_at ??
           sourceTask?.dueDate ??
           (sourceTask as { due_at?: string | null })?.due_at ??
           (sourceTask as { dueAt?: string | number | Date | null })?.dueAt ??
@@ -555,7 +557,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       const draft: QuickCreateTaskModalTask = {
         projectId: fallbackProjectId,
         projectName: fallbackProjectName ?? null,
-        dueDate: date,
+        dueDate: draftEndAt ?? date,
         startAt: resolvedStartAt ?? undefined,
         endAt: draftEndAt ?? undefined,
         status: "todo",
@@ -631,7 +633,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               projectId,
               title: task.title ?? "Untitled task",
               description: task.description ?? undefined,
-              dueDate,
+              dueDate: endIso ?? dueDate,
               startAt: startIso,
               endAt: endIso,
               assigneeId: source.assigneeId,
@@ -645,7 +647,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               projectId,
               taskId,
               title: task.title,
-              dueDate,
+              dueDate: endIso ?? dueDate,
               ...(startIso !== null ? { startAt: startIso } : {}),
               ...(endIso !== null ? { endAt: endIso } : {}),
             };

@@ -427,6 +427,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startTime, setStartTime] = useState(DEFAULT_TASK_START_TIME);
   const [endTime, setEndTime] = useState(DEFAULT_TASK_END_TIME);
@@ -446,6 +447,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [startDateError, setStartDateError] = useState<string | null>(null);
   const [dueDateError, setDueDateError] = useState<string | null>(null);
   const [timeRangeError, setTimeRangeError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
@@ -495,9 +497,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const titleCounterId = `${baseId}-title-counter`;
   const titleErrorId = `${baseId}-title-error`;
   const projectErrorId = `${baseId}-project-error`;
+  const startDateErrorId = `${baseId}-start-date-error`;
   const dueDateErrorId = `${baseId}-due-date-error`;
   const timeRangeErrorId = `${baseId}-time-range-error`;
   const locationFieldId = `${baseId}-location`;
+  const startDateFieldId = `${baseId}-start-date`;
   const dueDateFieldId = `${baseId}-due-date`;
   const startTimeFieldId = `${baseId}-start-time`;
   const endTimeFieldId = `${baseId}-end-time`;
@@ -732,6 +736,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       projectId,
       title: title.trim(),
       description: description.trim(),
+      startDate,
       dueDate,
       startTime,
       endTime,
@@ -747,7 +752,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         projectId: initialTaskRef.current.projectId || "",
         title: initialTaskRef.current.title?.trim() || "",
         description: initialTaskRef.current.description?.trim() || "",
-        dueDate: toDateInputString(initialTaskRef.current.dueDate) || "",
+        startDate:
+          toDateInputString(initialTaskRef.current.startAt) ||
+          toDateInputString(initialTaskRef.current.dueDate) ||
+          "",
+        dueDate:
+          toDateInputString(initialTaskRef.current.endAt) ||
+          toDateInputString(initialTaskRef.current.dueDate) ||
+          "",
         startTime: toTimeInputString(initialTaskRef.current.startAt) || "",
         endTime: toTimeInputString(initialTaskRef.current.endAt) || "",
         assigneeTokens: parseAssigneeTokensInput(initialTaskRef.current.assigneeTokens || initialTaskRef.current.assigneeId || initialTaskRef.current.assigneeIds).sort(),
@@ -763,6 +775,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       const hasData = !!(
         title.trim() ||
         description.trim() ||
+        startDate ||
         dueDate ||
         startTime ||
         endTime ||
@@ -773,7 +786,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       );
       return hasData;
     }
-  }, [projectId, title, description, dueDate, startTime, endTime, assigneeTokens, addressSearch, selectedLocation, noteAttachments, status]);
+  }, [projectId, title, description, startDate, dueDate, startTime, endTime, assigneeTokens, addressSearch, selectedLocation, noteAttachments, status]);
 
   const handleClose = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -998,6 +1011,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setProjectId("");
     setTitle("");
     setDescription("");
+    setStartDate("");
     setDueDate("");
     setStartTime(DEFAULT_TASK_START_TIME);
     setEndTime(DEFAULT_TASK_END_TIME);
@@ -1014,6 +1028,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setTitleError(null);
     setProjectError(null);
+    setStartDateError(null);
     setDueDateError(null);
     setTimeRangeError(null);
     setTaskId(null);
@@ -1046,9 +1061,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setReviewerId(typeof taskData.reviewerId === "string" ? taskData.reviewerId : null);
       setTitle(typeof taskData.title === "string" ? formatTaskName(taskData.title) : "");
       setDescription(typeof taskData.description === "string" ? taskData.description : "");
-      setDueDate(toDateInputString(taskData.dueDate));
+      const normalizedStartDate =
+        toDateInputString(taskData.startAt) || toDateInputString(taskData.dueDate);
+      const normalizedEndDate =
+        toDateInputString(taskData.endAt) || toDateInputString(taskData.dueDate);
+      setStartDate(normalizedStartDate || normalizedEndDate);
+      setDueDate(normalizedEndDate || normalizedStartDate);
       const normalizedStart = toTimeInputString(taskData.startAt);
-      const normalizedEnd = toTimeInputString(taskData.endAt);
+      const normalizedEnd = toTimeInputString(taskData.endAt) || toTimeInputString(taskData.dueDate);
       const resolvedStart = normalizedStart || DEFAULT_TASK_START_TIME;
       const resolvedEnd =
         normalizedEnd ||
@@ -1094,6 +1114,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
       setTitleError(null);
       setProjectError(null);
+      setStartDateError(null);
       setTimeRangeError(null);
     },
     [],
@@ -1115,6 +1136,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSuccessMessage(null);
     setTitleError(null);
     setProjectError(null);
+    setStartDateError(null);
     setDueDateError(null);
     setTimeRangeError(null);
   }, [open, resetForm]);
@@ -1363,6 +1385,12 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   }, [effectiveProjectId]);
 
   useEffect(() => {
+    if (startDate) {
+      setStartDateError(null);
+    }
+  }, [startDate]);
+
+  useEffect(() => {
     if (dueDate) {
       setDueDateError(null);
     }
@@ -1374,15 +1402,16 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     
     if (isEditing) {
       // Edit mode: collapsed unless missing due date/time (prompt completion)
-      const hasDueDate = Boolean(dueDate && dueDate.trim());
-      setIsDueOpen(!hasDueDate);
+      const hasStart = Boolean(startDate && startDate.trim());
+      const hasEnd = Boolean(dueDate && dueDate.trim());
+      setIsDueOpen(!(hasStart && hasEnd));
       setShowQuickDateChips(false);
     } else {
       // Create mode: expanded by default (scheduling is important)
       setIsDueOpen(true);
       setShowQuickDateChips(true);
     }
-  }, [open, isEditing, dueDate]);
+  }, [open, isEditing, dueDate, startDate]);
 
   // Show quick date chips when date section is open
   useEffect(() => {
@@ -1414,9 +1443,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   );
 
   const statusBadgeData = useMemo(() => {
-    const dueDateObj = dueDate ? new Date(dueDate) : null;
+    const dueDateObj =
+      dueDate && endTime
+        ? new Date(`${dueDate}T${endTime}:00`)
+        : dueDate
+          ? new Date(`${dueDate}T00:00:00`)
+          : null;
     return getTaskStatusBadge(status, dueDateObj, undefined);
-  }, [status, dueDate]);
+  }, [status, dueDate, endTime]);
   
   const statusTone: TaskStatusTone = useMemo(
     () => getTaskStatusTone(statusBadgeData.category),
@@ -1651,21 +1685,39 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setErrorMessage(null);
   };
 
+  const handleStartDateInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    setStartDate(nextValue);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    setStartDateError(null);
+    setTimeRangeError(null);
+
+    if (nextValue && (!dueDate || dueDate < nextValue)) {
+      setDueDate(nextValue);
+      setDueDateError(null);
+    }
+  };
+
   const handleDueDateInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setDueDate(event.target.value);
+    const nextValue = event.target.value;
+    setDueDate(nextValue);
     setSuccessMessage(null);
     setErrorMessage(null);
     setDueDateError(null);
     setTimeRangeError(null);
+
+    if (nextValue && (!startDate || startDate > nextValue)) {
+      setStartDate(nextValue);
+      setStartDateError(null);
+    }
   };
 
   const handleDueDateFocus = () => {
     setIsDueOpen(true);
-    setDateFieldFocused(true);
   };
 
   const handleDueDateBlur = () => {
-    setDateFieldFocused(false);
   };
 
   const handleStartTimeFocus = () => {
@@ -1691,7 +1743,45 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     }
   };
 
+  const formatScheduleSummary = (): string => {
+    if (!startDate && !dueDate) {
+      return "Not scheduled";
+    }
+
+    const formatTime = (time: string) => {
+      const [hours, minutes] = time.split(":");
+      const h = Number.parseInt(hours, 10);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12 = h % 12 || 12;
+      return `${h12}${minutes !== "00" ? `:${minutes}` : ""} ${ampm}`;
+    };
+
+    const startLabelDate = startDate
+      ? new Date(`${startDate}T00:00:00`).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      : "";
+    const endLabelDate = dueDate
+      ? new Date(`${dueDate}T00:00:00`).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      : "";
+
+    const startLabel = startTime
+      ? `${startLabelDate} ${formatTime(startTime)}`.trim()
+      : startLabelDate;
+    const endLabel = endTime ? `${endLabelDate} ${formatTime(endTime)}`.trim() : endLabelDate;
+
+    if (startLabel && endLabel) {
+      return `${startLabel} – ${endLabel}`;
+    }
+    return startLabel || endLabel || "Not scheduled";
+  };
+
   const formatDueSummary = (): string => {
+    return formatScheduleSummary();
     if (!dueDate && !startTime && !endTime) {
       return "Not scheduled";
     }
@@ -1745,6 +1835,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   const handleDueDateQuickSelect = (value: string) => {
     setDueDate(value);
+    if (!startDate || startDate > value) {
+      setStartDate(value);
+      setStartDateError(null);
+    }
     setSuccessMessage(null);
     setErrorMessage(null);
     setDueDateError(null);
@@ -1774,7 +1868,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       return;
     }
 
-    setEndTime(addMinutesToTimeString(nextValue, durationMinutes));
+    if (dueDate === startDate) {
+      setEndTime(addMinutesToTimeString(nextValue, durationMinutes));
+    }
   };
 
   const handleEndTimeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2050,8 +2146,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       return;
     }
 
+    if (!startDate) {
+      const errorMsg = "Add a start date before saving.";
+      setStartDateError(errorMsg);
+      setErrorMessage(null);
+      notify("error", errorMsg);
+      document.getElementById(startDateFieldId)?.focus();
+      return;
+    }
+
     if (!dueDate) {
-      const errorMsg = "Add a due date before saving.";
+      const errorMsg = "Add an end date before saving.";
       setDueDateError(errorMsg);
       setErrorMessage(null);
       notify("error", errorMsg);
@@ -2069,17 +2174,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         return;
       }
 
-      const [startHours, startMinutes] = startTimeValue.split(":").map(Number);
-      const [endHours, endMinutes] = endTimeValue.split(":").map(Number);
-      const startTotalMinutes = startHours * 60 + startMinutes;
-      const endTotalMinutes = endHours * 60 + endMinutes;
-
+      const startDateTime = new Date(`${startDate}T${startTimeValue}:00`);
+      const endDateTime = new Date(`${dueDate}T${endTimeValue}:00`);
       if (
-        Number.isNaN(startTotalMinutes) ||
-        Number.isNaN(endTotalMinutes) ||
-        endTotalMinutes <= startTotalMinutes
+        Number.isNaN(startDateTime.getTime()) ||
+        Number.isNaN(endDateTime.getTime()) ||
+        endDateTime.getTime() <= startDateTime.getTime()
       ) {
-        const errorMsg = "End time must be after start time.";
+        const errorMsg = "End date/time must be after start date/time.";
         setTimeRangeError(errorMsg);
         setErrorMessage(null);
         notify("error", errorMsg);
@@ -2099,8 +2201,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         : undefined
       : normalizedStatusForPayload;
 
-    const startAtIso = startTimeValue ? `${dueDate}T${startTimeValue}:00` : undefined;
+    const startAtIso = startTimeValue ? `${startDate}T${startTimeValue}:00` : undefined;
     const endAtIso = endTimeValue ? `${dueDate}T${endTimeValue}:00` : undefined;
+    const dueDateIso = endAtIso ?? (dueDate || undefined);
 
     try {
       const trimmedAddress = addressSearch.trim();
@@ -2129,7 +2232,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         projectId: resolvedProjectId,
         title: formattedTitle,
         description: description.trim() || undefined,
-        dueDate: dueDate || undefined,
+        dueDate: dueDateIso,
         ...(startAtIso
           ? { startAt: startAtIso }
           : isEditing && initialTaskRef.current?.startAt != null && initialTaskRef.current?.startAt !== ""
@@ -2179,7 +2282,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           projectId: resolvedProjectId,
           title: formattedTitle,
           description: description.trim(),
-          dueDate: toDateInputString(dueDate) || "",
+          dueDate: dueDateIso ?? "",
           startAt: startAtIso ?? null,
           endAt: endAtIso ?? null,
           status: normalizeStatus(status),
@@ -2197,6 +2300,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setSuccessMessage("Task created. You'll see it in your lists shortly.");
         setTitle("");
         setDescription("");
+        setStartDate("");
         setDueDate("");
         setStartTime(DEFAULT_TASK_START_TIME);
         setEndTime(DEFAULT_TASK_END_TIME);
@@ -2209,6 +2313,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setStatus("todo");
         setTitleError(null);
         setProjectError(null);
+        setStartDateError(null);
         requestAnimationFrame(() => {
           titleInputRef.current?.focus({ preventScroll: true });
         });
@@ -3001,7 +3106,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                 aria-controls="due-datetime-content"
               >
                 <div className={styles.collapsibleHeaderLeft}>
-                  <span className={styles.fieldLabelText}>Due </span>
+                  <span className={styles.fieldLabelText}>Schedule</span>
                   {!isDueOpen && <span className={styles.collapsibleSummary}>{formatDueSummary()}</span>}
                 </div>
                 <button
@@ -3044,14 +3149,37 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
               
               {isDueOpen && (
                 <div id="due-datetime-content" className={styles.collapsibleContent}>
+                  <div className={styles.fieldHeader}>
+                    <label className={styles.fieldLabel} htmlFor={startDateFieldId}>
+                      <span className={styles.fieldLabelText}>Start date</span>
+                    </label>
+                  </div>
+                  <input
+                    id={startDateFieldId}
+                    aria-label="Task start date"
+                    type="date"
+                    className={styles.textInput}
+                    value={startDate}
+                    onChange={handleStartDateInputChange}
+                    onFocus={handleDueDateFocus}
+                    onBlur={handleDueDateBlur}
+                    disabled={isBusy}
+                    aria-describedby={startDateError ? startDateErrorId : undefined}
+                  />
+                  {startDateError ? (
+                    <p id={startDateErrorId} className={styles.fieldError} aria-live="polite">
+                      {startDateError}
+                    </p>
+                  ) : null}
+
                   <div className={styles.dateHeaderRow}>
                     <div className={styles.fieldHeader}>
                       <label className={styles.fieldLabel} htmlFor={dueDateFieldId}>
-                        <span className={styles.fieldLabelText}>Date</span>
+                        <span className={styles.fieldLabelText}>End date</span>
                       </label>
                     </div>
                     {showQuickDateChips && (
-                      <div className={styles.quickChipsSmall} role="group" aria-label="Quick due date shortcuts">
+                      <div className={styles.quickChipsSmall} role="group" aria-label="Quick end date shortcuts">
                         <button
                           type="button"
                           className={`${styles.quickChip} ${dueDate === todayValue ? styles.quickChipActive : ""}`}
@@ -3081,7 +3209,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   </div>
                   <input
                     id={dueDateFieldId}
-                    aria-label="Task due date"
+                    aria-label="Task end date"
                     type="date"
                     className={styles.textInput}
                     value={dueDate}

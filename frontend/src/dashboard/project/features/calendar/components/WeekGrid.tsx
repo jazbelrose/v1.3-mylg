@@ -10,6 +10,7 @@ import {
   addHoursToTime,
   fmtLocal,
   formatTimeLabel,
+  isSameDay,
   safeDate,
   setTime,
   getProjectColor,
@@ -64,6 +65,52 @@ const parseHour = (time?: string) => {
   if (Number.isNaN(h)) return undefined;
   return h;
 };
+
+const parseDateTimeCandidate = (value: unknown): Date | null => {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) {
+    const copy = new Date(value.getTime());
+    return Number.isNaN(copy.getTime()) ? null : copy;
+  }
+  if (typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split("-").map(Number);
+      const parsed = new Date(year, month - 1, day, 0, 0, 0, 0);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+const buildLocalDateTime = (date: string, time: string): Date | null => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const [year, month, day] = date.split("-").map(Number);
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    Number.isNaN(day) ||
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes)
+  ) {
+    return null;
+  }
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const minutesSinceMidnight = (date: Date) =>
+  date.getHours() * MINUTES_IN_HOUR + date.getMinutes();
 
 const formatHour12 = (hour: number): string => {
   if (hour === 0) return "12 AM";
@@ -350,31 +397,110 @@ function WeekGrid({
     });
 
     tasks.forEach((task) => {
-      if (!task.due) return;
-      const taskDate = safeDate(task.due);
-      if (!taskDate) return;
-      const dayKey = fmtLocal(taskDate);
-      if (!dayKeys.has(dayKey)) return;
-      const startMinutes = parseTimeToMinutes(task.start);
-      if (startMinutes == null) return;
-      const fallbackEnd =
+      const source = task.source as unknown as Record<string, unknown>;
+      const rawStartDateTime =
+        parseDateTimeCandidate(source.startAt) ??
+        parseDateTimeCandidate((source as { start_at?: unknown }).start_at) ??
+        (task.due && task.start ? buildLocalDateTime(task.due, task.start) : null);
+
+      const fallbackEndTime =
         task.end ?? (task.start ? addHoursToTime(task.start, 1) : undefined);
-      const rawEndMinutes =
-        parseTimeToMinutes(fallbackEnd) ?? startMinutes + MINUTES_IN_HOUR;
+      const rawEndDateTime =
+        parseDateTimeCandidate(source.endAt) ??
+        parseDateTimeCandidate((source as { end_at?: unknown }).end_at) ??
+        // Quick-create stores the due date as the end datetime
+        parseDateTimeCandidate(source.dueDate) ??
+        parseDateTimeCandidate((source as { due_at?: unknown }).due_at) ??
+        (task.due && fallbackEndTime ? buildLocalDateTime(task.due, fallbackEndTime) : null);
+
+      const startDateTime = rawStartDateTime;
+      if (!startDateTime) return;
+      let endDateTime =
+        rawEndDateTime ??
+        new Date(startDateTime.getTime() + MINUTES_IN_HOUR * 60000);
+      if (endDateTime.getTime() <= startDateTime.getTime()) {
+        endDateTime = new Date(startDateTime.getTime() + MINUTES_IN_HOUR * 60000);
+      }
+
+      if (!isSameDay(startDateTime, endDateTime)) {
+        const startDay = new Date(startDateTime.getTime());
+        startDay.setHours(0, 0, 0, 0);
+        const endDay = new Date(endDateTime.getTime());
+        endDay.setHours(0, 0, 0, 0);
+
+        for (
+          let cursor = new Date(startDay.getTime());
+          cursor.getTime() <= endDay.getTime();
+          cursor = addDays(cursor, 1)
+        ) {
+          const dayKey = fmtLocal(cursor);
+          if (!dayKeys.has(dayKey)) continue;
+
+          const isFirst = isSameDay(cursor, startDay);
+          const isLast = isSameDay(cursor, endDay);
+          const startMinutes = isFirst ? minutesSinceMidnight(startDateTime) : 0;
+          const rawEndMinutes = isLast ? minutesSinceMidnight(endDateTime) : MAX_MINUTES;
+
+          if (isLast && rawEndMinutes === 0 && !isFirst) {
+            continue;
+          }
+
+          const endMinutes = Math.max(
+            startMinutes + 5,
+            Math.min(rawEndMinutes, MAX_MINUTES),
+          );
+
+          const isComplete = Boolean(task.done || task.status === "archived");
+          const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
+
+          const labelStartMinutes = startMinutes;
+          const labelEndMinutes = Math.min(endMinutes, MAX_MINUTES - 1);
+          const startLabel =
+            formatTimeLabel(formatTimeFromMinutes(labelStartMinutes)) ??
+            formatTimeFromMinutes(labelStartMinutes);
+          const endLabel =
+            formatTimeLabel(formatTimeFromMinutes(labelEndMinutes)) ??
+            formatTimeFromMinutes(labelEndMinutes);
+          const timeLabel =
+            startMinutes === 0 && rawEndMinutes === MAX_MINUTES
+              ? "All day"
+              : `${startLabel} - ${endLabel}`;
+
+          addEntry(dayKey, {
+            id: `task-${task.id}-${dayKey}`,
+            type: "task",
+            payload: task,
+            title: task.title || "Untitled task",
+            timeLabel,
+            startMinutes,
+            endMinutes,
+            avatars: buildTaskAvatars(task, teamMemberLookup),
+            completed: isComplete,
+            hour,
+          });
+        }
+        return;
+      }
+
+      const dayKey = fmtLocal(startDateTime);
+      if (!dayKeys.has(dayKey)) return;
+      const startMinutes = minutesSinceMidnight(startDateTime);
+      const rawEndMinutes = minutesSinceMidnight(endDateTime);
       const endMinutes = Math.max(
         startMinutes + 5,
-        Math.min(rawEndMinutes, 24 * MINUTES_IN_HOUR),
+        Math.min(rawEndMinutes, MAX_MINUTES),
       );
 
       const startLabel = formatTimeLabel(task.start) ?? task.start;
-      const endLabel = fallbackEnd ? formatTimeLabel(fallbackEnd) ?? fallbackEnd : undefined;
+      const endLabel =
+        fallbackEndTime ? formatTimeLabel(fallbackEndTime) ?? fallbackEndTime : undefined;
       const timeLabel =
         startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
 
       const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
       const isComplete = Boolean(task.done || task.status === "archived");
       addEntry(dayKey, {
-        id: `task-${task.id}`,
+        id: `task-${task.id}-${dayKey}`,
         type: "task",
         payload: task,
         title: task.title || "Untitled task",
