@@ -200,6 +200,7 @@ export default function PreventRootTextPlugin(): null {
               editor.update(() => {
                 applyModifierNodeSelection(nodeKey, event);
               });
+              editor.focus();
               event.preventDefault();
               event.stopPropagation();
               return true;

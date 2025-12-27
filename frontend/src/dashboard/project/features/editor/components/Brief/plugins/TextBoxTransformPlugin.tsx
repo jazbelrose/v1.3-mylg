@@ -691,6 +691,8 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
       editor.update(() => {
         selectionResult = applyModifierNodeSelection(nodeKey, event);
       });
+      // Ensure the Lexical root stays focused so shortcuts like Ctrl+Z work for NodeSelection.
+      editor.focus();
 
       const rect = textbox.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
