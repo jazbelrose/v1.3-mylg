@@ -1,5 +1,5 @@
 // components/SlidesSidebar.tsx - Sidebar with slide thumbnails
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { GripVertical } from "lucide-react";
 import { Copy, Download, Trash2 } from "lucide-react";
@@ -196,6 +196,9 @@ interface SlidesSidebarProps {
   onDuplicateSlide?: (slideId: string) => void;
   onDeleteSlide?: (slideId: string) => void;
   onExportSlide?: (slideId: string) => void;
+  selectedSlideIds?: string[];
+  onSelectedSlideIdsChange?: (ids: string[]) => void;
+  onRequestDeleteSelected?: (ids: string[]) => void;
 }
 
 const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
@@ -207,10 +210,22 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onDuplicateSlide,
   onDeleteSlide,
   onExportSlide,
+  selectedSlideIds = [],
+  onSelectedSlideIdsChange,
+  onRequestDeleteSelected,
 }) => {
   const uiThumbsEnabled = isUiThumbsEnabled();
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const contextMenuDropdownId = "slide-context-menu";
+  const anchorIndexRef = useRef<number | null>(null);
+  const selectedIdSet = useMemo(() => new Set(selectedSlideIds), [selectedSlideIds]);
+
+  const setSelected = useCallback(
+    (ids: string[]) => {
+      onSelectedSlideIdsChange?.(ids);
+    },
+    [onSelectedSlideIdsChange]
+  );
 
   useEffect(() => {
     if (!uiThumbsEnabled || !projectId || slides.length === 0) {
@@ -257,38 +272,111 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
       <div className="slides-sidebar__list" role="list">
         {slides.map((slide, index) => {
           const isActive = activeSlideId === slide.id;
+          const isSelected = selectedIdSet.has(slide.id);
 
           const handleKeySelect = (event: React.KeyboardEvent<HTMLDivElement>) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               onSlideSelect(slide.id);
+              if (selectedSlideIds.length) {
+                setSelected([slide.id]);
+              }
+              anchorIndexRef.current = index;
             }
           };
 
           const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
             event.preventDefault();
-            // Set this slide as active first
+            // If right-clicking a non-selected slide, select it first (file-manager style).
+            if (!selectedIdSet.has(slide.id)) {
+              setSelected([slide.id]);
+              anchorIndexRef.current = index;
+            }
+
+            // Set this slide as active first.
             onSlideSelect(slide.id);
             // Open context menu at mouse coordinates
             openDropdown(contextMenuDropdownId, event.currentTarget, { x: event.clientX, y: event.clientY });
+          };
+
+          const handleItemClick = (event: React.MouseEvent<HTMLDivElement>) => {
+            const isToggle = event.metaKey || event.ctrlKey;
+            const isRange = event.shiftKey;
+
+            if (isRange) {
+              const anchor = anchorIndexRef.current ?? index;
+              const start = Math.min(anchor, index);
+              const end = Math.max(anchor, index);
+              const rangeIds = slides.slice(start, end + 1).map((s) => s.id);
+              setSelected(rangeIds);
+              onSlideSelect(slide.id);
+              return;
+            }
+
+            if (isToggle) {
+              const next = new Set(selectedIdSet);
+              if (next.has(slide.id)) {
+                next.delete(slide.id);
+              } else {
+                next.add(slide.id);
+              }
+              const ids = Array.from(next);
+              setSelected(ids);
+              anchorIndexRef.current = index;
+              onSlideSelect(slide.id);
+              return;
+            }
+
+            anchorIndexRef.current = index;
+            onSlideSelect(slide.id);
+            if (selectedSlideIds.length) {
+              setSelected([slide.id]);
+            }
+          };
+
+          const handleCheckboxClick = (event: React.MouseEvent) => {
+            event.stopPropagation();
+          };
+
+          const handleCheckboxChange = () => {
+            const next = new Set(selectedIdSet);
+            if (next.has(slide.id)) {
+              next.delete(slide.id);
+            } else {
+              next.add(slide.id);
+            }
+            const ids = Array.from(next);
+            setSelected(ids);
+            anchorIndexRef.current = index;
           };
 
           return (
             <div
               key={slide.id}
               role="listitem"
-              className={`slides-sidebar__item${isActive ? " is-active" : ""}`}
+              aria-selected={isSelected}
+              className={`slides-sidebar__item${isActive ? " is-active" : ""}${isSelected ? " is-selected" : ""}`}
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, index)}
-              onClick={() => onSlideSelect(slide.id)}
+              onClick={handleItemClick}
               onContextMenu={handleContextMenu}
               onKeyDown={handleKeySelect}
               tabIndex={0}
             >
               <div className="slides-sidebar__item-header">
-                <span className="slides-sidebar__index">Slide {index + 1}</span>
+                <span className="slides-sidebar__index-row">
+                  <input
+                    type="checkbox"
+                    className="slides-sidebar__select"
+                    checked={isSelected}
+                    onClick={handleCheckboxClick}
+                    onChange={handleCheckboxChange}
+                    aria-label={`Select slide ${index + 1}`}
+                  />
+                  <span className="slides-sidebar__index">Slide {index + 1}</span>
+                </span>
                 <span className="slides-sidebar__drag-handle" aria-hidden>
                   <GripVertical size={16} />
                 </span>
@@ -305,6 +393,37 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
           );
         })}
       </div>
+
+      {!!selectedSlideIds.length && (
+        <div className="slides-sidebar__selection-bar" role="region" aria-label="Slide selection">
+          <div className="slides-sidebar__selection-count">{selectedSlideIds.length} selected</div>
+          <div className="slides-sidebar__selection-actions">
+            <button
+              type="button"
+              className="slides-sidebar__selection-button"
+              onClick={() => setSelected(slides.map((s) => s.id))}
+            >
+              Select all
+            </button>
+            {onDeleteSlide && onRequestDeleteSelected && (
+              <button
+                type="button"
+                className="slides-sidebar__selection-button slides-sidebar__selection-button--danger"
+                onClick={() => onRequestDeleteSelected?.(selectedSlideIds)}
+              >
+                Delete
+              </button>
+            )}
+            <button
+              type="button"
+              className="slides-sidebar__selection-button"
+              onClick={() => setSelected([])}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeDropdown === contextMenuDropdownId &&
         ReactDOM.createPortal(
@@ -342,7 +461,21 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                   type="button"
                   className="item item--danger"
                   onClick={() => {
-                    if (activeSlideId) onDeleteSlide(activeSlideId);
+                    const activeId = activeSlideId;
+                    if (!activeId) return;
+                    const idsToDelete =
+                      selectedIdSet.has(activeId) && selectedIdSet.size > 1
+                        ? Array.from(selectedIdSet)
+                        : [activeId];
+                    if (idsToDelete.length > 1) {
+                      if (onRequestDeleteSelected) {
+                        onRequestDeleteSelected(idsToDelete);
+                      } else {
+                        onDeleteSlide(activeId);
+                      }
+                    } else {
+                      onDeleteSlide(activeId);
+                    }
                     closeDropdown();
                   }}
                 >

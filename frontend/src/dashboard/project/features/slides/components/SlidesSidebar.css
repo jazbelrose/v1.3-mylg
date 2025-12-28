@@ -94,6 +94,12 @@
   background: rgba(250, 51, 86, 0.12);
 }
 
+.slides-sidebar__item.is-selected:not(.is-active) {
+  border-color: rgba(93, 230, 255, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(93, 230, 255, 0.2);
+  background: rgba(93, 230, 255, 0.06);
+}
+
 .slides-sidebar__item-header {
   display: flex;
   align-items: center;
@@ -101,6 +107,21 @@
   font-size: 12px;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.6);
+}
+
+.slides-sidebar__index-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.slides-sidebar__select {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand, #fa3356);
+  cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .slides-sidebar__drag-handle {
@@ -191,6 +212,61 @@
   color: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.slides-sidebar__selection-bar {
+  position: sticky;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.slides-sidebar__selection-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+.slides-sidebar__selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.slides-sidebar__selection-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slides-sidebar__selection-button:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.slides-sidebar__selection-button--danger {
+  border-color: rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.12);
+}
+
+.slides-sidebar__selection-button--danger:hover {
+  border-color: rgba(250, 51, 86, 0.6);
+  background: rgba(250, 51, 86, 0.18);
 }
 
 @media (max-width: 1024px) {

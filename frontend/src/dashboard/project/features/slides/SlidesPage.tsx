@@ -12,6 +12,7 @@ import FileManagerComponent from "@/dashboard/project/components/FileManager/Fil
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import { notify } from "@/shared/ui/ToastNotifications";
+import { ConfirmModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
@@ -97,6 +98,9 @@ const SlidesPage: React.FC = () => {
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
+  const [selectedSlideIds, setSelectedSlideIds] = useState<string[]>([]);
+  const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
+  const [pendingDeleteSlideIds, setPendingDeleteSlideIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
@@ -156,6 +160,11 @@ const SlidesPage: React.FC = () => {
     const title = activeProject?.title ?? "";
     navigate(getProjectDashboardPath(deletedProjectId, title));
   };
+
+  useEffect(() => {
+    // Keep selection valid as slides change (import, delete, reorder, etc.)
+    setSelectedSlideIds((prev) => prev.filter((id) => slides.some((s) => s.id === id)));
+  }, [slides]);
 
   const handleImportPdfClick = useCallback(() => {
     if (pdfImportStatus !== "idle") return;
@@ -660,32 +669,76 @@ const SlidesPage: React.FC = () => {
     notify("success", "Slide duplicated");
   }, [slides, activeSlideId, saveSlides]);
 
-  const handleDeleteSlide = useCallback((slideId?: string) => {
-    const targetSlideId = slideId || activeSlideId;
-    if (slides.length === 1) {
-      notify("warning", "Cannot delete the last slide");
-      return;
-    }
+  const performDeleteSlides = useCallback(
+    (slideIds: string[]) => {
+      const uniqueIds = Array.from(new Set(slideIds)).filter((id) => slides.some((s) => s.id === id));
+      if (uniqueIds.length === 0) {
+        return;
+      }
 
-    const updatedSlides = slides.filter((s) => s.id !== targetSlideId);
+      const remainingCount = slides.length - uniqueIds.length;
+      if (remainingCount < 1) {
+        notify("warning", "Cannot delete the last slide");
+        return;
+      }
 
-    // Reorder remaining slides
-    const reorderedSlides = updatedSlides.map((slide, idx) => ({
-      ...slide,
-      order: idx,
-    }));
+      const deletedIndices = uniqueIds
+        .map((id) => slides.findIndex((s) => s.id === id))
+        .filter((idx) => idx >= 0);
+      const anchorIndex = deletedIndices.length ? Math.min(...deletedIndices) : 0;
 
-    setSlides(reorderedSlides);
+      const remainingSlides = slides.filter((s) => !uniqueIds.includes(s.id));
+      const reorderedSlides = remainingSlides.map((slide, idx) => ({
+        ...slide,
+        order: idx,
+      }));
 
-    // Select the previous slide or the first one
-    const deletedIndex = slides.findIndex((s) => s.id === targetSlideId);
-    const newActiveIndex = Math.max(0, deletedIndex - 1);
-    setActiveSlideId(reorderedSlides[newActiveIndex]?.id || null);
+      const activeStillExists =
+        activeSlideId && !uniqueIds.includes(activeSlideId) && reorderedSlides.some((s) => s.id === activeSlideId);
+      const nextActiveId = activeStillExists
+        ? activeSlideId
+        : reorderedSlides[Math.min(anchorIndex, reorderedSlides.length - 1)]?.id ?? reorderedSlides[0]?.id ?? null;
 
-    setIsDirty(true);
-    saveSlides(reorderedSlides);
-    notify("success", "Slide deleted");
-  }, [slides, activeSlideId, saveSlides]);
+      setSlides(reorderedSlides);
+      setSelectedSlideIds([]);
+      setActiveSlideId(nextActiveId);
+      setIsDirty(true);
+      saveSlides(reorderedSlides);
+
+      notify("success", uniqueIds.length === 1 ? "Slide deleted" : `Deleted ${uniqueIds.length} slides`);
+    },
+    [slides, activeSlideId, saveSlides]
+  );
+
+  const requestDeleteSlides = useCallback(
+    (slideIds: string[]) => {
+      const uniqueIds = Array.from(new Set(slideIds)).filter((id) => slides.some((s) => s.id === id));
+      if (uniqueIds.length === 0) {
+        return;
+      }
+      setPendingDeleteSlideIds(uniqueIds);
+      setDeleteSelectedOpen(true);
+    },
+    [slides]
+  );
+
+  const handleDeleteSlide = useCallback(
+    (slideId?: string) => {
+      const targetSlideId = slideId || activeSlideId;
+      if (!targetSlideId) {
+        return;
+      }
+
+      const selectedIncludesTarget = selectedSlideIds.includes(targetSlideId);
+      if (selectedIncludesTarget && selectedSlideIds.length > 1) {
+        requestDeleteSlides(selectedSlideIds);
+        return;
+      }
+
+      performDeleteSlides([targetSlideId]);
+    },
+    [activeSlideId, selectedSlideIds, performDeleteSlides, requestDeleteSlides]
+  );
 
   const handleContentChange = useCallback((slideId: string, content: string) => {
     setSlides((prev) =>
@@ -996,6 +1049,25 @@ const SlidesPage: React.FC = () => {
         onChange={handlePdfImportFileSelected}
         style={{ display: "none" }}
       />
+      <ConfirmModal
+        isOpen={deleteSelectedOpen}
+        onRequestClose={() => {
+          setDeleteSelectedOpen(false);
+          setPendingDeleteSlideIds([]);
+        }}
+        onConfirm={() => {
+          performDeleteSlides(pendingDeleteSlideIds);
+          setDeleteSelectedOpen(false);
+          setPendingDeleteSlideIds([]);
+        }}
+        message={
+          pendingDeleteSlideIds.length === 1
+            ? "Delete this slide? This cannot be undone."
+            : `Delete ${pendingDeleteSlideIds.length} slides? This cannot be undone.`
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+      />
       {filesOpen && (
         <FileManagerComponent
           isOpen={filesOpen}
@@ -1032,6 +1104,9 @@ const SlidesPage: React.FC = () => {
               projectId={projectId || ""}
               onDuplicateSlide={handleDuplicateSlide}
               onDeleteSlide={handleDeleteSlide}
+              selectedSlideIds={selectedSlideIds}
+              onSelectedSlideIdsChange={setSelectedSlideIds}
+              onRequestDeleteSelected={requestDeleteSlides}
               onExportSlide={handleExport}
             />
 
