@@ -11,6 +11,7 @@ import { ListItemNode, ListNode } from "@lexical/list";
 import { AutoLinkNode, LinkNode } from "@lexical/link";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 
+import ImageLockPlugin from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockPlugin";
 import { ResizableImageNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/ResizableImageNode";
 import { SvgNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/SvgNode";
 import { FigmaEmbedNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/FigmaEmbedNode";
@@ -92,33 +93,36 @@ const SlideReadOnlyRenderer: React.FC<SlideReadOnlyRendererProps> = ({
   );
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
+    <div style={{ width: "100%", height: "100%", pointerEvents: "none", userSelect: "none" }}>
       <LexicalComposer initialConfig={initialConfig}>
-        <RichTextPlugin
-          contentEditable={
-            <ContentEditable
-              className="editor-input"
-              style={{
-                position: "relative",
-                width: "100%",
-                height: "100%",
-                padding: resolvedContentPadding,
-                boxSizing: "border-box",
-                overflow: "hidden",
-                pointerEvents: "none",
-                userSelect: "none",
-              }}
-            />
-          }
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <ListPlugin />
-        <LinkPlugin />
-        <ClickableLinkPlugin />
+        {/* Provide ImageLockContext so slide nodes like ResizableImageNode don't crash in read-only mode. */}
+        <ImageLockPlugin provider={null}>
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable
+                className="editor-input"
+                data-slides-mode="true"
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  padding: resolvedContentPadding,
+                  boxSizing: "border-box",
+                  overflow: "hidden",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              />
+            }
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <ListPlugin />
+          <LinkPlugin />
+          <ClickableLinkPlugin />
+        </ImageLockPlugin>
       </LexicalComposer>
     </div>
   );
 };
 
 export default SlideReadOnlyRenderer;
-
