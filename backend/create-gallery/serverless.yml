@@ -15,7 +15,7 @@ custom:
 
 provider:
   name: aws
-  runtime: python3.9
+  runtime: python3.12
   region: us-west-2
   stage: ${opt:stage, 'dev'}
   memorySize: 512
@@ -56,7 +56,7 @@ functions:
   createGalleryFunction:
     name: ${self:custom.app}-${self:custom.ver}-create-gallery-${sls:stage}
     handler: lambda_function.lambda_handler
-    runtime: python3.9
+    runtime: python3.12
     timeout: 300
     memorySize: 512
     package:
