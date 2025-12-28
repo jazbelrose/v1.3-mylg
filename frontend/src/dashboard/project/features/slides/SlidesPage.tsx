@@ -23,6 +23,13 @@ import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
 
+type PdfImportDetail = {
+  stage: string;
+  currentPage: number;
+  totalPages: number;
+  percent: number;
+};
+
 async function waitForThumbnailReady(url: string, maxAttempts = MAX_THUMBNAIL_ATTEMPTS): Promise<string> {
   if (!url) {
     return url;
@@ -99,6 +106,7 @@ const SlidesPage: React.FC = () => {
   const pdfImportInputRef = useRef<HTMLInputElement | null>(null);
   const [pdfImportStatus, setPdfImportStatus] = useState<"idle" | "uploading" | "processing">("idle");
   const [pdfImportProgress, setPdfImportProgress] = useState<number>(0);
+  const [pdfImportDetail, setPdfImportDetail] = useState<PdfImportDetail | null>(null);
   const toolbarPortalRef = useCallback((node: HTMLDivElement | null) => {
     setToolbarPortalNode(node);
   }, []);
@@ -194,8 +202,34 @@ const SlidesPage: React.FC = () => {
         projectId?: string;
         importId?: string;
         pageCount?: number;
+        stage?: string;
+        currentPage?: number;
+        totalPages?: number;
+        percent?: number;
+        message?: string;
         slides?: Slide[];
       };
+
+      if (data.action === "slidesImportProgress" && projectId && data.projectId === projectId) {
+        setPdfImportStatus("processing");
+        const percent = Math.max(0, Math.min(99, Math.round(Number(data.percent ?? 0))));
+        setPdfImportProgress(percent);
+        setPdfImportDetail({
+          stage: data.stage || "processing",
+          currentPage: Math.max(0, Math.round(Number(data.currentPage ?? 0))),
+          totalPages: Math.max(0, Math.round(Number(data.totalPages ?? 0))),
+          percent,
+        });
+        return;
+      }
+
+      if (data.action === "slidesImportFailed" && projectId && data.projectId === projectId) {
+        setPdfImportStatus("idle");
+        setPdfImportProgress(0);
+        setPdfImportDetail(null);
+        notify("error", data.message ? `PDF import failed: ${data.message}` : "PDF import failed");
+        return;
+      }
 
       if (data.action !== "slidesImported" || !projectId || data.projectId !== projectId) {
         return;
@@ -222,12 +256,38 @@ const SlidesPage: React.FC = () => {
 
       setPdfImportStatus("idle");
       setPdfImportProgress(0);
+      setPdfImportDetail(null);
       notify("success", `Imported ${data.pageCount || "PDF"} as slides`);
     };
 
     window.addEventListener("ws-message", onWsMessage as EventListener);
     return () => window.removeEventListener("ws-message", onWsMessage as EventListener);
   }, [projectId, makeUiThumbnail, uiThumbsEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (pdfImportStatus !== "processing") {
+      return;
+    }
+
+    // Fallback: if the backend doesn't emit progress events, keep UI responsive with a slow
+    // "heartbeat" progress that caps below 100% until completion arrives.
+    if (pdfImportDetail?.totalPages) {
+      return;
+    }
+
+    const t = window.setInterval(() => {
+      setPdfImportProgress((prev) => {
+        const next = prev > 0 ? prev + 1 : 1;
+        return Math.min(95, next);
+      });
+    }, 1100);
+
+    return () => window.clearInterval(t);
+  }, [pdfImportStatus, pdfImportDetail?.totalPages]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -749,6 +809,7 @@ const SlidesPage: React.FC = () => {
       try {
         setPdfImportStatus("uploading");
         setPdfImportProgress(0);
+        setPdfImportDetail(null);
 
         const presignRes = await apiFetch<{ uploadUrl: string; key: string }>(GALLERY_UPLOAD_URL, {
           method: "POST",
@@ -780,11 +841,19 @@ const SlidesPage: React.FC = () => {
         });
 
         setPdfImportStatus("processing");
+        setPdfImportProgress(0);
+        setPdfImportDetail({
+          stage: "processing",
+          currentPage: 0,
+          totalPages: 0,
+          percent: 0,
+        });
         notify("info", "PDF uploaded. Importing slides…");
       } catch (err) {
         console.error("PDF import upload failed:", err);
         setPdfImportStatus("idle");
         setPdfImportProgress(0);
+        setPdfImportDetail(null);
         notify("error", "Failed to import PDF");
       }
     },
@@ -822,6 +891,13 @@ const SlidesPage: React.FC = () => {
   }, []);
 
   const activeSlide = slides.find((s) => s.id === activeSlideId);
+  const isImportingPdf = pdfImportStatus !== "idle";
+  const importStatusText =
+    pdfImportStatus === "uploading"
+      ? `Uploading PDF… ${Math.max(0, Math.min(100, Math.round(pdfImportProgress)))}%`
+      : pdfImportDetail?.totalPages
+        ? `Importing slides… ${Math.min(pdfImportDetail.currentPage, pdfImportDetail.totalPages)}/${pdfImportDetail.totalPages}`
+        : "Importing slides…";
 
   if (!projectId) {
     return <div>No project ID provided</div>;
@@ -862,6 +938,20 @@ const SlidesPage: React.FC = () => {
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div className="slides-shell">
+        {isImportingPdf && (
+          <div className="slides-import-banner" role="status" aria-live="polite">
+            <div className="slides-import-banner__text">{importStatusText}</div>
+            <progress
+              className="slides-import-banner__progress"
+              max={100}
+              value={
+                pdfImportStatus === "uploading" || pdfImportDetail?.totalPages
+                  ? Math.max(0, Math.min(100, Math.round(pdfImportProgress)))
+                  : undefined
+              }
+            />
+          </div>
+        )}
         <div className="slides-toolbar-shell" ref={toolbarPortalRef} />
         <DropdownProvider>
           <div className="slides-workspace">
@@ -889,8 +979,11 @@ const SlidesPage: React.FC = () => {
                   isSaving={isSaving}
                   isDirty={isDirty}
                   onImportPdf={handleImportPdfClick}
-                  isImportingPdf={pdfImportStatus !== "idle"}
+                  isImportingPdf={isImportingPdf}
+                  pdfImportStatus={pdfImportStatus}
                   importProgress={pdfImportProgress}
+                  importCurrentPage={pdfImportDetail?.currentPage}
+                  importTotalPages={pdfImportDetail?.totalPages}
                   zoom={zoom}
                   onZoomIn={handleZoomIn}
                   onZoomOut={handleZoomOut}

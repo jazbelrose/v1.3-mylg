@@ -243,6 +243,12 @@ const FILE_CDN = import.meta.env.VITE_FILE_CDN || import.meta.env.VITE_S3_PUBLIC
 export function getFileUrl(keyOrUrl: string): string {
   if (!keyOrUrl || typeof keyOrUrl !== 'string') return keyOrUrl;
 
+  const lower = keyOrUrl.toLowerCase();
+  // Don't rewrite object URLs / data URLs used for in-memory previews (e.g. UI thumbnails).
+  if (lower.startsWith('blob:') || lower.startsWith('data:')) {
+    return keyOrUrl;
+  }
+
   // If it's already a full URL, extract the key
   if (keyOrUrl.startsWith('http')) {
     try {

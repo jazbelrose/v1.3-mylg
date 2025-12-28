@@ -7,6 +7,7 @@ import re
 import base64
 import uuid
 import datetime
+import time
 from io import BytesIO
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
@@ -147,12 +148,19 @@ def extract_images(svg_content, base_path, bucket):
     return svg_content, urls
 
 
-def process_pdf(pdf_bytes, base_path, bucket):
+def process_pdf(pdf_bytes, base_path, bucket, on_progress=None):
     print(f"[process_pdf] opening PDF bytes={len(pdf_bytes)}")
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    print(f"[process_pdf] PDF has {len(doc)} pages")
+    total_pages = len(doc)
+    print(f"[process_pdf] PDF has {total_pages} pages")
     counter, urls, image_map = 1, [], []
     page_image_urls = []
+
+    if on_progress:
+        try:
+            on_progress(0, total_pages)
+        except Exception as e:
+            print('[process_pdf] on_progress(0) failed', e)
 
     for pno, page in enumerate(doc, start=1):
         images = page.get_images(full=True)
@@ -195,6 +203,12 @@ def process_pdf(pdf_bytes, base_path, bucket):
         )
         page_image_urls.append(f"https://{bucket}.s3.amazonaws.com/{page_key}")
 
+        if on_progress:
+            try:
+                on_progress(pno, total_pages)
+            except Exception as e:
+                print(f'[process_pdf] on_progress({pno}) failed', e)
+
     print("[process_pdf] saving updated PDF…")
     buf = BytesIO()
     doc.save(buf, deflate=True, garbage=4)
@@ -223,6 +237,44 @@ def broadcast_to_conversation(conversation_id, payload):
                 pass
     except Exception as e:
         print('broadcast_to_conversation error', e)
+
+
+def list_conversation_connection_ids(conversation_id: str):
+    try:
+        data = connections_table.scan().get('Items', [])
+        ids = []
+        for c in data:
+            active_conv = (c.get('activeConversation') or '').strip()
+            if active_conv == (conversation_id or '').strip():
+                cid = c.get('connectionId')
+                if cid:
+                    ids.append(cid)
+        return ids
+    except Exception as e:
+        print('list_conversation_connection_ids error', e)
+        return []
+
+
+def broadcast_to_connection_ids(connection_ids, payload):
+    stale = []
+    alive = []
+
+    for cid in (connection_ids or []):
+        if not cid:
+            continue
+        res = post_ws(cid, payload)
+        if res == 'gone':
+            stale.append(cid)
+        elif res is True:
+            alive.append(cid)
+
+    for cid in stale:
+        try:
+            connections_table.delete_item(Key={'connectionId': cid})
+        except Exception:
+            pass
+
+    return alive
 
 
 def process_request(body, cors_headers):
@@ -419,11 +471,59 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str):
 
     import_id = str(uuid.uuid4())
     base_path = f"projects/{project_id}/slides/imports/{import_id}"
+    conversation_id = f'project#{project_id}'
+    recipient_ids = list_conversation_connection_ids(conversation_id)
+    last_progress_sent_at = 0.0
 
     obj = s3.get_object(Bucket=bucket, Key=pdf_key)
     pdf_bytes = obj['Body'].read()
 
-    pdf_bytes_updated, _pdf_image_urls, _pdf_image_map, page_urls = process_pdf(pdf_bytes, base_path, bucket)
+    def _send_progress(current_page: int, total_pages: int):
+        nonlocal recipient_ids, last_progress_sent_at
+        if not recipient_ids:
+            return
+
+        now = time.time()
+        is_final = bool(total_pages and current_page >= total_pages)
+        if not is_final and (now - last_progress_sent_at) < 0.75:
+            return
+        last_progress_sent_at = now
+
+        percent = 0
+        if total_pages and total_pages > 0:
+            percent = int((current_page / total_pages) * 100)
+
+        payload = {
+            'action': 'slidesImportProgress',
+            'projectId': project_id,
+            'importId': import_id,
+            'stage': 'rendering',
+            'currentPage': int(current_page or 0),
+            'totalPages': int(total_pages or 0),
+            'percent': percent,
+        }
+        recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
+
+    try:
+        pdf_bytes_updated, _pdf_image_urls, _pdf_image_map, page_urls = process_pdf(
+            pdf_bytes,
+            base_path,
+            bucket,
+            on_progress=_send_progress,
+        )
+    except Exception as e:
+        try:
+            payload = {
+                'action': 'slidesImportFailed',
+                'projectId': project_id,
+                'importId': import_id,
+                'message': str(e),
+            }
+            recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
+            broadcast_to_conversation(conversation_id, payload)
+        except Exception as broadcast_error:
+            print('[process_pdf_import_to_slides] failed to broadcast failure', broadcast_error)
+        raise
 
     # Keep a copy of the original/updated PDFs alongside the page renders for later debugging/use.
     try:

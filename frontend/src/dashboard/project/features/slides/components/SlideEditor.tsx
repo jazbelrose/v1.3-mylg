@@ -28,7 +28,10 @@ interface SlideEditorProps {
   onExport?: () => void;
   onImportPdf?: () => void;
   isImportingPdf?: boolean;
+  pdfImportStatus?: "idle" | "uploading" | "processing";
   importProgress?: number;
+  importCurrentPage?: number;
+  importTotalPages?: number;
   isSaving?: boolean;
   isDirty?: boolean;
   // Zoom props
@@ -57,7 +60,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onExport,
   onImportPdf,
   isImportingPdf = false,
+  pdfImportStatus,
   importProgress,
+  importCurrentPage,
+  importTotalPages,
   isSaving = false,
   isDirty = false,
   zoom = 100,
@@ -213,7 +219,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onExport={onExport}
       onImportPdf={onImportPdf}
       isImportingPdf={isImportingPdf}
+      pdfImportStatus={pdfImportStatus}
       importProgress={importProgress}
+      importCurrentPage={importCurrentPage}
+      importTotalPages={importTotalPages}
       isSaving={isSaving}
       isDirty={isDirty}
       // Zoom controls

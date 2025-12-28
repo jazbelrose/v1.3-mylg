@@ -111,7 +111,10 @@ interface SlideToolbarProps {
   onNewSlide?: () => void;
   onImportPdf?: () => void;
   isImportingPdf?: boolean;
+  pdfImportStatus?: "idle" | "uploading" | "processing";
   importProgress?: number;
+  importCurrentPage?: number;
+  importTotalPages?: number;
   onMicToggle?: () => void;
   onSave?: () => void;
   onPreview?: () => void;
@@ -167,7 +170,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onNewSlide,
   onImportPdf,
   isImportingPdf = false,
+  pdfImportStatus,
   importProgress,
+  importCurrentPage,
+  importTotalPages,
   onMicToggle,
   onSave,
   onPreview,
@@ -907,11 +913,15 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             onClick={onImportPdf}
             disabled={isImportingPdf}
             title={
-              isImportingPdf
-                ? (typeof importProgress === "number" && importProgress > 0 && importProgress < 100)
-                  ? `Uploading PDF… ${importProgress}%`
-                  : "Importing PDF…"
-                : "Import PDF as slides"
+              !isImportingPdf
+                ? "Import PDF as slides"
+                : pdfImportStatus === "uploading"
+                  ? (typeof importProgress === "number" && importProgress > 0 && importProgress < 100)
+                    ? `Uploading PDF… ${importProgress}%`
+                    : "Uploading PDF…"
+                  : (typeof importTotalPages === "number" && importTotalPages > 0)
+                    ? `Importing slides… ${Math.min(importCurrentPage || 0, importTotalPages)}/${importTotalPages}`
+                    : "Importing slides…"
             }
           >
             <Upload size={18} />
