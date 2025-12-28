@@ -26,8 +26,10 @@ import {
   MoreHorizontal,
   Type,
   Plus,
-  BringToFront,
-  SendToBack,
+  ArrowUpToLine,
+  ArrowUp,
+  ArrowDown,
+  ArrowDownToLine,
   Lock,
   Link,
   ChevronDown,
@@ -762,16 +764,16 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           {hasArrange && (
             <>
               <button type="button" className="toolbar-item" onClick={onBringToFront} title="Bring to Front">
-                <BringToFront size={18} />
+                <ArrowUpToLine size={18} />
               </button>
               <button type="button" className="toolbar-item" onClick={onBringForward} title="Bring Forward">
-                <span>Forward</span>
+                <ArrowUp size={18} />
               </button>
               <button type="button" className="toolbar-item" onClick={onSendBackward} title="Send Backward">
-                <span>Backward</span>
+                <ArrowDown size={18} />
               </button>
               <button type="button" className="toolbar-item" onClick={onSendToBack} title="Send to Back">
-                <SendToBack size={18} />
+                <ArrowDownToLine size={18} />
               </button>
             </>
           )}
