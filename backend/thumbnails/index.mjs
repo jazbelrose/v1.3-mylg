@@ -14,7 +14,7 @@ const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
 // Bump when thumbnail rendering output changes (prevents CDN cache from serving old pixels).
-const THUMBNAIL_RENDER_VERSION = 1;
+const THUMBNAIL_RENDER_VERSION = 2;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -301,7 +301,7 @@ function renderTextBoxLayer(node, textColor) {
     'display:flex',
     'flex-direction:column',
     'justify-content:center',
-    'padding:16px',
+    'padding:8px',
     'box-sizing:border-box',
     `color:${textColor}`,
   ].join('; ');
@@ -476,12 +476,8 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
   }
 
   // IMPORTANT:
-  // In the editor, absolutely-positioned nodes are positioned relative to the padded ContentEditable.
-  // Apply the same padding here for structured layers/elements so x/y match.
-  const needsStagePadding = Boolean(elementHtml || layerMarkup);
-  if (needsStagePadding) {
-    structuredHtml = `<div class="stage-padding">${structuredHtml}</div>`;
-  }
+  // Slide layers (images/textboxes/vectors) are positioned in full-stage coordinates.
+  // Do not apply slide padding offsets here; padding is only for rich-text document flow.
 
   return `<!DOCTYPE html>
   <html>
@@ -563,7 +559,7 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           width: 100%;
           height: 100%;
           box-sizing: border-box;
-          padding: 96px 120px;
+          padding: ${STAGE_PADDING};
           display: flex;
           flex-direction: column;
           gap: 16px;
