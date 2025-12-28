@@ -1020,7 +1020,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           </>
         )}
 
-        {(onMicToggle || onDuplicate || onDelete || onExport || onPreview) && (
+        {onPreview && (
+          <button
+            type="button"
+            className="toolbar-item"
+            onClick={onPreview}
+            title="Preview"
+          >
+            <Eye size={18} />
+          </button>
+        )}
+
+        {(onMicToggle || onDuplicate || onDelete || onExport) && (
           <button
             type="button"
             className="toolbar-item more-trigger"
@@ -1085,19 +1096,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 >
                   <Download size={18} className="dropdown-icon" />
                   <span className="text">Export</span>
-                </button>
-              )}
-              {onPreview && (
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => {
-                    onPreview();
-                    closeDropdown();
-                  }}
-                >
-                  <Eye size={18} className="dropdown-icon" />
-                  <span className="text">Preview</span>
                 </button>
               )}
               {onDelete && (
