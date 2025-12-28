@@ -293,6 +293,13 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
           const displayTitle = (slide.title || "").trim() || "Untitled";
 
           const handleKeySelect = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            const target = event.target as HTMLElement | null;
+            if (target) {
+              const tag = target.tagName;
+              if (tag === "INPUT" || tag === "TEXTAREA" || (target as HTMLElement).isContentEditable) {
+                return;
+              }
+            }
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               onSlideSelect(slide.id);
@@ -393,6 +400,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                     onChange={(e) => setRenameDraft(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       if (e.key === "Escape") {
                         e.preventDefault();
                         setRenamingSlideId(null);
