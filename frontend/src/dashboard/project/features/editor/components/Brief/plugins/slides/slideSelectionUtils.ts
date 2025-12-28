@@ -54,7 +54,9 @@ export function applyModifierNodeSelection(
     } else if (isAdditive) {
       nextKeys = currentKeys.includes(nodeKey) ? currentKeys : [...currentKeys, nodeKey];
     } else {
-      nextKeys = currentKeys.length === 1 && currentKeys[0] === nodeKey ? currentKeys : [nodeKey];
+      // Design-app behavior: clicking an already-selected node keeps the current multi-selection.
+      // This enables "drag any selected item to move the whole selection" across node types.
+      nextKeys = currentKeys.includes(nodeKey) ? currentKeys : [nodeKey];
     }
   } else {
     nextKeys = [nodeKey];
