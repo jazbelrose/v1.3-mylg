@@ -8,6 +8,7 @@ import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import { ToolbarContextProvider } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
+import { getFileUrl } from "@/shared/utils/api";
 import {
   type FontFamily,
   type FontSize,
@@ -25,6 +26,9 @@ interface SlideEditorProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
+  onImportPdf?: () => void;
+  isImportingPdf?: boolean;
+  importProgress?: number;
   isSaving?: boolean;
   isDirty?: boolean;
   // Zoom props
@@ -51,6 +55,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onDuplicate,
   onDelete,
   onExport,
+  onImportPdf,
+  isImportingPdf = false,
+  importProgress,
   isSaving = false,
   isDirty = false,
   zoom = 100,
@@ -204,6 +211,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onDuplicate={onDuplicate}
       onDelete={onDelete}
       onExport={onExport}
+      onImportPdf={onImportPdf}
+      isImportingPdf={isImportingPdf}
+      importProgress={importProgress}
       isSaving={isSaving}
       isDirty={isDirty}
       // Zoom controls
@@ -262,6 +272,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const scale = zoom / 100;
   const appliedScale = Math.max(scale * fitScale, 0.01);
+  const backgroundImageUrl = slide.backgroundImage ? getFileUrl(slide.backgroundImage) : null;
 
   return (
     <DropdownProvider>
@@ -294,6 +305,14 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                   width: `${STAGE_WIDTH}px`,
                   height: `${STAGE_HEIGHT}px`,
                   backgroundColor: slide.backgroundColor || '#101112',
+                  ...(backgroundImageUrl
+                    ? {
+                        backgroundImage: `url("${backgroundImageUrl}")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "contain",
+                      }
+                    : null),
                 }}
               >
                 <div className="slide-editor__slide-frame">

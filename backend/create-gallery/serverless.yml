@@ -3,10 +3,15 @@ frameworkVersion: '3'
 
 useDotenv: true
 
+plugins:
+  - serverless-python-requirements
+
 custom:
   app: mylg
   ver: v12
   env: ${file(../serverless.common.yml):env}
+  pythonRequirements:
+    dockerizePip: false
 
 provider:
   name: aws
@@ -40,6 +45,8 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}/index/*
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CONNECTIONS_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:CONNECTIONS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}/index/*
         - Effect: Allow
           Action:
             - execute-api:ManageConnections

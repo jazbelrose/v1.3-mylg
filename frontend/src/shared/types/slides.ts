@@ -4,5 +4,6 @@ export interface Slide {
   // Store key or URL to thumbnail; consumers can call getFileUrl() as needed
   thumbnail?: string;
   backgroundColor?: string; // Slide background color
+  // Store key or URL to the background image; consumers can call getFileUrl() as needed
+  backgroundImage?: string;
 }
-

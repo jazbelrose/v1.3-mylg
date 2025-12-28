@@ -6,6 +6,7 @@ import os
 import re
 import base64
 import uuid
+import datetime
 from io import BytesIO
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
@@ -27,10 +28,48 @@ def convert_floats_to_decimals(obj):
         return obj
 
 
+def convert_decimals_to_numbers(obj):
+    if isinstance(obj, Decimal):
+        try:
+            if obj % 1 == 0:
+                return int(obj)
+        except Exception:
+            pass
+        return float(obj)
+    elif isinstance(obj, list):
+        return [convert_decimals_to_numbers(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_decimals_to_numbers(v) for k, v in obj.items()}
+    else:
+        return obj
+
+
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 galleries_table = dynamodb.Table(os.environ.get('GALLERIES_TABLE', 'Galleries'))
 connections_table = dynamodb.Table(os.environ.get('CONNECTIONS_TABLE', 'Connections'))
+projects_table = dynamodb.Table(os.environ.get('PROJECTS_TABLE', 'Projects'))
+
+
+EMPTY_LEXICAL_CONTENT = json.dumps({
+    "root": {
+        "children": [
+            {
+                "children": [],
+                "direction": None,
+                "format": "",
+                "indent": 0,
+                "type": "paragraph",
+                "version": 1,
+            }
+        ],
+        "direction": None,
+        "format": "",
+        "indent": 0,
+        "type": "root",
+        "version": 1,
+    }
+})
 
 
 def mgmt_endpoint():
@@ -343,6 +382,131 @@ def process_request(body, cors_headers):
     }
 
 
+def _now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _parse_bool_meta(value: str) -> bool:
+    if value is None:
+        return False
+    return str(value).strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def _project_id_from_upload_key(key: str):
+    try:
+        parts = (key or "").split("/")
+        if len(parts) >= 2 and parts[0] == "uploads":
+            return parts[1]
+    except Exception:
+        pass
+    return None
+
+
+def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str):
+    if not project_id or not pdf_key:
+        raise ValueError("project_id and pdf_key required")
+
+    project_res = projects_table.get_item(Key={'projectId': project_id})
+    project = project_res.get('Item') or {}
+    existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
+    max_order = -1
+    for s in existing_slides:
+        try:
+            max_order = max(max_order, int(s.get('order', 0)))
+        except Exception:
+            pass
+    start_order = max_order + 1
+
+    import_id = str(uuid.uuid4())
+    base_path = f"projects/{project_id}/slides/imports/{import_id}"
+
+    obj = s3.get_object(Bucket=bucket, Key=pdf_key)
+    pdf_bytes = obj['Body'].read()
+
+    pdf_bytes_updated, _pdf_image_urls, _pdf_image_map, page_urls = process_pdf(pdf_bytes, base_path, bucket)
+
+    # Keep a copy of the original/updated PDFs alongside the page renders for later debugging/use.
+    try:
+        s3.copy_object(
+            Bucket=bucket,
+            CopySource={'Bucket': bucket, 'Key': pdf_key},
+            Key=f"{base_path}/source-original.pdf",
+            ContentType='application/pdf',
+        )
+    except Exception as e:
+        print('[process_pdf_import_to_slides] failed to copy original pdf', e)
+    try:
+        s3.put_object(
+            Bucket=bucket,
+            Key=f"{base_path}/source-updated.pdf",
+            Body=pdf_bytes_updated,
+            ContentType='application/pdf',
+        )
+    except Exception as e:
+        print('[process_pdf_import_to_slides] failed to store updated pdf', e)
+
+    new_slides = []
+    for idx, page_url in enumerate(page_urls, start=1):
+        slide_id = str(uuid.uuid4())
+        slide_order = start_order + (idx - 1)
+        new_slides.append({
+            'id': slide_id,
+            'title': f"Slide {slide_order + 1}",
+            'order': slide_order,
+            'backgroundColor': '#101112',
+            'backgroundImage': page_url,
+            'content': EMPTY_LEXICAL_CONTENT,
+            'importMeta': {
+                'type': 'pdf',
+                'importId': import_id,
+                'sourceKey': pdf_key,
+                'page': idx,
+            }
+        })
+
+    merged_slides = (existing_slides or []) + new_slides
+    ts = _now_iso()
+    projects_table.update_item(
+        Key={'projectId': project_id},
+        UpdateExpression="SET #slides = :slides, #updatedAt = :ts",
+        ExpressionAttributeNames={'#slides': 'slides', '#updatedAt': 'updatedAt'},
+        ExpressionAttributeValues={
+            ':slides': convert_floats_to_decimals(merged_slides),
+            ':ts': ts,
+        },
+    )
+
+    merged_slides_jsonable = convert_decimals_to_numbers(merged_slides)
+
+    # Broadcast a purpose-built event for the slides UI, plus a generic projectUpdated for other views.
+    broadcast_to_conversation(
+        f'project#{project_id}',
+        {
+            'action': 'slidesImported',
+            'projectId': project_id,
+            'importId': import_id,
+            'pageCount': len(page_urls),
+            'slides': merged_slides_jsonable,
+        }
+    )
+    broadcast_to_conversation(
+        f'project#{project_id}',
+        {
+            'action': 'projectUpdated',
+            'projectId': project_id,
+            'fields': {'slides': merged_slides_jsonable},
+        }
+    )
+
+    return {
+        'projectId': project_id,
+        'importId': import_id,
+        'pageCount': len(page_urls),
+        'slidesAdded': len(new_slides),
+        'basePath': base_path,
+    }
+
+
 def lambda_handler(event, context):
     cors_headers = {
         "Access-Control-Allow-Origin": "*",
@@ -356,6 +520,31 @@ def lambda_handler(event, context):
         key = record['s3']['object']['key']
         obj = s3.get_object(Bucket=bucket, Key=key)
         meta = obj.get('Metadata', {})
+        import_to_slides = _parse_bool_meta(meta.get('importtoslides')) or ('/slides-import/' in (key or ''))
+
+        if import_to_slides:
+            if not key.lower().endswith('.pdf'):
+                return {
+                    'statusCode': 400,
+                    'headers': cors_headers,
+                    'body': json.dumps({'message': 'importToSlides only supports PDF uploads'}),
+                }
+            try:
+                project_id = meta.get('projectid') or _project_id_from_upload_key(key)
+                result = process_pdf_import_to_slides(project_id, key, bucket)
+                return {
+                    'statusCode': 200,
+                    'headers': cors_headers,
+                    'body': json.dumps(result),
+                }
+            except Exception as e:
+                print('process_pdf_import_to_slides failed', e)
+                return {
+                    'statusCode': 500,
+                    'headers': cors_headers,
+                    'body': json.dumps({'message': 'Failed to import PDF to slides', 'detail': str(e)}),
+                }
+
         body = {
             'projectId': meta.get('projectid'),
             'galleryName': meta.get('galleryname', os.path.basename(key)),

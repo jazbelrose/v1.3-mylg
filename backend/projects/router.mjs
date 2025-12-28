@@ -1530,13 +1530,28 @@ const deleteGalleryFilesBySlug = async (e, C, { projectId, gallerySlug }) => {
 };
 
 // POST /projects/galleries/upload
-// Body: { projectId, fileName, contentType, galleryName?, gallerySlug?, galleryPassword?, passwordEnabled?, passwordTimeout? }
+// Body: { projectId, fileName, contentType, galleryName?, gallerySlug?, galleryPassword?, passwordEnabled?, passwordTimeout?, importToSlides? }
 const createGalleryUpload = async (e, C) => {
   const b = B(e);
-  const { projectId, fileName, contentType, galleryName, gallerySlug, galleryPassword, passwordEnabled, passwordTimeout, key: customKey } = b;
+  const {
+    projectId,
+    fileName,
+    contentType,
+    galleryName,
+    gallerySlug,
+    galleryPassword,
+    passwordEnabled,
+    passwordTimeout,
+    importToSlides,
+    key: customKey,
+  } = b;
   
   if (!projectId || !fileName || !contentType) {
     return json(400, C, { error: "projectId, fileName, and contentType are required" });
+  }
+
+  if (importToSlides && contentType !== "application/pdf") {
+    return json(400, C, { error: "importToSlides only supports PDF uploads" });
   }
 
   // Validate file type
@@ -1557,7 +1572,8 @@ const createGalleryUpload = async (e, C) => {
     }
     const timestamp = Date.now();
     const fileId = uuidv4();
-    return `uploads/${projectId}/${timestamp}_${fileId}.${fileExtension}`;
+    const importPrefix = importToSlides ? 'slides-import/' : '';
+    return `uploads/${projectId}/${importPrefix}${timestamp}_${fileId}.${fileExtension}`;
   })();
 
   // Create metadata for the S3 object
@@ -1570,6 +1586,7 @@ const createGalleryUpload = async (e, C) => {
   if (galleryPassword) metadata.gallerypassword = galleryPassword;
   if (passwordEnabled !== undefined) metadata.passwordenabled = String(passwordEnabled);
   if (passwordTimeout) metadata.passwordtimeout = String(passwordTimeout);
+  if (importToSlides) metadata.importtoslides = "true";
 
   try {
     // Create presigned URL for upload

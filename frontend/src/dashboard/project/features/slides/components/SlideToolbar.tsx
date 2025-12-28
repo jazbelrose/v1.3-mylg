@@ -23,6 +23,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  Upload,
   MoreHorizontal,
   Type,
   Plus,
@@ -107,6 +108,9 @@ interface SlideToolbarProps {
   onDelete?: () => void;
   onExport?: () => void;
   onNewSlide?: () => void;
+  onImportPdf?: () => void;
+  isImportingPdf?: boolean;
+  importProgress?: number;
   onMicToggle?: () => void;
   onSave?: () => void;
   onPreview?: () => void;
@@ -160,6 +164,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDelete,
   onExport,
   onNewSlide,
+  onImportPdf,
+  isImportingPdf = false,
+  importProgress,
   onMicToggle,
   onSave,
   onPreview,
@@ -881,6 +888,23 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             title="New slide"
           >
             <Plus size={18} />
+          </button>
+        )}
+        {onImportPdf && (
+          <button
+            type="button"
+            className="toolbar-item"
+            onClick={onImportPdf}
+            disabled={isImportingPdf}
+            title={
+              isImportingPdf
+                ? (typeof importProgress === "number" && importProgress > 0 && importProgress < 100)
+                  ? `Uploading PDF… ${importProgress}%`
+                  : "Importing PDF…"
+                : "Import PDF as slides"
+            }
+          >
+            <Upload size={18} />
           </button>
         )}
 

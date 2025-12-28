@@ -17,7 +17,7 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
-import { getFileUrl } from "@/shared/utils/api";
+import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import "./slides.css";
 
@@ -96,6 +96,9 @@ const SlidesPage: React.FC = () => {
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
   const [toolbarPortalNode, setToolbarPortalNode] = useState<HTMLDivElement | null>(null);
+  const pdfImportInputRef = useRef<HTMLInputElement | null>(null);
+  const [pdfImportStatus, setPdfImportStatus] = useState<"idle" | "uploading" | "processing">("idle");
+  const [pdfImportProgress, setPdfImportProgress] = useState<number>(0);
   const toolbarPortalRef = useCallback((node: HTMLDivElement | null) => {
     setToolbarPortalNode(node);
   }, []);
@@ -142,6 +145,11 @@ const SlidesPage: React.FC = () => {
     navigate(getProjectDashboardPath(deletedProjectId, title));
   };
 
+  const handleImportPdfClick = useCallback(() => {
+    if (pdfImportStatus !== "idle") return;
+    pdfImportInputRef.current?.click();
+  }, [pdfImportStatus]);
+
   const handleBack = () => {
     const title = activeProject?.title ?? "";
 
@@ -172,6 +180,54 @@ const SlidesPage: React.FC = () => {
       fetchProjectDetails(projectId);
     }
   }, [projectId, activeProject, fetchProjectDetails]);
+
+  // Handle slide imports via websocket broadcast (from create-gallery Lambda)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onWsMessage = (event: Event) => {
+      const detail = (event as CustomEvent).detail as unknown;
+      if (!detail || typeof detail !== "object") return;
+
+      const data = detail as {
+        action?: string;
+        projectId?: string;
+        importId?: string;
+        pageCount?: number;
+        slides?: Slide[];
+      };
+
+      if (data.action !== "slidesImported" || !projectId || data.projectId !== projectId) {
+        return;
+      }
+
+      if (Array.isArray(data.slides)) {
+        const sortedSlides = [...data.slides].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const slidesWithDisplayThumbnails = sortedSlides.map((slide) => ({
+          ...slide,
+          thumbnail: (!uiThumbsEnabled && slide.thumbnail) ? makeUiThumbnail(slide.thumbnail) : slide.thumbnail,
+        }));
+
+        setSlides(slidesWithDisplayThumbnails);
+
+        if (data.importId) {
+          const firstImported = slidesWithDisplayThumbnails.find(
+            (s) => (s as { importMeta?: { importId?: string } }).importMeta?.importId === data.importId
+          );
+          if (firstImported) {
+            setActiveSlideId(firstImported.id);
+          }
+        }
+      }
+
+      setPdfImportStatus("idle");
+      setPdfImportProgress(0);
+      notify("success", `Imported ${data.pageCount || "PDF"} as slides`);
+    };
+
+    window.addEventListener("ws-message", onWsMessage as EventListener);
+    return () => window.removeEventListener("ws-message", onWsMessage as EventListener);
+  }, [projectId, makeUiThumbnail, uiThumbsEnabled]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -686,6 +742,69 @@ const SlidesPage: React.FC = () => {
     // TODO: Implement PDF export with jsPDF
   }, []);
 
+  const uploadPdfForSlidesImport = useCallback(
+    async (file: File) => {
+      if (!projectId) return;
+
+      try {
+        setPdfImportStatus("uploading");
+        setPdfImportProgress(0);
+
+        const presignRes = await apiFetch<{ uploadUrl: string; key: string }>(GALLERY_UPLOAD_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            fileName: file.name,
+            contentType: "application/pdf",
+            galleryName: file.name,
+            importToSlides: true,
+          }),
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", presignRes.uploadUrl);
+          xhr.setRequestHeader("Content-Type", "application/pdf");
+          xhr.upload.onprogress = (evt) => {
+            if (evt.lengthComputable) {
+              setPdfImportProgress(Math.round((evt.loaded / evt.total) * 100));
+            }
+          };
+          xhr.onload = () =>
+            xhr.status >= 200 && xhr.status < 300
+              ? resolve()
+              : reject(new Error(`Upload failed with status ${xhr.status}`));
+          xhr.onerror = () => reject(new Error("Network error"));
+          xhr.send(file);
+        });
+
+        setPdfImportStatus("processing");
+        notify("info", "PDF uploaded. Importing slides…");
+      } catch (err) {
+        console.error("PDF import upload failed:", err);
+        setPdfImportStatus("idle");
+        setPdfImportProgress(0);
+        notify("error", "Failed to import PDF");
+      }
+    },
+    [projectId]
+  );
+
+  const handlePdfImportFileSelected = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] || null;
+      e.target.value = "";
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        notify("error", "Please select a PDF file");
+        return;
+      }
+      void uploadPdfForSlidesImport(file);
+    },
+    [uploadPdfForSlidesImport]
+  );
+
   const handleZoomIn = useCallback(() => {
     setZoom(prev => Math.min(prev + 25, 200));
   }, []);
@@ -725,6 +844,13 @@ const SlidesPage: React.FC = () => {
       }
       mainClassName="slides-full-width-main"
     >
+      <input
+        ref={pdfImportInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        onChange={handlePdfImportFileSelected}
+        style={{ display: "none" }}
+      />
       {filesOpen && (
         <FileManagerComponent
           isOpen={filesOpen}
@@ -762,6 +888,9 @@ const SlidesPage: React.FC = () => {
                   onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
                   isSaving={isSaving}
                   isDirty={isDirty}
+                  onImportPdf={handleImportPdfClick}
+                  isImportingPdf={pdfImportStatus !== "idle"}
+                  importProgress={pdfImportProgress}
                   zoom={zoom}
                   onZoomIn={handleZoomIn}
                   onZoomOut={handleZoomOut}

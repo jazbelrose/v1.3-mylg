@@ -7,6 +7,7 @@ import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
+import { getFileUrl } from "@/shared/utils/api";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import "./SlidesSidebar.css";
 
@@ -24,7 +25,10 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
   });
 
   const uiThumbsEnabled = isUiThumbsEnabled();
-  const resolvedSrc = uiThumbsEnabled ? thumbnailUrl : slide.thumbnail ?? null;
+  const resolvedSrcRaw = uiThumbsEnabled
+    ? thumbnailUrl ?? slide.thumbnail ?? slide.backgroundImage ?? null
+    : slide.thumbnail ?? slide.backgroundImage ?? null;
+  const resolvedSrc = resolvedSrcRaw ? getFileUrl(resolvedSrcRaw) : null;
 
   const bgColor = slide.backgroundColor || '#101112';
   const getContrastingColor = (color: string) => {
