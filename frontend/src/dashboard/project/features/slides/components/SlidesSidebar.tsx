@@ -282,6 +282,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
         {slides.map((slide, index) => {
           const isActive = activeSlideId === slide.id;
           const isSelected = selectedIdSet.has(slide.id);
+          const isMultiSelecting = selectedSlideIds.length >= 2;
 
           const handleKeySelect = (event: React.KeyboardEvent<HTMLDivElement>) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -296,14 +297,15 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
           const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
             event.preventDefault();
-            // If right-clicking a non-selected slide, select it first (file-manager style).
-            if (!selectedIdSet.has(slide.id)) {
-              setSelected([slide.id]);
-              anchorIndexRef.current = index;
+            // If multi-select is active but right-clicking a non-selected slide,
+            // exit multi-select (file-manager style).
+            if (isMultiSelecting && !selectedIdSet.has(slide.id)) {
+              setSelected([]);
             }
 
             // Set this slide as active first.
             onSlideSelect(slide.id);
+            anchorIndexRef.current = index;
             // Open context menu at mouse coordinates
             openDropdown(contextMenuDropdownId, event.currentTarget, { x: event.clientX, y: event.clientY });
           };
@@ -313,7 +315,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
             const isRange = event.shiftKey;
 
             if (isRange) {
-              const anchor = anchorIndexRef.current ?? index;
+              const activeIndex = activeSlideId ? slides.findIndex((s) => s.id === activeSlideId) : -1;
+              const anchor = anchorIndexRef.current ?? (activeIndex >= 0 ? activeIndex : index);
               const start = Math.min(anchor, index);
               const end = Math.max(anchor, index);
               const rangeIds = slides.slice(start, end + 1).map((s) => s.id);
@@ -330,7 +333,8 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                 next.add(slide.id);
               }
               const ids = Array.from(next);
-              setSelected(ids);
+              // Only keep selection state when multi-selecting (2+), to avoid UI clutter.
+              setSelected(ids.length >= 2 ? ids : []);
               anchorIndexRef.current = index;
               onSlideSelect(slide.id);
               return;
@@ -338,25 +342,9 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
             anchorIndexRef.current = index;
             onSlideSelect(slide.id);
-            if (selectedSlideIds.length) {
-              setSelected([slide.id]);
+            if (isMultiSelecting) {
+              setSelected([]);
             }
-          };
-
-          const handleCheckboxClick = (event: React.MouseEvent) => {
-            event.stopPropagation();
-          };
-
-          const handleCheckboxChange = () => {
-            const next = new Set(selectedIdSet);
-            if (next.has(slide.id)) {
-              next.delete(slide.id);
-            } else {
-              next.add(slide.id);
-            }
-            const ids = Array.from(next);
-            setSelected(ids);
-            anchorIndexRef.current = index;
           };
 
           return (
@@ -375,17 +363,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
               tabIndex={0}
             >
               <div className="slides-sidebar__item-header">
-                <span className="slides-sidebar__index-row">
-                  <input
-                    type="checkbox"
-                    className="slides-sidebar__select"
-                    checked={isSelected}
-                    onClick={handleCheckboxClick}
-                    onChange={handleCheckboxChange}
-                    aria-label={`Select slide ${index + 1}`}
-                  />
-                  <span className="slides-sidebar__index">Slide {index + 1}</span>
-                </span>
+                <span className="slides-sidebar__index">Slide {index + 1}</span>
                 <span className="slides-sidebar__drag-handle" aria-hidden>
                   <GripVertical size={16} />
                 </span>
@@ -403,7 +381,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
         })}
       </div>
 
-      {!!selectedSlideIds.length && (
+      {selectedSlideIds.length >= 2 && (
         <div className="slides-sidebar__selection-bar" role="region" aria-label="Slide selection">
           <div className="slides-sidebar__selection-count">{selectedSlideIds.length} selected</div>
           <div className="slides-sidebar__selection-actions">

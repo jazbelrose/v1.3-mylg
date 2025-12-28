@@ -109,21 +109,6 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-.slides-sidebar__index-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.slides-sidebar__select {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand, #fa3356);
-  cursor: pointer;
-  flex: 0 0 auto;
-}
-
 .slides-sidebar__drag-handle {
   display: inline-flex;
   align-items: center;
