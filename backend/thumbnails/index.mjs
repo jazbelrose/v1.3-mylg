@@ -13,6 +13,8 @@ const BASE_CANVAS_HEIGHT = 1080;
 const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
+// Bump when thumbnail rendering output changes (prevents CDN cache from serving old pixels).
+const THUMBNAIL_RENDER_VERSION = 1;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -336,16 +338,17 @@ function renderImageLayer(node) {
   const borderRadiusStyle = formatBorderRadius(node);
   const style = [
     'position:absolute',
-    'left:0',
-    'top:0',
-    `transform: translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+    `left:${x}px`,
+    `top:${y}px`,
+    `transform: rotate(${rotation}deg)`,
     'transform-origin:center center',
     `width:${width}px`,
     `height:${height}px`,
+    'overflow:hidden',
   ].join('; ');
 
   return `<div class="image-layer" style="${style}">
-    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:cover;border-radius:${borderRadiusStyle};" />
+    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;object-position:center;border-radius:${borderRadiusStyle};" />
   </div>`;
 }
 
@@ -545,7 +548,8 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           display: block;
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
+          object-position: center;
         }
         .svg-layer svg {
           display: block;
@@ -681,7 +685,7 @@ async function generateThumbnail(html, width, height) {
 function buildThumbnailKey(projectId, slideId, width, height, lexicalJson) {
   const safeProject = safeSegment(projectId, 'anonymous');
   const safeSlide = safeSegment(slideId, 'slide');
-  const hash = hashInput({ lexicalJson, width, height });
+  const hash = hashInput({ lexicalJson, width, height, renderVersion: THUMBNAIL_RENDER_VERSION });
   return `public/thumbnails/${safeProject}/${safeSlide}-${hash}-${width}x${height}.png`;
 }
 

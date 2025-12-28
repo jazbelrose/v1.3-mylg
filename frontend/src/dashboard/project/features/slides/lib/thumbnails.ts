@@ -4,6 +4,131 @@ import { uploadData } from 'aws-amplify/storage';
 import { getFileUrl, THUMBNAILS_URL, apiFetch } from '@/shared/utils/api';
 import { isUiThumbsEnabled } from './featureFlags';
 
+const NATIVE_SLIDE_WIDTH = 1920;
+const NATIVE_SLIDE_HEIGHT = 1080;
+const DEFAULT_THUMB_WIDTH = 320;
+const DEFAULT_THUMB_HEIGHT = 180;
+
+function resolveThumbnailCaptureRoot(element: HTMLElement): HTMLElement {
+  return (
+    (element.closest('.slide-editor__canvas-inner') as HTMLElement | null) ??
+    (element.closest('.slide-editor__slide-frame') as HTMLElement | null) ??
+    element
+  );
+}
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
+async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 2000): Promise<void> {
+  if (typeof document === 'undefined') return;
+
+  const images = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+  if (images.length === 0) return;
+
+  await Promise.race([
+    Promise.all(
+      images.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete && img.naturalWidth > 0) {
+              resolve();
+              return;
+            }
+            const cleanup = () => {
+              img.removeEventListener('load', onDone);
+              img.removeEventListener('error', onDone);
+            };
+            const onDone = () => {
+              cleanup();
+              resolve();
+            };
+            img.addEventListener('load', onDone);
+            img.addEventListener('error', onDone);
+          })
+      )
+    ),
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
+async function downscalePngBlob(
+  blob: Blob,
+  targetWidth: number,
+  targetHeight: number,
+  backgroundColor: string
+): Promise<Blob> {
+  if (typeof document === 'undefined') return blob;
+
+  // Prefer createImageBitmap when available (faster + avoids DOM image decode quirks).
+  if (typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return blob;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+      ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+      const out = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/png')
+      );
+      return out ?? blob;
+    } finally {
+      bitmap.close?.();
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.decoding = 'async';
+    await new Promise<void>((resolve) => {
+      const cleanup = () => {
+        img.onload = null;
+        img.onerror = null;
+      };
+      img.onload = () => {
+        cleanup();
+        resolve();
+      };
+      img.onerror = () => {
+        cleanup();
+        resolve();
+      };
+      img.src = url;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return blob;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+    const out = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png')
+    );
+    return out ?? blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function prepareNodeForThumbnailCapture(root: HTMLElement) {
   const touched: Array<{
     el: HTMLElement;
@@ -86,8 +211,8 @@ function prepareNodeForThumbnailCapture(root: HTMLElement) {
 }
 
 const SLIDE_CAPTURE_SELECTORS = [
-  ".slide-editor__canvas-inner",
   ".slide-editor__slide-frame",
+  ".slide-editor__canvas-inner",
   ".ContentEditable__root",
   ".editor-input",
   "[contenteditable=\"true\"]",
@@ -133,19 +258,65 @@ async function captureElementBlob(
 ): Promise<Blob | null> {
   if (!element) return null;
 
-  const restore = prepareNodeForThumbnailCapture(element);
+  if (typeof document === "undefined") return null;
+
+  const captureRoot = resolveThumbnailCaptureRoot(element);
+
+  // Capture from a clean, offscreen clone so parent transforms (zoom/fit scaling)
+  // don't affect layout/position in the snapshot.
+  const host = document.createElement('div');
+  host.style.position = 'fixed';
+  host.style.left = '-10000px';
+  host.style.top = '0';
+  host.style.width = `${width}px`;
+  host.style.height = `${height}px`;
+  host.style.backgroundColor = backgroundColor;
+  host.style.overflow = 'hidden';
+  host.style.pointerEvents = 'none';
+  host.style.zIndex = '-1';
+
+  const clone = captureRoot.cloneNode(true) as HTMLElement;
+  clone.style.transform = 'none';
+  // These are separate properties in modern CSS; safe no-ops elsewhere.
+  clone.style.translate = '0 0';
+  clone.style.scale = '1';
+  // zoom is non-standard but can exist in some engines.
+  clone.style.zoom = '1';
+  clone.style.transformOrigin = '0 0';
+  clone.style.width = `${width}px`;
+  clone.style.height = `${height}px`;
+  clone.style.maxWidth = 'none';
+  clone.style.maxHeight = 'none';
+  clone.style.margin = '0';
+  clone.style.position = 'relative';
+  clone.style.left = '0';
+  clone.style.top = '0';
+  clone.style.boxSizing = 'border-box';
+  clone.style.overflow = 'hidden';
+
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
+  // Give the browser a beat to lay out the clone before snapshotting.
+  await nextAnimationFrame();
+  await nextAnimationFrame();
+
+  const restore = prepareNodeForThumbnailCapture(clone);
   try {
     if (typeof document !== "undefined" && document.fonts?.ready) {
       await document.fonts.ready;
     }
-    const blob = await toBlob(element, {
+    await waitForImagesToLoad(clone);
+    const blob = await toBlob(clone, {
+      width,
+      height,
       canvasWidth: width,
       canvasHeight: height,
       backgroundColor,
       quality: 0.92,
       includeQueryParams: true,
-      useCORS: true,
       cacheBust: true,
+      pixelRatio: 1,
     });
     return blob;
   } catch (error) {
@@ -153,6 +324,9 @@ async function captureElementBlob(
     return null;
   } finally {
     restore();
+    if (document.body.contains(host)) {
+      document.body.removeChild(host);
+    }
   }
 }
 
@@ -714,6 +888,8 @@ export async function generateAndUploadThumbnail(
   backgroundColor?: string
 ): Promise<string | null> {
   try {
+    if (typeof document === 'undefined') return null;
+
     // Get computed background color from the slide canvas-inner element if not provided
     let bgColor = backgroundColor;
     if (!bgColor) {
@@ -731,23 +907,18 @@ export async function generateAndUploadThumbnail(
     // Wait for fonts to load
     await document.fonts?.ready;
 
-    // Temporarily remove scrollbars during capture
-    const restore = prepareNodeForThumbnailCapture(element);
+    const captureRoot = resolveThumbnailCaptureRoot(element);
+    const fullSizeBlob =
+      (await captureElementBlob(
+        captureRoot,
+        NATIVE_SLIDE_WIDTH,
+        NATIVE_SLIDE_HEIGHT,
+        bgColor
+      )) ?? null;
+    if (!fullSizeBlob) return null;
 
-    let blob: Blob | null = null;
-    try {
-      blob = await toBlob(element, {
-        backgroundColor: bgColor,
-        quality: 0.92,
-        includeQueryParams: true,
-        useCORS: true,
-        cacheBust: true,
-      });
-    } finally {
-      restore();
-    }
-
-    if (!blob) return null;
+    // Store thumbnails at 320x180 regardless of current editor zoom/fit scaling.
+    const blob = await downscalePngBlob(fullSizeBlob, DEFAULT_THUMB_WIDTH, DEFAULT_THUMB_HEIGHT, bgColor);
 
     // Use consistent filename based on slideId with timestamp to avoid caching issues
     // This ensures each save generates a unique filename
