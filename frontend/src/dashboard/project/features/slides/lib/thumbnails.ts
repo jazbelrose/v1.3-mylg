@@ -144,6 +144,8 @@ async function captureElementBlob(
       backgroundColor,
       quality: 0.92,
       includeQueryParams: true,
+      useCORS: true,
+      cacheBust: true,
     });
     return blob;
   } catch (error) {
@@ -738,6 +740,8 @@ export async function generateAndUploadThumbnail(
         backgroundColor: bgColor,
         quality: 0.92,
         includeQueryParams: true,
+        useCORS: true,
+        cacheBust: true,
       });
     } finally {
       restore();
@@ -780,10 +784,11 @@ export async function generateSlideThumbnail(
   slideId: string,
   projectId: string,
   backgroundColor?: string,
-  content?: string
+  content?: string,
+  backgroundImage?: string
 ): Promise<string | null> {
   // Try server-side thumbnail generation first if content is provided
-  if (content) {
+  if (content && !backgroundImage) {
     try {
       console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}`);
       const response = await apiFetch<{ url: string }>(THUMBNAILS_URL, {
@@ -837,10 +842,11 @@ export async function generateSlideThumbnailWithSize(
   slideId: string,
   projectId: string,
   backgroundColor?: string,
-  content?: string
+  content?: string,
+  backgroundImage?: string
 ): Promise<string | null> {
   // Try server-side thumbnail generation first if content is provided
-  if (content) {
+  if (content && !backgroundImage) {
     try {
       console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}`);
       const response = await apiFetch<{ url: string }>(THUMBNAILS_URL, {
@@ -898,14 +904,26 @@ export async function saveSlideThumb(
   projectId: string,
   slideId: string,
   onSuccess?: (thumbnailUrl: string) => void,
-  options?: { width?: number; height?: number; scale?: number; backgroundColor?: string; content?: string }
+  options?: { width?: number; height?: number; scale?: number; backgroundColor?: string; content?: string; backgroundImage?: string }
 ): Promise<void> {
   try {
     let thumbnailUrl: string | null;
     if (options?.width && options?.height) {
-      thumbnailUrl = await generateSlideThumbnailWithSize(slideId, projectId, options.backgroundColor, options.content);
+      thumbnailUrl = await generateSlideThumbnailWithSize(
+        slideId,
+        projectId,
+        options.backgroundColor,
+        options.content,
+        options.backgroundImage
+      );
     } else {
-      thumbnailUrl = await generateSlideThumbnail(slideId, projectId, options?.backgroundColor, options.content);
+      thumbnailUrl = await generateSlideThumbnail(
+        slideId,
+        projectId,
+        options?.backgroundColor,
+        options.content,
+        options.backgroundImage
+      );
     }
     if (!thumbnailUrl) {
       console.warn("No thumbnail generated");

@@ -184,7 +184,7 @@ const SlidesPage: React.FC = () => {
         navigate(getProjectDashboardPath(projectId!, title));
         return;
       }
-      saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: slide?.backgroundColor, content: slide?.content })
+      saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: slide?.backgroundColor, content: slide?.content, backgroundImage: slide?.backgroundImage })
         .catch((e) => console.warn("Failed to save thumbnail on exit:", e))
         .finally(() => {
           navigate(getProjectDashboardPath(projectId!, title));
@@ -431,7 +431,7 @@ const SlidesPage: React.FC = () => {
             return;
           }
           const bgColor = slide?.backgroundColor || '#101112';
-          saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: bgColor, content: slide?.content }).catch(() => {});
+          saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: bgColor, content: slide?.content, backgroundImage: slide?.backgroundImage }).catch(() => {});
         } catch {
           // ignore
         }
@@ -526,7 +526,7 @@ const SlidesPage: React.FC = () => {
                     .catch((error) => {
                       console.warn("Thumbnail not ready after save:", error);
                     });
-                }, { width, height, backgroundColor: bgColor, content: slide?.content }).catch((e) => {
+                }, { width, height, backgroundColor: bgColor, content: slide?.content, backgroundImage: slide?.backgroundImage }).catch((e) => {
                   console.warn('Failed to save thumbnail after save:', e);
                 });
               }, 100);
@@ -625,7 +625,7 @@ const SlidesPage: React.FC = () => {
             .catch((error) => {
               console.warn("Thumbnail not ready when switching slides:", error);
             });
-        }, { width, height, backgroundColor: bgColor, content: slide?.content }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
+        }, { width, height, backgroundColor: bgColor, content: slide?.content, backgroundImage: slide?.backgroundImage }).catch((e) => console.warn("Failed to save thumbnail on slide change:", e));
       }
 
       setActiveSlideId(slideId);
@@ -771,7 +771,7 @@ const SlidesPage: React.FC = () => {
                 });
               })
               .catch((error) => console.warn("Thumbnail not ready after color change:", error));
-          }, { width, height, backgroundColor: bgColor, content: slide?.content }).catch((e) => console.warn('Failed to save thumbnail after color change:', e));
+          }, { width, height, backgroundColor: bgColor, content: slide?.content, backgroundImage: slide?.backgroundImage }).catch((e) => console.warn('Failed to save thumbnail after color change:', e));
           
           return currentSlides;
         });
@@ -836,7 +836,7 @@ const SlidesPage: React.FC = () => {
                   .catch((error) => {
                     console.warn('Thumbnail not ready during autosave:', error);
                   });
-              }, { width, height, backgroundColor: bgColor, content: slide?.content });
+              }, { width, height, backgroundColor: bgColor, content: slide?.content, backgroundImage: slide?.backgroundImage });
 
               if (thumbnailUpdatePromise) {
                 await thumbnailUpdatePromise;
