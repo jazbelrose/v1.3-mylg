@@ -1,7 +1,6 @@
 import {
   DecoratorNode,
   $getNodeByKey,
-  $copyNode,
   $createNodeSelection,
   $setSelection,
 } from "lexical";
@@ -217,6 +216,9 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
   const copyOnDragRef = useRef(false);
   const suppressedToggleOnPointerDownRef = useRef(false);
   const suppressedToggleModifiersRef = useRef(null);
+  const copyDragActiveRef = useRef(false);
+  const copyDragCloneKeysRef = useRef([]);
+  const copyDragCloneSnapshotRef = useRef(new Map());
   const dragSelectionKeysRef = useRef([]);
   const dragSelectionSnapshotRef = useRef(new Map());
   const dragLastDeltaRef = useRef([0, 0]);
@@ -754,18 +756,76 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
         onDragStart={(e) => {
           suppressedToggleOnPointerDownRef.current = false;
           suppressedToggleModifiersRef.current = null;
-          copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
           captureDragSelectionSnapshot();
           dragLastDeltaRef.current = [0, 0];
+
+          copyOnDragRef.current = false;
+          copyDragActiveRef.current = false;
+          copyDragCloneKeysRef.current = [];
+          copyDragCloneSnapshotRef.current = new Map();
+
+          const copyGesture = Boolean(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
+          if (!copyGesture) return;
+
+          const dragKeys = dragSelectionKeysRef.current;
+          if (!Array.isArray(dragKeys) || dragKeys.length === 0) return;
+
+          const dragSnapshots = dragSelectionSnapshotRef.current;
+          let cloneKeys = [];
+          let mapping = [];
+          editor.update(() => {
+            const result = duplicateSlideNodes(dragKeys, {
+              offsetX: 0,
+              offsetY: 0,
+              selectClones: false,
+            });
+            cloneKeys = result.cloneKeys;
+            mapping = result.clones;
+          });
+
+          const cloneSnapshots = new Map();
+          mapping.forEach(({ originalKey, cloneKey }) => {
+            const origin = dragSnapshots?.get(originalKey);
+            if (!origin) return;
+            cloneSnapshots.set(cloneKey, origin);
+          });
+
+          copyOnDragRef.current = true;
+          copyDragActiveRef.current = true;
+          copyDragCloneKeysRef.current = cloneKeys;
+          copyDragCloneSnapshotRef.current = cloneSnapshots;
         }}
         onDrag={(e) => {
           const [dx, dy] = e.beforeTranslate;
           dragLastDeltaRef.current = [dx, dy];
 
-          // Allow the user to press Ctrl/⌘ during the drag to trigger copy mode.
-          if (e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey) {
-            copyOnDragRef.current = true;
+          if (copyDragActiveRef.current) {
+            const cloneKeys = copyDragCloneKeysRef.current;
+            const cloneSnapshots = copyDragCloneSnapshotRef.current;
+            if (!Array.isArray(cloneKeys) || cloneKeys.length === 0) return;
+
+            editor.update(() => {
+              cloneKeys.forEach((key) => {
+                const origin = cloneSnapshots?.get(key);
+                if (!origin) return;
+                const targetNode = $getNodeByKey(key);
+                if (!targetNode) return;
+                if (typeof targetNode.getLocked === "function" && targetNode.getLocked()) return;
+                const nextX = origin.x + dx;
+                const nextY = origin.y + dy;
+                if (targetNode instanceof TextBoxNode) {
+                  targetNode.setPosition(nextX, nextY);
+                } else if (targetNode instanceof ResizableImageNode) {
+                  targetNode.setX(nextX);
+                  targetNode.setY(nextY);
+                } else if (targetNode instanceof SvgNode) {
+                  targetNode.setX(nextX);
+                  targetNode.setY(nextY);
+                }
+              });
+            });
+            return;
           }
           const f0 = startRef.current;
           const next = { ...frameRef.current, x: f0.x + dx, y: f0.y + dy };
@@ -807,56 +867,25 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
           }
         }}
         onDragEnd={() => {
-          const dragKeys = dragSelectionKeysRef.current;
-          const dragSnapshots = dragSelectionSnapshotRef.current;
-          const [dx, dy] = dragLastDeltaRef.current || [0, 0];
+          const cloneKeys = copyDragCloneKeysRef.current;
+          const wasCopyDrag = copyDragActiveRef.current;
+
           dragSelectionKeysRef.current = [];
           dragSelectionSnapshotRef.current = new Map();
           dragLastDeltaRef.current = [0, 0];
+          copyDragCloneKeysRef.current = [];
+          copyDragCloneSnapshotRef.current = new Map();
+          copyOnDragRef.current = false;
+          copyDragActiveRef.current = false;
 
-          if (Array.isArray(dragKeys) && dragKeys.length > 1) {
-            if (copyOnDragRef.current) {
+          if (wasCopyDrag) {
+            if (Array.isArray(cloneKeys) && cloneKeys.length > 0) {
               editor.update(() => {
-                // Restore originals to their starting positions (we moved them during drag),
-                // then create duplicates at the dragged offset.
-                dragKeys.forEach((key) => {
-                  const origin = dragSnapshots?.get(key);
-                  if (!origin) return;
-                  const node = $getNodeByKey(key);
-                  if (!node) return;
-                  if (node instanceof TextBoxNode) {
-                    node.setPosition(origin.x, origin.y);
-                  } else if (node instanceof ResizableImageNode) {
-                    node.setX(origin.x);
-                    node.setY(origin.y);
-                  } else if (node instanceof SvgNode) {
-                    node.setX(origin.x);
-                    node.setY(origin.y);
-                  }
-                });
-
-                const { clones } = duplicateSlideNodes(dragKeys, { offsetX: 0, offsetY: 0 });
-                clones.forEach(({ originalKey, cloneKey }) => {
-                  const origin = dragSnapshots?.get(originalKey);
-                  if (!origin) return;
-                  const clone = $getNodeByKey(cloneKey);
-                  if (!clone) return;
-                  const nextX = origin.x + dx;
-                  const nextY = origin.y + dy;
-                  if (clone instanceof TextBoxNode) {
-                    clone.setPosition(nextX, nextY);
-                  } else if (clone instanceof ResizableImageNode) {
-                    clone.setX(nextX);
-                    clone.setY(nextY);
-                  } else if (clone instanceof SvgNode) {
-                    clone.setX(nextX);
-                    clone.setY(nextY);
-                  }
-                });
+                const sel = $createNodeSelection();
+                cloneKeys.forEach((k) => sel.add(k));
+                $setSelection(sel);
               });
             }
-
-            copyOnDragRef.current = false;
             return;
           }
 
@@ -864,22 +893,10 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
           editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             if (!node) return;
-            if (copyOnDragRef.current) {
-              const clone = $copyNode(node);
-              clone.setX(finalFrame.x);
-              clone.setY(finalFrame.y);
-              clone.setRotation(finalFrame.rotation || 0);
-              node.insertAfter(clone);
-              const sel = $createNodeSelection();
-              sel.add(clone.getKey());
-              $setSelection(sel);
-            } else {
-              node.setX(finalFrame.x);
-              node.setY(finalFrame.y);
-              node.setRotation(finalFrame.rotation || 0);
-            }
+            node.setX(finalFrame.x);
+            node.setY(finalFrame.y);
+            node.setRotation(finalFrame.rotation || 0);
           });
-          copyOnDragRef.current = false;
         }}
         onResizeStart={(e) => {
           startRef.current = { ...frameRef.current };

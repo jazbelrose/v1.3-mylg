@@ -86,7 +86,7 @@ export type DuplicateResult = {
 
 export function duplicateSlideNodes(
   keys: string[],
-  options: { offsetX?: number; offsetY?: number } = {}
+  options: { offsetX?: number; offsetY?: number; selectClones?: boolean } = {}
 ): DuplicateResult {
   const uniqueKeys = Array.from(new Set(keys));
   if (uniqueKeys.length === 0) {
@@ -116,7 +116,7 @@ export function duplicateSlideNodes(
     mapping.push({ originalKey: key, cloneKey: clone.getKey() });
   }
 
-  if (clones.length > 0) {
+  if (clones.length > 0 && options.selectClones !== false) {
     const nextSelection = $createNodeSelection();
     clones.forEach((clone) => nextSelection.add(clone.getKey()));
     $setSelection(nextSelection);
