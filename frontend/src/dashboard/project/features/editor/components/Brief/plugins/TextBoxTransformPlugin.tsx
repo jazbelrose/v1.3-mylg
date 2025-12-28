@@ -67,6 +67,29 @@ function clearForcedRotateCursor() {
   root.style.removeProperty("--mylg-rotate-cursor-grabbing");
 }
 
+function deepCloneNode(node: LexicalNode): LexicalNode | null {
+  const ctor = node.constructor as unknown as { importJSON?: (data: unknown) => LexicalNode };
+
+  if (typeof ctor.importJSON !== "function") {
+    return null;
+  }
+
+  // IMPORTANT: don't use node.clone() for duplication - clone() may preserve keys depending on node type.
+  // importJSON(exportJSON()) generates a fresh key for supported nodes.
+  const cloned = ctor.importJSON(node.exportJSON());
+
+  if (node instanceof ElementNode && cloned instanceof ElementNode) {
+    const childClones: LexicalNode[] = [];
+    node.getChildren().forEach((child) => {
+      const childClone = deepCloneNode(child);
+      if (childClone) childClones.push(childClone);
+    });
+    if (childClones.length) cloned.append(...childClones);
+  }
+
+  return cloned;
+}
+
 type InteractionType =
   | "move"
   | "resize-left"
@@ -221,31 +244,7 @@ function getRotatedResizeCursor(axisAngleDeg: number): string {
   return cursor;
 }
 
-
-function deepCloneNode(node: LexicalNode): LexicalNode | null {
-  const Ctor = node.constructor as new (data: unknown) => LexicalNode;
-
-  if (typeof Ctor.importJSON !== "function") {
-    return null;
-  }
-
-  // IMPORTANT: don't use node.clone() for duplication — clone() preserves the key.
-  // importJSON(exportJSON()) generates a fresh key.
-  const cloned = Ctor.importJSON(node.exportJSON());
-
-  if (node instanceof ElementNode && cloned instanceof ElementNode) {
-    const childClones: LexicalNode[] = [];
-    node.getChildren().forEach((child) => {
-      const childClone = deepCloneNode(child);
-      if (childClone) childClones.push(childClone);
-    });
-    if (childClones.length) cloned.append(...childClones);
-  }
-
-  return cloned;
-}
-
-function duplicateTextBoxes(
+function duplicateSlideObjects(
   keysToClone: string[],
   opts: { offsetX: number; offsetY: number }
 ): { clones: Array<{ originalKey: string; cloneKey: string }>; cloneKeys: string[] } {
@@ -254,18 +253,33 @@ function duplicateTextBoxes(
 
   keysToClone.forEach((key) => {
     const node = $getNodeByKey(key);
-    if (!(node instanceof TextBoxNode)) return;
+    if (!node) return;
 
-    const cloneAny = deepCloneNode(node);
-    if (!(cloneAny instanceof TextBoxNode)) return;
-    const clone = cloneAny;
+    const isSupported =
+      node instanceof TextBoxNode || node instanceof ResizableImageNode || node instanceof SvgNode;
+    if (!isSupported) {
+      return;
+    }
+
+    const clone = deepCloneNode(node);
+    if (!clone) return;
 
     // keep z-order: insert right after original
     node.insertAfter(clone);
 
     // offset so it's visible
-    const { x, y } = node.getPosition();
-    clone.setPosition(x + opts.offsetX, y + opts.offsetY);
+    if (node instanceof TextBoxNode && clone instanceof TextBoxNode) {
+      const { x, y } = node.getPosition();
+      clone.setPosition(x + opts.offsetX, y + opts.offsetY);
+    } else if (node instanceof ResizableImageNode && clone instanceof ResizableImageNode) {
+      clone.setX(node.getX() + opts.offsetX);
+      clone.setY(node.getY() + opts.offsetY);
+    } else if (node instanceof SvgNode && clone instanceof SvgNode) {
+      clone.setX(node.getX() + opts.offsetX);
+      clone.setY(node.getY() + opts.offsetY);
+    } else {
+      return;
+    }
 
     const cloneKey = clone.getKey();
     clones.push({ originalKey: key, cloneKey });
@@ -567,7 +581,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
 
       editor.update(() => {
         const keysToClone = resolveKeysForDuplication(interaction!);
-        const { clones, cloneKeys } = duplicateTextBoxes(keysToClone, { offsetX: 8, offsetY: 8 });
+        const { clones, cloneKeys } = duplicateSlideObjects(keysToClone, { offsetX: 8, offsetY: 8 });
         if (cloneKeys.length === 0) {
           return;
         }
