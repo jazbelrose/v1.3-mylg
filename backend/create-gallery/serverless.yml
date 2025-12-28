@@ -18,8 +18,9 @@ provider:
   runtime: python3.12
   region: us-west-2
   stage: ${opt:stage, 'dev'}
-  memorySize: 512
+  memorySize: 2048
   timeout: 300
+  ephemeralStorageSize: 2048
   stackName: ${self:custom.app}-${self:custom.ver}-${self:service}-${sls:stage}
   tags:
     App: MYLG
@@ -58,7 +59,8 @@ functions:
     handler: lambda_function.lambda_handler
     runtime: python3.12
     timeout: 300
-    memorySize: 512
+    memorySize: 2048
+    ephemeralStorageSize: 2048
     package:
       patterns:
         - lambda_function.py
