@@ -4,6 +4,7 @@ import ReactDOM from "react-dom";
 import { GripVertical } from "lucide-react";
 import { Copy, Download, Trash2 } from "lucide-react";
 import { Plus } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
@@ -201,6 +202,7 @@ interface SlidesSidebarProps {
   onSelectedSlideIdsChange?: (ids: string[]) => void;
   onRequestDeleteSelected?: (ids: string[]) => void;
   onNewSlide?: () => void;
+  onRenameSlide?: (slideId: string, title: string) => void;
 }
 
 const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
@@ -216,12 +218,15 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onSelectedSlideIdsChange,
   onRequestDeleteSelected,
   onNewSlide,
+  onRenameSlide,
 }) => {
   const uiThumbsEnabled = isUiThumbsEnabled();
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const contextMenuDropdownId = "slide-context-menu";
   const anchorIndexRef = useRef<number | null>(null);
   const selectedIdSet = useMemo(() => new Set(selectedSlideIds), [selectedSlideIds]);
+  const [renamingSlideId, setRenamingSlideId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const setSelected = useCallback(
     (ids: string[]) => {
@@ -283,6 +288,9 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
           const isActive = activeSlideId === slide.id;
           const isSelected = selectedIdSet.has(slide.id);
           const isMultiSelecting = selectedSlideIds.length >= 2;
+          const displayIndex = String(index + 1).padStart(2, "0");
+          const isRenaming = renamingSlideId === slide.id;
+          const displayTitle = (slide.title || "").trim() || "Untitled";
 
           const handleKeySelect = (event: React.KeyboardEvent<HTMLDivElement>) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -311,6 +319,9 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
           };
 
           const handleItemClick = (event: React.MouseEvent<HTMLDivElement>) => {
+            if (isRenaming) {
+              return;
+            }
             const isToggle = event.metaKey || event.ctrlKey;
             const isRange = event.shiftKey;
 
@@ -363,7 +374,9 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
               tabIndex={0}
             >
               <div className="slides-sidebar__item-header">
-                <span className="slides-sidebar__index">Slide {index + 1}</span>
+                <span className="slides-sidebar__index" aria-label={`Slide ${index + 1}`}>
+                  {displayIndex}
+                </span>
                 <span className="slides-sidebar__drag-handle" aria-hidden>
                   <GripVertical size={16} />
                 </span>
@@ -371,11 +384,51 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
               <SlideThumbnail slide={slide} projectId={projectId} />
 
-              {slide.title && (
-                <div className="slides-sidebar__title" title={slide.title}>
-                  {slide.title}
-                </div>
-              )}
+              <div className="slides-sidebar__title" title={displayTitle}>
+                {isRenaming ? (
+                  <input
+                    className="slides-sidebar__title-input"
+                    value={renameDraft}
+                    autoFocus
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setRenamingSlideId(null);
+                        return;
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const next = renameDraft.trim();
+                        onRenameSlide?.(slide.id, next);
+                        setRenamingSlideId(null);
+                      }
+                    }}
+                    onBlur={() => {
+                      const next = renameDraft.trim();
+                      onRenameSlide?.(slide.id, next);
+                      setRenamingSlideId(null);
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="slides-sidebar__title-button"
+                    onClick={(e) => e.stopPropagation()}
+                    onDoubleClick={() => {
+                      if (!onRenameSlide) {
+                        return;
+                      }
+                      setRenamingSlideId(slide.id);
+                      setRenameDraft(displayTitle === "Untitled" ? "" : displayTitle);
+                    }}
+                    title="Double-click to rename"
+                  >
+                    {displayTitle}
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -415,6 +468,26 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
       {activeDropdown === contextMenuDropdownId &&
         ReactDOM.createPortal(
           <div className="dropdown dropdown--context-menu" data-slide-dropdown ref={dropdownRef}>
+            {onRenameSlide && selectedSlideIds.length < 2 && activeSlideId && (
+              <button
+                type="button"
+                className="item"
+                onClick={() => {
+                  const slide = slides.find((s) => s.id === activeSlideId);
+                  if (!slide) {
+                    closeDropdown();
+                    return;
+                  }
+                  setRenamingSlideId(activeSlideId);
+                  const nextTitle = (slide.title || "").trim() || "Untitled";
+                  setRenameDraft(nextTitle === "Untitled" ? "" : nextTitle);
+                  closeDropdown();
+                }}
+              >
+                <Pencil size={24} className="dropdown-icon" />
+                <span className="text">Rename</span>
+              </button>
+            )}
             {onDuplicateSlide && (
               <button
                 type="button"

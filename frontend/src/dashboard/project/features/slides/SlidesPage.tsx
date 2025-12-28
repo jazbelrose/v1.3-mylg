@@ -1063,6 +1063,14 @@ const SlidesPage: React.FC = () => {
               selectedSlideIds={selectedSlideIds}
               onSelectedSlideIdsChange={setSelectedSlideIds}
               onRequestDeleteSelected={requestDeleteSlides}
+              onRenameSlide={(slideId, title) => {
+                setSlides((prev) => {
+                  const updated = prev.map((s) => (s.id === slideId ? { ...s, title } : s));
+                  setIsDirty(true);
+                  saveSlides(updated, { skipThumbnail: true });
+                  return updated;
+                });
+              }}
               onExportSlide={handleExport}
             />
 

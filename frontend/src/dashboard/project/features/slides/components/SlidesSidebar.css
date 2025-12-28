@@ -124,6 +124,8 @@
 .slides-sidebar__index {
   font-weight: 600;
   text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
 }
 
 .slides-sidebar__title {
@@ -133,6 +135,37 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.slides-sidebar__title-button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slides-sidebar__title-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.slides-sidebar__title-input:focus {
+  border-color: rgba(93, 230, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(93, 230, 255, 0.15);
 }
 
 .slides-sidebar__thumbnail {
