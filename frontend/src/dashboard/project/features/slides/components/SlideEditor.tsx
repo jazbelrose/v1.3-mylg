@@ -195,8 +195,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [onZoomIn, onZoomOut, onResetZoom, toolbarActions]);
 
   const customToolbar = toolbarActions ? (

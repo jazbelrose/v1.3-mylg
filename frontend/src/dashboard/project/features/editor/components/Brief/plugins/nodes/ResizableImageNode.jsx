@@ -515,6 +515,14 @@ function ResizableImageComponent({
 
     const handleKeyDown = (e) => {
       if (!isSelected || isLocked) return;
+      // Let slide-level z-order shortcuts (Ctrl/⌘[ and Ctrl/⌘]) bubble so SlideEditor can handle them.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        const isBracketRight = e.key === "]" || e.code === "BracketRight";
+        const isBracketLeft = e.key === "[" || e.code === "BracketLeft";
+        if (isBracketRight || isBracketLeft) {
+          return;
+        }
+      }
       // Allow delete/backspace to remove the selected image node.
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
