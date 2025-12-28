@@ -6,6 +6,7 @@ import { Copy, Download, Trash2 } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
+import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
 import { getFileUrl } from "@/shared/utils/api";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
@@ -17,17 +18,23 @@ interface SlideThumbnailProps {
 }
 
 const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => {
+  const hasBackgroundImage = Boolean(slide.backgroundImage);
+  const isContentEmpty = isLexicalContentEffectivelyEmpty(slide.content);
+  const shouldPreferBackgroundImageThumb = hasBackgroundImage && isContentEmpty;
+
   const { thumbnailUrl, isLoading, error, invalidate } = useThumbnail({
     projectId,
     slideId: slide.id,
-    content: slide.content,
+    content: shouldPreferBackgroundImageThumb ? "" : slide.content,
     backgroundColor: slide.backgroundColor || '#101112',
   });
 
   const uiThumbsEnabled = isUiThumbsEnabled();
-  const resolvedSrcRaw = uiThumbsEnabled
-    ? thumbnailUrl ?? slide.thumbnail ?? slide.backgroundImage ?? null
-    : slide.thumbnail ?? slide.backgroundImage ?? null;
+  const resolvedSrcRaw = shouldPreferBackgroundImageThumb
+    ? slide.backgroundImage ?? null
+    : uiThumbsEnabled
+      ? thumbnailUrl ?? slide.thumbnail ?? slide.backgroundImage ?? null
+      : slide.thumbnail ?? slide.backgroundImage ?? null;
   const resolvedSrc = resolvedSrcRaw ? getFileUrl(resolvedSrcRaw) : null;
 
   const bgColor = slide.backgroundColor || '#101112';

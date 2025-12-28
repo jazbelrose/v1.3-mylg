@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
+import { isLexicalContentEffectivelyEmpty } from "./lib/lexicalContent";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
@@ -116,6 +117,9 @@ const SlidesPage: React.FC = () => {
   // window (debounced) to avoid excessive thumbnail churn.
   const dirtyThumbRef = useRef<boolean>(false);
   const emptySlidesInitializedRef = useRef(false);
+  const backgroundColorSaveTimerRef = useRef<number | null>(null);
+  const backgroundColorPersistTimerRef = useRef<number | null>(null);
+  const pendingBackgroundColorSaveSlidesRef = useRef<Slide[] | null>(null);
 
   // Helper to add a cache-busting query param for immediate UI refresh
   const makeUiThumbnail = useCallback((url: string) => {
@@ -158,6 +162,13 @@ const SlidesPage: React.FC = () => {
     pdfImportInputRef.current?.click();
   }, [pdfImportStatus]);
 
+  const shouldSkipThumbnailForSlide = useCallback((slide?: Slide | null) => {
+    if (!slide?.backgroundImage) {
+      return false;
+    }
+    return isLexicalContentEffectivelyEmpty(slide.content);
+  }, []);
+
   const handleBack = () => {
     const title = activeProject?.title ?? "";
 
@@ -169,6 +180,10 @@ const SlidesPage: React.FC = () => {
       const width = 1920;
       const height = 1080;
       const slide = slides.find((s) => s.id === activeSlideId);
+      if (shouldSkipThumbnailForSlide(slide)) {
+        navigate(getProjectDashboardPath(projectId!, title));
+        return;
+      }
       saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: slide?.backgroundColor, content: slide?.content })
         .catch((e) => console.warn("Failed to save thumbnail on exit:", e))
         .finally(() => {
@@ -385,6 +400,21 @@ const SlidesPage: React.FC = () => {
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      if (backgroundColorSaveTimerRef.current) {
+        window.clearTimeout(backgroundColorSaveTimerRef.current);
+        backgroundColorSaveTimerRef.current = null;
+      }
+      if (backgroundColorPersistTimerRef.current) {
+        window.clearTimeout(backgroundColorPersistTimerRef.current);
+        backgroundColorPersistTimerRef.current = null;
+      }
+      pendingBackgroundColorSaveSlidesRef.current = null;
+    },
+    []
+  );
+
   // Best-effort save thumbnail when the user closes the tab or reloads.
   // This is a best-effort handler and should not block unload; it's here to
   // capture thumbnails when the page is exited instead of generating them on
@@ -397,6 +427,9 @@ const SlidesPage: React.FC = () => {
           const width = 1920;
           const height = 1080;
           const slide = slides.find((s) => s.id === activeSlideId);
+          if (shouldSkipThumbnailForSlide(slide)) {
+            return;
+          }
           const bgColor = slide?.backgroundColor || '#101112';
           saveSlideThumb(projectId, activeSlideId, undefined, { width, height, backgroundColor: bgColor, content: slide?.content }).catch(() => {});
         } catch {
@@ -415,8 +448,12 @@ const SlidesPage: React.FC = () => {
 
       setIsSaving(true);
       try {
+        const cleanedSlides = slidesToSave.map((slide) =>
+          shouldSkipThumbnailForSlide(slide) ? { ...slide, thumbnail: undefined } : slide
+        );
+
         await updateProjectFields(projectId, {
-          slides: slidesToSave,
+          slides: cleanedSlides,
         });
 
         // Broadcast the update to other users
@@ -424,7 +461,7 @@ const SlidesPage: React.FC = () => {
           ws.send(JSON.stringify({
             action: "projectUpdated",
             projectId,
-            fields: { slides: slidesToSave },
+            fields: { slides: cleanedSlides },
             conversationId: `project#${projectId}`,
             username: userName || "Someone",
             senderId: userId,
@@ -445,6 +482,9 @@ const SlidesPage: React.FC = () => {
               setTimeout(() => {
                 // Generate and persist thumbnail; update local state and then persist
                 const slide = slides.find((s) => s.id === activeSlideId);
+                if (shouldSkipThumbnailForSlide(slide)) {
+                  return;
+                }
                 const bgColor = slide?.backgroundColor;
                 saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
                   if (!thumbnailUrl) {
@@ -512,6 +552,7 @@ const SlidesPage: React.FC = () => {
     uiThumbsEnabled,
     makeUiThumbnail,
     sanitizeThumbnailForPersist,
+    shouldSkipThumbnailForSlide,
   ]
   );
 
@@ -559,6 +600,10 @@ const SlidesPage: React.FC = () => {
         const width = 1920;
         const height = 1080;
         const slide = slides.find((s) => s.id === activeSlideId);
+        if (shouldSkipThumbnailForSlide(slide)) {
+          setActiveSlideId(slideId);
+          return;
+        }
         const bgColor = slide?.backgroundColor;
         saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
           if (!thumbnailUrl) {
@@ -585,7 +630,7 @@ const SlidesPage: React.FC = () => {
 
       setActiveSlideId(slideId);
     },
-  [projectId, activeSlideId, uiThumbsEnabled, makeUiThumbnail]
+  [projectId, activeSlideId, uiThumbsEnabled, makeUiThumbnail, slides, shouldSkipThumbnailForSlide]
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
@@ -669,23 +714,41 @@ const SlidesPage: React.FC = () => {
       const updated = prev.map((slide) => 
         slide.id === activeSlideId ? { ...slide, backgroundColor: color } : slide
       );
-      
-      // Save immediately after color change (use updated state)
-      saveSlides(updated, { skipThumbnail: true });
-      
+
+      pendingBackgroundColorSaveSlidesRef.current = updated;
       return updated;
     });
     setIsDirty(true);
+
+    // Debounced persist: avoid network churn while dragging the picker, but ensure changes save quickly.
+    if (backgroundColorPersistTimerRef.current) {
+      window.clearTimeout(backgroundColorPersistTimerRef.current);
+    }
+    backgroundColorPersistTimerRef.current = window.setTimeout(() => {
+      const nextSlides = pendingBackgroundColorSaveSlidesRef.current;
+      pendingBackgroundColorSaveSlidesRef.current = null;
+      backgroundColorPersistTimerRef.current = null;
+      if (nextSlides) {
+        saveSlides(nextSlides, { skipThumbnail: true });
+      }
+    }, 650);
     
     // Regenerate thumbnail with new background color
     if (projectId && activeSlideId && !uiThumbsEnabled) {
-      setTimeout(() => {
+      if (backgroundColorSaveTimerRef.current) {
+        window.clearTimeout(backgroundColorSaveTimerRef.current);
+      }
+
+      backgroundColorSaveTimerRef.current = window.setTimeout(() => {
         const width = 1920;
         const height = 1080;
         // Get the updated slide to retrieve the new backgroundColor
         setSlides((currentSlides) => {
           const slide = currentSlides.find((s) => s.id === activeSlideId);
           const bgColor = slide?.backgroundColor || color;
+          if (shouldSkipThumbnailForSlide(slide)) {
+            return currentSlides;
+          }
           
           saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
             if (!thumbnailUrl) return;
@@ -712,9 +775,11 @@ const SlidesPage: React.FC = () => {
           
           return currentSlides;
         });
-      }, 200); // Increased timeout to allow DOM to update
+
+        backgroundColorSaveTimerRef.current = null;
+      }, 450);
     }
-  }, [activeSlideId, saveSlides, projectId, uiThumbsEnabled, makeUiThumbnail, sanitizeThumbnailForPersist, updateProjectFields]);
+  }, [activeSlideId, projectId, uiThumbsEnabled, makeUiThumbnail, sanitizeThumbnailForPersist, updateProjectFields, shouldSkipThumbnailForSlide, saveSlides]);
 
   // Debounced auto-save of slide content to backend when edits occur.
   useEffect(() => {
@@ -737,6 +802,10 @@ const SlidesPage: React.FC = () => {
               // Generate a thumbnail for the active slide and persist the slide
               // update with the new thumbnail URL once.
               const slide = slides.find((s) => s.id === activeSlideId);
+              if (shouldSkipThumbnailForSlide(slide)) {
+                dirtyThumbRef.current = false;
+                return;
+              }
               const bgColor = slide?.backgroundColor || '#101112';
               let thumbnailUpdatePromise: Promise<void> | null = null;
 
