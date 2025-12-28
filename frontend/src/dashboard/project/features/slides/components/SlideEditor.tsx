@@ -22,6 +22,7 @@ interface SlideEditorProps {
   onContentChange?: (content: string) => void;
   onSaveSuccess?: () => void;
   onSlideBackgroundColorChange?: (color: string) => void;
+  onPreview?: () => void;
   // Toolbar props
   onDuplicate?: () => void;
   onDelete?: () => void;
@@ -55,6 +56,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onContentChange,
   onSaveSuccess,
   onSlideBackgroundColorChange,
+  onPreview,
   onDuplicate,
   onDelete,
   onExport,
@@ -217,6 +219,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onDuplicate={onDuplicate}
       onDelete={onDelete}
       onExport={onExport}
+      onPreview={onPreview}
       onImportPdf={onImportPdf}
       isImportingPdf={isImportingPdf}
       pdfImportStatus={pdfImportStatus}

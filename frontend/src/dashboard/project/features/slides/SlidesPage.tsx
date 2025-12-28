@@ -1,6 +1,6 @@
 // SlidesPage.tsx - Main slides editor page
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/useSocket";
 import { Slide } from "@/app/contexts/DataProvider";
@@ -87,6 +87,7 @@ async function waitForThumbnailReady(url: string, maxAttempts = MAX_THUMBNAIL_AT
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     activeProject,
     fetchProjectDetails,
@@ -125,6 +126,11 @@ const SlidesPage: React.FC = () => {
   const backgroundColorSaveTimerRef = useRef<number | null>(null);
   const backgroundColorPersistTimerRef = useRef<number | null>(null);
   const pendingBackgroundColorSaveSlidesRef = useRef<Slide[] | null>(null);
+  const pendingInitialSlideIdRef = useRef<string | null>(
+    typeof (location.state as { activeSlideId?: unknown } | null | undefined)?.activeSlideId === "string"
+      ? ((location.state as { activeSlideId?: unknown }).activeSlideId as string)
+      : null
+  );
 
   // Helper to add a cache-busting query param for immediate UI refresh
   const makeUiThumbnail = useCallback((url: string) => {
@@ -349,6 +355,11 @@ const SlidesPage: React.FC = () => {
       });
 
       setActiveSlideId((current) => {
+        const pending = pendingInitialSlideIdRef.current;
+        if (pending && sortedSlides.some((slide) => slide.id === pending)) {
+          pendingInitialSlideIdRef.current = null;
+          return pending;
+        }
         if (!current || !sortedSlides.some((slide) => slide.id === current)) {
           return sortedSlides[0].id;
         }
@@ -981,6 +992,13 @@ const SlidesPage: React.FC = () => {
     return <div>No project ID provided</div>;
   }
 
+  const handlePreview = () => {
+    if (!activeSlideId) return;
+    const title = activeProject?.title ?? "";
+    const path = getProjectDashboardPath(projectId, title, "/slides/present");
+    navigate(`${path}?slideId=${encodeURIComponent(activeSlideId)}`);
+  };
+
   return (
     <ProjectPageLayout
       projectId={projectId}
@@ -1094,6 +1112,7 @@ const SlidesPage: React.FC = () => {
                   onSlideBackgroundColorChange={handleSlideBackgroundColorChange}
                   isSaving={isSaving}
                   isDirty={isDirty}
+                  onPreview={handlePreview}
                   onImportPdf={handleImportPdfClick}
                   isImportingPdf={isImportingPdf}
                   pdfImportStatus={pdfImportStatus}

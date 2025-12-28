@@ -1,0 +1,85 @@
+.slides-presentation {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.slides-presentation__controls {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.slides-presentation__icon-button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.slides-presentation__icon-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.slides-presentation__status {
+  pointer-events: auto;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.slides-presentation__stage-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.slides-presentation__stage-scaler {
+  transform-origin: center center;
+}
+
+.slides-presentation__stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 24px 80px rgba(0, 0, 0, 0.65);
+}
+
+/* Presentation polish: never show editor affordances */
+.slides-presentation .editor-textbox {
+  overflow: hidden !important;
+}
+.slides-presentation .editor-textbox .textbox-resize-handle,
+.slides-presentation .editor-textbox .textbox-move-handle,
+.slides-presentation .editor-textbox .textbox-rotate-handle,
+.slides-presentation .editor-textbox .textbox-rotate-handle-line {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
