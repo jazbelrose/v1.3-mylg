@@ -23,7 +23,7 @@ Navigate to `/projects/:projectId/:projectName/slides` or use the "Slides" tab i
 
 ### Creating Slides
 
-1. Click the "+ New Slide" button in the sidebar
+1. Click the "+" button in the top toolbar
 2. The new slide will be created and automatically selected
 3. Start editing content in the Lexical editor
 

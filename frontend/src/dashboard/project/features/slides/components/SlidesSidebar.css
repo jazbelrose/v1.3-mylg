@@ -23,34 +23,6 @@
   border-radius: 999px;
 }
 
-.slides-sidebar__new {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, var(--brand, #fa3356), #ff5e7a);
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 8px 20px rgba(250, 51, 86, 0.4);
-}
-
-.slides-sidebar__new:hover,
-.slides-sidebar__new:focus-visible {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(250, 51, 86, 0.5);
-}
-
-.slides-sidebar__new:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.25);
-  outline-offset: 3px;
-}
-
 .slides-sidebar__list {
   display: flex;
   flex-direction: column;

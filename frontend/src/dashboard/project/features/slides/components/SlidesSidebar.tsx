@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactDOM from "react-dom";
 import { GripVertical } from "lucide-react";
 import { Copy, Download, Trash2 } from "lucide-react";
-import { Plus } from "lucide-react";
 import { Pencil } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
@@ -201,7 +200,6 @@ interface SlidesSidebarProps {
   selectedSlideIds?: string[];
   onSelectedSlideIdsChange?: (ids: string[]) => void;
   onRequestDeleteSelected?: (ids: string[]) => void;
-  onNewSlide?: () => void;
   onRenameSlide?: (slideId: string, title: string) => void;
 }
 
@@ -217,7 +215,6 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   selectedSlideIds = [],
   onSelectedSlideIdsChange,
   onRequestDeleteSelected,
-  onNewSlide,
   onRenameSlide,
 }) => {
   const uiThumbsEnabled = isUiThumbsEnabled();
@@ -277,12 +274,6 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
 
   return (
     <aside className="slides-sidebar">
-      {onNewSlide && (
-        <button type="button" className="slides-sidebar__new" onClick={onNewSlide}>
-          <Plus size={16} />
-          New slide
-        </button>
-      )}
       <div className="slides-sidebar__list" role="list">
         {slides.map((slide, index) => {
           const isActive = activeSlideId === slide.id;

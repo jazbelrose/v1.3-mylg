@@ -11,6 +11,7 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
+import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { ConfirmModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
@@ -1048,7 +1049,15 @@ const SlidesPage: React.FC = () => {
             />
           </div>
         )}
-        <div className="slides-toolbar-shell" ref={toolbarPortalRef} />
+        <div className="slides-toolbar-shell" ref={toolbarPortalRef}>
+          {!activeSlide && (
+            <SlidesEmptyToolbar
+              onNewSlide={handleNewSlide}
+              onImportPdf={handleImportPdfClick}
+              isImportingPdf={isImportingPdf}
+            />
+          )}
+        </div>
         <DropdownProvider>
           <div className="slides-workspace">
             <SlidesSidebar
@@ -1057,7 +1066,6 @@ const SlidesPage: React.FC = () => {
               onSlideSelect={handleSlideSelect}
               onReorderSlides={handleReorderSlides}
               projectId={projectId || ""}
-              onNewSlide={handleNewSlide}
               onDuplicateSlide={handleDuplicateSlide}
               onDeleteSlide={handleDeleteSlide}
               selectedSlideIds={selectedSlideIds}
@@ -1101,7 +1109,9 @@ const SlidesPage: React.FC = () => {
                   toolbarPortalContainer={toolbarPortalNode}
                 />
                 ) : (
-                  <div className="slides-main__empty">No slide selected</div>
+                  <div className="slides-main__empty">
+                    {slides.length === 0 ? "No slides yet" : "No slide selected"}
+                  </div>
                 )}
               </div>
             </section>
