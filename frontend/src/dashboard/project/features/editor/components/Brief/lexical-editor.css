@@ -122,6 +122,10 @@
   position: relative;
 }
 
+.editor-input[data-slides-mode="true"] .editor-paragraph {
+  position: static;
+}
+
 .editor-paragraph:last-child {
   margin-bottom: 0;
 }

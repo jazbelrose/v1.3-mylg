@@ -200,6 +200,8 @@ export class ResizableImageNode extends DecoratorNode {
     const elem = document.createElement("span");
     Object.assign(elem.style, {
       position: "absolute",
+      left: "0px",
+      top: "0px",
       width: "0px",
       height: "0px",
       lineHeight: "0",

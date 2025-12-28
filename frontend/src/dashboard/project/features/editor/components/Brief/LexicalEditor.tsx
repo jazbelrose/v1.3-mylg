@@ -486,6 +486,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
             contentEditable={
               <ContentEditable
                 className="editor-input"
+                data-slides-mode={slidesMode ? "true" : undefined}
                 style={{ 
                   position: "relative", 
                   minHeight: contentOverflowBehavior === "hidden" ? "100%" : "auto",
