@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { LexicalComposer, type InitialConfigType } from "@lexical/react/LexicalComposer";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
@@ -6,10 +6,11 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import { ClickableLinkPlugin } from "@lexical/react/LexicalClickableLinkPlugin";
-import { Klass, LexicalNode, ParagraphNode } from "lexical";
+import { Klass, LexicalNode, ParagraphNode, $createParagraphNode, $getRoot } from "lexical";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { AutoLinkNode, LinkNode } from "@lexical/link";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 
 import ImageLockPlugin from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockPlugin";
 import { ResizableImageNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/ResizableImageNode";
@@ -25,6 +26,41 @@ type SlideReadOnlyRendererProps = {
   content?: string | null;
   contentPadding?: string | number;
 };
+
+function EditorStateSyncPlugin({ content }: { content?: string | null }): null {
+  const [editor] = useLexicalComposerContext();
+  const lastContentRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    editor.setEditable(false);
+  }, [editor]);
+
+  useEffect(() => {
+    const nextContent = typeof content === "string" && content.trim().length > 0 ? content : null;
+    if (nextContent === lastContentRef.current) {
+      return;
+    }
+    lastContentRef.current = nextContent;
+
+    if (!nextContent) {
+      editor.update(() => {
+        const root = $getRoot();
+        root.clear();
+        root.append($createParagraphNode());
+      });
+      return;
+    }
+
+    try {
+      editor.setEditorState(editor.parseEditorState(nextContent));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Lexical Slides Presentation: failed to parse editorState", error);
+    }
+  }, [content, editor]);
+
+  return null;
+}
 
 const SlideReadOnlyRenderer: React.FC<SlideReadOnlyRendererProps> = ({
   content,
@@ -97,11 +133,13 @@ const SlideReadOnlyRenderer: React.FC<SlideReadOnlyRendererProps> = ({
       <LexicalComposer initialConfig={initialConfig}>
         {/* Provide ImageLockContext so slide nodes like ResizableImageNode don't crash in read-only mode. */}
         <ImageLockPlugin provider={null}>
+          <EditorStateSyncPlugin content={content} />
           <RichTextPlugin
             contentEditable={
               <ContentEditable
                 className="editor-input"
                 data-slides-mode="true"
+                tabIndex={-1}
                 style={{
                   position: "relative",
                   width: "100%",
