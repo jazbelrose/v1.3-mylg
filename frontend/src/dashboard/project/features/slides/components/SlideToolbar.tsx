@@ -147,10 +147,8 @@ interface SlideToolbarProps {
   onSetSlideBackgroundColor?: (color: string) => void;
   slideBackgroundColor?: string;
   onInsertImage?: () => void;
-  onInsertVector?: () => void;
+  onInsertSvg?: () => void;
   onInsertTextBox?: () => void;
-  onInsertFigma?: () => void;
-  onInsertLayout?: (template: string) => void;
   onSetCodeLanguage?: (lang: string) => void;
 
   onDeleteSelection?: () => void;
@@ -206,10 +204,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSetSlideBackgroundColor,
   slideBackgroundColor = "#101112",
   onInsertImage,
-  onInsertVector,
+  onInsertSvg,
   onInsertTextBox,
-  onInsertFigma,
-  onInsertLayout,
   onSetCodeLanguage,
   onDeleteSelection,
   onBringToFront,
@@ -234,7 +230,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const colorButtonRef = useRef<HTMLButtonElement | null>(null);
   const slideBgButtonRef = useRef<HTMLButtonElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
-  const layoutButtonRef = useRef<HTMLButtonElement | null>(null);
   const zoomButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
@@ -245,7 +240,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const colorDropdownId = "color-dropdown";
   const slideBgDropdownId = "slide-bg-dropdown";
   const moreDropdownId = "more-dropdown";
-  const layoutDropdownId = "layout-dropdown";
   const zoomDropdownId = "zoom-dropdown";
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
@@ -392,10 +386,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleMoreDropdownToggle = () => {
     handleDropdownToggle(moreDropdownId, moreButtonRef);
-  };
-
-  const handleLayoutDropdownToggle = () => {
-    handleDropdownToggle(layoutDropdownId, layoutButtonRef);
   };
 
   const handleZoomDropdownToggle = () => {
@@ -1140,66 +1130,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 <FileImageOutlined className="dropdown-icon" />
                 <span className="text">Image</span>
               </button>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertVector)}>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertSvg)}>
                 <NodeIndexOutlined className="dropdown-icon" />
-                <span className="text">Vector</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertFigma)}>
-                <SiFigma className="dropdown-icon" size={16} />
-                <span className="text">Figma</span>
-              </button>
-              <button
-                type="button"
-                className="item"
-                onClick={handleLayoutDropdownToggle}
-                ref={layoutButtonRef}
-              >
-                <LayoutOutlined className="dropdown-icon" />
-                <span className="text">Layout</span>
-                <i className="chevron-right" />
-              </button>
-            </div>,
-            document.body
-          )}
-
-        {activeDropdown === layoutDropdownId &&
-          ReactDOM.createPortal(
-            <div
-              className="dropdown dropdown--nested"
-              data-slide-dropdown
-              ref={(node) => {
-                if (node && layoutButtonRef.current) {
-                  const triggerRect = layoutButtonRef.current.getBoundingClientRect();
-                  node.style.position = "fixed";
-                  node.style.left = `${triggerRect.left + 12}px`;
-                  node.style.top = `${triggerRect.bottom + 4}px`;
-                  node.style.zIndex = "1001";
-                  node.style.visibility = "visible";
-                }
-              }}
-            >
-              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr"))}>
-                <span className="text">2 Columns (Equal Width)</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("25% 75%"))}>
-                <span className="text">2 Columns (25% - 75%)</span>
-              </button>
-              <button type="button" className="item" onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr"))}>
-                <span className="text">3 Columns (Equal Width)</span>
-              </button>
-              <button
-                type="button"
-                className="item"
-                onClick={() => handleInsert(() => onInsertLayout?.("25% 50% 25%"))}
-              >
-                <span className="text">3 Columns (25% - 50% - 25%)</span>
-              </button>
-              <button
-                type="button"
-                className="item"
-                onClick={() => handleInsert(() => onInsertLayout?.("1fr 1fr 1fr 1fr"))}
-              >
-                <span className="text">4 Columns (Equal Width)</span>
+                <span className="text">SVG</span>
               </button>
             </div>,
             document.body

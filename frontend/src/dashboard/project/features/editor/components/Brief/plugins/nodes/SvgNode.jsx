@@ -215,6 +215,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
   const isSlideLocked = Boolean(locked);
 
   const copyOnDragRef = useRef(false);
+  const suppressedToggleOnPointerDownRef = useRef(false);
+  const suppressedToggleModifiersRef = useRef(null);
   const dragSelectionKeysRef = useRef([]);
   const dragSelectionSnapshotRef = useRef(new Map());
   const dragLastDeltaRef = useRef([0, 0]);
@@ -345,9 +347,20 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
       shiftKey: event.shiftKey,
       altKey: event.altKey,
     };
+    const suppressToggle = Boolean((modifiers.ctrlKey || modifiers.metaKey) && isSelected);
+    suppressedToggleOnPointerDownRef.current = suppressToggle;
+    suppressedToggleModifiersRef.current = suppressToggle ? modifiers : null;
     editor.focus();
     editor.update(() => {
-      applyModifierNodeSelection(nodeKey, modifiers);
+      if (suppressToggle) {
+        // Ctrl/⌘ is both a toggle-selection modifier and our copy-drag gesture.
+        // If the node is already selected, suppress toggle-selection on pointer down
+        // so Moveable can begin the drag; then, if this turns into a click (no drag),
+        // we apply the toggle onClick instead.
+        applyModifierNodeSelection(nodeKey, { ...modifiers, ctrlKey: false, metaKey: false });
+      } else {
+        applyModifierNodeSelection(nodeKey, modifiers);
+      }
     });
   };
 
@@ -685,7 +698,18 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
         ref={ref}
         data-lexical-node-key={nodeKey}
         onMouseDown={handlePointerDown}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!suppressedToggleOnPointerDownRef.current) return;
+          suppressedToggleOnPointerDownRef.current = false;
+          const modifiers = suppressedToggleModifiersRef.current;
+          suppressedToggleModifiersRef.current = null;
+          if (!modifiers) return;
+          editor.focus();
+          editor.update(() => {
+            applyModifierNodeSelection(nodeKey, modifiers);
+          });
+        }}
         style={{
           position: "absolute",
           left: 0,
@@ -728,6 +752,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
         className="moveable-no-border svg-moveable"
         controlPadding={16}
         onDragStart={(e) => {
+          suppressedToggleOnPointerDownRef.current = false;
+          suppressedToggleModifiersRef.current = null;
           copyOnDragRef.current = !!(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
           startRef.current = { ...frameRef.current };
           captureDragSelectionSnapshot();

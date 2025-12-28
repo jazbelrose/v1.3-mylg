@@ -51,6 +51,10 @@ Navigate to `/projects/:projectId/:projectName/slides` or use the "Slides" tab i
 - **Save**: Manually trigger save
 - **List Files**: Browse project files (recently added)
 
+### Canvas Shortcuts
+
+- **Copy on drag (SVG)**: Hold `Ctrl` (Windows/Linux) or `⌘` (macOS) while dragging an SVG object to duplicate it.
+
 ## Architecture
 
 ### File Structure
