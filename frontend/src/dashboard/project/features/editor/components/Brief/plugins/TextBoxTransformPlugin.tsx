@@ -653,6 +653,10 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
       const target = event.target as HTMLElement | null;
       if (!target) return;
 
+      const stackableTargetKey =
+        target
+          .closest<HTMLElement>("[data-lexical-node-key]")
+          ?.getAttribute("data-lexical-node-key") ?? null;
       const textbox = target.closest<HTMLElement>("[data-lexical-textbox]");
       if (!textbox) {
         editor.update(() => {
@@ -661,6 +665,12 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             const nodes = selection.getNodes();
             const allTextboxes = nodes.length > 0 && nodes.every((n) => n.getType && n.getType() === TEXTBOX_TYPE);
             if (allTextboxes) {
+              if (stackableTargetKey) {
+                const clickedNode = $getNodeByKey<LexicalNode>(stackableTargetKey);
+                if (clickedNode instanceof ResizableImageNode || clickedNode instanceof SvgNode) {
+                  return;
+                }
+              }
               $setSelection(null);
             }
           }
