@@ -356,51 +356,12 @@ const SlidesPage: React.FC = () => {
       return;
     }
 
-    if (emptySlidesInitializedRef.current) {
-      return;
-    }
-    emptySlidesInitializedRef.current = true;
-
-    setSlides((prevSlides) => {
-      if (prevSlides.length > 0) {
-        setActiveSlideId((current) => {
-          if (current && prevSlides.some((slide) => slide.id === current)) {
-            return current;
-          }
-          return prevSlides[0].id;
-        });
-        return prevSlides;
-      }
-
-      const initialSlide: Slide = {
-        id: uuidv4(),
-        title: "Slide 1",
-        order: 0,
-        backgroundColor: '#101112',
-        content: JSON.stringify({
-          root: {
-            children: [
-              {
-                children: [],
-                direction: null,
-                format: "",
-                indent: 0,
-                type: "paragraph",
-                version: 1,
-              },
-            ],
-            direction: null,
-            format: "",
-            indent: 0,
-            type: "root",
-            version: 1,
-          },
-        }),
-      };
-      setActiveSlideId(initialSlide.id);
-      return [initialSlide];
-    });
-  }, [projectId, activeProject?.slides, uiThumbsEnabled, makeUiThumbnail]);
+    // Project explicitly has no slides (valid). Don't auto-create a slide — let the user add one.
+    // Avoid stomping local edits while dirty.
+    setSlides((prev) => (isDirty ? prev : []));
+    setSelectedSlideIds((prev) => (isDirty ? prev : []));
+    setActiveSlideId((current) => (isDirty ? current : null));
+  }, [projectId, activeProject?.slides, uiThumbsEnabled, makeUiThumbnail, isDirty]);
 
   // Cleanup Yjs connections on unmount
   useEffect(() => {
@@ -673,12 +634,6 @@ const SlidesPage: React.FC = () => {
     (slideIds: string[]) => {
       const uniqueIds = Array.from(new Set(slideIds)).filter((id) => slides.some((s) => s.id === id));
       if (uniqueIds.length === 0) {
-        return;
-      }
-
-      const remainingCount = slides.length - uniqueIds.length;
-      if (remainingCount < 1) {
-        notify("warning", "Cannot delete the last slide");
         return;
       }
 
@@ -1102,6 +1057,7 @@ const SlidesPage: React.FC = () => {
               onSlideSelect={handleSlideSelect}
               onReorderSlides={handleReorderSlides}
               projectId={projectId || ""}
+              onNewSlide={handleNewSlide}
               onDuplicateSlide={handleDuplicateSlide}
               onDeleteSlide={handleDeleteSlide}
               selectedSlideIds={selectedSlideIds}
