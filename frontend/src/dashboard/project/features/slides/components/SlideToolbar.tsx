@@ -65,6 +65,17 @@ function Divider() {
   return <div className="divider" />;
 }
 
+const ARRANGE_SHORTCUTS = {
+  bringToFront: "Ctrl/⌘Shift]",
+  bringForward: "Ctrl/⌘]",
+  sendBackward: "Ctrl/⌘[",
+  sendToBack: "Ctrl/⌘Shift[",
+} as const;
+
+function withShortcut(title: string, shortcut?: string): string {
+  return shortcut ? `${title} (${shortcut})` : title;
+}
+
 type SelectProps = {
   onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   className?: string;
@@ -763,16 +774,36 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           )}
           {hasArrange && (
             <>
-              <button type="button" className="toolbar-item" onClick={onBringToFront} title="Bring to Front">
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onBringToFront}
+                title={withShortcut("Bring to Front", ARRANGE_SHORTCUTS.bringToFront)}
+              >
                 <ArrowUpToLine size={18} />
               </button>
-              <button type="button" className="toolbar-item" onClick={onBringForward} title="Bring Forward">
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onBringForward}
+                title={withShortcut("Bring Forward", ARRANGE_SHORTCUTS.bringForward)}
+              >
                 <ArrowUp size={18} />
               </button>
-              <button type="button" className="toolbar-item" onClick={onSendBackward} title="Send Backward">
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onSendBackward}
+                title={withShortcut("Send Backward", ARRANGE_SHORTCUTS.sendBackward)}
+              >
                 <ArrowDown size={18} />
               </button>
-              <button type="button" className="toolbar-item" onClick={onSendToBack} title="Send to Back">
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onSendToBack}
+                title={withShortcut("Send to Back", ARRANGE_SHORTCUTS.sendToBack)}
+              >
                 <ArrowDownToLine size={18} />
               </button>
             </>

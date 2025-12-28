@@ -141,12 +141,42 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     };
   }, []);
 
-  // Keyboard shortcuts for zoom
+  // Keyboard shortcuts (zoom + z-order)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
       if (isCtrlOrCmd) {
+        // Z-order shortcuts (classic design-app style)
+        // Ctrl/⌘]        = bring forward
+        // Ctrl/⌘[        = send backward
+        // Ctrl/⌘Shift]   = bring to front
+        // Ctrl/⌘Shift[   = send to back
+        if (!event.altKey) {
+          const isBracketRight = event.key === "]" || event.code === "BracketRight";
+          const isBracketLeft = event.key === "[" || event.code === "BracketLeft";
+          if ((isBracketRight || isBracketLeft) && toolbarActions) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (event.shiftKey) {
+              if (isBracketRight) {
+                toolbarActions.onBringToFront();
+              } else {
+                toolbarActions.onSendToBack();
+              }
+              return;
+            }
+
+            if (isBracketRight) {
+              toolbarActions.onBringForward();
+            } else {
+              toolbarActions.onSendBackward();
+            }
+            return;
+          }
+        }
+
         switch (event.key) {
           case '=':
           case '+':
@@ -167,7 +197,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onZoomIn, onZoomOut, onResetZoom]);
+  }, [onZoomIn, onZoomOut, onResetZoom, toolbarActions]);
 
   const customToolbar = toolbarActions ? (
     <SlideToolbar
