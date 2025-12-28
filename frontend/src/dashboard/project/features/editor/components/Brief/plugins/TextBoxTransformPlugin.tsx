@@ -629,6 +629,15 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
         return;
       }
 
+      if (textbox.getAttribute("data-slide-locked") === "true") {
+        if (hoverTextbox !== textbox) {
+          clearHover();
+          hoverTextbox = textbox;
+        }
+        hoverTextbox.style.cursor = "not-allowed";
+        return;
+      }
+
       const interactionType = getInteractionType(textbox, event);
       if (interactionType) {
         if (hoverTextbox !== textbox) {
@@ -678,6 +687,19 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
         return;
       }
 
+      const nodeKey = textbox.getAttribute("data-lexical-node-key");
+      if (!nodeKey) return;
+
+      if (textbox.getAttribute("data-slide-locked") === "true") {
+        editor.update(() => {
+          applyModifierNodeSelection(nodeKey, event);
+        });
+        editor.focus();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       const interactionType = getInteractionType(textbox, event);
       if (!interactionType) {
         editor.focus();
@@ -691,9 +713,6 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
           "mylg-force-rotate-cursor-grabbing"
         );
       }
-
-      const nodeKey = textbox.getAttribute("data-lexical-node-key");
-      if (!nodeKey) return;
 
       const prevSelectionKeys = editor.getEditorState().read(() =>
         getSlideNodeSelectionKeys()
@@ -812,6 +831,11 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (!targetNode) {
               return;
             }
+            if (typeof (targetNode as unknown as { getLocked?: () => boolean }).getLocked === "function") {
+              if ((targetNode as unknown as { getLocked: () => boolean }).getLocked()) {
+                return;
+              }
+            }
             const nextX = origin.x + dx;
             const nextY = origin.y + dy;
             if (targetNode instanceof TextBoxNode) {
@@ -896,6 +920,11 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
               const targetNode = $getNodeByKey(key);
               if (!targetNode) {
                 return;
+              }
+              if (typeof (targetNode as unknown as { getLocked?: () => boolean }).getLocked === "function") {
+                if ((targetNode as unknown as { getLocked: () => boolean }).getLocked()) {
+                  return;
+                }
               }
               const nextRotation = snapshot.rotation + deltaDeg;
               if (targetNode instanceof TextBoxNode) {

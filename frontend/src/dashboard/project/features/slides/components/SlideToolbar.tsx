@@ -32,6 +32,7 @@ import {
   ArrowDown,
   ArrowDownToLine,
   Lock,
+  Unlock,
   Link,
   ChevronDown,
   Unlink,
@@ -639,6 +640,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const renderObjectContext = (label: string, options: { showReplace?: boolean } = { showReplace: true }) => {
     const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
+    const canLock = label === "Image" || label === "Vector" || label === "Text Box";
+    const selectedLocked =
+      ctx.type === "image" || ctx.type === "svg" || ctx.type === "textbox" ? ctx.locked : false;
     return (
       <div className="context-panel">
         <div className="context-controls compact">
@@ -816,16 +820,22 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </>
           )}
           {label === "Image" && (
-            <>
-              <button type="button" className="toolbar-item" onClick={onDuplicateSelection} title="Duplicate">
-                <Copy size={18} />
-                <span>Duplicate</span>
-              </button>
-              <button type="button" className="toolbar-item" onClick={onLockSelection} title="Lock">
-                <Lock size={18} />
-                <span>Lock</span>
-              </button>
-            </>
+            <button type="button" className="toolbar-item" onClick={onDuplicateSelection} title="Duplicate">
+              <Copy size={18} />
+              <span>Duplicate</span>
+            </button>
+          )}
+          {canLock && (
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={onLockSelection}
+              disabled={!onLockSelection}
+              title={selectedLocked ? "Unlock" : "Lock"}
+            >
+              {selectedLocked ? <Unlock size={18} /> : <Lock size={18} />}
+              <span>{selectedLocked ? "Unlock" : "Lock"}</span>
+            </button>
           )}
           <button type="button" className="toolbar-item danger" onClick={onDeleteSelection} title="Delete">
             <Trash2 size={18} />

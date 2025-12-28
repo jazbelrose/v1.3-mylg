@@ -261,6 +261,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onBringForward={toolbarActions.onBringForward}
       onSendBackward={toolbarActions.onSendBackward}
       onUpdateImageBorderRadius={toolbarActions.onUpdateImageBorderRadius}
+      onLockSelection={toolbarActions.onToggleLockSelection}
       onNewSlide={onNewSlide}
     />
   ) : null;

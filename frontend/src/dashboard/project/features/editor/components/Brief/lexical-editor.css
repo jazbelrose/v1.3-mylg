@@ -986,6 +986,38 @@ i.bg-color::before {
   border-radius: 4px;
 }
 
+.slide-locked-overlay {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 2px 4px;
+  font-size: 12px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+[data-lexical-textbox][data-slide-locked="true"]::after {
+  content: "Locked";
+  position: absolute;
+  top: -20px;
+  left: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 2px 4px;
+  font-size: 12px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+[data-lexical-textbox][data-slide-locked="true"] .textbox-move-handle,
+[data-lexical-textbox][data-slide-locked="true"] .textbox-resize-handle,
+[data-lexical-textbox][data-slide-locked="true"] .textbox-rotate-handle,
+[data-lexical-textbox][data-slide-locked="true"] .textbox-rotate-handle-line {
+  display: none !important;
+}
+
 .image-context-menu {
   position: fixed;
   background: #fff;

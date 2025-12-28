@@ -7,6 +7,7 @@ export function $createSvgNode({
   width = 300,
   height = 200,
   rotation = 0,
+  locked = false,
 }: {
   svg: string;
   x?: number;
@@ -14,8 +15,9 @@ export function $createSvgNode({
   width?: number;
   height?: number;
   rotation?: number;
+  locked?: boolean;
 }): SvgNode {
-  return new SvgNode(svg, x, y, width, height, rotation);
+  return new SvgNode(svg, x, y, width, height, rotation, undefined, locked);
 }
 
 export function $isSvgNode(node: unknown): node is SvgNode {

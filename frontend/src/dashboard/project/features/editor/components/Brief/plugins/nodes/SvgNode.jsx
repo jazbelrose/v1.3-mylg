@@ -73,7 +73,7 @@ function clearForcedRotateCursor() {
 }
 
 export class SvgNode extends DecoratorNode {
-  constructor(svg, x = 0, y = 0, width = 300, height = 200, rotation = 0, key) {
+  constructor(svg, x = 0, y = 0, width = 300, height = 200, rotation = 0, key, locked = false) {
     super(key);
     this.__svg = svg;
     this.__x = x;
@@ -81,6 +81,7 @@ export class SvgNode extends DecoratorNode {
     this.__width = width;
     this.__height = height;
     this.__rotation = rotation;
+    this.__locked = locked;
   }
 
   static getType() {
@@ -95,7 +96,8 @@ export class SvgNode extends DecoratorNode {
       node.__width,
       node.__height,
       node.__rotation,
-      node.__key
+      node.__key,
+      node.__locked
     );
   }
 
@@ -148,6 +150,15 @@ export class SvgNode extends DecoratorNode {
     return this.__rotation;
   }
 
+  setLocked(locked) {
+    const writable = this.getWritable();
+    writable.__locked = locked;
+  }
+
+  getLocked() {
+    return this.__locked;
+  }
+
   createDOM() {
     return document.createElement("div");
   }
@@ -157,8 +168,8 @@ export class SvgNode extends DecoratorNode {
   }
 
   static importJSON(serializedNode) {
-    const { svg, x, y, width, height, rotation = 0 } = serializedNode;
-    return new SvgNode(svg, x, y, width, height, rotation);
+    const { svg, x, y, width, height, rotation = 0, locked = false } = serializedNode;
+    return new SvgNode(svg, x, y, width, height, rotation, undefined, locked);
   }
 
   exportJSON() {
@@ -171,6 +182,7 @@ export class SvgNode extends DecoratorNode {
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      locked: this.__locked,
     };
   }
 
@@ -183,18 +195,20 @@ export class SvgNode extends DecoratorNode {
         width={this.__width}
         height={this.__height}
         rotation={this.__rotation}
+        locked={this.__locked}
         nodeKey={this.__key}
       />
     );
   }
 }
 
-function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
+function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef(null);
   const moveableRef = useRef(null);
   const rotateHandleWrapperRef = useRef(null);
+  const isSlideLocked = Boolean(locked);
 
   const copyOnDragRef = useRef(false);
   const dragSelectionKeysRef = useRef([]);
@@ -687,12 +701,16 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
 
       <Moveable
         ref={moveableRef}
-        target={isSelected ? ref.current : null}
-        draggable
-        resizable={{
-          renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
-          keepRatio: true,
-        }}
+        target={isSelected && !isSlideLocked ? ref.current : null}
+        draggable={!isSlideLocked}
+        resizable={
+          isSlideLocked
+            ? false
+            : {
+                renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
+                keepRatio: true,
+              }
+        }
         rotatable={false}
         origin={false}
         edge={false}
@@ -734,6 +752,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
                 if (!origin) return;
                 const targetNode = $getNodeByKey(key);
                 if (!targetNode) return;
+                if (typeof targetNode.getLocked === "function" && targetNode.getLocked()) return;
                 const nextX = origin.x + dx;
                 const nextY = origin.y + dy;
                 if (targetNode instanceof TextBoxNode) {
@@ -827,7 +846,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, nodeKey }) {
       />
 
       {/* Custom rotation handle */}
-      {isSelected && (
+      {isSelected && !isSlideLocked && (
         <div
           ref={rotateHandleWrapperRef}
           style={{

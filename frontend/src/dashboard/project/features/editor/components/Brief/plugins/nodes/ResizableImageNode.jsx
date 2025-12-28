@@ -92,7 +92,8 @@ export class ResizableImageNode extends DecoratorNode {
       node.__x,
       node.__y,
       node.__rotation,
-      node.__borderRadius
+      node.__borderRadius,
+      node.__locked
     );
   }
 
@@ -106,7 +107,8 @@ export class ResizableImageNode extends DecoratorNode {
     x = 0,
     y = 0,
     rotation = 0,
-    borderRadius
+    borderRadius,
+    locked = false
   ) {
     super(key);
     this.__src = src;
@@ -122,6 +124,7 @@ export class ResizableImageNode extends DecoratorNode {
       DEFAULT_IMAGE_BORDER_RADIUS,
       borderRadius
     );
+    this.__locked = locked;
   }
 
   getOriginalAspectRatio() {
@@ -184,6 +187,15 @@ export class ResizableImageNode extends DecoratorNode {
     return this.__rotation;
   }
 
+  setLocked(locked) {
+    const writable = this.getWritable();
+    writable.__locked = locked;
+  }
+
+  getLocked() {
+    return this.__locked;
+  }
+
   getBorderRadius() {
     return { ...this.__borderRadius };
   }
@@ -233,6 +245,7 @@ export class ResizableImageNode extends DecoratorNode {
       y,
       rotation,
       borderRadius,
+      locked = false,
     } = serializedNode;
     return new ResizableImageNode(
       src,
@@ -244,7 +257,8 @@ export class ResizableImageNode extends DecoratorNode {
       x,
       y,
       rotation,
-      borderRadius
+      borderRadius,
+      locked
     );
   }
 
@@ -261,6 +275,7 @@ export class ResizableImageNode extends DecoratorNode {
       y: this.__y,
       rotation: this.__rotation,
       borderRadius: this.__borderRadius,
+      locked: this.__locked,
     };
   }
 
@@ -275,6 +290,7 @@ export class ResizableImageNode extends DecoratorNode {
           y={this.__y}
           rotation={this.__rotation}
           borderRadius={this.__borderRadius}
+          locked={this.__locked}
           nodeKey={this.__key}
         />
     );
@@ -295,6 +311,7 @@ export function $createResizableImageNode({
   y = 0,
   rotation = 0,
   borderRadius,
+  locked = false,
 }) {
   return new ResizableImageNode(
     src,
@@ -306,7 +323,8 @@ export function $createResizableImageNode({
     x,
     y,
     rotation,
-    borderRadius
+    borderRadius,
+    locked
   );
 }
 
@@ -324,6 +342,7 @@ function ResizableImageComponent({
   rotation,
   nodeKey,
   borderRadius,
+  locked,
 }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
@@ -332,7 +351,9 @@ function ResizableImageComponent({
   const { userName } = useData();
   const { provider, locks } = useImageLocks();
   const lockedBy = locks[nodeKey];
-  const isLocked = lockedBy && lockedBy !== userName;
+  const isCollabLocked = lockedBy && lockedBy !== userName;
+  const isSlideLocked = Boolean(locked);
+  const isInteractionLocked = isCollabLocked || isSlideLocked;
   const borderRadiusStyle = borderRadiusToCss(
     borderRadius || DEFAULT_IMAGE_BORDER_RADIUS
   );
@@ -420,7 +441,7 @@ function ResizableImageComponent({
     e.preventDefault();
     e.stopPropagation();
     editor.focus();
-    if (isLocked) return;
+    if (isInteractionLocked) return;
     const selectionBefore = editor.getEditorState().read(() =>
       getSlideNodeSelectionKeys()
     );
@@ -514,7 +535,7 @@ function ResizableImageComponent({
     };
 
     const handleKeyDown = (e) => {
-      if (!isSelected || isLocked) return;
+      if (!isSelected || isInteractionLocked) return;
       // Let slide-level z-order shortcuts (Ctrl/⌘[ and Ctrl/⌘]) bubble so SlideEditor can handle them.
       if ((e.ctrlKey || e.metaKey) && !e.altKey) {
         const isBracketRight = e.key === "]" || e.code === "BracketRight";
@@ -602,7 +623,7 @@ function ResizableImageComponent({
         window.removeEventListener("keydown", handleKeyDown, true);
       }
     };
-  }, [editor, isSelected, isLocked, nodeKey, clearSelection]);
+  }, [editor, isSelected, isInteractionLocked, nodeKey, clearSelection]);
 
   useEffect(() => {
     if (!isResizing && !isDragging && !isRotating) return;
@@ -657,6 +678,9 @@ function ResizableImageComponent({
             }
             const targetNode = $getNodeByKey(key);
             if (!targetNode) {
+              return;
+            }
+            if (typeof targetNode.getLocked === "function" && targetNode.getLocked()) {
               return;
             }
             const nextX = origin.x + deltaX;
@@ -798,6 +822,9 @@ function ResizableImageComponent({
         {lockedBy && lockedBy !== userName && (
           <div className="locked-overlay" style={{ position: "absolute", top: 0, left: 0 }}>{lockedBy}</div>
         )}
+        {isSlideLocked && (
+          <div className="slide-locked-overlay">Locked</div>
+        )}
         <img
           src={src}
           alt={altText}
@@ -812,12 +839,12 @@ function ResizableImageComponent({
             height: "100%",
             borderRadius: borderRadiusStyle,
             objectFit: "contain",
-            cursor: isSelected && !isLocked ? "move" : "pointer",
-            pointerEvents: isLocked ? "none" : "auto",
+            cursor: isSelected && !isInteractionLocked ? "move" : "pointer",
+            pointerEvents: isCollabLocked ? "none" : "auto",
           }}
-          onMouseDown={(e) => isSelected && !isLocked && handleMouseDown(e, "move")}
+          onMouseDown={(e) => isSelected && !isInteractionLocked && handleMouseDown(e, "move")}
         />
-        {isSelected && isFocused && !isLocked && (
+        {isSelected && isFocused && !isInteractionLocked && (
           <div
             style={{
               position: "absolute",

@@ -150,6 +150,7 @@ export default function ToolbarContextPlugin() {
             setCtx({
               type: "image",
               nodeKey: imageNode.getKey(),
+              locked: typeof imageNode.getLocked === "function" ? imageNode.getLocked() : false,
               borderRadius: imageNode.getBorderRadius(),
               width: imageNode.getWidth(),
               height: imageNode.getHeight(),
@@ -162,6 +163,7 @@ export default function ToolbarContextPlugin() {
             setCtx({
               type: "svg",
               nodeKey: svgNode.getKey(),
+              locked: typeof svgNode.getLocked === "function" ? svgNode.getLocked() : false,
               width: svgNode.getWidth(),
               height: svgNode.getHeight(),
             });
@@ -170,7 +172,15 @@ export default function ToolbarContextPlugin() {
 
           const textBoxNode = nodes.find((node) => node instanceof TextBoxNode);
           if (textBoxNode) {
-            setCtx({ type: "textbox", nodeKey: textBoxNode.getKey() });
+            setCtx({
+              type: "textbox",
+              nodeKey: textBoxNode.getKey(),
+              locked:
+                typeof (textBoxNode as unknown as { getLocked?: () => boolean }).getLocked ===
+                "function"
+                  ? (textBoxNode as unknown as { getLocked: () => boolean }).getLocked()
+                  : false,
+            });
             return;
           }
 

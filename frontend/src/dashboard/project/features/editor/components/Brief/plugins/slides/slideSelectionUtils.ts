@@ -145,7 +145,7 @@ function cloneTextBoxNode(node: TextBoxNode): TextBoxNode {
   const { x, y } = node.getPosition();
   const { width, height } = node.getSize();
   const rotation = node.getRotation();
-  const clone = $createTextBoxNode(x, y, width, height, rotation);
+  const clone = $createTextBoxNode(x, y, width, height, rotation, node.getLocked());
 
   node.getChildren().forEach((child) => {
     clone.append((child as LexicalNode).clone());
@@ -165,6 +165,7 @@ function cloneResizableImageNode(node: ResizableImageNode): ResizableImageNode {
     y: node.getY(),
     rotation: node.getRotation(),
     borderRadius: node.getBorderRadius(),
+    locked: node.getLocked(),
   });
 }
 
@@ -176,6 +177,7 @@ function cloneSvgNode(node: SvgNode): SvgNode {
     width: node.getWidth(),
     height: node.getHeight(),
     rotation: node.getRotation(),
+    locked: node.getLocked(),
   });
 }
 

@@ -16,6 +16,7 @@ export type SerializedTextBoxNode = SerializedElementNode & {
   width: number;
   height: number;
   rotation: number;
+  locked?: boolean;
 };
 
 export class TextBoxNode extends ElementNode {
@@ -24,6 +25,7 @@ export class TextBoxNode extends ElementNode {
   __width: number;
   __height: number;
   __rotation: number;
+  __locked: boolean;
 
   static getType(): string {
     return "text-box";
@@ -36,7 +38,8 @@ export class TextBoxNode extends ElementNode {
       node.__width,
       node.__height,
       node.__rotation,
-      node.__key
+      node.__key,
+      node.__locked
     );
   }
 
@@ -46,7 +49,8 @@ export class TextBoxNode extends ElementNode {
     width = 420,
     height = 160,
     rotation = 0,
-    key?: NodeKey
+    key?: NodeKey,
+    locked = false
   ) {
     super(key);
     this.__x = x;
@@ -54,6 +58,7 @@ export class TextBoxNode extends ElementNode {
     this.__width = width;
     this.__height = height;
     this.__rotation = rotation;
+    this.__locked = locked;
   }
 
   getPosition(): { x: number; y: number } {
@@ -88,11 +93,22 @@ export class TextBoxNode extends ElementNode {
     writable.__rotation = rotation;
   }
 
+  getLocked(): boolean {
+    const self = this.getLatest();
+    return self.__locked;
+  }
+
+  setLocked(locked: boolean): void {
+    const writable = this.getWritable();
+    writable.__locked = locked;
+  }
+
   createDOM(config: EditorConfig): HTMLElement {
     const dom = document.createElement("div");
     addClassNamesToElement(dom, config.theme.textBox || "editor-textbox");
     dom.setAttribute("data-lexical-textbox", "true");
     dom.setAttribute("data-lexical-node-key", this.__key);
+    dom.setAttribute("data-slide-locked", this.__locked ? "true" : "false");
     dom.style.position = "absolute";
     dom.style.left = "0px";
     dom.style.top = "0px";
@@ -159,6 +175,10 @@ export class TextBoxNode extends ElementNode {
     if (prevNode.__height !== this.__height) {
       dom.style.height = `${this.__height}px`;
     }
+
+    if (prevNode.__locked !== this.__locked) {
+      dom.setAttribute("data-slide-locked", this.__locked ? "true" : "false");
+    }
     return false;
   }
 
@@ -211,8 +231,9 @@ export class TextBoxNode extends ElementNode {
       width = 420,
       height = 160,
       rotation = 0,
+      locked = false,
     } = serializedNode;
-    const node = new TextBoxNode(x, y, width, height, rotation);
+    const node = new TextBoxNode(x, y, width, height, rotation, undefined, locked);
     return node.updateFromJSON(serializedNode);
   }
 
@@ -226,6 +247,7 @@ export class TextBoxNode extends ElementNode {
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      locked: this.__locked,
     };
   }
 
@@ -239,9 +261,10 @@ export function $createTextBoxNode(
   y?: number,
   width?: number,
   height?: number,
-  rotation?: number
+  rotation?: number,
+  locked?: boolean
 ): TextBoxNode {
-  return new TextBoxNode(x, y, width, height, rotation);
+  return new TextBoxNode(x, y, width, height, rotation, undefined, locked ?? false);
 }
 
 export function $isTextBoxNode(node: unknown): node is TextBoxNode {

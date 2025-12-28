@@ -32,6 +32,9 @@ import {
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
+import { ImageNode } from "./nodes/ImageNode";
+import { TextBoxNode } from "./nodes/TextBoxNode";
+import { SvgNode } from "./nodes/SvgNode";
 import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 import { reorderSlideStackablesInRoot } from "./slides/slideStackingUtils";
 
@@ -78,6 +81,7 @@ export type ToolbarActions = {
   onBringForward: () => void;
   onSendBackward: () => void;
   onUpdateImageBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
+  onToggleLockSelection: () => void;
 };
 
 type Props = {
@@ -227,6 +231,30 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             node.setBorderRadius(updates);
           }
         }),
+      onToggleLockSelection: () => {
+        editor.update(() => {
+          const selection = $getSelection();
+          if (!$isNodeSelection(selection)) {
+            return;
+          }
+
+          const nodes = selection.getNodes();
+          const lockableNodes = nodes.filter(
+            (node): node is ResizableImageNode | ImageNode | TextBoxNode | SvgNode =>
+              node instanceof ResizableImageNode ||
+              node instanceof ImageNode ||
+              node instanceof TextBoxNode ||
+              node instanceof SvgNode
+          );
+
+          if (lockableNodes.length === 0) {
+            return;
+          }
+
+          const shouldLock = lockableNodes.some((node) => !node.getLocked?.());
+          lockableNodes.forEach((node) => node.setLocked?.(shouldLock));
+        });
+      },
     };
 
     registerToolbar(actions);

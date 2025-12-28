@@ -9,7 +9,7 @@ import { useImageLocks } from "@/dashboard/project/features/editor/components/Br
 import { getFileUrl } from "@/shared/utils/api";
 
 export class ImageNode extends DecoratorNode {
-  constructor(src, altText, x = 0, y = 0, width = 300, height = 200, clipPath = "none", key) {
+  constructor(src, altText, x = 0, y = 0, width = 300, height = 200, clipPath = "none", key, locked = false) {
     super(key);
     this.__src = src;
     this.__altText = altText;
@@ -18,6 +18,7 @@ export class ImageNode extends DecoratorNode {
     this.__width = width;
     this.__height = height;
     this.__clipPath = clipPath;
+    this.__locked = locked;
   }
 
   static getType() {
@@ -33,7 +34,8 @@ export class ImageNode extends DecoratorNode {
         node.__width,
         node.__height,
         node.__clipPath,
-        node.__key
+        node.__key,
+        node.__locked
       );
   }
 
@@ -68,6 +70,15 @@ export class ImageNode extends DecoratorNode {
   }
   getHeight() {
     return this.__height;
+  }
+
+  setLocked(locked) {
+    const writable = this.getWritable();
+    writable.__locked = locked;
+  }
+
+  getLocked() {
+    return this.__locked;
   }
 
   setClipPath(clipPath) {
@@ -106,8 +117,8 @@ export class ImageNode extends DecoratorNode {
 
   // Optional: Define how the node is serialized to JSON
   static importJSON(serializedNode) {
-    const { src, altText, x, y, width, height, clipPath } = serializedNode;
-    return $createImageNode({ src, altText, x, y, width, height, clipPath });
+    const { src, altText, x, y, width, height, clipPath, locked = false } = serializedNode;
+    return $createImageNode({ src, altText, x, y, width, height, clipPath, locked });
   }
 
   exportJSON() {
@@ -119,6 +130,7 @@ export class ImageNode extends DecoratorNode {
       width: this.__width,
       height: this.__height,
       clipPath: this.__clipPath,
+      locked: this.__locked,
       type: "image",
       version: 1,
     };
@@ -135,19 +147,22 @@ export class ImageNode extends DecoratorNode {
         width={this.__width}
         height={this.__height}
         clipPath={this.__clipPath}
+        locked={this.__locked}
         nodeKey={this.__key}
       />
     );
   }
 }
 
-function MoveableImage({ src, altText, x, y, width, height, clipPath, nodeKey }) {
+function MoveableImage({ src, altText, x, y, width, height, clipPath, locked, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
   const { userName } = useData();
   const { provider, locks } = useImageLocks();
   const lockedBy = locks[nodeKey];
-  const isLocked = lockedBy && lockedBy !== userName;
+  const isCollabLocked = lockedBy && lockedBy !== userName;
+  const isSlideLocked = Boolean(locked);
+  const isInteractionLocked = isCollabLocked || isSlideLocked;
   const ref = useRef(null);
   const moveableRef = useRef(null);
   const pendingDragEvent = useRef(null);
@@ -210,7 +225,7 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, nodeKey })
     <>
       <div
         ref={ref}
-        draggable
+        draggable={!isInteractionLocked}
         onMouseDown={(e) => {
           editor.focus();
           // Ensure the image is selected before any drag starts
@@ -265,11 +280,14 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, nodeKey })
             isSelected && (localFrame !== null || isCropping)
               ? "0 0 0 2px rgba(0,0,255,0.3)"
               : "none",
-          pointerEvents: isLocked ? "none" : "auto",
+          pointerEvents: isCollabLocked ? "none" : "auto",
         }}
       >
         {lockedBy && lockedBy !== userName && (
           <div className="locked-overlay">{lockedBy}</div>
+        )}
+        {isSlideLocked && (
+          <div className="slide-locked-overlay">Locked</div>
         )}
         <img
           src={src}
@@ -279,13 +297,13 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, nodeKey })
       </div>
       <Moveable
         ref={moveableRef}
-        target={ref}
-        draggable
-        resizable
+        target={isInteractionLocked ? null : ref}
+        draggable={!isInteractionLocked}
+        resizable={!isInteractionLocked}
         keepRatio={false}
         clippable={isCropping}
         className={localFrame !== null || isCropping ? "" : "moveable-hidden"}
-        style={{ display: isSelected && !isLocked ? "block" : "none" }}
+        style={{ display: isSelected && !isInteractionLocked ? "block" : "none" }}
         onDragStart={(e) => {
           copyOnDragRef.current = e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey;
           start.current = { x, y };
@@ -445,8 +463,8 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, nodeKey })
 }
 
 // Helper function to create an ImageNode
-export function $createImageNode({ src, altText = "", x = 0, y = 0, width = 300, height = 200, clipPath = "none" }) {
-  return new ImageNode(src, altText, x, y, width, height, clipPath);
+export function $createImageNode({ src, altText = "", x = 0, y = 0, width = 300, height = 200, clipPath = "none", locked = false }) {
+  return new ImageNode(src, altText, x, y, width, height, clipPath, undefined, locked);
 }
 
 // Helper function to check if a node is an ImageNode

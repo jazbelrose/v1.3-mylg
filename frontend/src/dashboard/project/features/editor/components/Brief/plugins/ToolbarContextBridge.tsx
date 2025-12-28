@@ -16,6 +16,7 @@ export type ToolbarContext =
   | {
       type: "image";
       nodeKey: string;
+      locked: boolean;
       borderRadius: ImageBorderRadiusState;
       width: number;
       height: number;
@@ -23,10 +24,11 @@ export type ToolbarContext =
   | {
       type: "svg";
       nodeKey: string;
+      locked: boolean;
       width: number;
       height: number;
     }
-  | { type: "textbox"; nodeKey: string }
+  | { type: "textbox"; nodeKey: string; locked: boolean }
   | { type: "mixed" };
 
 export type HistoryState = {
