@@ -27,11 +27,15 @@ export default function DeleteImagePlugin(): null {
       const selection = $getSelection();
       if ($isNodeSelection(selection)) {
         const nodes = (selection as NodeSelection).getNodes();
+        let didRemove = false;
         for (const node of nodes) {
           if (isDeletableImageNode(node)) {
             node.remove();
-            return true; // handled
+            didRemove = true;
           }
+        }
+        if (didRemove) {
+          return true; // handled
         }
       }
       return false; // not handled

@@ -39,6 +39,7 @@ import { SvgNode } from "./nodes/SvgNode";
 import { PictureFrameNode, type PictureFrameBorder, type PictureFrameFitMode } from "./nodes/PictureFrameNode";
 import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 import { reorderSlideStackablesInRoot } from "./slides/slideStackingUtils";
+import { duplicateSlideNodes, getSlideNodeSelectionKeys } from "./slides/slideSelectionUtils";
 
 type BlockType = "paragraph" | "h1" | "h2" | "quote" | "code" | "ul" | "ol";
 
@@ -78,6 +79,7 @@ export type ToolbarActions = {
   onUndo: () => void;
   onRedo: () => void;
 
+  onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
@@ -205,6 +207,13 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
       onUndo: () => editor.dispatchCommand(UNDO_COMMAND, undefined),
       onRedo: () => editor.dispatchCommand(REDO_COMMAND, undefined),
 
+      onDuplicateSelection: () => {
+        editor.update(() => {
+          const keys = getSlideNodeSelectionKeys();
+          if (!keys || keys.length === 0) return;
+          duplicateSlideNodes(keys, { offsetX: 12, offsetY: 12, selectClones: true });
+        });
+      },
       onDeleteSelection: () =>
         mutateSelectedNodes((node) => {
           node.remove();

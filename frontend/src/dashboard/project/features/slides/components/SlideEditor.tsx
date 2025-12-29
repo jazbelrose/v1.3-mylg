@@ -193,6 +193,14 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         }
 
         switch (event.key) {
+          case 'd':
+          case 'D':
+            if (toolbarActions?.onDuplicateSelection) {
+              event.preventDefault();
+              event.stopPropagation();
+              toolbarActions.onDuplicateSelection();
+            }
+            break;
           case '=':
           case '+':
             event.preventDefault();
@@ -268,6 +276,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
+      onDuplicateSelection={toolbarActions.onDuplicateSelection}
       onDeleteSelection={toolbarActions.onDeleteSelection}
       onBringToFront={toolbarActions.onBringToFront}
       onSendToBack={toolbarActions.onSendToBack}

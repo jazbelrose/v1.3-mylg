@@ -1,18 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { uploadData } from "aws-amplify/storage";
 import Moveable from "react-moveable";
 import {
   DecoratorNode,
   $getNodeByKey,
+  $createNodeSelection,
+  $setSelection,
   type LexicalNode,
   type NodeKey,
 } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 
-import { useData } from "@/app/contexts/useData";
+import { ProjectsContext } from "@/app/contexts/ProjectsContext";
 import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
-import { applyModifierNodeSelection, getSlideNodeSelectionKeys } from "../slides/slideSelection";
+import {
+  applyModifierNodeSelection,
+  duplicateSlideNodes,
+  getSlideNodeSelectionKeys,
+} from "../slides/slideSelectionUtils";
 
 export type PictureFrameFitMode = "cover" | "contain";
 
@@ -47,8 +53,6 @@ const DEFAULT_FIT: PictureFrameFitMode = "cover";
 const DEFAULT_POSITION = { x: 50, y: 50 };
 const DEFAULT_BORDER: PictureFrameBorder = { enabled: false, width: 2, color: "#ffffff" };
 const DEFAULT_BACKGROUND = "#2a2c2f";
-
-type ProjectLike = { projectId?: string | null } | null;
 
 const encodeS3Key = (key: string = "") =>
   key
@@ -412,13 +416,29 @@ function PictureFrameComponent({
   locked: boolean;
 }) {
   const [editor] = useLexicalComposerContext();
-  const { activeProject } = useData() as { activeProject: ProjectLike };
+  const projectsCtx = useContext(ProjectsContext);
+  const activeProject = projectsCtx?.activeProject ?? null;
   const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef({ x, y, width, height, rotation });
   const startRef = useRef({ x, y, width, height, rotation });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+
+  const suppressedToggleOnPointerDownRef = useRef(false);
+  const suppressedToggleModifiersRef = useRef<
+    | null
+    | {
+        ctrlKey: boolean;
+        metaKey: boolean;
+        shiftKey: boolean;
+        altKey: boolean;
+      }
+  >(null);
+
+  const copyDragActiveRef = useRef(false);
+  const copyDragCloneKeysRef = useRef<string[]>([]);
+  const copyDragCloneSnapshotRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const panStartRef = useRef({ clientX: 0, clientY: 0, posX: DEFAULT_POSITION.x, posY: DEFAULT_POSITION.y });
 
   const dragSelectionKeysRef = useRef<string[]>([]);
@@ -521,18 +541,43 @@ function PictureFrameComponent({
       if (event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
+
+      const modifiers = {
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+      };
+      const suppressToggle = Boolean((modifiers.ctrlKey || modifiers.metaKey) && isSelected);
+      suppressedToggleOnPointerDownRef.current = suppressToggle;
+      suppressedToggleModifiersRef.current = suppressToggle ? modifiers : null;
+
       editor.focus();
       editor.update(() => {
-        applyModifierNodeSelection(nodeKey, event);
+        if (suppressToggle) {
+          applyModifierNodeSelection(nodeKey, { ...modifiers, ctrlKey: false, metaKey: false });
+        } else {
+          applyModifierNodeSelection(nodeKey, modifiers);
+        }
       });
     },
-    [editor, imageSrc, isSlideLocked, nodeKey, positionX, positionY]
+    [editor, isSelected, nodeKey]
   );
 
   const handleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
-  }, []);
+
+    if (!suppressedToggleOnPointerDownRef.current) return;
+    suppressedToggleOnPointerDownRef.current = false;
+    const modifiers = suppressedToggleModifiersRef.current;
+    suppressedToggleModifiersRef.current = null;
+    if (!modifiers) return;
+    editor.focus();
+    editor.update(() => {
+      applyModifierNodeSelection(nodeKey, modifiers);
+    });
+  }, [editor, nodeKey]);
 
   useEffect(() => {
     if (!isPanning) return;
@@ -571,6 +616,51 @@ function PictureFrameComponent({
       window.removeEventListener("pointercancel", onUp);
     };
   }, [editor, isPanning, nodeKey]);
+
+  useEffect(() => {
+    const root = editor.getRootElement();
+    const target: HTMLElement | Window = root ?? window;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isSelected || isSlideLocked) return;
+
+      // Let slide-level z-order shortcuts (Ctrl/?[ and Ctrl/?]) bubble so SlideEditor can handle them.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const isBracketRight = event.key === "]" || event.code === "BracketRight";
+        const isBracketLeft = event.key === "[" || event.code === "BracketLeft";
+        if (isBracketRight || isBracketLeft) {
+          return;
+        }
+      }
+
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      editor.update(() => {
+        const selectionKeys = getSlideNodeSelectionKeys();
+        const keys = selectionKeys.length > 0 ? selectionKeys : [nodeKey];
+        for (const key of keys) {
+          const node = $getNodeByKey<LexicalNode>(key);
+          if (!node) continue;
+          if (typeof (node as unknown as { getLocked?: () => boolean }).getLocked === "function") {
+            if ((node as unknown as { getLocked: () => boolean }).getLocked()) continue;
+          }
+          const type = node.getType();
+          if (!["picture-frame", "resizable-image", "image", "svg", "text-box"].includes(type)) {
+            continue;
+          }
+          node.remove();
+        }
+      });
+    };
+
+    target.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      target.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [editor, isSelected, isSlideLocked, nodeKey]);
 
   const handlePanStartCapture = useCallback(
     (event: React.MouseEvent) => {
@@ -756,12 +846,66 @@ function PictureFrameComponent({
           zoom={zoom}
           className="moveable-no-border svg-moveable"
           controlPadding={16}
-          onDragStart={() => {
+          onDragStart={(e) => {
             startRef.current = { ...frameRef.current };
             captureDragSelectionSnapshot();
+
+            suppressedToggleOnPointerDownRef.current = false;
+            suppressedToggleModifiersRef.current = null;
+
+            copyDragActiveRef.current = false;
+            copyDragCloneKeysRef.current = [];
+            copyDragCloneSnapshotRef.current = new Map();
+
+            const copyGesture = Boolean(e?.inputEvent?.ctrlKey || e?.inputEvent?.metaKey);
+            if (!copyGesture) return;
+
+            const dragKeys = dragSelectionKeysRef.current;
+            if (!Array.isArray(dragKeys) || dragKeys.length === 0) return;
+
+            const dragSnapshots = dragSelectionSnapshotRef.current;
+            let cloneKeys: string[] = [];
+            let mapping: Array<{ originalKey: string; cloneKey: string }> = [];
+            editor.update(() => {
+              const result = duplicateSlideNodes(dragKeys, {
+                offsetX: 0,
+                offsetY: 0,
+                selectClones: false,
+              });
+              cloneKeys = result.cloneKeys;
+              mapping = result.clones;
+            });
+
+            const cloneSnapshots = new Map<string, { x: number; y: number }>();
+            mapping.forEach(({ originalKey, cloneKey }) => {
+              const origin = dragSnapshots.get(originalKey);
+              if (!origin) return;
+              cloneSnapshots.set(cloneKey, origin);
+            });
+
+            copyDragActiveRef.current = true;
+            copyDragCloneKeysRef.current = cloneKeys;
+            copyDragCloneSnapshotRef.current = cloneSnapshots;
           }}
           onDrag={(e) => {
             const [dx, dy] = e.beforeTranslate;
+
+            if (copyDragActiveRef.current) {
+              const cloneKeys = copyDragCloneKeysRef.current;
+              const cloneSnapshots = copyDragCloneSnapshotRef.current;
+              if (!Array.isArray(cloneKeys) || cloneKeys.length === 0) return;
+              editor.update(() => {
+                cloneKeys.forEach((key) => {
+                  const origin = cloneSnapshots.get(key);
+                  if (!origin) return;
+                  const node = $getNodeByKey<LexicalNode>(key);
+                  if (!node) return;
+                  setStackablePosition(node, origin.x + dx, origin.y + dy);
+                });
+              });
+              return;
+            }
+
             const next = {
               ...frameRef.current,
               x: startRef.current.x + dx,
@@ -781,6 +925,31 @@ function PictureFrameComponent({
                 setStackablePosition(node, origin.x + dx, origin.y + dy);
               });
             });
+          }}
+          onDragEnd={(e) => {
+            const cloneKeys = copyDragCloneKeysRef.current;
+            const wasCopyDrag = copyDragActiveRef.current;
+
+            dragSelectionKeysRef.current = [];
+            dragSelectionSnapshotRef.current = new Map();
+            copyDragCloneKeysRef.current = [];
+            copyDragCloneSnapshotRef.current = new Map();
+            copyDragActiveRef.current = false;
+
+            if (wasCopyDrag) {
+              if (Array.isArray(cloneKeys) && cloneKeys.length > 0) {
+                editor.update(() => {
+                  const sel = $createNodeSelection();
+                  cloneKeys.forEach((k) => sel.add(k));
+                  $setSelection(sel);
+                });
+              }
+              return;
+            }
+
+            // For non-copy drags, the live editor.update() calls already commit positions.
+            // Reset the local frame ref to the latest props on the next render.
+            void e;
           }}
           onResizeStart={() => {
             startRef.current = { ...frameRef.current };
