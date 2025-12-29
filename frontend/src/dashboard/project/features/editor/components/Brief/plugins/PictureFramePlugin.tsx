@@ -4,10 +4,10 @@ import {
   $createNodeSelection,
   $setSelection,
   $getRoot,
+  $createParagraphNode,
   type LexicalNode,
   COMMAND_PRIORITY_EDITOR,
 } from "lexical";
-import { $insertNodeToNearestRoot } from "@lexical/utils";
 
 import { INSERT_PICTURE_FRAME_COMMAND } from "../commands";
 import { $createPictureFrameNode, PictureFrameNode } from "./nodes/PictureFrameNode";
@@ -55,7 +55,16 @@ export default function PictureFramePlugin(): null {
             border: { enabled: false, width: 2, color: "#ffffff" },
           });
 
-          $insertNodeToNearestRoot(node);
+          // Keep picture frames in a paragraph so they serialize/normalize consistently (same as ResizableImageNode).
+          const root = $getRoot();
+          const last = root.getLastChild();
+          if (last && last.getType() === "paragraph") {
+            (last as unknown as { append: (...nodes: LexicalNode[]) => void }).append(node);
+          } else {
+            const paragraph = $createParagraphNode();
+            root.append(paragraph);
+            paragraph.append(node);
+          }
 
           const nodeSelection = $createNodeSelection();
           nodeSelection.add(node.getKey());
@@ -65,6 +74,20 @@ export default function PictureFramePlugin(): null {
       },
       COMMAND_PRIORITY_EDITOR
     );
+  }, [editor]);
+
+  useEffect(() => {
+    // Migration/normalization: older docs may have picture frames attached directly to the root.
+    // Move them into a paragraph so they persist and thumbnail rendering can find them reliably.
+    return editor.registerNodeTransform(PictureFrameNode, (node) => {
+      const parent = node.getParent();
+      if (!parent) return;
+      if (parent.getType() !== "root") return;
+
+      const paragraph = $createParagraphNode();
+      node.insertBefore(paragraph);
+      paragraph.append(node);
+    });
   }, [editor]);
 
   return null;

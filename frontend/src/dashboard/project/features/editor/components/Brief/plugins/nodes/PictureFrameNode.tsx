@@ -190,7 +190,24 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
   }
 
   createDOM(): HTMLElement {
-    return document.createElement("div");
+    const elem = document.createElement("span");
+    Object.assign(elem.style, {
+      position: "absolute",
+      left: "0px",
+      top: "0px",
+      width: "0px",
+      height: "0px",
+      lineHeight: "0",
+    });
+    return elem;
+  }
+
+  isInline(): boolean {
+    return true;
+  }
+
+  getTextContent(): string {
+    return "";
   }
 
   updateDOM(): boolean {
@@ -618,10 +635,8 @@ function PictureFrameComponent({
   }, [editor, isPanning, nodeKey]);
 
   useEffect(() => {
-    const root = editor.getRootElement();
-    const target: HTMLElement | Window = root ?? window;
-
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (!isSelected || isSlideLocked) return;
 
       // Let slide-level z-order shortcuts (Ctrl/?[ and Ctrl/?]) bubble so SlideEditor can handle them.
@@ -656,9 +671,12 @@ function PictureFrameComponent({
       });
     };
 
-    target.addEventListener("keydown", handleKeyDown, true);
+    const root = editor.getRootElement();
+    root?.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      target.removeEventListener("keydown", handleKeyDown, true);
+      root?.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [editor, isSelected, isSlideLocked, nodeKey]);
 

@@ -14,7 +14,7 @@ const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
 // Bump when thumbnail rendering output changes (prevents CDN cache from serving old pixels).
-const THUMBNAIL_RENDER_VERSION = 4;
+const THUMBNAIL_RENDER_VERSION = 5;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -54,6 +54,9 @@ function safeSegment(value, fallback) {
 
 function resolveAssetUrl(src) {
   if (!src || typeof src !== 'string') return '';
+  // Server-side rendering cannot dereference in-memory browser URLs.
+  const lower = src.toLowerCase();
+  if (lower.startsWith('blob:') || lower.startsWith('data:')) return '';
   if (/^https?:\/\//i.test(src)) return src;
   const base =
     FILE_CDN ||
