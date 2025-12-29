@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { uploadData } from "aws-amplify/storage";
 import Moveable from "react-moveable";
 import {
@@ -437,10 +437,20 @@ function PictureFrameComponent({
   const activeProject = projectsCtx?.activeProject ?? null;
   const [isSelected] = useLexicalNodeSelection(nodeKey);
   const ref = useRef<HTMLDivElement | null>(null);
+  const moveableRef = useRef<Moveable | null>(null);
   const frameRef = useRef({ x, y, width, height, rotation });
   const startRef = useRef({ x, y, width, height, rotation });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+
+  const moveableUpdateRafRef = useRef(0);
+  const scheduleMoveableUpdate = useCallback(() => {
+    if (moveableUpdateRafRef.current) return;
+    moveableUpdateRafRef.current = requestAnimationFrame(() => {
+      moveableUpdateRafRef.current = 0;
+      moveableRef.current?.updateRect();
+    });
+  }, []);
 
   const suppressedToggleOnPointerDownRef = useRef(false);
   const suppressedToggleModifiersRef = useRef<
@@ -489,14 +499,16 @@ function PictureFrameComponent({
     if (!el) return;
     el.style.transform = `translate3d(${f.x}px, ${f.y}px, 0) rotate(${f.rotation || 0}deg)`;
     el.style.transformOrigin = "center center";
-  }, []);
+    scheduleMoveableUpdate();
+  }, [scheduleMoveableUpdate]);
 
   const applySize = useCallback((f: typeof frameRef.current) => {
     const el = ref.current;
     if (!el) return;
     el.style.width = `${f.width}px`;
     el.style.height = `${f.height}px`;
-  }, []);
+    scheduleMoveableUpdate();
+  }, [scheduleMoveableUpdate]);
 
   const applyFrame = useCallback(
     (f: typeof frameRef.current) => {
@@ -766,6 +778,23 @@ function PictureFrameComponent({
 
   const showSelectedOutline = isSelected && !isSlideLocked;
 
+  // When this node moves due to another node's multi-drag, keep its Moveable handles in sync.
+  useLayoutEffect(() => {
+    frameRef.current = { x, y, width, height, rotation };
+    if (showSelectedOutline) {
+      scheduleMoveableUpdate();
+    }
+  }, [x, y, width, height, rotation, showSelectedOutline, scheduleMoveableUpdate]);
+
+  useEffect(() => {
+    return () => {
+      if (moveableUpdateRafRef.current) {
+        cancelAnimationFrame(moveableUpdateRafRef.current);
+        moveableUpdateRafRef.current = 0;
+      }
+    };
+  }, []);
+
   return (
     <div onDragOverCapture={onDragOverCapture} onDropCapture={onDropCapture}>
       <div
@@ -847,6 +876,7 @@ function PictureFrameComponent({
 
       {showSelectedOutline && (
         <Moveable
+          ref={moveableRef}
           target={ref.current}
           draggable={!isSlideLocked}
           resizable={{

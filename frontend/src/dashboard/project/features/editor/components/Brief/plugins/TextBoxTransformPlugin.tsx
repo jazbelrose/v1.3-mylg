@@ -13,6 +13,7 @@ import {
 import { TextBoxNode } from "./nodes/TextBoxNode";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
 import { SvgNode } from "./nodes/SvgNode";
+import { PictureFrameNode } from "./nodes/PictureFrameNode";
 import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
@@ -256,7 +257,10 @@ function duplicateSlideObjects(
     if (!node) return;
 
     const isSupported =
-      node instanceof TextBoxNode || node instanceof ResizableImageNode || node instanceof SvgNode;
+      node instanceof TextBoxNode ||
+      node instanceof ResizableImageNode ||
+      node instanceof PictureFrameNode ||
+      node instanceof SvgNode;
     if (!isSupported) {
       return;
     }
@@ -272,6 +276,9 @@ function duplicateSlideObjects(
       const { x, y } = node.getPosition();
       clone.setPosition(x + opts.offsetX, y + opts.offsetY);
     } else if (node instanceof ResizableImageNode && clone instanceof ResizableImageNode) {
+      clone.setX(node.getX() + opts.offsetX);
+      clone.setY(node.getY() + opts.offsetY);
+    } else if (node instanceof PictureFrameNode && clone instanceof PictureFrameNode) {
       clone.setX(node.getX() + opts.offsetX);
       clone.setY(node.getY() + opts.offsetY);
     } else if (node instanceof SvgNode && clone instanceof SvgNode) {
@@ -300,6 +307,12 @@ function captureNodePositions(
       const { x, y } = node.getPosition();
       snapshot.set(key, { x, y, rotation: node.getRotation() });
     } else if (node instanceof ResizableImageNode) {
+      snapshot.set(key, {
+        x: node.getX(),
+        y: node.getY(),
+        rotation: node.getRotation(),
+      });
+    } else if (node instanceof PictureFrameNode) {
       snapshot.set(key, {
         x: node.getX(),
         y: node.getY(),
@@ -690,7 +703,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (allTextboxes) {
               if (stackableTargetKey) {
                 const clickedNode = $getNodeByKey<LexicalNode>(stackableTargetKey);
-                if (clickedNode instanceof ResizableImageNode || clickedNode instanceof SvgNode) {
+                if (clickedNode instanceof ResizableImageNode || clickedNode instanceof PictureFrameNode || clickedNode instanceof SvgNode) {
                   return;
                 }
               }
@@ -855,6 +868,9 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (targetNode instanceof TextBoxNode) {
               targetNode.setPosition(nextX, nextY);
             } else if (targetNode instanceof ResizableImageNode) {
+              targetNode.setX(nextX);
+              targetNode.setY(nextY);
+            } else if (targetNode instanceof PictureFrameNode) {
               targetNode.setX(nextX);
               targetNode.setY(nextY);
             } else if (targetNode instanceof SvgNode) {

@@ -15,6 +15,7 @@ import {
 } from "../slides/slideSelectionUtils";
 import { TextBoxNode } from "./TextBoxNode";
 import { ResizableImageNode } from "./ResizableImageNode";
+import { PictureFrameNode } from "./PictureFrameNode";
 import {
   DEFAULT_SVG_HEIGHT,
   DEFAULT_SVG_WIDTH,
@@ -380,6 +381,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
         if (node instanceof TextBoxNode) {
           const { x: tx, y: ty } = node.getPosition();
           snapshot.set(key, { x: tx, y: ty });
+        } else if (node instanceof PictureFrameNode) {
+          snapshot.set(key, { x: node.getX(), y: node.getY() });
         } else if (node instanceof ResizableImageNode) {
           snapshot.set(key, { x: node.getX(), y: node.getY() });
         } else if (node instanceof SvgNode) {
@@ -816,6 +819,9 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
                 const nextY = origin.y + dy;
                 if (targetNode instanceof TextBoxNode) {
                   targetNode.setPosition(nextX, nextY);
+                } else if (targetNode instanceof PictureFrameNode) {
+                  targetNode.setX(nextX);
+                  targetNode.setY(nextY);
                 } else if (targetNode instanceof ResizableImageNode) {
                   targetNode.setX(nextX);
                   targetNode.setY(nextY);
@@ -855,6 +861,9 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
                 const nextY = origin.y + dy;
                 if (targetNode instanceof TextBoxNode) {
                   targetNode.setPosition(nextX, nextY);
+                } else if (targetNode instanceof PictureFrameNode) {
+                  targetNode.setX(nextX);
+                  targetNode.setY(nextY);
                 } else if (targetNode instanceof ResizableImageNode) {
                   targetNode.setX(nextX);
                   targetNode.setY(nextY);
