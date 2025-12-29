@@ -14,7 +14,7 @@ const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
 // Bump when thumbnail rendering output changes (prevents CDN cache from serving old pixels).
-const THUMBNAIL_RENDER_VERSION = 3;
+const THUMBNAIL_RENDER_VERSION = 4;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -361,6 +361,8 @@ function renderPictureFrameLayer(node) {
   const rotation = Number(node.rotation) || 0;
   const radius = Math.max(0, Number(node.radius) || 0);
   const fit = node.fit === 'contain' ? 'contain' : 'cover';
+  const positionX = Number.isFinite(Number(node.positionX)) ? Number(node.positionX) : 50;
+  const positionY = Number.isFinite(Number(node.positionY)) ? Number(node.positionY) : 50;
   const background = typeof node.background === 'string' && node.background.trim() ? node.background.trim() : '#2a2c2f';
   const border =
     node.border && typeof node.border === 'object'
@@ -403,7 +405,7 @@ function renderPictureFrameLayer(node) {
   }
 
   return `<div class="picture-frame-layer" style="${style}">
-    <img src="${escapeHtml(src)}" alt="Picture Frame" style="width:100%;height:100%;object-fit:${fit};object-position:center;display:block;" />
+    <img src="${escapeHtml(src)}" alt="Picture Frame" style="width:100%;height:100%;object-fit:${fit};object-position:${Math.max(0, Math.min(100, positionX))}% ${Math.max(0, Math.min(100, positionY))}%;display:block;" />
   </div>`;
 }
 

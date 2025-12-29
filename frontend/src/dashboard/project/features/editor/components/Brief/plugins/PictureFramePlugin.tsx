@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
-  $getSelection,
-  $isRangeSelection,
   $createNodeSelection,
   $setSelection,
-  $insertNodes,
+  $getRoot,
+  type LexicalNode,
   COMMAND_PRIORITY_EDITOR,
 } from "lexical";
+import { $insertNodeToNearestRoot } from "@lexical/utils";
 
 import { INSERT_PICTURE_FRAME_COMMAND } from "../commands";
 import { $createPictureFrameNode, PictureFrameNode } from "./nodes/PictureFrameNode";
@@ -26,8 +26,23 @@ export default function PictureFramePlugin(): null {
         editor.update(() => {
           const defaultWidth = 320;
           const defaultHeight = 240;
-          const defaultX = (1920 - defaultWidth) / 2;
-          const defaultY = (1080 - defaultHeight) / 2;
+          const countExistingFrames = (node: LexicalNode): number => {
+            let count = node instanceof PictureFrameNode ? 1 : 0;
+            const maybeChildren = (node as unknown as { getChildren?: () => LexicalNode[] }).getChildren;
+            if (typeof maybeChildren === "function") {
+              maybeChildren.call(node).forEach((child) => {
+                count += countExistingFrames(child);
+              });
+            }
+            return count;
+          };
+
+          const existingFrames = countExistingFrames($getRoot());
+          const cascade = 28;
+          const offset = existingFrames * cascade;
+
+          const defaultX = Math.min((1920 - defaultWidth) / 2 + offset, 1920 - defaultWidth - 24);
+          const defaultY = Math.min((1080 - defaultHeight) / 2 + offset, 1080 - defaultHeight - 24);
           const node = $createPictureFrameNode({
             x: defaultX,
             y: defaultY,
@@ -40,12 +55,7 @@ export default function PictureFramePlugin(): null {
             border: { enabled: false, width: 2, color: "#ffffff" },
           });
 
-          const selection = $getSelection();
-          if ($isRangeSelection(selection)) {
-            selection.insertNodes([node]);
-          } else {
-            $insertNodes([node]);
-          }
+          $insertNodeToNearestRoot(node);
 
           const nodeSelection = $createNodeSelection();
           nodeSelection.add(node.getKey());
@@ -59,4 +69,3 @@ export default function PictureFramePlugin(): null {
 
   return null;
 }
-

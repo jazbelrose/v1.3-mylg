@@ -24,7 +24,7 @@ export type PictureFrameBorder = {
 
 export type SerializedPictureFrameNode = {
   type: "picture-frame";
-  version: 1;
+  version: 2;
   x: number;
   y: number;
   width: number;
@@ -33,6 +33,8 @@ export type SerializedPictureFrameNode = {
   imageSrc: string | null;
   fit: PictureFrameFitMode;
   radius: number;
+  positionX: number;
+  positionY: number;
   border: PictureFrameBorder;
   background: string;
   locked?: boolean;
@@ -42,6 +44,7 @@ const DEFAULT_FRAME_WIDTH = 320;
 const DEFAULT_FRAME_HEIGHT = 240;
 const DEFAULT_RADIUS = 16;
 const DEFAULT_FIT: PictureFrameFitMode = "cover";
+const DEFAULT_POSITION = { x: 50, y: 50 };
 const DEFAULT_BORDER: PictureFrameBorder = { enabled: false, width: 2, color: "#ffffff" };
 const DEFAULT_BACKGROUND = "#2a2c2f";
 
@@ -123,6 +126,8 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
   __imageSrc: string | null;
   __fit: PictureFrameFitMode;
   __radius: number;
+  __positionX: number;
+  __positionY: number;
   __border: PictureFrameBorder;
   __background: string;
   __locked: boolean;
@@ -141,6 +146,7 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
       node.__imageSrc,
       node.__fit,
       node.__radius,
+      { x: node.__positionX, y: node.__positionY },
       node.__border,
       node.__background,
       node.__key,
@@ -157,6 +163,7 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
     imageSrc: string | null = null,
     fit: PictureFrameFitMode = DEFAULT_FIT,
     radius = DEFAULT_RADIUS,
+    position: { x: number; y: number } = DEFAULT_POSITION,
     border: PictureFrameBorder = DEFAULT_BORDER,
     background: string = DEFAULT_BACKGROUND,
     key?: NodeKey,
@@ -171,6 +178,8 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
     this.__imageSrc = imageSrc;
     this.__fit = fit;
     this.__radius = radius;
+    this.__positionX = Number.isFinite(position?.x) ? position.x : DEFAULT_POSITION.x;
+    this.__positionY = Number.isFinite(position?.y) ? position.y : DEFAULT_POSITION.y;
     this.__border = border;
     this.__background = background;
     this.__locked = locked;
@@ -237,6 +246,20 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
     this.getWritable().__radius = Math.max(0, Number(radius) || 0);
   }
 
+  getImagePosition(): { x: number; y: number } {
+    return { x: this.__positionX, y: this.__positionY };
+  }
+
+  setImagePosition(position: Partial<{ x: number; y: number }>): void {
+    const writable = this.getWritable();
+    if (typeof position.x === "number" && Number.isFinite(position.x)) {
+      writable.__positionX = Math.max(0, Math.min(100, position.x));
+    }
+    if (typeof position.y === "number" && Number.isFinite(position.y)) {
+      writable.__positionY = Math.max(0, Math.min(100, position.y));
+    }
+  }
+
   getBorder(): PictureFrameBorder {
     return { ...this.__border };
   }
@@ -269,6 +292,14 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
       typeof serializedNode.imageSrc === "string" ? serializedNode.imageSrc : null,
       (serializedNode.fit === "contain" ? "contain" : "cover") as PictureFrameFitMode,
       Number.isFinite(Number(serializedNode.radius)) ? Number(serializedNode.radius) : DEFAULT_RADIUS,
+      {
+        x: Number.isFinite(Number((serializedNode as any).positionX))
+          ? Number((serializedNode as any).positionX)
+          : DEFAULT_POSITION.x,
+        y: Number.isFinite(Number((serializedNode as any).positionY))
+          ? Number((serializedNode as any).positionY)
+          : DEFAULT_POSITION.y,
+      },
       typeof serializedNode.border === "object" && serializedNode.border
         ? {
             enabled: Boolean(serializedNode.border.enabled),
@@ -285,7 +316,7 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
   exportJSON(): SerializedPictureFrameNode {
     return {
       type: "picture-frame",
-      version: 1,
+      version: 2,
       x: this.__x,
       y: this.__y,
       width: this.__width,
@@ -294,6 +325,8 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
       imageSrc: this.__imageSrc,
       fit: this.__fit,
       radius: this.__radius,
+      positionX: this.__positionX,
+      positionY: this.__positionY,
       border: this.__border,
       background: this.__background,
       locked: this.__locked,
@@ -312,6 +345,8 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
         imageSrc={this.__imageSrc ? getFileUrl(this.__imageSrc) : null}
         fit={this.__fit}
         radius={this.__radius}
+        positionX={this.__positionX}
+        positionY={this.__positionY}
         border={this.__border}
         background={this.__background}
         locked={this.__locked}
@@ -330,6 +365,10 @@ export function $createPictureFrameNode(options: Partial<Omit<SerializedPictureF
     options.imageSrc ?? null,
     (options.fit ?? DEFAULT_FIT) as PictureFrameFitMode,
     options.radius ?? DEFAULT_RADIUS,
+    {
+      x: typeof (options as any).positionX === "number" ? (options as any).positionX : DEFAULT_POSITION.x,
+      y: typeof (options as any).positionY === "number" ? (options as any).positionY : DEFAULT_POSITION.y,
+    },
     options.border ?? DEFAULT_BORDER,
     options.background ?? DEFAULT_BACKGROUND,
     undefined,
@@ -351,6 +390,8 @@ function PictureFrameComponent({
   imageSrc,
   fit,
   radius,
+  positionX,
+  positionY,
   border,
   background,
   locked,
@@ -364,6 +405,8 @@ function PictureFrameComponent({
   imageSrc: string | null;
   fit: PictureFrameFitMode;
   radius: number;
+  positionX: number;
+  positionY: number;
   border: PictureFrameBorder;
   background: string;
   locked: boolean;
@@ -375,6 +418,8 @@ function PictureFrameComponent({
   const frameRef = useRef({ x, y, width, height, rotation });
   const startRef = useRef({ x, y, width, height, rotation });
   const [zoom, setZoom] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ clientX: 0, clientY: 0, posX: DEFAULT_POSITION.x, posY: DEFAULT_POSITION.y });
 
   const dragSelectionKeysRef = useRef<string[]>([]);
   const dragSelectionSnapshotRef = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -473,6 +518,7 @@ function PictureFrameComponent({
 
   const handlePointerDown = useCallback(
     (event: React.MouseEvent) => {
+      if (event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
       editor.focus();
@@ -480,13 +526,78 @@ function PictureFrameComponent({
         applyModifierNodeSelection(nodeKey, event);
       });
     },
-    [editor, nodeKey]
+    [editor, imageSrc, isSlideLocked, nodeKey, positionX, positionY]
   );
 
   const handleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
   }, []);
+
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const onMove = (e: PointerEvent) => {
+      const el = ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const dx = e.clientX - panStartRef.current.clientX;
+      const dy = e.clientY - panStartRef.current.clientY;
+
+      // Dragging the image right should reveal more of the left side (and vice-versa).
+      const nextX = panStartRef.current.posX - (dx / rect.width) * 100;
+      const nextY = panStartRef.current.posY - (dy / rect.height) * 100;
+
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (node instanceof PictureFrameNode) {
+          node.setImagePosition({ x: nextX, y: nextY });
+        }
+      });
+    };
+
+    const onUp = () => {
+      setIsPanning(false);
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true });
+    window.addEventListener("pointercancel", onUp, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [editor, isPanning, nodeKey]);
+
+  const handlePanStartCapture = useCallback(
+    (event: React.MouseEvent) => {
+      if (event.button !== 0) return;
+      if (isSlideLocked) return;
+      if (!event.altKey) return;
+      if (!imageSrc) return;
+
+      // Capture phase to prevent Moveable from starting a drag before React handlers run.
+      event.preventDefault();
+      event.stopPropagation();
+
+      editor.focus();
+      editor.update(() => {
+        applyModifierNodeSelection(nodeKey, event);
+      });
+
+      setIsPanning(true);
+      panStartRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        posX: Number.isFinite(positionX) ? positionX : DEFAULT_POSITION.x,
+        posY: Number.isFinite(positionY) ? positionY : DEFAULT_POSITION.y,
+      };
+    },
+    [editor, imageSrc, isSlideLocked, nodeKey, positionX, positionY]
+  );
 
   const resolveDroppedSrc = useCallback(
     async (file: File): Promise<string> => {
@@ -552,6 +663,7 @@ function PictureFrameComponent({
       <div
         ref={ref}
         data-lexical-node-key={nodeKey}
+        onMouseDownCapture={handlePanStartCapture}
         onMouseDown={handlePointerDown}
         onClick={handleClick}
         contentEditable={false}
@@ -568,6 +680,7 @@ function PictureFrameComponent({
           touchAction: "none",
           outline: showSelectedOutline ? "2px solid rgba(76,154,255,1)" : "none",
           outlineOffset: 0,
+          cursor: isSlideLocked ? "not-allowed" : isPanning ? "grabbing" : imageSrc ? "grab" : "default",
         }}
       >
         <div
@@ -591,7 +704,7 @@ function PictureFrameComponent({
                 height: "100%",
                 display: "block",
                 objectFit: fit,
-                objectPosition: "center",
+                objectPosition: `${Math.max(0, Math.min(100, positionX))}% ${Math.max(0, Math.min(100, positionY))}%`,
                 pointerEvents: "none",
               }}
             />

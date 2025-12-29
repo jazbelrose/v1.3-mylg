@@ -21,6 +21,7 @@ describe("PictureFrameNode", () => {
         "public/projects/p1/lexical/demo.png",
         "cover",
         24,
+        { x: 12, y: 88 },
         { enabled: true, width: 3, color: "#ff00ff" },
         "#eeeeee",
         undefined,
@@ -35,6 +36,31 @@ describe("PictureFrameNode", () => {
     });
 
     expect(roundtripped).toEqual(json);
+  });
+
+  it("defaults missing image position fields on import", () => {
+    const editor = createEditor({
+      namespace: "PictureFrameNodeLegacyImportTest",
+      nodes: [PictureFrameNode],
+      onError: () => {},
+    });
+
+    let json: any = null;
+    editor.update(() => {
+      const node = new PictureFrameNode();
+      json = node.exportJSON();
+      delete json.positionX;
+      delete json.positionY;
+      json.version = 1;
+    });
+
+    let imported: any = null;
+    editor.update(() => {
+      imported = PictureFrameNode.importJSON(json).exportJSON();
+    });
+
+    expect(imported.positionX).toBe(50);
+    expect(imported.positionY).toBe(50);
   });
 
   it("clamps radius to non-negative numbers", () => {

@@ -128,6 +128,7 @@ function cloneResizableImageNode(node: ResizableImageNode): ResizableImageNode {
 }
 
 function clonePictureFrameNode(node: PictureFrameNode): PictureFrameNode {
+  const position = node.getImagePosition();
   return $createPictureFrameNode({
     x: node.getX(),
     y: node.getY(),
@@ -137,6 +138,8 @@ function clonePictureFrameNode(node: PictureFrameNode): PictureFrameNode {
     imageSrc: node.getImageSrc(),
     fit: node.getFit(),
     radius: node.getRadius(),
+    positionX: position.x,
+    positionY: position.y,
     border: node.getBorder(),
     background: node.getBackground(),
     locked: node.getLocked(),
