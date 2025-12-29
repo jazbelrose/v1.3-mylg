@@ -72,6 +72,143 @@ function Divider() {
   return <div className="divider" />;
 }
 
+type PillSliderDropdownProps = {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unitSuffix?: string;
+  dropdownTitle: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  disabled?: boolean;
+  inputChWidth?: number;
+  onChange: (value: number) => void;
+};
+
+function PillSliderDropdown({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unitSuffix,
+  dropdownTitle,
+  open,
+  setOpen,
+  disabled = false,
+  inputChWidth,
+  onChange,
+}: PillSliderDropdownProps) {
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (popupRef.current?.contains(target) || toggleRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open, setOpen]);
+
+  const clamp = (next: number) => Math.min(max, Math.max(min, next));
+  const safeValue = Number.isFinite(value) ? clamp(value) : min;
+  const inputStyle = inputChWidth ? ({ width: `${inputChWidth}ch` } as const) : undefined;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        className={`corner-pill${open ? " active" : ""}`}
+        onMouseDown={(event) => {
+          event.stopPropagation();
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!disabled) {
+            setOpen(!open);
+          }
+        }}
+        ref={toggleRef}
+        aria-expanded={open}
+      >
+        <span className="corner-pill__label">{label}&nbsp;</span>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={safeValue}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            if (!Number.isNaN(next)) {
+              onChange(clamp(next));
+            }
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          className="corner-pill__input"
+          style={inputStyle}
+          aria-label={dropdownTitle}
+          disabled={disabled}
+        />
+        {unitSuffix ? <span>{unitSuffix}</span> : null}
+        <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div
+          className="corner-dropdown"
+          ref={popupRef}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div className="corner-dropdown__header">
+            <span className="corner-dropdown__title">{dropdownTitle}</span>
+            <span className="corner-dropdown__header-value">
+              {safeValue}
+              {unitSuffix}
+            </span>
+          </div>
+          <div
+            className="corner-dropdown__slider-row"
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <input
+              type="range"
+              min={min}
+              max={max}
+              step={step}
+              value={safeValue}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (!Number.isNaN(next)) {
+                  onChange(clamp(next));
+                }
+              }}
+              disabled={disabled}
+              className="corner-dropdown__slider"
+              aria-label={dropdownTitle}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const ARRANGE_SHORTCUTS = {
   bringToFront: "Ctrl/⌘Shift]",
   bringForward: "Ctrl/⌘]",
@@ -237,6 +374,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const [showCornerPopup, setShowCornerPopup] = useState(false);
   const cornerPopupRef = useRef<HTMLDivElement | null>(null);
   const cornerPopupToggleRef = useRef<HTMLButtonElement | null>(null);
+
+  const [showPictureFrameCornersPopup, setShowPictureFrameCornersPopup] = useState(false);
+  const [showPictureFrameBorderPopup, setShowPictureFrameBorderPopup] = useState(false);
+
   const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
   const alignButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -266,6 +407,21 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     : DEFAULT_IMAGE_BORDER_RADIUS;
 
   const pictureFrameState = isPictureFrameContext ? ctx : null;
+  const isPictureFrameBorderEnabled =
+    ctx.type === "picture-frame" ? Boolean(ctx.border?.enabled) : false;
+
+  useEffect(() => {
+    if (ctx.type !== "picture-frame") {
+      setShowPictureFrameCornersPopup(false);
+      setShowPictureFrameBorderPopup(false);
+    }
+  }, [ctx.type]);
+
+  useEffect(() => {
+    if (!isPictureFrameBorderEnabled) {
+      setShowPictureFrameBorderPopup(false);
+    }
+  }, [isPictureFrameBorderEnabled]);
 
   useEffect(() => {
     setCornersLinked(true);
@@ -887,26 +1043,25 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     return (
       <div className="context-panel">
         <div className="context-controls compact" style={{ gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Radius</span>
-            <input
-              type="range"
-              min={0}
-              max={200}
-              step={1}
-              value={safeRadius}
-              onChange={(event) => onUpdatePictureFrameRadius?.(Number(event.target.value))}
-              style={{ width: 140 }}
-            />
-            <input
-              type="number"
-              min={0}
-              max={200}
-              value={safeRadius}
-              onChange={(event) => onUpdatePictureFrameRadius?.(Number(event.target.value))}
-              style={{ width: 64 }}
-            />
-          </div>
+          <PillSliderDropdown
+            label="Corners:"
+            value={safeRadius}
+            min={0}
+            max={200}
+            step={1}
+            unitSuffix="px"
+            dropdownTitle="Corner radius"
+            open={showPictureFrameCornersPopup}
+            setOpen={(open) => {
+              setShowPictureFrameCornersPopup(open);
+              if (open) {
+                setShowPictureFrameBorderPopup(false);
+              }
+            }}
+            inputChWidth={3.5}
+            disabled={!onUpdatePictureFrameRadius}
+            onChange={(next) => onUpdatePictureFrameRadius?.(next)}
+          />
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, opacity: 0.8 }}>Fit</span>
@@ -931,13 +1086,24 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             </label>
             {borderEnabled && (
               <>
-                <input
-                  type="number"
+                <PillSliderDropdown
+                  label="Border:"
+                  value={borderWidth}
                   min={0}
                   max={40}
-                  value={borderWidth}
-                  onChange={(event) => onUpdatePictureFrameBorder?.({ width: Number(event.target.value) })}
-                  style={{ width: 54 }}
+                  step={1}
+                  unitSuffix="px"
+                  dropdownTitle="Border width"
+                  open={showPictureFrameBorderPopup}
+                  setOpen={(open) => {
+                    setShowPictureFrameBorderPopup(open);
+                    if (open) {
+                      setShowPictureFrameCornersPopup(false);
+                    }
+                  }}
+                  inputChWidth={3}
+                  disabled={!onUpdatePictureFrameBorder}
+                  onChange={(next) => onUpdatePictureFrameBorder?.({ width: next })}
                 />
                 <ColorPicker
                   color={borderColor}
