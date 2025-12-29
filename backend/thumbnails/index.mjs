@@ -14,7 +14,7 @@ const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
 // Bump when thumbnail rendering output changes (prevents CDN cache from serving old pixels).
-const THUMBNAIL_RENDER_VERSION = 2;
+const THUMBNAIL_RENDER_VERSION = 3;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
@@ -198,6 +198,7 @@ function lexicalNodeToHtml(node) {
     case 'text-box':
     case 'resizable-image':
     case 'image':
+    case 'picture-frame':
     case 'svg':
       return '';
     default:
@@ -352,6 +353,60 @@ function renderImageLayer(node) {
   </div>`;
 }
 
+function renderPictureFrameLayer(node) {
+  const x = Number(node.x) || 0;
+  const y = Number(node.y) || 0;
+  const width = Number(node.width) || 320;
+  const height = Number(node.height) || 240;
+  const rotation = Number(node.rotation) || 0;
+  const radius = Math.max(0, Number(node.radius) || 0);
+  const fit = node.fit === 'contain' ? 'contain' : 'cover';
+  const background = typeof node.background === 'string' && node.background.trim() ? node.background.trim() : '#2a2c2f';
+  const border =
+    node.border && typeof node.border === 'object'
+      ? {
+          enabled: Boolean(node.border.enabled),
+          width: Math.max(0, Number(node.border.width) || 0),
+          color: typeof node.border.color === 'string' && node.border.color.trim() ? node.border.color.trim() : '#ffffff',
+        }
+      : { enabled: false, width: 0, color: '#ffffff' };
+
+  const borderStyle = border.enabled && border.width > 0 ? `${border.width}px solid ${border.color}` : 'none';
+
+  const style = [
+    'position:absolute',
+    `left:${x}px`,
+    `top:${y}px`,
+    `transform: rotate(${rotation}deg)`,
+    'transform-origin:center center',
+    `width:${width}px`,
+    `height:${height}px`,
+    'overflow:hidden',
+    `border-radius:${radius}px`,
+    `border:${borderStyle}`,
+    'box-sizing:border-box',
+    `background:${escapeHtml(background)}`,
+  ].join('; ');
+
+  const src = resolveAssetUrl(node.imageSrc || '');
+  if (!src) {
+    // Lightweight checkerboard placeholder for empty frames.
+    const placeholderStyle = [
+      'width:100%',
+      'height:100%',
+      `background-color:${escapeHtml(background)}`,
+      'background-image:linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.07) 75%, rgba(255,255,255,0.07)),linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.07) 75%, rgba(255,255,255,0.07))',
+      'background-position:0 0, 10px 10px',
+      'background-size:20px 20px',
+    ].join(';');
+    return `<div class="picture-frame-layer" style="${style}"><div style="${placeholderStyle}"></div></div>`;
+  }
+
+  return `<div class="picture-frame-layer" style="${style}">
+    <img src="${escapeHtml(src)}" alt="Picture Frame" style="width:100%;height:100%;object-fit:${fit};object-position:center;display:block;" />
+  </div>`;
+}
+
 function gatherLayerHtml(nodes, textColor, layers) {
   let handled = false;
   if (!Array.isArray(nodes)) return handled;
@@ -370,6 +425,10 @@ function gatherLayerHtml(nodes, textColor, layers) {
       case 'resizable-image':
       case 'image':
         layers.push(renderImageLayer(node));
+        handled = true;
+        break;
+      case 'picture-frame':
+        layers.push(renderPictureFrameLayer(node));
         handled = true;
         break;
       case 'layout-container':

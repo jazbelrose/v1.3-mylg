@@ -1,0 +1,697 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { uploadData } from "aws-amplify/storage";
+import Moveable from "react-moveable";
+import {
+  DecoratorNode,
+  $getNodeByKey,
+  type LexicalNode,
+  type NodeKey,
+} from "lexical";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
+
+import { useData } from "@/app/contexts/useData";
+import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
+import { applyModifierNodeSelection, getSlideNodeSelectionKeys } from "../slides/slideSelection";
+
+export type PictureFrameFitMode = "cover" | "contain";
+
+export type PictureFrameBorder = {
+  enabled: boolean;
+  width: number;
+  color: string;
+};
+
+export type SerializedPictureFrameNode = {
+  type: "picture-frame";
+  version: 1;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  imageSrc: string | null;
+  fit: PictureFrameFitMode;
+  radius: number;
+  border: PictureFrameBorder;
+  background: string;
+  locked?: boolean;
+};
+
+const DEFAULT_FRAME_WIDTH = 320;
+const DEFAULT_FRAME_HEIGHT = 240;
+const DEFAULT_RADIUS = 16;
+const DEFAULT_FIT: PictureFrameFitMode = "cover";
+const DEFAULT_BORDER: PictureFrameBorder = { enabled: false, width: 2, color: "#ffffff" };
+const DEFAULT_BACKGROUND = "#2a2c2f";
+
+type ProjectLike = { projectId?: string | null } | null;
+
+const encodeS3Key = (key: string = "") =>
+  key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment).replace(/\+/g, "%20"))
+    .join("/");
+
+async function uploadImageFileToS3PublicUrl(file: File, projectId: string): Promise<string | null> {
+  const key = `projects/${projectId}/lexical/${file.name}`;
+  try {
+    await uploadData({
+      key,
+      data: file,
+      options: { accessLevel: "public" },
+    });
+    const publicKey = key.startsWith("public/") ? key : `public/${key}`;
+    return `${S3_PUBLIC_BASE}${encodeS3Key(publicKey)}`;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("PictureFrame: upload failed, falling back to local preview", err);
+    return null;
+  }
+}
+
+function isImageFile(file: File): boolean {
+  const type = file.type?.toLowerCase() ?? "";
+  if (type.startsWith("image/")) {
+    return true;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  return Boolean(ext && ["png", "jpg", "jpeg", "gif", "webp"].includes(ext));
+}
+
+function getStackablePosition(node: LexicalNode): { x: number; y: number } | null {
+  const anyNode = node as unknown as {
+    getX?: () => number;
+    getY?: () => number;
+    getPosition?: () => { x: number; y: number };
+  };
+  if (typeof anyNode.getPosition === "function") {
+    return anyNode.getPosition();
+  }
+  if (typeof anyNode.getX === "function" && typeof anyNode.getY === "function") {
+    return { x: anyNode.getX(), y: anyNode.getY() };
+  }
+  return null;
+}
+
+function setStackablePosition(node: LexicalNode, x: number, y: number): void {
+  const anyNode = node as unknown as {
+    setX?: (value: number) => void;
+    setY?: (value: number) => void;
+    setPosition?: (x: number, y: number) => void;
+    getLocked?: () => boolean;
+  };
+  if (typeof anyNode.getLocked === "function" && anyNode.getLocked()) {
+    return;
+  }
+  if (typeof anyNode.setPosition === "function") {
+    anyNode.setPosition(x, y);
+    return;
+  }
+  if (typeof anyNode.setX === "function" && typeof anyNode.setY === "function") {
+    anyNode.setX(x);
+    anyNode.setY(y);
+  }
+}
+
+export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
+  __x: number;
+  __y: number;
+  __width: number;
+  __height: number;
+  __rotation: number;
+  __imageSrc: string | null;
+  __fit: PictureFrameFitMode;
+  __radius: number;
+  __border: PictureFrameBorder;
+  __background: string;
+  __locked: boolean;
+
+  static getType(): string {
+    return "picture-frame";
+  }
+
+  static clone(node: PictureFrameNode): PictureFrameNode {
+    return new PictureFrameNode(
+      node.__x,
+      node.__y,
+      node.__width,
+      node.__height,
+      node.__rotation,
+      node.__imageSrc,
+      node.__fit,
+      node.__radius,
+      node.__border,
+      node.__background,
+      node.__key,
+      node.__locked
+    );
+  }
+
+  constructor(
+    x = 0,
+    y = 0,
+    width = DEFAULT_FRAME_WIDTH,
+    height = DEFAULT_FRAME_HEIGHT,
+    rotation = 0,
+    imageSrc: string | null = null,
+    fit: PictureFrameFitMode = DEFAULT_FIT,
+    radius = DEFAULT_RADIUS,
+    border: PictureFrameBorder = DEFAULT_BORDER,
+    background: string = DEFAULT_BACKGROUND,
+    key?: NodeKey,
+    locked = false
+  ) {
+    super(key);
+    this.__x = x;
+    this.__y = y;
+    this.__width = width;
+    this.__height = height;
+    this.__rotation = rotation;
+    this.__imageSrc = imageSrc;
+    this.__fit = fit;
+    this.__radius = radius;
+    this.__border = border;
+    this.__background = background;
+    this.__locked = locked;
+  }
+
+  createDOM(): HTMLElement {
+    return document.createElement("div");
+  }
+
+  updateDOM(): boolean {
+    return false;
+  }
+
+  getX(): number {
+    return this.__x;
+  }
+  getY(): number {
+    return this.__y;
+  }
+  getWidth(): number {
+    return this.__width;
+  }
+  getHeight(): number {
+    return this.__height;
+  }
+  getRotation(): number {
+    return this.__rotation;
+  }
+
+  setX(x: number): void {
+    this.getWritable().__x = x;
+  }
+  setY(y: number): void {
+    this.getWritable().__y = y;
+  }
+  setWidth(width: number): void {
+    this.getWritable().__width = width;
+  }
+  setHeight(height: number): void {
+    this.getWritable().__height = height;
+  }
+  setRotation(rotation: number): void {
+    this.getWritable().__rotation = rotation;
+  }
+
+  getImageSrc(): string | null {
+    return this.__imageSrc;
+  }
+  setImageSrc(src: string | null): void {
+    this.getWritable().__imageSrc = src;
+  }
+
+  getFit(): PictureFrameFitMode {
+    return this.__fit;
+  }
+  setFit(fit: PictureFrameFitMode): void {
+    this.getWritable().__fit = fit;
+  }
+
+  getRadius(): number {
+    return this.__radius;
+  }
+  setRadius(radius: number): void {
+    this.getWritable().__radius = Math.max(0, Number(radius) || 0);
+  }
+
+  getBorder(): PictureFrameBorder {
+    return { ...this.__border };
+  }
+  setBorder(border: Partial<PictureFrameBorder>): void {
+    const writable = this.getWritable();
+    writable.__border = { ...writable.__border, ...border };
+  }
+
+  getBackground(): string {
+    return this.__background;
+  }
+  setBackground(background: string): void {
+    this.getWritable().__background = background;
+  }
+
+  getLocked(): boolean {
+    return this.__locked;
+  }
+  setLocked(locked: boolean): void {
+    this.getWritable().__locked = locked;
+  }
+
+  static importJSON(serializedNode: SerializedPictureFrameNode): PictureFrameNode {
+    return new PictureFrameNode(
+      Number(serializedNode.x) || 0,
+      Number(serializedNode.y) || 0,
+      Number(serializedNode.width) || DEFAULT_FRAME_WIDTH,
+      Number(serializedNode.height) || DEFAULT_FRAME_HEIGHT,
+      Number(serializedNode.rotation) || 0,
+      typeof serializedNode.imageSrc === "string" ? serializedNode.imageSrc : null,
+      (serializedNode.fit === "contain" ? "contain" : "cover") as PictureFrameFitMode,
+      Number.isFinite(Number(serializedNode.radius)) ? Number(serializedNode.radius) : DEFAULT_RADIUS,
+      typeof serializedNode.border === "object" && serializedNode.border
+        ? {
+            enabled: Boolean(serializedNode.border.enabled),
+            width: Number(serializedNode.border.width) || DEFAULT_BORDER.width,
+            color: String(serializedNode.border.color || DEFAULT_BORDER.color),
+          }
+        : DEFAULT_BORDER,
+      typeof serializedNode.background === "string" ? serializedNode.background : DEFAULT_BACKGROUND,
+      undefined,
+      Boolean(serializedNode.locked)
+    );
+  }
+
+  exportJSON(): SerializedPictureFrameNode {
+    return {
+      type: "picture-frame",
+      version: 1,
+      x: this.__x,
+      y: this.__y,
+      width: this.__width,
+      height: this.__height,
+      rotation: this.__rotation,
+      imageSrc: this.__imageSrc,
+      fit: this.__fit,
+      radius: this.__radius,
+      border: this.__border,
+      background: this.__background,
+      locked: this.__locked,
+    };
+  }
+
+  decorate(): React.ReactNode {
+    return (
+      <PictureFrameComponent
+        nodeKey={this.__key}
+        x={this.__x}
+        y={this.__y}
+        width={this.__width}
+        height={this.__height}
+        rotation={this.__rotation}
+        imageSrc={this.__imageSrc ? getFileUrl(this.__imageSrc) : null}
+        fit={this.__fit}
+        radius={this.__radius}
+        border={this.__border}
+        background={this.__background}
+        locked={this.__locked}
+      />
+    );
+  }
+}
+
+export function $createPictureFrameNode(options: Partial<Omit<SerializedPictureFrameNode, "type" | "version">> = {}) {
+  return new PictureFrameNode(
+    options.x ?? 0,
+    options.y ?? 0,
+    options.width ?? DEFAULT_FRAME_WIDTH,
+    options.height ?? DEFAULT_FRAME_HEIGHT,
+    options.rotation ?? 0,
+    options.imageSrc ?? null,
+    (options.fit ?? DEFAULT_FIT) as PictureFrameFitMode,
+    options.radius ?? DEFAULT_RADIUS,
+    options.border ?? DEFAULT_BORDER,
+    options.background ?? DEFAULT_BACKGROUND,
+    undefined,
+    Boolean(options.locked)
+  );
+}
+
+export function $isPictureFrameNode(node: LexicalNode | null | undefined): node is PictureFrameNode {
+  return node instanceof PictureFrameNode;
+}
+
+function PictureFrameComponent({
+  nodeKey,
+  x,
+  y,
+  width,
+  height,
+  rotation,
+  imageSrc,
+  fit,
+  radius,
+  border,
+  background,
+  locked,
+}: {
+  nodeKey: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  imageSrc: string | null;
+  fit: PictureFrameFitMode;
+  radius: number;
+  border: PictureFrameBorder;
+  background: string;
+  locked: boolean;
+}) {
+  const [editor] = useLexicalComposerContext();
+  const { activeProject } = useData() as { activeProject: ProjectLike };
+  const [isSelected] = useLexicalNodeSelection(nodeKey);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef({ x, y, width, height, rotation });
+  const startRef = useRef({ x, y, width, height, rotation });
+  const [zoom, setZoom] = useState(1);
+
+  const dragSelectionKeysRef = useRef<string[]>([]);
+  const dragSelectionSnapshotRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  useEffect(() => {
+    frameRef.current = { x, y, width, height, rotation };
+  }, [x, y, width, height, rotation]);
+
+  const isSlideLocked = Boolean(locked);
+
+  const captureDragSelectionSnapshot = useCallback(() => {
+    editor.getEditorState().read(() => {
+      const keys = getSlideNodeSelectionKeys();
+      const normalizedKeys = keys.length > 0 ? keys : [nodeKey];
+      const snapshot = new Map<string, { x: number; y: number }>();
+      normalizedKeys.forEach((key) => {
+        const node = $getNodeByKey<LexicalNode>(key);
+        if (!node) return;
+        const pos = getStackablePosition(node);
+        if (!pos) return;
+        snapshot.set(key, pos);
+      });
+      dragSelectionKeysRef.current = normalizedKeys;
+      dragSelectionSnapshotRef.current = snapshot;
+    });
+  }, [editor, nodeKey]);
+
+  const applyTransform = useCallback((f: typeof frameRef.current) => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = `translate3d(${f.x}px, ${f.y}px, 0) rotate(${f.rotation || 0}deg)`;
+    el.style.transformOrigin = "center center";
+  }, []);
+
+  const applySize = useCallback((f: typeof frameRef.current) => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.width = `${f.width}px`;
+    el.style.height = `${f.height}px`;
+  }, []);
+
+  const applyFrame = useCallback(
+    (f: typeof frameRef.current) => {
+      applySize(f);
+      applyTransform(f);
+    },
+    [applySize, applyTransform]
+  );
+
+  // Keep Moveable controls usable under zoom.
+  useEffect(() => {
+    if (!isSelected) {
+      setZoom((prev) => (prev === 1 ? prev : 1));
+      return;
+    }
+
+    const el = ref.current;
+    if (!el) return;
+    const scaler = el.closest(".slide-editor__canvas-scaler");
+    if (!scaler) return;
+
+    let rafId = 0;
+    const compute = () => {
+      const transform = getComputedStyle(scaler).transform;
+      let nextZoom = 1;
+      if (transform && transform !== "none") {
+        try {
+          const matrix = new DOMMatrix(transform);
+          const scale = matrix.a;
+          if (scale) nextZoom = 1 / scale;
+        } catch {
+          nextZoom = 1;
+        }
+      }
+      setZoom((prev) => (Math.abs(prev - nextZoom) < 1e-6 ? prev : nextZoom));
+    };
+
+    const schedule = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        compute();
+      });
+    };
+
+    compute();
+    const mo = new MutationObserver(schedule);
+    mo.observe(scaler, { attributes: true, attributeFilter: ["style", "class"] });
+    window.addEventListener("resize", schedule);
+    return () => {
+      mo.disconnect();
+      window.removeEventListener("resize", schedule);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isSelected]);
+
+  const handlePointerDown = useCallback(
+    (event: React.MouseEvent) => {
+      event.stopPropagation();
+      editor.focus();
+      editor.update(() => {
+        applyModifierNodeSelection(nodeKey, event);
+      });
+    },
+    [editor, nodeKey]
+  );
+
+  const resolveDroppedSrc = useCallback(
+    async (file: File): Promise<string> => {
+      const projectId = activeProject?.projectId ?? null;
+      if (projectId) {
+        const uploaded = await uploadImageFileToS3PublicUrl(file, projectId);
+        if (uploaded) return uploaded;
+      }
+      return URL.createObjectURL(file);
+    },
+    [activeProject?.projectId]
+  );
+
+  const onDragOverCapture = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const onDropCapture = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (isSlideLocked) return;
+
+      const files = Array.from(e.dataTransfer?.files || []);
+      const file = files.find((f) => isImageFile(f));
+      if (!file) return;
+
+      const src = await resolveDroppedSrc(file);
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (node instanceof PictureFrameNode) {
+          node.setImageSrc(src);
+        }
+      });
+    },
+    [editor, isSlideLocked, nodeKey, resolveDroppedSrc]
+  );
+
+  const borderCss = useMemo(() => {
+    if (!border?.enabled) return "none";
+    const w = Number(border.width) || 0;
+    const c = border.color || "#ffffff";
+    return `${Math.max(0, w)}px solid ${c}`;
+  }, [border]);
+
+  const placeholderStyle = useMemo(() => {
+    return {
+      backgroundColor: background || DEFAULT_BACKGROUND,
+      backgroundImage:
+        "linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.07) 75%, rgba(255,255,255,0.07)), " +
+        "linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.07) 75%, rgba(255,255,255,0.07))",
+      backgroundPosition: "0 0, 10px 10px",
+      backgroundSize: "20px 20px",
+    } as const;
+  }, [background]);
+
+  const showSelectedOutline = isSelected && !isSlideLocked;
+
+  return (
+    <div onDragOverCapture={onDragOverCapture} onDropCapture={onDropCapture}>
+      <div
+        ref={ref}
+        data-lexical-node-key={nodeKey}
+        onMouseDown={handlePointerDown}
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width,
+          height,
+          transform: `translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+          transformOrigin: "center center",
+          userSelect: "none",
+          touchAction: "none",
+          outline: showSelectedOutline ? "2px solid rgba(76,154,255,1)" : "none",
+          outlineOffset: 0,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: `${Math.max(0, radius)}px`,
+            overflow: "hidden",
+            border: borderCss,
+            boxSizing: "border-box",
+            background: placeholderStyle.backgroundColor,
+          }}
+        >
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt="Picture Frame"
+              draggable={false}
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "block",
+                objectFit: fit,
+                objectPosition: "center",
+                pointerEvents: "none",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                ...placeholderStyle,
+              }}
+            />
+          )}
+        </div>
+        {isSlideLocked && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              pointerEvents: "none",
+            }}
+          >
+            Locked
+          </div>
+        )}
+      </div>
+
+      <Moveable
+        target={showSelectedOutline ? ref.current : null}
+        draggable={!isSlideLocked}
+        resizable={
+          isSlideLocked
+            ? false
+            : {
+                renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
+                keepRatio: false,
+              }
+        }
+        rotatable={false}
+        origin={false}
+        edge={false}
+        useResizeObserver={showSelectedOutline}
+        useMutationObserver={showSelectedOutline}
+        throttleDrag={0}
+        throttleResize={0}
+        throttleRotate={0}
+        zoom={zoom}
+        className={showSelectedOutline ? "moveable-no-border svg-moveable" : "moveable-hidden"}
+        controlPadding={16}
+        onDragStart={() => {
+          startRef.current = { ...frameRef.current };
+          captureDragSelectionSnapshot();
+        }}
+        onDrag={(e) => {
+          const [dx, dy] = e.beforeTranslate;
+          const next = { ...frameRef.current, x: startRef.current.x + dx, y: startRef.current.y + dy };
+          frameRef.current = next;
+          applyTransform(next);
+
+          const dragKeys = dragSelectionKeysRef.current;
+          const snapshots = dragSelectionSnapshotRef.current;
+          editor.update(() => {
+            dragKeys.forEach((key) => {
+              const origin = snapshots.get(key);
+              if (!origin) return;
+              const node = $getNodeByKey<LexicalNode>(key);
+              if (!node) return;
+              setStackablePosition(node, origin.x + dx, origin.y + dy);
+            });
+          });
+        }}
+        onDragEnd={() => {
+          // Resync from Lexical state on next render.
+        }}
+        onResizeStart={() => {
+          startRef.current = { ...frameRef.current };
+        }}
+        onResize={(e) => {
+          const nextWidth = Math.max(10, e.width);
+          const nextHeight = Math.max(10, e.height);
+          const [dx, dy] = e.drag.beforeTranslate;
+          const next = {
+            ...frameRef.current,
+            width: nextWidth,
+            height: nextHeight,
+            x: startRef.current.x + dx,
+            y: startRef.current.y + dy,
+          };
+          frameRef.current = next;
+          applyFrame(next);
+
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            if (!(node instanceof PictureFrameNode)) return;
+            node.setWidth(nextWidth);
+            node.setHeight(nextHeight);
+            node.setX(next.x);
+            node.setY(next.y);
+          });
+        }}
+        onResizeEnd={() => {
+          // noop
+        }}
+      />
+    </div>
+  );
+}

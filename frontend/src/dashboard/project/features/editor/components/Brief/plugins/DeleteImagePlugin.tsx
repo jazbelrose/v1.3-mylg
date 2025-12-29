@@ -12,9 +12,12 @@ import {
 } from "lexical";
 import { ImageNode } from "./nodes/ImageNode";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
+import { PictureFrameNode } from "./nodes/PictureFrameNode";
 
-const isDeletableImageNode = (node: LexicalNode): node is ImageNode | ResizableImageNode =>
-  node instanceof ImageNode || node instanceof ResizableImageNode;
+const isDeletableImageNode = (
+  node: LexicalNode
+): node is ImageNode | ResizableImageNode | PictureFrameNode =>
+  node instanceof ImageNode || node instanceof ResizableImageNode || node instanceof PictureFrameNode;
 
 export default function DeleteImagePlugin(): null {
   const [editor] = useLexicalComposerContext();

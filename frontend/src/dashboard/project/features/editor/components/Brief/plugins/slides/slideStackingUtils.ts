@@ -12,6 +12,7 @@ import {
 } from "lexical";
 import { TextBoxNode } from "../nodes/TextBoxNode";
 import { ResizableImageNode } from "../nodes/ResizableImageNode";
+import { PictureFrameNode } from "../nodes/PictureFrameNode";
 import { SvgNode } from "../nodes/SvgNode";
 import { getSlideNodeSelectionKeys } from "./slideSelectionUtils";
 
@@ -25,6 +26,7 @@ export function isSlideStackableNode(node: LexicalNode): boolean {
   return (
     node instanceof TextBoxNode ||
     node instanceof ResizableImageNode ||
+    node instanceof PictureFrameNode ||
     node instanceof SvgNode
   );
 }

@@ -14,6 +14,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 
 import ImageLockPlugin from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockPlugin";
 import { ResizableImageNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/ResizableImageNode";
+import { PictureFrameNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/PictureFrameNode";
 import { SvgNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/SvgNode";
 import { FigmaEmbedNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/FigmaEmbedNode";
 import { LayoutContainerNode } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/LayoutContainerNode";
@@ -116,6 +117,7 @@ const SlideReadOnlyRenderer: React.FC<SlideReadOnlyRendererProps> = ({
         QuoteNode,
         AutoLinkNode,
         ResizableImageNode,
+        PictureFrameNode,
         SvgNode,
         FigmaEmbedNode,
         LayoutContainerNode,

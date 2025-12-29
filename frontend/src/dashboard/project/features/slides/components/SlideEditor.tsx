@@ -263,8 +263,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onSetSlideBackgroundColor={onSlideBackgroundColorChange}
       slideBackgroundColor={slide.backgroundColor || '#101112'}
       onInsertImage={toolbarActions.onAddImage}
-      onInsertVector={toolbarActions.onInsertVector}
+      onInsertSvg={toolbarActions.onInsertVector}
       onInsertTextBox={toolbarActions.onInsertTextBox}
+      onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
       onDeleteSelection={toolbarActions.onDeleteSelection}
@@ -273,6 +274,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onBringForward={toolbarActions.onBringForward}
       onSendBackward={toolbarActions.onSendBackward}
       onUpdateImageBorderRadius={toolbarActions.onUpdateImageBorderRadius}
+      onUpdatePictureFrameRadius={toolbarActions.onUpdatePictureFrameRadius}
+      onUpdatePictureFrameFit={toolbarActions.onUpdatePictureFrameFit}
+      onUpdatePictureFrameBorder={toolbarActions.onUpdatePictureFrameBorder}
       onLockSelection={toolbarActions.onToggleLockSelection}
       onNewSlide={onNewSlide}
     />

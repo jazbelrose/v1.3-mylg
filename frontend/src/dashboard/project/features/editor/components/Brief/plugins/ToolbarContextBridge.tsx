@@ -9,6 +9,7 @@ import {
   type TextBlockType,
 } from "./toolbarShared";
 import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
+import type { PictureFrameBorder, PictureFrameFitMode } from "./nodes/PictureFrameNode";
 
 export type ToolbarContext =
   | { type: "none" }
@@ -18,6 +19,17 @@ export type ToolbarContext =
       nodeKey: string;
       locked: boolean;
       borderRadius: ImageBorderRadiusState;
+      width: number;
+      height: number;
+    }
+  | {
+      type: "picture-frame";
+      nodeKey: string;
+      locked: boolean;
+      imageSrc: string | null;
+      fit: PictureFrameFitMode;
+      radius: number;
+      border: PictureFrameBorder;
       width: number;
       height: number;
     }

@@ -36,6 +36,7 @@ import {
   Link,
   ChevronDown,
   Unlink,
+  RectangleHorizontal,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -52,6 +53,10 @@ import {
   type ImageBorderRadiusKey,
   type ImageBorderRadiusState,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/imageBorderRadius";
+import type {
+  PictureFrameBorder,
+  PictureFrameFitMode,
+} from "@/dashboard/project/features/editor/components/Brief/plugins/nodes/PictureFrameNode";
 import {
   BLOCK_TYPE_LABELS,
   FONT_FAMILIES,
@@ -149,6 +154,9 @@ interface SlideToolbarProps {
   onInsertImage?: () => void;
   onInsertSvg?: () => void;
   onInsertTextBox?: () => void;
+  onInsertPictureFrame?: () => void;
+  onInsertFigma?: () => void;
+  onInsertLayout?: (template: string) => void;
   onSetCodeLanguage?: (lang: string) => void;
 
   onDeleteSelection?: () => void;
@@ -159,6 +167,9 @@ interface SlideToolbarProps {
   onDuplicateSelection?: () => void;
   onLockSelection?: () => void;
   onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
+  onUpdatePictureFrameRadius?: (radius: number) => void;
+  onUpdatePictureFrameFit?: (fit: PictureFrameFitMode) => void;
+  onUpdatePictureFrameBorder?: (updates: Partial<PictureFrameBorder>) => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -206,6 +217,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onInsertImage,
   onInsertSvg,
   onInsertTextBox,
+  onInsertPictureFrame,
   onSetCodeLanguage,
   onDeleteSelection,
   onBringToFront,
@@ -215,6 +227,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDuplicateSelection,
   onLockSelection,
   onUpdateImageBorderRadius,
+  onUpdatePictureFrameRadius,
+  onUpdatePictureFrameFit,
+  onUpdatePictureFrameBorder,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -244,10 +259,13 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
   const isImageContext = ctx.type === "image";
+  const isPictureFrameContext = ctx.type === "picture-frame";
   const currentImageKey = isImageContext ? ctx.nodeKey : null;
   const imageBorderRadius = isImageContext
     ? ctx.borderRadius
     : DEFAULT_IMAGE_BORDER_RADIUS;
+
+  const pictureFrameState = isPictureFrameContext ? ctx : null;
 
   useEffect(() => {
     setCornersLinked(true);
@@ -855,12 +873,92 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     </div>
   );
 
+  const renderPictureFrameContext = () => {
+    if (!pictureFrameState) {
+      return renderCanvasContext();
+    }
+
+    const { radius: frameRadius, fit: frameFit, border: frameBorder } = pictureFrameState;
+    const safeRadius = Number.isFinite(frameRadius) ? Math.max(0, frameRadius) : 0;
+    const borderEnabled = Boolean(frameBorder?.enabled);
+    const borderWidth = Number(frameBorder?.width) || 0;
+    const borderColor = frameBorder?.color || "#ffffff";
+
+    return (
+      <div className="context-panel">
+        <div className="context-controls compact" style={{ gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, opacity: 0.8 }}>Radius</span>
+            <input
+              type="range"
+              min={0}
+              max={200}
+              step={1}
+              value={safeRadius}
+              onChange={(event) => onUpdatePictureFrameRadius?.(Number(event.target.value))}
+              style={{ width: 140 }}
+            />
+            <input
+              type="number"
+              min={0}
+              max={200}
+              value={safeRadius}
+              onChange={(event) => onUpdatePictureFrameRadius?.(Number(event.target.value))}
+              style={{ width: 64 }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, opacity: 0.8 }}>Fit</span>
+            <select
+              className="toolbar-item"
+              value={frameFit}
+              onChange={(event) => onUpdatePictureFrameFit?.(event.target.value as PictureFrameFitMode)}
+            >
+              <option value="cover">Cover</option>
+              <option value="contain">Contain</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.9 }}>
+              <input
+                type="checkbox"
+                checked={borderEnabled}
+                onChange={(event) => onUpdatePictureFrameBorder?.({ enabled: event.target.checked })}
+              />
+              Border
+            </label>
+            {borderEnabled && (
+              <>
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  value={borderWidth}
+                  onChange={(event) => onUpdatePictureFrameBorder?.({ width: Number(event.target.value) })}
+                  style={{ width: 54 }}
+                />
+                <ColorPicker
+                  color={borderColor}
+                  onChange={(event) => onUpdatePictureFrameBorder?.({ color: event.target.value })}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderContextPanel = () => {
     switch (ctx.type) {
       case "text":
         return renderTextContext();
       case "image":
         return renderObjectContext("Image", { showReplace: false });
+      case "picture-frame":
+        return renderPictureFrameContext();
       case "svg":
         return renderObjectContext("Vector", { showReplace: false });
       case "textbox":
@@ -1125,6 +1223,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <button type="button" className="item" onClick={() => handleInsert(onInsertTextBox)}>
                 <Type className="dropdown-icon" size={18} />
                 <span className="text">Text Box</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertPictureFrame)}>
+                <RectangleHorizontal className="dropdown-icon" size={18} />
+                <span className="text">Picture Frame</span>
               </button>
               <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
                 <FileImageOutlined className="dropdown-icon" />

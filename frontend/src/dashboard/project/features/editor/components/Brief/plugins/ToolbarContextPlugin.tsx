@@ -17,6 +17,7 @@ import { $getSelectionStyleValueForProperty } from "@lexical/selection";
 import { $isCodeNode } from "@lexical/code";
 
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
+import { PictureFrameNode } from "./nodes/PictureFrameNode";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 import {
   DEFAULT_BG_COLOR,
@@ -154,6 +155,50 @@ export default function ToolbarContextPlugin() {
               borderRadius: imageNode.getBorderRadius(),
               width: imageNode.getWidth(),
               height: imageNode.getHeight(),
+            });
+            return;
+          }
+
+          const pictureFrameNode = nodes.find((node) => node instanceof PictureFrameNode);
+          if (pictureFrameNode) {
+            setCtx({
+              type: "picture-frame",
+              nodeKey: pictureFrameNode.getKey(),
+              locked:
+                typeof (pictureFrameNode as unknown as { getLocked?: () => boolean }).getLocked ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getLocked: () => boolean }).getLocked()
+                  : false,
+              imageSrc:
+                typeof (pictureFrameNode as unknown as { getImageSrc?: () => string | null }).getImageSrc ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getImageSrc: () => string | null }).getImageSrc()
+                  : null,
+              fit:
+                typeof (pictureFrameNode as unknown as { getFit?: () => "cover" | "contain" }).getFit ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getFit: () => "cover" | "contain" }).getFit()
+                  : "cover",
+              radius:
+                typeof (pictureFrameNode as unknown as { getRadius?: () => number }).getRadius ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getRadius: () => number }).getRadius()
+                  : 16,
+              border:
+                typeof (pictureFrameNode as unknown as { getBorder?: () => any }).getBorder ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getBorder: () => any }).getBorder()
+                  : { enabled: false, width: 2, color: "#ffffff" },
+              width:
+                typeof (pictureFrameNode as unknown as { getWidth?: () => number }).getWidth ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getWidth: () => number }).getWidth()
+                  : 0,
+              height:
+                typeof (pictureFrameNode as unknown as { getHeight?: () => number }).getHeight ===
+                "function"
+                  ? (pictureFrameNode as unknown as { getHeight: () => number }).getHeight()
+                  : 0,
             });
             return;
           }

@@ -29,12 +29,14 @@ import {
   OPEN_VECTOR_COMMAND,
   TOGGLE_SPEECH_COMMAND,
   INSERT_TEXTBOX_COMMAND,
+  INSERT_PICTURE_FRAME_COMMAND,
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
 import { ImageNode } from "./nodes/ImageNode";
 import { TextBoxNode } from "./nodes/TextBoxNode";
 import { SvgNode } from "./nodes/SvgNode";
+import { PictureFrameNode, type PictureFrameBorder, type PictureFrameFitMode } from "./nodes/PictureFrameNode";
 import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 import { reorderSlideStackablesInRoot } from "./slides/slideStackingUtils";
 
@@ -69,6 +71,7 @@ export type ToolbarActions = {
   onFigma: () => void;
   onVoice: () => void;
   onInsertTextBox: () => void;
+  onInsertPictureFrame: () => void;
 
   onInsertLayout: (template: string) => void;
 
@@ -81,6 +84,9 @@ export type ToolbarActions = {
   onBringForward: () => void;
   onSendBackward: () => void;
   onUpdateImageBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
+  onUpdatePictureFrameRadius: (radius: number) => void;
+  onUpdatePictureFrameFit: (fit: PictureFrameFitMode) => void;
+  onUpdatePictureFrameBorder: (updates: Partial<PictureFrameBorder>) => void;
   onToggleLockSelection: () => void;
 };
 
@@ -190,6 +196,8 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
       onFigma: () => editor.dispatchCommand(OPEN_FIGMA_COMMAND, undefined),
       onVoice: () => editor.dispatchCommand(TOGGLE_SPEECH_COMMAND, undefined),
       onInsertTextBox: () => editor.dispatchCommand(INSERT_TEXTBOX_COMMAND, undefined),
+      onInsertPictureFrame: () =>
+        editor.dispatchCommand(INSERT_PICTURE_FRAME_COMMAND, undefined),
 
       onInsertLayout: (template: string) =>
         editor.dispatchCommand(INSERT_LAYOUT_COMMAND, template),
@@ -231,6 +239,24 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             node.setBorderRadius(updates);
           }
         }),
+      onUpdatePictureFrameRadius: (radius) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof PictureFrameNode) {
+            node.setRadius(radius);
+          }
+        }),
+      onUpdatePictureFrameFit: (fit) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof PictureFrameNode) {
+            node.setFit(fit);
+          }
+        }),
+      onUpdatePictureFrameBorder: (updates) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof PictureFrameNode) {
+            node.setBorder(updates);
+          }
+        }),
       onToggleLockSelection: () => {
         editor.update(() => {
           const selection = $getSelection();
@@ -240,11 +266,12 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
 
           const nodes = selection.getNodes();
           const lockableNodes = nodes.filter(
-            (node): node is ResizableImageNode | ImageNode | TextBoxNode | SvgNode =>
+            (node): node is ResizableImageNode | ImageNode | TextBoxNode | SvgNode | PictureFrameNode =>
               node instanceof ResizableImageNode ||
               node instanceof ImageNode ||
               node instanceof TextBoxNode ||
-              node instanceof SvgNode
+              node instanceof SvgNode ||
+              node instanceof PictureFrameNode
           );
 
           if (lockableNodes.length === 0) {

@@ -53,6 +53,7 @@ import { FigmaEmbedNode } from "./plugins/nodes/FigmaEmbedNode";
 import { LayoutContainerNode } from "./plugins/nodes/LayoutContainerNode";
 import { LayoutItemNode } from "./plugins/nodes/LayoutItemNode";
 import { TextBoxNode } from "./plugins/nodes/TextBoxNode";
+import { PictureFrameNode } from "./plugins/nodes/PictureFrameNode";
 import RemoveEmptyLayoutItemsOnBackspacePlugin from "./plugins/BackspacePlugin";
 import ToolbarPlugin from "./plugins/ToolbarPlugin";
 import ColorPlugin from "./plugins/ColorPlugin";
@@ -64,6 +65,7 @@ import { LayoutPlugin } from "./plugins/LayoutPlugin";
 import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import ToolbarContextPlugin from "./plugins/ToolbarContextPlugin";
 import TextBoxPlugin from "./plugins/TextBoxPlugin";
+import PictureFramePlugin from "./plugins/PictureFramePlugin";
 import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import DeleteTextBoxPlugin from "./plugins/DeleteTextBoxPlugin";
 import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPlugin";
@@ -426,6 +428,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         QuoteNode,
         AutoLinkNode,
         ResizableImageNode,
+        PictureFrameNode,
         SvgNode,
         FigmaEmbedNode,
         LayoutContainerNode,
@@ -463,6 +466,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <FigmaPlugin showToolbarButton={false} />
         <LayoutPlugin showToolbarButton={false} />
         <TextBoxPlugin />
+        <PictureFramePlugin />
         <TextBoxTransformPlugin scale={scale} />
         <DeleteTextBoxPlugin />
         <TextBoxKeyboardShortcutsPlugin />
