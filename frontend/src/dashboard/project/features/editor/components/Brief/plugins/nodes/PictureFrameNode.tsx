@@ -473,6 +473,7 @@ function PictureFrameComponent({
 
   const handlePointerDown = useCallback(
     (event: React.MouseEvent) => {
+      event.preventDefault();
       event.stopPropagation();
       editor.focus();
       editor.update(() => {
@@ -481,6 +482,11 @@ function PictureFrameComponent({
     },
     [editor, nodeKey]
   );
+
+  const handleClick = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
 
   const resolveDroppedSrc = useCallback(
     async (file: File): Promise<string> => {
@@ -547,6 +553,9 @@ function PictureFrameComponent({
         ref={ref}
         data-lexical-node-key={nodeKey}
         onMouseDown={handlePointerDown}
+        onClick={handleClick}
+        contentEditable={false}
+        suppressContentEditableWarning
         style={{
           position: "absolute",
           left: 0,
@@ -615,83 +624,79 @@ function PictureFrameComponent({
         )}
       </div>
 
-      <Moveable
-        target={showSelectedOutline ? ref.current : null}
-        draggable={!isSlideLocked}
-        resizable={
-          isSlideLocked
-            ? false
-            : {
-                renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
-                keepRatio: false,
-              }
-        }
-        rotatable={false}
-        origin={false}
-        edge={false}
-        useResizeObserver={showSelectedOutline}
-        useMutationObserver={showSelectedOutline}
-        throttleDrag={0}
-        throttleResize={0}
-        throttleRotate={0}
-        zoom={zoom}
-        className={showSelectedOutline ? "moveable-no-border svg-moveable" : "moveable-hidden"}
-        controlPadding={16}
-        onDragStart={() => {
-          startRef.current = { ...frameRef.current };
-          captureDragSelectionSnapshot();
-        }}
-        onDrag={(e) => {
-          const [dx, dy] = e.beforeTranslate;
-          const next = { ...frameRef.current, x: startRef.current.x + dx, y: startRef.current.y + dy };
-          frameRef.current = next;
-          applyTransform(next);
+      {showSelectedOutline && (
+        <Moveable
+          target={ref.current}
+          draggable={!isSlideLocked}
+          resizable={{
+            renderDirections: ["nw", "n", "ne", "w", "e", "sw", "s", "se"],
+            keepRatio: false,
+          }}
+          rotatable={false}
+          origin={false}
+          edge={false}
+          useResizeObserver={true}
+          useMutationObserver={true}
+          throttleDrag={0}
+          throttleResize={0}
+          throttleRotate={0}
+          zoom={zoom}
+          className="moveable-no-border svg-moveable"
+          controlPadding={16}
+          onDragStart={() => {
+            startRef.current = { ...frameRef.current };
+            captureDragSelectionSnapshot();
+          }}
+          onDrag={(e) => {
+            const [dx, dy] = e.beforeTranslate;
+            const next = {
+              ...frameRef.current,
+              x: startRef.current.x + dx,
+              y: startRef.current.y + dy,
+            };
+            frameRef.current = next;
+            applyTransform(next);
 
-          const dragKeys = dragSelectionKeysRef.current;
-          const snapshots = dragSelectionSnapshotRef.current;
-          editor.update(() => {
-            dragKeys.forEach((key) => {
-              const origin = snapshots.get(key);
-              if (!origin) return;
-              const node = $getNodeByKey<LexicalNode>(key);
-              if (!node) return;
-              setStackablePosition(node, origin.x + dx, origin.y + dy);
+            const dragKeys = dragSelectionKeysRef.current;
+            const snapshots = dragSelectionSnapshotRef.current;
+            editor.update(() => {
+              dragKeys.forEach((key) => {
+                const origin = snapshots.get(key);
+                if (!origin) return;
+                const node = $getNodeByKey<LexicalNode>(key);
+                if (!node) return;
+                setStackablePosition(node, origin.x + dx, origin.y + dy);
+              });
             });
-          });
-        }}
-        onDragEnd={() => {
-          // Resync from Lexical state on next render.
-        }}
-        onResizeStart={() => {
-          startRef.current = { ...frameRef.current };
-        }}
-        onResize={(e) => {
-          const nextWidth = Math.max(10, e.width);
-          const nextHeight = Math.max(10, e.height);
-          const [dx, dy] = e.drag.beforeTranslate;
-          const next = {
-            ...frameRef.current,
-            width: nextWidth,
-            height: nextHeight,
-            x: startRef.current.x + dx,
-            y: startRef.current.y + dy,
-          };
-          frameRef.current = next;
-          applyFrame(next);
+          }}
+          onResizeStart={() => {
+            startRef.current = { ...frameRef.current };
+          }}
+          onResize={(e) => {
+            const nextWidth = Math.max(10, e.width);
+            const nextHeight = Math.max(10, e.height);
+            const [dx, dy] = e.drag.beforeTranslate;
+            const next = {
+              ...frameRef.current,
+              width: nextWidth,
+              height: nextHeight,
+              x: startRef.current.x + dx,
+              y: startRef.current.y + dy,
+            };
+            frameRef.current = next;
+            applyFrame(next);
 
-          editor.update(() => {
-            const node = $getNodeByKey(nodeKey);
-            if (!(node instanceof PictureFrameNode)) return;
-            node.setWidth(nextWidth);
-            node.setHeight(nextHeight);
-            node.setX(next.x);
-            node.setY(next.y);
-          });
-        }}
-        onResizeEnd={() => {
-          // noop
-        }}
-      />
+            editor.update(() => {
+              const node = $getNodeByKey(nodeKey);
+              if (!(node instanceof PictureFrameNode)) return;
+              node.setWidth(nextWidth);
+              node.setHeight(nextHeight);
+              node.setX(next.x);
+              node.setY(next.y);
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
