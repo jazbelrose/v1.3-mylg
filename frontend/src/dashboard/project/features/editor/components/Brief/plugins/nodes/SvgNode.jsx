@@ -13,6 +13,7 @@ import {
   duplicateSlideNodes,
   getSlideNodeSelectionKeys,
 } from "../slides/slideSelectionUtils";
+import { useActiveGroupSelection } from "../slides/groupSelectionStore";
 import { TextBoxNode } from "./TextBoxNode";
 import { ResizableImageNode } from "./ResizableImageNode";
 import { PictureFrameNode } from "./PictureFrameNode";
@@ -77,7 +78,17 @@ function clearForcedRotateCursor() {
 }
 
 export class SvgNode extends DecoratorNode {
-  constructor(svg, x = 0, y = 0, width = 300, height = 200, rotation = 0, key, locked = false) {
+  constructor(
+    svg,
+    x = 0,
+    y = 0,
+    width = 300,
+    height = 200,
+    rotation = 0,
+    key,
+    locked = false,
+    groupId = null
+  ) {
     super(key);
     this.__svg = svg;
     this.__x = x;
@@ -86,6 +97,7 @@ export class SvgNode extends DecoratorNode {
     this.__height = height;
     this.__rotation = rotation;
     this.__locked = locked;
+    this.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
   }
 
   static getType() {
@@ -101,7 +113,8 @@ export class SvgNode extends DecoratorNode {
       node.__height,
       node.__rotation,
       node.__key,
-      node.__locked
+      node.__locked,
+      node.__groupId
     );
   }
 
@@ -163,6 +176,15 @@ export class SvgNode extends DecoratorNode {
     return this.__locked;
   }
 
+  getGroupId() {
+    return this.__groupId;
+  }
+
+  setGroupId(groupId) {
+    const writable = this.getWritable();
+    writable.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
+  }
+
   createDOM() {
     return document.createElement("div");
   }
@@ -172,20 +194,21 @@ export class SvgNode extends DecoratorNode {
   }
 
   static importJSON(serializedNode) {
-    const { svg, x, y, width, height, rotation = 0, locked = false } = serializedNode;
-    return new SvgNode(svg, x, y, width, height, rotation, undefined, locked);
+    const { svg, x, y, width, height, rotation = 0, locked = false, groupId = null } = serializedNode;
+    return new SvgNode(svg, x, y, width, height, rotation, undefined, locked, groupId);
   }
 
   exportJSON() {
     return {
       type: "svg",
-      version: 1,
+      version: 2,
       svg: this.__svg,
       x: this.__x,
       y: this.__y,
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      groupId: this.__groupId,
       locked: this.__locked,
     };
   }
@@ -209,6 +232,10 @@ export class SvgNode extends DecoratorNode {
 function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected] = useLexicalNodeSelection(nodeKey);
+  const activeGroupSelection = useActiveGroupSelection();
+  const isGroupedSelectionActive = Boolean(
+    activeGroupSelection && activeGroupSelection.memberKeys.includes(nodeKey)
+  );
   const ref = useRef(null);
   const moveableRef = useRef(null);
   const rotateHandleWrapperRef = useRef(null);
@@ -735,7 +762,7 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
 
       <Moveable
         ref={moveableRef}
-        target={isSelected && !isSlideLocked ? ref.current : null}
+        target={isSelected && !isSlideLocked && !isGroupedSelectionActive ? ref.current : null}
         draggable={!isSlideLocked}
         resizable={
           isSlideLocked
@@ -748,8 +775,8 @@ function MoveableSvg({ svg, x, y, width, height, rotation, locked, nodeKey }) {
         rotatable={false}
         origin={false}
         edge={false}
-        useResizeObserver={isSelected}
-        useMutationObserver={isSelected}
+        useResizeObserver={isSelected && !isGroupedSelectionActive}
+        useMutationObserver={isSelected && !isGroupedSelectionActive}
         throttleDrag={0}
         throttleResize={0}
         throttleRotate={0}

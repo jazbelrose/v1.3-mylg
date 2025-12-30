@@ -15,9 +15,17 @@ export type ToolbarContext =
   | { type: "none" }
   | { type: "text"; isRange: boolean }
   | {
+      type: "group";
+      groupId: string;
+      memberCount: number;
+      locked: boolean;
+      selectionCount: number;
+    }
+  | {
       type: "image";
       nodeKey: string;
       locked: boolean;
+      selectionCount: number;
       borderRadius: ImageBorderRadiusState;
       border: PictureFrameBorder;
       width: number;
@@ -27,6 +35,7 @@ export type ToolbarContext =
       type: "picture-frame";
       nodeKey: string;
       locked: boolean;
+      selectionCount: number;
       imageSrc: string | null;
       fit: PictureFrameFitMode;
       radius: number;
@@ -38,6 +47,7 @@ export type ToolbarContext =
       type: "svg";
       nodeKey: string;
       locked: boolean;
+      selectionCount: number;
       width: number;
       height: number;
     }
@@ -45,12 +55,13 @@ export type ToolbarContext =
       type: "textbox";
       nodeKey: string;
       locked: boolean;
+      selectionCount: number;
       border: PictureFrameBorder;
       borderRadius: ImageBorderRadiusState;
       width: number;
       height: number;
     }
-  | { type: "mixed" };
+  | { type: "mixed"; selectionCount: number };
 
 export type HistoryState = {
   canUndo: boolean;

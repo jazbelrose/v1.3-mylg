@@ -34,6 +34,7 @@ import {
 import { DEFAULT_IMAGE_BORDER_RADIUS } from "./nodes/imageBorderRadius";
 import { SvgNode } from "./nodes/SvgNode";
 import { useOptionalToolbarContext } from "./ToolbarContextBridge";
+import { getGroupSelectionInfo } from "./slides/grouping";
 
 function getBlockTypeFromSelection(selection: RangeSelection): {
   blockType: TextBlockType;
@@ -146,12 +147,31 @@ export default function ToolbarContextPlugin() {
             return;
           }
 
+          const groupSelection = getGroupSelectionInfo();
+          if (groupSelection) {
+            const locked = nodes.some((node) => {
+              const maybe = node as unknown as { getLocked?: () => boolean };
+              return typeof maybe.getLocked === "function" ? maybe.getLocked() : false;
+            });
+            setCtx({
+              type: "group",
+              groupId: groupSelection.groupId,
+              memberCount: groupSelection.memberKeys.length,
+              locked,
+              selectionCount: groupSelection.memberKeys.length,
+            });
+            return;
+          }
+
+          const selectionCount = nodes.length;
+
           const imageNode = nodes.find((node) => node instanceof ResizableImageNode);
           if (imageNode) {
             setCtx({
               type: "image",
               nodeKey: imageNode.getKey(),
               locked: typeof imageNode.getLocked === "function" ? imageNode.getLocked() : false,
+              selectionCount,
               borderRadius: imageNode.getBorderRadius(),
               border:
                 typeof imageNode.getBorder === "function"
@@ -173,6 +193,7 @@ export default function ToolbarContextPlugin() {
                 "function"
                   ? (pictureFrameNode as unknown as { getLocked: () => boolean }).getLocked()
                   : false,
+              selectionCount,
               imageSrc:
                 typeof (pictureFrameNode as unknown as { getImageSrc?: () => string | null }).getImageSrc ===
                 "function"
@@ -213,6 +234,7 @@ export default function ToolbarContextPlugin() {
               type: "svg",
               nodeKey: svgNode.getKey(),
               locked: typeof svgNode.getLocked === "function" ? svgNode.getLocked() : false,
+              selectionCount,
               width: svgNode.getWidth(),
               height: svgNode.getHeight(),
             });
@@ -234,6 +256,7 @@ export default function ToolbarContextPlugin() {
                 "function"
                   ? (textBoxNode as unknown as { getLocked: () => boolean }).getLocked()
                   : false,
+              selectionCount,
               border:
                 typeof (textBoxNode as unknown as { getBorder?: () => any }).getBorder ===
                 "function"
@@ -250,7 +273,7 @@ export default function ToolbarContextPlugin() {
             return;
           }
 
-          setCtx(nodes.length > 1 ? { type: "mixed" } : { type: "none" });
+          setCtx(nodes.length > 1 ? { type: "mixed", selectionCount } : { type: "none" });
           return;
         }
 

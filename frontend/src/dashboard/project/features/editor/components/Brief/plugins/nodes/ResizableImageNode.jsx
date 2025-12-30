@@ -24,6 +24,7 @@ import {
   getSlideNodeSelectionKeys,
   isCopyGesture,
 } from "../slides/slideSelectionUtils";
+import { useActiveGroupSelection } from "../slides/groupSelectionStore";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
 const DEFAULT_SLIDE_NODE_BORDER = { enabled: false, width: 2, color: "#ffffff" };
@@ -97,7 +98,8 @@ export class ResizableImageNode extends DecoratorNode {
       node.__rotation,
       node.__borderRadius,
       node.__border,
-      node.__locked
+      node.__locked,
+      node.__groupId
     );
   }
 
@@ -113,7 +115,8 @@ export class ResizableImageNode extends DecoratorNode {
     rotation = 0,
     borderRadius,
     border,
-    locked = false
+    locked = false,
+    groupId = null
   ) {
     super(key);
     this.__src = src;
@@ -125,6 +128,7 @@ export class ResizableImageNode extends DecoratorNode {
     this.__x = x;
     this.__y = y;
     this.__rotation = rotation;
+    this.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
     this.__borderRadius = mergeBorderRadius(
       DEFAULT_IMAGE_BORDER_RADIUS,
       borderRadius
@@ -141,6 +145,15 @@ export class ResizableImageNode extends DecoratorNode {
           }
         : { ...DEFAULT_SLIDE_NODE_BORDER };
     this.__locked = locked;
+  }
+
+  getGroupId() {
+    return this.__groupId;
+  }
+
+  setGroupId(groupId) {
+    const writable = this.getWritable();
+    writable.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
   }
 
   getOriginalAspectRatio() {
@@ -279,6 +292,7 @@ export class ResizableImageNode extends DecoratorNode {
       borderRadius,
       border,
       locked = false,
+      groupId = null,
     } = serializedNode;
     return new ResizableImageNode(
       src,
@@ -292,14 +306,15 @@ export class ResizableImageNode extends DecoratorNode {
       rotation,
       borderRadius,
       border,
-      locked
+      locked,
+      groupId
     );
   }
 
   exportJSON() {
     return {
       type: "resizable-image",
-      version: 1,
+      version: 2,
       src: this.__src,
       altText: this.__altText,
       width: this.__width,
@@ -308,6 +323,7 @@ export class ResizableImageNode extends DecoratorNode {
       x: this.__x,
       y: this.__y,
       rotation: this.__rotation,
+      groupId: this.__groupId,
       borderRadius: this.__borderRadius,
       border: this.__border,
       locked: this.__locked,
@@ -346,9 +362,10 @@ export function $createResizableImageNode({
   x = 0,
   y = 0,
   rotation = 0,
-  borderRadius,
-  border,
+  borderRadius = DEFAULT_IMAGE_BORDER_RADIUS,
+  border = DEFAULT_SLIDE_NODE_BORDER,
   locked = false,
+  groupId = null,
 }) {
   return new ResizableImageNode(
     src,
@@ -362,7 +379,8 @@ export function $createResizableImageNode({
     rotation,
     borderRadius,
     border,
-    locked
+    locked,
+    groupId
   );
 }
 
@@ -385,6 +403,10 @@ function ResizableImageComponent({
 }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
+  const activeGroupSelection = useActiveGroupSelection();
+  const isGroupedSelectionActive = Boolean(
+    activeGroupSelection && activeGroupSelection.memberKeys.includes(nodeKey)
+  );
   const containerRef = useRef(null);
   const skipClickClearRef = useRef(false);
   const { userName } = useData();
@@ -393,6 +415,9 @@ function ResizableImageComponent({
   const isCollabLocked = lockedBy && lockedBy !== userName;
   const isSlideLocked = Boolean(locked);
   const isInteractionLocked = isCollabLocked || isSlideLocked;
+  const [isFocused, setIsFocused] = useState(true);
+  const canSelfInteract = Boolean(isSelected && !isInteractionLocked && !isGroupedSelectionActive);
+  const showSelectionOverlay = Boolean(canSelfInteract && isFocused);
   const borderRadiusStyle = borderRadiusToCss(
     borderRadius || DEFAULT_IMAGE_BORDER_RADIUS
   );
@@ -426,7 +451,6 @@ function ResizableImageComponent({
       provider.awareness.setLocalStateField("imageLock", null);
     }
   };
-  const [isFocused, setIsFocused] = useState(true);
 
   // Track the initial pointer and size when resizing starts.
   const initialXRef = useRef(0);
@@ -899,13 +923,13 @@ function ResizableImageComponent({
             borderRadius: borderRadiusStyle,
             border: borderStyle,
             boxSizing: "border-box",
-            objectFit: "contain",
-            cursor: isSelected && !isInteractionLocked ? "move" : "pointer",
+             objectFit: "contain",
+            cursor: canSelfInteract ? "move" : "pointer",
             pointerEvents: isCollabLocked ? "none" : "auto",
           }}
-          onMouseDown={(e) => isSelected && !isInteractionLocked && handleMouseDown(e, "move")}
+          onMouseDown={(e) => canSelfInteract && handleMouseDown(e, "move")}
         />
-        {isSelected && isFocused && !isInteractionLocked && (
+        {showSelectionOverlay && (
           <div
             style={{
               position: "absolute",

@@ -16,12 +16,13 @@ import {
 
 export type SerializedTextBoxNode = SerializedElementNode & {
   type: "text-box";
-  version: 2;
+  version: 3;
   x: number;
   y: number;
   width: number;
   height: number;
   rotation: number;
+  groupId?: string | null;
   borderRadius?: ImageBorderRadiusState;
   border?: {
     enabled: boolean;
@@ -39,6 +40,7 @@ export class TextBoxNode extends ElementNode {
   __width: number;
   __height: number;
   __rotation: number;
+  __groupId: string | null;
   __borderRadius: ImageBorderRadiusState;
   __border: { enabled: boolean; width: number; color: string };
   __locked: boolean;
@@ -57,7 +59,8 @@ export class TextBoxNode extends ElementNode {
       node.__borderRadius,
       node.__border,
       node.__key,
-      node.__locked
+      node.__locked,
+      node.__groupId
     );
   }
 
@@ -70,7 +73,8 @@ export class TextBoxNode extends ElementNode {
     borderRadius: ImageBorderRadiusState = { ...DEFAULT_IMAGE_BORDER_RADIUS },
     border: { enabled: boolean; width: number; color: string } = { ...DEFAULT_SLIDE_NODE_BORDER },
     key?: NodeKey,
-    locked = false
+    locked = false,
+    groupId: string | null = null
   ) {
     super(key);
     this.__x = x;
@@ -78,6 +82,7 @@ export class TextBoxNode extends ElementNode {
     this.__width = width;
     this.__height = height;
     this.__rotation = rotation;
+    this.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
     this.__borderRadius = mergeBorderRadius(DEFAULT_IMAGE_BORDER_RADIUS, borderRadius);
     this.__border =
       border && typeof border === "object"
@@ -91,6 +96,16 @@ export class TextBoxNode extends ElementNode {
           }
         : { ...DEFAULT_SLIDE_NODE_BORDER };
     this.__locked = locked;
+  }
+
+  getGroupId(): string | null {
+    const self = this.getLatest();
+    return self.__groupId;
+  }
+
+  setGroupId(groupId: string | null): void {
+    const writable = this.getWritable();
+    writable.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
   }
 
   getPosition(): { x: number; y: number } {
@@ -325,6 +340,7 @@ export class TextBoxNode extends ElementNode {
       width = 420,
       height = 160,
       rotation = 0,
+      groupId = null,
       borderRadius,
       border,
       locked = false,
@@ -350,7 +366,8 @@ export class TextBoxNode extends ElementNode {
       normalizedBorderRadius,
       normalizedBorder,
       undefined,
-      locked
+      locked,
+      groupId ?? null
     );
     return node.updateFromJSON(serializedNode);
   }
@@ -359,12 +376,13 @@ export class TextBoxNode extends ElementNode {
     return {
       ...super.exportJSON(),
       type: "text-box",
-      version: 2,
+      version: 3,
       x: this.__x,
       y: this.__y,
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      groupId: this.__groupId,
       borderRadius: this.__borderRadius,
       border: this.__border,
       locked: this.__locked,
@@ -384,7 +402,8 @@ export function $createTextBoxNode(
   rotation?: number,
   locked?: boolean,
   border?: { enabled: boolean; width: number; color: string },
-  borderRadius?: ImageBorderRadiusState
+  borderRadius?: ImageBorderRadiusState,
+  groupId?: string | null
 ): TextBoxNode {
   const normalizedBorder =
     border && typeof border === "object"
@@ -407,7 +426,8 @@ export function $createTextBoxNode(
     normalizedBorderRadius,
     normalizedBorder,
     undefined,
-    locked ?? false
+    locked ?? false,
+    groupId ?? null
   );
 }
 

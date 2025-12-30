@@ -18,6 +18,7 @@ import {
   applyModifierNodeSelection,
   getSlideNodeSelectionKeys,
 } from "./slides/slideSelectionUtils";
+import { createGroupId, getGroupSelectionInfo, getNodeGroupId, setNodeGroupId } from "./slides/grouping";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
 const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 };
@@ -251,6 +252,7 @@ function duplicateSlideObjects(
 ): { clones: Array<{ originalKey: string; cloneKey: string }>; cloneKeys: string[] } {
   const clones: Array<{ originalKey: string; cloneKey: string }> = [];
   const cloneKeys: string[] = [];
+  const groupIdRecords: Array<{ cloneKey: string; originalGroupId: string }> = [];
 
   keysToClone.forEach((key) => {
     const node = $getNodeByKey(key);
@@ -267,6 +269,8 @@ function duplicateSlideObjects(
 
     const clone = deepCloneNode(node);
     if (!clone) return;
+
+    const originalGroupId = getNodeGroupId(node);
 
     // keep z-order: insert right after original
     node.insertAfter(clone);
@@ -291,7 +295,23 @@ function duplicateSlideObjects(
     const cloneKey = clone.getKey();
     clones.push({ originalKey: key, cloneKey });
     cloneKeys.push(cloneKey);
+    if (originalGroupId) {
+      groupIdRecords.push({ cloneKey, originalGroupId });
+    }
   });
+
+  if (groupIdRecords.length > 0) {
+    const remap = new Map<string, string>();
+    groupIdRecords.forEach(({ cloneKey, originalGroupId }) => {
+      let next = remap.get(originalGroupId);
+      if (!next) {
+        next = createGroupId();
+        remap.set(originalGroupId, next);
+      }
+      const cloneNode = $getNodeByKey(cloneKey);
+      setNodeGroupId(cloneNode ?? null, next);
+    });
+  }
 
   return { clones, cloneKeys };
 }
@@ -495,6 +515,12 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
 
     const unregisterSelectionSync = editor.registerUpdateListener(({ editorState }) => {
       editorState.read(() => {
+        const groupSelection = getGroupSelectionInfo();
+        if (groupSelection) {
+          syncSelectedElements(new Set<string>(), new Set<string>());
+          return;
+        }
+
         const selection = $getSelection();
         const nodeSelectionKeys = new Set<string>();
         const focusSelectionKeys = new Set<string>();

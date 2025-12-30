@@ -4,6 +4,7 @@ import {
   $isNodeSelection,
   $setSelection,
 } from "lexical";
+import { collectGroupIndex, expandKeysToGroups } from "./grouping";
 
 export type ModifierKeys = Pick<MouseEvent, "shiftKey" | "ctrlKey" | "metaKey" | "altKey">;
 
@@ -35,22 +36,30 @@ export function applyModifierNodeSelection(
 
   if ($isNodeSelection(selection)) {
     const currentKeys = selection.getNodes().map((node) => node.getKey());
+    const groupIndex = collectGroupIndex();
+    const currentExpanded = expandKeysToGroups(currentKeys, groupIndex);
+    const clickedUnitKeys = expandKeysToGroups([nodeKey], groupIndex);
+    const currentSet = new Set(currentExpanded);
+    const clickedIsSelected = clickedUnitKeys.every((key) => currentSet.has(key));
 
     if (isToggle) {
-      if (currentKeys.includes(nodeKey)) {
-        nextKeys = currentKeys.filter((key) => key !== nodeKey);
+      if (clickedIsSelected) {
+        nextKeys = currentExpanded.filter((key) => !clickedUnitKeys.includes(key));
       } else {
-        nextKeys = [...currentKeys, nodeKey];
+        nextKeys = Array.from(new Set([...currentExpanded, ...clickedUnitKeys]));
       }
     } else if (isAdditive) {
-      nextKeys = currentKeys.includes(nodeKey) ? currentKeys : [...currentKeys, nodeKey];
+      nextKeys = clickedIsSelected
+        ? currentExpanded
+        : Array.from(new Set([...currentExpanded, ...clickedUnitKeys]));
     } else {
       // Design-app behavior: clicking an already-selected node keeps the current multi-selection.
       // This enables "drag any selected item to move the whole selection" across node types.
-      nextKeys = currentKeys.includes(nodeKey) ? currentKeys : [nodeKey];
+      nextKeys = clickedIsSelected ? currentExpanded : clickedUnitKeys;
     }
   } else {
-    nextKeys = [nodeKey];
+    // If this node is grouped, select the whole group.
+    nextKeys = expandKeysToGroups([nodeKey], collectGroupIndex());
   }
 
   if (nextKeys.length === 0) {
@@ -67,4 +76,3 @@ export function applyModifierNodeSelection(
 export function isCopyGesture(modifiers: ModifierKeys): boolean {
   return Boolean(modifiers.ctrlKey || modifiers.metaKey || modifiers.altKey);
 }
-

@@ -303,6 +303,8 @@ interface SlideToolbarProps {
   onSendBackward?: () => void;
   onDuplicateSelection?: () => void;
   onLockSelection?: () => void;
+  onGroupSelection?: () => void;
+  onUngroupSelection?: () => void;
   onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
   onUpdateImageBorder?: (updates: Partial<PictureFrameBorder>) => void;
   onUpdateTextBoxBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
@@ -366,6 +368,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSendBackward,
   onDuplicateSelection,
   onLockSelection,
+  onGroupSelection,
+  onUngroupSelection,
   onUpdateImageBorderRadius,
   onUpdateImageBorder,
   onUpdateTextBoxBorderRadius,
@@ -435,6 +439,16 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const pictureFrameState = isPictureFrameContext ? ctx : null;
   const isPictureFrameBorderEnabled =
     ctx.type === "picture-frame" ? Boolean(ctx.border?.enabled) : false;
+
+  const selectionCount =
+    ctx.type === "group" || ctx.type === "mixed"
+      ? ctx.selectionCount
+      : ctx.type === "image" || ctx.type === "picture-frame" || ctx.type === "svg" || ctx.type === "textbox"
+        ? ctx.selectionCount
+        : 0;
+
+  const canGroup = Boolean(onGroupSelection && selectionCount >= 2 && ctx.type !== "group");
+  const canUngroup = Boolean(onUngroupSelection && ctx.type === "group");
 
   useEffect(() => {
     if (ctx.type !== "picture-frame") {
@@ -879,8 +893,14 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const renderObjectContext = (label: string, options: { showReplace?: boolean } = { showReplace: true }) => {
     const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
     const canLock = label === "Image" || label === "Vector" || label === "Text Box";
-    const selectedLocked =
-      ctx.type === "image" || ctx.type === "svg" || ctx.type === "textbox" ? ctx.locked : false;
+  const selectedLocked =
+      ctx.type === "image" ||
+      ctx.type === "svg" ||
+      ctx.type === "textbox" ||
+      ctx.type === "picture-frame" ||
+      ctx.type === "group"
+        ? ctx.locked
+        : false;
     return (
       <div className="context-panel">
         <div className="context-controls compact">
@@ -1312,6 +1332,26 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <span>Duplicate</span>
             </button>
           )}
+          {canGroup && (
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={onGroupSelection}
+              title={withShortcut("Group", "Ctrl+G")}
+            >
+              <span>Group</span>
+            </button>
+          )}
+          {canUngroup && (
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={onUngroupSelection}
+              title={withShortcut("Ungroup", "Ctrl+U")}
+            >
+              <span>Ungroup</span>
+            </button>
+          )}
           {canLock && (
             <button
               type="button"
@@ -1438,6 +1478,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     switch (ctx.type) {
       case "text":
         return renderTextContext();
+      case "group":
+        return renderObjectContext("Group", { showReplace: false });
       case "image":
         return renderObjectContext("Image", { showReplace: false });
       case "picture-frame":
@@ -1447,7 +1489,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       case "textbox":
         return renderObjectContext("Text Box", { showReplace: false });
       case "mixed":
-        return renderMixedContext();
+        return renderObjectContext("Selection", { showReplace: false });
       default:
         return renderCanvasContext();
     }

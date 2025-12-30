@@ -25,7 +25,8 @@ describe("PictureFrameNode", () => {
         { enabled: true, width: 3, color: "#ff00ff" },
         "#eeeeee",
         undefined,
-        false
+        false,
+        "group_demo_1"
       );
       json = node.exportJSON();
     });

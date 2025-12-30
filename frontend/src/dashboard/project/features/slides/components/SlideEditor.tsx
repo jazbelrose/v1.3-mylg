@@ -192,7 +192,23 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
           }
         }
 
-        switch (event.key) {
+         switch (event.key) {
+          case 'g':
+          case 'G':
+            if (toolbarActions?.onGroupSelection) {
+              event.preventDefault();
+              event.stopPropagation();
+              toolbarActions.onGroupSelection();
+            }
+            break;
+          case 'u':
+          case 'U':
+            if (toolbarActions?.onUngroupSelection) {
+              event.preventDefault();
+              event.stopPropagation();
+              toolbarActions.onUngroupSelection();
+            }
+            break;
           case 'd':
           case 'D':
             if (toolbarActions?.onDuplicateSelection) {
@@ -290,6 +306,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onUpdateTextBoxBorder={toolbarActions.onUpdateTextBoxBorder}
       onUpdateTextBoxBorderRadius={toolbarActions.onUpdateTextBoxBorderRadius}
       onLockSelection={toolbarActions.onToggleLockSelection}
+      onGroupSelection={toolbarActions.onGroupSelection}
+      onUngroupSelection={toolbarActions.onUngroupSelection}
       onNewSlide={onNewSlide}
     />
   ) : null;

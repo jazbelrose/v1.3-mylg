@@ -1,5 +1,6 @@
 import {
   $createNodeSelection,
+  $copyNode,
   $getNodeByKey,
   $setSelection,
   type LexicalNode,
@@ -22,6 +23,7 @@ import {
   type ModifierKeys,
   type SelectionUpdate,
 } from "./slideSelection";
+import { createGroupId, getNodeGroupId, setNodeGroupId } from "./grouping";
 
 export {
   applyModifierNodeSelection,
@@ -52,11 +54,17 @@ export function duplicateSlideNodes(
 
   const clones: LexicalNode[] = [];
   const mapping: CloneRecord[] = [];
+  const originalGroupIds = new Map<string, string>();
 
   for (const key of uniqueKeys) {
     const node = $getNodeByKey<LexicalNode>(key);
     if (!node) {
       continue;
+    }
+
+    const groupId = getNodeGroupId(node);
+    if (groupId) {
+      originalGroupIds.set(key, groupId);
     }
 
     const clone = cloneSlideNode(node);
@@ -68,6 +76,21 @@ export function duplicateSlideNodes(
     bumpClonePosition(clone, dx, dy);
     clones.push(clone);
     mapping.push({ originalKey: key, cloneKey: clone.getKey() });
+  }
+
+  if (mapping.length > 0 && originalGroupIds.size > 0) {
+    const remap = new Map<string, string>();
+    mapping.forEach(({ originalKey, cloneKey }) => {
+      const oldGroupId = originalGroupIds.get(originalKey);
+      if (!oldGroupId) return;
+      let newGroupId = remap.get(oldGroupId);
+      if (!newGroupId) {
+        newGroupId = createGroupId();
+        remap.set(oldGroupId, newGroupId);
+      }
+      const cloneNode = $getNodeByKey<LexicalNode>(cloneKey);
+      setNodeGroupId(cloneNode, newGroupId);
+    });
   }
 
   if (clones.length > 0 && options.selectClones !== false) {
@@ -82,6 +105,10 @@ export function duplicateSlideNodes(
 function cloneSlideNode(node: LexicalNode): LexicalNode | null {
   if ($isTextBoxNode(node)) {
     return cloneTextBoxNode(node);
+  }
+
+  if (isLegacyImageNode(node)) {
+    return cloneLegacyImageNode(node);
   }
 
   if (node instanceof PictureFrameNode) {
@@ -99,11 +126,30 @@ function cloneSlideNode(node: LexicalNode): LexicalNode | null {
   return null;
 }
 
+function isLegacyImageNode(node: LexicalNode): boolean {
+  const ctor = node as unknown as { constructor?: { getType?: () => string } };
+  return ctor?.constructor?.getType?.() === "image";
+}
+
+function cloneLegacyImageNode(node: LexicalNode): LexicalNode {
+  return $copyNode(node);
+}
+
 function cloneTextBoxNode(node: TextBoxNode): TextBoxNode {
   const { x, y } = node.getPosition();
   const { width, height } = node.getSize();
   const rotation = node.getRotation();
-  const clone = $createTextBoxNode(x, y, width, height, rotation, node.getLocked());
+  const clone = $createTextBoxNode(
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    node.getLocked(),
+    node.getBorder?.(),
+    node.getBorderRadius?.(),
+    node.getGroupId?.()
+  );
 
   node.getChildren().forEach((child) => {
     clone.append((child as unknown as { clone: () => LexicalNode }).clone());
@@ -123,7 +169,13 @@ function cloneResizableImageNode(node: ResizableImageNode): ResizableImageNode {
     y: node.getY(),
     rotation: node.getRotation(),
     borderRadius: node.getBorderRadius(),
+    border: typeof (node as unknown as { getBorder?: () => any }).getBorder === "function"
+      ? (node as unknown as { getBorder: () => any }).getBorder()
+      : undefined,
     locked: node.getLocked(),
+    groupId: typeof (node as unknown as { getGroupId?: () => string | null }).getGroupId === "function"
+      ? (node as unknown as { getGroupId: () => string | null }).getGroupId()
+      : null,
   });
 }
 
@@ -143,6 +195,7 @@ function clonePictureFrameNode(node: PictureFrameNode): PictureFrameNode {
     border: node.getBorder(),
     background: node.getBackground(),
     locked: node.getLocked(),
+    groupId: node.getGroupId?.(),
   });
 }
 
@@ -155,6 +208,9 @@ function cloneSvgNode(node: SvgNode): SvgNode {
     height: node.getHeight(),
     rotation: node.getRotation(),
     locked: node.getLocked(),
+    groupId: typeof (node as unknown as { getGroupId?: () => string | null }).getGroupId === "function"
+      ? (node as unknown as { getGroupId: () => string | null }).getGroupId()
+      : null,
   });
 }
 
@@ -162,6 +218,12 @@ function bumpClonePosition(node: LexicalNode, dx: number, dy: number): void {
   if ($isTextBoxNode(node)) {
     const { x, y } = node.getPosition();
     node.setPosition(x + dx, y + dy);
+  } else if (isLegacyImageNode(node)) {
+    const anyNode = node as unknown as { getX?: () => number; getY?: () => number; setX?: (v: number) => void; setY?: (v: number) => void };
+    if (typeof anyNode.getX === "function" && typeof anyNode.getY === "function" && typeof anyNode.setX === "function" && typeof anyNode.setY === "function") {
+      anyNode.setX(anyNode.getX() + dx);
+      anyNode.setY(anyNode.getY() + dy);
+    }
   } else if (node instanceof PictureFrameNode) {
     node.setX(node.getX() + dx);
     node.setY(node.getY() + dy);

@@ -19,6 +19,7 @@ import {
   duplicateSlideNodes,
   getSlideNodeSelectionKeys,
 } from "../slides/slideSelectionUtils";
+import { useActiveGroupSelection } from "../slides/groupSelectionStore";
 
 export type PictureFrameFitMode = "cover" | "contain";
 
@@ -30,12 +31,13 @@ export type PictureFrameBorder = {
 
 export type SerializedPictureFrameNode = {
   type: "picture-frame";
-  version: 2;
+  version: 3;
   x: number;
   y: number;
   width: number;
   height: number;
   rotation: number;
+  groupId?: string | null;
   imageSrc: string | null;
   fit: PictureFrameFitMode;
   radius: number;
@@ -164,6 +166,7 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
   __width: number;
   __height: number;
   __rotation: number;
+  __groupId: string | null;
   __imageSrc: string | null;
   __fit: PictureFrameFitMode;
   __radius: number;
@@ -191,7 +194,8 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
       node.__border,
       node.__background,
       node.__key,
-      node.__locked
+      node.__locked,
+      node.__groupId
     );
   }
 
@@ -208,7 +212,8 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
     border: PictureFrameBorder = DEFAULT_BORDER,
     background: string = DEFAULT_BACKGROUND,
     key?: NodeKey,
-    locked = false
+    locked = false,
+    groupId: string | null = null
   ) {
     super(key);
     this.__x = x;
@@ -216,6 +221,7 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
     this.__width = width;
     this.__height = height;
     this.__rotation = rotation;
+    this.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
     this.__imageSrc = imageSrc;
     this.__fit = fit;
     this.__radius = radius;
@@ -224,6 +230,15 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
     this.__border = border;
     this.__background = background;
     this.__locked = locked;
+  }
+
+  getGroupId(): string | null {
+    return this.getLatest().__groupId;
+  }
+
+  setGroupId(groupId: string | null): void {
+    const writable = this.getWritable();
+    writable.__groupId = typeof groupId === "string" && groupId.trim() ? groupId : null;
   }
 
   createDOM(): HTMLElement {
@@ -367,19 +382,21 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
         : DEFAULT_BORDER,
       typeof serializedNode.background === "string" ? serializedNode.background : DEFAULT_BACKGROUND,
       undefined,
-      Boolean(serializedNode.locked)
+      Boolean(serializedNode.locked),
+      typeof (serializedNode as any).groupId === "string" ? String((serializedNode as any).groupId) : null
     );
   }
 
   exportJSON(): SerializedPictureFrameNode {
     return {
       type: "picture-frame",
-      version: 2,
+      version: 3,
       x: this.__x,
       y: this.__y,
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      groupId: this.__groupId,
       imageSrc: this.__imageSrc,
       fit: this.__fit,
       radius: this.__radius,
@@ -430,7 +447,8 @@ export function $createPictureFrameNode(options: Partial<Omit<SerializedPictureF
     options.border ?? DEFAULT_BORDER,
     options.background ?? DEFAULT_BACKGROUND,
     undefined,
-    Boolean(options.locked)
+    Boolean(options.locked),
+    typeof (options as any).groupId === "string" ? String((options as any).groupId) : null
   );
 }
 
@@ -473,6 +491,10 @@ function PictureFrameComponent({
   const projectsCtx = useContext(ProjectsContext);
   const activeProject = projectsCtx?.activeProject ?? null;
   const [isSelected] = useLexicalNodeSelection(nodeKey);
+  const activeGroupSelection = useActiveGroupSelection();
+  const isGroupedSelectionActive = Boolean(
+    activeGroupSelection && activeGroupSelection.memberKeys.includes(nodeKey)
+  );
   const ref = useRef<HTMLDivElement | null>(null);
   const moveableRef = useRef<Moveable | null>(null);
   const frameRef = useRef({ x, y, width, height, rotation });
@@ -870,7 +892,7 @@ function PictureFrameComponent({
     } as const;
   }, [background]);
 
-  const showSelectedOutline = isSelected && !isSlideLocked;
+  const showSelectedOutline = isSelected && !isSlideLocked && !isGroupedSelectionActive;
 
   // When this node moves due to another node's multi-drag, keep its Moveable handles in sync.
   useLayoutEffect(() => {

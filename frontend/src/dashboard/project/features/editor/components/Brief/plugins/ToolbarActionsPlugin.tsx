@@ -6,6 +6,7 @@ import {
   UNDO_COMMAND,
   REDO_COMMAND,
   $getSelection,
+  $getNodeByKey,
   $isRangeSelection,
   $isNodeSelection,
   $createParagraphNode,
@@ -40,6 +41,7 @@ import { PictureFrameNode, type PictureFrameBorder, type PictureFrameFitMode } f
 import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 import { reorderSlideStackablesInRoot } from "./slides/slideStackingUtils";
 import { duplicateSlideNodes, getSlideNodeSelectionKeys } from "./slides/slideSelectionUtils";
+import { collectGroupIndex, createGroupId, getNodeGroupId, setNodeGroupId } from "./slides/grouping";
 
 type BlockType = "paragraph" | "h1" | "h2" | "quote" | "code" | "ul" | "ol";
 
@@ -81,6 +83,8 @@ export type ToolbarActions = {
 
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
+  onGroupSelection: () => void;
+  onUngroupSelection: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
   onBringForward: () => void;
@@ -221,6 +225,43 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         mutateSelectedNodes((node) => {
           node.remove();
         }),
+      onGroupSelection: () => {
+        editor.update(() => {
+          const keys = getSlideNodeSelectionKeys();
+          if (!keys || keys.length < 2) return;
+          const nodes = keys
+            .map((key) => $getNodeByKey<LexicalNode>(key))
+            .filter((node): node is LexicalNode => Boolean(node));
+          const groupable = nodes.filter((node) => {
+            const maybe = node as unknown as { setGroupId?: (groupId: string | null) => void };
+            return typeof maybe.setGroupId === "function";
+          });
+          if (groupable.length < 2) return;
+          const groupId = createGroupId();
+          groupable.forEach((node) => setNodeGroupId(node, groupId));
+        });
+      },
+      onUngroupSelection: () => {
+        editor.update(() => {
+          const keys = getSlideNodeSelectionKeys();
+          if (!keys || keys.length === 0) return;
+          const groupIds = new Set<string>();
+          keys.forEach((key) => {
+            const node = $getNodeByKey<LexicalNode>(key);
+            const gid = getNodeGroupId(node);
+            if (gid) groupIds.add(gid);
+          });
+          if (groupIds.size === 0) return;
+          const index = collectGroupIndex();
+          groupIds.forEach((gid) => {
+            const memberKeys = index.groupIdToKeys.get(gid) ?? [];
+            memberKeys.forEach((memberKey) => {
+              const node = $getNodeByKey<LexicalNode>(memberKey);
+              setNodeGroupId(node, null);
+            });
+          });
+        });
+      },
       onBringToFront: () => {
         console.log('[toolbar] onBringToFront clicked');
         editor.update(() => {
