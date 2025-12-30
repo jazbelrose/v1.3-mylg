@@ -1340,6 +1340,8 @@ i.bg-color::before {
   box-sizing: border-box;
   background: transparent;
   border: 1px solid transparent;
+  outline: 2px solid transparent;
+  outline-offset: 0;
   padding: 8px;
   margin: 0;
 
@@ -1354,7 +1356,7 @@ i.bg-color::before {
 .editor-textbox:hover,
 .editor-textbox.editor-textbox-selected,
 .editor-textbox.editor-textbox-focused {
-  border-color: #4c9aff;
+  outline-color: #4c9aff;
   overflow: visible;
 }
 

@@ -23,6 +23,12 @@ export type SlideStackingAction =
   | "sendBackward";
 
 export function isSlideStackableNode(node: LexicalNode): boolean {
+  // Prefer type checks because `instanceof` can be brittle under HMR / module duplication.
+  const type = node.getType();
+  if (type === "text-box" || type === "resizable-image" || type === "picture-frame" || type === "svg") {
+    return true;
+  }
+
   return (
     node instanceof TextBoxNode ||
     node instanceof ResizableImageNode ||

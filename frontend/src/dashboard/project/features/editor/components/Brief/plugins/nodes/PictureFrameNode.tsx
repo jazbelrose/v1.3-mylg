@@ -14,6 +14,7 @@ import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 
 import { ProjectsContext } from "@/app/contexts/ProjectsContext";
 import { S3_PUBLIC_BASE, getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
+import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 import {
   applyModifierNodeSelection,
   duplicateSlideNodes,
@@ -55,6 +56,51 @@ const DEFAULT_FIT: PictureFrameFitMode = "cover";
 const DEFAULT_POSITION = { x: 50, y: 50 };
 const DEFAULT_BORDER: PictureFrameBorder = { enabled: false, width: 2, color: "#ffffff" };
 const DEFAULT_BACKGROUND = "#2a2c2f";
+
+const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 } as const;
+const rotateCursorCache = new Map<string, string>();
+
+function getSvgInner(svgText: string): string {
+  const svgStart = svgText.indexOf("<svg");
+  if (svgStart < 0) return "";
+  const openEnd = svgText.indexOf(">", svgStart);
+  if (openEnd < 0) return "";
+  const closeStart = svgText.lastIndexOf("</svg>");
+  if (closeStart < 0) return "";
+  return svgText.slice(openEnd + 1, closeStart);
+}
+
+const rotateArrowInnerSvg = getSvgInner(rotateArrowSvgRaw);
+
+function getRotateCursor(angleDeg: number, fallback: "grab" | "grabbing" = "grab"): string {
+  const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+  const key = `${normalized}:${fallback}`;
+  const cached = rotateCursorCache.get(key);
+  if (cached) return cached;
+
+  const svgMarkup =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-50 -50 400 400">` +
+    `<g transform="rotate(${normalized} 150 150)">` +
+    rotateArrowInnerSvg +
+    `</g></svg>`;
+
+  const encoded = encodeURIComponent(svgMarkup).replace(/'/g, "%27").replace(/"/g, "%22");
+  const cursorValue = `url("data:image/svg+xml,${encoded}") ${ROTATE_CURSOR_HOTSPOT.x} ${ROTATE_CURSOR_HOTSPOT.y}, ${fallback}`;
+  rotateCursorCache.set(key, cursorValue);
+  return cursorValue;
+}
+
+function setForcedRotateCursor(angleDeg: number) {
+  const root = document.documentElement;
+  root.style.setProperty("--mylg-rotate-cursor", getRotateCursor(angleDeg, "grab"));
+  root.style.setProperty("--mylg-rotate-cursor-grabbing", getRotateCursor(angleDeg, "grabbing"));
+}
+
+function clearForcedRotateCursor() {
+  const root = document.documentElement;
+  root.style.removeProperty("--mylg-rotate-cursor");
+  root.style.removeProperty("--mylg-rotate-cursor-grabbing");
+}
 
 const encodeS3Key = (key: string = "") =>
   key
@@ -497,10 +543,13 @@ function PictureFrameComponent({
   );
   const ref = useRef<HTMLDivElement | null>(null);
   const moveableRef = useRef<Moveable | null>(null);
+  const rotateHandleWrapperRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef({ x, y, width, height, rotation });
   const startRef = useRef({ x, y, width, height, rotation });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+  const rotateStartRef = useRef({ initialAngleRad: 0, initialRotation: rotation });
 
   const [localPreviewSrc, setLocalPreviewSrc] = useState<string | null>(null);
   const localPreviewToRevokeRef = useRef<string | null>(null);
@@ -608,12 +657,22 @@ function PictureFrameComponent({
     scheduleMoveableUpdate();
   }, [scheduleMoveableUpdate]);
 
+  const applyRotateHandleFrame = useCallback((f: typeof frameRef.current) => {
+    const el = rotateHandleWrapperRef.current;
+    if (!el) return;
+    el.style.transform = `translate3d(${f.x}px, ${f.y}px, 0) rotate(${f.rotation || 0}deg)`;
+    el.style.transformOrigin = "center center";
+    el.style.width = `${f.width}px`;
+    el.style.height = `${f.height}px`;
+  }, []);
+
   const applyFrame = useCallback(
     (f: typeof frameRef.current) => {
       applySize(f);
       applyTransform(f);
+      applyRotateHandleFrame(f);
     },
-    [applySize, applyTransform]
+    [applySize, applyTransform, applyRotateHandleFrame]
   );
 
   // Keep Moveable controls usable under zoom.
@@ -705,6 +764,80 @@ function PictureFrameComponent({
       applyModifierNodeSelection(nodeKey, modifiers);
     });
   }, [editor, nodeKey]);
+
+  const handleRotateStart = useCallback(
+    (event: React.MouseEvent) => {
+      if (event.button !== 0) return;
+      if (isSlideLocked) return;
+      if (isGroupedSelectionActive) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rect = ref.current?.getBoundingClientRect();
+      if (!rect) return;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const initialAngleRad = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+
+      rotateStartRef.current = {
+        initialAngleRad,
+        initialRotation: frameRef.current.rotation || 0,
+      };
+
+      document.body.classList.add("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      setForcedRotateCursor(frameRef.current.rotation || 0);
+      setIsRotating(true);
+    },
+    [isGroupedSelectionActive, isSlideLocked]
+  );
+
+  useEffect(() => {
+    if (!isRotating) return;
+
+    const onMove = (event: MouseEvent) => {
+      const rect = ref.current?.getBoundingClientRect();
+      if (!rect) return;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const currentAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+
+      const deltaRad = currentAngle - rotateStartRef.current.initialAngleRad;
+      const deltaDeg = (deltaRad * 180) / Math.PI;
+      const nextRotation = (rotateStartRef.current.initialRotation || 0) + deltaDeg;
+
+      setForcedRotateCursor(nextRotation);
+      const next = { ...frameRef.current, rotation: nextRotation };
+      frameRef.current = next;
+      applyTransform(next);
+      applyRotateHandleFrame(next);
+    };
+
+    const onUp = () => {
+      setIsRotating(false);
+      document.body.classList.remove("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      clearForcedRotateCursor();
+
+      const finalFrame = frameRef.current;
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (node instanceof PictureFrameNode) {
+          node.setRotation(finalFrame.rotation || 0);
+        }
+      });
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mouseleave", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mouseleave", onUp);
+      document.body.classList.remove("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      clearForcedRotateCursor();
+    };
+  }, [applyRotateHandleFrame, applyTransform, editor, isRotating, nodeKey]);
 
   useEffect(() => {
     if (!isPanning) return;
@@ -900,7 +1033,10 @@ function PictureFrameComponent({
     if (showSelectedOutline) {
       scheduleMoveableUpdate();
     }
-  }, [x, y, width, height, rotation, showSelectedOutline, scheduleMoveableUpdate]);
+    if (showSelectedOutline) {
+      applyRotateHandleFrame(frameRef.current);
+    }
+  }, [x, y, width, height, rotation, showSelectedOutline, scheduleMoveableUpdate, applyRotateHandleFrame]);
 
   useEffect(() => {
     return () => {
@@ -1077,6 +1213,7 @@ function PictureFrameComponent({
             };
             frameRef.current = next;
             applyTransform(next);
+            applyRotateHandleFrame(next);
 
             const dragKeys = dragSelectionKeysRef.current;
             const snapshots = dragSelectionSnapshotRef.current;
@@ -1142,6 +1279,55 @@ function PictureFrameComponent({
             });
           }}
         />
+      )}
+
+      {showSelectedOutline && (
+        <div
+          ref={rotateHandleWrapperRef}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width,
+            height,
+            transform: `translate3d(${x}px, ${y}px, 0) rotate(${rotation}deg)`,
+            transformOrigin: "center center",
+            pointerEvents: "none",
+            zIndex: 1001,
+            overflow: "visible",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "0",
+              left: "50%",
+              width: "2px",
+              height: "60px",
+              backgroundColor: "#4C9AFF",
+              transform: "translateX(-50%) translateY(-100%)",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            className="mylg-rotate-handle"
+            style={{
+              position: "absolute",
+              top: "-60px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "12px",
+              height: "12px",
+              backgroundColor: "#fff",
+              border: "2px solid #4C9AFF",
+              borderRadius: "50%",
+              cursor: getRotateCursor(frameRef.current.rotation || 0),
+              pointerEvents: "all",
+            }}
+            onMouseDown={handleRotateStart}
+            title="Rotate"
+          />
+        </div>
       )}
     </div>
   );
