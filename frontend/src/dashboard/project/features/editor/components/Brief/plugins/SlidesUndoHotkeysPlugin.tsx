@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getSelection, $isNodeSelection, REDO_COMMAND, UNDO_COMMAND } from "lexical";
+import { REDO_COMMAND, UNDO_COMMAND } from "lexical";
 
 function isEditableLikeTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -34,19 +34,23 @@ export default function SlidesUndoHotkeysPlugin({
       const isRedo = key === "y" || (key === "z" && event.shiftKey);
       if (!isUndo && !isRedo) return;
 
-      const root = editor.getRootElement();
+      if (!editor.isEditable()) return;
 
-      if (isEditableLikeTarget(event.target) && root && !root.contains(event.target as Node)) {
+      const root = editor.getRootElement();
+      if (!root) return;
+
+      // Don't steal undo from form controls / rich editors outside the slide editor.
+      if (isEditableLikeTarget(event.target) && !root.contains(event.target as Node)) {
         return;
       }
 
-      let shouldHandle = false;
-      editor.getEditorState().read(() => {
-        const selection = $getSelection();
-        shouldHandle = $isNodeSelection(selection);
-      });
-
-      if (!shouldHandle) return;
+      // Only handle when the slide editor is actually the active context.
+      const targetNode = event.target instanceof Node ? event.target : null;
+      const activeEl = document.activeElement;
+      const isInEditorContext =
+        (targetNode ? root.contains(targetNode) : false) ||
+        (activeEl instanceof Node ? root.contains(activeEl) : false);
+      if (!isInEditorContext) return;
 
       event.preventDefault();
       event.stopPropagation();

@@ -13,7 +13,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 
 import { ProjectsContext } from "@/app/contexts/ProjectsContext";
-import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
+import { S3_PUBLIC_BASE, getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
 import {
   applyModifierNodeSelection,
   duplicateSlideNodes,
@@ -61,7 +61,10 @@ const encodeS3Key = (key: string = "") =>
     .join("/");
 
 async function uploadImageFileToS3PublicUrl(file: File, projectId: string): Promise<string | null> {
-  const key = `projects/${projectId}/lexical/${file.name}`;
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).slice(2, 8);
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  const key = `projects/${projectId}/lexical/${timestamp}_${randomId}_${safeName}`;
   try {
     await uploadData({
       key,
@@ -69,12 +72,46 @@ async function uploadImageFileToS3PublicUrl(file: File, projectId: string): Prom
       options: { accessLevel: "public" },
     });
     const publicKey = key.startsWith("public/") ? key : `public/${key}`;
-    return `${S3_PUBLIC_BASE}${encodeS3Key(publicKey)}`;
+    // Store the key (not the URL) so rendering can consistently resolve via getFileUrl().
+    return publicKey;
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("PictureFrame: upload failed, falling back to local preview", err);
     return null;
   }
+}
+
+function resolvePictureFrameDisplayUrl(value: string | null): string | null {
+  if (!value) return null;
+  if (value.startsWith("blob:") || value.startsWith("data:")) return value;
+  if (value.startsWith("http")) return normalizeFileUrl(value);
+  return getFileUrl(value);
+}
+
+async function preloadImage(url: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Image failed to load"));
+    img.src = url;
+  });
+}
+
+async function preloadImageWithRetry(url: string, delaysMs: number[]): Promise<void> {
+  let lastError: unknown = null;
+  for (let i = 0; i < delaysMs.length; i++) {
+    const delay = delaysMs[i];
+    if (delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
+    }
+    try {
+      await preloadImage(url);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 function isImageFile(file: File): boolean {
@@ -363,7 +400,7 @@ export class PictureFrameNode extends DecoratorNode<React.ReactNode> {
         width={this.__width}
         height={this.__height}
         rotation={this.__rotation}
-        imageSrc={this.__imageSrc ? getFileUrl(this.__imageSrc) : null}
+        imageSrc={resolvePictureFrameDisplayUrl(this.__imageSrc)}
         fit={this.__fit}
         radius={this.__radius}
         positionX={this.__positionX}
@@ -442,6 +479,45 @@ function PictureFrameComponent({
   const startRef = useRef({ x, y, width, height, rotation });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+
+  const [localPreviewSrc, setLocalPreviewSrc] = useState<string | null>(null);
+  const localPreviewToRevokeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      const url = localPreviewToRevokeRef.current;
+      if (url && url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+      }
+      localPreviewToRevokeRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!localPreviewSrc) return;
+    if (!imageSrc) return;
+    if (imageSrc === localPreviewSrc) return;
+
+    let cancelled = false;
+    // Give CDN/S3 a moment to become consistent, but keep showing the preview until ready.
+    void preloadImageWithRetry(imageSrc, [0, 250, 500, 1000, 1500, 2000])
+      .then(() => {
+        if (cancelled) return;
+        const url = localPreviewToRevokeRef.current;
+        if (url && url.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+        localPreviewToRevokeRef.current = null;
+        setLocalPreviewSrc(null);
+      })
+      .catch(() => {
+        // Keep preview; remote will be used on next refresh or when it becomes available.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageSrc, localPreviewSrc]);
 
   const moveableUpdateRafRef = useRef(0);
   const scheduleMoveableUpdate = useCallback(() => {
@@ -747,12 +823,30 @@ function PictureFrameComponent({
       const file = files.find((f) => isImageFile(f));
       if (!file) return;
 
+      // Show an immediate local preview to avoid a blank frame while S3/CDN propagates.
+      const previewUrl = URL.createObjectURL(file);
+      const priorPreview = localPreviewToRevokeRef.current;
+      if (priorPreview && priorPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(priorPreview);
+      }
+      localPreviewToRevokeRef.current = previewUrl;
+      setLocalPreviewSrc(previewUrl);
+
+      // Ensure slide editor keeps focus so Ctrl/Cmd+Z reliably routes to undo.
+      editor.focus();
+
       const src = await resolveDroppedSrc(file);
       editor.update(() => {
         const node = $getNodeByKey(nodeKey);
         if (node instanceof PictureFrameNode) {
           node.setImageSrc(src);
         }
+
+        const selectedKeys = getSlideNodeSelectionKeys();
+        const keysToSelect = selectedKeys.length > 0 ? selectedKeys : [nodeKey];
+        const sel = $createNodeSelection();
+        keysToSelect.forEach((k) => sel.add(k));
+        $setSelection(sel);
       });
     },
     [editor, isSlideLocked, nodeKey, resolveDroppedSrc]
@@ -831,9 +925,9 @@ function PictureFrameComponent({
             background: placeholderStyle.backgroundColor,
           }}
         >
-          {imageSrc ? (
+          {(localPreviewSrc || imageSrc) ? (
             <img
-              src={imageSrc}
+              src={localPreviewSrc || imageSrc || undefined}
               alt="Picture Frame"
               draggable={false}
               style={{
