@@ -724,19 +724,55 @@ function ResizableImageComponent({
               : keysBefore.length > 0
               ? keysBefore
               : [nodeKey];
-          const { clones, cloneKeys } = duplicateSlideNodes(keysToClone);
+          // Copy-drag should duplicate the entire selection and keep the clones
+          // moving together relative to the cursor, preserving their layout.
+          // We clone with no offset and build a snapshot for clone keys based on
+          // the *original* selection snapshot captured on mousedown.
+          const originalSnapshots = selectionSnapshotRef.current;
+          const { clones, cloneKeys } = duplicateSlideNodes(keysToClone, {
+            offsetX: 0,
+            offsetY: 0,
+            selectClones: false,
+          });
+
           dragMetaRef.current.cloneKeys = cloneKeys;
           dragMetaRef.current.didDuplicate = true;
+
           if (cloneKeys.length > 0) {
             const mapping = new Map(
               clones.map(({ originalKey, cloneKey }) => [originalKey, cloneKey])
             );
+
             const replacementKey =
               mapping.get(dragMetaRef.current.activeNodeKey) ??
               cloneKeys[cloneKeys.length - 1];
             dragMetaRef.current.activeNodeKey = replacementKey;
+
+            const cloneSnapshots = new Map();
+            clones.forEach(({ originalKey, cloneKey }) => {
+              const origin = originalSnapshots.get(originalKey);
+              if (origin) {
+                cloneSnapshots.set(cloneKey, origin);
+                return;
+              }
+
+              const cloneNode = $getNodeByKey(cloneKey);
+              if (!cloneNode) return;
+
+              if (cloneNode instanceof ResizableImageNode) {
+                cloneSnapshots.set(cloneKey, { x: cloneNode.getX(), y: cloneNode.getY() });
+              } else if (cloneNode instanceof TextBoxNode) {
+                const { x: tx, y: ty } = cloneNode.getPosition();
+                cloneSnapshots.set(cloneKey, { x: tx, y: ty });
+              } else if (cloneNode instanceof PictureFrameNode) {
+                cloneSnapshots.set(cloneKey, { x: cloneNode.getX(), y: cloneNode.getY() });
+              } else if (cloneNode instanceof SvgNode) {
+                cloneSnapshots.set(cloneKey, { x: cloneNode.getX(), y: cloneNode.getY() });
+              }
+            });
+
+            selectionSnapshotRef.current = cloneSnapshots;
             refreshDragSnapshot(replacementKey);
-            captureSelectionSnapshot(cloneKeys, { defer: true });
           }
         }
 

@@ -60,7 +60,7 @@ cd backend/<service> && serverless offline
 - ES modules; small handlers; reuse shared‑layer helpers (CORS, responses, files).
 - Validate inputs; structured errors; no secrets in code.
 
-## WebSocket Message Routing
+## 
 - Client routes incoming `msg.action` to handlers; backend `$default` dispatches actions.
 - Ensure auth on `$connect`; include `sessionId` subprotocol if required.
 
