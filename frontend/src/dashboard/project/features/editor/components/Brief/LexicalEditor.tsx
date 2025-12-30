@@ -72,6 +72,7 @@ import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPl
 import PreventRootTextPlugin from "./plugins/PreventRootTextPlugin";
 import ClickAwayDeselectPlugin from "./plugins/ClickAwayDeselectPlugin";
 import SlidesUndoHotkeysPlugin from "./plugins/SlidesUndoHotkeysPlugin";
+import SlidesObjectKeyboardShortcutsPlugin from "./plugins/SlidesObjectKeyboardShortcutsPlugin";
 import SlideZIndexSyncPlugin from "./plugins/slides/SlideZIndexSyncPlugin";
 import GroupTransformPlugin from "./plugins/GroupTransformPlugin";
 import syncCursorPositionsWithAvatars from "./utils/syncCursorAvatars";
@@ -509,6 +510,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           {slidesMode && <PreventRootTextPlugin />}
           {slidesMode && <ClickAwayDeselectPlugin />}
           {slidesMode && <SlidesUndoHotkeysPlugin />}
+          {slidesMode && <SlidesObjectKeyboardShortcutsPlugin />}
           {slidesMode && <SlideZIndexSyncPlugin />}
           {slidesMode && <GroupTransformPlugin />}
 

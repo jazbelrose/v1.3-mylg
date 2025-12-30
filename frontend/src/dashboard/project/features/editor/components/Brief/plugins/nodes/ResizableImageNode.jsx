@@ -615,6 +615,7 @@ function ResizableImageComponent({
     };
 
     const handleKeyDown = (e) => {
+      if (e.defaultPrevented) return;
       if (!isSelected || isInteractionLocked) return;
       // Let slide-level z-order shortcuts (Ctrl/⌘[ and Ctrl/⌘]) bubble so SlideEditor can handle them.
       if ((e.ctrlKey || e.metaKey) && !e.altKey) {

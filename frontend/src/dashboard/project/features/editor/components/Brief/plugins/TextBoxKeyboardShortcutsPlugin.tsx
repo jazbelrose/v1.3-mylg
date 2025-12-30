@@ -35,6 +35,7 @@ export default function TextBoxKeyboardShortcutsPlugin(): null {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const key = getSelectedTextBoxKey();
       if (!key) return;
 

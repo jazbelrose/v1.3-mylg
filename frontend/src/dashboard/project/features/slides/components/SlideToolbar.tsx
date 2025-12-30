@@ -1396,6 +1396,15 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     const borderEnabled = Boolean(frameBorder?.enabled);
     const borderWidth = Number(frameBorder?.width) || 0;
     const borderColor = frameBorder?.color || "#ffffff";
+    const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
+    const selectedLocked =
+      ctx.type === "image" ||
+      ctx.type === "svg" ||
+      ctx.type === "textbox" ||
+      ctx.type === "picture-frame" ||
+      ctx.type === "group"
+        ? ctx.locked
+        : false;
 
     return (
       <div className="context-panel">
@@ -1469,6 +1478,77 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               </>
             )}
           </div>
+
+          {hasArrange && (
+            <>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onBringToFront}
+                title={withShortcut("Bring to Front", ARRANGE_SHORTCUTS.bringToFront)}
+              >
+                <ArrowUpToLine size={18} />
+              </button>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onBringForward}
+                title={withShortcut("Bring Forward", ARRANGE_SHORTCUTS.bringForward)}
+              >
+                <ArrowUp size={18} />
+              </button>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onSendBackward}
+                title={withShortcut("Send Backward", ARRANGE_SHORTCUTS.sendBackward)}
+              >
+                <ArrowDown size={18} />
+              </button>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={onSendToBack}
+                title={withShortcut("Send to Back", ARRANGE_SHORTCUTS.sendToBack)}
+              >
+                <ArrowDownToLine size={18} />
+              </button>
+            </>
+          )}
+
+          {canGroup && (
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={onGroupSelection}
+              title={withShortcut("Group", "Ctrl+G")}
+            >
+              <span>Group</span>
+            </button>
+          )}
+          {canUngroup && (
+            <button
+              type="button"
+              className="toolbar-item"
+              onClick={onUngroupSelection}
+              title={withShortcut("Ungroup", "Ctrl+U")}
+            >
+              <span>Ungroup</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="toolbar-item"
+            onClick={onLockSelection}
+            disabled={!onLockSelection}
+            title={selectedLocked ? "Unlock" : "Lock"}
+          >
+            {selectedLocked ? <Unlock size={18} /> : <Lock size={18} />}
+            <span>{selectedLocked ? "Unlock" : "Lock"}</span>
+          </button>
+          <button type="button" className="toolbar-item danger" onClick={onDeleteSelection} title="Delete">
+            <Trash2 size={18} />
+          </button>
         </div>
       </div>
     );

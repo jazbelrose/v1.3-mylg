@@ -436,6 +436,7 @@ export default function PreventRootTextPlugin(): null {
     );
 
     const onDeleteKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (e.key !== "Delete" && e.key !== "Backspace") return;
 
       const root = editor.getRootElement();

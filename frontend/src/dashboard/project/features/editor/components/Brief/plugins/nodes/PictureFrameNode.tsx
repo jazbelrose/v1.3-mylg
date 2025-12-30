@@ -882,6 +882,12 @@ function PictureFrameComponent({
       if (event.defaultPrevented) return;
       if (!isSelected || isSlideLocked) return;
 
+      if (event.target instanceof HTMLElement) {
+        const tag = event.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (event.target.isContentEditable) return;
+      }
+
       // Let slide-level z-order shortcuts (Ctrl/?[ and Ctrl/?]) bubble so SlideEditor can handle them.
       if ((event.ctrlKey || event.metaKey) && !event.altKey) {
         const isBracketRight = event.key === "]" || event.code === "BracketRight";
@@ -893,8 +899,19 @@ function PictureFrameComponent({
 
       if (event.key !== "Delete" && event.key !== "Backspace") return;
 
+      const isLeader = editor.getEditorState().read(() => {
+        const selectionKeys = getSlideNodeSelectionKeys();
+        if (selectionKeys.length === 0) return true;
+        if (!selectionKeys.includes(nodeKey)) return false;
+        const leader = [...selectionKeys].sort()[0];
+        return leader === nodeKey;
+      });
+
+      if (!isLeader) return;
+
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
 
       editor.update(() => {
         const selectionKeys = getSlideNodeSelectionKeys();
