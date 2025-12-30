@@ -324,9 +324,9 @@ async function captureElementBlob(
     return null;
   } finally {
     restore();
-    if (document.body.contains(host)) {
-      document.body.removeChild(host);
-    }
+    // `contains()` does not guarantee `host` is a direct child of `body`.
+    // Use `remove()` to avoid `removeChild` throwing in edge cases.
+    host.remove();
   }
 }
 
@@ -676,9 +676,7 @@ async function renderThumbnailOffscreen(
     console.error('Failed to render thumbnail offscreen:', error);
     return new Blob([], { type: 'image/png' });
   } finally {
-    if (document.body.contains(container)) {
-      document.body.removeChild(container);
-    }
+    container.remove();
   }
 }
 

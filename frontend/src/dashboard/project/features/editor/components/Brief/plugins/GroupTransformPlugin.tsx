@@ -21,6 +21,12 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function parseCssPx(value: string | null | undefined): number {
+  if (!value) return 0;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function getNodeFrame(node: LexicalNode): NodeFrame | null {
   const anyNode = node as unknown as {
     getX?: () => number;
@@ -143,19 +149,111 @@ function mergeBounds(frames: NodeFrame[]): Bounds | null {
   return { x: minX, y: minY, width, height };
 }
 
-export default function GroupTransformPlugin(): JSX.Element | null {
+function getGroupBoundsFromDom(
+  root: HTMLElement,
+  host: HTMLElement,
+  memberKeys: string[],
+  framesByKey: Map<string, NodeFrame>,
+  zoom: number
+): { bounds: Bounds; originOffset: { x: number; y: number } } | null {
+  if (!Number.isFinite(zoom) || zoom <= 0) return null;
+  if (memberKeys.length < 2) return null;
+
+  const rootRect = root.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  const computed = getComputedStyle(root);
+  const paddingLeft = parseCssPx(computed.paddingLeft);
+  const paddingTop = parseCssPx(computed.paddingTop);
+
+  const rects: Array<{ key: string; rect: DOMRect }> = [];
+  for (const key of memberKeys) {
+    const el = root.querySelector(`[data-lexical-node-key="${key}"]`) as HTMLElement | null;
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width <= 0 || rect.height <= 0) continue;
+    rects.push({ key, rect });
+  }
+
+  if (rects.length < 2) return null;
+
+  // Determine whether the model coordinate origin is at the root border box
+  // (no padding) or at the root padding box (padding applied).
+  let count = 0;
+  let noPadErrX = 0;
+  let padErrX = 0;
+  let noPadErrY = 0;
+  let padErrY = 0;
+
+  rects.forEach(({ key, rect }) => {
+    const frame = framesByKey.get(key);
+    if (!frame) return;
+    const domCenterX = (rect.left + rect.right) / 2;
+    const domCenterY = (rect.top + rect.bottom) / 2;
+
+    const modelCenterXNoPad = (domCenterX - rootRect.left) * zoom;
+    const modelCenterYNoPad = (domCenterY - rootRect.top) * zoom;
+
+    const frameCenterX = frame.x + frame.width / 2;
+    const frameCenterY = frame.y + frame.height / 2;
+
+    noPadErrX += (modelCenterXNoPad - frameCenterX) ** 2;
+    padErrX += (modelCenterXNoPad - paddingLeft - frameCenterX) ** 2;
+    noPadErrY += (modelCenterYNoPad - frameCenterY) ** 2;
+    padErrY += (modelCenterYNoPad - paddingTop - frameCenterY) ** 2;
+    count += 1;
+  });
+
+  const usePaddingX = count > 0 ? padErrX < noPadErrX : true;
+  const usePaddingY = count > 0 ? padErrY < noPadErrY : true;
+
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  rects.forEach(({ rect }) => {
+    const left = (rect.left - rootRect.left) * zoom - (usePaddingX ? paddingLeft : 0);
+    const right = (rect.right - rootRect.left) * zoom - (usePaddingX ? paddingLeft : 0);
+    const top = (rect.top - rootRect.top) * zoom - (usePaddingY ? paddingTop : 0);
+    const bottom = (rect.bottom - rootRect.top) * zoom - (usePaddingY ? paddingTop : 0);
+    minX = Math.min(minX, left);
+    minY = Math.min(minY, top);
+    maxX = Math.max(maxX, right);
+    maxY = Math.max(maxY, bottom);
+  });
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  if (width <= 0 || height <= 0) return null;
+
+  const rootBorderOffsetX = (rootRect.left - hostRect.left) * zoom;
+  const rootBorderOffsetY = (rootRect.top - hostRect.top) * zoom;
+
+  return {
+    bounds: { x: minX, y: minY, width, height },
+    originOffset: {
+      x: rootBorderOffsetX + (usePaddingX ? paddingLeft : 0),
+      y: rootBorderOffsetY + (usePaddingY ? paddingTop : 0),
+    },
+  };
+}
+
+export default function GroupTransformPlugin(): React.ReactElement | null {
   const [editor] = useLexicalComposerContext();
   const targetRef = useRef<HTMLDivElement | null>(null);
   const moveableRef = useRef<Moveable | null>(null);
+  const dragOriginOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const resizeOriginOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
-  const [paddingOffset, setPaddingOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
 
   const [active, setActive] = useState<{
     groupId: string;
     memberKeys: string[];
     bounds: Bounds;
+    originOffset: { x: number; y: number };
     locked: boolean;
   } | null>(null);
 
@@ -171,18 +269,6 @@ export default function GroupTransformPlugin(): JSX.Element | null {
     const host = root?.parentElement ?? null;
     setPortalHost(host);
     if (!root || !host) return;
-
-    const computePadding = () => {
-      const styles = window.getComputedStyle(root);
-      const px = Number.parseFloat(styles.paddingLeft || "0") || 0;
-      const py = Number.parseFloat(styles.paddingTop || "0") || 0;
-      setPaddingOffset((prev) => (prev.x === px && prev.y === py ? prev : { x: px, y: py }));
-    };
-
-    computePadding();
-    const ro = new ResizeObserver(() => computePadding());
-    ro.observe(root);
-    return () => ro.disconnect();
   }, [editor]);
 
   useEffect(() => {
@@ -237,6 +323,7 @@ export default function GroupTransformPlugin(): JSX.Element | null {
         }
 
         const frames: NodeFrame[] = [];
+        const framesByKey = new Map<string, NodeFrame>();
         let locked = false;
         groupSelection.memberKeys.forEach((key) => {
           const node = $getNodeByKey<LexicalNode>(key);
@@ -244,17 +331,35 @@ export default function GroupTransformPlugin(): JSX.Element | null {
           const frame = getNodeFrame(node);
           if (!frame) return;
           frames.push(frame);
+          framesByKey.set(key, frame);
           const maybeLocked = node as unknown as { getLocked?: () => boolean };
           if (typeof maybeLocked.getLocked === "function" && maybeLocked.getLocked()) {
             locked = true;
           }
         });
 
-        const bounds = mergeBounds(frames);
+        const root = editor.getRootElement();
+        const host = root?.parentElement ?? null;
+        const domResult =
+          root && host ? getGroupBoundsFromDom(root, host, groupSelection.memberKeys, framesByKey, zoom) : null;
+
+        const bounds = domResult?.bounds ?? mergeBounds(frames);
         if (!bounds) {
           setActive((prev) => (prev === null ? prev : null));
           return;
         }
+
+        let originOffset = domResult?.originOffset;
+        if (!originOffset && root && host && Number.isFinite(zoom) && zoom > 0) {
+          const rootRect = root.getBoundingClientRect();
+          const hostRect = host.getBoundingClientRect();
+          const computed = getComputedStyle(root);
+          originOffset = {
+            x: (rootRect.left - hostRect.left) * zoom + parseCssPx(computed.paddingLeft),
+            y: (rootRect.top - hostRect.top) * zoom + parseCssPx(computed.paddingTop),
+          };
+        }
+        originOffset = originOffset ?? { x: 0, y: 0 };
 
         setActive((prev) => {
           if (
@@ -263,6 +368,8 @@ export default function GroupTransformPlugin(): JSX.Element | null {
             prev.locked === locked &&
             prev.memberKeys.length === groupSelection.memberKeys.length &&
             prev.memberKeys.every((k, i) => k === groupSelection.memberKeys[i]) &&
+            Math.abs(prev.originOffset.x - originOffset.x) < 1e-6 &&
+            Math.abs(prev.originOffset.y - originOffset.y) < 1e-6 &&
             Math.abs(prev.bounds.x - bounds.x) < 1e-6 &&
             Math.abs(prev.bounds.y - bounds.y) < 1e-6 &&
             Math.abs(prev.bounds.width - bounds.width) < 1e-6 &&
@@ -274,12 +381,13 @@ export default function GroupTransformPlugin(): JSX.Element | null {
             groupId: groupSelection.groupId,
             memberKeys: groupSelection.memberKeys,
             bounds,
+            originOffset,
             locked,
           };
         });
       });
     });
-  }, [editor]);
+  }, [editor, zoom]);
 
   const targetStyle = useMemo(() => {
     if (!active) return { display: "none" } as const;
@@ -289,13 +397,13 @@ export default function GroupTransformPlugin(): JSX.Element | null {
       top: "0px",
       width: `${active.bounds.width}px`,
       height: `${active.bounds.height}px`,
-      transform: `translate3d(${paddingOffset.x + active.bounds.x}px, ${paddingOffset.y + active.bounds.y}px, 0)`,
+      transform: `translate3d(${active.originOffset.x + active.bounds.x}px, ${active.originOffset.y + active.bounds.y}px, 0)`,
       transformOrigin: "top left",
       background: "transparent",
       pointerEvents: active.locked ? "none" : "auto",
       zIndex: 1000,
     } as const;
-  }, [active, paddingOffset.x, paddingOffset.y]);
+  }, [active]);
 
   useLayoutEffect(() => {
     const target = targetRef.current;
@@ -311,7 +419,7 @@ export default function GroupTransformPlugin(): JSX.Element | null {
 
   return ReactDOM.createPortal(
     <>
-      <div ref={targetRef} style={targetStyle} />
+      <div ref={targetRef} style={targetStyle} contentEditable={false} suppressContentEditableWarning />
       <Moveable
         ref={moveableRef}
         target={active ? targetRef.current : null}
@@ -330,6 +438,7 @@ export default function GroupTransformPlugin(): JSX.Element | null {
         onDragStart={(e) => {
           if (!active) return;
           dragStartFrameRef.current = { ...active.bounds };
+          dragOriginOffsetRef.current = { ...active.originOffset };
           activeKeysRef.current = [...active.memberKeys];
           dragSnapshotsRef.current = new Map();
           editor.getEditorState().read(() => {
@@ -380,9 +489,10 @@ export default function GroupTransformPlugin(): JSX.Element | null {
 
           const target = targetRef.current;
           if (target) {
+            const origin = dragOriginOffsetRef.current;
             target.style.width = `${nextBounds.width}px`;
             target.style.height = `${nextBounds.height}px`;
-            target.style.transform = `translate3d(${paddingOffset.x + nextBounds.x}px, ${paddingOffset.y + nextBounds.y}px, 0)`;
+            target.style.transform = `translate3d(${origin.x + nextBounds.x}px, ${origin.y + nextBounds.y}px, 0)`;
           }
 
           const snapshots = dragSnapshotsRef.current;
@@ -400,10 +510,12 @@ export default function GroupTransformPlugin(): JSX.Element | null {
           dragStartFrameRef.current = null;
           dragSnapshotsRef.current = new Map();
           activeKeysRef.current = [];
+          dragOriginOffsetRef.current = { x: 0, y: 0 };
         }}
         onResizeStart={() => {
           if (!active) return;
           resizeStartFrameRef.current = { ...active.bounds };
+          resizeOriginOffsetRef.current = { ...active.originOffset };
           resizeSnapshotsRef.current = new Map();
           editor.getEditorState().read(() => {
             active.memberKeys.forEach((key) => {
@@ -430,9 +542,10 @@ export default function GroupTransformPlugin(): JSX.Element | null {
 
           const target = targetRef.current;
           if (target) {
+            const origin = resizeOriginOffsetRef.current;
             target.style.width = `${nextBounds.width}px`;
             target.style.height = `${nextBounds.height}px`;
-            target.style.transform = `translate3d(${paddingOffset.x + nextBounds.x}px, ${paddingOffset.y + nextBounds.y}px, 0)`;
+            target.style.transform = `translate3d(${origin.x + nextBounds.x}px, ${origin.y + nextBounds.y}px, 0)`;
           }
 
           const sx = start.width !== 0 ? nextBounds.width / start.width : 1;
@@ -460,6 +573,7 @@ export default function GroupTransformPlugin(): JSX.Element | null {
         onResizeEnd={() => {
           resizeStartFrameRef.current = null;
           resizeSnapshotsRef.current = new Map();
+          resizeOriginOffsetRef.current = { x: 0, y: 0 };
         }}
       />
     </>,
