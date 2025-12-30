@@ -14,15 +14,23 @@ const DEFAULT_BACKGROUND = '#101112';
 // Must match SlideEditor SLIDE_PADDING = "96px 120px"
 const STAGE_PADDING = '96px 120px';
 // Bump when thumbnail rendering output changes (prevents CDN cache from serving old pixels).
-const THUMBNAIL_RENDER_VERSION = 5;
+const THUMBNAIL_RENDER_VERSION = 6;
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2';
 const FILE_BUCKET = process.env.FILE_BUCKET || process.env.ASSETS_BUCKET || 'mylg-files-v12';
 const FILE_CDN = process.env.FILE_CDN;
+const FILE_BUCKET_REGION = process.env.FILE_BUCKET_REGION || process.env.FILE_REGION || REGION;
+const FILE_ASSET_SIGNING_ENABLED = process.env.FILE_ASSET_SIGNING_ENABLED !== '0';
+const FILE_ASSET_SIGNED_URL_TTL_SECONDS_RAW = Number(process.env.FILE_ASSET_SIGNED_URL_TTL_SECONDS);
+const FILE_ASSET_SIGNED_URL_TTL_SECONDS =
+  Number.isFinite(FILE_ASSET_SIGNED_URL_TTL_SECONDS_RAW) && FILE_ASSET_SIGNED_URL_TTL_SECONDS_RAW > 0
+    ? Math.max(5, Math.min(3600, Math.round(FILE_ASSET_SIGNED_URL_TTL_SECONDS_RAW)))
+    : 300;
 
 // WebGL is not needed for thumbnails, so disable it to avoid extracting extra assets.
 chromium.setGraphicsMode = false;
 
 const s3 = new AWS.S3();
+const fileS3 = new AWS.S3({ region: FILE_BUCKET_REGION, signatureVersion: 'v4' });
 const BUCKET_NAME = process.env.BUCKET_NAME;
 const CDN_DOMAIN = process.env.CDN_DOMAIN;
 
@@ -52,6 +60,70 @@ function safeSegment(value, fallback) {
   return raw.replace(/[^a-zA-Z0-9-_]/g, '-');
 }
 
+const signedAssetUrlCache = new Map();
+
+function normalizeAssetKey(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value.trim().replace(/^\/+/, '');
+}
+
+function encodeAssetKeyForUrl(key) {
+  if (!key || typeof key !== 'string') return key;
+  return key
+    .split('/')
+    .map((segment) => {
+      if (!segment) return segment;
+      try {
+        return encodeURIComponent(decodeURIComponent(segment)).replace(/\+/g, '%20');
+      } catch {
+        return encodeURIComponent(segment).replace(/\+/g, '%20');
+      }
+    })
+    .join('/');
+}
+
+async function resolveAssetUrlForThumbnail(src) {
+  if (!src || typeof src !== 'string') return '';
+
+  const trimmed = src.trim();
+  if (!trimmed) return '';
+
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('blob:') || lower.startsWith('data:')) {
+    // Server-side thumbnailing can't dereference in-memory browser URLs.
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const key = normalizeAssetKey(trimmed);
+  if (!key) return '';
+
+  const fallbackBase = FILE_CDN || `https://${FILE_BUCKET}.s3.${REGION}.amazonaws.com`;
+  const fallbackUrl = `${fallbackBase.replace(/\/$/, '')}/${encodeAssetKeyForUrl(key)}`;
+
+  if (!FILE_ASSET_SIGNING_ENABLED || !FILE_BUCKET) {
+    return fallbackUrl;
+  }
+
+  const cached = signedAssetUrlCache.get(key);
+  if (cached) return cached;
+
+  try {
+    const signedUrl = await fileS3.getSignedUrlPromise('getObject', {
+      Bucket: FILE_BUCKET,
+      Key: key,
+      Expires: FILE_ASSET_SIGNED_URL_TTL_SECONDS,
+    });
+    signedAssetUrlCache.set(key, signedUrl);
+    return signedUrl;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('ASSET_SIGN_FAILED', { key, message });
+    return fallbackUrl;
+  }
+}
+
 function resolveAssetUrl(src) {
   if (!src || typeof src !== 'string') return '';
   // Server-side rendering cannot dereference in-memory browser URLs.
@@ -61,7 +133,58 @@ function resolveAssetUrl(src) {
   const base =
     FILE_CDN ||
     `https://${FILE_BUCKET}.s3.${REGION}.amazonaws.com`;
-  return `${base.replace(/\/$/, '')}/${src.replace(/^\/+/, '')}`;
+  const key = normalizeAssetKey(src);
+  return `${base.replace(/\/$/, '')}/${encodeAssetKeyForUrl(key)}`;
+}
+
+async function hydrateThumbnailAssetUrls(lexicalJson) {
+  if (!lexicalJson || typeof lexicalJson !== 'object') return;
+
+  const elementList = Array.isArray(lexicalJson.elements) ? lexicalJson.elements : [];
+  await Promise.all(
+    elementList.map(async (element) => {
+      if (!element || typeof element !== 'object') return;
+      if (element.type === 'image' && typeof element.src === 'string') {
+        element.src = await resolveAssetUrlForThumbnail(element.src);
+      }
+    })
+  );
+
+  const root = lexicalJson.root || lexicalJson.document?.root;
+  const rootChildren = Array.isArray(root?.children) ? root.children : [];
+
+  const queue = [];
+
+  const visit = (node) => {
+    if (!node || typeof node !== 'object') return;
+
+    if (node.type === 'picture-frame' && typeof node.imageSrc === 'string') {
+      queue.push(
+        resolveAssetUrlForThumbnail(node.imageSrc).then((url) => {
+          node.imageSrc = url || '';
+        })
+      );
+    }
+
+    if ((node.type === 'image' || node.type === 'resizable-image') && (typeof node.src === 'string' || typeof node.fileKey === 'string')) {
+      const raw = typeof node.src === 'string' && node.src.trim() ? node.src : node.fileKey;
+      if (typeof raw === 'string' && raw.trim()) {
+        queue.push(
+          resolveAssetUrlForThumbnail(raw).then((url) => {
+            if (url) node.src = url;
+          })
+        );
+      }
+    }
+
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) visit(child);
+    }
+  };
+
+  for (const child of rootChildren) visit(child);
+
+  await Promise.all(queue);
 }
 
 function parseColorToRgb(value) {
@@ -488,6 +611,8 @@ function renderDocumentContent(lexicalJson) {
 }
 
 async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundOverride) {
+  await hydrateThumbnailAssetUrls(lexicalJson);
+
   const elements = Array.isArray(lexicalJson?.elements) ? lexicalJson.elements : [];
   const background = backgroundOverride || lexicalJson?.background || DEFAULT_BACKGROUND;
   const textColor = pickTextColor(background);
@@ -690,6 +815,13 @@ async function generateThumbnail(html, width, height) {
     deviceScaleFactor: 2,
   };
 
+  const fontWaitTimeoutMs = 15000;
+  const imageWaitTimeoutMsRaw = Number(process.env.THUMBNAIL_IMAGE_WAIT_TIMEOUT_MS);
+  const imageWaitTimeoutMs =
+    Number.isFinite(imageWaitTimeoutMsRaw) && imageWaitTimeoutMsRaw >= 0
+      ? Math.min(60000, imageWaitTimeoutMsRaw)
+      : 15000;
+
   let browser;
   try {
     const executablePath = await chromium.executablePath();
@@ -715,7 +847,7 @@ async function generateThumbnail(html, width, height) {
 
     page.on('response', async r => {
       const type = r.request().resourceType();
-      if (type === 'stylesheet' || type === 'font') {
+      if (type === 'stylesheet' || type === 'font' || type === 'image') {
         if (!r.ok()) console.log('ASSET_BAD', type, r.status(), r.url());
       }
     });
@@ -724,11 +856,22 @@ async function generateThumbnail(html, width, height) {
     await page.setContent(html, { waitUntil: 'networkidle0' });
     
     // Wait for fonts to load (prevents text reflow)
-    await page.evaluate(async () => {
+    await page.evaluate(async (timeoutMs) => {
       if (!document.fonts) return;
-      await document.fonts.ready;
-    });
-    await page.waitForFunction(() => !document.fonts || document.fonts.status === "loaded", { timeout: 15000 });
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+      ]);
+    }, fontWaitTimeoutMs);
+    try {
+      await page.waitForFunction(
+        () => !document.fonts || document.fonts.status === "loaded",
+        { timeout: fontWaitTimeoutMs }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('FONT_WAIT_TIMEOUT', { timeoutMs: fontWaitTimeoutMs, message });
+    }
     
     // Log font status for debugging
     await page.evaluate(() => {
@@ -741,11 +884,16 @@ async function generateThumbnail(html, width, height) {
     // Wait longer for images to load
     await page.waitForTimeout(2000);
     
-    // Wait for all images to load fully
-    await page.waitForFunction(() => {
-      const images = Array.from(document.querySelectorAll('img'));
-      return images.every(img => img.complete && img.naturalWidth > 0);
-    }, { timeout: 5000 });
+    // Wait for images to settle (loaded OR errored). Don't fail thumbnail generation if a remote image is slow/broken.
+    try {
+      await page.waitForFunction(
+        () => Array.from(document.images).every((img) => img.complete),
+        { timeout: imageWaitTimeoutMs }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('IMAGE_WAIT_TIMEOUT', { timeoutMs: imageWaitTimeoutMs, message });
+    }
     
     // Check if images loaded
     const imagesStatus = await page.evaluate(() => {
