@@ -6,6 +6,7 @@ import { $createNodeSelection, $getNodeByKey, $setSelection, type LexicalNode } 
 import { getGroupSelectionInfo } from "./slides/grouping";
 import { setActiveGroupSelection } from "./slides/groupSelectionStore";
 import { duplicateSlideNodes } from "./slides/slideSelectionUtils";
+import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
 type NodeFrame = {
   x: number;
@@ -19,6 +20,51 @@ type Bounds = { x: number; y: number; width: number; height: number };
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 } as const;
+const rotateCursorCache = new Map<string, string>();
+
+function getSvgInner(svgText: string): string {
+  const svgStart = svgText.indexOf("<svg");
+  if (svgStart < 0) return "";
+  const openEnd = svgText.indexOf(">", svgStart);
+  if (openEnd < 0) return "";
+  const closeStart = svgText.lastIndexOf("</svg>");
+  if (closeStart < 0) return "";
+  return svgText.slice(openEnd + 1, closeStart);
+}
+
+const rotateArrowInnerSvg = getSvgInner(rotateArrowSvgRaw);
+
+function getRotateCursor(angleDeg: number, fallback: "grab" | "grabbing" = "grab"): string {
+  const normalized = ((Math.round(angleDeg) % 360) + 360) % 360;
+  const key = `${normalized}:${fallback}`;
+  const cached = rotateCursorCache.get(key);
+  if (cached) return cached;
+
+  const svgMarkup =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-50 -50 400 400">` +
+    `<g transform="rotate(${normalized} 150 150)">` +
+    rotateArrowInnerSvg +
+    `</g></svg>`;
+
+  const encoded = encodeURIComponent(svgMarkup).replace(/'/g, "%27").replace(/"/g, "%22");
+  const cursorValue = `url("data:image/svg+xml,${encoded}") ${ROTATE_CURSOR_HOTSPOT.x} ${ROTATE_CURSOR_HOTSPOT.y}, ${fallback}`;
+  rotateCursorCache.set(key, cursorValue);
+  return cursorValue;
+}
+
+function setForcedRotateCursor(angleDeg: number) {
+  const root = document.documentElement;
+  root.style.setProperty("--mylg-rotate-cursor", getRotateCursor(angleDeg, "grab"));
+  root.style.setProperty("--mylg-rotate-cursor-grabbing", getRotateCursor(angleDeg, "grabbing"));
+}
+
+function clearForcedRotateCursor() {
+  const root = document.documentElement;
+  root.style.removeProperty("--mylg-rotate-cursor");
+  root.style.removeProperty("--mylg-rotate-cursor-grabbing");
 }
 
 function parseCssPx(value: string | null | undefined): number {
@@ -91,6 +137,14 @@ function setNodePositionAndSize(node: LexicalNode, next: { x: number; y: number;
       anyNode.setWidth(next.width);
       anyNode.setHeight(next.height);
     }
+  }
+}
+
+function setNodeRotation(node: LexicalNode, rotation: number): void {
+  const anyNode = node as unknown as { setRotation?: (value: number) => void; getLocked?: () => boolean };
+  if (typeof anyNode.getLocked === "function" && anyNode.getLocked()) return;
+  if (typeof anyNode.setRotation === "function") {
+    anyNode.setRotation(rotation);
   }
 }
 
@@ -245,6 +299,13 @@ export default function GroupTransformPlugin(): React.ReactElement | null {
   const moveableRef = useRef<Moveable | null>(null);
   const dragOriginOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const resizeOriginOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const rotateOriginOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const rotateStartRef = useRef<{ startBounds: Bounds; centerX: number; centerY: number; startAngleRad: number } | null>(
+    null
+  );
+  const rotateSnapshotsRef = useRef<Map<string, NodeFrame>>(new Map());
+  const rotateKeysRef = useRef<string[]>([]);
+  const [isRotating, setIsRotating] = useState(false);
 
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -405,6 +466,22 @@ export default function GroupTransformPlugin(): React.ReactElement | null {
     } as const;
   }, [active]);
 
+  const rotateHandleStyle = useMemo(() => {
+    if (!active || active.locked) return { display: "none" } as const;
+    return {
+      position: "absolute",
+      left: "0px",
+      top: "0px",
+      width: `${active.bounds.width}px`,
+      height: `${active.bounds.height}px`,
+      transform: `translate3d(${active.originOffset.x + active.bounds.x}px, ${active.originOffset.y + active.bounds.y}px, 0)`,
+      transformOrigin: "top left",
+      pointerEvents: "none",
+      zIndex: 1001,
+      overflow: "visible",
+    } as const;
+  }, [active]);
+
   useLayoutEffect(() => {
     const target = targetRef.current;
     if (!target) return;
@@ -415,11 +492,169 @@ export default function GroupTransformPlugin(): React.ReactElement | null {
     });
   }, [active]);
 
+  const handleRotateStart = useMemo(() => {
+    return (event: React.MouseEvent) => {
+      if (event.button !== 0) return;
+      if (!active || active.locked) return;
+      if (!portalHost) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const target = targetRef.current;
+      const rect = target?.getBoundingClientRect();
+      if (!rect) return;
+
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const startAngleRad = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+
+      rotateStartRef.current = {
+        startBounds: { ...active.bounds },
+        centerX,
+        centerY,
+        startAngleRad,
+      };
+      rotateOriginOffsetRef.current = { ...active.originOffset };
+      rotateKeysRef.current = [...active.memberKeys];
+      rotateSnapshotsRef.current = new Map();
+
+      editor.getEditorState().read(() => {
+        active.memberKeys.forEach((key) => {
+          const node = $getNodeByKey<LexicalNode>(key);
+          if (!node) return;
+          const frame = getNodeFrame(node);
+          if (!frame) return;
+          rotateSnapshotsRef.current.set(key, frame);
+        });
+      });
+
+      document.body.classList.add("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      setForcedRotateCursor(0);
+      setIsRotating(true);
+    };
+  }, [active, editor, portalHost]);
+
+  useEffect(() => {
+    if (!isRotating) return;
+
+    const onMove = (event: MouseEvent) => {
+      const start = rotateStartRef.current;
+      if (!start) return;
+
+      const currentAngle = Math.atan2(event.clientY - start.centerY, event.clientX - start.centerX);
+      const deltaRad = currentAngle - start.startAngleRad;
+      const deltaDeg = (deltaRad * 180) / Math.PI;
+
+      setForcedRotateCursor(deltaDeg);
+
+      const gcx = start.startBounds.x + start.startBounds.width / 2;
+      const gcy = start.startBounds.y + start.startBounds.height / 2;
+      const cos = Math.cos(deltaRad);
+      const sin = Math.sin(deltaRad);
+
+      const snapshots = rotateSnapshotsRef.current;
+      const keys = rotateKeysRef.current;
+
+      const nextFrames: NodeFrame[] = [];
+      editor.update(() => {
+        keys.forEach((key) => {
+          const node = $getNodeByKey<LexicalNode>(key);
+          const snap = snapshots.get(key);
+          if (!node || !snap) return;
+
+          const cx = snap.x + snap.width / 2;
+          const cy = snap.y + snap.height / 2;
+          const dx = cx - gcx;
+          const dy = cy - gcy;
+          const ncx = gcx + dx * cos - dy * sin;
+          const ncy = gcy + dx * sin + dy * cos;
+          const nextX = ncx - snap.width / 2;
+          const nextY = ncy - snap.height / 2;
+          const nextRotation = (snap.rotation || 0) + deltaDeg;
+
+          setNodePositionAndSize(node, { x: nextX, y: nextY });
+          setNodeRotation(node, nextRotation);
+
+          nextFrames.push({
+            x: nextX,
+            y: nextY,
+            width: snap.width,
+            height: snap.height,
+            rotation: nextRotation,
+          });
+        });
+      });
+
+      const nextBounds = mergeBounds(nextFrames) ?? start.startBounds;
+      const target = targetRef.current;
+      if (target) {
+        const origin = rotateOriginOffsetRef.current;
+        target.style.width = `${nextBounds.width}px`;
+        target.style.height = `${nextBounds.height}px`;
+        target.style.transform = `translate3d(${origin.x + nextBounds.x}px, ${origin.y + nextBounds.y}px, 0)`;
+      }
+    };
+
+    const onUp = () => {
+      setIsRotating(false);
+      rotateStartRef.current = null;
+      rotateSnapshotsRef.current = new Map();
+      rotateKeysRef.current = [];
+      rotateOriginOffsetRef.current = { x: 0, y: 0 };
+      document.body.classList.remove("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      clearForcedRotateCursor();
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("mouseleave", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mouseleave", onUp);
+      document.body.classList.remove("mylg-force-rotate-cursor", "mylg-force-rotate-cursor-grabbing");
+      clearForcedRotateCursor();
+    };
+  }, [editor, isRotating]);
+
   if (!portalHost) return null;
 
   return ReactDOM.createPortal(
     <>
       <div ref={targetRef} style={targetStyle} contentEditable={false} suppressContentEditableWarning />
+      <div style={rotateHandleStyle} contentEditable={false} suppressContentEditableWarning>
+        <div
+          style={{
+            position: "absolute",
+            top: "0",
+            left: "50%",
+            width: "2px",
+            height: "60px",
+            backgroundColor: "#4C9AFF",
+            transform: "translateX(-50%) translateY(-100%)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          className="mylg-rotate-handle"
+          style={{
+            position: "absolute",
+            top: "-60px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "12px",
+            height: "12px",
+            backgroundColor: "#fff",
+            border: "2px solid #4C9AFF",
+            borderRadius: "50%",
+            cursor: getRotateCursor(0),
+            pointerEvents: active && !active.locked ? "all" : "none",
+          }}
+          onMouseDown={handleRotateStart}
+          title="Rotate group"
+        />
+      </div>
       <Moveable
         ref={moveableRef}
         target={active ? targetRef.current : null}
