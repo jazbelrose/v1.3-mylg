@@ -7,6 +7,12 @@ import type {
   SerializedElementNode,
 } from "lexical";
 import { ElementNode } from "lexical";
+import {
+  DEFAULT_IMAGE_BORDER_RADIUS,
+  mergeBorderRadius,
+  borderRadiusToCss,
+  type ImageBorderRadiusState,
+} from "./imageBorderRadius";
 
 export type SerializedTextBoxNode = SerializedElementNode & {
   type: "text-box";
@@ -16,6 +22,7 @@ export type SerializedTextBoxNode = SerializedElementNode & {
   width: number;
   height: number;
   rotation: number;
+  borderRadius?: ImageBorderRadiusState;
   border?: {
     enabled: boolean;
     width: number;
@@ -32,6 +39,7 @@ export class TextBoxNode extends ElementNode {
   __width: number;
   __height: number;
   __rotation: number;
+  __borderRadius: ImageBorderRadiusState;
   __border: { enabled: boolean; width: number; color: string };
   __locked: boolean;
 
@@ -46,6 +54,7 @@ export class TextBoxNode extends ElementNode {
       node.__width,
       node.__height,
       node.__rotation,
+      node.__borderRadius,
       node.__border,
       node.__key,
       node.__locked
@@ -58,6 +67,7 @@ export class TextBoxNode extends ElementNode {
     width = 420,
     height = 160,
     rotation = 0,
+    borderRadius: ImageBorderRadiusState = { ...DEFAULT_IMAGE_BORDER_RADIUS },
     border: { enabled: boolean; width: number; color: string } = { ...DEFAULT_SLIDE_NODE_BORDER },
     key?: NodeKey,
     locked = false
@@ -68,6 +78,7 @@ export class TextBoxNode extends ElementNode {
     this.__width = width;
     this.__height = height;
     this.__rotation = rotation;
+    this.__borderRadius = mergeBorderRadius(DEFAULT_IMAGE_BORDER_RADIUS, borderRadius);
     this.__border =
       border && typeof border === "object"
         ? {
@@ -124,6 +135,17 @@ export class TextBoxNode extends ElementNode {
     return { ...self.__border };
   }
 
+  getBorderRadius(): ImageBorderRadiusState {
+    const self = this.getLatest();
+    return { ...self.__borderRadius };
+  }
+
+  setBorderRadius(updates: Partial<ImageBorderRadiusState>): void {
+    if (this.getLocked()) return;
+    const writable = this.getWritable();
+    writable.__borderRadius = mergeBorderRadius(writable.__borderRadius, updates);
+  }
+
   setBorder(updates: Partial<{ enabled: boolean; width: number; color: string }>): void {
     if (this.getLocked()) return;
     const writable = this.getWritable();
@@ -156,6 +178,8 @@ export class TextBoxNode extends ElementNode {
     dom.style.margin = "0";
     dom.style.willChange = "transform, width, height";
     dom.style.setProperty("--mylg-selection-rotation", `${this.__rotation}deg`);
+
+    dom.style.borderRadius = borderRadiusToCss(this.__borderRadius);
 
     const borderStyle =
       this.__border.enabled && this.__border.width > 0
@@ -233,6 +257,15 @@ export class TextBoxNode extends ElementNode {
           : "none";
       dom.style.border = borderStyle;
     }
+
+    if (
+      prevNode.__borderRadius.topLeft !== this.__borderRadius.topLeft ||
+      prevNode.__borderRadius.topRight !== this.__borderRadius.topRight ||
+      prevNode.__borderRadius.bottomRight !== this.__borderRadius.bottomRight ||
+      prevNode.__borderRadius.bottomLeft !== this.__borderRadius.bottomLeft
+    ) {
+      dom.style.borderRadius = borderRadiusToCss(this.__borderRadius);
+    }
     return false;
   }
 
@@ -246,6 +279,7 @@ export class TextBoxNode extends ElementNode {
     element.style.transformOrigin = "center center";
     element.style.width = `${this.__width}px`;
     element.style.height = `${this.__height}px`;
+    element.style.borderRadius = borderRadiusToCss(this.__borderRadius);
     const borderStyle =
       this.__border.enabled && this.__border.width > 0
         ? `${this.__border.width}px solid ${this.__border.color}`
@@ -291,6 +325,7 @@ export class TextBoxNode extends ElementNode {
       width = 420,
       height = 160,
       rotation = 0,
+      borderRadius,
       border,
       locked = false,
     } = serializedNode;
@@ -305,7 +340,18 @@ export class TextBoxNode extends ElementNode {
                 : DEFAULT_SLIDE_NODE_BORDER.color,
           }
         : { ...DEFAULT_SLIDE_NODE_BORDER };
-    const node = new TextBoxNode(x, y, width, height, rotation, normalizedBorder, undefined, locked);
+    const normalizedBorderRadius = mergeBorderRadius(DEFAULT_IMAGE_BORDER_RADIUS, borderRadius);
+    const node = new TextBoxNode(
+      x,
+      y,
+      width,
+      height,
+      rotation,
+      normalizedBorderRadius,
+      normalizedBorder,
+      undefined,
+      locked
+    );
     return node.updateFromJSON(serializedNode);
   }
 
@@ -319,6 +365,7 @@ export class TextBoxNode extends ElementNode {
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      borderRadius: this.__borderRadius,
       border: this.__border,
       locked: this.__locked,
     };
@@ -336,7 +383,8 @@ export function $createTextBoxNode(
   height?: number,
   rotation?: number,
   locked?: boolean,
-  border?: { enabled: boolean; width: number; color: string }
+  border?: { enabled: boolean; width: number; color: string },
+  borderRadius?: ImageBorderRadiusState
 ): TextBoxNode {
   const normalizedBorder =
     border && typeof border === "object"
@@ -349,7 +397,18 @@ export function $createTextBoxNode(
               : DEFAULT_SLIDE_NODE_BORDER.color,
         }
       : { ...DEFAULT_SLIDE_NODE_BORDER };
-  return new TextBoxNode(x, y, width, height, rotation, normalizedBorder, undefined, locked ?? false);
+  const normalizedBorderRadius = mergeBorderRadius(DEFAULT_IMAGE_BORDER_RADIUS, borderRadius);
+  return new TextBoxNode(
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    normalizedBorderRadius,
+    normalizedBorder,
+    undefined,
+    locked ?? false
+  );
 }
 
 export function $isTextBoxNode(node: unknown): node is TextBoxNode {

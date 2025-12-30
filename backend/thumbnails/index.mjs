@@ -294,6 +294,8 @@ function renderTextBoxLayer(node, textColor) {
     (Array.isArray(node.children) && node.children.map((child) => lexicalNodeToHtml(child)).join('')) ||
     '<p></p>';
 
+  const borderRadiusStyle = formatBorderRadius(node);
+
   const border =
     node.border && typeof node.border === 'object'
       ? {
@@ -318,6 +320,7 @@ function renderTextBoxLayer(node, textColor) {
     'padding:8px',
     'box-sizing:border-box',
     `border:${borderStyle}`,
+    `border-radius:${borderRadiusStyle}`,
     `color:${textColor}`,
   ].join('; ');
 

@@ -221,6 +221,11 @@ export default function ToolbarContextPlugin() {
 
           const textBoxNode = nodes.find((node) => node instanceof TextBoxNode);
           if (textBoxNode) {
+            const { width, height } =
+              typeof (textBoxNode as unknown as { getSize?: () => { width: number; height: number } }).getSize ===
+              "function"
+                ? (textBoxNode as unknown as { getSize: () => { width: number; height: number } }).getSize()
+                : { width: 0, height: 0 };
             setCtx({
               type: "textbox",
               nodeKey: textBoxNode.getKey(),
@@ -234,6 +239,13 @@ export default function ToolbarContextPlugin() {
                 "function"
                   ? (textBoxNode as unknown as { getBorder: () => any }).getBorder()
                   : { enabled: false, width: 2, color: "#ffffff" },
+              borderRadius:
+                typeof (textBoxNode as unknown as { getBorderRadius?: () => any }).getBorderRadius ===
+                "function"
+                  ? (textBoxNode as unknown as { getBorderRadius: () => any }).getBorderRadius()
+                  : { topLeft: 0, topRight: 0, bottomRight: 0, bottomLeft: 0 },
+              width,
+              height,
             });
             return;
           }

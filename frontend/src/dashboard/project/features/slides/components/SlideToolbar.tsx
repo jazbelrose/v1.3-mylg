@@ -305,6 +305,7 @@ interface SlideToolbarProps {
   onLockSelection?: () => void;
   onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
   onUpdateImageBorder?: (updates: Partial<PictureFrameBorder>) => void;
+  onUpdateTextBoxBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
   onUpdatePictureFrameRadius?: (radius: number) => void;
   onUpdatePictureFrameFit?: (fit: PictureFrameFitMode) => void;
   onUpdatePictureFrameBorder?: (updates: Partial<PictureFrameBorder>) => void;
@@ -367,6 +368,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onLockSelection,
   onUpdateImageBorderRadius,
   onUpdateImageBorder,
+  onUpdateTextBoxBorderRadius,
   onUpdatePictureFrameRadius,
   onUpdatePictureFrameFit,
   onUpdatePictureFrameBorder,
@@ -378,6 +380,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const [showCornerPopup, setShowCornerPopup] = useState(false);
   const cornerPopupRef = useRef<HTMLDivElement | null>(null);
   const cornerPopupToggleRef = useRef<HTMLButtonElement | null>(null);
+
+  const [textBoxCornersLinked, setTextBoxCornersLinked] = useState(true);
+  const [showTextBoxCornerPopup, setShowTextBoxCornerPopup] = useState(false);
+  const textBoxCornerPopupRef = useRef<HTMLDivElement | null>(null);
+  const textBoxCornerPopupToggleRef = useRef<HTMLButtonElement | null>(null);
 
   const [showImageBorderPopup, setShowImageBorderPopup] = useState(false);
   const [showTextBoxBorderPopup, setShowTextBoxBorderPopup] = useState(false);
@@ -410,7 +417,12 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const isPictureFrameContext = ctx.type === "picture-frame";
   const isTextBoxContext = ctx.type === "textbox";
   const currentImageKey = isImageContext ? ctx.nodeKey : null;
+  const currentTextBoxKey = isTextBoxContext ? ctx.nodeKey : null;
   const imageBorderRadius = isImageContext
+    ? ctx.borderRadius
+    : DEFAULT_IMAGE_BORDER_RADIUS;
+
+  const textBoxBorderRadius = isTextBoxContext
     ? ctx.borderRadius
     : DEFAULT_IMAGE_BORDER_RADIUS;
 
@@ -462,6 +474,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     setCornersLinked(true);
     setShowCornerPopup(false);
   }, [currentImageKey]);
+
+  useEffect(() => {
+    setTextBoxCornersLinked(true);
+    setShowTextBoxCornerPopup(false);
+  }, [currentTextBoxKey]);
 
   const handleCornerChange = (corner: ImageBorderRadiusKey, value: string) => {
     if (!onUpdateImageBorderRadius) {
@@ -557,6 +574,22 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCornerPopup]);
+
+  useEffect(() => {
+    if (!showTextBoxCornerPopup) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        textBoxCornerPopupRef.current?.contains(target) ||
+        textBoxCornerPopupToggleRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowTextBoxCornerPopup(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showTextBoxCornerPopup]);
 
   const handleDropdownToggle = (
     dropdownId: string,
@@ -978,6 +1011,178 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                             }
                             className="corner-dropdown__range"
                             disabled={maxUniformCornerRadius <= 0}
+                            aria-label={`${CORNER_LABELS[cornerKey]} radius`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {label === "Text Box" && isTextBoxContext && (
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                className={`corner-pill${showTextBoxCornerPopup ? " active" : ""}`}
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowTextBoxCornerPopup((prev) => !prev);
+                }}
+                ref={textBoxCornerPopupToggleRef}
+                aria-expanded={showTextBoxCornerPopup}
+              >
+                <span className="corner-pill__label">Corners:&nbsp;</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={(() => {
+                    const max = Math.max(1, Math.min(ctx.width, ctx.height) / 2);
+                    const avg = Math.round(
+                      IMAGE_BORDER_RADIUS_KEYS.reduce(
+                        (total, key) => total + textBoxBorderRadius[key],
+                        0
+                      ) / IMAGE_BORDER_RADIUS_KEYS.length
+                    );
+                    const normalized = Math.min(avg, max);
+                    return Math.round((normalized / max) * 100);
+                  })()}
+                  onChange={(event) => {
+                    const val = Number(event.target.value);
+                    if (Number.isNaN(val) || !onUpdateTextBoxBorderRadius) return;
+                    const max = Math.max(1, Math.min(ctx.width, ctx.height) / 2);
+                    const clamped = Math.min(100, Math.max(0, val));
+                    const radiusPx = Math.round((clamped / 100) * max);
+                    const updates: Partial<ImageBorderRadiusState> = {};
+                    IMAGE_BORDER_RADIUS_KEYS.forEach((key) => {
+                      updates[key] = radiusPx;
+                    });
+                    setTextBoxCornersLinked(true);
+                    onUpdateTextBoxBorderRadius(updates);
+                  }}
+                  onMouseDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                  className="corner-pill__input"
+                  aria-label="Corner radius percentage"
+                  disabled={!onUpdateTextBoxBorderRadius}
+                />
+                <span>%</span>
+                <ChevronDown size={14} />
+              </button>
+              {showTextBoxCornerPopup && (
+                <div
+                  className="corner-dropdown"
+                  ref={textBoxCornerPopupRef}
+                  onMouseDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
+                  <div className="corner-dropdown__header">
+                    <span className="corner-dropdown__title">Corner radius</span>
+                    <span className="corner-dropdown__header-value">
+                      {Math.round(
+                        IMAGE_BORDER_RADIUS_KEYS.reduce(
+                          (total, key) => total + textBoxBorderRadius[key],
+                          0
+                        ) / IMAGE_BORDER_RADIUS_KEYS.length
+                      )}
+                      px
+                    </span>
+                  </div>
+                  <div
+                    className="corner-dropdown__slider-row"
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={(() => {
+                        const max = Math.max(1, Math.min(ctx.width, ctx.height) / 2);
+                        const avg = Math.round(
+                          IMAGE_BORDER_RADIUS_KEYS.reduce(
+                            (total, key) => total + textBoxBorderRadius[key],
+                            0
+                          ) / IMAGE_BORDER_RADIUS_KEYS.length
+                        );
+                        const normalized = Math.min(avg, max);
+                        return Math.round((normalized / max) * 100);
+                      })()}
+                      onChange={(event) => {
+                        if (!onUpdateTextBoxBorderRadius) return;
+                        const max = Math.max(1, Math.min(ctx.width, ctx.height) / 2);
+                        const percent = Math.min(100, Math.max(0, Number(event.target.value)));
+                        const radiusPx = Math.round((percent / 100) * max);
+                        const updates: Partial<ImageBorderRadiusState> = {};
+                        IMAGE_BORDER_RADIUS_KEYS.forEach((key) => {
+                          updates[key] = radiusPx;
+                        });
+                        setTextBoxCornersLinked(true);
+                        onUpdateTextBoxBorderRadius(updates);
+                      }}
+                      disabled={!onUpdateTextBoxBorderRadius}
+                      className="corner-dropdown__slider"
+                      aria-label="Uniform corner radius"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className={`corner-dropdown__toggle${textBoxCornersLinked ? "" : " active"}`}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setTextBoxCornersLinked((prev) => !prev);
+                    }}
+                  >
+                    {textBoxCornersLinked ? (
+                      <>
+                        <Unlink size={12} />
+                        <span>Edit corners independently</span>
+                      </>
+                    ) : (
+                      <>
+                        <Link size={12} />
+                        <span>Link corners together</span>
+                      </>
+                    )}
+                  </button>
+                  {!textBoxCornersLinked && (
+                    <div className="corner-dropdown__grid">
+                      {IMAGE_BORDER_RADIUS_KEYS.map((cornerKey) => (
+                        <label key={cornerKey} className="corner-dropdown__cell">
+                          <span>{CORNER_LABELS[cornerKey]}</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={Math.max(Math.min(ctx.width, ctx.height) / 2, 1)}
+                            step={1}
+                            value={textBoxBorderRadius[cornerKey]}
+                            onMouseDown={(event) => {
+                              event.stopPropagation();
+                            }}
+                            onChange={(event) => {
+                              if (!onUpdateTextBoxBorderRadius) return;
+                              const updates: Partial<ImageBorderRadiusState> = {};
+                              updates[cornerKey] = Number(event.target.value);
+                              onUpdateTextBoxBorderRadius(updates);
+                            }}
+                            className="corner-dropdown__range"
+                            disabled={!onUpdateTextBoxBorderRadius}
                             aria-label={`${CORNER_LABELS[cornerKey]} radius`}
                           />
                         </label>

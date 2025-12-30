@@ -41,7 +41,15 @@ export type ToolbarContext =
       width: number;
       height: number;
     }
-  | { type: "textbox"; nodeKey: string; locked: boolean; border: PictureFrameBorder }
+  | {
+      type: "textbox";
+      nodeKey: string;
+      locked: boolean;
+      border: PictureFrameBorder;
+      borderRadius: ImageBorderRadiusState;
+      width: number;
+      height: number;
+    }
   | { type: "mixed" };
 
 export type HistoryState = {

@@ -91,6 +91,7 @@ export type ToolbarActions = {
   onUpdatePictureFrameFit: (fit: PictureFrameFitMode) => void;
   onUpdatePictureFrameBorder: (updates: Partial<PictureFrameBorder>) => void;
   onUpdateTextBoxBorder: (updates: Partial<PictureFrameBorder>) => void;
+  onUpdateTextBoxBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
   onToggleLockSelection: () => void;
 };
 
@@ -281,6 +282,12 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         mutateSelectedNodes((node) => {
           if (node instanceof TextBoxNode) {
             node.setBorder?.(updates);
+          }
+        }),
+      onUpdateTextBoxBorderRadius: (updates) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof TextBoxNode) {
+            node.setBorderRadius?.(updates);
           }
         }),
       onToggleLockSelection: () => {
