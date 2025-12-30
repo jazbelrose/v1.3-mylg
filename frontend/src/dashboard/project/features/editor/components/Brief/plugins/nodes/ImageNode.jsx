@@ -9,7 +9,18 @@ import { useImageLocks } from "@/dashboard/project/features/editor/components/Br
 import { getFileUrl } from "@/shared/utils/api";
 
 export class ImageNode extends DecoratorNode {
-  constructor(src, altText, x = 0, y = 0, width = 300, height = 200, clipPath = "none", key, locked = false) {
+  constructor(
+    src,
+    altText,
+    x = 0,
+    y = 0,
+    width = 300,
+    height = 200,
+    clipPath = "none",
+    border,
+    key,
+    locked = false
+  ) {
     super(key);
     this.__src = src;
     this.__altText = altText;
@@ -18,6 +29,17 @@ export class ImageNode extends DecoratorNode {
     this.__width = width;
     this.__height = height;
     this.__clipPath = clipPath;
+    this.__border =
+      border && typeof border === "object"
+        ? {
+            enabled: Boolean(border.enabled),
+            width: Math.max(0, Number(border.width) || 0),
+            color:
+              typeof border.color === "string" && border.color.trim()
+                ? border.color.trim()
+                : "#ffffff",
+          }
+        : { enabled: false, width: 2, color: "#ffffff" };
     this.__locked = locked;
   }
 
@@ -34,6 +56,7 @@ export class ImageNode extends DecoratorNode {
         node.__width,
         node.__height,
         node.__clipPath,
+        node.__border,
         node.__key,
         node.__locked
       );
@@ -89,6 +112,22 @@ export class ImageNode extends DecoratorNode {
     return this.__clipPath;
   }
 
+  getBorder() {
+    return { ...this.__border };
+  }
+
+  setBorder(updates) {
+    if (this.getLocked?.()) return;
+    const writable = this.getWritable();
+    const next = { ...writable.__border };
+    if (updates && typeof updates === "object") {
+      if (typeof updates.enabled === "boolean") next.enabled = updates.enabled;
+      if (typeof updates.width !== "undefined") next.width = Math.max(0, Number(updates.width) || 0);
+      if (typeof updates.color === "string" && updates.color.trim()) next.color = updates.color.trim();
+    }
+    writable.__border = next;
+  }
+
   // Create a simple container element
   createDOM() {
     const elem = document.createElement("span");
@@ -117,8 +156,8 @@ export class ImageNode extends DecoratorNode {
 
   // Optional: Define how the node is serialized to JSON
   static importJSON(serializedNode) {
-    const { src, altText, x, y, width, height, clipPath, locked = false } = serializedNode;
-    return $createImageNode({ src, altText, x, y, width, height, clipPath, locked });
+    const { src, altText, x, y, width, height, clipPath, border, locked = false } = serializedNode;
+    return $createImageNode({ src, altText, x, y, width, height, clipPath, border, locked });
   }
 
   exportJSON() {
@@ -130,6 +169,7 @@ export class ImageNode extends DecoratorNode {
       width: this.__width,
       height: this.__height,
       clipPath: this.__clipPath,
+      border: this.__border,
       locked: this.__locked,
       type: "image",
       version: 1,
@@ -147,6 +187,7 @@ export class ImageNode extends DecoratorNode {
         width={this.__width}
         height={this.__height}
         clipPath={this.__clipPath}
+        border={this.__border}
         locked={this.__locked}
         nodeKey={this.__key}
       />
@@ -154,7 +195,7 @@ export class ImageNode extends DecoratorNode {
   }
 }
 
-function MoveableImage({ src, altText, x, y, width, height, clipPath, locked, nodeKey }) {
+function MoveableImage({ src, altText, x, y, width, height, clipPath, border, locked, nodeKey }) {
   const [editor] = useLexicalComposerContext();
   const [isSelected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
   const { userName } = useData();
@@ -172,6 +213,19 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, locked, no
   const [isFocused, setIsFocused] = useState(true);
   const [isCropping, setIsCropping] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
+
+  const normalizedBorder =
+    border && typeof border === "object"
+      ? {
+          enabled: Boolean(border.enabled),
+          width: Math.max(0, Number(border.width) || 0),
+          color: typeof border.color === "string" && border.color.trim() ? border.color.trim() : "#ffffff",
+        }
+      : { enabled: false, width: 0, color: "#ffffff" };
+  const borderStyle =
+    normalizedBorder.enabled && normalizedBorder.width > 0
+      ? `${normalizedBorder.width}px solid ${normalizedBorder.color}`
+      : "none";
 
   useEffect(() => {
     if (isSelected && pendingDragEvent.current && moveableRef.current) {
@@ -275,11 +329,12 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, locked, no
           border:
             isSelected && (localFrame !== null || isCropping)
               ? "2px solid blue"
-              : "none",
+              : borderStyle,
           boxShadow:
             isSelected && (localFrame !== null || isCropping)
               ? "0 0 0 2px rgba(0,0,255,0.3)"
               : "none",
+          boxSizing: "border-box",
           pointerEvents: isCollabLocked ? "none" : "auto",
         }}
       >
@@ -463,8 +518,18 @@ function MoveableImage({ src, altText, x, y, width, height, clipPath, locked, no
 }
 
 // Helper function to create an ImageNode
-export function $createImageNode({ src, altText = "", x = 0, y = 0, width = 300, height = 200, clipPath = "none", locked = false }) {
-  return new ImageNode(src, altText, x, y, width, height, clipPath, undefined, locked);
+export function $createImageNode({
+  src,
+  altText = "",
+  x = 0,
+  y = 0,
+  width = 300,
+  height = 200,
+  clipPath = "none",
+  border,
+  locked = false,
+}) {
+  return new ImageNode(src, altText, x, y, width, height, clipPath, border, undefined, locked);
 }
 
 // Helper function to check if a node is an ImageNode

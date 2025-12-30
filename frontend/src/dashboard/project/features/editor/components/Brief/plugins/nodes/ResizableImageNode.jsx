@@ -26,6 +26,8 @@ import {
 } from "../slides/slideSelectionUtils";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
+const DEFAULT_SLIDE_NODE_BORDER = { enabled: false, width: 2, color: "#ffffff" };
+
 const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 };
 const rotateCursorCache = new Map();
 
@@ -94,6 +96,7 @@ export class ResizableImageNode extends DecoratorNode {
       node.__y,
       node.__rotation,
       node.__borderRadius,
+      node.__border,
       node.__locked
     );
   }
@@ -109,6 +112,7 @@ export class ResizableImageNode extends DecoratorNode {
     y = 0,
     rotation = 0,
     borderRadius,
+    border,
     locked = false
   ) {
     super(key);
@@ -125,6 +129,17 @@ export class ResizableImageNode extends DecoratorNode {
       DEFAULT_IMAGE_BORDER_RADIUS,
       borderRadius
     );
+    this.__border =
+      border && typeof border === "object"
+        ? {
+            enabled: Boolean(border.enabled),
+            width: Math.max(0, Number(border.width) || 0),
+            color:
+              typeof border.color === "string" && border.color.trim()
+                ? border.color.trim()
+                : DEFAULT_SLIDE_NODE_BORDER.color,
+          }
+        : { ...DEFAULT_SLIDE_NODE_BORDER };
     this.__locked = locked;
   }
 
@@ -209,6 +224,22 @@ export class ResizableImageNode extends DecoratorNode {
     );
   }
 
+  getBorder() {
+    return { ...this.__border };
+  }
+
+  setBorder(updates) {
+    if (this.getLocked?.()) return;
+    const writable = this.getWritable();
+    const next = { ...writable.__border };
+    if (updates && typeof updates === "object") {
+      if (typeof updates.enabled === "boolean") next.enabled = updates.enabled;
+      if (typeof updates.width !== "undefined") next.width = Math.max(0, Number(updates.width) || 0);
+      if (typeof updates.color === "string" && updates.color.trim()) next.color = updates.color.trim();
+    }
+    writable.__border = next;
+  }
+
   createDOM() {
     const elem = document.createElement("span");
     Object.assign(elem.style, {
@@ -246,6 +277,7 @@ export class ResizableImageNode extends DecoratorNode {
       y,
       rotation,
       borderRadius,
+      border,
       locked = false,
     } = serializedNode;
     return new ResizableImageNode(
@@ -259,6 +291,7 @@ export class ResizableImageNode extends DecoratorNode {
       y,
       rotation,
       borderRadius,
+      border,
       locked
     );
   }
@@ -276,6 +309,7 @@ export class ResizableImageNode extends DecoratorNode {
       y: this.__y,
       rotation: this.__rotation,
       borderRadius: this.__borderRadius,
+      border: this.__border,
       locked: this.__locked,
     };
   }
@@ -291,6 +325,7 @@ export class ResizableImageNode extends DecoratorNode {
           y={this.__y}
           rotation={this.__rotation}
           borderRadius={this.__borderRadius}
+          border={this.__border}
           locked={this.__locked}
           nodeKey={this.__key}
         />
@@ -312,6 +347,7 @@ export function $createResizableImageNode({
   y = 0,
   rotation = 0,
   borderRadius,
+  border,
   locked = false,
 }) {
   return new ResizableImageNode(
@@ -325,6 +361,7 @@ export function $createResizableImageNode({
     y,
     rotation,
     borderRadius,
+    border,
     locked
   );
 }
@@ -343,6 +380,7 @@ function ResizableImageComponent({
   rotation,
   nodeKey,
   borderRadius,
+  border,
   locked,
 }) {
   const [editor] = useLexicalComposerContext();
@@ -358,6 +396,21 @@ function ResizableImageComponent({
   const borderRadiusStyle = borderRadiusToCss(
     borderRadius || DEFAULT_IMAGE_BORDER_RADIUS
   );
+  const normalizedBorder =
+    border && typeof border === "object"
+      ? {
+          enabled: Boolean(border.enabled),
+          width: Math.max(0, Number(border.width) || 0),
+          color:
+            typeof border.color === "string" && border.color.trim()
+              ? border.color.trim()
+              : DEFAULT_SLIDE_NODE_BORDER.color,
+        }
+      : DEFAULT_SLIDE_NODE_BORDER;
+  const borderStyle =
+    normalizedBorder.enabled && normalizedBorder.width > 0
+      ? `${normalizedBorder.width}px solid ${normalizedBorder.color}`
+      : "none";
   const [isResizing, setIsResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
@@ -844,6 +897,8 @@ function ResizableImageComponent({
             width: "100%",
             height: "100%",
             borderRadius: borderRadiusStyle,
+            border: borderStyle,
+            boxSizing: "border-box",
             objectFit: "contain",
             cursor: isSelected && !isInteractionLocked ? "move" : "pointer",
             pointerEvents: isCollabLocked ? "none" : "auto",

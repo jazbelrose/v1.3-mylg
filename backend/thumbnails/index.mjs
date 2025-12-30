@@ -294,6 +294,16 @@ function renderTextBoxLayer(node, textColor) {
     (Array.isArray(node.children) && node.children.map((child) => lexicalNodeToHtml(child)).join('')) ||
     '<p></p>';
 
+  const border =
+    node.border && typeof node.border === 'object'
+      ? {
+          enabled: Boolean(node.border.enabled),
+          width: Math.max(0, Number(node.border.width) || 0),
+          color: typeof node.border.color === 'string' && node.border.color.trim() ? node.border.color.trim() : '#ffffff',
+        }
+      : { enabled: false, width: 0, color: '#ffffff' };
+  const borderStyle = border.enabled && border.width > 0 ? `${border.width}px solid ${border.color}` : 'none';
+
   const style = [
     'position:absolute',
     'left:0',
@@ -307,6 +317,7 @@ function renderTextBoxLayer(node, textColor) {
     'justify-content:center',
     'padding:8px',
     'box-sizing:border-box',
+    `border:${borderStyle}`,
     `color:${textColor}`,
   ].join('; ');
 
@@ -340,6 +351,15 @@ function renderImageLayer(node) {
   if (!src) return '';
   const alt = escapeHtml(node.altText || 'Image');
   const borderRadiusStyle = formatBorderRadius(node);
+  const border =
+    node.border && typeof node.border === 'object'
+      ? {
+          enabled: Boolean(node.border.enabled),
+          width: Math.max(0, Number(node.border.width) || 0),
+          color: typeof node.border.color === 'string' && node.border.color.trim() ? node.border.color.trim() : '#ffffff',
+        }
+      : { enabled: false, width: 0, color: '#ffffff' };
+  const borderStyle = border.enabled && border.width > 0 ? `${border.width}px solid ${border.color}` : 'none';
   const style = [
     'position:absolute',
     `left:${x}px`,
@@ -349,6 +369,9 @@ function renderImageLayer(node) {
     `width:${width}px`,
     `height:${height}px`,
     'overflow:hidden',
+    `border-radius:${borderRadiusStyle}`,
+    `border:${borderStyle}`,
+    'box-sizing:border-box',
   ].join('; ');
 
   return `<div class="image-layer" style="${style}">

@@ -153,6 +153,10 @@ export default function ToolbarContextPlugin() {
               nodeKey: imageNode.getKey(),
               locked: typeof imageNode.getLocked === "function" ? imageNode.getLocked() : false,
               borderRadius: imageNode.getBorderRadius(),
+              border:
+                typeof imageNode.getBorder === "function"
+                  ? imageNode.getBorder()
+                  : { enabled: false, width: 2, color: "#ffffff" },
               width: imageNode.getWidth(),
               height: imageNode.getHeight(),
             });
@@ -225,6 +229,11 @@ export default function ToolbarContextPlugin() {
                 "function"
                   ? (textBoxNode as unknown as { getLocked: () => boolean }).getLocked()
                   : false,
+              border:
+                typeof (textBoxNode as unknown as { getBorder?: () => any }).getBorder ===
+                "function"
+                  ? (textBoxNode as unknown as { getBorder: () => any }).getBorder()
+                  : { enabled: false, width: 2, color: "#ffffff" },
             });
             return;
           }

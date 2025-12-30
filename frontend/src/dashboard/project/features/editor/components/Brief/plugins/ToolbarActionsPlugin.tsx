@@ -86,9 +86,11 @@ export type ToolbarActions = {
   onBringForward: () => void;
   onSendBackward: () => void;
   onUpdateImageBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
+  onUpdateImageBorder: (updates: Partial<PictureFrameBorder>) => void;
   onUpdatePictureFrameRadius: (radius: number) => void;
   onUpdatePictureFrameFit: (fit: PictureFrameFitMode) => void;
   onUpdatePictureFrameBorder: (updates: Partial<PictureFrameBorder>) => void;
+  onUpdateTextBoxBorder: (updates: Partial<PictureFrameBorder>) => void;
   onToggleLockSelection: () => void;
 };
 
@@ -248,6 +250,15 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             node.setBorderRadius(updates);
           }
         }),
+      onUpdateImageBorder: (updates) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof ResizableImageNode) {
+            node.setBorder?.(updates);
+          }
+          if (node instanceof ImageNode) {
+            node.setBorder?.(updates);
+          }
+        }),
       onUpdatePictureFrameRadius: (radius) =>
         mutateSelectedNodes((node) => {
           if (node instanceof PictureFrameNode) {
@@ -264,6 +275,12 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         mutateSelectedNodes((node) => {
           if (node instanceof PictureFrameNode) {
             node.setBorder(updates);
+          }
+        }),
+      onUpdateTextBoxBorder: (updates) =>
+        mutateSelectedNodes((node) => {
+          if (node instanceof TextBoxNode) {
+            node.setBorder?.(updates);
           }
         }),
       onToggleLockSelection: () => {

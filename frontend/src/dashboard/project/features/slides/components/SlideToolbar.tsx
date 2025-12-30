@@ -304,9 +304,11 @@ interface SlideToolbarProps {
   onDuplicateSelection?: () => void;
   onLockSelection?: () => void;
   onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
+  onUpdateImageBorder?: (updates: Partial<PictureFrameBorder>) => void;
   onUpdatePictureFrameRadius?: (radius: number) => void;
   onUpdatePictureFrameFit?: (fit: PictureFrameFitMode) => void;
   onUpdatePictureFrameBorder?: (updates: Partial<PictureFrameBorder>) => void;
+  onUpdateTextBoxBorder?: (updates: Partial<PictureFrameBorder>) => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -364,9 +366,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDuplicateSelection,
   onLockSelection,
   onUpdateImageBorderRadius,
+  onUpdateImageBorder,
   onUpdatePictureFrameRadius,
   onUpdatePictureFrameFit,
   onUpdatePictureFrameBorder,
+  onUpdateTextBoxBorder,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -374,6 +378,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const [showCornerPopup, setShowCornerPopup] = useState(false);
   const cornerPopupRef = useRef<HTMLDivElement | null>(null);
   const cornerPopupToggleRef = useRef<HTMLButtonElement | null>(null);
+
+  const [showImageBorderPopup, setShowImageBorderPopup] = useState(false);
+  const [showTextBoxBorderPopup, setShowTextBoxBorderPopup] = useState(false);
 
   const [showPictureFrameCornersPopup, setShowPictureFrameCornersPopup] = useState(false);
   const [showPictureFrameBorderPopup, setShowPictureFrameBorderPopup] = useState(false);
@@ -401,10 +408,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const codeLanguages = useMemo(() => getCodeLanguages(), []);
   const isImageContext = ctx.type === "image";
   const isPictureFrameContext = ctx.type === "picture-frame";
+  const isTextBoxContext = ctx.type === "textbox";
   const currentImageKey = isImageContext ? ctx.nodeKey : null;
   const imageBorderRadius = isImageContext
     ? ctx.borderRadius
     : DEFAULT_IMAGE_BORDER_RADIUS;
+
+  const imageBorder = isImageContext ? ctx.border : null;
+  const isImageBorderEnabled = isImageContext ? Boolean(ctx.border?.enabled) : false;
+
+  const textBoxBorder = isTextBoxContext ? ctx.border : null;
+  const isTextBoxBorderEnabled = isTextBoxContext ? Boolean(ctx.border?.enabled) : false;
 
   const pictureFrameState = isPictureFrameContext ? ctx : null;
   const isPictureFrameBorderEnabled =
@@ -418,10 +432,31 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   }, [ctx.type]);
 
   useEffect(() => {
+    if (ctx.type !== "image") {
+      setShowImageBorderPopup(false);
+    }
+    if (ctx.type !== "textbox") {
+      setShowTextBoxBorderPopup(false);
+    }
+  }, [ctx.type]);
+
+  useEffect(() => {
     if (!isPictureFrameBorderEnabled) {
       setShowPictureFrameBorderPopup(false);
     }
   }, [isPictureFrameBorderEnabled]);
+
+  useEffect(() => {
+    if (!isImageBorderEnabled) {
+      setShowImageBorderPopup(false);
+    }
+  }, [isImageBorderEnabled]);
+
+  useEffect(() => {
+    if (!isTextBoxBorderEnabled) {
+      setShowTextBoxBorderPopup(false);
+    }
+  }, [isTextBoxBorderEnabled]);
 
   useEffect(() => {
     setCornersLinked(true);
@@ -950,6 +985,83 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+          )}
+
+          {label === "Image" && isImageContext && imageBorder && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.9 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(imageBorder.enabled)}
+                  onChange={(event) => onUpdateImageBorder?.({ enabled: event.target.checked })}
+                  disabled={!onUpdateImageBorder}
+                />
+                Border
+              </label>
+              {Boolean(imageBorder.enabled) && (
+                <>
+                  <PillSliderDropdown
+                    label="Border:"
+                    value={Number(imageBorder.width) || 0}
+                    min={0}
+                    max={40}
+                    step={1}
+                    unitSuffix="px"
+                    dropdownTitle="Border width"
+                    open={showImageBorderPopup}
+                    setOpen={(open) => {
+                      setShowImageBorderPopup(open);
+                      if (open) {
+                        setShowCornerPopup(false);
+                      }
+                    }}
+                    inputChWidth={3}
+                    disabled={!onUpdateImageBorder}
+                    onChange={(next) => onUpdateImageBorder?.({ width: next })}
+                  />
+                  <ColorPicker
+                    color={imageBorder.color || "#ffffff"}
+                    onChange={(event) => onUpdateImageBorder?.({ color: event.target.value })}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {label === "Text Box" && ctx.type === "textbox" && textBoxBorder && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.9 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(textBoxBorder.enabled)}
+                  onChange={(event) => onUpdateTextBoxBorder?.({ enabled: event.target.checked })}
+                  disabled={!onUpdateTextBoxBorder}
+                />
+                Border
+              </label>
+              {Boolean(textBoxBorder.enabled) && (
+                <>
+                  <PillSliderDropdown
+                    label="Border:"
+                    value={Number(textBoxBorder.width) || 0}
+                    min={0}
+                    max={40}
+                    step={1}
+                    unitSuffix="px"
+                    dropdownTitle="Border width"
+                    open={showTextBoxBorderPopup}
+                    setOpen={(open) => setShowTextBoxBorderPopup(open)}
+                    inputChWidth={3}
+                    disabled={!onUpdateTextBoxBorder}
+                    onChange={(next) => onUpdateTextBoxBorder?.({ width: next })}
+                  />
+                  <ColorPicker
+                    color={textBoxBorder.color || "#ffffff"}
+                    onChange={(event) => onUpdateTextBoxBorder?.({ color: event.target.value })}
+                  />
+                </>
               )}
             </div>
           )}

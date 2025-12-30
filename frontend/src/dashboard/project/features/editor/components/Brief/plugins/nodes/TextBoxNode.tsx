@@ -10,14 +10,21 @@ import { ElementNode } from "lexical";
 
 export type SerializedTextBoxNode = SerializedElementNode & {
   type: "text-box";
-  version: 1;
+  version: 2;
   x: number;
   y: number;
   width: number;
   height: number;
   rotation: number;
+  border?: {
+    enabled: boolean;
+    width: number;
+    color: string;
+  };
   locked?: boolean;
 };
+
+const DEFAULT_SLIDE_NODE_BORDER = { enabled: false, width: 2, color: "#ffffff" } as const;
 
 export class TextBoxNode extends ElementNode {
   __x: number;
@@ -25,6 +32,7 @@ export class TextBoxNode extends ElementNode {
   __width: number;
   __height: number;
   __rotation: number;
+  __border: { enabled: boolean; width: number; color: string };
   __locked: boolean;
 
   static getType(): string {
@@ -38,6 +46,7 @@ export class TextBoxNode extends ElementNode {
       node.__width,
       node.__height,
       node.__rotation,
+      node.__border,
       node.__key,
       node.__locked
     );
@@ -49,6 +58,7 @@ export class TextBoxNode extends ElementNode {
     width = 420,
     height = 160,
     rotation = 0,
+    border: { enabled: boolean; width: number; color: string } = { ...DEFAULT_SLIDE_NODE_BORDER },
     key?: NodeKey,
     locked = false
   ) {
@@ -58,6 +68,17 @@ export class TextBoxNode extends ElementNode {
     this.__width = width;
     this.__height = height;
     this.__rotation = rotation;
+    this.__border =
+      border && typeof border === "object"
+        ? {
+            enabled: Boolean(border.enabled),
+            width: Math.max(0, Number(border.width) || 0),
+            color:
+              typeof border.color === "string" && border.color.trim()
+                ? border.color.trim()
+                : DEFAULT_SLIDE_NODE_BORDER.color,
+          }
+        : { ...DEFAULT_SLIDE_NODE_BORDER };
     this.__locked = locked;
   }
 
@@ -98,6 +119,21 @@ export class TextBoxNode extends ElementNode {
     return self.__locked;
   }
 
+  getBorder(): { enabled: boolean; width: number; color: string } {
+    const self = this.getLatest();
+    return { ...self.__border };
+  }
+
+  setBorder(updates: Partial<{ enabled: boolean; width: number; color: string }>): void {
+    if (this.getLocked()) return;
+    const writable = this.getWritable();
+    const next = { ...writable.__border };
+    if (typeof updates.enabled === "boolean") next.enabled = updates.enabled;
+    if (typeof updates.width !== "undefined") next.width = Math.max(0, Number(updates.width) || 0);
+    if (typeof updates.color === "string" && updates.color.trim()) next.color = updates.color.trim();
+    writable.__border = next;
+  }
+
   setLocked(locked: boolean): void {
     const writable = this.getWritable();
     writable.__locked = locked;
@@ -120,6 +156,12 @@ export class TextBoxNode extends ElementNode {
     dom.style.margin = "0";
     dom.style.willChange = "transform, width, height";
     dom.style.setProperty("--mylg-selection-rotation", `${this.__rotation}deg`);
+
+    const borderStyle =
+      this.__border.enabled && this.__border.width > 0
+        ? `${this.__border.width}px solid ${this.__border.color}`
+        : "none";
+    dom.style.border = borderStyle;
 
     // Add move handles (thin edge strips) first so resize handles sit on top
     const moveHandles = ["top", "right", "bottom", "left"];
@@ -179,6 +221,18 @@ export class TextBoxNode extends ElementNode {
     if (prevNode.__locked !== this.__locked) {
       dom.setAttribute("data-slide-locked", this.__locked ? "true" : "false");
     }
+
+    if (
+      prevNode.__border.enabled !== this.__border.enabled ||
+      prevNode.__border.width !== this.__border.width ||
+      prevNode.__border.color !== this.__border.color
+    ) {
+      const borderStyle =
+        this.__border.enabled && this.__border.width > 0
+          ? `${this.__border.width}px solid ${this.__border.color}`
+          : "none";
+      dom.style.border = borderStyle;
+    }
     return false;
   }
 
@@ -192,6 +246,12 @@ export class TextBoxNode extends ElementNode {
     element.style.transformOrigin = "center center";
     element.style.width = `${this.__width}px`;
     element.style.height = `${this.__height}px`;
+    const borderStyle =
+      this.__border.enabled && this.__border.width > 0
+        ? `${this.__border.width}px solid ${this.__border.color}`
+        : "none";
+    element.style.border = borderStyle;
+    element.style.boxSizing = "border-box";
     return { element };
   }
 
@@ -231,9 +291,21 @@ export class TextBoxNode extends ElementNode {
       width = 420,
       height = 160,
       rotation = 0,
+      border,
       locked = false,
     } = serializedNode;
-    const node = new TextBoxNode(x, y, width, height, rotation, undefined, locked);
+    const normalizedBorder =
+      border && typeof border === "object"
+        ? {
+            enabled: Boolean(border.enabled),
+            width: Math.max(0, Number(border.width) || 0),
+            color:
+              typeof border.color === "string" && border.color.trim()
+                ? border.color.trim()
+                : DEFAULT_SLIDE_NODE_BORDER.color,
+          }
+        : { ...DEFAULT_SLIDE_NODE_BORDER };
+    const node = new TextBoxNode(x, y, width, height, rotation, normalizedBorder, undefined, locked);
     return node.updateFromJSON(serializedNode);
   }
 
@@ -241,12 +313,13 @@ export class TextBoxNode extends ElementNode {
     return {
       ...super.exportJSON(),
       type: "text-box",
-      version: 1,
+      version: 2,
       x: this.__x,
       y: this.__y,
       width: this.__width,
       height: this.__height,
       rotation: this.__rotation,
+      border: this.__border,
       locked: this.__locked,
     };
   }
@@ -262,9 +335,21 @@ export function $createTextBoxNode(
   width?: number,
   height?: number,
   rotation?: number,
-  locked?: boolean
+  locked?: boolean,
+  border?: { enabled: boolean; width: number; color: string }
 ): TextBoxNode {
-  return new TextBoxNode(x, y, width, height, rotation, undefined, locked ?? false);
+  const normalizedBorder =
+    border && typeof border === "object"
+      ? {
+          enabled: Boolean(border.enabled),
+          width: Math.max(0, Number(border.width) || 0),
+          color:
+            typeof border.color === "string" && border.color.trim()
+              ? border.color.trim()
+              : DEFAULT_SLIDE_NODE_BORDER.color,
+        }
+      : { ...DEFAULT_SLIDE_NODE_BORDER };
+  return new TextBoxNode(x, y, width, height, rotation, normalizedBorder, undefined, locked ?? false);
 }
 
 export function $isTextBoxNode(node: unknown): node is TextBoxNode {
