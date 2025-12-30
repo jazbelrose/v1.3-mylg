@@ -290,6 +290,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertSvg={toolbarActions.onInsertVector}
       onInsertTextBox={toolbarActions.onInsertTextBox}
       onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
+      onInsertPictureFrameLayout={toolbarActions.onInsertPictureFrameLayout}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
       onDuplicateSelection={toolbarActions.onDuplicateSelection}

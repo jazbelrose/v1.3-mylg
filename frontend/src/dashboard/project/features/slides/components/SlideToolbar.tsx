@@ -292,6 +292,7 @@ interface SlideToolbarProps {
   onInsertSvg?: () => void;
   onInsertTextBox?: () => void;
   onInsertPictureFrame?: () => void;
+  onInsertPictureFrameLayout?: () => void;
   onInsertFigma?: () => void;
   onInsertLayout?: (template: string) => void;
   onSetCodeLanguage?: (lang: string) => void;
@@ -360,6 +361,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onInsertSvg,
   onInsertTextBox,
   onInsertPictureFrame,
+  onInsertPictureFrameLayout,
   onSetCodeLanguage,
   onDeleteSelection,
   onBringToFront,
@@ -1832,6 +1834,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <button type="button" className="item" onClick={() => handleInsert(onInsertPictureFrame)}>
                 <RectangleHorizontal className="dropdown-icon" size={18} />
                 <span className="text">Picture Frame</span>
+              </button>
+              <button type="button" className="item" onClick={() => handleInsert(onInsertPictureFrameLayout)}>
+                <LayoutOutlined className="dropdown-icon" />
+                <span className="text">Picture Frame Layout…</span>
               </button>
               <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
                 <FileImageOutlined className="dropdown-icon" />

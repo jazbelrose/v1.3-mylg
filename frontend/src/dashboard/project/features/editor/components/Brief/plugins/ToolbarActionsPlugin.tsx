@@ -31,6 +31,7 @@ import {
   TOGGLE_SPEECH_COMMAND,
   INSERT_TEXTBOX_COMMAND,
   INSERT_PICTURE_FRAME_COMMAND,
+  INSERT_PICTURE_FRAME_LAYOUT_COMMAND,
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
@@ -75,6 +76,7 @@ export type ToolbarActions = {
   onVoice: () => void;
   onInsertTextBox: () => void;
   onInsertPictureFrame: () => void;
+  onInsertPictureFrameLayout: () => void;
 
   onInsertLayout: (template: string) => void;
 
@@ -207,6 +209,24 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
       onInsertTextBox: () => editor.dispatchCommand(INSERT_TEXTBOX_COMMAND, undefined),
       onInsertPictureFrame: () =>
         editor.dispatchCommand(INSERT_PICTURE_FRAME_COMMAND, undefined),
+      onInsertPictureFrameLayout: () => {
+        if (typeof window === "undefined") return;
+
+        const rawCount = window.prompt("How many picture frames?", "6") ?? "";
+        const parsedCount = Math.floor(Number(rawCount));
+        if (!Number.isFinite(parsedCount) || parsedCount <= 0) return;
+        const count = Math.max(1, parsedCount);
+
+        const rawMode = (window.prompt("Layout mode: grid or masonry?", "grid") ?? "grid")
+          .trim()
+          .toLowerCase();
+        const mode = rawMode === "masonry" ? "masonry" : "grid";
+
+        const rawSeed = (window.prompt("Seed (optional, deterministic)", "") ?? "").trim();
+        const seed = rawSeed.length > 0 ? rawSeed : `${Date.now()}`;
+
+        editor.dispatchCommand(INSERT_PICTURE_FRAME_LAYOUT_COMMAND, { count, mode, seed });
+      },
 
       onInsertLayout: (template: string) =>
         editor.dispatchCommand(INSERT_LAYOUT_COMMAND, template),

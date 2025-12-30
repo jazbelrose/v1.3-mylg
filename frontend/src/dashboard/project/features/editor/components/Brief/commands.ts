@@ -13,6 +13,15 @@ export const OPEN_DROPDOWN_COMMAND: LexicalCommand<void> = createCommand('OPEN_D
 export const INSERT_TEXTBOX_COMMAND: LexicalCommand<void> = createCommand('INSERT_TEXTBOX');
 export const INSERT_PICTURE_FRAME_COMMAND: LexicalCommand<void> = createCommand('INSERT_PICTURE_FRAME');
 
+export type InsertPictureFrameLayoutPayload = {
+  count: number;
+  mode?: "grid" | "masonry";
+  seed?: string | number;
+};
+
+export const INSERT_PICTURE_FRAME_LAYOUT_COMMAND: LexicalCommand<InsertPictureFrameLayoutPayload> = createCommand(
+  "INSERT_PICTURE_FRAME_LAYOUT"
+);
 
 
 
