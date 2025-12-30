@@ -7,7 +7,6 @@ import {
   $isNodeSelection,
   $isRangeSelection,
   $setSelection,
-  ElementNode,
   type LexicalNode,
 } from "lexical";
 import { TextBoxNode } from "./nodes/TextBoxNode";
@@ -16,9 +15,11 @@ import { SvgNode } from "./nodes/SvgNode";
 import { PictureFrameNode } from "./nodes/PictureFrameNode";
 import {
   applyModifierNodeSelection,
+  duplicateSlideNodes,
   getSlideNodeSelectionKeys,
+  type ModifierKeys,
 } from "./slides/slideSelectionUtils";
-import { createGroupId, getGroupSelectionInfo, getNodeGroupId, setNodeGroupId } from "./slides/grouping";
+import { getGroupSelectionInfo } from "./slides/grouping";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 
 const ROTATE_CURSOR_HOTSPOT = { x: 16, y: 16 };
@@ -69,29 +70,6 @@ function clearForcedRotateCursor() {
   root.style.removeProperty("--mylg-rotate-cursor-grabbing");
 }
 
-function deepCloneNode(node: LexicalNode): LexicalNode | null {
-  const ctor = node.constructor as unknown as { importJSON?: (data: unknown) => LexicalNode };
-
-  if (typeof ctor.importJSON !== "function") {
-    return null;
-  }
-
-  // IMPORTANT: don't use node.clone() for duplication - clone() may preserve keys depending on node type.
-  // importJSON(exportJSON()) generates a fresh key for supported nodes.
-  const cloned = ctor.importJSON(node.exportJSON());
-
-  if (node instanceof ElementNode && cloned instanceof ElementNode) {
-    const childClones: LexicalNode[] = [];
-    node.getChildren().forEach((child) => {
-      const childClone = deepCloneNode(child);
-      if (childClone) childClones.push(childClone);
-    });
-    if (childClones.length) cloned.append(...childClones);
-  }
-
-  return cloned;
-}
-
 type InteractionType =
   | "move"
   | "resize-left"
@@ -112,6 +90,7 @@ type SelectionSnapshot = {
 
 type Interaction = {
   type: InteractionType;
+  pointerDownKey: string;
   nodeKey: string;
   startX: number;
   startY: number;
@@ -130,6 +109,7 @@ type Interaction = {
   didDuplicate: boolean;
   didInteract: boolean;
   selectionSnapshots: Map<string, SelectionSnapshot>;
+  suppressedToggleModifiers: ModifierKeys | null;
 };
 
 const EDGE_THRESHOLD = 8; // px from edge that counts as "border"
@@ -246,76 +226,6 @@ function getRotatedResizeCursor(axisAngleDeg: number): string {
   return cursor;
 }
 
-function duplicateSlideObjects(
-  keysToClone: string[],
-  opts: { offsetX: number; offsetY: number }
-): { clones: Array<{ originalKey: string; cloneKey: string }>; cloneKeys: string[] } {
-  const clones: Array<{ originalKey: string; cloneKey: string }> = [];
-  const cloneKeys: string[] = [];
-  const groupIdRecords: Array<{ cloneKey: string; originalGroupId: string }> = [];
-
-  keysToClone.forEach((key) => {
-    const node = $getNodeByKey(key);
-    if (!node) return;
-
-    const isSupported =
-      node instanceof TextBoxNode ||
-      node instanceof ResizableImageNode ||
-      node instanceof PictureFrameNode ||
-      node instanceof SvgNode;
-    if (!isSupported) {
-      return;
-    }
-
-    const clone = deepCloneNode(node);
-    if (!clone) return;
-
-    const originalGroupId = getNodeGroupId(node);
-
-    // keep z-order: insert right after original
-    node.insertAfter(clone);
-
-    // offset so it's visible
-    if (node instanceof TextBoxNode && clone instanceof TextBoxNode) {
-      const { x, y } = node.getPosition();
-      clone.setPosition(x + opts.offsetX, y + opts.offsetY);
-    } else if (node instanceof ResizableImageNode && clone instanceof ResizableImageNode) {
-      clone.setX(node.getX() + opts.offsetX);
-      clone.setY(node.getY() + opts.offsetY);
-    } else if (node instanceof PictureFrameNode && clone instanceof PictureFrameNode) {
-      clone.setX(node.getX() + opts.offsetX);
-      clone.setY(node.getY() + opts.offsetY);
-    } else if (node instanceof SvgNode && clone instanceof SvgNode) {
-      clone.setX(node.getX() + opts.offsetX);
-      clone.setY(node.getY() + opts.offsetY);
-    } else {
-      return;
-    }
-
-    const cloneKey = clone.getKey();
-    clones.push({ originalKey: key, cloneKey });
-    cloneKeys.push(cloneKey);
-    if (originalGroupId) {
-      groupIdRecords.push({ cloneKey, originalGroupId });
-    }
-  });
-
-  if (groupIdRecords.length > 0) {
-    const remap = new Map<string, string>();
-    groupIdRecords.forEach(({ cloneKey, originalGroupId }) => {
-      let next = remap.get(originalGroupId);
-      if (!next) {
-        next = createGroupId();
-        remap.set(originalGroupId, next);
-      }
-      const cloneNode = $getNodeByKey(cloneKey);
-      setNodeGroupId(cloneNode ?? null, next);
-    });
-  }
-
-  return { clones, cloneKeys };
-}
-
 function captureNodePositions(
   keys: string[],
   update: (snapshots: Map<string, SelectionSnapshot>) => void
@@ -344,9 +254,33 @@ function captureNodePositions(
         y: node.getY(),
         rotation: node.getRotation(),
       });
+    } else if (isLegacyImageNode(node)) {
+      const pos = getLegacyImagePosition(node);
+      if (!pos) return;
+      snapshot.set(key, { x: pos.x, y: pos.y, rotation: 0 });
     }
   });
   update(snapshot);
+}
+
+function isLegacyImageNode(node: LexicalNode): boolean {
+  const maybe = node as unknown as { constructor?: { getType?: () => string } };
+  return maybe?.constructor?.getType?.() === "image";
+}
+
+function getLegacyImagePosition(node: LexicalNode): { x: number; y: number } | null {
+  const maybe = node as unknown as { getX?: () => number; getY?: () => number };
+  if (typeof maybe.getX !== "function" || typeof maybe.getY !== "function") return null;
+  const x = maybe.getX();
+  const y = maybe.getY();
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+function setLegacyImagePosition(node: LexicalNode, nextX: number, nextY: number): void {
+  const maybe = node as unknown as { setX?: (value: number) => void; setY?: (value: number) => void };
+  if (typeof maybe.setX !== "function" || typeof maybe.setY !== "function") return;
+  maybe.setX(nextX);
+  maybe.setY(nextY);
 }
 
 export function getInteractionType(textbox: HTMLElement, event: PointerEvent, forceMove = false): InteractionType | null {
@@ -620,7 +554,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
 
       editor.update(() => {
         const keysToClone = resolveKeysForDuplication(interaction!);
-        const { clones, cloneKeys } = duplicateSlideObjects(keysToClone, { offsetX: 8, offsetY: 8 });
+        const { clones, cloneKeys } = duplicateSlideNodes(keysToClone, { offsetX: 8, offsetY: 8, selectClones: false });
         if (cloneKeys.length === 0) {
           return;
         }
@@ -753,7 +687,12 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
         return;
       }
 
-      const interactionType = getInteractionType(textbox, event);
+      const prevSelectionKeys = editor.getEditorState().read(() =>
+        getSlideNodeSelectionKeys()
+      );
+
+      const forceMove = prevSelectionKeys.length > 1 && prevSelectionKeys.includes(nodeKey);
+      const interactionType = getInteractionType(textbox, event, forceMove);
       if (!interactionType) {
         editor.focus();
         return;
@@ -767,9 +706,15 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
         );
       }
 
-      const prevSelectionKeys = editor.getEditorState().read(() =>
-        getSlideNodeSelectionKeys()
-      );
+      const wasSelectedBeforePointerDown = prevSelectionKeys.includes(nodeKey);
+      const modifiers: ModifierKeys = {
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+      };
+      const suppressToggle = Boolean((modifiers.ctrlKey || modifiers.metaKey) && wasSelectedBeforePointerDown);
+      const selectionModifiers = suppressToggle ? { ...modifiers, ctrlKey: false, metaKey: false } : modifiers;
 
       let selectionResult = {
         selectedKeys: prevSelectionKeys,
@@ -778,7 +723,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
 
       // Set selection in a single update to avoid race conditions with PreventRootTextPlugin
       editor.update(() => {
-        selectionResult = applyModifierNodeSelection(nodeKey, event);
+        selectionResult = applyModifierNodeSelection(nodeKey, selectionModifiers);
       });
       // Ensure the Lexical root stays focused so shortcuts like Ctrl+Z work for NodeSelection.
       editor.focus();
@@ -795,6 +740,7 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
 
       interaction = {
         type: interactionType,
+        pointerDownKey: nodeKey,
         nodeKey,
         startX: event.clientX,
         startY: event.clientY,
@@ -808,11 +754,12 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
         centerY,
         initialSelectionKeys: prevSelectionKeys,
         selectionKeys: selectionResult.selectedKeys,
-        wasSelectedBeforePointerDown: prevSelectionKeys.includes(nodeKey),
+        wasSelectedBeforePointerDown,
         copyGesture: pointerCopyModifierActive || copyModifierState.current,
         didDuplicate: false,
         didInteract: false,
         selectionSnapshots: new Map(),
+        suppressedToggleModifiers: suppressToggle ? modifiers : null,
       };
 
       captureInteractionSnapshot(nodeKey);
@@ -902,6 +849,8 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             } else if (targetNode instanceof SvgNode) {
               targetNode.setX(nextX);
               targetNode.setY(nextY);
+            } else if (isLegacyImageNode(targetNode)) {
+              setLegacyImagePosition(targetNode, nextX, nextY);
             }
           });
           return;
@@ -1014,6 +963,14 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             "mylg-force-rotate-cursor-grabbing"
           );
           clearForcedRotateCursor();
+        }
+        if (!wasInteracted && interaction.suppressedToggleModifiers) {
+          const { pointerDownKey, suppressedToggleModifiers } = interaction;
+          editor.update(() => {
+            applyModifierNodeSelection(pointerDownKey, suppressedToggleModifiers);
+          });
+          editor.focus();
+          wasInteracted = true;
         }
       }
       interaction = null;

@@ -3,6 +3,7 @@ import {
   $copyNode,
   $getNodeByKey,
   $setSelection,
+  ElementNode,
   type LexicalNode,
 } from "lexical";
 import { $createTextBoxNode, $isTextBoxNode, TextBoxNode } from "../nodes/TextBoxNode";
@@ -135,6 +136,16 @@ function cloneLegacyImageNode(node: LexicalNode): LexicalNode {
   return $copyNode(node);
 }
 
+function cloneLexicalSubtree(node: LexicalNode): LexicalNode {
+  const clone = $copyNode(node);
+  if (node instanceof ElementNode && clone instanceof ElementNode) {
+    node.getChildren().forEach((child) => {
+      clone.append(cloneLexicalSubtree(child));
+    });
+  }
+  return clone;
+}
+
 function cloneTextBoxNode(node: TextBoxNode): TextBoxNode {
   const { x, y } = node.getPosition();
   const { width, height } = node.getSize();
@@ -152,7 +163,7 @@ function cloneTextBoxNode(node: TextBoxNode): TextBoxNode {
   );
 
   node.getChildren().forEach((child) => {
-    clone.append((child as unknown as { clone: () => LexicalNode }).clone());
+    clone.append(cloneLexicalSubtree(child));
   });
 
   return clone;
