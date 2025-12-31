@@ -108,6 +108,9 @@ export type ToolbarActions = {
   onUpdateTextBoxBorder: (updates: Partial<PictureFrameBorder>) => void;
   onUpdateTextBoxBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
   onToggleLockSelection: () => void;
+  onReplacePictureFrameWithTextBox: () => void;
+  onLineHeightChange: (value: string) => void;
+  onLetterSpacingChange: (value: string) => void;
 };
 
 type Props = {
@@ -396,6 +399,69 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
 
           const shouldLock = lockableNodes.some((node) => !node.getLocked?.());
           lockableNodes.forEach((node) => node.setLocked?.(shouldLock));
+        });
+      },
+      onReplacePictureFrameWithTextBox: () => {
+        editor.update(() => {
+          const selection = $getSelection();
+          if (!$isNodeSelection(selection)) {
+            return;
+          }
+
+          const nodes = selection.getNodes();
+          const pictureFrames = nodes.filter(
+            (node): node is PictureFrameNode => node instanceof PictureFrameNode
+          );
+
+          if (pictureFrames.length === 0) {
+            return;
+          }
+
+          pictureFrames.forEach((pf) => {
+            const x = pf.getX();
+            const y = pf.getY();
+            const width = pf.getWidth();
+            const height = pf.getHeight();
+            const rotation = pf.getRotation?.() ?? 0;
+
+            // Create a new TextBoxNode with same position and size
+            // TextBoxNode constructor: (x, y, width, height, rotation, borderRadius, border, key, locked, groupId)
+            const textBox = new TextBoxNode(x, y, width, height, rotation);
+
+            // Replace the picture frame with the text box
+            pf.replace(textBox);
+          });
+        });
+      },
+      onLineHeightChange: (value: string) => {
+        // Line height is applied via CSS style on the text node
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            // Apply line-height to the selected text blocks
+            const nodes = selection.getNodes();
+            nodes.forEach((node) => {
+              const element = node.getParent();
+              if (element && 'setStyle' in element && typeof element.setStyle === 'function') {
+                (element as { setStyle: (style: string) => void }).setStyle(`line-height: ${value};`);
+              }
+            });
+          }
+        });
+      },
+      onLetterSpacingChange: (value: string) => {
+        // Letter spacing is applied via CSS style on text
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            const nodes = selection.getNodes();
+            nodes.forEach((node) => {
+              const element = node.getParent();
+              if (element && 'setStyle' in element && typeof element.setStyle === 'function') {
+                (element as { setStyle: (style: string) => void }).setStyle(`letter-spacing: ${value};`);
+              }
+            });
+          }
         });
       },
     };

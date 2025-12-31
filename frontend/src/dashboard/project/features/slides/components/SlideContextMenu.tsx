@@ -77,6 +77,9 @@ export interface SlideContextMenuProps {
   onInsertImage?: () => void;
   onInsertSvg?: () => void;
 
+  // Replace picture frame with text box
+  onReplacePictureFrameWithTextBox?: () => void;
+
   // Selection info
   selectionCount?: number;
   isLocked?: boolean;
@@ -116,12 +119,16 @@ const SlideContextMenu: React.FC<SlideContextMenuProps> = ({
   onInsertPictureFrameLayout,
   onInsertImage,
   onInsertSvg,
+  onReplacePictureFrameWithTextBox,
   selectionCount = 0,
   isLocked = false,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
   const { ctx } = useToolbarContextBridge();
+
+  // Check if a picture frame is selected
+  const isPictureFrameSelected = ctx.type === "picture-frame";
 
   // Get actual selection count from context
   const actualSelectionCount = 
@@ -301,6 +308,21 @@ const SlideContextMenu: React.FC<SlideContextMenuProps> = ({
       </button>
 
       <div className="context-menu__divider" />
+
+      {/* Replace Picture Frame with Text Box - only shown for single picture frame selection */}
+      {isPictureFrameSelected && actualSelectionCount === 1 && onReplacePictureFrameWithTextBox && (
+        <>
+          <button
+            type="button"
+            className="context-menu__item"
+            onClick={callAndClose(onReplacePictureFrameWithTextBox)}
+          >
+            <Type size={16} className="context-menu__icon" />
+            <span className="context-menu__label">Replace with Text Box</span>
+          </button>
+          <div className="context-menu__divider" />
+        </>
+      )}
 
       {/* Arrange (z-order) submenu */}
       <div className="context-menu__item context-menu__item--submenu">

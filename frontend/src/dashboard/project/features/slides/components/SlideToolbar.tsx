@@ -54,9 +54,13 @@ import {
   BLOCK_TYPE_LABELS,
   FONT_FAMILIES,
   FONT_SIZES,
+  LINE_HEIGHTS,
+  LETTER_SPACINGS,
   SUPPORTED_BLOCK_TYPES,
   type FontFamily,
   type FontSize,
+  type LineHeight,
+  type LetterSpacing,
   type TextBlockType,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
 import "./SlideToolbar.css";
@@ -266,6 +270,8 @@ interface SlideToolbarProps {
   onSetBlockType?: (type: TextBlockType) => void;
   onSetFontFamily?: (font: FontFamily) => void;
   onSetFontSize?: (size: FontSize) => void;
+  onSetLineHeight?: (lineHeight: LineHeight) => void;
+  onSetLetterSpacing?: (letterSpacing: LetterSpacing) => void;
   onSetTextColor?: (color: string) => void;
   onSetBgColor?: (color: string) => void;
   onSetSlideBackgroundColor?: (color: string) => void;
@@ -331,6 +337,8 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSetBlockType,
   onSetFontFamily,
   onSetFontSize,
+  onSetLineHeight,
+  onSetLetterSpacing,
   onSetTextColor,
   onSetBgColor,
   onSetSlideBackgroundColor,
@@ -622,12 +630,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleFontFamilySelect = (font: FontFamily) => {
     onSetFontFamily?.(font);
-    closeDropdown();
   };
 
   const handleFontSizeSelect = (size: FontSize) => {
     onSetFontSize?.(size);
-    closeDropdown();
+  };
+
+  const handleLineHeightSelect = (lineHeight: LineHeight) => {
+    onSetLineHeight?.(lineHeight);
+  };
+
+  const handleLetterSpacingSelect = (letterSpacing: LetterSpacing) => {
+    onSetLetterSpacing?.(letterSpacing);
   };
 
   const handleTextColorSelect = (e: { target: { value: string } }) => {
@@ -811,6 +825,32 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                     {FONT_SIZES.map((size) => (
                       <option key={size} value={size}>
                         {size}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="font-section">
+                  <label>Line Height</label>
+                  <select
+                    value={text.lineHeight || "1.5"}
+                    onChange={(e) => handleLineHeightSelect(e.target.value as LineHeight)}
+                  >
+                    {LINE_HEIGHTS.map((lh) => (
+                      <option key={lh} value={lh}>
+                        {lh}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="font-section">
+                  <label>Letter Spacing</label>
+                  <select
+                    value={text.letterSpacing || "0"}
+                    onChange={(e) => handleLetterSpacingSelect(e.target.value as LetterSpacing)}
+                  >
+                    {LETTER_SPACINGS.map((ls) => (
+                      <option key={ls} value={ls}>
+                        {ls === "0" ? "Normal" : ls}
                       </option>
                     ))}
                   </select>

@@ -80,6 +80,8 @@ export type TextFormattingState = {
   textColor: string;
   bgColor: string;
   codeLanguage: string;
+  lineHeight: string;
+  letterSpacing: string;
 };
 
 export const DEFAULT_TEXT_STATE: TextFormattingState = {
@@ -94,6 +96,8 @@ export const DEFAULT_TEXT_STATE: TextFormattingState = {
   textColor: DEFAULT_TEXT_COLOR,
   bgColor: DEFAULT_BG_COLOR,
   codeLanguage: "",
+  lineHeight: "1.5",
+  letterSpacing: "0",
 };
 
 const ToolbarContextReact = React.createContext<{

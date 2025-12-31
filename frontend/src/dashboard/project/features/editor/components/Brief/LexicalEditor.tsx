@@ -69,6 +69,7 @@ import PictureFramePlugin from "./plugins/PictureFramePlugin";
 import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import DeleteTextBoxPlugin from "./plugins/DeleteTextBoxPlugin";
 import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPlugin";
+import TextBoxSelectAllPlugin from "./plugins/TextBoxSelectAllPlugin";
 import PreventRootTextPlugin from "./plugins/PreventRootTextPlugin";
 import ClickAwayDeselectPlugin from "./plugins/ClickAwayDeselectPlugin";
 import SlidesUndoHotkeysPlugin from "./plugins/SlidesUndoHotkeysPlugin";
@@ -472,6 +473,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <TextBoxTransformPlugin scale={scale} />
         <DeleteTextBoxPlugin />
         <TextBoxKeyboardShortcutsPlugin />
+        <TextBoxSelectAllPlugin />
 
         <div
           className="content-container"

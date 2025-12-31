@@ -456,6 +456,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               onInsertPictureFrameLayout={toolbarActions.onInsertPictureFrameLayout}
               onInsertImage={toolbarActions.onAddImage}
               onInsertSvg={toolbarActions.onInsertVector}
+              // Replace picture frame with text box
+              onReplacePictureFrameWithTextBox={toolbarActions.onReplacePictureFrameWithTextBox}
             />
           )}
         </div>
