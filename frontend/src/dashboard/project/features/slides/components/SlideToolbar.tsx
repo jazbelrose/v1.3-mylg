@@ -16,7 +16,6 @@ import {
   Eye,
   Save,
   Copy,
-  Trash2,
   Download,
   Mic,
   Clock,
@@ -27,22 +26,10 @@ import {
   MoreHorizontal,
   Type,
   Plus,
-  ArrowUpToLine,
-  ArrowUp,
-  ArrowDown,
-  ArrowDownToLine,
-  Lock,
-  Unlock,
   Link,
   ChevronDown,
   Unlink,
   RectangleHorizontal,
-  AlignHorizontalJustifyStart,
-  AlignHorizontalJustifyEnd,
-  AlignVerticalJustifyStart,
-  AlignVerticalJustifyEnd,
-  AlignHorizontalDistributeCenter,
-  AlignVerticalDistributeCenter,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -303,21 +290,7 @@ interface SlideToolbarProps {
   onInsertLayout?: (template: string) => void;
   onSetCodeLanguage?: (lang: string) => void;
 
-  onDeleteSelection?: () => void;
-  onBringToFront?: () => void;
-  onSendToBack?: () => void;
-  onBringForward?: () => void;
-  onSendBackward?: () => void;
-  onAlignSelectionLeft?: () => void;
-  onAlignSelectionRight?: () => void;
-  onAlignSelectionTop?: () => void;
-  onAlignSelectionBottom?: () => void;
-  onDistributeSelectionHorizontal?: () => void;
-  onDistributeSelectionVertical?: () => void;
-  onDuplicateSelection?: () => void;
-  onLockSelection?: () => void;
-  onGroupSelection?: () => void;
-  onUngroupSelection?: () => void;
+  // Property update handlers (used in property bar)
   onUpdateImageBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
   onUpdateImageBorder?: (updates: Partial<PictureFrameBorder>) => void;
   onUpdateTextBoxBorderRadius?: (updates: Partial<ImageBorderRadiusState>) => void;
@@ -375,21 +348,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onInsertPictureFrame,
   onInsertPictureFrameLayout,
   onSetCodeLanguage,
-  onDeleteSelection,
-  onBringToFront,
-  onSendToBack,
-  onBringForward,
-  onSendBackward,
-  onAlignSelectionLeft,
-  onAlignSelectionRight,
-  onAlignSelectionTop,
-  onAlignSelectionBottom,
-  onDistributeSelectionHorizontal,
-  onDistributeSelectionVertical,
-  onDuplicateSelection,
-  onLockSelection,
-  onGroupSelection,
-  onUngroupSelection,
   onUpdateImageBorderRadius,
   onUpdateImageBorder,
   onUpdateTextBoxBorderRadius,
@@ -419,7 +377,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
   const alignButtonRef = useRef<HTMLButtonElement | null>(null);
-  const objectArrangeButtonRef = useRef<HTMLButtonElement | null>(null);
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
   const fontButtonRef = useRef<HTMLButtonElement | null>(null);
   const colorButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -430,7 +387,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const blockDropdownId = "block-dropdown";
   const alignDropdownId = "align-dropdown";
-  const objectArrangeDropdownId = "object-arrange-dropdown";
   const insertDropdownId = "insert-dropdown";
   const fontDropdownId = "font-dropdown";
   const colorDropdownId = "color-dropdown";
@@ -461,16 +417,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const pictureFrameState = isPictureFrameContext ? ctx : null;
   const isPictureFrameBorderEnabled =
     ctx.type === "picture-frame" ? Boolean(ctx.border?.enabled) : false;
-
-  const selectionCount =
-    ctx.type === "group" || ctx.type === "mixed"
-      ? ctx.selectionCount
-      : ctx.type === "image" || ctx.type === "picture-frame" || ctx.type === "svg" || ctx.type === "textbox"
-        ? ctx.selectionCount
-        : 0;
-
-  const canGroup = Boolean(onGroupSelection && selectionCount >= 2 && ctx.type !== "group");
-  const canUngroup = Boolean(onUngroupSelection && ctx.type === "group");
 
   useEffect(() => {
     if (ctx.type !== "picture-frame") {
@@ -644,10 +590,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleAlignDropdownToggle = () => {
     handleDropdownToggle(alignDropdownId, alignButtonRef);
-  };
-
-  const handleObjectArrangeDropdownToggle = () => {
-    handleDropdownToggle(objectArrangeDropdownId, objectArrangeButtonRef);
   };
 
   const handleInsertDropdownToggle = () => {
@@ -916,41 +858,12 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     );
   };
 
-  const renderObjectContext = (label: string, options: { showReplace?: boolean } = { showReplace: true }) => {
-    const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
-    const canLock = label === "Image" || label === "Vector" || label === "Text Box";
-    const hasAlignOrDistribute = Boolean(
-      onAlignSelectionLeft ||
-        onAlignSelectionRight ||
-        onAlignSelectionTop ||
-        onAlignSelectionBottom ||
-        onDistributeSelectionHorizontal ||
-        onDistributeSelectionVertical
-    );
-    const canAlignSelection = Boolean(hasAlignOrDistribute && selectionCount >= 2);
-    const canDistributeSelection = Boolean(hasAlignOrDistribute && selectionCount >= 3);
-    const selectedLocked =
-      ctx.type === "image" ||
-      ctx.type === "svg" ||
-      ctx.type === "textbox" ||
-      ctx.type === "picture-frame" ||
-      ctx.type === "group"
-        ? ctx.locked
-        : false;
+  // Property Bar: Only show properties, no commands (arrange/align/group/delete moved to context menu)
+  const renderObjectContext = (label: string) => {
     return (
       <div className="context-panel">
         <div className="context-controls compact">
-          {options.showReplace && (
-            <button
-              type="button"
-              className="toolbar-item"
-              onClick={() => handleInsert(onInsertImage)}
-              title="Replace Image"
-            >
-              <FileImageOutlined className="dropdown-icon" />
-              <span>Replace</span>
-            </button>
-          )}
+          <span className="context-label">{label}</span>
           {label === "Image" && isImageContext && (
             <div style={{ position: 'relative' }}>
               <button
@@ -1326,160 +1239,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               )}
             </div>
           )}
-          {hasArrange && (
-            <>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onBringToFront}
-                title={withShortcut("Bring to Front", ARRANGE_SHORTCUTS.bringToFront)}
-              >
-                <ArrowUpToLine size={18} />
-              </button>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onBringForward}
-                title={withShortcut("Bring Forward", ARRANGE_SHORTCUTS.bringForward)}
-              >
-                <ArrowUp size={18} />
-              </button>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onSendBackward}
-                title={withShortcut("Send Backward", ARRANGE_SHORTCUTS.sendBackward)}
-              >
-                <ArrowDown size={18} />
-              </button>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onSendToBack}
-                title={withShortcut("Send to Back", ARRANGE_SHORTCUTS.sendToBack)}
-              >
-                <ArrowDownToLine size={18} />
-              </button>
-            </>
-          )}
-          {hasAlignOrDistribute && (
-            <>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={handleObjectArrangeDropdownToggle}
-                ref={objectArrangeButtonRef}
-                title="Align & distribute selection"
-                disabled={!canAlignSelection}
-              >
-                <AlignHorizontalJustifyStart size={18} />
-                <ChevronDown size={16} />
-              </button>
-              {activeDropdown === objectArrangeDropdownId &&
-                ReactDOM.createPortal(
-                  <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionLeft)}
-                      disabled={!onAlignSelectionLeft || selectionCount < 2}
-                    >
-                      <AlignHorizontalJustifyStart size={18} className="dropdown-icon" />
-                      <span className="text">Align Left</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionRight)}
-                      disabled={!onAlignSelectionRight || selectionCount < 2}
-                    >
-                      <AlignHorizontalJustifyEnd size={18} className="dropdown-icon" />
-                      <span className="text">Align Right</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionTop)}
-                      disabled={!onAlignSelectionTop || selectionCount < 2}
-                    >
-                      <AlignVerticalJustifyStart size={18} className="dropdown-icon" />
-                      <span className="text">Align Top</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionBottom)}
-                      disabled={!onAlignSelectionBottom || selectionCount < 2}
-                    >
-                      <AlignVerticalJustifyEnd size={18} className="dropdown-icon" />
-                      <span className="text">Align Bottom</span>
-                    </button>
-                    <div className="dropdown-divider" />
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onDistributeSelectionHorizontal)}
-                      disabled={!onDistributeSelectionHorizontal || !canDistributeSelection}
-                    >
-                      <AlignHorizontalDistributeCenter size={18} className="dropdown-icon" />
-                      <span className="text">Distribute Horizontally</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onDistributeSelectionVertical)}
-                      disabled={!onDistributeSelectionVertical || !canDistributeSelection}
-                    >
-                      <AlignVerticalDistributeCenter size={18} className="dropdown-icon" />
-                      <span className="text">Distribute Vertically</span>
-                    </button>
-                  </div>,
-                  document.body
-                )}
-            </>
-          )}
-          {label === "Image" && (
-            <button type="button" className="toolbar-item" onClick={onDuplicateSelection} title="Duplicate">
-              <Copy size={18} />
-              <span>Duplicate</span>
-            </button>
-          )}
-
-          {canGroup && (
-            <button
-              type="button"
-              className="toolbar-item"
-              onClick={onGroupSelection}
-              title={withShortcut("Group", "Ctrl+G")}
-            >
-              <span>Group</span>
-            </button>
-          )}
-          {canUngroup && (
-            <button
-              type="button"
-              className="toolbar-item"
-              onClick={onUngroupSelection}
-              title={withShortcut("Ungroup", "Ctrl+U")}
-            >
-              <span>Ungroup</span>
-            </button>
-          )}
-          {canLock && (
-            <button
-              type="button"
-              className="toolbar-item"
-              onClick={onLockSelection}
-              disabled={!onLockSelection}
-              title={selectedLocked ? "Unlock" : "Lock"}
-            >
-              {selectedLocked ? <Unlock size={18} /> : <Lock size={18} />}
-              <span>{selectedLocked ? "Unlock" : "Lock"}</span>
-            </button>
-          )}
-          <button type="button" className="toolbar-item danger" onClick={onDeleteSelection} title="Delete">
-            <Trash2 size={18} />
-          </button>
         </div>
       </div>
     );
@@ -1499,6 +1258,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     </div>
   );
 
+  // Picture Frame Property Bar: Only properties, no commands
   const renderPictureFrameContext = () => {
     if (!pictureFrameState) {
       return renderCanvasContext();
@@ -1509,29 +1269,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     const borderEnabled = Boolean(frameBorder?.enabled);
     const borderWidth = Number(frameBorder?.width) || 0;
     const borderColor = frameBorder?.color || "#ffffff";
-    const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
-    const hasAlignOrDistribute = Boolean(
-      onAlignSelectionLeft ||
-        onAlignSelectionRight ||
-        onAlignSelectionTop ||
-        onAlignSelectionBottom ||
-        onDistributeSelectionHorizontal ||
-        onDistributeSelectionVertical
-    );
-    const canAlignSelection = Boolean(hasAlignOrDistribute && selectionCount >= 2);
-    const canDistributeSelection = Boolean(hasAlignOrDistribute && selectionCount >= 3);
-    const selectedLocked =
-      ctx.type === "image" ||
-      ctx.type === "svg" ||
-      ctx.type === "textbox" ||
-      ctx.type === "picture-frame" ||
-      ctx.type === "group"
-        ? ctx.locked
-        : false;
 
     return (
       <div className="context-panel">
         <div className="context-controls compact" style={{ gap: 12 }}>
+          <span className="context-label">Picture Frame</span>
           <PillSliderDropdown
             label="Corners:"
             value={safeRadius}
@@ -1601,154 +1343,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               </>
             )}
           </div>
-
-          {hasArrange && (
-            <>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onBringToFront}
-                title={withShortcut("Bring to Front", ARRANGE_SHORTCUTS.bringToFront)}
-              >
-                <ArrowUpToLine size={18} />
-              </button>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onBringForward}
-                title={withShortcut("Bring Forward", ARRANGE_SHORTCUTS.bringForward)}
-              >
-                <ArrowUp size={18} />
-              </button>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onSendBackward}
-                title={withShortcut("Send Backward", ARRANGE_SHORTCUTS.sendBackward)}
-              >
-                <ArrowDown size={18} />
-              </button>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={onSendToBack}
-                title={withShortcut("Send to Back", ARRANGE_SHORTCUTS.sendToBack)}
-              >
-                <ArrowDownToLine size={18} />
-              </button>
-            </>
-          )}
-
-          {hasAlignOrDistribute && (
-            <>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={handleObjectArrangeDropdownToggle}
-                ref={objectArrangeButtonRef}
-                title="Align & distribute selection"
-                disabled={!canAlignSelection}
-              >
-                <AlignHorizontalJustifyStart size={18} />
-                <ChevronDown size={16} />
-              </button>
-              {activeDropdown === objectArrangeDropdownId &&
-                ReactDOM.createPortal(
-                  <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionLeft)}
-                      disabled={!onAlignSelectionLeft || selectionCount < 2}
-                    >
-                      <AlignHorizontalJustifyStart size={18} className="dropdown-icon" />
-                      <span className="text">Align Left</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionRight)}
-                      disabled={!onAlignSelectionRight || selectionCount < 2}
-                    >
-                      <AlignHorizontalJustifyEnd size={18} className="dropdown-icon" />
-                      <span className="text">Align Right</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionTop)}
-                      disabled={!onAlignSelectionTop || selectionCount < 2}
-                    >
-                      <AlignVerticalJustifyStart size={18} className="dropdown-icon" />
-                      <span className="text">Align Top</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionBottom)}
-                      disabled={!onAlignSelectionBottom || selectionCount < 2}
-                    >
-                      <AlignVerticalJustifyEnd size={18} className="dropdown-icon" />
-                      <span className="text">Align Bottom</span>
-                    </button>
-                    <div className="dropdown-divider" />
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onDistributeSelectionHorizontal)}
-                      disabled={!onDistributeSelectionHorizontal || !canDistributeSelection}
-                    >
-                      <AlignHorizontalDistributeCenter size={18} className="dropdown-icon" />
-                      <span className="text">Distribute Horizontally</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onDistributeSelectionVertical)}
-                      disabled={!onDistributeSelectionVertical || !canDistributeSelection}
-                    >
-                      <AlignVerticalDistributeCenter size={18} className="dropdown-icon" />
-                      <span className="text">Distribute Vertically</span>
-                    </button>
-                  </div>,
-                  document.body
-                )}
-            </>
-          )}
-
-          {canGroup && (
-            <button
-              type="button"
-              className="toolbar-item"
-              onClick={onGroupSelection}
-              title={withShortcut("Group", "Ctrl+G")}
-            >
-              <span>Group</span>
-            </button>
-          )}
-          {canUngroup && (
-            <button
-              type="button"
-              className="toolbar-item"
-              onClick={onUngroupSelection}
-              title={withShortcut("Ungroup", "Ctrl+U")}
-            >
-              <span>Ungroup</span>
-            </button>
-          )}
-          <button
-            type="button"
-            className="toolbar-item"
-            onClick={onLockSelection}
-            disabled={!onLockSelection}
-            title={selectedLocked ? "Unlock" : "Lock"}
-          >
-            {selectedLocked ? <Unlock size={18} /> : <Lock size={18} />}
-            <span>{selectedLocked ? "Unlock" : "Lock"}</span>
-          </button>
-          <button type="button" className="toolbar-item danger" onClick={onDeleteSelection} title="Delete">
-            <Trash2 size={18} />
-          </button>
         </div>
       </div>
     );
@@ -1759,17 +1353,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       case "text":
         return renderTextContext();
       case "group":
-        return renderObjectContext("Group", { showReplace: false });
+        return renderObjectContext("Group");
       case "image":
-        return renderObjectContext("Image", { showReplace: false });
+        return renderObjectContext("Image");
       case "picture-frame":
         return renderPictureFrameContext();
       case "svg":
-        return renderObjectContext("Vector", { showReplace: false });
+        return renderObjectContext("Vector");
       case "textbox":
-        return renderObjectContext("Text Box", { showReplace: false });
+        return renderObjectContext("Text Box");
       case "mixed":
-        return renderObjectContext("Selection", { showReplace: false });
+        return renderMixedContext();
       default:
         return renderCanvasContext();
     }

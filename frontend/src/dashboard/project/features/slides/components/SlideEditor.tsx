@@ -3,6 +3,7 @@ import React, { useCallback, useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import SlideToolbar from "./SlideToolbar";
+import SlideContextMenu, { type ContextMenuPosition } from "./SlideContextMenu";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
@@ -77,6 +78,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   toolbarPortalContainer,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
 
@@ -293,18 +295,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertPictureFrameLayout={toolbarActions.onInsertPictureFrameLayout}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
-      onDuplicateSelection={toolbarActions.onDuplicateSelection}
-      onDeleteSelection={toolbarActions.onDeleteSelection}
-      onBringToFront={toolbarActions.onBringToFront}
-      onSendToBack={toolbarActions.onSendToBack}
-      onBringForward={toolbarActions.onBringForward}
-      onSendBackward={toolbarActions.onSendBackward}
-      onAlignSelectionLeft={toolbarActions.onAlignSelectionLeft}
-      onAlignSelectionRight={toolbarActions.onAlignSelectionRight}
-      onAlignSelectionTop={toolbarActions.onAlignSelectionTop}
-      onAlignSelectionBottom={toolbarActions.onAlignSelectionBottom}
-      onDistributeSelectionHorizontal={toolbarActions.onDistributeSelectionHorizontal}
-      onDistributeSelectionVertical={toolbarActions.onDistributeSelectionVertical}
+      // Property update handlers (keep in toolbar)
       onUpdateImageBorderRadius={toolbarActions.onUpdateImageBorderRadius}
       onUpdateImageBorder={toolbarActions.onUpdateImageBorder}
       onUpdatePictureFrameRadius={toolbarActions.onUpdatePictureFrameRadius}
@@ -312,12 +303,19 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onUpdatePictureFrameBorder={toolbarActions.onUpdatePictureFrameBorder}
       onUpdateTextBoxBorder={toolbarActions.onUpdateTextBoxBorder}
       onUpdateTextBoxBorderRadius={toolbarActions.onUpdateTextBoxBorderRadius}
-      onLockSelection={toolbarActions.onToggleLockSelection}
-      onGroupSelection={toolbarActions.onGroupSelection}
-      onUngroupSelection={toolbarActions.onUngroupSelection}
       onNewSlide={onNewSlide}
     />
   ) : null;
+
+  // Context menu handler for right-click
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenuPosition({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenuPosition(null);
+  }, []);
 
   const toolbarOutput =
     customToolbar && toolbarPortalContainer
@@ -345,7 +343,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
             </div>
           )}
 
-          <div className="slide-editor__canvas" ref={canvasRef}>
+          <div 
+            className="slide-editor__canvas" 
+            ref={canvasRef}
+            onContextMenu={handleContextMenu}
+          >
             <div
               className="slide-editor__canvas-scaler"
               style={{
@@ -390,6 +392,42 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Right-click Context Menu */}
+          {toolbarActions && (
+            <SlideContextMenu
+              position={contextMenuPosition}
+              onClose={handleCloseContextMenu}
+              // Clipboard (TODO: implement cut/copy/paste in ToolbarActions)
+              onPaste={undefined}
+              onCut={undefined}
+              onCopy={undefined}
+              // Arrange (z-order)
+              onBringToFront={toolbarActions.onBringToFront}
+              onBringForward={toolbarActions.onBringForward}
+              onSendBackward={toolbarActions.onSendBackward}
+              onSendToBack={toolbarActions.onSendToBack}
+              // Object Alignment
+              onAlignSelectionLeft={toolbarActions.onAlignSelectionLeft}
+              onAlignSelectionRight={toolbarActions.onAlignSelectionRight}
+              onAlignSelectionTop={toolbarActions.onAlignSelectionTop}
+              onAlignSelectionBottom={toolbarActions.onAlignSelectionBottom}
+              onDistributeSelectionHorizontal={toolbarActions.onDistributeSelectionHorizontal}
+              onDistributeSelectionVertical={toolbarActions.onDistributeSelectionVertical}
+              // Group
+              onGroupSelection={toolbarActions.onGroupSelection}
+              onUngroupSelection={toolbarActions.onUngroupSelection}
+              // Lock & Delete
+              onLockSelection={toolbarActions.onToggleLockSelection}
+              onDeleteSelection={toolbarActions.onDeleteSelection}
+              // Insert (for canvas context)
+              onInsertTextBox={toolbarActions.onInsertTextBox}
+              onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
+              onInsertPictureFrameLayout={toolbarActions.onInsertPictureFrameLayout}
+              onInsertImage={toolbarActions.onAddImage}
+              onInsertSvg={toolbarActions.onInsertVector}
+            />
+          )}
         </div>
       </ToolbarContextProvider>
     </DropdownProvider>
