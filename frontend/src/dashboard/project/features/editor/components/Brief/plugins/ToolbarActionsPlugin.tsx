@@ -423,10 +423,32 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             const width = pf.getWidth();
             const height = pf.getHeight();
             const rotation = pf.getRotation?.() ?? 0;
+            const border = pf.getBorder?.() ?? { enabled: false, width: 2, color: '#ffffff' };
+            const locked = pf.getLocked?.() ?? false;
+            const groupId = pf.getGroupId?.() ?? null;
+            // Convert single radius to all-corners format for TextBoxNode
+            const radius = pf.getRadius?.() ?? 0;
+            const borderRadius = {
+              topLeft: radius,
+              topRight: radius,
+              bottomRight: radius,
+              bottomLeft: radius,
+            };
 
-            // Create a new TextBoxNode with same position and size
+            // Create a new TextBoxNode with same position, size, and style
             // TextBoxNode constructor: (x, y, width, height, rotation, borderRadius, border, key, locked, groupId)
-            const textBox = new TextBoxNode(x, y, width, height, rotation);
+            const textBox = new TextBoxNode(
+              x,
+              y,
+              width,
+              height,
+              rotation,
+              borderRadius,
+              border,
+              undefined, // key - auto-generated
+              locked,
+              groupId
+            );
 
             // Replace the picture frame with the text box
             pf.replace(textBox);

@@ -127,6 +127,7 @@ const SlidesPage: React.FC = () => {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [selectedSlideIds, setSelectedSlideIds] = useState<string[]>([]);
+  const [scrollToSlideId, setScrollToSlideId] = useState<string | null>(null);
   const [deleteSelectedOpen, setDeleteSelectedOpen] = useState(false);
   const [pendingDeleteSlideIds, setPendingDeleteSlideIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -666,7 +667,11 @@ const SlidesPage: React.FC = () => {
     const updatedSlides = [...slides, newSlide];
     setSlides(updatedSlides);
     setActiveSlideId(newSlide.id);
+    setScrollToSlideId(newSlide.id);
     setIsDirty(true);
+
+    // Clear scrollToSlideId after a short delay to allow re-triggering
+    setTimeout(() => setScrollToSlideId(null), 500);
 
     // Save to backend
     saveSlides(updatedSlides);
@@ -1232,6 +1237,7 @@ const SlidesPage: React.FC = () => {
                 });
               }}
               onExportSlide={handleExport}
+              scrollToSlideId={scrollToSlideId}
             />
 
             <section className="slides-main" aria-live="polite">

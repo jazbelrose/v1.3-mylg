@@ -201,6 +201,7 @@ interface SlidesSidebarProps {
   onSelectedSlideIdsChange?: (ids: string[]) => void;
   onRequestDeleteSelected?: (ids: string[]) => void;
   onRenameSlide?: (slideId: string, title: string) => void;
+  scrollToSlideId?: string | null;
 }
 
 const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
@@ -216,6 +217,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onSelectedSlideIdsChange,
   onRequestDeleteSelected,
   onRenameSlide,
+  scrollToSlideId,
 }) => {
   const uiThumbsEnabled = isUiThumbsEnabled();
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
@@ -224,6 +226,17 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   const selectedIdSet = useMemo(() => new Set(selectedSlideIds), [selectedSlideIds]);
   const [renamingSlideId, setRenamingSlideId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const slideItemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Scroll to the specified slide when scrollToSlideId changes
+  useEffect(() => {
+    if (!scrollToSlideId) return;
+    
+    const slideElement = slideItemRefs.current.get(scrollToSlideId);
+    if (slideElement) {
+      slideElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [scrollToSlideId]);
 
   const setSelected = useCallback(
     (ids: string[]) => {
@@ -359,6 +372,13 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
           return (
             <div
               key={slide.id}
+              ref={(el) => {
+                if (el) {
+                  slideItemRefs.current.set(slide.id, el);
+                } else {
+                  slideItemRefs.current.delete(slide.id);
+                }
+              }}
               role="listitem"
               aria-selected={isSelected}
               className={`slides-sidebar__item${isActive ? " is-active" : ""}${isSelected ? " is-selected" : ""}`}
