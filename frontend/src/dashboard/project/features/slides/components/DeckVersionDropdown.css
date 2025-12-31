@@ -3,6 +3,8 @@
 .deck-version-dropdown {
   position: relative;
   display: inline-flex;
+  /* Ensure dropdown can overflow toolbar boundaries */
+  overflow: visible;
 }
 
 .deck-version-dropdown__trigger {
@@ -10,10 +12,10 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -23,13 +25,13 @@
 }
 
 .deck-version-dropdown__trigger:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--border-color-hover, rgba(255, 255, 255, 0.15));
 }
 
 .deck-version-dropdown__trigger--open {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-active, rgba(255, 255, 255, 0.1));
+  border-color: var(--border-color-active, rgba(255, 255, 255, 0.2));
 }
 
 .deck-version-dropdown__trigger:disabled {
@@ -56,15 +58,16 @@
 .deck-version-dropdown__menu {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  z-index: 1000;
+  right: 0;
+  left: auto;
+  z-index: 10000;
   min-width: 220px;
   max-width: 280px;
-  background: #1a1b1e;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg3, #181a1b);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 16px 48px rgba(0, 0, 0, 0.3);
+  overflow: visible;
   animation: dropdownFadeIn 0.15s ease;
 }
 

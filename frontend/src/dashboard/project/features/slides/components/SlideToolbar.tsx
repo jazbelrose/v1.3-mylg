@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback, type ChangeEvent, useEffect, useState } from "react";
+import React, { useMemo, useRef, useCallback, type ChangeEvent, useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import {
   Bold,
@@ -31,15 +31,7 @@ import {
   ChevronDown,
   Unlink,
   RectangleHorizontal,
-  RefreshCw,
-  X,
-  Check,
 } from "lucide-react";
-import {
-  generatePictureFrameLayout,
-  type PictureFrameLayoutResult,
-  type LayoutMode,
-} from "@/dashboard/project/features/slides/lib/pictureFrameLayoutGenerator";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
 import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
@@ -282,9 +274,8 @@ interface SlideToolbarProps {
   onInsertSvg?: () => void;
   onInsertTextBox?: () => void;
   onInsertPictureFrame?: () => void;
-  onInsertPictureFrameLayout?: () => void;
-  /** Apply picture frame layout with specific parameters */
-  onApplyPictureFrameLayout?: (count: number, mode: "grid" | "masonry", seed: string) => void;
+  /** Opens the floating layout generator panel */
+  onOpenLayoutPanel?: () => void;
   onInsertFigma?: () => void;
   onInsertLayout?: (template: string) => void;
   onSetCodeLanguage?: (lang: string) => void;
@@ -348,8 +339,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onInsertSvg,
   onInsertTextBox,
   onInsertPictureFrame,
-  onInsertPictureFrameLayout,
-  onApplyPictureFrameLayout,
+  onOpenLayoutPanel,
   onSetCodeLanguage,
   onUpdateImageBorderRadius,
   onUpdateImageBorder,
@@ -377,13 +367,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const [showPictureFrameCornersPopup, setShowPictureFrameCornersPopup] = useState(false);
   const [showPictureFrameBorderPopup, setShowPictureFrameBorderPopup] = useState(false);
-
-  // Layout Editor state
-  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false);
-  const [layoutCount, setLayoutCount] = useState(6);
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("grid");
-  const [layoutSeed, setLayoutSeed] = useState(() => `${Date.now()}`);
-  const [layoutPreview, setLayoutPreview] = useState<PictureFrameLayoutResult | null>(null);
 
   const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -664,55 +647,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     closeDropdown();
   };
 
-  // Layout Editor handlers
-  const openLayoutEditor = useCallback(() => {
-    setLayoutEditorOpen(true);
-    setLayoutSeed(`${Date.now()}`);
+  const handleOpenLayoutPanel = useCallback(() => {
+    onOpenLayoutPanel?.();
     closeDropdown();
-  }, [closeDropdown]);
-
-  const closeLayoutEditor = useCallback(() => {
-    setLayoutEditorOpen(false);
-    setLayoutPreview(null);
-  }, []);
-
-  const generateLayout = useCallback(() => {
-    const newSeed = `${Date.now()}`;
-    setLayoutSeed(newSeed);
-    const preview = generatePictureFrameLayout(layoutCount, {
-      mode: layoutMode,
-      seed: newSeed,
-      canvasWidth: 1920,
-      canvasHeight: 1080,
-      margin: { top: 96, right: 120, bottom: 96, left: 120 },
-      gutter: 24,
-      minFrameWidth: 220,
-      minFrameHeight: 160,
-    });
-    setLayoutPreview(preview);
-  }, [layoutCount, layoutMode]);
-
-  const applyLayout = useCallback(() => {
-    onApplyPictureFrameLayout?.(layoutCount, layoutMode, layoutSeed);
-    closeLayoutEditor();
-  }, [layoutCount, layoutMode, layoutSeed, onApplyPictureFrameLayout, closeLayoutEditor]);
-
-  // Generate preview when layout editor opens or params change
-  useEffect(() => {
-    if (layoutEditorOpen) {
-      const preview = generatePictureFrameLayout(layoutCount, {
-        mode: layoutMode,
-        seed: layoutSeed,
-        canvasWidth: 1920,
-        canvasHeight: 1080,
-        margin: { top: 96, right: 120, bottom: 96, left: 120 },
-        gutter: 24,
-        minFrameWidth: 220,
-        minFrameHeight: 160,
-      });
-      setLayoutPreview(preview);
-    }
-  }, [layoutEditorOpen, layoutCount, layoutMode, layoutSeed]);
+  }, [onOpenLayoutPanel, closeDropdown]);
 
   const handleZoomPreset = (level: number) => {
     onSetZoom?.(level);
@@ -1305,96 +1243,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     );
   };
 
-  const renderLayoutEditorPanel = () => (
-    <div className="context-panel layout-editor-panel">
-      <div className="context-controls compact" style={{ gap: 16 }}>
-        <span className="context-label">Layout Generator</span>
-        
-        <div className="layout-editor__field">
-          <label htmlFor="layout-count">Frames:</label>
-          <input
-            id="layout-count"
-            type="number"
-            min={1}
-            max={20}
-            value={layoutCount}
-            onChange={(e) => {
-              const val = Math.max(1, Math.min(20, Number(e.target.value) || 1));
-              setLayoutCount(val);
-            }}
-            className="layout-editor__input"
-          />
-        </div>
-
-        <div className="layout-editor__field">
-          <label htmlFor="layout-mode">Mode:</label>
-          <select
-            id="layout-mode"
-            value={layoutMode}
-            onChange={(e) => setLayoutMode(e.target.value as LayoutMode)}
-            className="layout-editor__select"
-          >
-            <option value="grid">Grid</option>
-            <option value="masonry">Masonry</option>
-          </select>
-        </div>
-
-        {layoutPreview && (
-          <div className="layout-editor__preview">
-            <svg
-              viewBox="0 0 192 108"
-              className="layout-editor__preview-svg"
-              aria-label={`Preview: ${layoutPreview.frames.length} frames`}
-            >
-              {layoutPreview.frames.map((frame, i) => (
-                <rect
-                  key={i}
-                  x={frame.x / 10}
-                  y={frame.y / 10}
-                  width={frame.width / 10}
-                  height={frame.height / 10}
-                  rx={1.6}
-                  fill="rgba(255,255,255,0.12)"
-                  stroke="rgba(255,255,255,0.4)"
-                  strokeWidth={0.5}
-                />
-              ))}
-            </svg>
-          </div>
-        )}
-
-        <button
-          type="button"
-          className="toolbar-item layout-editor__btn"
-          onClick={generateLayout}
-          title="Re-generate layout"
-        >
-          <RefreshCw size={16} />
-          <span>Generate</span>
-        </button>
-
-        <button
-          type="button"
-          className="toolbar-item layout-editor__btn layout-editor__btn--primary"
-          onClick={applyLayout}
-          title="Apply layout to slide"
-        >
-          <Check size={16} />
-          <span>Apply</span>
-        </button>
-
-        <button
-          type="button"
-          className="toolbar-item layout-editor__btn layout-editor__btn--cancel"
-          onClick={closeLayoutEditor}
-          title="Cancel"
-        >
-          <X size={16} />
-        </button>
-      </div>
-    </div>
-  );
-
   const renderCanvasContext = () => (
     <div className="context-panel">
       <div className="context-controls compact">
@@ -1500,11 +1348,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   };
 
   const renderContextPanel = () => {
-    // Show layout editor panel when active (takes priority)
-    if (layoutEditorOpen) {
-      return renderLayoutEditorPanel();
-    }
-    
     switch (ctx.type) {
       case "text":
         return renderTextContext();
@@ -1783,7 +1626,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 <RectangleHorizontal className="dropdown-icon" size={18} />
                 <span className="text">Picture Frame</span>
               </button>
-              <button type="button" className="item" onClick={openLayoutEditor}>
+              <button type="button" className="item" onClick={handleOpenLayoutPanel}>
                 <LayoutOutlined className="dropdown-icon" />
                 <span className="text">Picture Frame Layout…</span>
               </button>

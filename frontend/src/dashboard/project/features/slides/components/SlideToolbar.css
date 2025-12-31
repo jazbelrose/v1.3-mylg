@@ -29,6 +29,12 @@
   min-width: 0;
 }
 
+.toolbar-right {
+  /* Allow dropdowns to overflow */
+  overflow: visible;
+  position: relative;
+}
+
 .toolbar-center {
   overflow: visible;
 }

@@ -76,6 +76,10 @@ export function useThumbnail({
     });
   }, []);
 
+  // Track previous content to detect rapid changes
+  const previousContentRef = useRef<string | undefined>(content);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!isUiThumbsEnabled()) {
       setIsLoading(false);
@@ -88,11 +92,23 @@ export function useThumbnail({
       return;
     }
 
-  const currentRefreshSeq = refreshSeq;
+    // Debounce: if content just changed, wait for DOM to stabilize
+    const contentChanged = previousContentRef.current !== content;
+    previousContentRef.current = content;
 
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    // If content changed, delay thumbnail generation to allow DOM to settle
+    const stabilizationDelay = contentChanged ? 300 : 0;
+
+    const currentRefreshSeq = refreshSeq;
     let cancelled = false;
 
-    (async () => {
+    const doRender = async () => {
       try {
         const hash = await hashContent(content);
         if (cancelled) {
@@ -145,7 +161,7 @@ export function useThumbnail({
         }
 
         const previousUrl = currentUrlRef.current;
-  currentUrlRef.current = url;
+        currentUrlRef.current = url;
         lastLoadedRef.current = { hash, backgroundColor, refreshSeq: currentRefreshSeq };
         setThumbnailUrl(url);
         setIsLoading(false);
@@ -163,10 +179,25 @@ export function useThumbnail({
           setIsLoading(false);
         }
       }
-    })();
+    };
+
+    // Apply stabilization delay when content changed
+    if (stabilizationDelay > 0) {
+      debounceTimerRef.current = setTimeout(() => {
+        if (!cancelled) {
+          void doRender();
+        }
+      }, stabilizationDelay);
+    } else {
+      void doRender();
+    }
 
     return () => {
       cancelled = true;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
     };
   }, [projectId, slideId, content, backgroundColor, width, height, refreshSeq, decodeImage]);
 

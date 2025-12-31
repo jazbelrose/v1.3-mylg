@@ -1,0 +1,192 @@
+/* LayoutGeneratorPanel.css - Floating layout generator panel styles */
+
+.layout-generator-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  
+  min-width: 340px;
+  max-width: 420px;
+  
+  background: linear-gradient(165deg, rgba(26, 28, 30, 0.98), rgba(20, 21, 23, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 20px 48px rgba(0, 0, 0, 0.5),
+    0 8px 16px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  
+  animation: layoutPanelFadeIn 0.2s ease;
+}
+
+@keyframes layoutPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.layout-generator-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.layout-generator-panel__title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.layout-generator-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.layout-generator-panel__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.layout-generator-panel__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.layout-generator-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.layout-generator-panel__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.layout-generator-panel__field label {
+  white-space: nowrap;
+}
+
+.layout-generator-panel__input {
+  width: 64px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.layout-generator-panel__input:focus {
+  outline: none;
+  border-color: rgba(79, 140, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.layout-generator-panel__select {
+  padding: 6px 28px 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.layout-generator-panel__select:focus {
+  outline: none;
+  border-color: rgba(79, 140, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.layout-generator-panel__preview {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.layout-generator-panel__preview-svg {
+  width: 100%;
+  max-width: 288px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  display: block;
+}
+
+.layout-generator-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.layout-generator-panel__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.layout-generator-panel__btn--secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.layout-generator-panel__btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.layout-generator-panel__btn--primary {
+  background: linear-gradient(135deg, #4f8cff 0%, #3a6fd8 100%);
+  border: 1px solid rgba(79, 140, 255, 0.5);
+  color: #fff;
+}
+
+.layout-generator-panel__btn--primary:hover {
+  background: linear-gradient(135deg, #5c96ff 0%, #4578e0 100%);
+  box-shadow: 0 4px 12px rgba(79, 140, 255, 0.25);
+}

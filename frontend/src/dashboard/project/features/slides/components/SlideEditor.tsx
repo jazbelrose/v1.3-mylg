@@ -4,6 +4,7 @@ import ReactDOM from "react-dom";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import SlideToolbar from "./SlideToolbar";
 import SlideContextMenu, { type ContextMenuPosition } from "./SlideContextMenu";
+import LayoutGeneratorPanel from "./LayoutGeneratorPanel";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
@@ -15,6 +16,7 @@ import {
   type FontSize,
   type TextBlockType,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
+import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import "./SlideEditor.css";
 
 interface SlideEditorProps {
@@ -82,7 +84,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
+  const [layoutPanelOpen, setLayoutPanelOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const toolbarContainerRef = useRef<HTMLDivElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
 
   const { saveSlide, markDirty } = useSlidePersistence({
@@ -108,6 +112,21 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const handleRegisterToolbar = useCallback((actions: ToolbarActions) => {
     setToolbarActions(actions);
   }, []);
+
+  const handleOpenLayoutPanel = useCallback(() => {
+    setLayoutPanelOpen(true);
+  }, []);
+
+  const handleCloseLayoutPanel = useCallback(() => {
+    setLayoutPanelOpen(false);
+  }, []);
+
+  const handleApplyLayout = useCallback(
+    (count: number, mode: LayoutMode, seed: string) => {
+      toolbarActions?.onApplyPictureFrameLayout(count, mode, seed);
+    },
+    [toolbarActions]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -295,8 +314,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertSvg={toolbarActions.onInsertVector}
       onInsertTextBox={toolbarActions.onInsertTextBox}
       onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
-      onInsertPictureFrameLayout={toolbarActions.onInsertPictureFrameLayout}
-      onApplyPictureFrameLayout={toolbarActions.onApplyPictureFrameLayout}
+      onOpenLayoutPanel={handleOpenLayoutPanel}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
       // Property update handlers (keep in toolbar)
@@ -340,7 +358,14 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
           data-canvas-width={STAGE_WIDTH}
           data-canvas-height={STAGE_HEIGHT}
         >
-          {toolbarOutput}
+          <div className="slide-editor__toolbar-container" ref={toolbarContainerRef}>
+            {toolbarOutput}
+            <LayoutGeneratorPanel
+              open={layoutPanelOpen}
+              onClose={handleCloseLayoutPanel}
+              onApply={handleApplyLayout}
+            />
+          </div>
 
           {zoom !== 100 && (
             <div className="slide-editor__zoom-warning">
