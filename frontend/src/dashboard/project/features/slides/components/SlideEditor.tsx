@@ -296,6 +296,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertTextBox={toolbarActions.onInsertTextBox}
       onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
       onInsertPictureFrameLayout={toolbarActions.onInsertPictureFrameLayout}
+      onApplyPictureFrameLayout={toolbarActions.onApplyPictureFrameLayout}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
       // Property update handlers (keep in toolbar)

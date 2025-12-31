@@ -78,6 +78,8 @@ export type ToolbarActions = {
   onInsertTextBox: () => void;
   onInsertPictureFrame: () => void;
   onInsertPictureFrameLayout: () => void;
+  /** Apply layout with specific parameters (no prompts) */
+  onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string) => void;
 
   onInsertLayout: (template: string) => void;
 
@@ -217,21 +219,10 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
       onInsertPictureFrame: () =>
         editor.dispatchCommand(INSERT_PICTURE_FRAME_COMMAND, undefined),
       onInsertPictureFrameLayout: () => {
-        if (typeof window === "undefined") return;
-
-        const rawCount = window.prompt("How many picture frames?", "6") ?? "";
-        const parsedCount = Math.floor(Number(rawCount));
-        if (!Number.isFinite(parsedCount) || parsedCount <= 0) return;
-        const count = Math.max(1, parsedCount);
-
-        const rawMode = (window.prompt("Layout mode: grid or masonry?", "grid") ?? "grid")
-          .trim()
-          .toLowerCase();
-        const mode = rawMode === "masonry" ? "masonry" : "grid";
-
-        const rawSeed = (window.prompt("Seed (optional, deterministic)", "") ?? "").trim();
-        const seed = rawSeed.length > 0 ? rawSeed : `${Date.now()}`;
-
+        // No-op: UI now handles layout configuration via the toolbar panel
+        // This is kept for backward compatibility
+      },
+      onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string) => {
         editor.dispatchCommand(INSERT_PICTURE_FRAME_LAYOUT_COMMAND, { count, mode, seed });
       },
 
