@@ -27,7 +27,13 @@ function nextAnimationFrame(): Promise<void> {
   });
 }
 
-async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 3000): Promise<void> {
+/**
+ * Wait for all images in a DOM tree to load (or fail).
+ * This includes both img elements and background images.
+ * @param root - The root element to search for images
+ * @param timeoutMs - Maximum time to wait for images (default 5000ms)
+ */
+async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 5000): Promise<void> {
   if (typeof document === 'undefined') return;
 
   const images = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
@@ -39,6 +45,9 @@ async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 3000): Promise
   
   // Wait for img elements
   images.forEach((img) => {
+    // Skip images without a src
+    if (!img.src) return;
+    
     imagePromises.push(
       new Promise<void>((resolve) => {
         if (img.complete && img.naturalWidth > 0) {
@@ -55,6 +64,14 @@ async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 3000): Promise
         };
         img.addEventListener('load', onDone);
         img.addEventListener('error', onDone);
+        
+        // Additional fallback: if image has src but hasn't triggered load/error,
+        // force a reload by reassigning src
+        if (img.src && !img.complete) {
+          const currentSrc = img.src;
+          img.src = '';
+          img.src = currentSrc;
+        }
       })
     );
   });
@@ -301,14 +318,24 @@ function syncImageSources(original: HTMLElement, clone: HTMLElement): void {
     const origImg = originalImages[i];
     const cloneImg = cloneImages[i];
     
-    // Copy the actual current src (not the attribute) which may differ due to React
-    if (origImg.currentSrc && !cloneImg.src) {
-      cloneImg.src = origImg.currentSrc;
-    } else if (origImg.src && !cloneImg.src) {
-      cloneImg.src = origImg.src;
+    // Get the best available source from the original image
+    const bestSrc = origImg.currentSrc || origImg.src || origImg.getAttribute('src') || '';
+    
+    // Always sync the src if the original has one
+    if (bestSrc && !cloneImg.src) {
+      cloneImg.src = bestSrc;
+    } else if (bestSrc && cloneImg.src !== bestSrc) {
+      // Ensure clone has the same src as original
+      cloneImg.src = bestSrc;
     }
     
-    // Also sync computed styles that might affect rendering
+    // Also sync the crossorigin attribute for CORS compliance
+    const crossorigin = origImg.getAttribute('crossorigin');
+    if (crossorigin && !cloneImg.hasAttribute('crossorigin')) {
+      cloneImg.setAttribute('crossorigin', crossorigin);
+    }
+    
+    // Mark loaded status for debugging
     if (origImg.complete && origImg.naturalWidth > 0) {
       cloneImg.setAttribute('data-loaded', 'true');
     }
@@ -339,13 +366,21 @@ async function captureElementBlob(
   width: number,
   height: number,
   backgroundColor: string,
-  retryCount = 2
+  retryCount = 3
 ): Promise<Blob | null> {
   if (!element) return null;
 
   if (typeof document === "undefined") return null;
 
   const captureRoot = resolveThumbnailCaptureRoot(element);
+
+  // CRITICAL: Wait for images in the ORIGINAL element to load BEFORE cloning.
+  // This ensures picture frame images are fully loaded before we capture.
+  await waitForImagesToLoad(captureRoot, 5000);
+  
+  // Give React an extra moment to update any state after images load
+  await nextAnimationFrame();
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   // Capture from a clean, offscreen clone so parent transforms (zoom/fit scaling)
   // don't affect layout/position in the snapshot.
@@ -397,12 +432,14 @@ async function captureElementBlob(
       if (typeof document !== "undefined" && document.fonts?.ready) {
         await document.fonts.ready;
       }
-      await waitForImagesToLoad(clone);
+      await waitForImagesToLoad(clone, 3000);
       
       // Additional wait on retry attempts to allow images more time to load
       if (attempt > 0) {
         await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
-        await waitForImagesToLoad(clone);
+        // Re-sync images on retry in case they loaded in the original
+        syncImageSources(captureRoot, clone);
+        await waitForImagesToLoad(clone, 3000);
       }
       
       const blob = await toBlob(clone, {

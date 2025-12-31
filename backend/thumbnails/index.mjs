@@ -154,16 +154,23 @@ async function hydrateThumbnailAssetUrls(lexicalJson) {
   const rootChildren = Array.isArray(root?.children) ? root.children : [];
 
   const queue = [];
+  const pictureFrameCount = { total: 0, withImage: 0 };
 
   const visit = (node) => {
     if (!node || typeof node !== 'object') return;
 
-    if (node.type === 'picture-frame' && typeof node.imageSrc === 'string') {
-      queue.push(
-        resolveAssetUrlForThumbnail(node.imageSrc).then((url) => {
-          node.imageSrc = url || '';
-        })
-      );
+    if (node.type === 'picture-frame') {
+      pictureFrameCount.total++;
+      if (typeof node.imageSrc === 'string' && node.imageSrc.trim()) {
+        pictureFrameCount.withImage++;
+        const originalSrc = node.imageSrc;
+        queue.push(
+          resolveAssetUrlForThumbnail(node.imageSrc).then((url) => {
+            node.imageSrc = url || '';
+            console.log('PICTURE_FRAME_HYDRATED', { originalSrc, resolvedUrl: url || '(empty)' });
+          })
+        );
+      }
     }
 
     if ((node.type === 'image' || node.type === 'resizable-image') && (typeof node.src === 'string' || typeof node.fileKey === 'string')) {
@@ -185,6 +192,10 @@ async function hydrateThumbnailAssetUrls(lexicalJson) {
   for (const child of rootChildren) visit(child);
 
   await Promise.all(queue);
+  
+  if (pictureFrameCount.total > 0) {
+    console.log('PICTURE_FRAME_SUMMARY', pictureFrameCount);
+  }
 }
 
 function parseColorToRgb(value) {

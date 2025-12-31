@@ -474,7 +474,9 @@ const SlidesPage: React.FC = () => {
       return;
     }
 
-    // Delay slightly to allow the editor to fully render
+    // Delay to allow the editor to fully render AND images to load from CDN.
+    // For slides with picture frames containing remote images, we need extra time
+    // to ensure images are fully loaded before thumbnail capture.
     const timer = setTimeout(() => {
       const width = 1920;
       const height = 1080;
@@ -509,7 +511,7 @@ const SlidesPage: React.FC = () => {
       }).catch((e) => {
         console.warn("Failed to generate initial thumbnail:", e);
       });
-    }, 1500); // Wait for editor to fully render
+    }, 2500); // Wait for editor + CDN images to fully render
 
     return () => clearTimeout(timer);
   }, [projectId, activeSlideId, slides, uiThumbsEnabled, shouldSkipThumbnailForSlide, makeUiThumbnail]);
@@ -588,6 +590,7 @@ const SlidesPage: React.FC = () => {
                             ws.send(
                               JSON.stringify({
                                 action: "projectUpdated",
+                                projectId,
                                 fields: { slides: persisted },
                                 conversationId: `project#${projectId}`,
                                 username: userName || "Someone",
@@ -889,6 +892,19 @@ const SlidesPage: React.FC = () => {
                     thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
                   }));
                   updateProjectFields(projectId, { slides: persisted })
+                    .then(() => {
+                      // Broadcast to other clients
+                      if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                          action: "projectUpdated",
+                          projectId,
+                          fields: { slides: persisted },
+                          conversationId: `project#${projectId}`,
+                          username: userName || "Someone",
+                          senderId: userId,
+                        }));
+                      }
+                    })
                     .catch((e) => console.warn("Failed to persist thumbnail after color change:", e));
                   return updated;
                 });
@@ -902,7 +918,7 @@ const SlidesPage: React.FC = () => {
         backgroundColorSaveTimerRef.current = null;
       }, 450);
     }
-  }, [activeSlideId, projectId, uiThumbsEnabled, makeUiThumbnail, sanitizeThumbnailForPersist, updateProjectFields, shouldSkipThumbnailForSlide, saveSlides]);
+  }, [activeSlideId, projectId, uiThumbsEnabled, makeUiThumbnail, sanitizeThumbnailForPersist, updateProjectFields, shouldSkipThumbnailForSlide, saveSlides, ws, userName, userId]);
 
   // Debounced auto-save of slide content to backend when edits occur.
   useEffect(() => {
@@ -950,9 +966,23 @@ const SlidesPage: React.FC = () => {
                         ...s,
                         thumbnail: sanitizeThumbnailForPersist(s.thumbnail as string),
                       }));
-                      updateProjectFields(projectId, { slides: persisted }).catch((e) =>
-                        console.warn('Failed to persist thumbnail after autosave:', e)
-                      );
+                      updateProjectFields(projectId, { slides: persisted })
+                        .then(() => {
+                          // Broadcast to other clients
+                          if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({
+                              action: "projectUpdated",
+                              projectId,
+                              fields: { slides: persisted },
+                              conversationId: `project#${projectId}`,
+                              username: userName || "Someone",
+                              senderId: userId,
+                            }));
+                          }
+                        })
+                        .catch((e) =>
+                          console.warn('Failed to persist thumbnail after autosave:', e)
+                        );
                       return updated;
                     });
                   })
@@ -987,6 +1017,10 @@ const SlidesPage: React.FC = () => {
     uiThumbsEnabled,
     makeUiThumbnail,
     sanitizeThumbnailForPersist,
+    shouldSkipThumbnailForSlide,
+    ws,
+    userName,
+    userId,
   ]);
 
   const handleExport = useCallback(() => {
