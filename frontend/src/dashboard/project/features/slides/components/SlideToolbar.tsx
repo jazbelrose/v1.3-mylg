@@ -1444,82 +1444,6 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <span>Duplicate</span>
             </button>
           )}
-          {hasAlignOrDistribute && (
-            <>
-              <button
-                type="button"
-                className="toolbar-item"
-                onClick={handleObjectArrangeDropdownToggle}
-                ref={objectArrangeButtonRef}
-                title="Align & distribute selection"
-                disabled={!canAlignSelection}
-              >
-                <AlignHorizontalJustifyStart size={18} />
-                <ChevronDown size={16} />
-              </button>
-              {activeDropdown === objectArrangeDropdownId &&
-                ReactDOM.createPortal(
-                  <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionLeft)}
-                      disabled={!onAlignSelectionLeft || selectionCount < 2}
-                    >
-                      <AlignHorizontalJustifyStart size={18} className="dropdown-icon" />
-                      <span className="text">Align Left</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionRight)}
-                      disabled={!onAlignSelectionRight || selectionCount < 2}
-                    >
-                      <AlignHorizontalJustifyEnd size={18} className="dropdown-icon" />
-                      <span className="text">Align Right</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionTop)}
-                      disabled={!onAlignSelectionTop || selectionCount < 2}
-                    >
-                      <AlignVerticalJustifyStart size={18} className="dropdown-icon" />
-                      <span className="text">Align Top</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onAlignSelectionBottom)}
-                      disabled={!onAlignSelectionBottom || selectionCount < 2}
-                    >
-                      <AlignVerticalJustifyEnd size={18} className="dropdown-icon" />
-                      <span className="text">Align Bottom</span>
-                    </button>
-                    <div className="dropdown-divider" />
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onDistributeSelectionHorizontal)}
-                      disabled={!onDistributeSelectionHorizontal || !canDistributeSelection}
-                    >
-                      <AlignHorizontalDistributeCenter size={18} className="dropdown-icon" />
-                      <span className="text">Distribute Horizontally</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="item"
-                      onClick={callAndClose(onDistributeSelectionVertical)}
-                      disabled={!onDistributeSelectionVertical || !canDistributeSelection}
-                    >
-                      <AlignVerticalDistributeCenter size={18} className="dropdown-icon" />
-                      <span className="text">Distribute Vertically</span>
-                    </button>
-                  </div>,
-                  document.body
-                )}
-            </>
-          )}
 
           {canGroup && (
             <button
@@ -1712,6 +1636,83 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               >
                 <ArrowDownToLine size={18} />
               </button>
+            </>
+          )}
+
+          {hasAlignOrDistribute && (
+            <>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={handleObjectArrangeDropdownToggle}
+                ref={objectArrangeButtonRef}
+                title="Align & distribute selection"
+                disabled={!canAlignSelection}
+              >
+                <AlignHorizontalJustifyStart size={18} />
+                <ChevronDown size={16} />
+              </button>
+              {activeDropdown === objectArrangeDropdownId &&
+                ReactDOM.createPortal(
+                  <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionLeft)}
+                      disabled={!onAlignSelectionLeft || selectionCount < 2}
+                    >
+                      <AlignHorizontalJustifyStart size={18} className="dropdown-icon" />
+                      <span className="text">Align Left</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionRight)}
+                      disabled={!onAlignSelectionRight || selectionCount < 2}
+                    >
+                      <AlignHorizontalJustifyEnd size={18} className="dropdown-icon" />
+                      <span className="text">Align Right</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionTop)}
+                      disabled={!onAlignSelectionTop || selectionCount < 2}
+                    >
+                      <AlignVerticalJustifyStart size={18} className="dropdown-icon" />
+                      <span className="text">Align Top</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionBottom)}
+                      disabled={!onAlignSelectionBottom || selectionCount < 2}
+                    >
+                      <AlignVerticalJustifyEnd size={18} className="dropdown-icon" />
+                      <span className="text">Align Bottom</span>
+                    </button>
+                    <div className="dropdown-divider" />
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onDistributeSelectionHorizontal)}
+                      disabled={!onDistributeSelectionHorizontal || !canDistributeSelection}
+                    >
+                      <AlignHorizontalDistributeCenter size={18} className="dropdown-icon" />
+                      <span className="text">Distribute Horizontally</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onDistributeSelectionVertical)}
+                      disabled={!onDistributeSelectionVertical || !canDistributeSelection}
+                    >
+                      <AlignVerticalDistributeCenter size={18} className="dropdown-icon" />
+                      <span className="text">Distribute Vertically</span>
+                    </button>
+                  </div>,
+                  document.body
+                )}
             </>
           )}
 
