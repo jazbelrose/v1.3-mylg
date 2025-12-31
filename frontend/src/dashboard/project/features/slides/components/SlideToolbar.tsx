@@ -37,6 +37,12 @@ import {
   ChevronDown,
   Unlink,
   RectangleHorizontal,
+  AlignHorizontalJustifyStart,
+  AlignHorizontalJustifyEnd,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyEnd,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalDistributeCenter,
 } from "lucide-react";
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
@@ -302,6 +308,12 @@ interface SlideToolbarProps {
   onSendToBack?: () => void;
   onBringForward?: () => void;
   onSendBackward?: () => void;
+  onAlignSelectionLeft?: () => void;
+  onAlignSelectionRight?: () => void;
+  onAlignSelectionTop?: () => void;
+  onAlignSelectionBottom?: () => void;
+  onDistributeSelectionHorizontal?: () => void;
+  onDistributeSelectionVertical?: () => void;
   onDuplicateSelection?: () => void;
   onLockSelection?: () => void;
   onGroupSelection?: () => void;
@@ -368,6 +380,12 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSendToBack,
   onBringForward,
   onSendBackward,
+  onAlignSelectionLeft,
+  onAlignSelectionRight,
+  onAlignSelectionTop,
+  onAlignSelectionBottom,
+  onDistributeSelectionHorizontal,
+  onDistributeSelectionVertical,
   onDuplicateSelection,
   onLockSelection,
   onGroupSelection,
@@ -401,6 +419,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const { ctx, text, history } = useToolbarContextBridge();
   const blockButtonRef = useRef<HTMLButtonElement | null>(null);
   const alignButtonRef = useRef<HTMLButtonElement | null>(null);
+  const objectArrangeButtonRef = useRef<HTMLButtonElement | null>(null);
   const insertButtonRef = useRef<HTMLButtonElement | null>(null);
   const fontButtonRef = useRef<HTMLButtonElement | null>(null);
   const colorButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -411,6 +430,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
   const blockDropdownId = "block-dropdown";
   const alignDropdownId = "align-dropdown";
+  const objectArrangeDropdownId = "object-arrange-dropdown";
   const insertDropdownId = "insert-dropdown";
   const fontDropdownId = "font-dropdown";
   const colorDropdownId = "color-dropdown";
@@ -624,6 +644,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
 
   const handleAlignDropdownToggle = () => {
     handleDropdownToggle(alignDropdownId, alignButtonRef);
+  };
+
+  const handleObjectArrangeDropdownToggle = () => {
+    handleDropdownToggle(objectArrangeDropdownId, objectArrangeButtonRef);
   };
 
   const handleInsertDropdownToggle = () => {
@@ -895,7 +919,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   const renderObjectContext = (label: string, options: { showReplace?: boolean } = { showReplace: true }) => {
     const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
     const canLock = label === "Image" || label === "Vector" || label === "Text Box";
-  const selectedLocked =
+    const hasAlignOrDistribute = Boolean(
+      onAlignSelectionLeft ||
+        onAlignSelectionRight ||
+        onAlignSelectionTop ||
+        onAlignSelectionBottom ||
+        onDistributeSelectionHorizontal ||
+        onDistributeSelectionVertical
+    );
+    const canAlignSelection = Boolean(hasAlignOrDistribute && selectionCount >= 2);
+    const canDistributeSelection = Boolean(hasAlignOrDistribute && selectionCount >= 3);
+    const selectedLocked =
       ctx.type === "image" ||
       ctx.type === "svg" ||
       ctx.type === "textbox" ||
@@ -1328,12 +1362,165 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               </button>
             </>
           )}
+          {hasAlignOrDistribute && (
+            <>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={handleObjectArrangeDropdownToggle}
+                ref={objectArrangeButtonRef}
+                title="Align & distribute selection"
+                disabled={!canAlignSelection}
+              >
+                <AlignHorizontalJustifyStart size={18} />
+                <ChevronDown size={16} />
+              </button>
+              {activeDropdown === objectArrangeDropdownId &&
+                ReactDOM.createPortal(
+                  <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionLeft)}
+                      disabled={!onAlignSelectionLeft || selectionCount < 2}
+                    >
+                      <AlignHorizontalJustifyStart size={18} className="dropdown-icon" />
+                      <span className="text">Align Left</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionRight)}
+                      disabled={!onAlignSelectionRight || selectionCount < 2}
+                    >
+                      <AlignHorizontalJustifyEnd size={18} className="dropdown-icon" />
+                      <span className="text">Align Right</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionTop)}
+                      disabled={!onAlignSelectionTop || selectionCount < 2}
+                    >
+                      <AlignVerticalJustifyStart size={18} className="dropdown-icon" />
+                      <span className="text">Align Top</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionBottom)}
+                      disabled={!onAlignSelectionBottom || selectionCount < 2}
+                    >
+                      <AlignVerticalJustifyEnd size={18} className="dropdown-icon" />
+                      <span className="text">Align Bottom</span>
+                    </button>
+                    <div className="dropdown-divider" />
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onDistributeSelectionHorizontal)}
+                      disabled={!onDistributeSelectionHorizontal || !canDistributeSelection}
+                    >
+                      <AlignHorizontalDistributeCenter size={18} className="dropdown-icon" />
+                      <span className="text">Distribute Horizontally</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onDistributeSelectionVertical)}
+                      disabled={!onDistributeSelectionVertical || !canDistributeSelection}
+                    >
+                      <AlignVerticalDistributeCenter size={18} className="dropdown-icon" />
+                      <span className="text">Distribute Vertically</span>
+                    </button>
+                  </div>,
+                  document.body
+                )}
+            </>
+          )}
           {label === "Image" && (
             <button type="button" className="toolbar-item" onClick={onDuplicateSelection} title="Duplicate">
               <Copy size={18} />
               <span>Duplicate</span>
             </button>
           )}
+          {hasAlignOrDistribute && (
+            <>
+              <button
+                type="button"
+                className="toolbar-item"
+                onClick={handleObjectArrangeDropdownToggle}
+                ref={objectArrangeButtonRef}
+                title="Align & distribute selection"
+                disabled={!canAlignSelection}
+              >
+                <AlignHorizontalJustifyStart size={18} />
+                <ChevronDown size={16} />
+              </button>
+              {activeDropdown === objectArrangeDropdownId &&
+                ReactDOM.createPortal(
+                  <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionLeft)}
+                      disabled={!onAlignSelectionLeft || selectionCount < 2}
+                    >
+                      <AlignHorizontalJustifyStart size={18} className="dropdown-icon" />
+                      <span className="text">Align Left</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionRight)}
+                      disabled={!onAlignSelectionRight || selectionCount < 2}
+                    >
+                      <AlignHorizontalJustifyEnd size={18} className="dropdown-icon" />
+                      <span className="text">Align Right</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionTop)}
+                      disabled={!onAlignSelectionTop || selectionCount < 2}
+                    >
+                      <AlignVerticalJustifyStart size={18} className="dropdown-icon" />
+                      <span className="text">Align Top</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onAlignSelectionBottom)}
+                      disabled={!onAlignSelectionBottom || selectionCount < 2}
+                    >
+                      <AlignVerticalJustifyEnd size={18} className="dropdown-icon" />
+                      <span className="text">Align Bottom</span>
+                    </button>
+                    <div className="dropdown-divider" />
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onDistributeSelectionHorizontal)}
+                      disabled={!onDistributeSelectionHorizontal || !canDistributeSelection}
+                    >
+                      <AlignHorizontalDistributeCenter size={18} className="dropdown-icon" />
+                      <span className="text">Distribute Horizontally</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={callAndClose(onDistributeSelectionVertical)}
+                      disabled={!onDistributeSelectionVertical || !canDistributeSelection}
+                    >
+                      <AlignVerticalDistributeCenter size={18} className="dropdown-icon" />
+                      <span className="text">Distribute Vertically</span>
+                    </button>
+                  </div>,
+                  document.body
+                )}
+            </>
+          )}
+
           {canGroup && (
             <button
               type="button"
@@ -1399,6 +1586,16 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     const borderWidth = Number(frameBorder?.width) || 0;
     const borderColor = frameBorder?.color || "#ffffff";
     const hasArrange = Boolean(onBringToFront || onSendToBack || onBringForward || onSendBackward);
+    const hasAlignOrDistribute = Boolean(
+      onAlignSelectionLeft ||
+        onAlignSelectionRight ||
+        onAlignSelectionTop ||
+        onAlignSelectionBottom ||
+        onDistributeSelectionHorizontal ||
+        onDistributeSelectionVertical
+    );
+    const canAlignSelection = Boolean(hasAlignOrDistribute && selectionCount >= 2);
+    const canDistributeSelection = Boolean(hasAlignOrDistribute && selectionCount >= 3);
     const selectedLocked =
       ctx.type === "image" ||
       ctx.type === "svg" ||

@@ -43,6 +43,7 @@ import type { ImageBorderRadiusState } from "./nodes/imageBorderRadius";
 import { reorderSlideStackablesInRoot } from "./slides/slideStackingUtils";
 import { duplicateSlideNodes, getSlideNodeSelectionKeys } from "./slides/slideSelectionUtils";
 import { collectGroupIndex, createGroupId, getNodeGroupId, setNodeGroupId } from "./slides/grouping";
+import { alignSlideNodes, distributeSlideNodes } from "./slides/slideArrangeUtils";
 
 type BlockType = "paragraph" | "h1" | "h2" | "quote" | "code" | "ul" | "ol";
 
@@ -91,6 +92,12 @@ export type ToolbarActions = {
   onSendToBack: () => void;
   onBringForward: () => void;
   onSendBackward: () => void;
+  onAlignSelectionLeft: () => void;
+  onAlignSelectionRight: () => void;
+  onAlignSelectionTop: () => void;
+  onAlignSelectionBottom: () => void;
+  onDistributeSelectionHorizontal: () => void;
+  onDistributeSelectionVertical: () => void;
   onUpdateImageBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
   onUpdateImageBorder: (updates: Partial<PictureFrameBorder>) => void;
   onUpdatePictureFrameRadius: (radius: number) => void;
@@ -306,6 +313,30 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
           reorderSlideStackablesInRoot("sendBackward");
         });
       },
+      onAlignSelectionLeft: () =>
+        editor.update(() => {
+          alignSlideNodes(getSlideNodeSelectionKeys(), "left");
+        }),
+      onAlignSelectionRight: () =>
+        editor.update(() => {
+          alignSlideNodes(getSlideNodeSelectionKeys(), "right");
+        }),
+      onAlignSelectionTop: () =>
+        editor.update(() => {
+          alignSlideNodes(getSlideNodeSelectionKeys(), "top");
+        }),
+      onAlignSelectionBottom: () =>
+        editor.update(() => {
+          alignSlideNodes(getSlideNodeSelectionKeys(), "bottom");
+        }),
+      onDistributeSelectionHorizontal: () =>
+        editor.update(() => {
+          distributeSlideNodes(getSlideNodeSelectionKeys(), "horizontal");
+        }),
+      onDistributeSelectionVertical: () =>
+        editor.update(() => {
+          distributeSlideNodes(getSlideNodeSelectionKeys(), "vertical");
+        }),
       onUpdateImageBorderRadius: (updates) =>
         mutateSelectedNodes((node) => {
           if (node instanceof ResizableImageNode) {
