@@ -473,8 +473,14 @@ function renderImageLayer(node) {
   const width = Number(node.width) || 320;
   const height = Number(node.height) || 240;
   const rotation = Number(node.rotation) || 0;
-  const src = resolveAssetUrl(node.src || node.fileKey || '');
+  
+  // Use src directly if already hydrated, otherwise resolve
+  let src = node.src || node.fileKey || '';
+  if (src && !/^https?:\/\//i.test(src) && !src.startsWith('data:')) {
+    src = resolveAssetUrl(src);
+  }
   if (!src) return '';
+  
   const alt = escapeHtml(node.altText || 'Image');
   const borderRadiusStyle = formatBorderRadius(node);
   const border =
@@ -501,7 +507,7 @@ function renderImageLayer(node) {
   ].join('; ');
 
   return `<div class="image-layer" style="${style}">
-    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;object-position:center;border-radius:${borderRadiusStyle};" />
+    <img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;object-fit:contain;object-position:center;border-radius:${borderRadiusStyle};" crossorigin="anonymous" loading="eager" />
   </div>`;
 }
 
@@ -542,7 +548,13 @@ function renderPictureFrameLayer(node) {
     `background:${escapeHtml(background)}`,
   ].join('; ');
 
-  const src = resolveAssetUrl(node.imageSrc || '');
+  // Use imageSrc directly - it should already be hydrated by hydrateThumbnailAssetUrls
+  // Only fall back to resolveAssetUrl if the URL looks like a key (no protocol)
+  let src = node.imageSrc || '';
+  if (src && !/^https?:\/\//i.test(src) && !src.startsWith('data:')) {
+    src = resolveAssetUrl(src);
+  }
+  
   if (!src) {
     // Lightweight checkerboard placeholder for empty frames.
     const placeholderStyle = [
@@ -557,7 +569,7 @@ function renderPictureFrameLayer(node) {
   }
 
   return `<div class="picture-frame-layer" style="${style}">
-    <img src="${escapeHtml(src)}" alt="Picture Frame" style="width:100%;height:100%;object-fit:${fit};object-position:${Math.max(0, Math.min(100, positionX))}% ${Math.max(0, Math.min(100, positionY))}%;display:block;" />
+    <img src="${escapeHtml(src)}" alt="Picture Frame" style="width:100%;height:100%;object-fit:${fit};object-position:${Math.max(0, Math.min(100, positionX))}% ${Math.max(0, Math.min(100, positionY))}%;display:block;" crossorigin="anonymous" loading="eager" />
   </div>`;
 }
 
@@ -887,13 +899,16 @@ async function generateThumbnail(html, width, height) {
     // Wait for images to settle (loaded OR errored). Don't fail thumbnail generation if a remote image is slow/broken.
     try {
       await page.waitForFunction(
-        () => Array.from(document.images).every((img) => img.complete),
+        () => Array.from(document.images).every((img) => img.complete && (img.naturalWidth > 0 || img.src === '')),
         { timeout: imageWaitTimeoutMs }
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn('IMAGE_WAIT_TIMEOUT', { timeoutMs: imageWaitTimeoutMs, message });
     }
+    
+    // Additional wait for any late-loading images
+    await page.waitForTimeout(500);
     
     // Check if images loaded
     const imagesStatus = await page.evaluate(() => {

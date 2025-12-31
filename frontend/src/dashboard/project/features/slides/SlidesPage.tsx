@@ -451,6 +451,68 @@ const SlidesPage: React.FC = () => {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [projectId, activeSlideId, uiThumbsEnabled]);
 
+  // Generate thumbnails for the active slide if it doesn't have one yet
+  // This ensures the first slide (and any newly created slides) get thumbnails
+  useEffect(() => {
+    if (!projectId || !activeSlideId || uiThumbsEnabled) {
+      return;
+    }
+
+    const activeSlide = slides.find((s) => s.id === activeSlideId);
+    if (!activeSlide) {
+      return;
+    }
+
+    // Skip if slide already has a thumbnail or should skip thumbnail generation
+    if (activeSlide.thumbnail || shouldSkipThumbnailForSlide(activeSlide)) {
+      return;
+    }
+
+    // Skip if slide has no content yet
+    if (!activeSlide.content || activeSlide.content.length === 0) {
+      return;
+    }
+
+    // Delay slightly to allow the editor to fully render
+    const timer = setTimeout(() => {
+      const width = 1920;
+      const height = 1080;
+      const bgColor = activeSlide.backgroundColor || '#101112';
+
+      saveSlideThumb(projectId, activeSlideId, (thumbnailUrl) => {
+        if (!thumbnailUrl) {
+          return;
+        }
+
+        void waitForThumbnailReady(thumbnailUrl)
+          .then((readyUrl) => {
+            setSlides((prev) => {
+              const updated = prev.map((s) =>
+                s.id === activeSlideId
+                  ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                  : s
+              );
+              return updated;
+            });
+            dirtyThumbRef.current = true;
+          })
+          .catch((error) => {
+            console.warn("Initial thumbnail generation failed:", error);
+          });
+      }, {
+        width,
+        height,
+        backgroundColor: bgColor,
+        content: activeSlide.content,
+        backgroundImage: activeSlide.backgroundImage,
+      }).catch((e) => {
+        console.warn("Failed to generate initial thumbnail:", e);
+      });
+    }, 1500); // Wait for editor to fully render
+
+    return () => clearTimeout(timer);
+  }, [projectId, activeSlideId, slides, uiThumbsEnabled, shouldSkipThumbnailForSlide, makeUiThumbnail]);
+
   const saveSlides = useCallback(
     async (slidesToSave: Slide[], options?: { skipThumbnail?: boolean }) => {
       if (!projectId) return;

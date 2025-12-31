@@ -27,34 +27,63 @@ function nextAnimationFrame(): Promise<void> {
   });
 }
 
-async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 2000): Promise<void> {
+async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 3000): Promise<void> {
   if (typeof document === 'undefined') return;
 
   const images = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
-  if (images.length === 0) return;
+  
+  // Also find elements with background images (picture frames, slide backgrounds)
+  const bgImageElements = Array.from(root.querySelectorAll('[style*="background-image"]')) as HTMLElement[];
+  
+  const imagePromises: Promise<void>[] = [];
+  
+  // Wait for img elements
+  images.forEach((img) => {
+    imagePromises.push(
+      new Promise<void>((resolve) => {
+        if (img.complete && img.naturalWidth > 0) {
+          resolve();
+          return;
+        }
+        const cleanup = () => {
+          img.removeEventListener('load', onDone);
+          img.removeEventListener('error', onDone);
+        };
+        const onDone = () => {
+          cleanup();
+          resolve();
+        };
+        img.addEventListener('load', onDone);
+        img.addEventListener('error', onDone);
+      })
+    );
+  });
+  
+  // Wait for background images by preloading them
+  bgImageElements.forEach((el) => {
+    const style = window.getComputedStyle(el);
+    const bgImage = style.backgroundImage;
+    if (bgImage && bgImage !== 'none') {
+      const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
+      if (urlMatch && urlMatch[1]) {
+        imagePromises.push(
+          new Promise<void>((resolve) => {
+            const preloadImg = new Image();
+            preloadImg.onload = () => resolve();
+            preloadImg.onerror = () => resolve();
+            preloadImg.src = urlMatch[1];
+            // Quick resolve if already cached
+            if (preloadImg.complete) resolve();
+          })
+        );
+      }
+    }
+  });
+  
+  if (imagePromises.length === 0) return;
 
   await Promise.race([
-    Promise.all(
-      images.map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            if (img.complete && img.naturalWidth > 0) {
-              resolve();
-              return;
-            }
-            const cleanup = () => {
-              img.removeEventListener('load', onDone);
-              img.removeEventListener('error', onDone);
-            };
-            const onDone = () => {
-              cleanup();
-              resolve();
-            };
-            img.addEventListener('load', onDone);
-            img.addEventListener('error', onDone);
-          })
-      )
-    ),
+    Promise.all(imagePromises),
     new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 }
@@ -225,36 +254,92 @@ type SlideCaptureResult = {
 
 async function locateSlideCaptureElement(
   slideId: string,
-  attempts = 6,
-  delay = 50
+  attempts = 12,
+  delay = 100
 ): Promise<SlideCaptureResult> {
   if (typeof document === "undefined") {
     return { element: null, container: null };
   }
 
   const rootSelector = `[data-slide-id="${slideId}"]`;
-  const container = document.querySelector(rootSelector) as HTMLElement | null;
-
+  
   for (let attempt = 0; attempt < attempts; attempt++) {
-    for (const selector of SLIDE_CAPTURE_SELECTORS) {
-      const target = document.querySelector(`${rootSelector} ${selector}`) as HTMLElement | null;
-      if (target) {
-        return { element: target, container };
+    const container = document.querySelector(rootSelector) as HTMLElement | null;
+    
+    if (container) {
+      for (const selector of SLIDE_CAPTURE_SELECTORS) {
+        const target = container.querySelector(selector) as HTMLElement | null;
+        if (target) {
+          // Found the element - wait a bit more for React to finish rendering children
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return { element: target, container };
+        }
       }
     }
+    
     if (attempt < attempts - 1) {
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
+  // Last attempt - return whatever container we can find
+  const container = document.querySelector(rootSelector) as HTMLElement | null;
   return { element: container, container };
+}
+
+/**
+ * Ensure all images in the clone have their sources properly copied from the original element.
+ * This handles cases where React-rendered images have their src set via state/props
+ * and may not be in the DOM attribute when cloned.
+ */
+function syncImageSources(original: HTMLElement, clone: HTMLElement): void {
+  const originalImages = Array.from(original.querySelectorAll('img')) as HTMLImageElement[];
+  const cloneImages = Array.from(clone.querySelectorAll('img')) as HTMLImageElement[];
+  
+  // Match images by index (assumes same structure)
+  for (let i = 0; i < Math.min(originalImages.length, cloneImages.length); i++) {
+    const origImg = originalImages[i];
+    const cloneImg = cloneImages[i];
+    
+    // Copy the actual current src (not the attribute) which may differ due to React
+    if (origImg.currentSrc && !cloneImg.src) {
+      cloneImg.src = origImg.currentSrc;
+    } else if (origImg.src && !cloneImg.src) {
+      cloneImg.src = origImg.src;
+    }
+    
+    // Also sync computed styles that might affect rendering
+    if (origImg.complete && origImg.naturalWidth > 0) {
+      cloneImg.setAttribute('data-loaded', 'true');
+    }
+  }
+  
+  // Also sync background images from computed styles
+  const originalElements = Array.from(original.querySelectorAll('*')) as HTMLElement[];
+  const cloneElements = Array.from(clone.querySelectorAll('*')) as HTMLElement[];
+  
+  for (let i = 0; i < Math.min(originalElements.length, cloneElements.length); i++) {
+    const origEl = originalElements[i];
+    const cloneEl = cloneElements[i];
+    
+    const computedStyle = window.getComputedStyle(origEl);
+    const bgImage = computedStyle.backgroundImage;
+    
+    if (bgImage && bgImage !== 'none' && !cloneEl.style.backgroundImage) {
+      cloneEl.style.backgroundImage = bgImage;
+      cloneEl.style.backgroundSize = computedStyle.backgroundSize;
+      cloneEl.style.backgroundPosition = computedStyle.backgroundPosition;
+      cloneEl.style.backgroundRepeat = computedStyle.backgroundRepeat;
+    }
+  }
 }
 
 async function captureElementBlob(
   element: HTMLElement,
   width: number,
   height: number,
-  backgroundColor: string
+  backgroundColor: string,
+  retryCount = 2
 ): Promise<Blob | null> {
   if (!element) return null;
 
@@ -297,37 +382,65 @@ async function captureElementBlob(
   host.appendChild(clone);
   document.body.appendChild(host);
 
+  // Sync image sources from original to clone (handles React-rendered images)
+  syncImageSources(captureRoot, clone);
+
   // Give the browser a beat to lay out the clone before snapshotting.
   await nextAnimationFrame();
   await nextAnimationFrame();
 
   const restore = prepareNodeForThumbnailCapture(clone);
-  try {
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      await document.fonts.ready;
+  let lastError: unknown = null;
+  
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      await waitForImagesToLoad(clone);
+      
+      // Additional wait on retry attempts to allow images more time to load
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        await waitForImagesToLoad(clone);
+      }
+      
+      const blob = await toBlob(clone, {
+        width,
+        height,
+        canvasWidth: width,
+        canvasHeight: height,
+        backgroundColor,
+        quality: 0.92,
+        includeQueryParams: true,
+        cacheBust: true,
+        pixelRatio: 1,
+      });
+      
+      if (blob && blob.size > 1000) {
+        // Success - got a meaningful blob
+        restore();
+        host.remove();
+        return blob;
+      }
+      
+      // Blob too small, might be empty - retry
+      lastError = new Error('Thumbnail blob too small, likely failed to capture content');
+    } catch (error) {
+      lastError = error;
+      console.warn(`Thumbnail capture attempt ${attempt + 1} failed:`, error);
     }
-    await waitForImagesToLoad(clone);
-    const blob = await toBlob(clone, {
-      width,
-      height,
-      canvasWidth: width,
-      canvasHeight: height,
-      backgroundColor,
-      quality: 0.92,
-      includeQueryParams: true,
-      cacheBust: true,
-      pixelRatio: 1,
-    });
-    return blob;
-  } catch (error) {
-    console.error("Failed to capture thumbnail element:", error);
-    return null;
-  } finally {
-    restore();
-    // `contains()` does not guarantee `host` is a direct child of `body`.
-    // Use `remove()` to avoid `removeChild` throwing in edge cases.
-    host.remove();
+    
+    // Wait before retry
+    if (attempt < retryCount) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   }
+  
+  console.error("Failed to capture thumbnail element after retries:", lastError);
+  restore();
+  host.remove();
+  return null;
 }
 
 // Local thumbnail cache using IndexedDB
@@ -660,16 +773,16 @@ async function renderThumbnailOffscreen(
     // Valid 1x1 transparent PNG (base64) as a last-resort placeholder.
     const b64 =
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/6XGZ0sAAAAASUVORK5CYII=';
-    let bytes: Uint8Array;
+    let bytes: ArrayBuffer;
     if (typeof atob === 'function') {
       const binary = atob(b64);
       const arr = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) {
         arr[i] = binary.charCodeAt(i);
       }
-      bytes = arr;
+      bytes = arr.buffer;
     } else {
-      bytes = new Uint8Array([]);
+      bytes = new ArrayBuffer(0);
     }
     return new Blob([bytes], { type: 'image/png' });
   } catch (error) {

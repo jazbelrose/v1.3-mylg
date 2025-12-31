@@ -1884,13 +1884,33 @@ const createDeckVersion = async (e, C, { projectId }) => {
     }
   }
 
+  // Check if this is the first version for this project
+  const existingVersions = await ddb.query({
+    TableName: DECK_VERSIONS_TABLE,
+    KeyConditionExpression: "projectId = :pid",
+    ExpressionAttributeValues: { ":pid": projectId },
+    Limit: 1,
+  });
+  const isFirstVersion = !existingVersions.Items || existingVersions.Items.length === 0;
+
+  // If first version and no slides provided, try to migrate from project.slides
+  if (isFirstVersion && (!slides || slides.length === 0)) {
+    const projectRes = await ddb.get({
+      TableName: PROJECTS_TABLE,
+      Key: { projectId },
+    });
+    if (projectRes.Item?.slides && Array.isArray(projectRes.Item.slides)) {
+      slides = projectRes.Item.slides;
+    }
+  }
+
   const version = {
     projectId,
     versionId,
     name: body.name || `Version ${new Date().toLocaleDateString()}`,
     status: body.status || "draft",
-    isDefault: "false", // New versions are not default
-    isClientDefault: "false",
+    isDefault: isFirstVersion ? "true" : "false", // First version becomes default
+    isClientDefault: isFirstVersion ? "true" : "false", // First version becomes client default too
     allowedRoles: body.allowedRoles || [],
     createdBy: userId,
     createdByName: displayName || "Unknown",
@@ -1905,10 +1925,29 @@ const createDeckVersion = async (e, C, { projectId }) => {
     Item: version,
   });
 
+  // If first version was created, clear project.slides to avoid duplication
+  // and set activeDeckVersionId on the project
+  if (isFirstVersion) {
+    try {
+      await ddb.update({
+        TableName: PROJECTS_TABLE,
+        Key: { projectId },
+        UpdateExpression: "SET activeDeckVersionId = :vid, updatedAt = :now REMOVE slides",
+        ExpressionAttributeValues: {
+          ":vid": versionId,
+          ":now": now,
+        },
+      });
+    } catch (err) {
+      console.warn("Failed to clear project slides after first version creation:", err);
+      // Non-fatal - version was still created
+    }
+  }
+
   return json(201, C, {
     ...version,
-    isDefault: false,
-    isClientDefault: false,
+    isDefault: isFirstVersion,
+    isClientDefault: isFirstVersion,
   });
 };
 
