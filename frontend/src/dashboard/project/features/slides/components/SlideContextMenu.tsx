@@ -123,7 +123,15 @@ const SlideContextMenu: React.FC<SlideContextMenuProps> = ({
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
   const { ctx } = useToolbarContextBridge();
 
-  const hasSelection = selectionCount > 0 || 
+  // Get actual selection count from context
+  const actualSelectionCount = 
+    ctx.type === "group" || ctx.type === "mixed" 
+      ? (ctx as any).selectionCount ?? selectionCount
+      : ctx.type === "image" || ctx.type === "picture-frame" || ctx.type === "svg" || ctx.type === "textbox"
+        ? (ctx as any).selectionCount ?? 1
+        : selectionCount;
+
+  const hasSelection = actualSelectionCount > 0 || 
     ctx.type === "image" || 
     ctx.type === "picture-frame" || 
     ctx.type === "svg" || 
@@ -131,17 +139,10 @@ const SlideContextMenu: React.FC<SlideContextMenuProps> = ({
     ctx.type === "group" ||
     ctx.type === "mixed";
 
-  const canGroup = selectionCount >= 2 && ctx.type !== "group";
+  const canGroup = actualSelectionCount >= 2 && ctx.type !== "group";
   const canUngroup = ctx.type === "group";
-  const canAlign = selectionCount >= 2;
-  const canDistribute = selectionCount >= 3;
-
-  const actualSelectionCount = 
-    ctx.type === "group" || ctx.type === "mixed" 
-      ? (ctx as any).selectionCount ?? selectionCount
-      : ctx.type === "image" || ctx.type === "picture-frame" || ctx.type === "svg" || ctx.type === "textbox"
-        ? (ctx as any).selectionCount ?? 1
-        : selectionCount;
+  const canAlign = actualSelectionCount >= 2;
+  const canDistribute = actualSelectionCount >= 3;
 
   useEffect(() => {
     if (!position) return;

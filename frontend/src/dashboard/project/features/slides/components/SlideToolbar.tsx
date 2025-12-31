@@ -16,6 +16,7 @@ import {
   Eye,
   Save,
   Copy,
+  Trash2,
   Download,
   Mic,
   Clock,
@@ -34,7 +35,6 @@ import {
 import { getCodeLanguages } from "@lexical/code";
 import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
 import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
-import { SiFigma } from "react-icons/si";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import ColorPicker from "@/shared/ui/ColorPicker";
 import {
@@ -200,17 +200,6 @@ function PillSliderDropdown({
       )}
     </div>
   );
-}
-
-const ARRANGE_SHORTCUTS = {
-  bringToFront: "Ctrl/⌘Shift]",
-  bringForward: "Ctrl/⌘]",
-  sendBackward: "Ctrl/⌘[",
-  sendToBack: "Ctrl/⌘Shift[",
-} as const;
-
-function withShortcut(title: string, shortcut?: string): string {
-  return shortcut ? `${title} (${shortcut})` : title;
 }
 
 type SelectProps = {
