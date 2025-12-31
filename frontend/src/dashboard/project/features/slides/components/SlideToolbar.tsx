@@ -287,6 +287,9 @@ interface SlideToolbarProps {
   onUpdatePictureFrameFit?: (fit: PictureFrameFitMode) => void;
   onUpdatePictureFrameBorder?: (updates: Partial<PictureFrameBorder>) => void;
   onUpdateTextBoxBorder?: (updates: Partial<PictureFrameBorder>) => void;
+
+  // Deck version props
+  versionDropdown?: React.ReactNode;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -344,6 +347,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onUpdatePictureFrameFit,
   onUpdatePictureFrameBorder,
   onUpdateTextBoxBorder,
+  versionDropdown,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -1640,6 +1644,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       </div>
 
       <div className="toolbar-right">
+        {versionDropdown}
         <div className="save-status">
           {isSaving ? (
             <>

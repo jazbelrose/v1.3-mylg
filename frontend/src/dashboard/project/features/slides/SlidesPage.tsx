@@ -1,5 +1,5 @@
 // SlidesPage.tsx - Main slides editor page
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -12,6 +12,9 @@ import FileManagerComponent from "@/dashboard/project/components/FileManager/Fil
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
+import DeckVersionDropdown from "./components/DeckVersionDropdown";
+import DeckVersionsModal from "./components/DeckVersionsModal";
+import { useDeckVersions } from "./hooks/useDeckVersions";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { ConfirmModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
@@ -94,9 +97,32 @@ const SlidesPage: React.FC = () => {
     updateProjectFields,
     userId,
     userName,
+    isAdmin,
+    isDesigner,
   } = useData();
 
   const { ws } = useSocket();
+
+  // Deck versions management
+  const {
+    versions,
+    activeVersion,
+    isLoading: versionsLoading,
+    createVersion,
+    updateVersion,
+    deleteVersion,
+    duplicateVersion,
+    setDefaultVersion,
+    setClientDefaultVersion,
+    canManageVersions,
+    switchVersion,
+    fetchVersions,
+  } = useDeckVersions({ projectId: projectId || "" });
+
+  const [versionsModalOpen, setVersionsModalOpen] = useState(false);
+
+  // Computed active version ID for props
+  const activeVersionId = activeVersion?.versionId ?? null;
 
   const [slides, setSlides] = useState<Slide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
@@ -323,15 +349,16 @@ const SlidesPage: React.FC = () => {
   useEffect(() => {
     if (!projectId) return;
 
-    const projectSlides = activeProject?.slides;
-    if (!Array.isArray(projectSlides)) {
+    // Use slides from active version if available, otherwise fall back to project slides
+    const sourceSlides = activeVersion?.slides ?? activeProject?.slides;
+    if (!Array.isArray(sourceSlides)) {
       emptySlidesInitializedRef.current = false;
       return;
     }
 
-    if (projectSlides.length > 0) {
+    if (sourceSlides.length > 0) {
       emptySlidesInitializedRef.current = false;
-      const sortedSlides = [...(projectSlides as Slide[])].sort(
+      const sortedSlides = [...(sourceSlides as Slide[])].sort(
         (a, b) => (a.order || 0) - (b.order || 0)
       );
 
@@ -373,7 +400,7 @@ const SlidesPage: React.FC = () => {
     setSlides((prev) => (isDirty ? prev : []));
     setSelectedSlideIds((prev) => (isDirty ? prev : []));
     setActiveSlideId((current) => (isDirty ? current : null));
-  }, [projectId, activeProject?.slides, uiThumbsEnabled, makeUiThumbnail, isDirty]);
+  }, [projectId, activeProject?.slides, activeVersion?.slides, uiThumbsEnabled, makeUiThumbnail, isDirty]);
 
   // Cleanup Yjs connections on unmount
   useEffect(() => {
@@ -434,9 +461,14 @@ const SlidesPage: React.FC = () => {
           shouldSkipThumbnailForSlide(slide) ? { ...slide, thumbnail: undefined } : slide
         );
 
-        await updateProjectFields(projectId, {
-          slides: cleanedSlides,
-        });
+        // Save to active version if one exists, otherwise save to project
+        if (activeVersionId && activeVersion) {
+          await updateVersion(activeVersionId, { slides: cleanedSlides });
+        } else {
+          await updateProjectFields(projectId, {
+            slides: cleanedSlides,
+          });
+        }
 
         // Broadcast the update to other users
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -447,6 +479,7 @@ const SlidesPage: React.FC = () => {
             conversationId: `project#${projectId}`,
             username: userName || "Someone",
             senderId: userId,
+            ...(activeVersionId && { versionId: activeVersionId }),
           }));
         }
 
@@ -535,6 +568,9 @@ const SlidesPage: React.FC = () => {
     makeUiThumbnail,
     sanitizeThumbnailForPersist,
     shouldSkipThumbnailForSlide,
+    activeVersionId,
+    activeVersion,
+    updateVersion,
   ]
   );
 
@@ -988,6 +1024,23 @@ const SlidesPage: React.FC = () => {
         ? `Importing slides… ${Math.min(pdfImportDetail.currentPage, pdfImportDetail.totalPages)}/${pdfImportDetail.totalPages}`
         : "Importing slides…";
 
+  // Version dropdown for the toolbar
+  const versionDropdown = useMemo(() => (
+    <DeckVersionDropdown
+      versions={versions}
+      activeVersion={activeVersion}
+      onVersionSelect={switchVersion}
+      onManageVersions={() => setVersionsModalOpen(true)}
+      onCreateVersion={async () => {
+        const newVersion = await createVersion({ name: `Version ${versions.length + 1}`, slides });
+        if (newVersion) {
+          switchVersion(newVersion.versionId);
+        }
+      }}
+      canManageVersions={canManageVersions}
+    />
+  ), [versions, activeVersion, switchVersion, createVersion, slides, canManageVersions]);
+
   if (!projectId) {
     return <div>No project ID provided</div>;
   }
@@ -1041,6 +1094,25 @@ const SlidesPage: React.FC = () => {
         }
         confirmLabel="Delete"
         cancelLabel="Cancel"
+      />
+      <DeckVersionsModal
+        isOpen={versionsModalOpen}
+        onClose={() => setVersionsModalOpen(false)}
+        versions={versions}
+        activeVersionId={activeVersionId}
+        onSwitchVersion={switchVersion}
+        onCreateVersion={async (options) => {
+          const newVersion = await createVersion({ ...options, slides });
+          if (newVersion) {
+            switchVersion(newVersion.versionId);
+          }
+          return newVersion;
+        }}
+        onUpdateVersion={updateVersion}
+        onDeleteVersion={deleteVersion}
+        onDuplicateVersion={duplicateVersion}
+        onSetDefault={setDefaultVersion}
+        onSetClientDefault={setClientDefaultVersion}
       />
       {filesOpen && (
         <FileManagerComponent
@@ -1126,6 +1198,7 @@ const SlidesPage: React.FC = () => {
                   onSetZoom={handleSetZoom}
                   onNewSlide={handleNewSlide}
                   toolbarPortalContainer={toolbarPortalNode}
+                  versionDropdown={versionDropdown}
                 />
                 ) : (
                   <div className="slides-main__empty">

@@ -498,6 +498,30 @@ export const projectFileDeleteUrl = (projectId: string): string =>
   `${PROJECTS_URL}/${projectId}/files/delete`;
 
 // ───────────────────────────────────────────────────────────────────────────────
+// Deck Versions API
+// ───────────────────────────────────────────────────────────────────────────────
+
+/** GET /projects/{projectId}/deck-versions - List all deck versions for a project */
+export const deckVersionsUrl = (projectId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions`;
+
+/** GET/PATCH/DELETE /projects/{projectId}/deck-versions/{versionId} */
+export const deckVersionUrl = (projectId: string, versionId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}`;
+
+/** POST /projects/{projectId}/deck-versions/{versionId}/set-default */
+export const setDefaultVersionUrl = (projectId: string, versionId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}/set-default`;
+
+/** POST /projects/{projectId}/deck-versions/{versionId}/set-client-default */
+export const setClientDefaultVersionUrl = (projectId: string, versionId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}/set-client-default`;
+
+/** POST /projects/{projectId}/deck-versions/{versionId}/duplicate */
+export const duplicateVersionUrl = (projectId: string, versionId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}/duplicate`;
+
+// ───────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ───────────────────────────────────────────────────────────────────────────────
 

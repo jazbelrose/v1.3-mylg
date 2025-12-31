@@ -73,6 +73,10 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}/index/*
 
+            # DeckVersions (+ projectId-isDefault GSI)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/DeckVersions
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/DeckVersions/index/*
+
         - Effect: Allow
           Action:
             - s3:DeleteObject

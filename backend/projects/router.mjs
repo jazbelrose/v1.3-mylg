@@ -48,6 +48,10 @@ const BUDGET_ITEM_ID_INDEX    = process.env.BUDGET_ITEM_ID_INDEX    || "budgetIt
 const GALLERIES_TABLE = process.env.GALLERIES_TABLE || "Galleries";
 const GALLERIES_PROJECT_INDEX = process.env.GALLERIES_PROJECT_INDEX || "projectId-index";
 
+// --- DeckVersions (slide deck versions per project) ---
+const DECK_VERSIONS_TABLE = process.env.DECK_VERSIONS_TABLE || "DeckVersions";
+const DECK_VERSIONS_DEFAULT_INDEX = process.env.DECK_VERSIONS_DEFAULT_INDEX || "projectId-isDefault-index";
+
 // Dev-only: allow scans when not filtered
 const SCANS_ALLOWED = (process.env.SCANS_ALLOWED || "true").toLowerCase() === "true";
 
@@ -1763,6 +1767,385 @@ const getByBudgetItemId = async (_e, C, { budgetItemId }) => {
   return json(200, C, (r.Items && r.Items[0]) || null);
 };
 
+/* ---------- Deck Versions ---------- */
+
+// Helper: filter versions by user role
+const filterVersionsByRole = (versions, userRole, isAdmin) => {
+  if (isAdmin) return versions;
+  return versions.filter((v) => {
+    const allowed = v.allowedRoles || [];
+    if (allowed.length === 0) return true; // No restrictions = everyone can see
+    return allowed.includes(userRole) || allowed.includes("all");
+  });
+};
+
+// Helper: get or create default version for backward compatibility
+const ensureDefaultVersion = async (projectId, slides, userId, userName) => {
+  // Check if any versions exist
+  const existing = await ddb.query({
+    TableName: DECK_VERSIONS_TABLE,
+    KeyConditionExpression: "projectId = :p",
+    ExpressionAttributeValues: { ":p": projectId },
+    Limit: 1,
+  });
+
+  if (existing.Items && existing.Items.length > 0) {
+    return existing.Items[0];
+  }
+
+  // Create default "Main" version from existing slides
+  const versionId = uuidv4();
+  const now = nowISO();
+  const defaultVersion = {
+    projectId,
+    versionId,
+    name: "Main",
+    status: "draft",
+    isDefault: "true", // String for GSI
+    isClientDefault: "false",
+    allowedRoles: [], // Empty = all roles can see
+    createdBy: userId || "system",
+    createdByName: userName || "System",
+    createdAt: now,
+    updatedAt: now,
+    notes: "Default version (auto-created)",
+    slides: slides || [],
+  };
+
+  await ddb.put({
+    TableName: DECK_VERSIONS_TABLE,
+    Item: defaultVersion,
+  });
+
+  return defaultVersion;
+};
+
+// GET /projects/{projectId}/deck-versions
+const listDeckVersions = async (e, C, { projectId }) => {
+  const { userId, isAdmin } = getUserFromEvent(e);
+  const claims = e?.requestContext?.authorizer?.jwt?.claims || {};
+  const userRole = claims.role || claims["custom:role"] || "client";
+
+  const r = await ddb.query({
+    TableName: DECK_VERSIONS_TABLE,
+    KeyConditionExpression: "projectId = :p",
+    ExpressionAttributeValues: { ":p": projectId },
+  });
+
+  let versions = r.Items || [];
+
+  // If no versions exist but project has slides, create default version
+  if (versions.length === 0) {
+    const projectRes = await ddb.get({
+      TableName: PROJECTS_TABLE,
+      Key: { projectId },
+      ProjectionExpression: "slides",
+    });
+    const slides = projectRes.Item?.slides || [];
+    const claims = e?.requestContext?.authorizer?.jwt?.claims || {};
+    const userName = claims.name || claims["cognito:username"] || "Unknown";
+    const defaultVersion = await ensureDefaultVersion(projectId, slides, userId, userName);
+    versions = [defaultVersion];
+  }
+
+  // Filter by role
+  const filtered = filterVersionsByRole(versions, userRole, isAdmin);
+
+  // Transform isDefault from string to boolean for frontend
+  const transformed = filtered.map((v) => ({
+    ...v,
+    isDefault: v.isDefault === "true",
+    isClientDefault: v.isClientDefault === "true",
+  }));
+
+  return json(200, C, transformed);
+};
+
+// POST /projects/{projectId}/deck-versions
+const createDeckVersion = async (e, C, { projectId }) => {
+  const { userId, displayName } = getUserFromEvent(e);
+  const body = B(e);
+  const versionId = uuidv4();
+  const now = nowISO();
+
+  // If duplicating from another version
+  let slides = body.slides || [];
+  if (body.duplicateFromVersionId) {
+    const sourceRes = await ddb.get({
+      TableName: DECK_VERSIONS_TABLE,
+      Key: { projectId, versionId: body.duplicateFromVersionId },
+    });
+    if (sourceRes.Item?.slides) {
+      // Deep clone slides with new IDs
+      slides = (sourceRes.Item.slides || []).map((slide) => ({
+        ...slide,
+        id: uuidv4(),
+      }));
+    }
+  }
+
+  const version = {
+    projectId,
+    versionId,
+    name: body.name || `Version ${new Date().toLocaleDateString()}`,
+    status: body.status || "draft",
+    isDefault: "false", // New versions are not default
+    isClientDefault: "false",
+    allowedRoles: body.allowedRoles || [],
+    createdBy: userId,
+    createdByName: displayName || "Unknown",
+    createdAt: now,
+    updatedAt: now,
+    notes: body.notes || "",
+    slides,
+  };
+
+  await ddb.put({
+    TableName: DECK_VERSIONS_TABLE,
+    Item: version,
+  });
+
+  return json(201, C, {
+    ...version,
+    isDefault: false,
+    isClientDefault: false,
+  });
+};
+
+// GET /projects/{projectId}/deck-versions/{versionId}
+const getDeckVersion = async (e, C, { projectId, versionId }) => {
+  const { isAdmin } = getUserFromEvent(e);
+  const claims = e?.requestContext?.authorizer?.jwt?.claims || {};
+  const userRole = claims.role || claims["custom:role"] || "client";
+
+  const r = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+  });
+
+  if (!r.Item) {
+    return json(404, C, { error: "Version not found" });
+  }
+
+  // Check access
+  const allowed = r.Item.allowedRoles || [];
+  if (!isAdmin && allowed.length > 0 && !allowed.includes(userRole) && !allowed.includes("all")) {
+    return json(403, C, { error: "Access denied to this version" });
+  }
+
+  return json(200, C, {
+    ...r.Item,
+    isDefault: r.Item.isDefault === "true",
+    isClientDefault: r.Item.isClientDefault === "true",
+  });
+};
+
+// PATCH /projects/{projectId}/deck-versions/{versionId}
+const patchDeckVersion = async (e, C, { projectId, versionId }) => {
+  const body = B(e);
+  const now = nowISO();
+
+  // Build update expression
+  const updates = {};
+  const allowedFields = ["name", "status", "notes", "slides", "allowedRoles"];
+  for (const field of allowedFields) {
+    if (body[field] !== undefined) {
+      updates[field] = body[field];
+    }
+  }
+  updates.updatedAt = now;
+
+  const expr = buildUpdate(updates);
+  if (!expr) {
+    return json(400, C, { error: "No valid fields to update" });
+  }
+
+  const r = await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    ...expr,
+    ReturnValues: "ALL_NEW",
+  });
+
+  return json(200, C, {
+    ...r.Attributes,
+    isDefault: r.Attributes.isDefault === "true",
+    isClientDefault: r.Attributes.isClientDefault === "true",
+  });
+};
+
+// DELETE /projects/{projectId}/deck-versions/{versionId}
+const deleteDeckVersion = async (e, C, { projectId, versionId }) => {
+  // Check if this is the default version
+  const r = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+  });
+
+  if (!r.Item) {
+    return json(404, C, { error: "Version not found" });
+  }
+
+  if (r.Item.isDefault === "true") {
+    return json(400, C, { error: "Cannot delete the default version. Set another version as default first." });
+  }
+
+  // Check if it's the last version
+  const allVersions = await ddb.query({
+    TableName: DECK_VERSIONS_TABLE,
+    KeyConditionExpression: "projectId = :p",
+    ExpressionAttributeValues: { ":p": projectId },
+    Select: "COUNT",
+  });
+
+  if (allVersions.Count <= 1) {
+    return json(400, C, { error: "Cannot delete the last version." });
+  }
+
+  await ddb.delete({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+  });
+
+  return json(204, C, "");
+};
+
+// POST /projects/{projectId}/deck-versions/{versionId}/set-default
+const setDefaultDeckVersion = async (e, C, { projectId, versionId }) => {
+  const now = nowISO();
+
+  // First, unset any existing default
+  const existingDefaults = await ddb.query({
+    TableName: DECK_VERSIONS_TABLE,
+    IndexName: DECK_VERSIONS_DEFAULT_INDEX,
+    KeyConditionExpression: "projectId = :p AND isDefault = :d",
+    ExpressionAttributeValues: { ":p": projectId, ":d": "true" },
+  });
+
+  for (const existing of existingDefaults.Items || []) {
+    if (existing.versionId !== versionId) {
+      await ddb.update({
+        TableName: DECK_VERSIONS_TABLE,
+        Key: { projectId, versionId: existing.versionId },
+        UpdateExpression: "SET isDefault = :f, updatedAt = :now",
+        ExpressionAttributeValues: { ":f": "false", ":now": now },
+      });
+    }
+  }
+
+  // Set the new default
+  const r = await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    UpdateExpression: "SET isDefault = :t, updatedAt = :now",
+    ExpressionAttributeValues: { ":t": "true", ":now": now },
+    ReturnValues: "ALL_NEW",
+  });
+
+  // Also update the project's activeDeckVersionId
+  await ddb.update({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    UpdateExpression: "SET activeDeckVersionId = :v, updatedAt = :now",
+    ExpressionAttributeValues: { ":v": versionId, ":now": now },
+  });
+
+  return json(200, C, {
+    ...r.Attributes,
+    isDefault: true,
+    isClientDefault: r.Attributes.isClientDefault === "true",
+  });
+};
+
+// POST /projects/{projectId}/deck-versions/{versionId}/set-client-default
+const setClientDefaultDeckVersion = async (e, C, { projectId, versionId }) => {
+  const now = nowISO();
+
+  // First, unset any existing client default
+  const allVersions = await ddb.query({
+    TableName: DECK_VERSIONS_TABLE,
+    KeyConditionExpression: "projectId = :p",
+    ExpressionAttributeValues: { ":p": projectId },
+  });
+
+  for (const existing of allVersions.Items || []) {
+    if (existing.isClientDefault === "true" && existing.versionId !== versionId) {
+      await ddb.update({
+        TableName: DECK_VERSIONS_TABLE,
+        Key: { projectId, versionId: existing.versionId },
+        UpdateExpression: "SET isClientDefault = :f, updatedAt = :now",
+        ExpressionAttributeValues: { ":f": "false", ":now": now },
+      });
+    }
+  }
+
+  // Set the new client default
+  const r = await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    UpdateExpression: "SET isClientDefault = :t, updatedAt = :now",
+    ExpressionAttributeValues: { ":t": "true", ":now": now },
+    ReturnValues: "ALL_NEW",
+  });
+
+  return json(200, C, {
+    ...r.Attributes,
+    isDefault: r.Attributes.isDefault === "true",
+    isClientDefault: true,
+  });
+};
+
+// POST /projects/{projectId}/deck-versions/{versionId}/duplicate
+const duplicateDeckVersion = async (e, C, { projectId, versionId }) => {
+  const { userId, displayName } = getUserFromEvent(e);
+  const body = B(e);
+  const now = nowISO();
+  const newVersionId = uuidv4();
+
+  // Get source version
+  const sourceRes = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+  });
+
+  if (!sourceRes.Item) {
+    return json(404, C, { error: "Source version not found" });
+  }
+
+  // Deep clone slides with new IDs
+  const slides = (sourceRes.Item.slides || []).map((slide) => ({
+    ...slide,
+    id: uuidv4(),
+  }));
+
+  const newVersion = {
+    projectId,
+    versionId: newVersionId,
+    name: body.name || `${sourceRes.Item.name} (Copy)`,
+    status: "draft",
+    isDefault: "false",
+    isClientDefault: "false",
+    allowedRoles: body.allowedRoles || sourceRes.Item.allowedRoles || [],
+    createdBy: userId,
+    createdByName: displayName || "Unknown",
+    createdAt: now,
+    updatedAt: now,
+    notes: body.notes || `Duplicated from "${sourceRes.Item.name}"`,
+    slides,
+  };
+
+  await ddb.put({
+    TableName: DECK_VERSIONS_TABLE,
+    Item: newVersion,
+  });
+
+  return json(201, C, {
+    ...newVersion,
+    isDefault: false,
+    isClientDefault: false,
+  });
+};
+
 /* ============== Routes ============== */
 const routes = [
   { m: "GET",    r: /^\/projects\/health$/i,                                                    h: health },
@@ -1825,6 +2208,16 @@ const routes = [
 
   // Gallery upload (creates signed S3 URLs)
   { m: "POST",   r: /^\/projects\/galleries\/upload$/i,                                        h: createGalleryUpload },
+
+  // Deck Versions
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions$/i,                       h: listDeckVersions },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions$/i,                       h: createDeckVersion },
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)$/i,  h: getDeckVersion },
+  { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)$/i,  h: patchDeckVersion },
+  { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)$/i,  h: deleteDeckVersion },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/set-default$/i, h: setDefaultDeckVersion },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/set-client-default$/i, h: setClientDefaultDeckVersion },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/duplicate$/i, h: duplicateDeckVersion },
 
   // Budgets under project
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/budget$/i,                               h: listBudgetForProject },

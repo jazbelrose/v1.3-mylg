@@ -62,6 +62,36 @@ Resources:
       SSESpecification:
         SSEEnabled: true
       DeletionProtectionEnabled: true
+  DeckVersions:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: DeckVersions
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: versionId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: versionId
+          AttributeType: S
+        - AttributeName: isDefault
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: projectId-isDefault-index
+          KeySchema:
+            - AttributeName: projectId
+              KeyType: HASH
+            - AttributeName: isDefault
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
   Events:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain

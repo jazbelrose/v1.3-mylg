@@ -1,0 +1,532 @@
+/* DeckVersionsModal.css - Styles for version management modal */
+
+.deck-versions-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: modalOverlayFadeIn 0.15s ease;
+}
+
+@keyframes modalOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.deck-versions-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  background: #18191c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.deck-versions-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.deck-versions-modal__header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+}
+
+.deck-versions-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.deck-versions-modal__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.deck-versions-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.deck-versions-modal__version {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__version:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.deck-versions-modal__version--active {
+  border-color: rgba(79, 70, 229, 0.4);
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.deck-versions-modal__version-info {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.deck-versions-modal__version-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.deck-versions-modal__version-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.deck-versions-modal__version-badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.deck-versions-modal__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 3px;
+}
+
+.deck-versions-modal__badge--default {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.deck-versions-modal__badge--client {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+
+.deck-versions-modal__badge--draft {
+  background: rgba(156, 163, 175, 0.2);
+  color: #9ca3af;
+}
+
+.deck-versions-modal__badge--approved {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.deck-versions-modal__badge--archived {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.deck-versions-modal__version-notes {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 6px 0;
+  line-height: 1.4;
+}
+
+.deck-versions-modal__version-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.deck-versions-modal__version-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.deck-versions-modal__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.deck-versions-modal__action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.deck-versions-modal__action-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  min-width: 160px;
+  background: #1e1f23;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  animation: menuFadeIn 0.1s ease;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.deck-versions-modal__action-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.1s ease;
+  text-align: left;
+}
+
+.deck-versions-modal__action-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.deck-versions-modal__action-delete {
+  color: #ef4444 !important;
+}
+
+.deck-versions-modal__action-delete:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.deck-versions-modal__menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+/* Edit form */
+.deck-versions-modal__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.deck-versions-modal__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Create form */
+.deck-versions-modal__create-form {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deck-versions-modal__create-form h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 4px 0;
+}
+
+.deck-versions-modal__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.deck-versions-modal__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deck-versions-modal__form-group label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.deck-versions-modal__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Form controls */
+.deck-versions-modal__input {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__input:focus {
+  outline: none;
+  border-color: rgba(79, 70, 229, 0.5);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.deck-versions-modal__input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.deck-versions-modal__select {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__select:focus {
+  outline: none;
+  border-color: rgba(79, 70, 229, 0.5);
+}
+
+.deck-versions-modal__textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__textarea:focus {
+  outline: none;
+  border-color: rgba(79, 70, 229, 0.5);
+}
+
+.deck-versions-modal__textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Roles */
+.deck-versions-modal__roles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deck-versions-modal__roles-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.deck-versions-modal__role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.deck-versions-modal__role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.deck-versions-modal__role-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.deck-versions-modal__role-chip--selected {
+  background: rgba(79, 70, 229, 0.2);
+  border-color: rgba(79, 70, 229, 0.4);
+  color: #a5b4fc;
+}
+
+.deck-versions-modal__roles-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Add button */
+.deck-versions-modal__add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__add-btn:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Buttons */
+.deck-versions-modal__btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deck-versions-modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deck-versions-modal__btn--primary {
+  background: #4f46e5;
+  border: none;
+  color: white;
+}
+
+.deck-versions-modal__btn--primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.deck-versions-modal__btn--secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.deck-versions-modal__btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Footer */
+.deck-versions-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Scrollbar */
+.deck-versions-modal__content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.deck-versions-modal__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.deck-versions-modal__content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.deck-versions-modal__content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

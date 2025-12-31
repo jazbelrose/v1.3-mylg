@@ -44,6 +44,8 @@ interface SlideEditorProps {
   onSetZoom?: (level: number) => void;
   onNewSlide?: () => void;
   toolbarPortalContainer?: HTMLElement | null;
+  // Deck version props
+  versionDropdown?: React.ReactNode;
 }
 
 // Fixed stage dimensions (16:9 aspect ratio) - never changes
@@ -76,6 +78,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onSetZoom,
   onNewSlide,
   toolbarPortalContainer,
+  versionDropdown,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
@@ -304,6 +307,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onUpdateTextBoxBorder={toolbarActions.onUpdateTextBoxBorder}
       onUpdateTextBoxBorderRadius={toolbarActions.onUpdateTextBoxBorderRadius}
       onNewSlide={onNewSlide}
+      versionDropdown={versionDropdown}
     />
   ) : null;
 

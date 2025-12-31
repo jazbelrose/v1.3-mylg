@@ -49,6 +49,25 @@ export interface QuickLink {
   [k: string]: unknown;
 }
 
+export type DeckVersionStatus = 'draft' | 'approved' | 'archived';
+
+export interface DeckVersion {
+  versionId: string;
+  projectId: string;
+  name: string;
+  status: DeckVersionStatus;
+  isDefault: boolean;
+  isClientDefault: boolean;
+  allowedRoles: Role[];
+  createdBy: string;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+  notes?: string;
+  slides: Slide[];
+  [k: string]: unknown;
+}
+
 export interface Slide {
   id: string;
   title?: string;
@@ -83,6 +102,8 @@ export interface Project {
   previewUrl?: string;
   quickLinks?: QuickLink[];
   slides?: Slide[];
+  // Deck versions support
+  activeDeckVersionId?: string;
   [k: string]: unknown;
 }
 
