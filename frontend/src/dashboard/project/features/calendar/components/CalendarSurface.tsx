@@ -611,7 +611,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             tags: event.tags ?? [],
             guests: event.guests ?? [],
           };
-          operations.push(onUpdateEvent(event.source, payload));
+          if (change.duplicate) {
+            // Create a new event (copy)
+            operations.push(onCreateEvent(payload));
+          } else {
+            operations.push(onUpdateEvent(event.source, payload));
+          }
         });
       }
 
@@ -667,7 +672,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Unable to save calendar changes. Please try again.");
       }
     },
-    [activeProjectId, onRefreshTasks, onUpdateEvent],
+    [activeProjectId, onCreateEvent, onRefreshTasks, onUpdateEvent],
   );
 
   const handleSelectDate = useCallback((date: Date) => {
@@ -921,7 +926,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         <div className="calendar-footer">
           <div className="calendar-footer__note">
             <CheckSquare className="calendar-footer__icon" />
-            Connected to project data — events & tasks update automatically.
+            Drag to move • Hold Alt to copy • Ctrl+Click to multi-select
           </div>
           <div className="calendar-footer__timezone">
             Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')}

@@ -123,6 +123,7 @@ type InteractionState = {
   startY: number;
   targets: InteractionTarget[];
   duplicate: boolean;
+  isCopyMode: boolean;
 };
 
 const buildAvatarStack = (
@@ -201,6 +202,7 @@ function DayGrid({
   const [resizePreviewTransforms, setResizePreviewTransforms] = useState<
     Record<string, { translateY: number; scaleY: number; initialHeight: number }>
   >({});
+  const [isCopyMode, setIsCopyMode] = useState(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
 
   useEffect(() => {
@@ -410,13 +412,14 @@ function DayGrid({
           date: dayKey,
           start: formatTimeFromMinutes(finalStart),
           end: formatTimeFromMinutes(finalEnd),
-          duplicate: state.duplicate && target.entry.type === "task",
+          duplicate: state.isCopyMode,
         };
         changes.push(change);
       });
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
+      setIsCopyMode(false);
       if (!changes.length) {
         setDragPreviewTransforms({});
         setResizePreviewTransforms({});
@@ -507,6 +510,28 @@ function DayGrid({
     };
   }, []);
 
+  // Track Alt key for copy mode toggle during drag
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Alt" && interactionRef.current) {
+        interactionRef.current.isCopyMode = true;
+        setIsCopyMode(true);
+      }
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Alt" && interactionRef.current) {
+        interactionRef.current.isCopyMode = false;
+        setIsCopyMode(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   const createTarget = useCallback(
     (entry: TimelineHourEntry<CalendarEvent | CalendarTask>): InteractionTarget => ({
       entry,
@@ -574,13 +599,16 @@ function DayGrid({
           ? "resizeBottom"
           : "drag";
 
+      const copyMode = Boolean(pointerEvent.altKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,
         startY: pointerEvent.clientY,
         targets,
         duplicate: additive,
+        isCopyMode: copyMode,
       };
+      setIsCopyMode(copyMode);
       pointerEvent.preventDefault();
     },
     [createTarget, gatherTargets, onEntrySelect],
@@ -928,17 +956,6 @@ function DayGrid({
       </div>
     );
 
-    const className = [
-      "week-grid__timeline-entry",
-      entry.type === "event"
-        ? "week-grid__timeline-entry--event"
-        : "week-grid__timeline-entry--task",
-      stacked ? "week-grid__timeline-entry--stacked" : "",
-      isEntrySelected ? "week-grid__timeline-entry--selected" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-
     const color = entry.projectColor || projectColor;
     const pillStyle = {
       ...entryStyle,
@@ -947,6 +964,18 @@ function DayGrid({
     };
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
     const resizeTransform = resizePreviewTransforms[entrySelectionKey];
+
+    const className = [
+      "week-grid__timeline-entry",
+      entry.type === "event"
+        ? "week-grid__timeline-entry--event"
+        : "week-grid__timeline-entry--task",
+      stacked ? "week-grid__timeline-entry--stacked" : "",
+      isEntrySelected ? "week-grid__timeline-entry--selected" : "",
+      isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     
     let entryStyleWithPreview: React.CSSProperties = pillStyle;
     if (dragTransform) {

@@ -22,6 +22,10 @@
 }
 
 .deck-versions-modal {
+  /* Accent color from project - fallback to indigo */
+  --version-accent: #4f46e5;
+  --version-accent-rgb: 79, 70, 229;
+
   width: 100%;
   max-width: 560px;
   max-height: 80vh;
@@ -110,8 +114,8 @@
 }
 
 .deck-versions-modal__version--active {
-  border-color: rgba(79, 70, 229, 0.4);
-  background: rgba(79, 70, 229, 0.08);
+  border-color: rgba(var(--version-accent-rgb), 0.4);
+  background: rgba(var(--version-accent-rgb), 0.08);
 }
 
 .deck-versions-modal__version-info {
@@ -348,8 +352,8 @@
 
 .deck-versions-modal__input:focus {
   outline: none;
-  border-color: rgba(79, 70, 229, 0.5);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  border-color: rgba(var(--version-accent-rgb), 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--version-accent-rgb), 0.15);
 }
 
 .deck-versions-modal__input::placeholder {
@@ -370,7 +374,7 @@
 
 .deck-versions-modal__select:focus {
   outline: none;
-  border-color: rgba(79, 70, 229, 0.5);
+  border-color: rgba(var(--version-accent-rgb), 0.5);
 }
 
 .deck-versions-modal__textarea {
@@ -388,7 +392,7 @@
 
 .deck-versions-modal__textarea:focus {
   outline: none;
-  border-color: rgba(79, 70, 229, 0.5);
+  border-color: rgba(var(--version-accent-rgb), 0.5);
 }
 
 .deck-versions-modal__textarea::placeholder {
@@ -436,9 +440,9 @@
 }
 
 .deck-versions-modal__role-chip--selected {
-  background: rgba(79, 70, 229, 0.2);
-  border-color: rgba(79, 70, 229, 0.4);
-  color: #a5b4fc;
+  background: rgba(var(--version-accent-rgb), 0.2);
+  border-color: rgba(var(--version-accent-rgb), 0.4);
+  color: var(--version-accent);
 }
 
 .deck-versions-modal__roles-hint {
@@ -485,13 +489,14 @@
 }
 
 .deck-versions-modal__btn--primary {
-  background: #4f46e5;
+  background: var(--version-accent);
   border: none;
   color: white;
 }
 
 .deck-versions-modal__btn--primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: var(--version-accent);
+  filter: brightness(0.9);
 }
 
 .deck-versions-modal__btn--secondary {

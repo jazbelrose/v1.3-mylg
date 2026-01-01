@@ -1848,14 +1848,41 @@ const listDeckVersions = async (e, C, { projectId }) => {
     versions = [defaultVersion];
   }
 
+  // Enrich createdByName with user profile data (first + last name)
+  const creatorIds = [...new Set(versions.map((v) => v.createdBy).filter(Boolean))];
+  const profilesMap = new Map();
+  if (creatorIds.length > 0) {
+    try {
+      const batchResult = await ddb.batchGet({
+        RequestItems: {
+          [USER_PROFILES_TABLE]: {
+            Keys: creatorIds.map((id) => ({ userId: id })),
+            ProjectionExpression: "userId, firstName, lastName, email",
+          },
+        },
+      });
+      const profiles = batchResult.Responses?.[USER_PROFILES_TABLE] || [];
+      for (const profile of profiles) {
+        const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
+        if (fullName) {
+          profilesMap.set(profile.userId, fullName);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch user profiles for deck versions:", err);
+      // Non-fatal - continue with existing createdByName
+    }
+  }
+
   // Filter by role
   const filtered = filterVersionsByRole(versions, userRole, isAdmin);
 
-  // Transform isDefault from string to boolean for frontend
+  // Transform isDefault from string to boolean for frontend and enrich createdByName
   const transformed = filtered.map((v) => ({
     ...v,
     isDefault: v.isDefault === "true",
     isClientDefault: v.isClientDefault === "true",
+    createdByName: profilesMap.get(v.createdBy) || v.createdByName,
   }));
 
   return json(200, C, transformed);

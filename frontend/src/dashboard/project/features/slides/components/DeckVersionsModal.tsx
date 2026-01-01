@@ -30,6 +30,8 @@ export interface DeckVersionsModalProps {
   onSetClientDefault: (versionId: string) => Promise<boolean>;
   onDuplicateVersion: (versionId: string, name?: string) => Promise<DeckVersion | null>;
   onSwitchVersion: (versionId: string) => void;
+  /** Accent color derived from project color (hex format, e.g., "#FA3356") */
+  accentColor?: string;
 }
 
 interface CreateVersionOptions {
@@ -75,6 +77,7 @@ export const DeckVersionsModal: React.FC<DeckVersionsModalProps> = ({
   onSetClientDefault,
   onDuplicateVersion,
   onSwitchVersion,
+  accentColor,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [editingVersion, setEditingVersion] = useState<EditingVersion | null>(null);
@@ -86,6 +89,21 @@ export const DeckVersionsModal: React.FC<DeckVersionsModalProps> = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Helper to convert hex to RGB string
+  const hexToRgb = useCallback((hex: string): string => {
+    const cleaned = hex.replace("#", "");
+    const bigint = parseInt(cleaned, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `${r}, ${g}, ${b}`;
+  }, []);
+
+  // Compute accent color CSS variable style
+  const accentStyle = accentColor
+    ? ({ "--version-accent": accentColor, "--version-accent-rgb": hexToRgb(accentColor) } as React.CSSProperties)
+    : undefined;
 
   const resetNewVersionForm = useCallback(() => {
     setNewVersionName("");
@@ -213,6 +231,7 @@ export const DeckVersionsModal: React.FC<DeckVersionsModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="deck-versions-modal-title"
+        style={accentStyle}
       >
         <div className="deck-versions-modal__header">
           <h2 id="deck-versions-modal-title">Manage Versions</h2>

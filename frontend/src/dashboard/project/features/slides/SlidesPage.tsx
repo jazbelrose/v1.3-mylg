@@ -15,6 +15,8 @@ import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
+import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
+import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { ConfirmModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
@@ -102,6 +104,10 @@ const SlidesPage: React.FC = () => {
   } = useData();
 
   const { ws } = useSocket();
+
+  // Project palette - derive accent color from project color/cover
+  const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
+  const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color as string | undefined });
 
   // Deck versions management
   const {
@@ -1133,14 +1139,16 @@ const SlidesPage: React.FC = () => {
       onVersionSelect={switchVersion}
       onManageVersions={() => setVersionsModalOpen(true)}
       onCreateVersion={async () => {
-        const newVersion = await createVersion({ name: `Version ${versions.length + 1}`, slides });
+        // Create new version with NO slides - user can duplicate from modal if needed
+        const newVersion = await createVersion({ name: `Version ${versions.length + 1}` });
         if (newVersion) {
           switchVersion(newVersion.versionId);
         }
       }}
       canManageVersions={canManageVersions}
+      accentColor={projectPalette.accent}
     />
-  ), [versions, activeVersion, switchVersion, createVersion, slides, canManageVersions]);
+  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions, projectPalette.accent]);
 
   if (!projectId) {
     return <div>No project ID provided</div>;
@@ -1203,7 +1211,8 @@ const SlidesPage: React.FC = () => {
         activeVersionId={activeVersionId}
         onSwitchVersion={switchVersion}
         onCreateVersion={async (options) => {
-          const newVersion = await createVersion({ ...options, slides });
+          // Create new version - only includes slides if duplicating from another version
+          const newVersion = await createVersion(options);
           if (newVersion) {
             switchVersion(newVersion.versionId);
           }
@@ -1214,6 +1223,7 @@ const SlidesPage: React.FC = () => {
         onDuplicateVersion={duplicateVersion}
         onSetDefault={setDefaultVersion}
         onSetClientDefault={setClientDefaultVersion}
+        accentColor={projectPalette.accent}
       />
       {filesOpen && (
         <FileManagerComponent

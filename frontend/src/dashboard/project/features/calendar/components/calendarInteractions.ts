@@ -2,6 +2,15 @@ import type { CalendarEvent, CalendarTask } from "../utils";
 
 export type CalendarEntryType = "event" | "task";
 
+/**
+ * Represents changes to be applied to a calendar entry after drag/resize operations.
+ * 
+ * Keyboard shortcuts for calendar interactions:
+ * - Drag: Move entries to a new time/date
+ * - Alt + Drag: Copy the entry to a new time/date (tasks only)
+ * - Ctrl/Cmd + Click: Multi-select entries
+ * - Resize handles: Drag top/bottom edges to resize duration
+ */
 export type CalendarEntryChanges = {
   type: CalendarEntryType;
   entry: CalendarEvent | CalendarTask;

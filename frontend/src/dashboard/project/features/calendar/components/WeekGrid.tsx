@@ -173,6 +173,7 @@ type InteractionState = {
   startY: number;
   targets: InteractionTarget[];
   duplicate: boolean;
+  isCopyMode: boolean;
   startDayIndex: number;
 };
 
@@ -268,6 +269,7 @@ function WeekGrid({
   const [resizePreviewTransforms, setResizePreviewTransforms] = useState<
     Record<string, { translateY: number; scaleY: number; initialHeight: number }>
   >({});
+  const [isCopyMode, setIsCopyMode] = useState(false);
   const previewCleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
@@ -611,13 +613,14 @@ function WeekGrid({
           date: fmtLocal(days[newDayIndex]),
           start: formatTimeFromMinutes(finalStart),
           end: formatTimeFromMinutes(finalEnd),
-          duplicate: state.duplicate && target.entry.type === "task",
+          duplicate: state.isCopyMode,
         };
         changes.push(change);
       });
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
+      setIsCopyMode(false);
       gridRef.current?.classList.remove("is-interacting");
       
       // Clear previews after a brief delay to allow visual feedback
@@ -715,6 +718,28 @@ function WeekGrid({
     };
   }, []);
 
+  // Track Alt key for copy mode toggle during drag
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Alt" && interactionRef.current) {
+        interactionRef.current.isCopyMode = true;
+        setIsCopyMode(true);
+      }
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Alt" && interactionRef.current) {
+        interactionRef.current.isCopyMode = false;
+        setIsCopyMode(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   const createTarget = useCallback(
     (entry: TimelineHourEntry<CalendarEvent | CalendarTask>, dayKey: string): InteractionTarget => ({
       entry,
@@ -785,14 +810,17 @@ function WeekGrid({
           ? "resizeBottom"
           : "drag";
 
+      const copyMode = Boolean(pointerEvent.altKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,
         startY: pointerEvent.clientY,
         targets,
         duplicate: additive,
+        isCopyMode: copyMode,
         startDayIndex: baseTarget.dayIndex,
       };
+      setIsCopyMode(copyMode);
       pointerEvent.preventDefault();
     },
     [createTarget, gatherTargets, onEntrySelect],
@@ -919,16 +947,6 @@ function WeekGrid({
           {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
-    const entryClasses = [
-      "week-grid__timeline-entry",
-      entry.type === "event"
-        ? "week-grid__timeline-entry--event"
-        : "week-grid__timeline-entry--task",
-      stacked ? "week-grid__timeline-entry--stacked" : "",
-      isEntrySelected ? "week-grid__timeline-entry--selected" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
     
     const color = entry.projectColor || projectColor;
     const pillStyle = {
@@ -938,6 +956,18 @@ function WeekGrid({
     };
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
     const resizeTransform = resizePreviewTransforms[entrySelectionKey];
+
+    const entryClasses = [
+      "week-grid__timeline-entry",
+      entry.type === "event"
+        ? "week-grid__timeline-entry--event"
+        : "week-grid__timeline-entry--task",
+      stacked ? "week-grid__timeline-entry--stacked" : "",
+      isEntrySelected ? "week-grid__timeline-entry--selected" : "",
+      isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     
     let entryStyleWithPreview = pillStyle;
     if (dragTransform) {

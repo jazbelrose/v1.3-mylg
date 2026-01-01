@@ -12,6 +12,8 @@ export interface DeckVersionDropdownProps {
   onManageVersions: () => void;
   canManageVersions: boolean;
   disabled?: boolean;
+  /** Accent color derived from project color (hex format, e.g., "#FA3356") */
+  accentColor?: string;
 }
 
 export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
@@ -22,9 +24,25 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
   onManageVersions,
   canManageVersions,
   disabled = false,
+  accentColor,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Compute accent color CSS variable style
+  const accentStyle = accentColor
+    ? ({ "--version-accent": accentColor, "--version-accent-rgb": hexToRgb(accentColor) } as React.CSSProperties)
+    : undefined;
+
+  // Helper to convert hex to RGB string
+  function hexToRgb(hex: string): string {
+    const cleaned = hex.replace("#", "");
+    const bigint = parseInt(cleaned, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `${r}, ${g}, ${b}`;
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -89,7 +107,7 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
   }
 
   return (
-    <div className="deck-version-dropdown" ref={dropdownRef}>
+    <div className="deck-version-dropdown" ref={dropdownRef} style={accentStyle}>
       <button
         type="button"
         className={`deck-version-dropdown__trigger ${isOpen ? "deck-version-dropdown__trigger--open" : ""}`}
