@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckSquare, Clock, Plus } from "lucide-react";
-import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
 import {
   CalendarEntryContextMenu,
   type ContextMenuPosition,
@@ -1426,16 +1425,6 @@ function DayGrid({
           </button>
         </div>
       )}
-      {hoveredEntry && (
-        <TimelineTooltipPortal
-          anchorElement={hoveredEntry.anchorElement}
-          avatars={hoveredEntry.avatars}
-          timeText={hoveredEntry.timeText}
-          title={hoveredEntry.title}
-          onClose={handleTooltipClose}
-          onTooltipHover={handleTooltipHover}
-        />
-      )}
       {contextMenu && (
         <CalendarEntryContextMenu
           position={contextMenu.position}
@@ -1463,6 +1452,7 @@ function DayGrid({
           entryType={popover.entryType}
           entry={popover.entry}
           selectedCount={selectedEntryKeys.size}
+          teamMembers={teamMembers}
           onClose={handleClosePopover}
           onEdit={() => {
             if (popover.entryType === "event") {

@@ -5,7 +5,7 @@
  * Shows entry details and quick actions without opening the full edit modal.
  */
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Send,
@@ -14,11 +14,20 @@ import {
   Trash2,
   Pencil,
   Clock,
-  User,
   Calendar,
 } from "lucide-react";
 import type { CalendarTask, CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
+import ProjectAvatar from "@/shared/ui/ProjectAvatar";
+import {
+  buildTeamMemberLookup,
+  buildTaskAvatars,
+  buildEventAvatars,
+  parseAssigneeUserId,
+  type TimelineAvatar,
+} from "./timelineLayout";
+import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 
 import type { ContextMenuEntry } from "./CalendarEntryContextMenu";
 
@@ -27,6 +36,7 @@ export interface CalendarEntryPopoverProps {
   entryType: CalendarEntryType;
   entry: CalendarTask | CalendarEvent;
   selectedCount: number;
+  teamMembers?: ProjectTeamMember[];
   onClose: () => void;
   onEdit: () => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
@@ -40,6 +50,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   entryType,
   entry,
   selectedCount,
+  teamMembers,
   onClose,
   onEdit,
   onSubmitForReview,
@@ -136,6 +147,58 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     ? "All day"
     : event?.start || "No time set";
 
+  // Build team member lookup for avatar resolution
+  const memberLookup = useMemo(
+    () => buildTeamMemberLookup(teamMembers),
+    [teamMembers]
+  );
+
+  // Build avatars (overlapped stack like calendar blocks)
+  const avatars: TimelineAvatar[] = useMemo(() => {
+    if (isTask && task) {
+      return buildTaskAvatars(task, memberLookup);
+    }
+    if (!isTask && event) {
+      return buildEventAvatars(event, memberLookup);
+    }
+    return [];
+  }, [isTask, task, event, memberLookup]);
+
+  // Get formatted assignee names (not user IDs)
+  const assigneeNames = useMemo(() => {
+    if (!isTask || !task) return null;
+    const names: string[] = [];
+    
+    // Check assignedTo
+    if (task.assignedTo) {
+      const userId = parseAssigneeUserId(task.assignedTo);
+      if (userId && memberLookup.byId.has(userId)) {
+        const member = memberLookup.byId.get(userId)!;
+        const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+        if (name) names.push(name);
+      } else {
+        const formatted = formatAssigneeDisplay(task.assignedTo);
+        if (formatted) names.push(formatted);
+      }
+    }
+    
+    // Check assigneeIds for additional assignees
+    task.assigneeIds?.forEach((assigneeId) => {
+      if (names.length >= 3) return; // Limit to 3 names
+      const userId = parseAssigneeUserId(assigneeId);
+      if (userId && memberLookup.byId.has(userId)) {
+        const member = memberLookup.byId.get(userId)!;
+        const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+        if (name && !names.includes(name)) names.push(name);
+      } else {
+        const formatted = formatAssigneeDisplay(assigneeId);
+        if (formatted && !names.includes(formatted)) names.push(formatted);
+      }
+    });
+    
+    return names.length > 0 ? names : null;
+  }, [isTask, task, memberLookup]);
+
   const handleEdit = useCallback(() => {
     onEdit();
     onClose();
@@ -176,7 +239,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       role="dialog"
       aria-label="Entry details"
     >
-      {/* Header with title */}
+      {/* Header with title and avatar stack */}
       <div className="calendar-entry-popover__header">
         <button
           type="button"
@@ -187,6 +250,31 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           <span className="calendar-entry-popover__title">{title}</span>
           <Pencil className="calendar-entry-popover__edit-icon" />
         </button>
+        
+        {/* Avatar stack (aligned right, overlapped like calendar blocks) */}
+        {avatars.length > 0 && (
+          <div className="calendar-entry-popover__avatars">
+            {avatars.map((avatar, index) => (
+              <span
+                key={avatar.key}
+                className="calendar-entry-popover__avatar-wrapper"
+                style={{ 
+                  zIndex: avatars.length - index,
+                  marginLeft: index > 0 ? "-8px" : 0 
+                }}
+              >
+                <ProjectAvatar
+                  className="calendar-entry-popover__avatar"
+                  thumb={avatar.thumb ?? undefined}
+                  name={avatar.name}
+                  shape="circle"
+                  radius={10}
+                />
+              </span>
+            ))}
+          </div>
+        )}
+        
         {selectedCount > 1 && (
           <span className="calendar-entry-popover__badge">
             +{selectedCount - 1} more
@@ -206,10 +294,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             <span>{task.due}</span>
           </div>
         )}
-        {isTask && task?.assignedTo && (
-          <div className="calendar-entry-popover__detail-row">
-            <User className="calendar-entry-popover__detail-icon" />
-            <span>{task.assignedTo}</span>
+        {/* Show formatted assignee names, not IDs */}
+        {assigneeNames && assigneeNames.length > 0 && (
+          <div className="calendar-entry-popover__detail-row calendar-entry-popover__assignees">
+            <span className="calendar-entry-popover__assignee-label">Assigned:</span>
+            <span className="calendar-entry-popover__assignee-names">
+              {assigneeNames.join(", ")}
+            </span>
           </div>
         )}
         {isTask && task?.status && (
