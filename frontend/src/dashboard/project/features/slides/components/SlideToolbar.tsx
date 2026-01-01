@@ -236,6 +236,9 @@ interface SlideToolbarProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
+  onExportAllPdf?: () => void;
+  isExportingPdf?: boolean;
+  pdfExportProgress?: { current: number; total: number } | null;
   onNewSlide?: () => void;
   onImportPdf?: () => void;
   isImportingPdf?: boolean;
@@ -303,6 +306,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onDuplicate,
   onDelete,
   onExport,
+  onExportAllPdf,
+  isExportingPdf = false,
+  pdfExportProgress,
   onNewSlide,
   onImportPdf,
   isImportingPdf = false,
@@ -1611,18 +1617,42 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   <span className="text">Duplicate Slide</span>
                 </button>
               )}
-              {onExport && (
-                <button
-                  type="button"
-                  className="item"
-                  onClick={() => {
-                    onExport();
-                    closeDropdown();
-                  }}
-                >
-                  <Download size={18} className="dropdown-icon" />
-                  <span className="text">Export</span>
-                </button>
+              {(onExport || onExportAllPdf) && (
+                <>
+                  <div className="dropdown-divider" />
+                  <div className="dropdown-section-label">Export</div>
+                  {onExport && (
+                    <button
+                      type="button"
+                      className="item"
+                      onClick={() => {
+                        onExport();
+                        closeDropdown();
+                      }}
+                    >
+                      <Download size={18} className="dropdown-icon" />
+                      <span className="text">Export Slide as SVG</span>
+                    </button>
+                  )}
+                  {onExportAllPdf && (
+                    <button
+                      type="button"
+                      className="item"
+                      disabled={isExportingPdf}
+                      onClick={() => {
+                        onExportAllPdf();
+                        closeDropdown();
+                      }}
+                    >
+                      <Download size={18} className="dropdown-icon" />
+                      <span className="text">
+                        {isExportingPdf && pdfExportProgress
+                          ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
+                          : "Export All as PDF"}
+                      </span>
+                    </button>
+                  )}
+                </>
               )}
               {onDelete && (
                 <>

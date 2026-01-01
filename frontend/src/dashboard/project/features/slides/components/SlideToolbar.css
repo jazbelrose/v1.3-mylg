@@ -497,6 +497,16 @@
   margin: 4px 0;
 }
 
+.dropdown .dropdown-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 4px 12px 2px;
+  margin-top: 2px;
+}
+
 .dropdown .dropdown-icon {
   width: 18px;
   display: inline-flex;

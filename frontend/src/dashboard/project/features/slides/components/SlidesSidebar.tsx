@@ -530,7 +530,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                 }}
               >
                 <Download size={24} className="dropdown-icon" />
-                <span className="text">Export</span>
+                <span className="text">Export as SVG</span>
               </button>
             )}
             {onDeleteSlide && (

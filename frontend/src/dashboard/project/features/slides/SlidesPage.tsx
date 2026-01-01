@@ -24,6 +24,7 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "./lib/lexicalContent";
+import { exportAndDownloadSlideSvg, exportAndDownloadSlidesPdf } from "./lib/slideExport";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
@@ -1188,10 +1189,73 @@ const SlidesPage: React.FC = () => {
     userId,
   ]);
 
-  const handleExport = useCallback(() => {
-    notify("info", "Export feature coming soon");
-    // TODO: Implement PDF export with jsPDF
-  }, []);
+  // State for PDF export progress
+  const [pdfExportStatus, setPdfExportStatus] = useState<"idle" | "exporting">("idle");
+  const [pdfExportProgress, setPdfExportProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Export single slide as SVG (editable with layers for Affinity Designer, etc.)
+  const handleExportSlideSvg = useCallback(async (slideId: string) => {
+    const slide = slides.find((s) => s.id === slideId);
+    if (!slide) {
+      notify("error", "Slide not found");
+      return;
+    }
+
+    notify("info", "Exporting slide as SVG...");
+    
+    const success = await exportAndDownloadSlideSvg(
+      slideId,
+      slide.title || `Slide ${slide.order + 1}`,
+      slide.backgroundColor
+    );
+
+    if (success) {
+      notify("success", "Slide exported as SVG");
+    } else {
+      notify("error", "Failed to export slide");
+    }
+  }, [slides]);
+
+  // Export all slides as PDF
+  const handleExportAllSlidesPdf = useCallback(async () => {
+    if (slides.length === 0) {
+      notify("warning", "No slides to export");
+      return;
+    }
+
+    setPdfExportStatus("exporting");
+    setPdfExportProgress({ current: 0, total: slides.length });
+    notify("info", `Exporting ${slides.length} slides as PDF...`);
+
+    try {
+      const success = await exportAndDownloadSlidesPdf(
+        slides,
+        (activeProject?.name as string) || "Presentation",
+        (current, total) => {
+          setPdfExportProgress({ current, total });
+        }
+      );
+
+      if (success) {
+        notify("success", "Slides exported as PDF");
+      } else {
+        notify("error", "Failed to export slides");
+      }
+    } finally {
+      setPdfExportStatus("idle");
+      setPdfExportProgress(null);
+    }
+  }, [slides, activeProject?.name]);
+
+  // Handler for sidebar context menu "Export" - exports single slide as SVG
+  const handleExport = useCallback((slideId?: string) => {
+    const targetSlideId = slideId || activeSlideId;
+    if (!targetSlideId) {
+      notify("warning", "No slide selected");
+      return;
+    }
+    handleExportSlideSvg(targetSlideId);
+  }, [activeSlideId, handleExportSlideSvg]);
 
   const uploadPdfForSlidesImport = useCallback(
     async (file: File) => {
@@ -1462,6 +1526,10 @@ const SlidesPage: React.FC = () => {
                   importProgress={pdfImportProgress}
                   importCurrentPage={pdfImportDetail?.currentPage}
                   importTotalPages={pdfImportDetail?.totalPages}
+                  onExport={() => handleExport(activeSlide.id)}
+                  onExportAllPdf={handleExportAllSlidesPdf}
+                  isExportingPdf={pdfExportStatus === "exporting"}
+                  pdfExportProgress={pdfExportProgress}
                   zoom={zoom}
                   onZoomIn={handleZoomIn}
                   onZoomOut={handleZoomOut}

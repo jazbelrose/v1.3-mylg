@@ -32,6 +32,9 @@ interface SlideEditorProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
+  onExportAllPdf?: () => void;
+  isExportingPdf?: boolean;
+  pdfExportProgress?: { current: number; total: number } | null;
   onImportPdf?: () => void;
   isImportingPdf?: boolean;
   pdfImportStatus?: "idle" | "uploading" | "processing";
@@ -67,6 +70,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onDuplicate,
   onDelete,
   onExport,
+  onExportAllPdf,
+  isExportingPdf = false,
+  pdfExportProgress,
   onImportPdf,
   isImportingPdf = false,
   pdfImportStatus,
@@ -269,6 +275,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onDuplicate={onDuplicate}
       onDelete={onDelete}
       onExport={onExport}
+      onExportAllPdf={onExportAllPdf}
+      isExportingPdf={isExportingPdf}
+      pdfExportProgress={pdfExportProgress}
       onPreview={onPreview}
       onImportPdf={onImportPdf}
       isImportingPdf={isImportingPdf}
