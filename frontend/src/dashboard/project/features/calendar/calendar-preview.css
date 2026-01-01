@@ -2691,6 +2691,8 @@
 }
 
 .calendar-entry-popover__avatar {
+  width: 18px;
+  height: 18px;
   border: 1.5px solid #0c0c0c;
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
