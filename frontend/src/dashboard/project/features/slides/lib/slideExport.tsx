@@ -5,6 +5,7 @@ import { toSvg, toPng } from 'html-to-image';
 import { pdf as createPdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import { Slide } from '@/app/contexts/DataProvider';
+import { getFileUrl } from '@/shared/utils/api';
 import SlidesPdfDocument, { type SlideImageData } from './SlidesPdfDocument';
 
 const NATIVE_SLIDE_WIDTH = 1920;
@@ -221,9 +222,13 @@ function enhanceSvgForEditability(svgString: string, slideTitle: string): string
   const doc = parser.parseFromString(svgString, 'image/svg+xml');
   const svg = doc.documentElement;
 
-  // Add metadata for design software compatibility
-  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  // Only add xmlns attributes if not already present (to avoid duplication error)
+  if (!svg.getAttribute('xmlns')) {
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  if (!svg.getAttribute('xmlns:xlink')) {
+    svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  }
 
   // Add a title element
   const existingTitle = svg.querySelector('title');
@@ -282,10 +287,7 @@ function enhanceSvgForEditability(svgString: string, slideTitle: string): string
 
   // Serialize back to string
   const serializer = new XMLSerializer();
-  let result = serializer.serializeToString(svg);
-
-  // Clean up and add XML declaration for better compatibility
-  result = '<?xml version="1.0" encoding="UTF-8"?>\n' + result;
+  const result = serializer.serializeToString(svg);
 
   return result;
 }
@@ -335,8 +337,8 @@ export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<strin
     }
     await waitForImagesToLoad(clone, 3000);
 
-    // Generate SVG
-    let svgString = await toSvg(clone, {
+    // Generate SVG - toSvg returns a data URL, we need to extract the actual SVG
+    const svgDataUrl = await toSvg(clone, {
       width: NATIVE_SLIDE_WIDTH,
       height: NATIVE_SLIDE_HEIGHT,
       canvasWidth: NATIVE_SLIDE_WIDTH,
@@ -347,6 +349,21 @@ export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<strin
       // Include foreign objects for text editability
       includeQueryParams: true,
     });
+
+    // Decode the data URL to get raw SVG string
+    // Format: data:image/svg+xml;charset=utf-8,<encoded-svg>
+    let svgString: string;
+    if (svgDataUrl.startsWith('data:image/svg+xml')) {
+      const commaIndex = svgDataUrl.indexOf(',');
+      if (commaIndex === -1) {
+        throw new Error('Invalid SVG data URL format');
+      }
+      const encoded = svgDataUrl.substring(commaIndex + 1);
+      // Decode URI-encoded SVG
+      svgString = decodeURIComponent(encoded);
+    } else {
+      svgString = svgDataUrl;
+    }
 
     // Enhance the SVG for editing in design software
     if (enhanceForEditing) {
@@ -461,7 +478,69 @@ export async function captureSlideAsPng(
 }
 
 /**
+ * Convert an image URL to a base64 data URL
+ */
+async function imageUrlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) {
+      console.warn('[SlideExport] Failed to fetch image:', url);
+      return null;
+    }
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.warn('[SlideExport] Failed to convert image to data URL:', error);
+    return null;
+  }
+}
+
+/**
+ * Get the best available image for a slide:
+ * 1. Try to capture from DOM (if slide is currently rendered)
+ * 2. Fall back to existing thumbnail
+ * 3. Fall back to background image
+ */
+async function getSlideImage(
+  slide: Slide,
+  backgroundColor: string
+): Promise<string | null> {
+  // First try to capture from DOM (only works if slide is currently visible)
+  const bg = slide.backgroundColor || backgroundColor;
+  const domCapture = await captureSlideAsPng(slide.id, bg);
+  if (domCapture) {
+    return domCapture;
+  }
+
+  // Fall back to existing thumbnail (convert URL to data URL for PDF embedding)
+  if (slide.thumbnail) {
+    const thumbnailUrl = getFileUrl(slide.thumbnail);
+    const dataUrl = await imageUrlToDataUrl(thumbnailUrl);
+    if (dataUrl) {
+      return dataUrl;
+    }
+  }
+
+  // Fall back to background image if available
+  if (slide.backgroundImage) {
+    const bgImageUrl = getFileUrl(slide.backgroundImage);
+    const dataUrl = await imageUrlToDataUrl(bgImageUrl);
+    if (dataUrl) {
+      return dataUrl;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Capture all slides as PNG images for PDF generation
+ * Uses DOM capture for visible slides, thumbnails for others
  */
 export async function captureAllSlidesAsPng(
   slides: Slide[],
@@ -474,15 +553,16 @@ export async function captureAllSlidesAsPng(
     const slide = slides[i];
     onProgress?.(i + 1, slides.length);
 
-    const bg = slide.backgroundColor || backgroundColor;
-    const pngDataUrl = await captureSlideAsPng(slide.id, bg);
+    const imageDataUrl = await getSlideImage(slide, backgroundColor);
 
-    if (pngDataUrl) {
+    if (imageDataUrl) {
       results.push({
         slideId: slide.id,
         title: slide.title || `Slide ${i + 1}`,
-        imageDataUrl: pngDataUrl,
+        imageDataUrl,
       });
+    } else {
+      console.warn(`[SlideExport] Could not get image for slide ${i + 1}`);
     }
   }
 

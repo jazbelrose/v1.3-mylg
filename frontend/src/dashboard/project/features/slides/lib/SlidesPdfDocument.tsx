@@ -20,21 +20,23 @@ interface SlidesPdfDocumentProps {
   projectName: string;
 }
 
-// 16:9 aspect ratio in points (72 points per inch)
-// Using HD proportions scaled to fit typical PDF page
-const PAGE_WIDTH = 1920 / 2; // 960 points
-const PAGE_HEIGHT = 1080 / 2; // 540 points
+// 16:9 aspect ratio - use full HD dimensions for maximum quality
+// react-pdf uses points (72 points per inch), but we can use pixel values
+const PAGE_WIDTH = 1920;
+const PAGE_HEIGHT = 1080;
 
 const styles = StyleSheet.create({
   page: {
-    width: PAGE_WIDTH,
-    height: PAGE_HEIGHT,
     backgroundColor: '#101112',
+  },
+  slideContainer: {
+    width: '100%',
+    height: '100%',
   },
   slideImage: {
     width: '100%',
     height: '100%',
-    objectFit: 'contain',
+    objectFit: 'cover',
   },
 });
 
@@ -56,11 +58,10 @@ const SlidesPdfDocument: React.FC<SlidesPdfDocumentProps> = ({
       {slideImages.map((slideData, index) => (
         <Page
           key={slideData.slideId || index}
-          size={[PAGE_WIDTH, PAGE_HEIGHT]}
-          orientation="landscape"
+          size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }}
           style={styles.page}
         >
-          <View style={{ width: '100%', height: '100%' }}>
+          <View style={styles.slideContainer}>
             <Image
               src={slideData.imageDataUrl}
               style={styles.slideImage}

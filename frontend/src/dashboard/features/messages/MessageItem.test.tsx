@@ -76,6 +76,65 @@ describe("MessageItem edit", () => {
     expect(screen.queryByLabelText("Edit message")).toBeNull();
     expect(screen.queryByLabelText("Delete message")).toBeNull();
   });
+
+  it("treats long text as a collapsible long message", async () => {
+    const longText = Array.from({ length: 120 }).map(() => "This is a line of text.").join("\n");
+
+    render(
+      <OnlineStatusProvider>
+        <MessageItem
+          msg={{
+            senderId: "u1",
+            messageId: "m_long",
+            text: longText,
+            timestamp: "t_long",
+          }}
+          prevMsg={null}
+          userData={{ userId: "u2" }}
+          allUsers={[]}
+          openPreviewModal={() => {}}
+          folderKey=""
+          renderFilePreview={() => null}
+          getFileNameFromUrl={() => ""}
+        />
+      </OnlineStatusProvider>
+    );
+
+    const readMore = screen.getByRole("button", { name: "Read more" });
+    expect(readMore).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(readMore);
+    expect(screen.getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows a dedicated reader for massive messages", async () => {
+    const massiveText = "a".repeat(5000);
+
+    render(
+      <OnlineStatusProvider>
+        <MessageItem
+          msg={{
+            senderId: "u1",
+            messageId: "m_massive",
+            text: massiveText,
+            timestamp: "t_massive",
+          }}
+          prevMsg={null}
+          userData={{ userId: "u2" }}
+          allUsers={[]}
+          openPreviewModal={() => {}}
+          folderKey=""
+          renderFilePreview={() => null}
+          getFileNameFromUrl={() => ""}
+        />
+      </OnlineStatusProvider>
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByRole("button", { name: "Copy all" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jump to message" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
 });
 
 

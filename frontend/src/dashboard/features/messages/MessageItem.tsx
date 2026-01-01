@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import User from "@/assets/svg/user.svg?react";
 import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
 import { Trash2, Pencil, Smile } from "lucide-react";
@@ -7,10 +7,74 @@ import ReactPlayer from "react-player";
 import { normalizeFileUrl, getFileUrl } from "../../../shared/utils/api";
 import ReactionBar from "@/shared/ui/ReactionBar";
 import { ChatMessage, ChatFile, DMFile } from "@/shared/utils/messageUtils";
+import Modal from "@/shared/ui/ModalWithStack";
 
 type Emoji = string;
 
 export type { ChatMessage };
+
+const LONG_MESSAGE_INLINE_THRESHOLD = { lines: 14, chars: 900 };
+const LONG_MESSAGE_INLINE_CLAMP = { lines: 12, chars: 800 };
+const LONG_MESSAGE_READER_THRESHOLD = { lines: 60, chars: 4000 };
+const LONG_MESSAGE_READER_PREVIEW = { lines: 10, chars: 1200 };
+const LONG_MESSAGE_COLLAPSE_ANIM_MS = 220;
+
+const countTextLines = (text: string) => {
+  if (!text) return 0;
+  return text.split(/\r\n|\r|\n/).length;
+};
+
+const makePreviewText = (text: string, maxLines: number, maxChars: number) => {
+  if (!text) return "";
+
+  const limitedByLines = text
+    .split(/\r\n|\r|\n/)
+    .slice(0, maxLines)
+    .join("\n");
+
+  if (limitedByLines.length <= maxChars) return limitedByLines;
+
+  const sliced = limitedByLines.slice(0, maxChars);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const safeCut = lastSpace > Math.floor(maxChars * 0.7) ? sliced.slice(0, lastSpace) : sliced;
+  return `${safeCut}…`;
+};
+
+const safeDomId = (raw: string) => raw.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const preserveScrollAnchor = (container: HTMLElement, anchor: HTMLElement, mutate: () => void) => {
+  const containerTop = container.getBoundingClientRect().top;
+  const before = anchor.getBoundingClientRect().top - containerTop;
+  mutate();
+  requestAnimationFrame(() => {
+    const after = anchor.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    container.scrollTop += after - before;
+  });
+};
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Fallback for older browsers / permission issues
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
 
 // Move this component outside to prevent recreation on every render
 const RenderLinkContent: React.FC<{ url: string }> = React.memo(({ url }) => {
@@ -175,6 +239,104 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const text = msg.text ?? "";
   const urlRegex = /(https?:\/\/[^\s]+)/;
   const matchedUrl = text.match(urlRegex)?.[0];
+  const messageKey = msg.messageId || msg.optimisticId || String(msg.timestamp);
+  const longMessageBodyId = `long_message_${safeDomId(messageKey)}_body`;
+
+  const isPlainTextBody =
+    !msg.file && !(text && /mylg-files-v\d+/.test(text)) && !matchedUrl && !!text;
+
+  const longMessageMetrics = useMemo(() => {
+    if (!isPlainTextBody) return { lines: 0, chars: 0 };
+    return { lines: countTextLines(text), chars: text.length };
+  }, [isPlainTextBody, text]);
+
+  const isLongMessage =
+    isPlainTextBody &&
+    (longMessageMetrics.lines > LONG_MESSAGE_INLINE_THRESHOLD.lines ||
+      longMessageMetrics.chars > LONG_MESSAGE_INLINE_THRESHOLD.chars);
+
+  const isMassiveMessage =
+    isPlainTextBody &&
+    (longMessageMetrics.lines > LONG_MESSAGE_READER_THRESHOLD.lines ||
+      longMessageMetrics.chars > LONG_MESSAGE_READER_THRESHOLD.chars);
+
+  const inlinePreview = useMemo(() => {
+    if (!isLongMessage) return text;
+    return makePreviewText(text, LONG_MESSAGE_INLINE_CLAMP.lines, LONG_MESSAGE_INLINE_CLAMP.chars);
+  }, [isLongMessage, text]);
+
+  const massivePreview = useMemo(() => {
+    if (!isMassiveMessage) return inlinePreview;
+    return makePreviewText(text, LONG_MESSAGE_READER_PREVIEW.lines, LONG_MESSAGE_READER_PREVIEW.chars);
+  }, [inlinePreview, isMassiveMessage, text]);
+
+  const [inlineExpanded, setInlineExpanded] = useState(false);
+  const [inlineCollapsing, setInlineCollapsing] = useState(false);
+  const [readerOpen, setReaderOpen] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusToOpenButtonRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLongMessage) {
+      setInlineExpanded(false);
+      setInlineCollapsing(false);
+    }
+  }, [isLongMessage]);
+
+  useEffect(() => {
+    if (!readerOpen) return;
+    const t = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [readerOpen]);
+
+  useEffect(() => {
+    if (readerOpen) return;
+    if (!returnFocusToOpenButtonRef.current) return;
+    returnFocusToOpenButtonRef.current = false;
+    const t = window.setTimeout(() => openButtonRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [readerOpen]);
+
+  const toggleInlineExpanded = () => {
+    const bubble = bubbleRef.current;
+    const container = bubble?.closest(".chat-messages") as HTMLElement | null;
+
+    if (inlineExpanded) {
+      const mutate = () => {
+        setInlineCollapsing(true);
+        setInlineExpanded(false);
+      };
+
+      if (bubble && container) preserveScrollAnchor(container, bubble, mutate);
+      else mutate();
+
+      window.setTimeout(() => setInlineCollapsing(false), LONG_MESSAGE_COLLAPSE_ANIM_MS);
+      return;
+    }
+
+    const mutate = () => {
+      setInlineCollapsing(false);
+      setInlineExpanded(true);
+    };
+
+    if (bubble && container) preserveScrollAnchor(container, bubble, mutate);
+    else mutate();
+  };
+
+  const jumpToThisMessage = () => {
+    const bubble = bubbleRef.current;
+    if (!bubble) return;
+
+    setReaderOpen(false);
+
+    requestAnimationFrame(() => {
+      bubble.scrollIntoView({ behavior: "smooth", block: "center" });
+      bubble.classList.add("message-highlight");
+      window.setTimeout(() => bubble.classList.remove("message-highlight"), 1400);
+      bubble.focus();
+    });
+  };
 
   const messageDate = new Date(msg.timestamp);
   const formattedDate = messageDate.toLocaleDateString("en-US", {
@@ -233,7 +395,107 @@ const MessageItem: React.FC<MessageItemProps> = ({
     if (matchedUrl) {
       return <RenderLinkContent url={matchedUrl} />;
     }
-    return text;
+
+    if (!isPlainTextBody || !isLongMessage) {
+      return <div className="message-body">{text}</div>;
+    }
+
+    const showFullText = inlineExpanded || inlineCollapsing;
+    const collapsed = !inlineExpanded;
+    const displayText = showFullText ? text : (isMassiveMessage ? massivePreview : inlinePreview);
+
+    return (
+      <div className={`long-message ${isMassiveMessage ? "long-message--massive" : ""}`}>
+        {isMassiveMessage && <div className="long-message-title">Long message</div>}
+
+        <div
+          id={longMessageBodyId}
+          className={`long-message-body ${collapsed ? "is-collapsed" : "is-expanded"}`}
+        >
+          <pre className="long-message-text">{displayText}</pre>
+          {collapsed && <div className="long-message-fade" aria-hidden="true" />}
+        </div>
+
+        <div className="long-message-controls">
+          <button
+            type="button"
+            className="long-message-btn"
+            onClick={toggleInlineExpanded}
+            aria-expanded={inlineExpanded}
+            aria-controls={longMessageBodyId}
+          >
+            {inlineExpanded ? "Show less" : "Read more"}
+          </button>
+
+          {isMassiveMessage && (
+            <button
+              type="button"
+              className="long-message-btn long-message-btn--secondary"
+              onClick={() => {
+                returnFocusToOpenButtonRef.current = true;
+                setReaderOpen(true);
+              }}
+              ref={openButtonRef}
+            >
+              Open
+            </button>
+          )}
+        </div>
+
+        {isMassiveMessage && (
+          <Modal
+            isOpen={readerOpen}
+            onRequestClose={() => setReaderOpen(false)}
+            ariaHideApp={false}
+            shouldCloseOnOverlayClick
+            closeTimeoutMS={180}
+            className={{
+              base: "long-message-reader",
+              afterOpen: "long-message-reader--after-open",
+              beforeClose: "long-message-reader--before-close",
+            }}
+            overlayClassName={{
+              base: "long-message-reader-overlay",
+              afterOpen: "long-message-reader-overlay--after-open",
+              beforeClose: "long-message-reader-overlay--before-close",
+            }}
+            contentLabel="Long message reader"
+          >
+            <div className="long-message-reader-header">
+              <div className="long-message-reader-title">Long message</div>
+              <div className="long-message-reader-actions">
+                <button
+                  type="button"
+                  className="long-message-reader-btn"
+                  onClick={() => copyTextToClipboard(text)}
+                >
+                  Copy all
+                </button>
+                <button
+                  type="button"
+                  className="long-message-reader-btn"
+                  onClick={jumpToThisMessage}
+                >
+                  Jump to message
+                </button>
+                <button
+                  type="button"
+                  className="long-message-reader-btn long-message-reader-btn--primary"
+                  onClick={() => setReaderOpen(false)}
+                  ref={closeButtonRef}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="long-message-reader-body">
+              <pre className="long-message-reader-text">{text}</pre>
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
   };
 
   return (
