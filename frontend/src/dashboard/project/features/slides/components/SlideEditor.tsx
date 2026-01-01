@@ -15,6 +15,8 @@ import {
   type FontFamily,
   type FontSize,
   type TextBlockType,
+  type LineHeight,
+  type LetterSpacing,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
 import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import "./SlideEditor.css";
@@ -306,6 +308,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onAlignJustify={toolbarActions.onAlignJustify}
       onSetFontFamily={(font: FontFamily) => toolbarActions.onFontChange(font)}
       onSetFontSize={(size: FontSize) => toolbarActions.onFontSizeChange(size)}
+      onSetLineHeight={(lineHeight: LineHeight) => toolbarActions.onLineHeightChange(lineHeight)}
+      onSetLetterSpacing={(letterSpacing: LetterSpacing) => toolbarActions.onLetterSpacingChange(letterSpacing)}
       onSetTextColor={toolbarActions.onFontColorChange}
       onSetBgColor={toolbarActions.onBgColorChange}
       onSetSlideBackgroundColor={onSlideBackgroundColorChange}

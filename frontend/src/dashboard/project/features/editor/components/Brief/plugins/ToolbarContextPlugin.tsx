@@ -24,6 +24,8 @@ import {
   DEFAULT_FONT_FAMILY,
   DEFAULT_FONT_SIZE,
   DEFAULT_TEXT_COLOR,
+  DEFAULT_LINE_HEIGHT,
+  DEFAULT_LETTER_SPACING,
   FONT_FAMILY_CSS_VALUES,
   FONT_SIZES,
   resolveFontFamilyFromCss,
@@ -121,6 +123,16 @@ export default function ToolbarContextPlugin() {
               DEFAULT_FONT_SIZE
             )
           );
+          const lineHeight = $getSelectionStyleValueForProperty(
+            selection,
+            "line-height",
+            DEFAULT_LINE_HEIGHT
+          );
+          const letterSpacing = $getSelectionStyleValueForProperty(
+            selection,
+            "letter-spacing",
+            DEFAULT_LETTER_SPACING
+          );
 
           setText((prev) => ({
             ...prev,
@@ -135,6 +147,8 @@ export default function ToolbarContextPlugin() {
             fontSize,
             textColor,
             bgColor,
+            lineHeight,
+            letterSpacing,
           }));
           setCtx({ type: "text", isRange: !selection.isCollapsed() });
           return;

@@ -25,6 +25,8 @@ import {
   SET_FONT_SIZE_COMMAND,
   SET_TEXT_COLOR_COMMAND,
   SET_BG_COLOR_COMMAND,
+  SET_LINE_HEIGHT_COMMAND,
+  SET_LETTER_SPACING_COMMAND,
   OPEN_IMAGE_COMMAND,
   OPEN_FIGMA_COMMAND,
   OPEN_VECTOR_COMMAND,
@@ -456,35 +458,10 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         });
       },
       onLineHeightChange: (value: string) => {
-        // Line height is applied via CSS style on the text node
-        editor.update(() => {
-          const selection = $getSelection();
-          if ($isRangeSelection(selection)) {
-            // Apply line-height to the selected text blocks
-            const nodes = selection.getNodes();
-            nodes.forEach((node) => {
-              const element = node.getParent();
-              if (element && 'setStyle' in element && typeof element.setStyle === 'function') {
-                (element as { setStyle: (style: string) => void }).setStyle(`line-height: ${value};`);
-              }
-            });
-          }
-        });
+        editor.dispatchCommand(SET_LINE_HEIGHT_COMMAND, value);
       },
       onLetterSpacingChange: (value: string) => {
-        // Letter spacing is applied via CSS style on text
-        editor.update(() => {
-          const selection = $getSelection();
-          if ($isRangeSelection(selection)) {
-            const nodes = selection.getNodes();
-            nodes.forEach((node) => {
-              const element = node.getParent();
-              if (element && 'setStyle' in element && typeof element.setStyle === 'function') {
-                (element as { setStyle: (style: string) => void }).setStyle(`letter-spacing: ${value};`);
-              }
-            });
-          }
-        });
+        editor.dispatchCommand(SET_LETTER_SPACING_COMMAND, value);
       },
     };
 

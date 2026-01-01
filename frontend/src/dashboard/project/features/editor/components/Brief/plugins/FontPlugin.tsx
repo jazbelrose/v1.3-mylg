@@ -7,7 +7,7 @@ import {
   type LexicalCommand,
 } from "lexical";
 import { $patchStyleText } from "@lexical/selection";
-import { SET_FONT_FAMILY_COMMAND, SET_FONT_SIZE_COMMAND } from "../commands";
+import { SET_FONT_FAMILY_COMMAND, SET_FONT_SIZE_COMMAND, SET_LINE_HEIGHT_COMMAND, SET_LETTER_SPACING_COMMAND } from "../commands";
 import { useDropdown } from "../contexts/DropdownContext";
 import {
   FONT_FAMILIES,
@@ -67,9 +67,39 @@ export default function FontPlugin({ showToolbar = true }: Props) {
       COMMAND_PRIORITY_EDITOR
     );
 
+    const unregisterLineHeight = editor.registerCommand<string>(
+      SET_LINE_HEIGHT_COMMAND as LexicalCommand<string>,
+      (lineHeight) => {
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            $patchStyleText(selection, { "line-height": lineHeight });
+          }
+        });
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR
+    );
+
+    const unregisterLetterSpacing = editor.registerCommand<string>(
+      SET_LETTER_SPACING_COMMAND as LexicalCommand<string>,
+      (letterSpacing) => {
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            $patchStyleText(selection, { "letter-spacing": letterSpacing });
+          }
+        });
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR
+    );
+
     return () => {
       unregisterFontFamily();
       unregisterFontSize();
+      unregisterLineHeight();
+      unregisterLetterSpacing();
     };
   }, [editor]);
 

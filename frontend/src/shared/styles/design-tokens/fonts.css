@@ -2,6 +2,9 @@
 
 /* Design Tokens - Font Faces */
 
+/* Google Fonts - Rounded Serif & Web Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Source+Code+Pro:wght@400;500;600&display=swap');
+
 @font-face {
   font-family: 'Helvetica Special';
   src: url('https://d3kix94vejprx7.cloudfront.net/public/fonts/Helvetica-Display.woff2') format('woff2');
