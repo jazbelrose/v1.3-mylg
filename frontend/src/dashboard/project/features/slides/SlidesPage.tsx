@@ -89,6 +89,102 @@ async function waitForThumbnailReady(url: string, maxAttempts = MAX_THUMBNAIL_AT
   throw lastError ?? new Error("Thumbnail did not become ready");
 }
 
+/**
+ * Strip query parameters from a thumbnail URL to get the base path for comparison.
+ * This allows comparing thumbnails ignoring cache-buster timestamps.
+ */
+function getBaseThumbnailUrl(thumb: string | undefined): string {
+  if (!thumb) return "";
+  const idx = thumb.indexOf("?");
+  return idx === -1 ? thumb : thumb.substring(0, idx);
+}
+
+/**
+ * Extract the timestamp from a thumbnail filename.
+ * Thumbnail filenames follow the pattern: slides/{projectId}/{slideId}-{timestamp}.png
+ * Returns 0 if no valid timestamp is found.
+ */
+function getThumbnailTimestamp(thumb: string | undefined): number {
+  if (!thumb) return 0;
+  const base = getBaseThumbnailUrl(thumb);
+  // Match pattern like "slideId-1735689600000.png"
+  const match = base.match(/-(\d{13,})\.png$/);
+  if (match && match[1]) {
+    const ts = parseInt(match[1], 10);
+    return Number.isNaN(ts) ? 0 : ts;
+  }
+  return 0;
+}
+
+/**
+ * Compare two slides to determine if they represent the same content.
+ * Thumbnails are compared by timestamp - if the existing is newer, they're equivalent.
+ * Returns true if they represent the same content (no update needed).
+ */
+function slidesAreEquivalent(a: Slide, b: Slide): boolean {
+  // Compare all fields except thumbnail first
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { thumbnail: _aThumb, ...aRest } = a;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { thumbnail: _bThumb, ...bRest } = b;
+  
+  if (JSON.stringify(aRest) !== JSON.stringify(bRest)) {
+    return false;
+  }
+
+  // If non-thumbnail content is the same, check thumbnails
+  const aThumbBase = getBaseThumbnailUrl(a.thumbnail);
+  const bThumbBase = getBaseThumbnailUrl(b.thumbnail);
+  
+  // Same base URL (or both empty) = equivalent
+  if (aThumbBase === bThumbBase) return true;
+  
+  // Different base URLs - check timestamps
+  // If 'a' (existing) has a newer timestamp than 'b' (incoming), 
+  // consider them equivalent to avoid reverting to older thumbnail
+  const aTs = getThumbnailTimestamp(a.thumbnail);
+  const bTs = getThumbnailTimestamp(b.thumbnail);
+  
+  if (aTs > 0 && bTs > 0 && aTs >= bTs) {
+    // Existing is same or newer - no update needed
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Determine which thumbnail to keep when merging incoming slide data.
+ * Prefers the thumbnail with the newer timestamp embedded in the filename,
+ * to prevent older WS echoes from overwriting newer locally-generated thumbnails.
+ */
+function pickNewerThumbnail(existing: string | undefined, incoming: string | undefined): string | undefined {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  
+  const existingTs = getThumbnailTimestamp(existing);
+  const incomingTs = getThumbnailTimestamp(incoming);
+  
+  // If both have timestamps, pick the newer one
+  if (existingTs > 0 && incomingTs > 0) {
+    const chosen = existingTs >= incomingTs ? existing : incoming;
+    if (existingTs !== incomingTs) {
+      console.log(`[Thumbnail] Picking ${existingTs >= incomingTs ? 'existing' : 'incoming'} thumbnail (existing: ${existingTs}, incoming: ${incomingTs})`);
+    }
+    return chosen;
+  }
+  
+  // If same base URL (ignoring query params), keep existing to avoid flicker
+  const existingBase = getBaseThumbnailUrl(existing);
+  const incomingBase = getBaseThumbnailUrl(incoming);
+  if (existingBase === incomingBase) {
+    return existing;
+  }
+  
+  // Otherwise prefer incoming (it may be a genuinely new thumbnail)
+  return incoming;
+}
+
 const SlidesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -159,6 +255,9 @@ const SlidesPage: React.FC = () => {
   const backgroundColorSaveTimerRef = useRef<number | null>(null);
   const backgroundColorPersistTimerRef = useRef<number | null>(null);
   const pendingBackgroundColorSaveSlidesRef = useRef<Slide[] | null>(null);
+  // Track recently updated thumbnails to prevent WS echoes from reverting them.
+  // Maps slideId -> { url, timestamp } of locally-generated thumbnails.
+  const recentThumbnailsRef = useRef<Map<string, { url: string; timestamp: number }>>(new Map());
   const pendingInitialSlideIdRef = useRef<string | null>(
     typeof (location.state as { activeSlideId?: unknown } | null | undefined)?.activeSlideId === "string"
       ? ((location.state as { activeSlideId?: unknown }).activeSlideId as string)
@@ -189,6 +288,18 @@ const SlidesPage: React.FC = () => {
     const num = parseFloat(str.replace("%", ""));
     return Number.isNaN(num) ? 0 : num;
   };
+
+  // Register a recently generated thumbnail to prevent WS echoes from reverting it
+  const registerRecentThumbnail = useCallback((slideId: string, thumbnailUrl: string) => {
+    recentThumbnailsRef.current.set(slideId, { url: thumbnailUrl, timestamp: Date.now() });
+    // Clean up old entries after the window expires
+    setTimeout(() => {
+      const entry = recentThumbnailsRef.current.get(slideId);
+      if (entry && Date.now() - entry.timestamp >= 10000) {
+        recentThumbnailsRef.current.delete(slideId);
+      }
+    }, 11000);
+  }, []);
 
   const handleActiveProjectChange = (updatedProject: unknown) => {
     // setActiveProject is not available in useData, so we might need to handle this differently
@@ -379,13 +490,51 @@ const SlidesPage: React.FC = () => {
 
       setSlides((prevSlides) => {
         const sameLength = prevSlides.length === slidesWithDisplayThumbnails.length;
+        
+        // Use improved comparison that ignores thumbnail differences
         const sameContent =
           sameLength &&
-          prevSlides.every(
-            (slide, index) =>
-              JSON.stringify(slide) === JSON.stringify(slidesWithDisplayThumbnails[index])
-          );
-        return sameContent ? prevSlides : slidesWithDisplayThumbnails;
+          prevSlides.every((slide, index) => {
+            const incoming = slidesWithDisplayThumbnails[index];
+            // Slides must have same ID at same position
+            if (slide.id !== incoming.id) return false;
+            return slidesAreEquivalent(slide, incoming);
+          });
+        
+        if (sameContent) {
+          return prevSlides;
+        }
+
+        // Merge incoming slides while preserving newer local thumbnails.
+        // This prevents older WS echoes from reverting thumbnails that were
+        // generated locally after the broadcast.
+        const now = Date.now();
+        const RECENT_THUMBNAIL_WINDOW_MS = 10000; // 10 seconds
+        
+        const mergedSlides = slidesWithDisplayThumbnails.map((incoming) => {
+          const existing = prevSlides.find((s) => s.id === incoming.id);
+          if (!existing) return incoming;
+
+          // Check if we recently generated a thumbnail for this slide
+          const recentThumb = recentThumbnailsRef.current.get(incoming.id);
+          if (recentThumb && now - recentThumb.timestamp < RECENT_THUMBNAIL_WINDOW_MS) {
+            // We generated a thumbnail recently - keep it and ignore incoming
+            const incomingBase = getBaseThumbnailUrl(incoming.thumbnail);
+            const recentBase = getBaseThumbnailUrl(recentThumb.url);
+            // Only preserve if incoming is different (would cause reversion)
+            if (incomingBase !== recentBase) {
+              console.log(`[Thumbnail] Preserving recent thumbnail for slide ${incoming.id} (generated ${now - recentThumb.timestamp}ms ago)`);
+              return { ...incoming, thumbnail: recentThumb.url };
+            }
+          }
+
+          // Pick the thumbnail with the newer timestamp to prevent reversion
+          const chosenThumbnail = pickNewerThumbnail(existing.thumbnail, incoming.thumbnail);
+          
+          return { ...incoming, thumbnail: chosenThumbnail };
+        });
+        
+        return mergedSlides;
       });
 
       setActiveSlideId((current) => {
@@ -495,10 +644,12 @@ const SlidesPage: React.FC = () => {
 
         void waitForThumbnailReady(thumbnailUrl)
           .then((readyUrl) => {
+            const displayUrl = makeUiThumbnail(readyUrl);
+            registerRecentThumbnail(activeSlideId, displayUrl);
             setSlides((prev) => {
               const updated = prev.map((s) =>
                 s.id === activeSlideId
-                  ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                  ? { ...s, thumbnail: displayUrl }
                   : s
               );
               return updated;
@@ -579,10 +730,12 @@ const SlidesPage: React.FC = () => {
 
                   void waitForThumbnailReady(thumbnailUrl)
                     .then((readyUrl) => {
+                      const displayUrl = makeUiThumbnail(readyUrl);
+                      registerRecentThumbnail(activeSlideId, displayUrl);
                       setSlides((prev) => {
                         const updated = prev.map((s) =>
                           s.id === activeSlideId
-                            ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                            ? { ...s, thumbnail: displayUrl }
                             : s
                         );
                         // Persist the updated slides to backend (best-effort) without cache buster
@@ -706,10 +859,12 @@ const SlidesPage: React.FC = () => {
 
           void waitForThumbnailReady(thumbnailUrl)
             .then((readyUrl) => {
+              const displayUrl = makeUiThumbnail(readyUrl);
+              registerRecentThumbnail(activeSlideId, displayUrl);
               setSlides((prev) => {
                 const updated = prev.map((slide) =>
                   slide.id === activeSlideId
-                    ? { ...slide, thumbnail: makeUiThumbnail(readyUrl) }
+                    ? { ...slide, thumbnail: displayUrl }
                     : slide
                 );
                 return updated;
@@ -887,10 +1042,12 @@ const SlidesPage: React.FC = () => {
             
             void waitForThumbnailReady(thumbnailUrl)
               .then((readyUrl) => {
+                const displayUrl = makeUiThumbnail(readyUrl);
+                registerRecentThumbnail(activeSlideId, displayUrl);
                 setSlides((prev) => {
                   const updated = prev.map((s) =>
                     s.id === activeSlideId
-                      ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                      ? { ...s, thumbnail: displayUrl }
                       : s
                   );
                   const persisted = updated.map((s) => ({
@@ -962,10 +1119,12 @@ const SlidesPage: React.FC = () => {
 
                 thumbnailUpdatePromise = waitForThumbnailReady(thumbnailUrl)
                   .then((readyUrl) => {
+                    const displayUrl = makeUiThumbnail(readyUrl);
+                    registerRecentThumbnail(activeSlideId, displayUrl);
                     setSlides((prev) => {
                       const updated = prev.map((s) =>
                         s.id === activeSlideId
-                          ? { ...s, thumbnail: makeUiThumbnail(readyUrl) }
+                          ? { ...s, thumbnail: displayUrl }
                           : s
                       );
                       const persisted = updated.map((s) => ({
