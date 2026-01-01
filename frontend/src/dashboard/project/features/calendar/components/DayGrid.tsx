@@ -2,6 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion";
 import { CheckSquare, Clock, Plus } from "lucide-react";
 import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
+import {
+  CalendarEntryContextMenu,
+  type ContextMenuPosition,
+} from "./CalendarEntryContextMenu";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -47,6 +51,11 @@ export type DayGridProps = {
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
   onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
+  // Context menu actions
+  onSubmitForReview?: (task: CalendarTask) => void;
+  onMarkAsDone?: (task: CalendarTask) => void;
+  onSaveChanges?: (entry: CalendarTask | CalendarEvent) => void;
+  onDeleteEntry?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
 };
 
 const parseHour = (time?: string) => {
@@ -166,6 +175,10 @@ function DayGrid({
   selectedEntryKeys,
   onEntrySelect,
   onRescheduleEntries,
+  onSubmitForReview,
+  onMarkAsDone,
+  onSaveChanges,
+  onDeleteEntry,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
@@ -204,6 +217,13 @@ function DayGrid({
   >({});
   const [isCopyMode, setIsCopyMode] = useState(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    position: ContextMenuPosition;
+    entryType: CalendarEntryType;
+    entry: CalendarTask | CalendarEvent;
+  } | null>(null);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -843,6 +863,26 @@ function DayGrid({
     event.currentTarget.style.cursor = "";
   }, [setPointerQuickAdd]);
 
+  const handleContextMenu = useCallback(
+    (
+      event: React.MouseEvent<HTMLElement>,
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setContextMenu({
+        position: { x: event.clientX, y: event.clientY },
+        entryType: entry.type === "event" ? "event" : "task",
+        entry: entry.payload,
+      });
+    },
+    [],
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   const updateResizeCursor = useCallback((event: React.MouseEvent<HTMLElement>) => {
     const element = event.currentTarget;
     const rect = element.getBoundingClientRect();
@@ -1019,6 +1059,7 @@ function DayGrid({
             }
             onEditEvent(entry.payload as CalendarEvent);
           }}
+          onContextMenu={(event) => handleContextMenu(event, entry)}
           onKeyDown={(keyboardEvent) => {
             if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
               keyboardEvent.preventDefault();
@@ -1053,6 +1094,7 @@ function DayGrid({
           }
           onEditTask(entry.payload as CalendarTask);
         }}
+        onContextMenu={(event) => handleContextMenu(event, entry)}
         onMouseMove={updateResizeCursor}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
@@ -1292,6 +1334,18 @@ function DayGrid({
           title={hoveredEntry.title}
           onClose={handleTooltipClose}
           onTooltipHover={handleTooltipHover}
+        />
+      )}
+      {contextMenu && (
+        <CalendarEntryContextMenu
+          position={contextMenu.position}
+          entryType={contextMenu.entryType}
+          entry={contextMenu.entry}
+          onClose={handleCloseContextMenu}
+          onSubmitForReview={onSubmitForReview}
+          onMarkAsDone={onMarkAsDone}
+          onSaveChanges={onSaveChanges}
+          onDelete={onDeleteEntry}
         />
       )}
     </div>

@@ -19,6 +19,8 @@ import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/compon
 import {
   createTask,
   updateTask,
+  deleteTask,
+  reviewTransitionTask,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
@@ -142,6 +144,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     },
     [buildSelectionKey],
   );
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarCollapsed((prev) => !prev);
@@ -718,6 +721,86 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [openQuickCreateForTask],
   );
 
+  // Context menu action handlers for calendar entries
+  const handleSubmitForReview = useCallback(
+    async (task: CalendarTask) => {
+      const source = task.source as ApiTask;
+      if (!source.projectId || !source.taskId) return;
+      try {
+        await reviewTransitionTask(source.projectId, source.taskId, {
+          action: "submit_for_review",
+        });
+        notify("success", "Task submitted for review");
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Failed to submit task for review:", error);
+        notify("error", "Failed to submit task for review");
+      }
+    },
+    [onRefreshTasks],
+  );
+
+  const handleMarkAsDone = useCallback(
+    async (task: CalendarTask) => {
+      const source = task.source as ApiTask;
+      if (!source.projectId || !source.taskId) return;
+      try {
+        await reviewTransitionTask(source.projectId, source.taskId, {
+          action: "mark_done",
+        });
+        notify("success", "Task marked as done");
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Failed to mark task as done:", error);
+        notify("error", "Failed to mark task as done");
+      }
+    },
+    [onRefreshTasks],
+  );
+
+  const handleSaveChanges = useCallback(
+    (entry: CalendarTask | CalendarEvent) => {
+      // Open the edit modal/drawer for the entry to allow saving changes
+      if ("startTime" in entry && typeof entry.startTime === "string") {
+        // It's a task
+        handleOpenEditTask(entry as CalendarTask);
+      } else {
+        // It's an event
+        handleOpenEditEvent(entry as CalendarEvent);
+      }
+    },
+    [handleOpenEditTask, handleOpenEditEvent],
+  );
+
+  const handleDeleteEntry = useCallback(
+    async (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => {
+      if (entryType === "task") {
+        const task = entry as CalendarTask;
+        const source = task.source as ApiTask;
+        if (!source.projectId || !source.taskId) return;
+        try {
+          await deleteTask({
+            projectId: source.projectId,
+            taskId: source.taskId,
+          });
+          notify("success", "Task deleted");
+          await onRefreshTasks();
+        } catch (error) {
+          console.error("Failed to delete task:", error);
+          notify("error", "Failed to delete task");
+        }
+      } else {
+        // For events, use the existing delete handler
+        const event = entry as CalendarEvent;
+        const source = event.source as ApiTimelineEvent;
+        if (source) {
+          await onDeleteEvent(source);
+        }
+      }
+    },
+    [onRefreshTasks, onDeleteEvent],
+  );
+
   const handleOpenMiniCalendarEvent = useCallback(
     (eventId: string) => {
       const target = eventById.get(eventId);
@@ -894,6 +977,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       selectedEntryKeys={selectedEntries}
                       onEntrySelect={handleEntrySelect}
                       onRescheduleEntries={handleRescheduleEntries}
+                      onSubmitForReview={handleSubmitForReview}
+                      onMarkAsDone={handleMarkAsDone}
+                      onSaveChanges={handleSaveChanges}
+                      onDeleteEntry={handleDeleteEntry}
                     />
                   </div>
                 )}
@@ -914,6 +1001,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       selectedEntryKeys={selectedEntries}
                       onEntrySelect={handleEntrySelect}
                       onRescheduleEntries={handleRescheduleEntries}
+                      onSubmitForReview={handleSubmitForReview}
+                      onMarkAsDone={handleMarkAsDone}
+                      onSaveChanges={handleSaveChanges}
+                      onDeleteEntry={handleDeleteEntry}
                     />
                   </div>
                 )}

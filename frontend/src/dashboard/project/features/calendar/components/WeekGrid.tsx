@@ -3,6 +3,10 @@ import { motion } from "framer-motion";
 import { CheckSquare, Clock, Plus } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
+import {
+  CalendarEntryContextMenu,
+  type ContextMenuPosition,
+} from "./CalendarEntryContextMenu";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -49,6 +53,11 @@ export type WeekGridProps = {
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
   onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
+  // Context menu actions
+  onSubmitForReview?: (task: CalendarTask) => void;
+  onMarkAsDone?: (task: CalendarTask) => void;
+  onSaveChanges?: (entry: CalendarTask | CalendarEvent) => void;
+  onDeleteEntry?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
 };
 
 type WeekDayEvents = {
@@ -224,6 +233,10 @@ function WeekGrid({
   selectedEntryKeys,
   onEntrySelect,
   onRescheduleEntries,
+  onSubmitForReview,
+  onMarkAsDone,
+  onSaveChanges,
+  onDeleteEntry,
 }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
@@ -274,6 +287,13 @@ function WeekGrid({
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    position: ContextMenuPosition;
+    entryType: CalendarEntryType;
+    entry: CalendarTask | CalendarEvent;
+  } | null>(null);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -934,6 +954,26 @@ function WeekGrid({
     setHoveredEntry(null);
   }, []);
 
+  const handleContextMenu = useCallback(
+    (
+      event: React.MouseEvent<HTMLElement>,
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setContextMenu({
+        position: { x: event.clientX, y: event.clientY },
+        entryType: entry.type === "event" ? "event" : "task",
+        entry: entry.payload,
+      });
+    },
+    [],
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   const renderWeekTimelineEntry = (
     entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
     dayKey: string,
@@ -1038,6 +1078,7 @@ function WeekGrid({
             }
             onEditEvent(entry.payload as CalendarEvent);
           }}
+          onContextMenu={(event) => handleContextMenu(event, entry)}
           onKeyDown={(keyboardEvent) => {
             if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
               keyboardEvent.preventDefault();
@@ -1073,6 +1114,7 @@ function WeekGrid({
           }
           onEditTask(entry.payload as CalendarTask);
         }}
+        onContextMenu={(event) => handleContextMenu(event, entry)}
         onMouseMove={updateResizeCursor}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
@@ -1462,6 +1504,18 @@ function WeekGrid({
           title={hoveredEntry.title}
           onClose={handleTooltipClose}
           onTooltipHover={handleTooltipHover}
+        />
+      )}
+      {contextMenu && (
+        <CalendarEntryContextMenu
+          position={contextMenu.position}
+          entryType={contextMenu.entryType}
+          entry={contextMenu.entry}
+          onClose={handleCloseContextMenu}
+          onSubmitForReview={onSubmitForReview}
+          onMarkAsDone={onMarkAsDone}
+          onSaveChanges={onSaveChanges}
+          onDelete={onDeleteEntry}
         />
       )}
     </div>
