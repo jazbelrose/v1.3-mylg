@@ -5,7 +5,9 @@ import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
 import {
   CalendarEntryContextMenu,
   type ContextMenuPosition,
+  type ContextMenuEntry,
 } from "./CalendarEntryContextMenu";
+import { CalendarEntryPopover } from "./CalendarEntryPopover";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -50,12 +52,13 @@ export type DayGridProps = {
   activeProjectColor?: string | null;
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
+  onClearSelection?: () => void;
   onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
-  // Context menu actions
-  onSubmitForReview?: (task: CalendarTask) => void;
-  onMarkAsDone?: (task: CalendarTask) => void;
-  onSaveChanges?: (entry: CalendarTask | CalendarEvent) => void;
-  onDeleteEntry?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
+  // Context menu / popover actions
+  onSubmitForReview?: (tasks: CalendarTask[]) => void;
+  onMarkAsDone?: (tasks: CalendarTask[]) => void;
+  onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
+  onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
 };
 
 const parseHour = (time?: string) => {
@@ -174,11 +177,12 @@ function DayGrid({
   activeProjectColor,
   selectedEntryKeys,
   onEntrySelect,
+  onClearSelection,
   onRescheduleEntries,
   onSubmitForReview,
   onMarkAsDone,
-  onSaveChanges,
-  onDeleteEntry,
+  onDuplicateEntries,
+  onDeleteEntries,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
@@ -224,6 +228,17 @@ function DayGrid({
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
   } | null>(null);
+
+  // Popover state for single-click inspector
+  const [popover, setPopover] = useState<{
+    anchorElement: HTMLElement;
+    entryType: CalendarEntryType;
+    entry: CalendarTask | CalendarEvent;
+  } | null>(null);
+
+  // Double-click detection refs
+  const lastClickTimeRef = useRef(0);
+  const lastClickedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -592,9 +607,10 @@ function DayGrid({
       suppressClickRef.current = false;
       const entryKey = `${entry.type}:${entry.id}`;
       const entryType: CalendarEntryType = entry.type === "event" ? "event" : "task";
-      const additive = Boolean(pointerEvent.shiftKey);
+      // Both Shift AND Ctrl/Cmd toggle additive selection (Adobe pattern)
+      const additive = Boolean(pointerEvent.shiftKey || pointerEvent.ctrlKey || pointerEvent.metaKey);
       onEntrySelect?.(entryType, entry.id, additive);
-      // Suppress click when shift-selecting to prevent modal open
+      // Suppress click when using modifier keys to prevent modal open
       if (additive) {
         suppressClickRef.current = true;
       }
@@ -623,7 +639,8 @@ function DayGrid({
           ? "resizeBottom"
           : "drag";
 
-      const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
+      // Copy mode during drag - only when no additive modifier was used for selection
+      const copyMode = !additive && Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,
@@ -636,6 +653,103 @@ function DayGrid({
       pointerEvent.preventDefault();
     },
     [createTarget, gatherTargets, onEntrySelect],
+  );
+
+  // Close popover handler
+  const handleClosePopover = useCallback(() => {
+    setPopover(null);
+  }, []);
+
+  // Single click: select + show popover. Double click: open edit modal.
+  const handleEntryClick = useCallback(
+    (clickEvent: React.MouseEvent<HTMLElement>, entry: TimelineHourEntry<CalendarEvent | CalendarTask>) => {
+      if (suppressClickRef.current) {
+        return;
+      }
+      const now = Date.now();
+      const entryKey = `${entry.type}:${entry.id}`;
+      const isDoubleClick =
+        now - lastClickTimeRef.current < 300 && lastClickedKeyRef.current === entryKey;
+
+      lastClickTimeRef.current = now;
+      lastClickedKeyRef.current = entryKey;
+
+      if (isDoubleClick) {
+        // Double click → open edit modal
+        setPopover(null);
+        if (entry.type === "event") {
+          onEditEvent(entry.payload as CalendarEvent);
+        } else {
+          onEditTask(entry.payload as CalendarTask);
+        }
+      } else {
+        // Single click → show popover
+        setPopover({
+          anchorElement: clickEvent.currentTarget,
+          entryType: entry.type === "event" ? "event" : "task",
+          entry: entry.payload,
+        });
+      }
+    },
+    [onEditEvent, onEditTask],
+  );
+
+  // Keyboard handler for entries
+  const handleEntryKeyDown = useCallback(
+    (keyboardEvent: React.KeyboardEvent<HTMLElement>, entry: TimelineHourEntry<CalendarEvent | CalendarTask>) => {
+      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+        keyboardEvent.preventDefault();
+        // Enter/Space opens edit modal
+        if (entry.type === "event") {
+          onEditEvent(entry.payload as CalendarEvent);
+        } else {
+          onEditTask(entry.payload as CalendarTask);
+        }
+      } else if (keyboardEvent.key === "Escape") {
+        setPopover(null);
+        setContextMenu(null);
+      } else if (keyboardEvent.key === "Delete" || keyboardEvent.key === "Backspace") {
+        // Delete key with popover open deletes the entry
+        if (popover && onDeleteEntries) {
+          onDeleteEntries([{ entryType: popover.entryType, entry: popover.entry }]);
+          setPopover(null);
+        }
+      }
+    },
+    [onEditEvent, onEditTask, popover, onDeleteEntries],
+  );
+
+  // Build context menu entries from selected entries
+  const getSelectedContextMenuEntries = useCallback((): ContextMenuEntry[] => {
+    const result: ContextMenuEntry[] = [];
+    selectedEntryKeys.forEach((key) => {
+      const [type, id] = key.split(":");
+      const entryType: CalendarEntryType = type === "event" ? "event" : "task";
+      const lookup = entryLookup[id];
+      if (lookup) {
+        result.push({ entryType, entry: lookup.payload });
+      }
+    });
+    return result;
+  }, [selectedEntryKeys, entryLookup]);
+
+  // Click on empty grid: clear selection and close popover
+  const handleGridClick = useCallback(
+    (clickEvent: React.MouseEvent<HTMLDivElement>) => {
+      const target = clickEvent.target as HTMLElement;
+      // Only clear if clicking directly on the grid background, not on entries
+      if (
+        target.closest("[data-entry-key]") ||
+        target.closest(".day-grid__quick-add-container") ||
+        target.closest(".day-grid__action-popover")
+      ) {
+        return;
+      }
+      setPopover(null);
+      setContextMenu(null);
+      onClearSelection?.();
+    },
+    [onClearSelection],
   );
 
   const headerLabel = useMemo(
@@ -1053,19 +1167,9 @@ function DayGrid({
           onPointerDown={(event) => handleEntryPointerDown(entry, event)}
           role="button"
           tabIndex={0}
-          onClick={() => {
-            if (suppressClickRef.current) {
-              return;
-            }
-            onEditEvent(entry.payload as CalendarEvent);
-          }}
+          onClick={(event) => handleEntryClick(event, entry)}
           onContextMenu={(event) => handleContextMenu(event, entry)}
-          onKeyDown={(keyboardEvent) => {
-            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-              keyboardEvent.preventDefault();
-              onEditEvent(entry.payload as CalendarEvent);
-            }
-          }}
+          onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
           style={entryStyleWithPreview}
           onMouseMove={updateResizeCursor}
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
@@ -1088,13 +1192,9 @@ function DayGrid({
         data-entry-type={entry.type}
         style={entryStyleWithPreview}
         onPointerDown={(event) => handleEntryPointerDown(entry, event)}
-        onClick={() => {
-          if (suppressClickRef.current) {
-            return;
-          }
-          onEditTask(entry.payload as CalendarTask);
-        }}
+        onClick={(event) => handleEntryClick(event, entry)}
         onContextMenu={(event) => handleContextMenu(event, entry)}
+        onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
         onMouseMove={updateResizeCursor}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
@@ -1108,7 +1208,7 @@ function DayGrid({
   };
 
   return (
-    <div className="day-grid" ref={gridRef}>
+    <div className="day-grid" ref={gridRef} onClick={handleGridClick}>
       <div className="day-grid__spacer" aria-hidden />
       <div className="day-grid__header">
         <div className="day-grid__header-row">
@@ -1341,11 +1441,41 @@ function DayGrid({
           position={contextMenu.position}
           entryType={contextMenu.entryType}
           entry={contextMenu.entry}
+          selectedEntries={getSelectedContextMenuEntries()}
           onClose={handleCloseContextMenu}
+          onEdit={(e) => {
+            if (contextMenu.entryType === "event") {
+              onEditEvent(e as CalendarEvent);
+            } else {
+              onEditTask(e as CalendarTask);
+            }
+            handleCloseContextMenu();
+          }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
-          onSaveChanges={onSaveChanges}
-          onDelete={onDeleteEntry}
+          onDuplicate={onDuplicateEntries}
+          onDelete={onDeleteEntries}
+        />
+      )}
+      {popover && (
+        <CalendarEntryPopover
+          anchorElement={popover.anchorElement}
+          entryType={popover.entryType}
+          entry={popover.entry}
+          selectedCount={selectedEntryKeys.size}
+          onClose={handleClosePopover}
+          onEdit={() => {
+            if (popover.entryType === "event") {
+              onEditEvent(popover.entry as CalendarEvent);
+            } else {
+              onEditTask(popover.entry as CalendarTask);
+            }
+            handleClosePopover();
+          }}
+          onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}
+          onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
+          onDuplicate={onDuplicateEntries}
+          onDelete={onDeleteEntries}
         />
       )}
     </div>

@@ -6,7 +6,9 @@ import { TimelineTooltipPortal } from "./TimelineTooltipPortal";
 import {
   CalendarEntryContextMenu,
   type ContextMenuPosition,
+  type ContextMenuEntry,
 } from "./CalendarEntryContextMenu";
+import { CalendarEntryPopover } from "./CalendarEntryPopover";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
 import {
@@ -52,12 +54,13 @@ export type WeekGridProps = {
   activeProjectColor?: string | null;
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
+  onClearSelection?: () => void;
   onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
-  // Context menu actions
-  onSubmitForReview?: (task: CalendarTask) => void;
-  onMarkAsDone?: (task: CalendarTask) => void;
-  onSaveChanges?: (entry: CalendarTask | CalendarEvent) => void;
-  onDeleteEntry?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
+  // Context menu / popover actions
+  onSubmitForReview?: (tasks: CalendarTask[]) => void;
+  onMarkAsDone?: (tasks: CalendarTask[]) => void;
+  onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
+  onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
 };
 
 type WeekDayEvents = {
@@ -232,11 +235,12 @@ function WeekGrid({
   activeProjectColor,
   selectedEntryKeys,
   onEntrySelect,
+  onClearSelection,
   onRescheduleEntries,
   onSubmitForReview,
   onMarkAsDone,
-  onSaveChanges,
-  onDeleteEntry,
+  onDuplicateEntries,
+  onDeleteEntries,
 }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
@@ -287,10 +291,19 @@ function WeekGrid({
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
+  const lastClickTimeRef = useRef(0);
+  const lastClickedKeyRef = useRef<string | null>(null);
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     position: ContextMenuPosition;
+    entryType: CalendarEntryType;
+    entry: CalendarTask | CalendarEvent;
+  } | null>(null);
+
+  // Popover state for single-click inspector
+  const [popover, setPopover] = useState<{
+    anchorElement: HTMLElement;
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
   } | null>(null);
@@ -803,9 +816,16 @@ function WeekGrid({
       suppressClickRef.current = false;
       const entryKey = `${entry.type}:${entry.id}`;
       const entryType: CalendarEntryType = entry.type === "event" ? "event" : "task";
-      const additive = Boolean(pointerEvent.shiftKey);
+      
+      // Both Shift and Ctrl/Cmd toggle additive selection (consistent with desktop apps)
+      const additive = Boolean(pointerEvent.shiftKey || pointerEvent.ctrlKey || pointerEvent.metaKey);
+      
+      // Close popover when starting a new interaction
+      setPopover(null);
+      
       onEntrySelect?.(entryType, entry.id, additive);
-      // Suppress click when shift-selecting to prevent modal open
+      
+      // Suppress click when using modifier keys to prevent modal open
       if (additive) {
         suppressClickRef.current = true;
       }
@@ -834,7 +854,8 @@ function WeekGrid({
           ? "resizeBottom"
           : "drag";
 
-      const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
+      // Ctrl/Cmd during drag = copy mode (only when not using for selection)
+      const copyMode = !additive && Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,
@@ -961,6 +982,7 @@ function WeekGrid({
     ) => {
       event.preventDefault();
       event.stopPropagation();
+      setPopover(null); // Close popover when context menu opens
       setContextMenu({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
@@ -973,6 +995,107 @@ function WeekGrid({
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
+
+  const handleClosePopover = useCallback(() => {
+    setPopover(null);
+  }, []);
+
+  // Handle single click vs double click for entries
+  const handleEntryClick = useCallback(
+    (
+      event: React.MouseEvent<HTMLElement>,
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    ) => {
+      if (suppressClickRef.current) {
+        return;
+      }
+
+      const entryKey = `${entry.type}:${entry.id}`;
+      const now = Date.now();
+      const isDoubleClick =
+        lastClickedKeyRef.current === entryKey && now - lastClickTimeRef.current < 300;
+
+      lastClickTimeRef.current = now;
+      lastClickedKeyRef.current = entryKey;
+
+      if (isDoubleClick) {
+        // Double click → open edit modal
+        setPopover(null);
+        if (entry.type === "event") {
+          onEditEvent(entry.payload as CalendarEvent);
+        } else {
+          onEditTask(entry.payload as CalendarTask);
+        }
+      } else {
+        // Single click → show popover
+        setPopover({
+          anchorElement: event.currentTarget,
+          entryType: entry.type === "event" ? "event" : "task",
+          entry: entry.payload,
+        });
+      }
+    },
+    [onEditEvent, onEditTask],
+  );
+
+  // Handle keyboard events for selected entries
+  const handleEntryKeyDown = useCallback(
+    (
+      keyboardEvent: React.KeyboardEvent<HTMLElement>,
+      entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
+    ) => {
+      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+        keyboardEvent.preventDefault();
+        // Enter/Space → open edit modal
+        if (entry.type === "event") {
+          onEditEvent(entry.payload as CalendarEvent);
+        } else {
+          onEditTask(entry.payload as CalendarTask);
+        }
+      } else if (keyboardEvent.key === "Escape") {
+        // Escape → close popover and clear selection
+        setPopover(null);
+        onClearSelection?.();
+      } else if (keyboardEvent.key === "Delete" || keyboardEvent.key === "Backspace") {
+        // Delete key → delete when popover is open
+        if (popover && onDeleteEntries) {
+          keyboardEvent.preventDefault();
+          const entries = getSelectedContextMenuEntries();
+          if (entries.length > 0) {
+            onDeleteEntries(entries);
+          }
+        }
+      }
+    },
+    [onEditEvent, onEditTask, onClearSelection, popover, onDeleteEntries],
+  );
+
+  // Build selected entries for context menu / bulk actions
+  const getSelectedContextMenuEntries = useCallback((): ContextMenuEntry[] => {
+    const entries: ContextMenuEntry[] = [];
+    selectedEntryKeys.forEach((key) => {
+      const lookup = entryLookup.get(key);
+      if (!lookup) return;
+      entries.push({
+        entryType: lookup.entry.type === "event" ? "event" : "task",
+        entry: lookup.entry.payload,
+      });
+    });
+    return entries;
+  }, [selectedEntryKeys, entryLookup]);
+
+  // Handle click on empty grid to clear selection
+  const handleGridClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      // Only clear if clicking directly on the grid (not on an entry)
+      if ((event.target as HTMLElement).closest("[data-entry-key]")) {
+        return;
+      }
+      setPopover(null);
+      onClearSelection?.();
+    },
+    [onClearSelection],
+  );
 
   const renderWeekTimelineEntry = (
     entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
@@ -1072,19 +1195,9 @@ function WeekGrid({
           aria-label={tooltipLabel}
           role="button"
           tabIndex={0}
-          onClick={() => {
-            if (suppressClickRef.current) {
-              return;
-            }
-            onEditEvent(entry.payload as CalendarEvent);
-          }}
+          onClick={(event) => handleEntryClick(event, entry)}
           onContextMenu={(event) => handleContextMenu(event, entry)}
-          onKeyDown={(keyboardEvent) => {
-            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-              keyboardEvent.preventDefault();
-              onEditEvent(entry.payload as CalendarEvent);
-            }
-          }}
+          onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
           onMouseMove={updateResizeCursor}
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
@@ -1108,13 +1221,9 @@ function WeekGrid({
         title={tooltipLabel}
         aria-label={tooltipLabel}
         onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
-        onClick={() => {
-          if (suppressClickRef.current) {
-            return;
-          }
-          onEditTask(entry.payload as CalendarTask);
-        }}
+        onClick={(event) => handleEntryClick(event, entry)}
         onContextMenu={(event) => handleContextMenu(event, entry)}
+        onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
         onMouseMove={updateResizeCursor}
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
@@ -1263,7 +1372,7 @@ function WeekGrid({
   );
 
   return (
-    <div className="week-grid" ref={gridRef}>
+    <div className="week-grid" ref={gridRef} onClick={handleGridClick}>
       <div className="week-grid__spacer" aria-hidden />
       {days.map((day, index) => {
         const key = fmtLocal(day);
@@ -1511,11 +1620,41 @@ function WeekGrid({
           position={contextMenu.position}
           entryType={contextMenu.entryType}
           entry={contextMenu.entry}
+          selectedEntries={getSelectedContextMenuEntries()}
           onClose={handleCloseContextMenu}
+          onEdit={(e) => {
+            if (contextMenu.entryType === "event") {
+              onEditEvent(e as CalendarEvent);
+            } else {
+              onEditTask(e as CalendarTask);
+            }
+            handleCloseContextMenu();
+          }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
-          onSaveChanges={onSaveChanges}
-          onDelete={onDeleteEntry}
+          onDuplicate={onDuplicateEntries}
+          onDelete={onDeleteEntries}
+        />
+      )}
+      {popover && (
+        <CalendarEntryPopover
+          anchorElement={popover.anchorElement}
+          entryType={popover.entryType}
+          entry={popover.entry}
+          selectedCount={selectedEntryKeys.size}
+          onClose={handleClosePopover}
+          onEdit={() => {
+            if (popover.entryType === "event") {
+              onEditEvent(popover.entry as CalendarEvent);
+            } else {
+              onEditTask(popover.entry as CalendarTask);
+            }
+            handleClosePopover();
+          }}
+          onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}
+          onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
+          onDuplicate={onDuplicateEntries}
+          onDelete={onDeleteEntries}
         />
       )}
     </div>

@@ -31,6 +31,7 @@ import {
   CalendarEntryType,
   buildIsoDateTime,
 } from "./calendarInteractions";
+import type { ContextMenuEntry } from "./CalendarEntryContextMenu";
 import { useUser } from "@/app/contexts/useUser";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
@@ -723,36 +724,44 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   // Context menu action handlers for calendar entries
   const handleSubmitForReview = useCallback(
-    async (task: CalendarTask) => {
-      const source = task.source as ApiTask;
-      if (!source.projectId || !source.taskId) return;
-      try {
-        await reviewTransitionTask(source.projectId, source.taskId, {
-          action: "submit_for_review",
-        });
-        notify("success", "Task submitted for review");
+    async (tasks: CalendarTask[]) => {
+      for (const task of tasks) {
+        const source = task.source as ApiTask;
+        if (!source.projectId || !source.taskId) continue;
+        try {
+          await reviewTransitionTask(source.projectId, source.taskId, {
+            action: "submit_for_review",
+          });
+        } catch (error) {
+          console.error("Failed to submit task for review:", error);
+          notify("error", `Failed to submit "${task.title}" for review`);
+        }
+      }
+      if (tasks.length > 0) {
+        notify("success", tasks.length > 1 ? `${tasks.length} tasks submitted for review` : "Task submitted for review");
         await onRefreshTasks();
-      } catch (error) {
-        console.error("Failed to submit task for review:", error);
-        notify("error", "Failed to submit task for review");
       }
     },
     [onRefreshTasks],
   );
 
   const handleMarkAsDone = useCallback(
-    async (task: CalendarTask) => {
-      const source = task.source as ApiTask;
-      if (!source.projectId || !source.taskId) return;
-      try {
-        await reviewTransitionTask(source.projectId, source.taskId, {
-          action: "mark_done",
-        });
-        notify("success", "Task marked as done");
+    async (tasks: CalendarTask[]) => {
+      for (const task of tasks) {
+        const source = task.source as ApiTask;
+        if (!source.projectId || !source.taskId) continue;
+        try {
+          await reviewTransitionTask(source.projectId, source.taskId, {
+            action: "mark_done",
+          });
+        } catch (error) {
+          console.error("Failed to mark task as done:", error);
+          notify("error", `Failed to mark "${task.title}" as done`);
+        }
+      }
+      if (tasks.length > 0) {
+        notify("success", tasks.length > 1 ? `${tasks.length} tasks marked as done` : "Task marked as done");
         await onRefreshTasks();
-      } catch (error) {
-        console.error("Failed to mark task as done:", error);
-        notify("error", "Failed to mark task as done");
       }
     },
     [onRefreshTasks],
@@ -799,6 +808,62 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
     },
     [onRefreshTasks, onDeleteEvent],
+  );
+
+  // Clear selection handler
+  const handleClearSelection = useCallback(() => {
+    setSelectedEntries(new Set());
+  }, []);
+
+  // Delete multiple entries (for context menu and popover)
+  const handleDeleteEntries = useCallback(
+    async (entries: ContextMenuEntry[]) => {
+      const taskEntries = entries.filter((e) => e.entryType === "task");
+      const eventEntries = entries.filter((e) => e.entryType === "event");
+
+      // Delete tasks
+      for (const { entry } of taskEntries) {
+        const task = entry as CalendarTask;
+        const source = task.source as ApiTask;
+        if (!source.projectId || !source.taskId) continue;
+        try {
+          await deleteTask({
+            projectId: source.projectId,
+            taskId: source.taskId,
+          });
+        } catch (error) {
+          console.error("Failed to delete task:", error);
+          notify("error", `Failed to delete "${task.title}"`);
+        }
+      }
+
+      // Delete events
+      for (const { entry } of eventEntries) {
+        const event = entry as CalendarEvent;
+        const source = event.source as ApiTimelineEvent;
+        if (source) {
+          await onDeleteEvent(source);
+        }
+      }
+
+      const total = entries.length;
+      if (total > 0) {
+        notify("success", total > 1 ? `${total} items deleted` : "Item deleted");
+        if (taskEntries.length > 0) await onRefreshTasks();
+      }
+      setSelectedEntries(new Set());
+    },
+    [onRefreshTasks, onDeleteEvent],
+  );
+
+  // Duplicate entries (placeholder - implement actual duplication logic as needed)
+  const handleDuplicateEntries = useCallback(
+    async (entries: ContextMenuEntry[]) => {
+      // For now, just log - can implement actual duplication
+      console.log("Duplicate entries:", entries);
+      notify("info", `Duplicating ${entries.length} item(s) - feature coming soon`);
+    },
+    [],
   );
 
   const handleOpenMiniCalendarEvent = useCallback(
@@ -976,11 +1041,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       activeProjectColor={activeProjectColor}
                       selectedEntryKeys={selectedEntries}
                       onEntrySelect={handleEntrySelect}
+                      onClearSelection={handleClearSelection}
                       onRescheduleEntries={handleRescheduleEntries}
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
-                      onSaveChanges={handleSaveChanges}
-                      onDeleteEntry={handleDeleteEntry}
+                      onDuplicateEntries={handleDuplicateEntries}
+                      onDeleteEntries={handleDeleteEntries}
                     />
                   </div>
                 )}
@@ -1000,11 +1066,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       activeProjectColor={activeProjectColor}
                       selectedEntryKeys={selectedEntries}
                       onEntrySelect={handleEntrySelect}
+                      onClearSelection={handleClearSelection}
                       onRescheduleEntries={handleRescheduleEntries}
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
-                      onSaveChanges={handleSaveChanges}
-                      onDeleteEntry={handleDeleteEntry}
+                      onDuplicateEntries={handleDuplicateEntries}
+                      onDeleteEntries={handleDeleteEntries}
                     />
                   </div>
                 )}
@@ -1017,7 +1084,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         <div className="calendar-footer">
           <div className="calendar-footer__note">
             <CheckSquare className="calendar-footer__icon" />
-            Drag to move • Hold Ctrl to copy • Shift+Click to multi-select
+            Click to select • Double-click to edit • Shift/Ctrl+Click to multi-select • Right-click for actions
           </div>
           <div className="calendar-footer__timezone">
             Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')}

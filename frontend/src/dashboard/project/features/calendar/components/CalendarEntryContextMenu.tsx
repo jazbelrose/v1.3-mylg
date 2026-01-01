@@ -2,12 +2,13 @@
  * CalendarEntryContextMenu.tsx
  *
  * Right-click context menu for calendar entries (tasks and events).
- * Provides quick actions: Submit for Review, Mark as Done, Save Changes, Delete.
+ * Supports single and multi-selection actions.
+ * Provides quick actions: Submit for Review, Mark as Done, Duplicate, Delete.
  */
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Send, CheckCircle, Save, Trash2 } from "lucide-react";
+import { Send, CheckCircle, Copy, Trash2, Pencil } from "lucide-react";
 import type { CalendarTask, CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 
@@ -16,28 +17,69 @@ export interface ContextMenuPosition {
   y: number;
 }
 
-export interface CalendarEntryContextMenuProps {
-  position: ContextMenuPosition;
+export interface ContextMenuEntry {
   entryType: CalendarEntryType;
   entry: CalendarTask | CalendarEvent;
+}
+
+export interface CalendarEntryContextMenuProps {
+  position: ContextMenuPosition;
+  /** Primary entry (right-clicked entry) */
+  entryType: CalendarEntryType;
+  entry: CalendarTask | CalendarEvent;
+  /** All selected entries for bulk actions */
+  selectedEntries?: ContextMenuEntry[];
   onClose: () => void;
-  onSubmitForReview?: (entry: CalendarTask) => void;
-  onMarkAsDone?: (entry: CalendarTask) => void;
-  onSaveChanges?: (entry: CalendarTask | CalendarEvent) => void;
-  onDelete?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
+  onEdit?: (entry: CalendarTask | CalendarEvent) => void;
+  onSubmitForReview?: (entries: CalendarTask[]) => void;
+  onMarkAsDone?: (entries: CalendarTask[]) => void;
+  onDuplicate?: (entries: ContextMenuEntry[]) => void;
+  onDelete?: (entries: ContextMenuEntry[]) => void;
 }
 
 export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> = ({
   position,
   entryType,
   entry,
+  selectedEntries = [],
   onClose,
+  onEdit,
   onSubmitForReview,
   onMarkAsDone,
-  onSaveChanges,
+  onDuplicate,
   onDelete,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Determine if we're in multi-select mode
+  const effectiveEntries: ContextMenuEntry[] = useMemo(
+    () =>
+      selectedEntries.length > 0
+        ? selectedEntries
+        : [{ entryType, entry }],
+    [selectedEntries, entryType, entry]
+  );
+  
+  const selectionCount = effectiveEntries.length;
+  const isMultiSelect = selectionCount > 1;
+
+  // For multi-select, check if we have any tasks that can be actioned
+  const actionableTasks = useMemo(
+    () =>
+      effectiveEntries
+        .filter((e) => e.entryType === "task")
+        .map((e) => e.entry as CalendarTask),
+    [effectiveEntries]
+  );
+  
+  const tasksForReview = useMemo(
+    () => actionableTasks.filter((t) => t.status !== "in_review" && t.status !== "done"),
+    [actionableTasks]
+  );
+  const tasksForDone = useMemo(
+    () => actionableTasks.filter((t) => t.status !== "done"),
+    [actionableTasks]
+  );
 
   // Close on click outside
   useEffect(() => {
@@ -94,36 +136,43 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     menu.style.top = `${adjustedY}px`;
   }, [position]);
 
-  const isTask = entryType === "task";
-  const task = isTask ? (entry as CalendarTask) : null;
+  const handleEdit = useCallback(() => {
+    if (onEdit) {
+      onEdit(entry);
+    }
+    onClose();
+  }, [entry, onEdit, onClose]);
 
   const handleSubmitForReview = useCallback(() => {
-    if (task && onSubmitForReview) {
-      onSubmitForReview(task);
+    if (onSubmitForReview && tasksForReview.length > 0) {
+      onSubmitForReview(tasksForReview);
     }
     onClose();
-  }, [task, onSubmitForReview, onClose]);
+  }, [tasksForReview, onSubmitForReview, onClose]);
 
   const handleMarkAsDone = useCallback(() => {
-    if (task && onMarkAsDone) {
-      onMarkAsDone(task);
+    if (onMarkAsDone && tasksForDone.length > 0) {
+      onMarkAsDone(tasksForDone);
     }
     onClose();
-  }, [task, onMarkAsDone, onClose]);
+  }, [tasksForDone, onMarkAsDone, onClose]);
 
-  const handleSaveChanges = useCallback(() => {
-    if (onSaveChanges) {
-      onSaveChanges(entry);
+  const handleDuplicate = useCallback(() => {
+    if (onDuplicate) {
+      onDuplicate(effectiveEntries);
     }
     onClose();
-  }, [entry, onSaveChanges, onClose]);
+  }, [effectiveEntries, onDuplicate, onClose]);
 
   const handleDelete = useCallback(() => {
     if (onDelete) {
-      onDelete(entryType, entry);
+      onDelete(effectiveEntries);
     }
     onClose();
-  }, [entryType, entry, onDelete, onClose]);
+  }, [effectiveEntries, onDelete, onClose]);
+
+  // Build label suffix for multi-select
+  const countSuffix = isMultiSelect ? ` (${selectionCount})` : "";
 
   const menuContent = (
     <div
@@ -138,48 +187,59 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       role="menu"
       aria-label="Entry actions"
     >
-      {isTask && task && (
-        <>
-          {/* Only show Submit for Review if task is not already in review or done */}
-          {task.status !== "in_review" && task.status !== "done" && onSubmitForReview && (
-            <button
-              type="button"
-              className="calendar-entry-context-menu__item"
-              onClick={handleSubmitForReview}
-              role="menuitem"
-            >
-              <Send className="calendar-entry-context-menu__icon" />
-              <span>Submit for Review</span>
-            </button>
-          )}
-
-          {/* Only show Mark as Done if task is not already done */}
-          {task.status !== "done" && onMarkAsDone && (
-            <button
-              type="button"
-              className="calendar-entry-context-menu__item"
-              onClick={handleMarkAsDone}
-              role="menuitem"
-            >
-              <CheckCircle className="calendar-entry-context-menu__icon" />
-              <span>Mark as Done</span>
-            </button>
-          )}
-        </>
-      )}
-
-      {onSaveChanges && (
+      {/* Edit - only for single selection */}
+      {!isMultiSelect && onEdit && (
         <button
           type="button"
           className="calendar-entry-context-menu__item"
-          onClick={handleSaveChanges}
+          onClick={handleEdit}
           role="menuitem"
         >
-          <Save className="calendar-entry-context-menu__icon" />
-          <span>Save Changes</span>
+          <Pencil className="calendar-entry-context-menu__icon" />
+          <span>Edit</span>
         </button>
       )}
 
+      {/* Submit for Review - for tasks not in review/done */}
+      {tasksForReview.length > 0 && onSubmitForReview && (
+        <button
+          type="button"
+          className="calendar-entry-context-menu__item"
+          onClick={handleSubmitForReview}
+          role="menuitem"
+        >
+          <Send className="calendar-entry-context-menu__icon" />
+          <span>Submit for Review{isMultiSelect && tasksForReview.length > 0 ? ` (${tasksForReview.length})` : ""}</span>
+        </button>
+      )}
+
+      {/* Mark as Done - for tasks not done */}
+      {tasksForDone.length > 0 && onMarkAsDone && (
+        <button
+          type="button"
+          className="calendar-entry-context-menu__item"
+          onClick={handleMarkAsDone}
+          role="menuitem"
+        >
+          <CheckCircle className="calendar-entry-context-menu__icon" />
+          <span>Mark as Done{isMultiSelect && tasksForDone.length > 0 ? ` (${tasksForDone.length})` : ""}</span>
+        </button>
+      )}
+
+      {/* Duplicate */}
+      {onDuplicate && (
+        <button
+          type="button"
+          className="calendar-entry-context-menu__item"
+          onClick={handleDuplicate}
+          role="menuitem"
+        >
+          <Copy className="calendar-entry-context-menu__icon" />
+          <span>Duplicate{countSuffix}</span>
+        </button>
+      )}
+
+      {/* Delete */}
       {onDelete && (
         <>
           <div className="calendar-entry-context-menu__separator" />
@@ -190,7 +250,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
             role="menuitem"
           >
             <Trash2 className="calendar-entry-context-menu__icon" />
-            <span>Delete</span>
+            <span>Delete{countSuffix}</span>
           </button>
         </>
       )}
