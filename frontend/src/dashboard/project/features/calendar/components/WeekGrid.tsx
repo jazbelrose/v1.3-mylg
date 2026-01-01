@@ -718,16 +718,16 @@ function WeekGrid({
     };
   }, []);
 
-  // Track Alt key for copy mode toggle during drag
+  // Track Ctrl/Cmd key for copy mode toggle during drag
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Alt" && interactionRef.current) {
+      if ((event.key === "Control" || event.key === "Meta") && interactionRef.current) {
         interactionRef.current.isCopyMode = true;
         setIsCopyMode(true);
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Alt" && interactionRef.current) {
+      if ((event.key === "Control" || event.key === "Meta") && interactionRef.current) {
         interactionRef.current.isCopyMode = false;
         setIsCopyMode(false);
       }
@@ -783,8 +783,12 @@ function WeekGrid({
       suppressClickRef.current = false;
       const entryKey = `${entry.type}:${entry.id}`;
       const entryType: CalendarEntryType = entry.type === "event" ? "event" : "task";
-      const additive = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
+      const additive = Boolean(pointerEvent.shiftKey);
       onEntrySelect?.(entryType, entry.id, additive);
+      // Suppress click when shift-selecting to prevent modal open
+      if (additive) {
+        suppressClickRef.current = true;
+      }
       const baseTarget = createTarget(entry, dayKey);
       const targets = gatherTargets(entryKey, baseTarget);
       if (!targets.length) {
@@ -810,7 +814,7 @@ function WeekGrid({
           ? "resizeBottom"
           : "drag";
 
-      const copyMode = Boolean(pointerEvent.altKey);
+      const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,

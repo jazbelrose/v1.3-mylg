@@ -926,7 +926,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         <div className="calendar-footer">
           <div className="calendar-footer__note">
             <CheckSquare className="calendar-footer__icon" />
-            Drag to move • Hold Alt to copy • Ctrl+Click to multi-select
+            Drag to move • Hold Ctrl to copy • Shift+Click to multi-select
           </div>
           <div className="calendar-footer__timezone">
             Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ')}

@@ -7,8 +7,8 @@ export type CalendarEntryType = "event" | "task";
  * 
  * Keyboard shortcuts for calendar interactions:
  * - Drag: Move entries to a new time/date
- * - Alt + Drag: Copy the entry to a new time/date (tasks only)
- * - Ctrl/Cmd + Click: Multi-select entries
+ * - Ctrl/Cmd + Drag: Copy the entry to a new time/date
+ * - Shift + Click: Multi-select entries
  * - Resize handles: Drag top/bottom edges to resize duration
  */
 export type CalendarEntryChanges = {
