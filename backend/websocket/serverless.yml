@@ -109,7 +109,7 @@ functions:
       # Run every 5 minutes
       - schedule:
           rate: rate(5 minutes)
-          enabled: false  # Enable after testing
+          enabled: true  # Enable after testing
 
 package:
   patterns:

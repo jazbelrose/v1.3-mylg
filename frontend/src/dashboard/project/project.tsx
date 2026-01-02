@@ -5,6 +5,8 @@ import BudgetOverviewCard from "@/dashboard/project/features/budget/components/B
 
 import GalleryComponent from "@/dashboard/project/components/Gallery/GalleryComponent";
 
+import { ActivityPanel } from "@/dashboard/project/features/activity";
+
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import CalendarOverviewCard from "@/dashboard/project/components/Shared/calendar/CalendarOverviewCard";
 import ProjectWeekWidget from "@/dashboard/project/components/Shared/calendar/ProjectWeekWidget";
@@ -390,6 +392,8 @@ const SingleProject: React.FC = () => {
             )}
 
             <GalleryComponent />
+
+            <ActivityPanel projectId={resolvedActiveProject.projectId} />
           </div>
           {!isMobileBudgetLayout && <div className="calendar-column">{calendarOverviewCard}</div>}
         </div>

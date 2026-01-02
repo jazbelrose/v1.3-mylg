@@ -1510,6 +1510,8 @@ const SlidesPage: React.FC = () => {
                 <SlideEditor
                   projectId={projectId}
                   slide={activeSlide}
+                  deckName={activeProject?.title}
+                  slideNumber={activeSlide?.order}
                   onContentChange={(content) =>
                     handleContentChange(activeSlide.id, content)
                   }

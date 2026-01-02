@@ -7,6 +7,7 @@ import SlideContextMenu, { type ContextMenuPosition } from "./SlideContextMenu";
 import LayoutGeneratorPanel from "./LayoutGeneratorPanel";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
+import { useEditTracking } from "../hooks/useEditTracking";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import { ToolbarContextProvider } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
@@ -24,6 +25,8 @@ import "./SlideEditor.css";
 interface SlideEditorProps {
   projectId: string;
   slide: Slide;
+  deckName?: string;
+  slideNumber?: number;
   onContentChange?: (content: string) => void;
   onSaveSuccess?: () => void;
   onSlideBackgroundColorChange?: (color: string) => void;
@@ -63,6 +66,8 @@ const SLIDE_PADDING = "96px 120px";
 const SlideEditor: React.FC<SlideEditorProps> = ({
   projectId,
   slide,
+  deckName,
+  slideNumber,
   onContentChange,
   onSaveSuccess,
   onSlideBackgroundColorChange,
@@ -103,19 +108,23 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     onSaveSuccess,
   });
 
+  const { trackChange, forceFlush } = useEditTracking(projectId, projectId, deckName);
+
   const handleChange = useCallback(
     (json: string) => {
       markDirty(json);
       onContentChange?.(json);
+      trackChange('text', slide.id, slideNumber);
     },
-    [markDirty, onContentChange]
+    [markDirty, onContentChange, trackChange, slide.id, slideNumber]
   );
 
   const handleSave = useCallback(() => {
     if (slide.content) {
       saveSlide(slide.content, true);
     }
-  }, [saveSlide, slide.content]);
+    forceFlush();
+  }, [saveSlide, slide.content, forceFlush]);
 
   const handleRegisterToolbar = useCallback((actions: ToolbarActions) => {
     setToolbarActions(actions);
