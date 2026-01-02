@@ -46,13 +46,14 @@ describe("MessageItem edit", () => {
       </OnlineStatusProvider>
     );
 
-    await userEvent.click(screen.getByLabelText("Edit message"));
+    await userEvent.click(screen.getByLabelText("Message actions"));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
     expect(onEditRequest).toHaveBeenCalledWith(
       expect.objectContaining({ messageId: "m1" })
     );
   });
 
-  it("hides author actions for other users", () => {
+  it("hides author actions for other users", async () => {
     render(
       <OnlineStatusProvider>
         <MessageItem
@@ -73,8 +74,9 @@ describe("MessageItem edit", () => {
       </OnlineStatusProvider>
     );
 
-    expect(screen.queryByLabelText("Edit message")).toBeNull();
-    expect(screen.queryByLabelText("Delete message")).toBeNull();
+    await userEvent.click(screen.getByLabelText("Message actions"));
+    expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
   });
 
   it("treats long text as a collapsible long message", async () => {
@@ -130,7 +132,7 @@ describe("MessageItem edit", () => {
       </OnlineStatusProvider>
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    await userEvent.click(screen.getByLabelText("Open in reader"));
     expect(screen.getByRole("button", { name: "Copy all" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jump to message" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();

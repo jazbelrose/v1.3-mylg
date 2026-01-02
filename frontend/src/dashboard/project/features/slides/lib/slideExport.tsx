@@ -163,11 +163,46 @@ async function prepareElementForExport(
   // Sync images from original to clone
   syncImageSources(element, clone);
 
+  // Hide scrollbars on textboxes for clean export
+  hideScrollbarsForExport(clone);
+
   // Wait for layout
   await new Promise((resolve) => requestAnimationFrame(resolve));
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
   return { host, clone };
+}
+
+/**
+ * Hide scrollbars and UI elements for clean export
+ * Mirrors the approach used in thumbnails.ts
+ */
+function hideScrollbarsForExport(root: HTMLElement): void {
+  // Target textbox elements which have overflow: auto by default
+  const textboxes = root.querySelectorAll<HTMLElement>('.editor-textbox');
+  textboxes.forEach((el) => {
+    el.style.overflow = 'hidden';
+    el.scrollTop = 0;
+    el.scrollLeft = 0;
+  });
+
+  // Also hide any resize/move/rotate handles
+  const handles = root.querySelectorAll<HTMLElement>(
+    '.textbox-resize-handle, .textbox-move-handle, .textbox-rotate-handle, .textbox-rotate-handle-line'
+  );
+  handles.forEach((el) => {
+    el.style.display = 'none';
+  });
+
+  // Hide any selection outlines
+  const selectedElements = root.querySelectorAll<HTMLElement>(
+    '.editor-textbox-selected, .editor-textbox-focused'
+  );
+  selectedElements.forEach((el) => {
+    el.classList.remove('editor-textbox-selected', 'editor-textbox-focused');
+    el.style.outline = 'none';
+    el.style.outlineColor = 'transparent';
+  });
 }
 
 /**
@@ -297,6 +332,13 @@ export interface ExportSvgOptions {
   slideTitle?: string;
   backgroundColor?: string;
   enhanceForEditing?: boolean;
+  /**
+   * When true, creates a rasterized SVG that embeds a PNG image.
+   * This is compatible with design software like Affinity Designer
+   * which doesn't support foreignObject (HTML content in SVG).
+   * Default: false (produces native SVG with foreignObject for Chrome/browser viewing)
+   */
+  rasterizeForDesignSoftware?: boolean;
 }
 
 /**
@@ -308,6 +350,7 @@ export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<strin
     slideTitle = 'Slide',
     backgroundColor = '#101112',
     enhanceForEditing = true,
+    rasterizeForDesignSoftware = false,
   } = options;
 
   const element = await locateSlideCaptureElement(slideId);
@@ -337,7 +380,38 @@ export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<strin
     }
     await waitForImagesToLoad(clone, 3000);
 
-    // Generate SVG - toSvg returns a data URL, we need to extract the actual SVG
+    // If rasterizing for design software, create a PNG-embedded SVG
+    // This is compatible with Affinity Designer, Illustrator, etc.
+    if (rasterizeForDesignSoftware) {
+      const pngDataUrl = await toPng(clone, {
+        width: NATIVE_SLIDE_WIDTH,
+        height: NATIVE_SLIDE_HEIGHT,
+        canvasWidth: NATIVE_SLIDE_WIDTH,
+        canvasHeight: NATIVE_SLIDE_HEIGHT,
+        backgroundColor,
+        cacheBust: true,
+        pixelRatio: 4, // High resolution
+        quality: 1.0,
+        skipAutoScale: true,
+      });
+
+      // Create an SVG that wraps the PNG image
+      // This is fully compatible with all design software
+      const svgString = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     width="${NATIVE_SLIDE_WIDTH}" height="${NATIVE_SLIDE_HEIGHT}" 
+     viewBox="0 0 ${NATIVE_SLIDE_WIDTH} ${NATIVE_SLIDE_HEIGHT}">
+  <title>${slideTitle}</title>
+  <g id="slide-content" data-name="${slideTitle}">
+    <image id="slide-image" data-name="Slide Background" 
+           width="${NATIVE_SLIDE_WIDTH}" height="${NATIVE_SLIDE_HEIGHT}" 
+           xlink:href="${pngDataUrl}"/>
+  </g>
+</svg>`;
+      return svgString;
+    }
+
+    // Generate native SVG with foreignObject (browser-compatible)
     const svgDataUrl = await toSvg(clone, {
       width: NATIVE_SLIDE_WIDTH,
       height: NATIVE_SLIDE_HEIGHT,
@@ -346,7 +420,6 @@ export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<strin
       backgroundColor,
       cacheBust: true,
       skipAutoScale: true,
-      // Include foreign objects for text editability
       includeQueryParams: true,
     });
 
@@ -396,17 +469,20 @@ export function downloadFile(content: string | Blob, filename: string, mimeType:
 
 /**
  * Export a single slide and download as SVG
+ * @param rasterize - If true, embeds a high-res PNG (works in all software but no layers). If false, uses foreignObject (has layers but may not display in Affinity/Illustrator)
  */
 export async function exportAndDownloadSlideSvg(
   slideId: string,
   slideTitle: string,
-  backgroundColor?: string
+  backgroundColor?: string,
+  rasterize: boolean = false
 ): Promise<boolean> {
   const svg = await exportSlideAsSvg({
     slideId,
     slideTitle,
     backgroundColor,
     enhanceForEditing: true,
+    rasterizeForDesignSoftware: rasterize,
   });
 
   if (!svg) {
@@ -419,11 +495,42 @@ export async function exportAndDownloadSlideSvg(
   return true;
 }
 
+/**
+ * Export a single slide and download as high-resolution PNG
+ * This is universally compatible with all design software
+ */
+export async function exportAndDownloadSlidePng(
+  slideId: string,
+  slideTitle: string,
+  backgroundColor?: string
+): Promise<boolean> {
+  const dataUrl = await captureSlideAsPng(slideId, backgroundColor || '#101112');
+  
+  if (!dataUrl) {
+    return false;
+  }
+
+  // Convert data URL to blob
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+
+  const sanitizedTitle = (slideTitle || 'Slide').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Slide';
+  const filename = `${sanitizedTitle}.png`;
+  saveAs(blob, filename);
+  return true;
+}
+
 export interface ExportPdfOptions {
   slides: Slide[];
   projectName?: string;
   backgroundColor?: string;
   onProgress?: (current: number, total: number) => void;
+  /** 
+   * Callback to navigate to a specific slide before capturing.
+   * This is required for high-quality export since only the visible slide can be captured from DOM.
+   * The function should navigate to the slide and wait for it to render.
+   */
+  onNavigateToSlide?: (slideId: string) => Promise<void>;
 }
 
 /**
@@ -465,7 +572,9 @@ export async function captureSlideAsPng(
       canvasHeight: NATIVE_SLIDE_HEIGHT,
       backgroundColor,
       cacheBust: true,
-      pixelRatio: 2, // Higher quality for PDF
+      pixelRatio: 4, // 4x resolution for high-quality PDF export
+      quality: 1.0, // Maximum PNG quality
+      skipAutoScale: true,
     });
 
     return dataUrl;
@@ -540,18 +649,27 @@ async function getSlideImage(
 
 /**
  * Capture all slides as PNG images for PDF generation
- * Uses DOM capture for visible slides, thumbnails for others
+ * When onNavigateToSlide is provided, navigates to each slide for high-quality DOM capture
+ * Otherwise falls back to thumbnails for non-visible slides
  */
 export async function captureAllSlidesAsPng(
   slides: Slide[],
   backgroundColor: string = '#101112',
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  onNavigateToSlide?: (slideId: string) => Promise<void>
 ): Promise<SlideImageData[]> {
   const results: SlideImageData[] = [];
 
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
     onProgress?.(i + 1, slides.length);
+
+    // If navigation callback provided, navigate to the slide first for high-quality capture
+    if (onNavigateToSlide) {
+      await onNavigateToSlide(slide.id);
+      // Wait for slide to render
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
 
     const imageDataUrl = await getSlideImage(slide, backgroundColor);
 
@@ -574,7 +692,7 @@ export async function captureAllSlidesAsPng(
  * Follows the same pattern as budget invoice PDF generation
  */
 export async function exportSlidesAsPdf(options: ExportPdfOptions): Promise<Blob | null> {
-  const { slides, projectName = 'Presentation', backgroundColor = '#101112', onProgress } = options;
+  const { slides, projectName = 'Presentation', backgroundColor = '#101112', onProgress, onNavigateToSlide } = options;
 
   if (slides.length === 0) {
     console.error('[SlideExport] No slides to export');
@@ -583,7 +701,8 @@ export async function exportSlidesAsPdf(options: ExportPdfOptions): Promise<Blob
 
   try {
     // First capture all slides as PNG images
-    const slideImages = await captureAllSlidesAsPng(slides, backgroundColor, onProgress);
+    // If onNavigateToSlide is provided, will navigate to each slide for high-quality capture
+    const slideImages = await captureAllSlidesAsPng(slides, backgroundColor, onProgress, onNavigateToSlide);
 
     if (slideImages.length === 0) {
       console.error('[SlideExport] No slides could be captured');
@@ -607,16 +726,19 @@ export async function exportSlidesAsPdf(options: ExportPdfOptions): Promise<Blob
 
 /**
  * Export all slides as PDF and download
+ * @param onNavigateToSlide - Callback to navigate to each slide for high-quality capture
  */
 export async function exportAndDownloadSlidesPdf(
   slides: Slide[],
   projectName: string,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  onNavigateToSlide?: (slideId: string) => Promise<void>
 ): Promise<boolean> {
   const pdfBlob = await exportSlidesAsPdf({
     slides,
     projectName,
     onProgress,
+    onNavigateToSlide,
   });
 
   if (!pdfBlob) {

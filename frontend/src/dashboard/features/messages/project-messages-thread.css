@@ -20,24 +20,127 @@
 
 .message-row {
   margin-bottom: 10px;
+  width: 100%;
+  display: grid;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 12px;
+}
+
+.message-row.message-row--grouped {
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.message-row--incoming {
+  grid-template-columns: 28px minmax(0, 1fr) 44px;
+  grid-template-areas: "avatar bubble actions";
+}
+
+.message-row--outgoing {
+  grid-template-columns: 44px minmax(0, 1fr) 28px;
+  grid-template-areas: "actions bubble avatar";
+}
+
+.message-row:hover,
+.message-row:focus-within,
+.message-row--active {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.message-row-avatar {
+  grid-area: avatar;
+  width: 28px;
   display: flex;
   align-items: flex-end;
+  justify-content: center;
 }
 
-.message-row.current-user {
-  justify-content: flex-end;
+.message-row-avatar[aria-hidden="true"] {
+  visibility: hidden;
 }
 
-.message-row:not(.current-user) {
+.message-row-bubble {
+  grid-area: bubble;
+  display: flex;
+  min-width: 0;
+}
+
+.message-row--incoming .message-row-bubble {
   justify-content: flex-start;
 }
 
+.message-row--outgoing .message-row-bubble {
+  justify-content: flex-end;
+}
+
+.message-row-actions {
+  grid-area: actions;
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+  margin-top: 6px;
+  position: relative;
+}
+
+.message-row-actions::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 50%;
+  width: 2px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.message-row:hover .message-row-actions::before,
+.message-row:focus-within .message-row-actions::before,
+.message-row--active .message-row-actions::before {
+  opacity: 1;
+}
+
+.message-rail-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.message-row:hover .message-rail-btn,
+.message-row:focus-within .message-rail-btn,
+.message-row--active .message-rail-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-rail-btn:hover,
+.message-rail-btn:focus {
+  background: rgba(0, 0, 0, 0.26);
+}
+
 .avatar {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   object-fit: cover;
-  margin-right: 8px;
+  margin: 0;
 }
 
 .avatar-wrapper {
@@ -48,13 +151,12 @@
 
 
 .avatar.avatar-right {
-  margin-left: 8px;
-  margin-right: 0;
+  margin: 0;
 }
 
 .message-bubble {
   position: relative;
-  max-width: 60%;
+  max-width: 100%;
   min-width: 180px;
   padding: 8px 12px;
   border-radius: 15px;
@@ -62,6 +164,7 @@
   word-wrap: break-word;
   line-height: 1.5;
   outline: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .message-bubble a {
@@ -80,7 +183,19 @@
   top: 4px;
   right: 8px;
   font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.message-bubble:hover .message-time,
+.message-bubble:focus-within .message-time {
   opacity: 0.6;
+}
+
+.message-row:hover .message-bubble,
+.message-row:focus-within .message-bubble,
+.message-row--active .message-bubble {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .reactions {
@@ -105,6 +220,96 @@
 .bubble-container {
   position: relative;
   display: inline-block;
+  padding-bottom: 16px; /* space for reaction chips */
+}
+
+.message-actions-menu {
+  position: absolute;
+  top: 42px;
+  min-width: 160px;
+  background: rgba(24, 24, 26, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+  z-index: 8;
+}
+
+.message-row--incoming .message-actions-menu {
+  right: 0;
+}
+
+.message-row--outgoing .message-actions-menu {
+  left: 0;
+}
+
+.message-actions-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+
+.message-actions-item:hover,
+.message-actions-item:focus {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.message-actions-item--danger {
+  color: #ff6b6b;
+}
+
+.reaction-chips {
+  position: absolute;
+  bottom: -12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.reaction-chips--left {
+  left: 10px;
+}
+
+.reaction-chips--right {
+  right: 10px;
+  justify-content: flex-end;
+}
+
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.reaction-chip.is-selected {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.reaction-chip-emoji {
+  font-size: 13px;
+}
+
+.reaction-chip-count {
+  opacity: 0.85;
 }
 
 .action-bar {
@@ -230,7 +435,7 @@
   justify-content: center;
   padding: 5px;
   margin: 0 6px;
-  border: 1px solid white;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50px;
   transition: background-color 0.2s ease;
 }
@@ -463,10 +668,11 @@
   position: fixed;
   display: flex;
   gap: 6px;
-  background: rgba(28, 28, 30, 0.9);
+  background: rgba(24, 24, 26, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
   padding: 4px 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
   animation: fade-in 0.15s ease, slide-up 0.15s ease;
  z-index: 10001;
 }
@@ -548,6 +754,59 @@
   overflow-wrap: anywhere;
 }
 
+/* =============================================================================
+   Attachments
+============================================================================= */
+
+.chat-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+}
+
+.chat-attachment-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  flex: 0 0 34px;
+}
+
+.chat-attachment-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-attachment-name {
+  font-size: 13px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.chat-attachment-sub {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.chat-attachment-image img {
+  border-radius: 12px;
+  display: block;
+  max-width: 100%;
+}
+
 .long-message {
   display: flex;
   flex-direction: column;
@@ -582,20 +841,6 @@
   line-height: inherit;
 }
 
-.long-message-fade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 42px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.9));
-  pointer-events: none;
-}
-
-.message-row.current-user .long-message-fade {
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(250, 51, 86, 0.95));
-}
-
 .long-message-controls {
   display: flex;
   gap: 8px;
@@ -603,22 +848,22 @@
 }
 
 .long-message-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
-  border-radius: 999px;
-  padding: 4px 10px;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   cursor: pointer;
 }
 
-.long-message-btn:hover,
-.long-message-btn:focus {
-  background: rgba(255, 255, 255, 0.16);
+.long-message-btn--link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  opacity: 0.85;
 }
 
-.long-message-btn--secondary {
-  background: transparent;
+.long-message-btn--link:hover,
+.long-message-btn--link:focus {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .message-highlight {

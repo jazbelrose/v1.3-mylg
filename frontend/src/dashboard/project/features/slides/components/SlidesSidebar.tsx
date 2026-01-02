@@ -197,6 +197,7 @@ interface SlidesSidebarProps {
   onDuplicateSlide?: (slideId: string) => void;
   onDeleteSlide?: (slideId: string) => void;
   onExportSlide?: (slideId: string) => void;
+  onExportSlidePng?: (slideId: string) => void;
   selectedSlideIds?: string[];
   onSelectedSlideIdsChange?: (ids: string[]) => void;
   onRequestDeleteSelected?: (ids: string[]) => void;
@@ -213,6 +214,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onDuplicateSlide,
   onDeleteSlide,
   onExportSlide,
+  onExportSlidePng,
   selectedSlideIds = [],
   onSelectedSlideIdsChange,
   onRequestDeleteSelected,
@@ -531,6 +533,19 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
               >
                 <Download size={24} className="dropdown-icon" />
                 <span className="text">Export as SVG</span>
+              </button>
+            )}
+            {onExportSlidePng && (
+              <button
+                type="button"
+                className="item"
+                onClick={() => {
+                  if (activeSlideId) onExportSlidePng(activeSlideId);
+                  closeDropdown();
+                }}
+              >
+                <Download size={24} className="dropdown-icon" />
+                <span className="text">Export as PNG</span>
               </button>
             )}
             {onDeleteSlide && (

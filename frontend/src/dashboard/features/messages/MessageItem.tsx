@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import User from "@/assets/svg/user.svg?react";
 import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
-import { Trash2, Pencil, Smile } from "lucide-react";
+import { Copy, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import ReactPlayer from "react-player";
 // import "../../../../index.css";
 import { normalizeFileUrl, getFileUrl } from "../../../shared/utils/api";
@@ -18,6 +18,7 @@ const LONG_MESSAGE_INLINE_CLAMP = { lines: 12, chars: 800 };
 const LONG_MESSAGE_READER_THRESHOLD = { lines: 60, chars: 4000 };
 const LONG_MESSAGE_READER_PREVIEW = { lines: 10, chars: 1200 };
 const LONG_MESSAGE_COLLAPSE_ANIM_MS = 220;
+const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 const countTextLines = (text: string) => {
   if (!text) return 0;
@@ -168,6 +169,7 @@ export interface SimpleUser {
 interface MessageItemProps {
   msg: ChatMessage;
   prevMsg?: ChatMessage | null;
+  nextMsg?: ChatMessage | null;
   userData?: SimpleUser | null;
   allUsers?: SimpleUser[];
   openPreviewModal: (file: ChatFile | DMFile) => void;
@@ -182,6 +184,7 @@ interface MessageItemProps {
 const MessageItem: React.FC<MessageItemProps> = ({
   msg,
   prevMsg,
+  nextMsg,
   userData,
   allUsers = [],
   openPreviewModal,
@@ -226,6 +229,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
  
   const [showReactions, setShowReactions] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const userReactions = useMemo<Emoji[]>(() => {
     const arr: Emoji[] = [];
@@ -360,6 +366,62 @@ const MessageItem: React.FC<MessageItemProps> = ({
     setShowReactions(false);
   };
 
+  const canEdit = isCurrentUser && !!text && !matchedUrl && !msg.file;
+  const canDelete = isCurrentUser;
+  const canCopy = !!text;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (menuButtonRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const parseTs = (m?: ChatMessage | null) => {
+    if (!m?.timestamp) return null;
+    const d = new Date(m.timestamp as any);
+    return Number.isNaN(+d) ? null : d;
+  };
+
+  const isGroupedWithPrev = useMemo(() => {
+    if (!prevMsg) return false;
+    if (prevMsg.senderId !== msg.senderId) return false;
+    const a = parseTs(prevMsg);
+    const b = parseTs(msg);
+    if (!a || !b) return false;
+    return Math.abs(+b - +a) <= MESSAGE_GROUP_WINDOW_MS;
+  }, [msg.senderId, msg.timestamp, prevMsg]);
+
+  const isGroupedWithNext = useMemo(() => {
+    if (!nextMsg) return false;
+    if (nextMsg.senderId !== msg.senderId) return false;
+    const a = parseTs(msg);
+    const b = parseTs(nextMsg);
+    if (!a || !b) return false;
+    return Math.abs(+b - +a) <= MESSAGE_GROUP_WINDOW_MS;
+  }, [msg.senderId, msg.timestamp, nextMsg]);
+
+  const showAvatar = !isGroupedWithNext;
+  const showSenderLine = !isCurrentUser && !isGroupedWithPrev;
+
   // date bubble logic
   let showDateBubble = !prevMsg;
   if (prevMsg) {
@@ -413,29 +475,30 @@ const MessageItem: React.FC<MessageItemProps> = ({
           className={`long-message-body ${collapsed ? "is-collapsed" : "is-expanded"}`}
         >
           <pre className="long-message-text">{displayText}</pre>
-          {collapsed && <div className="long-message-fade" aria-hidden="true" />}
         </div>
 
         <div className="long-message-controls">
           <button
             type="button"
-            className="long-message-btn"
+            className="long-message-btn long-message-btn--link"
             onClick={toggleInlineExpanded}
             aria-expanded={inlineExpanded}
             aria-controls={longMessageBodyId}
+            aria-label={inlineExpanded ? "Show less" : "Read more"}
           >
-            {inlineExpanded ? "Show less" : "Read more"}
+            {inlineExpanded ? "Show less" : "… more"}
           </button>
 
           {isMassiveMessage && (
             <button
               type="button"
-              className="long-message-btn long-message-btn--secondary"
+              className="long-message-btn long-message-btn--link"
               onClick={() => {
                 returnFocusToOpenButtonRef.current = true;
                 setReaderOpen(true);
               }}
               ref={openButtonRef}
+              aria-label="Open in reader"
             >
               Open
             </button>
@@ -502,96 +565,143 @@ const MessageItem: React.FC<MessageItemProps> = ({
     <>
       {showDateBubble && <div className="date-bubble">{formattedDate}</div>}
 
-      <div className={`message-row ${isCurrentUser ? "current-user" : ""}`}>
-        {!isCurrentUser && (
-          <div className="avatar-wrapper">
-            {senderThumbnail ? (
-              <img src={senderThumbnailUrl} alt={senderName} className="avatar" />
-            ) : (
-              <User className="avatar" />
-            )}
-            {isSenderOnline && <span className="online-indicator" />}
-          </div>
-        )}
+      <div
+        className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev ? "message-row--grouped" : ""} ${menuOpen || showReactions ? "message-row--active" : ""}`}
+      >
+        <div className="message-row-avatar" aria-hidden={!showAvatar}>
+          {showAvatar && (
+            <>
+              {senderThumbnail ? (
+                <img
+                  src={senderThumbnailUrl}
+                  alt={isCurrentUser ? "You" : senderName}
+                  className={`avatar ${isCurrentUser ? "avatar-right" : ""}`}
+                />
+              ) : (
+                <User className={`avatar ${isCurrentUser ? "avatar-right" : ""}`} />
+              )}
+              {isSenderOnline && <span className="online-indicator" />}
+            </>
+          )}
+        </div>
 
-        <div className="bubble-container" style={{ position: "relative" }}>
-          <div
-            className="message-bubble"
-            style={{ background: isCurrentUser ? "#FA3356" : "#333" }}
-            ref={bubbleRef}
-            tabIndex={0}
-          >
-            <ReactionBar
-              visible={showReactions}
-              anchorRef={bubbleRef}
-              selected={userReactions}
-              onSelect={handleEmojiClick}
-              onClose={() => setShowReactions(false)}
-            />
-            <div className="message-time">{formattedTime}</div>
-            <div className="message-sender">{senderName}</div>
+        <div className="message-row-bubble">
+          <div className="bubble-container">
+            <div
+              className="message-bubble"
+              style={{ background: isCurrentUser ? "#FA3356" : "#333" }}
+              ref={bubbleRef}
+              tabIndex={0}
+            >
+              <ReactionBar
+                visible={showReactions}
+                anchorRef={bubbleRef}
+                selected={userReactions}
+                onSelect={handleEmojiClick}
+                onClose={() => setShowReactions(false)}
+              />
+              <div className="message-time" aria-label={`Sent at ${formattedTime}`}>
+                {formattedTime}
+              </div>
+              {showSenderLine && <div className="message-sender">{senderName}</div>}
 
-            <div style={{ marginBottom: 5 }}>{renderBody()}</div>
+              <div style={{ marginBottom: 5 }}>{renderBody()}</div>
+            </div>
 
-            {hasReactions && (
-              <div className="reaction-summary">
-                {Object.entries(msg.reactions || {}).map(([emoji, users]) =>
+            <div className={`reaction-chips ${isCurrentUser ? "reaction-chips--right" : "reaction-chips--left"}`}>
+              {hasReactions &&
+                Object.entries(msg.reactions || {}).map(([emoji, users]) =>
                   users.length > 0 ? (
-                    <span
+                    <button
                       key={emoji}
+                      type="button"
+                      className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
                       onClick={() => handleEmojiClick(emoji)}
-                      className={userReactions.includes(emoji) ? "selected" : ""}
+                      aria-label={`React ${emoji} (${users.length})`}
                     >
-                      {emoji} {users.length}
-                    </span>
+                      <span className="reaction-chip-emoji">{emoji}</span>
+                      <span className="reaction-chip-count">{users.length}</span>
+                    </button>
                   ) : null
                 )}
-              </div>
-            )}
-          </div>
-
-          <div className="action-bar">
-            {isCurrentUser && (
-              <>
-                <button
-                  className="action-btn"
-                  onClick={() => onEditRequest?.(msg)}
-                  aria-label="Edit message"
-                  title="Edit"
-                >
-                  <Pencil size={12} />
-                </button>
-                <button
-                  className="action-btn"
-                  onClick={() => onDelete?.(msg)}
-                  aria-label="Delete message"
-                  title="Delete"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </>
-            )}
-            <button
-              className="action-btn"
-              onClick={() => setShowReactions((p) => !p)}
-              aria-label="Add reaction"
-              title="React"
-            >
-              <Smile size={12} />
-            </button>
+            </div>
           </div>
         </div>
 
-        {isCurrentUser && (
-          <div className="avatar-wrapper">
-            {senderThumbnail ? (
-              <img src={senderThumbnailUrl} alt="You" className="avatar avatar-right" />
-            ) : (
-              <User className="avatar avatar-right" />
-            )}
-            {isSenderOnline && <span className="online-indicator" />}
-          </div>
-        )}
+        <div className="message-row-actions">
+          <button
+            type="button"
+            className="message-rail-btn"
+            onClick={() => {
+              setMenuOpen(false);
+              setShowReactions((p) => !p);
+            }}
+            aria-label="Add reaction"
+            title="Add reaction"
+          >
+            <Plus size={16} />
+          </button>
+
+          <button
+            type="button"
+            className="message-rail-btn"
+            aria-label="Message actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            ref={menuButtonRef}
+            title="Message actions"
+          >
+            <MoreHorizontal size={16} />
+          </button>
+
+          {menuOpen && (
+            <div className="message-actions-menu" role="menu" ref={menuRef}>
+              {canCopy && (
+                <button
+                  type="button"
+                  className="message-actions-item"
+                  role="menuitem"
+                  onClick={async () => {
+                    await copyTextToClipboard(text);
+                    setMenuOpen(false);
+                  }}
+                >
+                  <Copy size={14} />
+                  Copy
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  className="message-actions-item"
+                  role="menuitem"
+                  onClick={() => {
+                    onEditRequest?.(msg);
+                    setMenuOpen(false);
+                  }}
+                >
+                  <Pencil size={14} />
+                  Edit
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  className="message-actions-item message-actions-item--danger"
+                  role="menuitem"
+                  onClick={() => {
+                    onDelete?.(msg);
+                    setMenuOpen(false);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

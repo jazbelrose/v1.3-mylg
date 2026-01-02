@@ -141,106 +141,43 @@ const getThumbnailUrl = (url: string, folderKey = "chat_uploads") =>
 // Custom preview renderer for files
 const renderFilePreview = (file: FileObj, folderKey = "chat_uploads") => {
   const extension = file.fileName.split(".").pop()?.toLowerCase() || "";
-  const commonStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-  };
-  const fileNameStyle: React.CSSProperties = {
-    wordBreak: "break-word",
-    overflowWrap: "anywhere",
-  };
+  const extLabel = extension ? extension.toUpperCase() : "FILE";
+  const card = (icon: React.ReactNode) => (
+    <div className="chat-attachment-card">
+      <div className="chat-attachment-icon">{icon}</div>
+      <div className="chat-attachment-meta">
+        <div className="chat-attachment-name">{file.fileName}</div>
+        <div className="chat-attachment-sub">{extLabel}</div>
+      </div>
+    </div>
+  );
 
   if (["jpg", "jpeg", "png"].includes(extension)) {
     const normalizedUrl = normalizeFileUrl(file.url);
     const thumbnailUrl = getThumbnailUrl(normalizedUrl, folderKey);
     const finalUrl = normalizeFileUrl(file.finalUrl || file.url);
     return (
-      <OptimisticImage
-        tempUrl={thumbnailUrl}
-        finalUrl={finalUrl}
-        alt={file.fileName}
-      />
-    );
-  } else if (extension === "pdf") {
-    return (
-      <div style={commonStyle}>
-        <FaFilePdf size={50} color="red" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (extension === "svg") {
-    return (
-      <div style={commonStyle}>
-        <SiSvg size={50} color="purple" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (extension === "txt") {
-    return (
-      <div style={commonStyle}>
-        <FaFileAlt size={50} color="gray" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (["xls", "xlsx", "csv"].includes(extension)) {
-    return (
-      <div style={commonStyle}>
-        <FaFileExcel size={50} color="green" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (["dwg", "vwx"].includes(extension)) {
-    return (
-      <div style={commonStyle}>
-        <FaDraftingCompass size={50} color="brown" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (["c4d", "obj"].includes(extension)) {
-    return (
-      <div style={commonStyle}>
-        <FaCube size={50} color="purple" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (extension === "ai") {
-    return (
-      <div style={commonStyle}>
-        <SiAdobe size={50} color="orange" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (extension === "afdesign") {
-    return (
-      <div style={commonStyle}>
-        <SiAffinitydesigner size={50} color="orange" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (extension === "afpub") {
-    return (
-      <div style={commonStyle}>
-        <SiAffinitypublisher size={50} color="green" />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else if (extension === "js" || extension === "eps") {
-    return (
-      <div style={commonStyle}>
-        <FaFileAlt size={50} color="blue" style={{ fill: "blue" }} />
-        <span style={fileNameStyle}>{file.fileName}</span>
-      </div>
-    );
-  } else {
-    return (
-      <div style={commonStyle}>
-        <FaFileAlt size={50} color="blue" style={{ fill: "blue" }} />
-        <span style={fileNameStyle}>{file.fileName}</span>
+      <div className="chat-attachment-image">
+        <OptimisticImage
+          tempUrl={thumbnailUrl}
+          finalUrl={finalUrl}
+          alt={file.fileName}
+        />
       </div>
     );
   }
+
+  if (extension === "pdf") return card(<FaFilePdf size={20} />);
+  if (extension === "svg") return card(<SiSvg size={20} />);
+  if (extension === "txt") return card(<FaFileAlt size={20} />);
+  if (["xls", "xlsx", "csv"].includes(extension)) return card(<FaFileExcel size={20} />);
+  if (["dwg", "vwx"].includes(extension)) return card(<FaDraftingCompass size={20} />);
+  if (["c4d", "obj"].includes(extension)) return card(<FaCube size={20} />);
+  if (extension === "ai") return card(<SiAdobe size={20} />);
+  if (extension === "afdesign") return card(<SiAffinitydesigner size={20} />);
+  if (extension === "afpub") return card(<SiAffinitypublisher size={20} />);
+  if (extension === "js" || extension === "eps") return card(<FaFileAlt size={20} />);
+  return card(<FaFileAlt size={20} />);
 };
 
 /* =============================================================================
@@ -1124,7 +1061,8 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 <MessageItem
                   key={msg.messageId || msg.optimisticId || String(msg.timestamp)}
                   msg={msg as ChatMessage}
-                  prevMsg={displayMessages[index - 1] as ChatMessage}
+                  prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
+                  nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
                   userData={userData}
                   allUsers={allUsers}
                   openPreviewModal={openPreviewModal}

@@ -1,4 +1,4 @@
-import React, { CSSProperties } from "react";
+import React from "react";
 import { DMFile } from "@/shared/utils/messageUtils";
 import { fileUrlsToKeys, getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
 import OptimisticImage from "@/shared/ui/OptimisticImage";
@@ -47,104 +47,134 @@ export const getThumbnailUrl = (url: string, folderKey = "chat_uploads"): string
 
 export const renderFilePreview = (file: DMFile, folderKey = "chat_uploads"): React.ReactNode => {
   const extension = file.fileName.split(".").pop()?.toLowerCase() || "";
-  const commonStyle: CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  };
+  const extLabel = extension ? extension.toUpperCase() : "FILE";
 
   if (["jpg", "jpeg", "png"].includes(extension)) {
     const normalizedUrl = normalizeFileUrl(file.url);
     const thumbnailUrl = getThumbnailUrl(normalizedUrl, folderKey);
     const finalUrl = normalizeFileUrl(file.finalUrl || file.url);
-    return <OptimisticImage tempUrl={thumbnailUrl} finalUrl={finalUrl} alt={file.fileName} />;
+    return (
+      <div className="chat-attachment-image">
+        <OptimisticImage tempUrl={thumbnailUrl} finalUrl={finalUrl} alt={file.fileName} />
+      </div>
+    );
   }
   
   if (extension === "pdf") {
     return (
-      <div style={commonStyle}>
-        <FaFilePdf size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><FaFilePdf size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (extension === "svg") {
     return (
-      <div style={commonStyle}>
-        <SiSvg size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><SiSvg size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (extension === "txt") {
     return (
-      <div style={commonStyle}>
-        <FaFileAlt size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><FaFileAlt size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (["xls", "xlsx", "csv"].includes(extension)) {
     return (
-      <div style={commonStyle}>
-        <FaFileExcel size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><FaFileExcel size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (["dwg", "vwx"].includes(extension)) {
     return (
-      <div style={commonStyle}>
-        <FaDraftingCompass size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><FaDraftingCompass size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (["c4d", "obj"].includes(extension)) {
     return (
-      <div style={commonStyle}>
-        <FaCube size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><FaCube size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (extension === "ai") {
     return (
-      <div style={commonStyle}>
-        <SiAdobe size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><SiAdobe size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (extension === "afdesign") {
     return (
-      <div style={commonStyle}>
-        <SiAffinitydesigner size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><SiAffinitydesigner size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
   
   if (extension === "afpub") {
     return (
-      <div style={commonStyle}>
-        <SiAffinitypublisher size={50} />
-        <span>{file.fileName}</span>
+      <div className="chat-attachment-card">
+        <div className="chat-attachment-icon"><SiAffinitypublisher size={20} /></div>
+        <div className="chat-attachment-meta">
+          <div className="chat-attachment-name">{file.fileName}</div>
+          <div className="chat-attachment-sub">{extLabel}</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={commonStyle}>
-      <FaFileAlt size={50} />
-      <span>{file.fileName}</span>
+    <div className="chat-attachment-card">
+      <div className="chat-attachment-icon"><FaFileAlt size={20} /></div>
+      <div className="chat-attachment-meta">
+        <div className="chat-attachment-name">{file.fileName}</div>
+        <div className="chat-attachment-sub">{extLabel}</div>
+      </div>
     </div>
   );
 };

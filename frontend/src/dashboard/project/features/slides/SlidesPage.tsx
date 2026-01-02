@@ -24,7 +24,7 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "./lib/lexicalContent";
-import { exportAndDownloadSlideSvg, exportAndDownloadSlidesPdf } from "./lib/slideExport";
+import { exportAndDownloadSlideSvg, exportAndDownloadSlidesPdf, exportAndDownloadSlidePng } from "./lib/slideExport";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
@@ -1216,6 +1216,29 @@ const SlidesPage: React.FC = () => {
     }
   }, [slides]);
 
+  // Export single slide as high-resolution PNG (universally compatible)
+  const handleExportSlidePng = useCallback(async (slideId: string) => {
+    const slide = slides.find((s) => s.id === slideId);
+    if (!slide) {
+      notify("error", "Slide not found");
+      return;
+    }
+
+    notify("info", "Exporting slide as PNG...");
+    
+    const success = await exportAndDownloadSlidePng(
+      slideId,
+      slide.title || `Slide ${slide.order + 1}`,
+      slide.backgroundColor
+    );
+
+    if (success) {
+      notify("success", "Slide exported as PNG");
+    } else {
+      notify("error", "Failed to export slide");
+    }
+  }, [slides]);
+
   // Export all slides as PDF
   const handleExportAllSlidesPdf = useCallback(async () => {
     if (slides.length === 0) {
@@ -1223,17 +1246,28 @@ const SlidesPage: React.FC = () => {
       return;
     }
 
+    // Save the current slide to restore after export
+    const originalSlideId = activeSlideId;
+
     setPdfExportStatus("exporting");
     setPdfExportProgress({ current: 0, total: slides.length });
     notify("info", `Exporting ${slides.length} slides as PDF...`);
 
     try {
+      // Navigation callback for high-quality capture
+      const navigateToSlide = async (slideId: string): Promise<void> => {
+        setActiveSlideId(slideId);
+        // Wait for the slide to render
+        await new Promise(resolve => setTimeout(resolve, 400));
+      };
+
       const success = await exportAndDownloadSlidesPdf(
         slides,
         (activeProject?.name as string) || "Presentation",
         (current, total) => {
           setPdfExportProgress({ current, total });
-        }
+        },
+        navigateToSlide
       );
 
       if (success) {
@@ -1242,10 +1276,14 @@ const SlidesPage: React.FC = () => {
         notify("error", "Failed to export slides");
       }
     } finally {
+      // Restore the original slide
+      if (originalSlideId) {
+        setActiveSlideId(originalSlideId);
+      }
       setPdfExportStatus("idle");
       setPdfExportProgress(null);
     }
-  }, [slides, activeProject?.name]);
+  }, [slides, activeProject?.name, activeSlideId]);
 
   // Handler for sidebar context menu "Export" - exports single slide as SVG
   const handleExport = useCallback((slideId?: string) => {
