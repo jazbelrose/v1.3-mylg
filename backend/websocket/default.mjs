@@ -1038,6 +1038,7 @@ const handleProjectUpdated = async (payload) => {
     return { statusCode: 400, body: "Missing projectId or fields" };
   }
 
+  // Always broadcast the update to other users for real-time sync
   try {
     console.log("📣 [handleProjectUpdated] Broadcasting to conversation:", conversationId);
     await broadcastToConversation(conversationId, {
@@ -1050,6 +1051,34 @@ const handleProjectUpdated = async (payload) => {
     console.error("❌ [handleProjectUpdated] Failed broadcastToConversation", err);
   }
 
+  // =========================================================================
+  // NOTIFICATION FILTERING: Only create notifications for non-edit fields
+  // Slide edits should go to Activity, not Notifications
+  // =========================================================================
+  
+  // Fields that should NOT trigger notifications (high-volume, mechanical edits)
+  const ACTIVITY_ONLY_FIELDS = new Set([
+    'slides',           // Slide content changes
+    'slideOrder',       // Reordering slides
+    'thumbnails',       // Thumbnail updates
+    'lastEditedAt',     // Timestamp updates
+    'lastEditedBy',     // Editor tracking
+    'cursors',          // Cursor positions
+    'presence',         // User presence
+    'yjs',              // Yjs sync data
+  ]);
+  
+  // Filter out activity-only fields
+  const notifiableFields = Object.entries(fields).filter(
+    ([key]) => !ACTIVITY_ONLY_FIELDS.has(key)
+  );
+  
+  // If no notifiable fields remain, skip notification creation
+  if (notifiableFields.length === 0) {
+    console.log("📋 [handleProjectUpdated] Skipping notification - slides/edit-only update goes to Activity");
+    return { statusCode: 200, body: "project update broadcast (activity only)" };
+  }
+
   try {
     const displayName = title || projectId;
     const sender = username || "Someone";
@@ -1060,12 +1089,21 @@ const handleProjectUpdated = async (payload) => {
         const date = value.date || null;
         return [total, date].filter(Boolean).join(" on ");
       }
-      if (Array.isArray(value)) return value.map((v) => String(v).replace(/\n/g, " ")).join(", ");
-      if (value && typeof value === "object") return JSON.stringify(value);
+      // For arrays, just show count instead of dumping objects
+      if (Array.isArray(value)) {
+        return `${value.length} item${value.length === 1 ? '' : 's'}`;
+      }
+      // For objects, show a summary instead of [object Object]
+      if (value && typeof value === "object") {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return "(empty)";
+        if (keys.length <= 3) return keys.join(", ");
+        return `${keys.slice(0, 3).join(", ")} +${keys.length - 3} more`;
+      }
       return String(value);
     };
 
-    const readableChanges = Object.entries(fields)
+    const readableChanges = notifiableFields
       .map(([key, value]) => `${key}: ${formatValue(key, value)}`)
       .join(" | ");
 
