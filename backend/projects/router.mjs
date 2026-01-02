@@ -2264,19 +2264,6 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
       });
     }
 
-    // Update the slide's thumbnail fields
-    const updatedSlide = {
-      ...currentSlide,
-      thumbnail: thumbUrl,
-      thumbRevision: incomingRevision,
-      ...(generatedAt && { thumbGeneratedAt: generatedAt }),
-      ...(width && { thumbWidth: width }),
-      ...(height && { thumbHeight: height }),
-      ...(etag && { thumbEtag: etag }),
-    };
-
-    slides[slideIndex] = updatedSlide;
-
     // Re-read to get fresh index (guards against reorder/insert/delete race)
     const freshVersionRes = await ddb.get({
       TableName: DECK_VERSIONS_TABLE,
@@ -2309,24 +2296,67 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
       });
     }
     
-    // Use optimistic update with fresh index.
-    // This update uses SET list[index] to touch only the specific slide element.
+    // Use nested-field-only update to avoid clobbering non-thumb fields.
+    // ConditionExpression ensures the slide at freshIndex still has the expected id.
+    const names = {
+      "#slides": "slides",
+      "#updatedAt": "updatedAt",
+      "#thumb": "thumbnail",
+      "#thumbRev": "thumbRevision",
+      "#id": "id",
+    };
+    const values = {
+      ":thumbUrl": thumbUrl,
+      ":rev": incomingRevision,
+      ":now": now,
+      ":slideId": slideId,
+    };
+    const setParts = [
+      `#slides[${freshIndex}].#thumb = :thumbUrl`,
+      `#slides[${freshIndex}].#thumbRev = :rev`,
+      `#updatedAt = :now`,
+    ];
+    
+    if (generatedAt) {
+      names["#thumbGenAt"] = "thumbGeneratedAt";
+      values[":genAt"] = generatedAt;
+      setParts.push(`#slides[${freshIndex}].#thumbGenAt = :genAt`);
+    }
+    if (width) {
+      names["#thumbW"] = "thumbWidth";
+      values[":w"] = width;
+      setParts.push(`#slides[${freshIndex}].#thumbW = :w`);
+    }
+    if (height) {
+      names["#thumbH"] = "thumbHeight";
+      values[":h"] = height;
+      setParts.push(`#slides[${freshIndex}].#thumbH = :h`);
+    }
+    if (etag) {
+      names["#thumbEtag"] = "thumbEtag";
+      values[":etag"] = etag;
+      setParts.push(`#slides[${freshIndex}].#thumbEtag = :etag`);
+    }
+    
     try {
       await ddb.update({
         TableName: DECK_VERSIONS_TABLE,
         Key: { projectId, versionId },
-        UpdateExpression: `SET #slides[${freshIndex}] = :updatedSlide, #updatedAt = :now`,
-        ConditionExpression: "attribute_exists(#slides)",
-        ExpressionAttributeNames: {
-          "#slides": "slides",
-          "#updatedAt": "updatedAt",
-        },
-        ExpressionAttributeValues: {
-          ":updatedSlide": updatedSlide,
-          ":now": now,
-        },
+        UpdateExpression: `SET ${setParts.join(", ")}`,
+        ConditionExpression: "attribute_exists(#slides) AND #slides[" + freshIndex + "].#id = :slideId",
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
       });
     } catch (updateError) {
+      // ConditionalCheckFailedException means slide was modified/reordered between read and write
+      if (updateError.name === "ConditionalCheckFailedException") {
+        console.log('[THUMB_PATCH] condition_failed', { projectId, versionId, slideId, freshIndex, incomingRevision });
+        return json(200, C, {
+          updated: false,
+          reason: "concurrent_modification",
+          slideId,
+        });
+      }
       console.error("Failed to update slide thumbnail in deck version:", updateError);
       return json(500, C, { error: "Failed to update slide thumbnail" });
     }
@@ -2372,19 +2402,6 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
       });
     }
 
-    // Update the slide's thumbnail fields
-    const updatedSlide = {
-      ...currentSlide,
-      thumbnail: thumbUrl,
-      thumbRevision: incomingRevision,
-      ...(generatedAt && { thumbGeneratedAt: generatedAt }),
-      ...(width && { thumbWidth: width }),
-      ...(height && { thumbHeight: height }),
-      ...(etag && { thumbEtag: etag }),
-    };
-
-    slides[slideIndex] = updatedSlide;
-
     // Re-read to get fresh index (guards against reorder/insert/delete race)
     const freshProjectRes = await ddb.get({
       TableName: PROJECTS_TABLE,
@@ -2417,24 +2434,67 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
       });
     }
     
-    // Use optimistic update with fresh index.
-    // This update uses SET list[index] to touch only the specific slide element.
+    // Use nested-field-only update to avoid clobbering non-thumb fields.
+    // ConditionExpression ensures the slide at freshIndex still has the expected id.
+    const names = {
+      "#slides": "slides",
+      "#updatedAt": "updatedAt",
+      "#thumb": "thumbnail",
+      "#thumbRev": "thumbRevision",
+      "#id": "id",
+    };
+    const values = {
+      ":thumbUrl": thumbUrl,
+      ":rev": incomingRevision,
+      ":now": now,
+      ":slideId": slideId,
+    };
+    const setParts = [
+      `#slides[${freshIndex}].#thumb = :thumbUrl`,
+      `#slides[${freshIndex}].#thumbRev = :rev`,
+      `#updatedAt = :now`,
+    ];
+    
+    if (generatedAt) {
+      names["#thumbGenAt"] = "thumbGeneratedAt";
+      values[":genAt"] = generatedAt;
+      setParts.push(`#slides[${freshIndex}].#thumbGenAt = :genAt`);
+    }
+    if (width) {
+      names["#thumbW"] = "thumbWidth";
+      values[":w"] = width;
+      setParts.push(`#slides[${freshIndex}].#thumbW = :w`);
+    }
+    if (height) {
+      names["#thumbH"] = "thumbHeight";
+      values[":h"] = height;
+      setParts.push(`#slides[${freshIndex}].#thumbH = :h`);
+    }
+    if (etag) {
+      names["#thumbEtag"] = "thumbEtag";
+      values[":etag"] = etag;
+      setParts.push(`#slides[${freshIndex}].#thumbEtag = :etag`);
+    }
+    
     try {
       await ddb.update({
         TableName: PROJECTS_TABLE,
         Key: { projectId },
-        UpdateExpression: `SET #slides[${freshIndex}] = :updatedSlide, #updatedAt = :now`,
-        ConditionExpression: "attribute_exists(#slides)",
-        ExpressionAttributeNames: {
-          "#slides": "slides",
-          "#updatedAt": "updatedAt",
-        },
-        ExpressionAttributeValues: {
-          ":updatedSlide": updatedSlide,
-          ":now": now,
-        },
+        UpdateExpression: `SET ${setParts.join(", ")}`,
+        ConditionExpression: "attribute_exists(#slides) AND #slides[" + freshIndex + "].#id = :slideId",
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
       });
     } catch (updateError) {
+      // ConditionalCheckFailedException means slide was modified/reordered between read and write
+      if (updateError.name === "ConditionalCheckFailedException") {
+        console.log('[THUMB_PATCH] condition_failed', { projectId, slideId, freshIndex, incomingRevision });
+        return json(200, C, {
+          updated: false,
+          reason: "concurrent_modification",
+          slideId,
+        });
+      }
       console.error("Failed to update slide thumbnail in project:", updateError);
       return json(500, C, { error: "Failed to update slide thumbnail" });
     }
