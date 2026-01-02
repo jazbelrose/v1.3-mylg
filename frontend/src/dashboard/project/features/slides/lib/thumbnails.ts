@@ -376,7 +376,7 @@ async function captureElementBlob(
 
   // CRITICAL: Wait for images in the ORIGINAL element to load BEFORE cloning.
   // This ensures picture frame images are fully loaded before we capture.
-  await waitForImagesToLoad(captureRoot, 5000);
+  await waitForImagesToLoad(captureRoot, 2000);
   
   // Give React an extra moment to update any state after images load
   await nextAnimationFrame();
@@ -432,14 +432,14 @@ async function captureElementBlob(
       if (typeof document !== "undefined" && document.fonts?.ready) {
         await document.fonts.ready;
       }
-      await waitForImagesToLoad(clone, 3000);
+      await waitForImagesToLoad(clone, 2000);
       
       // Additional wait on retry attempts to allow images more time to load
       if (attempt > 0) {
         await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
         // Re-sync images on retry in case they loaded in the original
         syncImageSources(captureRoot, clone);
-        await waitForImagesToLoad(clone, 3000);
+        await waitForImagesToLoad(clone, 2000);
       }
       
       const blob = await toBlob(clone, {
