@@ -30,10 +30,29 @@ interface OffscreenSlideRendererProps {}
  * Wait for all images in a DOM tree to load
  */
 async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 5000): Promise<void> {
+  // Ensure background images on the root element itself are preloaded
+  const rootStyle = window.getComputedStyle(root);
+  const rootBgImage = rootStyle.backgroundImage;
+
   const images = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
   const bgImageElements = Array.from(root.querySelectorAll('[style*="background-image"]')) as HTMLElement[];
 
   const imagePromises: Promise<void>[] = [];
+
+  if (rootBgImage && rootBgImage !== 'none') {
+    const urlMatch = rootBgImage.match(/url\(["']?([^"')]+)["']?\)/);
+    if (urlMatch && urlMatch[1]) {
+      imagePromises.push(
+        new Promise<void>((resolve) => {
+          const preloadImg = new Image();
+          preloadImg.onload = () => resolve();
+          preloadImg.onerror = () => resolve();
+          preloadImg.src = urlMatch[1];
+          if (preloadImg.complete) resolve();
+        })
+      );
+    }
+  }
 
   images.forEach((img) => {
     if (!img.src) return;
@@ -124,7 +143,7 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
         overflow: hidden;
         pointer-events: none;
         z-index: -1;
-        visibility: hidden;
+        visibility: visible;
       `;
       document.body.appendChild(container);
       setPortalContainer(container);
@@ -261,6 +280,7 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
           backgroundPosition: 'center',
           position: 'relative',
           overflow: 'hidden',
+          visibility: 'visible',
         }}
       >
         <SlideReadOnlyRenderer
