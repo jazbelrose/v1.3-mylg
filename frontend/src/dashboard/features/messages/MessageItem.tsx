@@ -169,7 +169,6 @@ export interface SimpleUser {
 interface MessageItemProps {
   msg: ChatMessage;
   prevMsg?: ChatMessage | null;
-  nextMsg?: ChatMessage | null;
   userData?: SimpleUser | null;
   allUsers?: SimpleUser[];
   openPreviewModal: (file: ChatFile | DMFile) => void;
@@ -184,7 +183,6 @@ interface MessageItemProps {
 const MessageItem: React.FC<MessageItemProps> = ({
   msg,
   prevMsg,
-  nextMsg,
   userData,
   allUsers = [],
   openPreviewModal,
@@ -410,17 +408,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
     return Math.abs(+b - +a) <= MESSAGE_GROUP_WINDOW_MS;
   }, [msg.senderId, msg.timestamp, prevMsg]);
 
-  const isGroupedWithNext = useMemo(() => {
-    if (!nextMsg) return false;
-    if (nextMsg.senderId !== msg.senderId) return false;
-    const a = parseTs(msg);
-    const b = parseTs(nextMsg);
-    if (!a || !b) return false;
-    return Math.abs(+b - +a) <= MESSAGE_GROUP_WINDOW_MS;
-  }, [msg.senderId, msg.timestamp, nextMsg]);
-
-  const showAvatar = !isGroupedWithNext;
-  const showSenderLine = !isCurrentUser && !isGroupedWithPrev;
+  const showAuthorRow = !isGroupedWithPrev;
 
   // date bubble logic
   let showDateBubble = !prevMsg;
@@ -568,24 +556,31 @@ const MessageItem: React.FC<MessageItemProps> = ({
       <div
         className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev ? "message-row--grouped" : ""} ${menuOpen || showReactions ? "message-row--active" : ""}`}
       >
-        <div className="message-row-avatar" aria-hidden={!showAvatar}>
-          {showAvatar && (
-            <>
-              {senderThumbnail ? (
-                <img
-                  src={senderThumbnailUrl}
-                  alt={isCurrentUser ? "You" : senderName}
-                  className={`avatar ${isCurrentUser ? "avatar-right" : ""}`}
-                />
-              ) : (
-                <User className={`avatar ${isCurrentUser ? "avatar-right" : ""}`} />
-              )}
-              {isSenderOnline && <span className="online-indicator" />}
-            </>
-          )}
-        </div>
+        {showAuthorRow && (
+          <div className="message-author-row">
+            {!isCurrentUser ? (
+              <>
+                <span className="message-author-avatar-wrap" aria-hidden="true">
+                  {senderThumbnail ? (
+                    <img
+                      src={senderThumbnailUrl}
+                      alt=""
+                      className="message-author-avatar"
+                    />
+                  ) : (
+                    <User className="message-author-avatar" />
+                  )}
+                  {isSenderOnline && <span className="online-indicator" />}
+                </span>
+                <div className="message-author-name">{senderName}</div>
+              </>
+            ) : (
+              <div className="message-author-name">You</div>
+            )}
+          </div>
+        )}
 
-        <div className="message-row-bubble">
+        <div className="message-stack">
           <div className="bubble-container">
             <div
               className="message-bubble"
@@ -600,107 +595,115 @@ const MessageItem: React.FC<MessageItemProps> = ({
                 onSelect={handleEmojiClick}
                 onClose={() => setShowReactions(false)}
               />
-              <div className="message-time" aria-label={`Sent at ${formattedTime}`}>
-                {formattedTime}
-              </div>
-              {showSenderLine && <div className="message-sender">{senderName}</div>}
 
               <div style={{ marginBottom: 5 }}>{renderBody()}</div>
             </div>
 
-            <div className={`reaction-chips ${isCurrentUser ? "reaction-chips--right" : "reaction-chips--left"}`}>
-              {hasReactions &&
-                Object.entries(msg.reactions || {}).map(([emoji, users]) =>
-                  users.length > 0 ? (
+            <div className="message-underbar" aria-label="Message controls">
+              {isCurrentUser ? (
+                <div className="message-underbar-time" aria-label={`Sent at ${formattedTime}`}>
+                  {formattedTime}
+                </div>
+              ) : null}
+
+              <div className="message-underbar-reactions">
+                {hasReactions &&
+                  Object.entries(msg.reactions || {}).map(([emoji, users]) =>
+                    users.length > 0 ? (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
+                        onClick={() => handleEmojiClick(emoji)}
+                        aria-label={`React ${emoji} (${users.length})`}
+                      >
+                        <span className="reaction-chip-emoji">{emoji}</span>
+                        <span className="reaction-chip-count">{users.length}</span>
+                      </button>
+                    ) : null
+                  )}
+              </div>
+
+              <button
+                type="button"
+                className="message-underbar-btn"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowReactions((p) => !p);
+                }}
+                aria-label="Add reaction"
+                title="Add reaction"
+              >
+                <Plus size={16} />
+              </button>
+
+              <button
+                type="button"
+                className="message-underbar-btn"
+                aria-label="Message actions"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((v) => !v)}
+                ref={menuButtonRef}
+                title="Message actions"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+
+              {!isCurrentUser ? (
+                <div className="message-underbar-time" aria-label={`Sent at ${formattedTime}`}>
+                  {formattedTime}
+                </div>
+              ) : null}
+
+              {menuOpen && (
+                <div className="message-actions-menu" role="menu" ref={menuRef}>
+                  {canCopy && (
                     <button
-                      key={emoji}
                       type="button"
-                      className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
-                      onClick={() => handleEmojiClick(emoji)}
-                      aria-label={`React ${emoji} (${users.length})`}
+                      className="message-actions-item"
+                      role="menuitem"
+                      onClick={async () => {
+                        await copyTextToClipboard(text);
+                        setMenuOpen(false);
+                      }}
                     >
-                      <span className="reaction-chip-emoji">{emoji}</span>
-                      <span className="reaction-chip-count">{users.length}</span>
+                      <Copy size={14} />
+                      Copy
                     </button>
-                  ) : null
-                )}
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      className="message-actions-item"
+                      role="menuitem"
+                      onClick={() => {
+                        onEditRequest?.(msg);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      className="message-actions-item message-actions-item--danger"
+                      role="menuitem"
+                      onClick={() => {
+                        onDelete?.(msg);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-
-        <div className="message-row-actions">
-          <button
-            type="button"
-            className="message-rail-btn"
-            onClick={() => {
-              setMenuOpen(false);
-              setShowReactions((p) => !p);
-            }}
-            aria-label="Add reaction"
-            title="Add reaction"
-          >
-            <Plus size={16} />
-          </button>
-
-          <button
-            type="button"
-            className="message-rail-btn"
-            aria-label="Message actions"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            ref={menuButtonRef}
-            title="Message actions"
-          >
-            <MoreHorizontal size={16} />
-          </button>
-
-          {menuOpen && (
-            <div className="message-actions-menu" role="menu" ref={menuRef}>
-              {canCopy && (
-                <button
-                  type="button"
-                  className="message-actions-item"
-                  role="menuitem"
-                  onClick={async () => {
-                    await copyTextToClipboard(text);
-                    setMenuOpen(false);
-                  }}
-                >
-                  <Copy size={14} />
-                  Copy
-                </button>
-              )}
-              {canEdit && (
-                <button
-                  type="button"
-                  className="message-actions-item"
-                  role="menuitem"
-                  onClick={() => {
-                    onEditRequest?.(msg);
-                    setMenuOpen(false);
-                  }}
-                >
-                  <Pencil size={14} />
-                  Edit
-                </button>
-              )}
-              {canDelete && (
-                <button
-                  type="button"
-                  className="message-actions-item message-actions-item--danger"
-                  role="menuitem"
-                  onClick={() => {
-                    onDelete?.(msg);
-                    setMenuOpen(false);
-                  }}
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </>

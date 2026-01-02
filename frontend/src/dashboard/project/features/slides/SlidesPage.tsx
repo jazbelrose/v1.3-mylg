@@ -14,6 +14,7 @@ import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
+import OffscreenSlideRenderer, { type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
 import { useDeckVersions } from "./hooks/useDeckVersions";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
@@ -24,10 +25,12 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "./lib/lexicalContent";
-import { exportAndDownloadSlideSvg, exportAndDownloadSlidesPdf, exportAndDownloadSlidePng } from "./lib/slideExport";
+import { exportAndDownloadSlideSvg, exportAndDownloadSlidePng } from "./lib/slideExport";
+import { generatePdfFromImages } from "./lib/slideExport";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import { saveAs } from "file-saver";
 import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
@@ -238,6 +241,7 @@ const SlidesPage: React.FC = () => {
   const [filesOpen, setFilesOpen] = useState(false);
   const [zoom, setZoom] = useState(100);
   const quickLinksRef = useRef<QuickLinksRef>(null);
+  const offscreenRendererRef = useRef<OffscreenSlideRendererRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
   const [toolbarPortalNode, setToolbarPortalNode] = useState<HTMLDivElement | null>(null);
   const pdfImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -1239,51 +1243,57 @@ const SlidesPage: React.FC = () => {
     }
   }, [slides]);
 
-  // Export all slides as PDF
+  // Export all slides as PDF using offscreen rendering
   const handleExportAllSlidesPdf = useCallback(async () => {
     if (slides.length === 0) {
       notify("warning", "No slides to export");
       return;
     }
 
-    // Save the current slide to restore after export
-    const originalSlideId = activeSlideId;
+    if (!offscreenRendererRef.current) {
+      notify("error", "Export renderer not ready");
+      return;
+    }
 
     setPdfExportStatus("exporting");
     setPdfExportProgress({ current: 0, total: slides.length });
     notify("info", `Exporting ${slides.length} slides as PDF...`);
 
     try {
-      // Navigation callback for high-quality capture
-      const navigateToSlide = async (slideId: string): Promise<void> => {
-        setActiveSlideId(slideId);
-        // Wait for the slide to render
-        await new Promise(resolve => setTimeout(resolve, 400));
-      };
-
-      const success = await exportAndDownloadSlidesPdf(
+      // Capture all slides using the offscreen renderer (no visible navigation)
+      const slideImages = await offscreenRendererRef.current.captureAllSlides(
         slides,
-        (activeProject?.name as string) || "Presentation",
         (current, total) => {
           setPdfExportProgress({ current, total });
-        },
-        navigateToSlide
+        }
       );
 
-      if (success) {
+      if (slideImages.length === 0) {
+        notify("error", "No slides could be captured");
+        return;
+      }
+
+      // Generate PDF from the captured images
+      const projectName = (activeProject?.name as string) || "Presentation";
+      const pdfBlob = await generatePdfFromImages(slideImages, projectName);
+
+      if (pdfBlob) {
+        const sanitizedName = projectName
+          .replace(/[^a-zA-Z0-9-_ ]/g, '')
+          .trim() || "Presentation";
+        saveAs(pdfBlob, `${sanitizedName}.pdf`);
         notify("success", "Slides exported as PDF");
       } else {
-        notify("error", "Failed to export slides");
+        notify("error", "Failed to generate PDF");
       }
+    } catch (error) {
+      console.error("[SlidesPage] PDF export failed:", error);
+      notify("error", "Failed to export slides");
     } finally {
-      // Restore the original slide
-      if (originalSlideId) {
-        setActiveSlideId(originalSlideId);
-      }
       setPdfExportStatus("idle");
       setPdfExportProgress(null);
     }
-  }, [slides, activeProject?.name, activeSlideId]);
+  }, [slides, activeProject?.name]);
 
   // Handler for sidebar context menu "Export" - exports single slide as SVG
   const handleExport = useCallback((slideId?: string) => {
@@ -1495,6 +1505,9 @@ const SlidesPage: React.FC = () => {
         />
       )}
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
+      
+      {/* Offscreen renderer for PDF export - renders slides invisibly */}
+      <OffscreenSlideRenderer ref={offscreenRendererRef} />
       
       <div className="slides-shell">
         {isImportingPdf && (

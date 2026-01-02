@@ -130,7 +130,6 @@ const ChatWindow: React.FC<ChatWindowProps & {
               key={msg.optimisticId || msg.messageId || String(msg.timestamp)}
               msg={msg as ChatMessage}
               prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
-              nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
               userData={userData}
               allUsers={allUsers}
               openPreviewModal={openPreviewModal}

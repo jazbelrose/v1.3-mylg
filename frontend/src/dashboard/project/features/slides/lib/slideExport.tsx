@@ -525,12 +525,6 @@ export interface ExportPdfOptions {
   projectName?: string;
   backgroundColor?: string;
   onProgress?: (current: number, total: number) => void;
-  /** 
-   * Callback to navigate to a specific slide before capturing.
-   * This is required for high-quality export since only the visible slide can be captured from DOM.
-   * The function should navigate to the slide and wait for it to render.
-   */
-  onNavigateToSlide?: (slideId: string) => Promise<void>;
 }
 
 /**
@@ -612,7 +606,7 @@ async function imageUrlToDataUrl(url: string): Promise<string | null> {
 /**
  * Get the best available image for a slide:
  * 1. Try to capture from DOM (if slide is currently rendered)
- * 2. Fall back to existing thumbnail
+ * 2. Fall back to existing thumbnail (high-res if available)
  * 3. Fall back to background image
  */
 async function getSlideImage(
@@ -627,10 +621,12 @@ async function getSlideImage(
   }
 
   // Fall back to existing thumbnail (convert URL to data URL for PDF embedding)
+  // Note: thumbnails are lower resolution, but better than nothing for non-visible slides
   if (slide.thumbnail) {
     const thumbnailUrl = getFileUrl(slide.thumbnail);
     const dataUrl = await imageUrlToDataUrl(thumbnailUrl);
     if (dataUrl) {
+      console.log(`[SlideExport] Using cached thumbnail for slide ${slide.id}`);
       return dataUrl;
     }
   }
@@ -649,27 +645,19 @@ async function getSlideImage(
 
 /**
  * Capture all slides as PNG images for PDF generation
- * When onNavigateToSlide is provided, navigates to each slide for high-quality DOM capture
- * Otherwise falls back to thumbnails for non-visible slides
+ * Uses DOM capture for the currently visible slide, falls back to thumbnails for others
+ * For best quality, ensure slide thumbnails are generated at high resolution
  */
 export async function captureAllSlidesAsPng(
   slides: Slide[],
   backgroundColor: string = '#101112',
-  onProgress?: (current: number, total: number) => void,
-  onNavigateToSlide?: (slideId: string) => Promise<void>
+  onProgress?: (current: number, total: number) => void
 ): Promise<SlideImageData[]> {
   const results: SlideImageData[] = [];
 
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
     onProgress?.(i + 1, slides.length);
-
-    // If navigation callback provided, navigate to the slide first for high-quality capture
-    if (onNavigateToSlide) {
-      await onNavigateToSlide(slide.id);
-      // Wait for slide to render
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
 
     const imageDataUrl = await getSlideImage(slide, backgroundColor);
 
@@ -688,28 +676,19 @@ export async function captureAllSlidesAsPng(
 }
 
 /**
- * Export all slides as a PDF document using @react-pdf/renderer
- * Follows the same pattern as budget invoice PDF generation
+ * Generate PDF blob from pre-captured slide images
+ * This is the preferred method when using OffscreenSlideRenderer
  */
-export async function exportSlidesAsPdf(options: ExportPdfOptions): Promise<Blob | null> {
-  const { slides, projectName = 'Presentation', backgroundColor = '#101112', onProgress, onNavigateToSlide } = options;
-
-  if (slides.length === 0) {
-    console.error('[SlideExport] No slides to export');
+export async function generatePdfFromImages(
+  slideImages: SlideImageData[],
+  projectName: string = 'Presentation'
+): Promise<Blob | null> {
+  if (slideImages.length === 0) {
+    console.error('[SlideExport] No slide images provided');
     return null;
   }
 
   try {
-    // First capture all slides as PNG images
-    // If onNavigateToSlide is provided, will navigate to each slide for high-quality capture
-    const slideImages = await captureAllSlidesAsPng(slides, backgroundColor, onProgress, onNavigateToSlide);
-
-    if (slideImages.length === 0) {
-      console.error('[SlideExport] No slides could be captured');
-      return null;
-    }
-
-    // Create PDF using react-pdf/renderer (same pattern as budget invoices)
     const pdfDocument = React.createElement(SlidesPdfDocument, { 
       slideImages, 
       projectName 
@@ -725,20 +704,47 @@ export async function exportSlidesAsPdf(options: ExportPdfOptions): Promise<Blob
 }
 
 /**
+ * Export all slides as a PDF document using @react-pdf/renderer
+ * Follows the same pattern as budget invoice PDF generation
+ * Note: For best quality, use OffscreenSlideRenderer + generatePdfFromImages instead
+ */
+export async function exportSlidesAsPdf(options: ExportPdfOptions): Promise<Blob | null> {
+  const { slides, projectName = 'Presentation', backgroundColor = '#101112', onProgress } = options;
+
+  if (slides.length === 0) {
+    console.error('[SlideExport] No slides to export');
+    return null;
+  }
+
+  try {
+    // Capture all slides as PNG images
+    // Uses DOM capture for visible slide, falls back to thumbnails for others
+    const slideImages = await captureAllSlidesAsPng(slides, backgroundColor, onProgress);
+
+    if (slideImages.length === 0) {
+      console.error('[SlideExport] No slides could be captured');
+      return null;
+    }
+
+    return generatePdfFromImages(slideImages, projectName);
+  } catch (error) {
+    console.error('[SlideExport] PDF generation failed:', error);
+    return null;
+  }
+}
+
+/**
  * Export all slides as PDF and download
- * @param onNavigateToSlide - Callback to navigate to each slide for high-quality capture
  */
 export async function exportAndDownloadSlidesPdf(
   slides: Slide[],
   projectName: string,
-  onProgress?: (current: number, total: number) => void,
-  onNavigateToSlide?: (slideId: string) => Promise<void>
+  onProgress?: (current: number, total: number) => void
 ): Promise<boolean> {
   const pdfBlob = await exportSlidesAsPdf({
     slides,
     projectName,
     onProgress,
-    onNavigateToSlide,
   });
 
   if (!pdfBlob) {
