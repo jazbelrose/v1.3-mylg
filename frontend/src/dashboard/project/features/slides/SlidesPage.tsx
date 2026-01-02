@@ -1542,6 +1542,7 @@ const SlidesPage: React.FC = () => {
                 });
               }}
               onExportSlide={handleExport}
+              onExportSlidePng={handleExportSlidePng}
               scrollToSlideId={scrollToSlideId}
             />
 
