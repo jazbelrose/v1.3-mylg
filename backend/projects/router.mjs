@@ -2288,6 +2288,7 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
     
     if (freshIndex === -1) {
       // Slide was deleted between initial read and now
+      console.log('[THUMB_PATCH] slide_deleted', { projectId, versionId, slideId, incomingRevision });
       return json(200, C, {
         updated: false,
         reason: "slide_deleted",
@@ -2298,6 +2299,7 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
     const freshRevision = Number(freshSlides[freshIndex].thumbRevision) || 0;
     if (incomingRevision <= freshRevision) {
       // Re-check monotonicity with fresh data
+      console.log('[THUMB_PATCH] stale_revision', { projectId, versionId, slideId, currentRevision: freshRevision, incomingRevision });
       return json(200, C, {
         updated: false,
         reason: "stale_revision",
@@ -2329,6 +2331,7 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
       return json(500, C, { error: "Failed to update slide thumbnail" });
     }
 
+    console.log('[THUMB_PATCH] write_succeeded', { projectId, versionId, slideId, thumbRevision: incomingRevision });
     return json(200, C, {
       updated: true,
       slideId,
@@ -2393,6 +2396,7 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
     
     if (freshIndex === -1) {
       // Slide was deleted between initial read and now
+      console.log('[THUMB_PATCH] slide_deleted', { projectId, slideId, incomingRevision });
       return json(200, C, {
         updated: false,
         reason: "slide_deleted",
@@ -2403,6 +2407,7 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
     const freshRevision = Number(freshSlides[freshIndex].thumbRevision) || 0;
     if (incomingRevision <= freshRevision) {
       // Re-check monotonicity with fresh data
+      console.log('[THUMB_PATCH] stale_revision', { projectId, slideId, currentRevision: freshRevision, incomingRevision });
       return json(200, C, {
         updated: false,
         reason: "stale_revision",
@@ -2434,6 +2439,7 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
       return json(500, C, { error: "Failed to update slide thumbnail" });
     }
 
+    console.log('[THUMB_PATCH] write_succeeded', { projectId, slideId, thumbRevision: incomingRevision });
     return json(200, C, {
       updated: true,
       slideId,

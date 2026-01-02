@@ -979,8 +979,21 @@ async function generateThumbnail(html, width, height) {
     timings.imagesDone = Date.now();
     console.log(`[TIMING] Images ready: ${timings.imagesDone - timings.imagesStart}ms`);
     
+    // Ensure all images are fully decoded (not just loaded) before screenshot
+    timings.decodeStart = Date.now();
+    try {
+      await page.evaluate(async () => {
+        const imgs = Array.from(document.images);
+        await Promise.all(imgs.map(img => img.decode?.().catch(() => null)));
+      });
+    } catch (decodeError) {
+      console.warn('IMAGE_DECODE_WARN', decodeError instanceof Error ? decodeError.message : String(decodeError));
+    }
+    timings.decodeDone = Date.now();
+    console.log(`[TIMING] Images decoded: ${timings.decodeDone - timings.decodeStart}ms`);
+    
     // Small safety buffer for any late rendering (reduced from 500ms)
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(50);
     
     // Check if images loaded
     const imagesStatus = await page.evaluate(() => {
