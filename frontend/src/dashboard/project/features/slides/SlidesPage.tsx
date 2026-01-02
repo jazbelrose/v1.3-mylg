@@ -51,7 +51,7 @@ const PDF_EXPORT_PRESETS: Record<PdfExportPreset, { label: string; captureOption
   },
   print: {
     label: "PDF (Print)",
-    captureOptions: { imageFormat: "png", pixelRatio: 3 },
+    captureOptions: { imageFormat: "jpeg", pixelRatio: 3, jpegQuality: 0.92 },
   },
 };
 

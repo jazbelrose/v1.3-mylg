@@ -20,10 +20,11 @@ interface SlidesPdfDocumentProps {
   projectName: string;
 }
 
-// 16:9 aspect ratio - use full HD dimensions for maximum quality
-// react-pdf uses points (72 points per inch), but we can use pixel values
-const PAGE_WIDTH = 1920;
-const PAGE_HEIGHT = 1080;
+// 16:9 aspect ratio in PDF points (72 points per inch).
+// Avoid using raw pixel dimensions as points (e.g. 1920x1080) because it produces an unusually large page size.
+// Image sharpness is controlled by the captured image pixel dimensions (pixelRatio), not by the PDF page size.
+const PAGE_WIDTH = 960;
+const PAGE_HEIGHT = 540;
 
 const styles = StyleSheet.create({
   page: {
@@ -36,7 +37,7 @@ const styles = StyleSheet.create({
   slideImage: {
     width: '100%',
     height: '100%',
-    objectFit: 'cover',
+    objectFit: 'contain',
   },
 });
 
