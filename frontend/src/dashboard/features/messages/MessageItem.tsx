@@ -78,6 +78,36 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Derive a muted/subdued bubble color from a project color.
+ * Mixes the color with dark background and reduces saturation for a softer look.
+ */
+function deriveMutedBubbleColor(color?: string | null): string {
+  const fallback = "rgba(250, 51, 86, 0.85)"; // Muted brand red
+  if (!color) return fallback;
+
+  // Parse hex color
+  let hex = color.replace("#", "");
+  if (hex.length === 3) {
+    hex = hex.split("").map((c) => c + c).join("");
+  }
+  if (hex.length !== 6 || !/^[0-9a-fA-F]+$/.test(hex)) return fallback;
+
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+
+  // Mix with dark background (#1a1a1a) at 30% to mute the color
+  const bgR = 26, bgG = 26, bgB = 26;
+  const mixFactor = 0.25;
+  const mixR = Math.round(r * (1 - mixFactor) + bgR * mixFactor);
+  const mixG = Math.round(g * (1 - mixFactor) + bgG * mixFactor);
+  const mixB = Math.round(b * (1 - mixFactor) + bgB * mixFactor);
+
+  // Return with slight transparency for softer appearance
+  return `rgba(${mixR}, ${mixG}, ${mixB}, 0.92)`;
+}
+
 // Move this component outside to prevent recreation on every render
 const RenderLinkContent: React.FC<{ url: string }> = React.memo(({ url }) => {
   const isVideoUrl = /youtu\.be|youtube\.com|vimeo\.com/.test(url);
@@ -660,7 +690,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
           <div className="bubble-container">
             <div
               className="message-bubble"
-              style={{ background: isCurrentUser ? (projectColor || "#FA3356") : "#333" }}
+              style={{ background: isCurrentUser ? deriveMutedBubbleColor(projectColor) : "#333" }}
               ref={bubbleRef}
               tabIndex={0}
             >
@@ -783,6 +813,13 @@ const MessageItem: React.FC<MessageItemProps> = ({
                         ) : null
                       )}
                   </div>
+
+                  {/* Delivery status: only on last outgoing message in group */}
+                  {isLastOutgoingInGroup && statusText && (
+                    <div className="message-underbar-status">
+                      <span className="message-status-indicator">{statusText}</span>
+                    </div>
+                  )}
                 </>
               )}
 
