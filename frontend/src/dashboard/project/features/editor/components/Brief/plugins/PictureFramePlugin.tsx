@@ -1,17 +1,25 @@
-import { useEffect } from "react";
+import React, { useEffect, useState, useRef, useCallback, useContext } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   $createNodeSelection,
   $setSelection,
   $getRoot,
   $createParagraphNode,
+  $getSelection,
+  $isNodeSelection,
+  $getNodeByKey,
   type LexicalNode,
   COMMAND_PRIORITY_EDITOR,
 } from "lexical";
+import { uploadData } from "aws-amplify/storage";
 
-import { INSERT_PICTURE_FRAME_COMMAND, INSERT_PICTURE_FRAME_LAYOUT_COMMAND, type InsertPictureFrameLayoutPayload } from "../commands";
+import { INSERT_PICTURE_FRAME_COMMAND, INSERT_PICTURE_FRAME_LAYOUT_COMMAND, INSERT_IMAGE_TO_PICTURE_FRAME_COMMAND, INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND, type InsertPictureFrameLayoutPayload } from "../commands";
 import { $createPictureFrameNode, PictureFrameNode } from "./nodes/PictureFrameNode";
 import { generatePictureFrameLayout } from "@/dashboard/project/features/slides/lib/pictureFrameLayoutGenerator";
+import { ProjectsContext } from "@/app/contexts/ProjectsContext";
+import { FileManager, type FileItem } from "@/dashboard/project/components/FileManager";
+import { S3_PUBLIC_BASE } from "@/shared/utils/api";
+import { notify } from "@/shared/ui/ToastNotifications";
 
 function clampPositiveInt(value: unknown, fallback: number): number {
   const n = typeof value === "number" ? value : Number(value);
@@ -19,8 +27,116 @@ function clampPositiveInt(value: unknown, fallback: number): number {
   return Math.max(1, Math.floor(n));
 }
 
-export default function PictureFramePlugin(): null {
+const encodeS3Key = (key: string = "") =>
+  key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment).replace(/\+/g, "%20"))
+    .join("/");
+
+export default function PictureFramePlugin(): React.ReactElement | null {
   const [editor] = useLexicalComposerContext();
+  const projectsCtx = useContext(ProjectsContext);
+  const activeProject = projectsCtx?.activeProject ?? null;
+  const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
+  const [isFileInputOpen, setIsFileInputOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingPictureFrameKeyRef = useRef<string | null>(null);
+
+  const getSelectedPictureFrame = useCallback((): PictureFrameNode | null => {
+    let result: PictureFrameNode | null = null;
+    editor.getEditorState().read(() => {
+      const selection = $getSelection();
+      if (!$isNodeSelection(selection)) return;
+      const nodes = selection.getNodes();
+      const pictureFrame = nodes.find((node): node is PictureFrameNode => node instanceof PictureFrameNode);
+      result = pictureFrame || null;
+    });
+    return result;
+  }, [editor]);
+
+  const handleFileUpload = useCallback(async (file: File): Promise<string | null> => {
+    const projectId = activeProject?.projectId;
+    if (!projectId) return null;
+
+    try {
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).slice(2, 8);
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+      const key = `projects/${projectId}/lexical/${timestamp}_${randomId}_${safeName}`;
+      
+      await uploadData({
+        key,
+        data: file,
+        options: { accessLevel: "public" },
+      });
+      
+      const publicKey = key.startsWith("public/") ? key : `public/${key}`;
+      return publicKey;
+    } catch (error) {
+      console.error("PictureFrame: upload failed", error);
+      notify("error", "Failed to upload image");
+      return null;
+    }
+  }, [activeProject?.projectId]);
+
+  const setImageToPictureFrame = useCallback((imageSrc: string) => {
+    const frameKey = pendingPictureFrameKeyRef.current;
+    if (!frameKey) {
+      notify("warning", "No picture frame selected");
+      return;
+    }
+
+    editor.update(() => {
+      const node = $getNodeByKey(frameKey);
+
+      if (node && node instanceof PictureFrameNode) {
+        node.setImageSrc(imageSrc);
+        notify("success", "Image added to picture frame");
+      }
+    });
+
+    pendingPictureFrameKeyRef.current = null;
+  }, [editor]);
+
+  const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate it's an image
+    if (!file.type.startsWith("image/")) {
+      notify("error", "Please select an image file");
+      return;
+    }
+
+    const uploadedKey = await handleFileUpload(file);
+    if (uploadedKey) {
+      setImageToPictureFrame(uploadedKey);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setIsFileInputOpen(false);
+  }, [handleFileUpload, setImageToPictureFrame]);
+
+  const handleProjectFileSelect = useCallback((files: FileItem[]) => {
+    const imageFile = files.find((f) => {
+      const name = f.fileName || "";
+      return /\.(png|jpe?g|gif|webp|svg)$/i.test(name);
+    });
+    if (!imageFile) {
+      notify("warning", "Please select an image file");
+      return;
+    }
+
+    // The file item should have a url
+    const imageUrl = imageFile.url;
+    if (imageUrl) {
+      setImageToPictureFrame(imageUrl);
+    }
+    setIsFileManagerOpen(false);
+  }, [setImageToPictureFrame]);
 
   useEffect(() => {
     if (!editor.hasNodes([PictureFrameNode])) {
@@ -94,6 +210,7 @@ export default function PictureFramePlugin(): null {
         const count = clampPositiveInt(payload?.count, 6);
         const mode = payload?.mode === "masonry" ? "masonry" : "grid";
         const seed = payload?.seed ?? "0";
+        const images = payload?.images ?? [];
 
         editor.update(() => {
           const layout = generatePictureFrameLayout(count, {
@@ -107,19 +224,22 @@ export default function PictureFramePlugin(): null {
             minFrameHeight: 160,
           });
 
-          const nodes = layout.frames.map((frame) =>
-            $createPictureFrameNode({
+          const nodes = layout.frames.map((frame, index) => {
+            // Assign images in a cyclic fashion if images are provided
+            const imageSrc = images.length > 0 ? images[index % images.length] : null;
+            
+            return $createPictureFrameNode({
               x: frame.x,
               y: frame.y,
               width: frame.width,
               height: frame.height,
               fit: "cover",
               radius: 16,
-              imageSrc: null,
-              background: "#2a2c2f",
+              imageSrc,
+              background: imageSrc ? "transparent" : "#2a2c2f",
               border: { enabled: false, width: 2, color: "#ffffff" },
-            })
-          );
+            });
+          });
 
           // Keep picture frames in a paragraph so they serialize/normalize consistently.
           const root = $getRoot();
@@ -143,6 +263,42 @@ export default function PictureFramePlugin(): null {
     );
   }, [editor]);
 
+  // Command handler for inserting image from computer
+  useEffect(() => {
+    return editor.registerCommand(
+      INSERT_IMAGE_TO_PICTURE_FRAME_COMMAND,
+      () => {
+        const pictureFrame = getSelectedPictureFrame();
+        if (!pictureFrame) {
+          notify("warning", "Please select a picture frame first");
+          return true;
+        }
+        pendingPictureFrameKeyRef.current = pictureFrame.getKey();
+        fileInputRef.current?.click();
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR
+    );
+  }, [editor, getSelectedPictureFrame]);
+
+  // Command handler for inserting image from project files
+  useEffect(() => {
+    return editor.registerCommand(
+      INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND,
+      () => {
+        const pictureFrame = getSelectedPictureFrame();
+        if (!pictureFrame) {
+          notify("warning", "Please select a picture frame first");
+          return true;
+        }
+        pendingPictureFrameKeyRef.current = pictureFrame.getKey();
+        setIsFileManagerOpen(true);
+        return true;
+      },
+      COMMAND_PRIORITY_EDITOR
+    );
+  }, [editor, getSelectedPictureFrame]);
+
   useEffect(() => {
     // Migration/normalization: older docs may have picture frames attached directly to the root.
     // Move them into a paragraph so they persist and thumbnail rendering can find them reliably.
@@ -157,5 +313,32 @@ export default function PictureFramePlugin(): null {
     });
   }, [editor]);
 
-  return null;
+  return (
+    <>
+      {/* Hidden file input for computer file selection */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileInputChange}
+        style={{ display: "none" }}
+      />
+
+      {/* File manager modal for project file selection */}
+      {isFileManagerOpen && (
+        <FileManager
+          isOpen={isFileManagerOpen}
+          onRequestClose={() => {
+            setIsFileManagerOpen(false);
+            pendingPictureFrameKeyRef.current = null;
+          }}
+          onFileSelect={handleProjectFileSelect}
+          showTrigger={false}
+          folder="uploads"
+          selectionMode="single"
+          fileTypeFilter="images"
+        />
+      )}
+    </>
+  );
 }

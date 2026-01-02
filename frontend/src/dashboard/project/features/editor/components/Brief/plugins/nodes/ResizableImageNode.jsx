@@ -948,7 +948,16 @@ function ResizableImageComponent({
         <img
           src={src}
           alt={altText}
-          draggable={false}
+          draggable={true}
+          onDragStart={(e) => {
+            // Set custom data type so picture frames can accept this image
+            e.dataTransfer.setData("application/x-mylg-canvas-image", JSON.stringify({ src }));
+            e.dataTransfer.effectAllowed = "copy";
+            // Create a small drag image
+            const img = new Image();
+            img.src = src;
+            e.dataTransfer.setDragImage(img, 20, 20);
+          }}
           onClick={onClickImage}
           onLoad={onImageLoad}
           style={{

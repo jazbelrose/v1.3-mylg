@@ -80,6 +80,10 @@ export interface SlideContextMenuProps {
   // Replace picture frame with text box
   onReplacePictureFrameWithTextBox?: () => void;
 
+  // Picture frame image insertion
+  onInsertImageToPictureFrame?: () => void;
+  onInsertImageFromProjectToPictureFrame?: () => void;
+
   // Selection info
   selectionCount?: number;
   isLocked?: boolean;
@@ -120,6 +124,8 @@ const SlideContextMenu: React.FC<SlideContextMenuProps> = ({
   onInsertImage,
   onInsertSvg,
   onReplacePictureFrameWithTextBox,
+  onInsertImageToPictureFrame,
+  onInsertImageFromProjectToPictureFrame,
   selectionCount = 0,
   isLocked = false,
 }) => {
@@ -308,6 +314,35 @@ const SlideContextMenu: React.FC<SlideContextMenuProps> = ({
       </button>
 
       <div className="context-menu__divider" />
+
+      {/* Picture Frame Image Insertion - only shown for single picture frame selection */}
+      {isPictureFrameSelected && actualSelectionCount === 1 && (
+        <>
+          {onInsertImageToPictureFrame && (
+            <button
+              type="button"
+              className="context-menu__item"
+              onClick={callAndClose(onInsertImageToPictureFrame)}
+            >
+              <Image size={16} className="context-menu__icon" />
+              <span className="context-menu__label">Insert Image from Computer</span>
+            </button>
+          )}
+          {onInsertImageFromProjectToPictureFrame && (
+            <button
+              type="button"
+              className="context-menu__item"
+              onClick={callAndClose(onInsertImageFromProjectToPictureFrame)}
+            >
+              <FileImageOutlined className="context-menu__icon" />
+              <span className="context-menu__label">Insert Image from Project</span>
+            </button>
+          )}
+          {(onInsertImageToPictureFrame || onInsertImageFromProjectToPictureFrame) && (
+            <div className="context-menu__divider" />
+          )}
+        </>
+      )}
 
       {/* Replace Picture Frame with Text Box - only shown for single picture frame selection */}
       {isPictureFrameSelected && actualSelectionCount === 1 && onReplacePictureFrameWithTextBox && (

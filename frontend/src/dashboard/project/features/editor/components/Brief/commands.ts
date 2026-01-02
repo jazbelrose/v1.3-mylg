@@ -19,10 +19,19 @@ export type InsertPictureFrameLayoutPayload = {
   count: number;
   mode?: "grid" | "masonry";
   seed?: string | number;
+  images?: string[];  // Optional array of image URLs to pre-fill frames
 };
 
 export const INSERT_PICTURE_FRAME_LAYOUT_COMMAND: LexicalCommand<InsertPictureFrameLayoutPayload> = createCommand(
   "INSERT_PICTURE_FRAME_LAYOUT"
+);
+
+// Picture frame image insertion commands
+export const INSERT_IMAGE_TO_PICTURE_FRAME_COMMAND: LexicalCommand<void> = createCommand(
+  "INSERT_IMAGE_TO_PICTURE_FRAME"
+);
+export const INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND: LexicalCommand<void> = createCommand(
+  "INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME"
 );
 
 

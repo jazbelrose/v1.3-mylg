@@ -1417,12 +1417,19 @@ const SlidesPage: React.FC = () => {
 
   const activeSlide = slides.find((s) => s.id === activeSlideId);
   const isImportingPdf = pdfImportStatus !== "idle";
+  const isExportingPdfActive = pdfExportStatus === "exporting";
   const importStatusText =
     pdfImportStatus === "uploading"
       ? `Uploading PDF… ${Math.max(0, Math.min(100, Math.round(pdfImportProgress)))}%`
       : pdfImportDetail?.totalPages
         ? `Importing slides… ${Math.min(pdfImportDetail.currentPage, pdfImportDetail.totalPages)}/${pdfImportDetail.totalPages}`
         : "Importing slides…";
+  const exportStatusText = pdfExportProgress
+    ? `Exporting slide ${pdfExportProgress.current} of ${pdfExportProgress.total}…`
+    : "Preparing export…";
+  const exportProgressPercent = pdfExportProgress
+    ? Math.round((pdfExportProgress.current / pdfExportProgress.total) * 100)
+    : 0;
 
   // Version dropdown for the toolbar
   const versionDropdown = useMemo(() => (
@@ -1543,6 +1550,16 @@ const SlidesPage: React.FC = () => {
                   ? Math.max(0, Math.min(100, Math.round(pdfImportProgress)))
                   : undefined
               }
+            />
+          </div>
+        )}
+        {isExportingPdfActive && (
+          <div className="slides-export-banner" role="status" aria-live="polite">
+            <div className="slides-export-banner__text">{exportStatusText}</div>
+            <progress
+              className="slides-export-banner__progress"
+              max={100}
+              value={exportProgressPercent}
             />
           </div>
         )}

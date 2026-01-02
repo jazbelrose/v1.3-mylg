@@ -34,6 +34,8 @@ import {
   INSERT_TEXTBOX_COMMAND,
   INSERT_PICTURE_FRAME_COMMAND,
   INSERT_PICTURE_FRAME_LAYOUT_COMMAND,
+  INSERT_IMAGE_TO_PICTURE_FRAME_COMMAND,
+  INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND,
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
@@ -81,7 +83,7 @@ export type ToolbarActions = {
   onInsertPictureFrame: () => void;
   onInsertPictureFrameLayout: () => void;
   /** Apply layout with specific parameters (no prompts) */
-  onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string) => void;
+  onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string, images?: string[]) => void;
 
   onInsertLayout: (template: string) => void;
 
@@ -111,6 +113,8 @@ export type ToolbarActions = {
   onUpdateTextBoxBorderRadius: (updates: Partial<ImageBorderRadiusState>) => void;
   onToggleLockSelection: () => void;
   onReplacePictureFrameWithTextBox: () => void;
+  onInsertImageToPictureFrame: () => void;
+  onInsertImageFromProjectToPictureFrame: () => void;
   onLineHeightChange: (value: string) => void;
   onLetterSpacingChange: (value: string) => void;
 };
@@ -227,8 +231,8 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
         // No-op: UI now handles layout configuration via the toolbar panel
         // This is kept for backward compatibility
       },
-      onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string) => {
-        editor.dispatchCommand(INSERT_PICTURE_FRAME_LAYOUT_COMMAND, { count, mode, seed });
+      onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string, images?: string[]) => {
+        editor.dispatchCommand(INSERT_PICTURE_FRAME_LAYOUT_COMMAND, { count, mode, seed, images });
       },
 
       onInsertLayout: (template: string) =>
@@ -456,6 +460,12 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
             pf.replace(textBox);
           });
         });
+      },
+      onInsertImageToPictureFrame: () => {
+        editor.dispatchCommand(INSERT_IMAGE_TO_PICTURE_FRAME_COMMAND, undefined);
+      },
+      onInsertImageFromProjectToPictureFrame: () => {
+        editor.dispatchCommand(INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND, undefined);
       },
       onLineHeightChange: (value: string) => {
         editor.dispatchCommand(SET_LINE_HEIGHT_COMMAND, value);

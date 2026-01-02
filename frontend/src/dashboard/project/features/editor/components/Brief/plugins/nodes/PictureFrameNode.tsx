@@ -991,6 +991,38 @@ function PictureFrameComponent({
 
       if (isSlideLocked) return;
 
+      // First, check for internal canvas image drag (from ResizableImageNode)
+      const canvasImageData = e.dataTransfer?.getData("application/x-mylg-canvas-image");
+      if (canvasImageData) {
+        try {
+          const { src } = JSON.parse(canvasImageData);
+          if (src && typeof src === "string") {
+            // Show immediate preview
+            setLocalPreviewSrc(src);
+            
+            // Ensure slide editor keeps focus so Ctrl/Cmd+Z reliably routes to undo.
+            editor.focus();
+
+            editor.update(() => {
+              const node = $getNodeByKey(nodeKey);
+              if (node instanceof PictureFrameNode) {
+                node.setImageSrc(src);
+              }
+
+              const selectedKeys = getSlideNodeSelectionKeys();
+              const keysToSelect = selectedKeys.length > 0 ? selectedKeys : [nodeKey];
+              const sel = $createNodeSelection();
+              keysToSelect.forEach((k) => sel.add(k));
+              $setSelection(sel);
+            });
+            return;
+          }
+        } catch {
+          // Failed to parse canvas image data, fall through to file handling
+        }
+      }
+
+      // Fall back to handling files (from computer or file manager)
       const files = Array.from(e.dataTransfer?.files || []);
       const file = files.find((f) => isImageFile(f));
       if (!file) return;

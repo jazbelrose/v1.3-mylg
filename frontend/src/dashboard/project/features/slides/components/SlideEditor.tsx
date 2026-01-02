@@ -130,8 +130,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   }, []);
 
   const handleApplyLayout = useCallback(
-    (count: number, mode: LayoutMode, seed: string) => {
-      toolbarActions?.onApplyPictureFrameLayout(count, mode, seed);
+    (count: number, mode: LayoutMode, seed: string, images?: string[]) => {
+      toolbarActions?.onApplyPictureFrameLayout(count, mode, seed, images);
     },
     [toolbarActions]
   );
@@ -471,6 +471,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               onInsertSvg={toolbarActions.onInsertVector}
               // Replace picture frame with text box
               onReplacePictureFrameWithTextBox={toolbarActions.onReplacePictureFrameWithTextBox}
+              // Picture frame image insertion
+              onInsertImageToPictureFrame={toolbarActions.onInsertImageToPictureFrame}
+              onInsertImageFromProjectToPictureFrame={toolbarActions.onInsertImageFromProjectToPictureFrame}
             />
           )}
         </div>
