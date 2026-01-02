@@ -2277,14 +2277,43 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
 
     slides[slideIndex] = updatedSlide;
 
-    // Use optimistic update - the in-memory monotonicity check above catches most races.
-    // For true atomicity with DynamoDB lists, we'd need a separate thumbsBySlideId map.
+    // Re-read to get fresh index (guards against reorder/insert/delete race)
+    const freshVersionRes = await ddb.get({
+      TableName: DECK_VERSIONS_TABLE,
+      Key: { projectId, versionId },
+      ProjectionExpression: "slides",
+    });
+    const freshSlides = freshVersionRes.Item?.slides || [];
+    const freshIndex = freshSlides.findIndex((s) => s.id === slideId);
+    
+    if (freshIndex === -1) {
+      // Slide was deleted between initial read and now
+      return json(200, C, {
+        updated: false,
+        reason: "slide_deleted",
+        slideId,
+      });
+    }
+    
+    const freshRevision = Number(freshSlides[freshIndex].thumbRevision) || 0;
+    if (incomingRevision <= freshRevision) {
+      // Re-check monotonicity with fresh data
+      return json(200, C, {
+        updated: false,
+        reason: "stale_revision",
+        currentRevision: freshRevision,
+        incomingRevision,
+        slideId,
+      });
+    }
+    
+    // Use optimistic update with fresh index.
     // This update uses SET list[index] to touch only the specific slide element.
     try {
       await ddb.update({
         TableName: DECK_VERSIONS_TABLE,
         Key: { projectId, versionId },
-        UpdateExpression: `SET #slides[${slideIndex}] = :updatedSlide, #updatedAt = :now`,
+        UpdateExpression: `SET #slides[${freshIndex}] = :updatedSlide, #updatedAt = :now`,
         ConditionExpression: "attribute_exists(#slides)",
         ExpressionAttributeNames: {
           "#slides": "slides",
@@ -2353,13 +2382,43 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
 
     slides[slideIndex] = updatedSlide;
 
-    // Use optimistic update with SET list[index] to touch only the specific slide element.
-    // The in-memory monotonicity check above catches most races.
+    // Re-read to get fresh index (guards against reorder/insert/delete race)
+    const freshProjectRes = await ddb.get({
+      TableName: PROJECTS_TABLE,
+      Key: { projectId },
+      ProjectionExpression: "slides",
+    });
+    const freshSlides = freshProjectRes.Item?.slides || [];
+    const freshIndex = freshSlides.findIndex((s) => s.id === slideId);
+    
+    if (freshIndex === -1) {
+      // Slide was deleted between initial read and now
+      return json(200, C, {
+        updated: false,
+        reason: "slide_deleted",
+        slideId,
+      });
+    }
+    
+    const freshRevision = Number(freshSlides[freshIndex].thumbRevision) || 0;
+    if (incomingRevision <= freshRevision) {
+      // Re-check monotonicity with fresh data
+      return json(200, C, {
+        updated: false,
+        reason: "stale_revision",
+        currentRevision: freshRevision,
+        incomingRevision,
+        slideId,
+      });
+    }
+    
+    // Use optimistic update with fresh index.
+    // This update uses SET list[index] to touch only the specific slide element.
     try {
       await ddb.update({
         TableName: PROJECTS_TABLE,
         Key: { projectId },
-        UpdateExpression: `SET #slides[${slideIndex}] = :updatedSlide, #updatedAt = :now`,
+        UpdateExpression: `SET #slides[${freshIndex}] = :updatedSlide, #updatedAt = :now`,
         ConditionExpression: "attribute_exists(#slides)",
         ExpressionAttributeNames: {
           "#slides": "slides",

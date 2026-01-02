@@ -157,29 +157,31 @@ async function checkThumbnailWithHead(url: string): Promise<boolean> {
     }
     // If HEAD returned non-ok but didn't throw, try Range-based GET
     if (headResponse.status === 403 || headResponse.status === 405) {
-      const rangeResponse = await fetch(url, {
-        method: "GET",
-        mode: "cors",
-        cache: "no-cache",
-        headers: { Range: "bytes=0-0" },
-      });
-      // 200 (full content) or 206 (partial content) both indicate file exists
-      return rangeResponse.status === 200 || rangeResponse.status === 206;
+      return await checkWithRangeGet(url);
     }
     return false;
   } catch {
     // Network error on HEAD, try Range-based GET as fallback
-    try {
-      const rangeResponse = await fetch(url, {
-        method: "GET",
-        mode: "cors",
-        cache: "no-cache",
-        headers: { Range: "bytes=0-0" },
-      });
-      return rangeResponse.status === 200 || rangeResponse.status === 206;
-    } catch {
-      return false;
-    }
+    return await checkWithRangeGet(url);
+  }
+}
+
+/**
+ * Check if URL exists using Range-based GET (fallback for HEAD)
+ * Treats 200, 206, and 416 (range not satisfiable but file exists) as success
+ */
+async function checkWithRangeGet(url: string): Promise<boolean> {
+  try {
+    const rangeResponse = await fetch(url, {
+      method: "GET",
+      mode: "cors",
+      cache: "no-cache",
+      headers: { Range: "bytes=0-0" },
+    });
+    // 200 = full content, 206 = partial content, 416 = range not satisfiable (file exists but range invalid)
+    return rangeResponse.status === 200 || rangeResponse.status === 206 || rangeResponse.status === 416;
+  } catch {
+    return false;
   }
 }
 

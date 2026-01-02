@@ -643,9 +643,6 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
     resolvedBackgroundImageUrl = await resolveAssetUrlForThumbnail(backgroundImageUrl);
   }
   
-  // Generate unique ID for background preload image
-  const bgPreloadId = `bg-preload-${Date.now()}`;
-  
   const slideWrapperStyle = [
     'position:absolute',
     `top:${offsetY}px`,
@@ -822,9 +819,8 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           left: 0;
           width: 100%;
           height: 100%;
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
+          object-fit: cover;
+          object-position: center;
           z-index: 0;
         }
         .slide-content {
@@ -834,11 +830,9 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
       </style>
     </head>
     <body>
-      <!-- Preload background image as actual <img> for deterministic loading -->
-      ${resolvedBackgroundImageUrl ? `<img id="${bgPreloadId}" src="${escapeHtml(resolvedBackgroundImageUrl)}" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" crossorigin="anonymous" />` : ''}
       <div class="thumbnail-stage">
         <div class="slide-wrapper" style="${slideWrapperStyle}">
-          ${resolvedBackgroundImageUrl ? `<div class="slide-background-image" style="background-image: url('${escapeHtml(resolvedBackgroundImageUrl)}');"></div>` : ''}
+          ${resolvedBackgroundImageUrl ? `<img class="slide-background-image" src="${escapeHtml(resolvedBackgroundImageUrl)}" alt="" />` : ''}
           <div class="slide-content">
             ${structuredHtml}
           </div>
