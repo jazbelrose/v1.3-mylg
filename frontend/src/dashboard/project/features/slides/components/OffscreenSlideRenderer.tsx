@@ -23,7 +23,8 @@ export interface OffscreenSlideRendererRef {
 }
 
 // No props needed - this is a hidden utility component
-type OffscreenSlideRendererProps = Record<string, never>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface OffscreenSlideRendererProps {}
 
 /**
  * Wait for all images in a DOM tree to load

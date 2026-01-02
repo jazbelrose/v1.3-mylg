@@ -353,6 +353,25 @@ const MessageItem: React.FC<MessageItemProps> = ({
     minute: "2-digit",
   });
 
+  const isOptimistic = (msg as any)?.optimistic === true;
+  const isEdited = (msg as any)?.edited === true || !!(msg as any)?.editedAt;
+  const isFailed = (msg as any)?.failed === true || !!(msg as any)?.error;
+
+  const outgoingHeaderStatus =
+    isOptimistic ? "Sending…" : isFailed ? "Failed" : isEdited ? "Edited" : null;
+
+  const underbarMetaParts = useMemo(() => {
+    const parts: string[] = [];
+    if (isOptimistic) parts.push("Sending…");
+    else if (isFailed) parts.push("Failed");
+    else parts.push(formattedTime);
+
+    if (isEdited && !isOptimistic && !isFailed) parts.push("Edited");
+    return parts;
+  }, [formattedTime, isEdited, isFailed, isOptimistic]);
+
+  const underbarMetaText = underbarMetaParts.join(" · ");
+
   const hasReactions = useMemo(
     () => Object.values(msg.reactions || {}).some((users) => Array.isArray(users) && users.length > 0),
     [msg.reactions]
@@ -409,6 +428,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
   }, [msg.senderId, msg.timestamp, prevMsg]);
 
   const showAuthorRow = !isGroupedWithPrev;
+
+  const showIncomingAuthorRow = !isCurrentUser && showAuthorRow;
+  const showOutgoingAuthorRow = isCurrentUser && showAuthorRow && !!outgoingHeaderStatus;
 
   // date bubble logic
   let showDateBubble = !prevMsg;
@@ -556,7 +578,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
       <div
         className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev ? "message-row--grouped" : ""} ${menuOpen || showReactions ? "message-row--active" : ""}`}
       >
-        {showAuthorRow && (
+        {(showIncomingAuthorRow || showOutgoingAuthorRow) && (
           <div className="message-author-row">
             {!isCurrentUser ? (
               <>
@@ -575,7 +597,25 @@ const MessageItem: React.FC<MessageItemProps> = ({
                 <div className="message-author-name">{senderName}</div>
               </>
             ) : (
-              <div className="message-author-name">You</div>
+              <>
+                {(isOptimistic || isFailed) && (
+                  <span className="message-author-avatar-wrap" aria-hidden="true">
+                    {senderThumbnail ? (
+                      <img
+                        src={senderThumbnailUrl}
+                        alt=""
+                        className="message-author-avatar"
+                      />
+                    ) : (
+                      <User className="message-author-avatar" />
+                    )}
+                  </span>
+                )}
+                <div className="message-author-name">You</div>
+                {outgoingHeaderStatus && (
+                  <div className="message-author-status">{outgoingHeaderStatus}</div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -600,61 +640,119 @@ const MessageItem: React.FC<MessageItemProps> = ({
             </div>
 
             <div className="message-underbar" aria-label="Message controls">
-              {isCurrentUser ? (
-                <div className="message-underbar-time" aria-label={`Sent at ${formattedTime}`}>
-                  {formattedTime}
-                </div>
-              ) : null}
+              {!isCurrentUser && (
+                <>
+                  <div className="message-underbar-meta" aria-label={underbarMetaText}>
+                    {underbarMetaText}
+                  </div>
+                  <span className="message-underbar-sep" aria-hidden="true">·</span>
 
-              <div className="message-underbar-reactions">
-                {hasReactions &&
-                  Object.entries(msg.reactions || {}).map(([emoji, users]) =>
-                    users.length > 0 ? (
+                  <div className="message-underbar-actions">
+                    <div className="message-underbar-reactions">
+                      {hasReactions &&
+                        Object.entries(msg.reactions || {}).map(([emoji, users]) =>
+                          users.length > 0 ? (
+                            <button
+                              key={emoji}
+                              type="button"
+                              className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
+                              onClick={() => handleEmojiClick(emoji)}
+                              aria-label={`React ${emoji} (${users.length})`}
+                            >
+                              <span className="reaction-chip-emoji">{emoji}</span>
+                              <span className="reaction-chip-count">{users.length}</span>
+                            </button>
+                          ) : null
+                        )}
+                    </div>
+
+                    <div className="message-underbar-buttons">
                       <button
-                        key={emoji}
                         type="button"
-                        className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
-                        onClick={() => handleEmojiClick(emoji)}
-                        aria-label={`React ${emoji} (${users.length})`}
+                        className="message-underbar-btn"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setShowReactions((p) => !p);
+                        }}
+                        aria-label="Add reaction"
+                        title="Add reaction"
                       >
-                        <span className="reaction-chip-emoji">{emoji}</span>
-                        <span className="reaction-chip-count">{users.length}</span>
+                        <Plus size={15} />
                       </button>
-                    ) : null
-                  )}
-              </div>
 
-              <button
-                type="button"
-                className="message-underbar-btn"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setShowReactions((p) => !p);
-                }}
-                aria-label="Add reaction"
-                title="Add reaction"
-              >
-                <Plus size={16} />
-              </button>
+                      <button
+                        type="button"
+                        className="message-underbar-btn"
+                        aria-label="Message actions"
+                        aria-haspopup="menu"
+                        aria-expanded={menuOpen}
+                        onClick={() => setMenuOpen((v) => !v)}
+                        ref={menuButtonRef}
+                        title="Message actions"
+                      >
+                        <MoreHorizontal size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
 
-              <button
-                type="button"
-                className="message-underbar-btn"
-                aria-label="Message actions"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
-                ref={menuButtonRef}
-                title="Message actions"
-              >
-                <MoreHorizontal size={16} />
-              </button>
+              {isCurrentUser && (
+                <>
+                  <div className="message-underbar-actions">
+                    <div className="message-underbar-buttons">
+                      <button
+                        type="button"
+                        className="message-underbar-btn"
+                        aria-label="Message actions"
+                        aria-haspopup="menu"
+                        aria-expanded={menuOpen}
+                        onClick={() => setMenuOpen((v) => !v)}
+                        ref={menuButtonRef}
+                        title="Message actions"
+                      >
+                        <MoreHorizontal size={15} />
+                      </button>
 
-              {!isCurrentUser ? (
-                <div className="message-underbar-time" aria-label={`Sent at ${formattedTime}`}>
-                  {formattedTime}
-                </div>
-              ) : null}
+                      <button
+                        type="button"
+                        className="message-underbar-btn"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setShowReactions((p) => !p);
+                        }}
+                        aria-label="Add reaction"
+                        title="Add reaction"
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
+
+                    <div className="message-underbar-reactions">
+                      {hasReactions &&
+                        Object.entries(msg.reactions || {}).map(([emoji, users]) =>
+                          users.length > 0 ? (
+                            <button
+                              key={emoji}
+                              type="button"
+                              className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
+                              onClick={() => handleEmojiClick(emoji)}
+                              aria-label={`React ${emoji} (${users.length})`}
+                            >
+                              <span className="reaction-chip-emoji">{emoji}</span>
+                              <span className="reaction-chip-count">{users.length}</span>
+                            </button>
+                          ) : null
+                        )}
+                    </div>
+                  </div>
+
+                  <span className="message-underbar-sep" aria-hidden="true">·</span>
+                  <div className="message-underbar-meta" aria-label={underbarMetaText}>
+                    {underbarMetaText}
+                  </div>
+                </>
+              )}
 
               {menuOpen && (
                 <div className="message-actions-menu" role="menu" ref={menuRef}>
