@@ -2277,18 +2277,21 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
 
     slides[slideIndex] = updatedSlide;
 
-    // Use update with condition to prevent race conditions
+    // Use optimistic update - the in-memory monotonicity check above catches most races.
+    // For true atomicity with DynamoDB lists, we'd need a separate thumbsBySlideId map.
+    // This update uses SET list[index] to touch only the specific slide element.
     try {
       await ddb.update({
         TableName: DECK_VERSIONS_TABLE,
         Key: { projectId, versionId },
-        UpdateExpression: "SET #slides = :slides, #updatedAt = :now",
+        UpdateExpression: `SET #slides[${slideIndex}] = :updatedSlide, #updatedAt = :now`,
+        ConditionExpression: "attribute_exists(#slides)",
         ExpressionAttributeNames: {
           "#slides": "slides",
           "#updatedAt": "updatedAt",
         },
         ExpressionAttributeValues: {
-          ":slides": slides,
+          ":updatedSlide": updatedSlide,
           ":now": now,
         },
       });
@@ -2350,18 +2353,20 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
 
     slides[slideIndex] = updatedSlide;
 
-    // Update the project
+    // Use optimistic update with SET list[index] to touch only the specific slide element.
+    // The in-memory monotonicity check above catches most races.
     try {
       await ddb.update({
         TableName: PROJECTS_TABLE,
         Key: { projectId },
-        UpdateExpression: "SET #slides = :slides, #updatedAt = :now",
+        UpdateExpression: `SET #slides[${slideIndex}] = :updatedSlide, #updatedAt = :now`,
+        ConditionExpression: "attribute_exists(#slides)",
         ExpressionAttributeNames: {
           "#slides": "slides",
           "#updatedAt": "updatedAt",
         },
         ExpressionAttributeValues: {
-          ":slides": slides,
+          ":updatedSlide": updatedSlide,
           ":now": now,
         },
       });

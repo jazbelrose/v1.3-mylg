@@ -142,18 +142,44 @@ async function waitForThumbnailReady(url: string, maxAttempts = MAX_THUMBNAIL_AT
 
 /**
  * Check if a thumbnail URL is ready using HEAD request (lighter than full image load)
+ * Falls back to Range-based GET if HEAD fails (some S3/CloudFront configs return 403/405 on HEAD)
  */
 async function checkThumbnailWithHead(url: string): Promise<boolean> {
   try {
-    const response = await fetch(url, {
+    // Try HEAD first
+    const headResponse = await fetch(url, {
       method: "HEAD",
       mode: "cors",
       cache: "no-cache",
     });
-    return response.ok && response.status === 200;
-  } catch {
-    // HEAD request failed, fall back to image load
+    if (headResponse.ok && headResponse.status === 200) {
+      return true;
+    }
+    // If HEAD returned non-ok but didn't throw, try Range-based GET
+    if (headResponse.status === 403 || headResponse.status === 405) {
+      const rangeResponse = await fetch(url, {
+        method: "GET",
+        mode: "cors",
+        cache: "no-cache",
+        headers: { Range: "bytes=0-0" },
+      });
+      // 200 (full content) or 206 (partial content) both indicate file exists
+      return rangeResponse.status === 200 || rangeResponse.status === 206;
+    }
     return false;
+  } catch {
+    // Network error on HEAD, try Range-based GET as fallback
+    try {
+      const rangeResponse = await fetch(url, {
+        method: "GET",
+        mode: "cors",
+        cache: "no-cache",
+        headers: { Range: "bytes=0-0" },
+      });
+      return rangeResponse.status === 200 || rangeResponse.status === 206;
+    } catch {
+      return false;
+    }
   }
 }
 
