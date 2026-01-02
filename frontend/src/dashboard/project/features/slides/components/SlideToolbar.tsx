@@ -236,7 +236,7 @@ interface SlideToolbarProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
-  onExportAllPdf?: () => void;
+  onExportAllPdf?: (preset?: "screen" | "high" | "print") => void;
   isExportingPdf?: boolean;
   pdfExportProgress?: { current: number; total: number } | null;
   onNewSlide?: () => void;
@@ -1635,22 +1635,56 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                     </button>
                   )}
                   {onExportAllPdf && (
-                    <button
-                      type="button"
-                      className="item"
-                      disabled={isExportingPdf}
-                      onClick={() => {
-                        onExportAllPdf();
-                        closeDropdown();
-                      }}
-                    >
-                      <Download size={18} className="dropdown-icon" />
-                      <span className="text">
-                        {isExportingPdf && pdfExportProgress
-                          ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
-                          : "Export All as PDF"}
-                      </span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="item"
+                        disabled={isExportingPdf}
+                        onClick={() => {
+                          onExportAllPdf("screen");
+                          closeDropdown();
+                        }}
+                      >
+                        <Download size={18} className="dropdown-icon" />
+                        <span className="text">
+                          {isExportingPdf && pdfExportProgress
+                            ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
+                            : "PDF (Screen) — small & fast"}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="item"
+                        disabled={isExportingPdf}
+                        onClick={() => {
+                          onExportAllPdf("high");
+                          closeDropdown();
+                        }}
+                      >
+                        <Download size={18} className="dropdown-icon" />
+                        <span className="text">
+                          {isExportingPdf && pdfExportProgress
+                            ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
+                            : "PDF (High) — crisp (default)"}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="item"
+                        disabled={isExportingPdf}
+                        onClick={() => {
+                          onExportAllPdf("print");
+                          closeDropdown();
+                        }}
+                      >
+                        <Download size={18} className="dropdown-icon" />
+                        <span className="text">
+                          {isExportingPdf && pdfExportProgress
+                            ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
+                            : "PDF (Print) — very large"}
+                        </span>
+                      </button>
+                    </>
                   )}
                 </>
               )}

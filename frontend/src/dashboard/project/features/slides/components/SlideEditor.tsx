@@ -32,7 +32,7 @@ interface SlideEditorProps {
   onDuplicate?: () => void;
   onDelete?: () => void;
   onExport?: () => void;
-  onExportAllPdf?: () => void;
+  onExportAllPdf?: (preset?: "screen" | "high" | "print") => void;
   isExportingPdf?: boolean;
   pdfExportProgress?: { current: number; total: number } | null;
   onImportPdf?: () => void;

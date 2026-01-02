@@ -14,7 +14,10 @@ import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
-import OffscreenSlideRenderer, { type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
+import OffscreenSlideRenderer, {
+  type OffscreenSlideCaptureOptions,
+  type OffscreenSlideRendererRef,
+} from "./components/OffscreenSlideRenderer";
 import { useDeckVersions } from "./hooks/useDeckVersions";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
@@ -34,6 +37,23 @@ import { saveAs } from "file-saver";
 import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
+
+type PdfExportPreset = "screen" | "high" | "print";
+
+const PDF_EXPORT_PRESETS: Record<PdfExportPreset, { label: string; captureOptions: OffscreenSlideCaptureOptions }> = {
+  screen: {
+    label: "PDF (Screen)",
+    captureOptions: { imageFormat: "jpeg", pixelRatio: 1, jpegQuality: 0.82 },
+  },
+  high: {
+    label: "PDF (High)",
+    captureOptions: { imageFormat: "jpeg", pixelRatio: 2, jpegQuality: 0.9 },
+  },
+  print: {
+    label: "PDF (Print)",
+    captureOptions: { imageFormat: "png", pixelRatio: 3 },
+  },
+};
 
 type PdfImportDetail = {
   stage: string;
@@ -1245,7 +1265,7 @@ const SlidesPage: React.FC = () => {
   }, [slides]);
 
   // Export all slides as PDF using offscreen rendering
-  const handleExportAllSlidesPdf = useCallback(async () => {
+  const handleExportAllSlidesPdf = useCallback(async (preset: PdfExportPreset = "high") => {
     if (slides.length === 0) {
       notify("warning", "No slides to export");
       return;
@@ -1258,7 +1278,7 @@ const SlidesPage: React.FC = () => {
 
     setPdfExportStatus("exporting");
     setPdfExportProgress({ current: 0, total: slides.length });
-    notify("info", `Exporting ${slides.length} slides as PDF...`);
+    notify("info", `Exporting ${slides.length} slides as ${PDF_EXPORT_PRESETS[preset].label}...`);
 
     try {
       // Capture all slides using the offscreen renderer (no visible navigation)
@@ -1266,7 +1286,8 @@ const SlidesPage: React.FC = () => {
         slides,
         (current, total) => {
           setPdfExportProgress({ current, total });
-        }
+        },
+        PDF_EXPORT_PRESETS[preset].captureOptions
       );
 
       if (slideImages.length === 0) {
