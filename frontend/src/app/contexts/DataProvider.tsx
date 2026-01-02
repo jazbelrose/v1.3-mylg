@@ -72,6 +72,8 @@ export interface Slide {
   id: string;
   title?: string;
   thumbnail?: string;
+  revision?: number;
+  thumbRevision?: number;
   order?: number;
   content?: string; // Lexical JSON
   backgroundColor?: string; // Slide background color

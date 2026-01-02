@@ -15,6 +15,151 @@ const SocketContext = createContext<SocketContextType>({ ws: null, isConnected: 
 
 export { SocketContext };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function normalizeFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getBaseThumbnailUrl(thumb: unknown): string {
+  if (typeof thumb !== "string") return "";
+  const idx = thumb.indexOf("?");
+  return idx === -1 ? thumb : thumb.substring(0, idx);
+}
+
+function getThumbnailTimestamp(thumb: unknown): number {
+  if (typeof thumb !== "string") return 0;
+  const base = getBaseThumbnailUrl(thumb);
+  const match = base.match(/(\d{10,13})/);
+  if (!match) return 0;
+  const n = Number(match[1]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pickNewerThumbnail(existing: unknown, incoming: unknown): unknown {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+
+  const existingTs = getThumbnailTimestamp(existing);
+  const incomingTs = getThumbnailTimestamp(incoming);
+  if (existingTs > 0 && incomingTs > 0) {
+    return existingTs >= incomingTs ? existing : incoming;
+  }
+
+  const existingBase = getBaseThumbnailUrl(existing);
+  const incomingBase = getBaseThumbnailUrl(incoming);
+  if (existingBase && existingBase === incomingBase) {
+    return existing;
+  }
+
+  return incoming;
+}
+
+function mergeSlides(existingSlides: unknown, incomingSlides: unknown): unknown {
+  if (!Array.isArray(incomingSlides)) return existingSlides;
+  const existingList = Array.isArray(existingSlides) ? existingSlides : [];
+
+  const existingById = new Map<string, Record<string, unknown>>();
+  for (const s of existingList) {
+    if (!isRecord(s)) continue;
+    const id = s.id;
+    if (typeof id === "string") existingById.set(id, s);
+  }
+
+  let maxIncomingRev: number | null = null;
+  let maxIncomingThumbRev: number | null = null;
+  for (const s of incomingSlides) {
+    if (!isRecord(s)) continue;
+    const r = normalizeFiniteNumber(s.revision);
+    const tr = normalizeFiniteNumber(s.thumbRevision);
+    if (r !== null) maxIncomingRev = maxIncomingRev === null ? r : Math.max(maxIncomingRev, r);
+    if (tr !== null) maxIncomingThumbRev = maxIncomingThumbRev === null ? tr : Math.max(maxIncomingThumbRev, tr);
+  }
+
+  const seen = new Set<string>();
+  const merged: unknown[] = incomingSlides.map((incoming) => {
+    if (!isRecord(incoming)) return incoming;
+    const id = incoming.id;
+    if (typeof id !== "string") return incoming;
+    seen.add(id);
+
+    const existing = existingById.get(id);
+    if (!existing) return incoming;
+
+    const existingRev = normalizeFiniteNumber(existing.revision);
+    const incomingRev = normalizeFiniteNumber(incoming.revision);
+    const base =
+      incomingRev !== null && (existingRev === null || incomingRev >= existingRev) ? incoming : existing;
+
+    const existingThumbRev = normalizeFiniteNumber(existing.thumbRevision);
+    const incomingThumbRev = normalizeFiniteNumber(incoming.thumbRevision);
+
+    if (incomingThumbRev !== null || existingThumbRev !== null) {
+      if (incomingThumbRev !== null && (existingThumbRev === null || incomingThumbRev >= existingThumbRev)) {
+        return base === incoming
+          ? incoming
+          : { ...base, thumbnail: incoming.thumbnail, thumbRevision: incoming.thumbRevision };
+      }
+      return base === existing
+        ? existing
+        : { ...base, thumbnail: existing.thumbnail, thumbRevision: existing.thumbRevision };
+    }
+
+    const chosenThumbnail = pickNewerThumbnail(existing.thumbnail, incoming.thumbnail);
+    return { ...base, thumbnail: chosenThumbnail };
+  });
+
+  for (const existing of existingList) {
+    if (!isRecord(existing)) continue;
+    const id = existing.id;
+    if (typeof id !== "string" || seen.has(id)) continue;
+
+    if (maxIncomingRev === null && maxIncomingThumbRev === null) {
+      merged.push(existing);
+      continue;
+    }
+
+    const er = normalizeFiniteNumber(existing.revision) ?? -1;
+    const etr = normalizeFiniteNumber(existing.thumbRevision) ?? -1;
+    if ((maxIncomingRev !== null && er > maxIncomingRev) || (maxIncomingThumbRev !== null && etr > maxIncomingThumbRev)) {
+      merged.push(existing);
+    }
+  }
+
+  merged.sort((a, b) => {
+    const ao = isRecord(a) ? normalizeFiniteNumber(a.order) ?? 0 : 0;
+    const bo = isRecord(b) ? normalizeFiniteNumber(b.order) ?? 0 : 0;
+    return ao - bo;
+  });
+  return merged;
+}
+
+function mergeProjectFields(prev: unknown, fields: unknown, versionId?: unknown): unknown {
+  if (!isRecord(fields)) return prev;
+  if (versionId) {
+    return prev;
+  }
+  if (!("slides" in fields)) {
+    const base = isRecord(prev) ? prev : {};
+    return { ...base, ...fields };
+  }
+
+  const base = isRecord(prev) ? prev : {};
+  const mergedSlides = mergeSlides(base.slides, fields.slides);
+  const rest = { ...fields };
+  delete rest.slides;
+  return { ...base, ...rest, slides: mergedSlides };
+}
+
 export const SocketProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const { getAuthTokens } = useAuth();
   const {
@@ -148,9 +293,19 @@ export const SocketProvider: React.FC<React.PropsWithChildren> = ({ children }) 
 
           // ---- project updates
           if (data.action === "projectUpdated" && data.projectId && data.fields && typeof data.fields === "object") {
-            setProjects((prev) => prev.map((p) => (p.projectId === data.projectId ? { ...p, ...data.fields } : p)));
-            setUserProjects((prev) => prev.map((p) => (p.projectId === data.projectId ? { ...p, ...data.fields } : p)));
-            setActiveProject((prev) => (prev && prev.projectId === data.projectId ? { ...prev, ...data.fields } : prev));
+            setProjects((prev) =>
+              prev.map((p) =>
+                p.projectId === data.projectId ? mergeProjectFields(p, data.fields, data.versionId) : p
+              )
+            );
+            setUserProjects((prev) =>
+              prev.map((p) =>
+                p.projectId === data.projectId ? mergeProjectFields(p, data.fields, data.versionId) : p
+              )
+            );
+            setActiveProject((prev) =>
+              prev && prev.projectId === data.projectId ? mergeProjectFields(prev, data.fields, data.versionId) : prev
+            );
             return;
           }
 
