@@ -2343,7 +2343,10 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
         TableName: DECK_VERSIONS_TABLE,
         Key: { projectId, versionId },
         UpdateExpression: `SET ${setParts.join(", ")}`,
-        ConditionExpression: "attribute_exists(#slides) AND #slides[" + freshIndex + "].#id = :slideId",
+        // Guard: slideId at index + monotonic revision (attribute_not_exists handles first thumb)
+        ConditionExpression: 
+          "attribute_exists(#slides) AND #slides[" + freshIndex + "].#id = :slideId AND " +
+          "(attribute_not_exists(#slides[" + freshIndex + "].#thumbRev) OR #slides[" + freshIndex + "].#thumbRev < :rev)",
         ExpressionAttributeNames: names,
         ExpressionAttributeValues: values,
       });
@@ -2481,7 +2484,10 @@ const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
         TableName: PROJECTS_TABLE,
         Key: { projectId },
         UpdateExpression: `SET ${setParts.join(", ")}`,
-        ConditionExpression: "attribute_exists(#slides) AND #slides[" + freshIndex + "].#id = :slideId",
+        // Guard: slideId at index + monotonic revision (attribute_not_exists handles first thumb)
+        ConditionExpression: 
+          "attribute_exists(#slides) AND #slides[" + freshIndex + "].#id = :slideId AND " +
+          "(attribute_not_exists(#slides[" + freshIndex + "].#thumbRev) OR #slides[" + freshIndex + "].#thumbRev < :rev)",
         ExpressionAttributeNames: names,
         ExpressionAttributeValues: values,
       });
