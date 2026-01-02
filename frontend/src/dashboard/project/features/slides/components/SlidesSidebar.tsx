@@ -532,7 +532,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                 }}
               >
                 <Download size={24} className="dropdown-icon" />
-                <span className="text">Export as SVG</span>
+                <span className="text">Export as SVG (Affinity)</span>
               </button>
             )}
             {onExportSlidePng && (

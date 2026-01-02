@@ -1197,7 +1197,7 @@ const SlidesPage: React.FC = () => {
   const [pdfExportStatus, setPdfExportStatus] = useState<"idle" | "exporting">("idle");
   const [pdfExportProgress, setPdfExportProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Export single slide as SVG (editable with layers for Affinity Designer, etc.)
+  // Export single slide as SVG (Affinity-compatible; rasterized, no editable layers)
   const handleExportSlideSvg = useCallback(async (slideId: string) => {
     const slide = slides.find((s) => s.id === slideId);
     if (!slide) {
@@ -1205,12 +1205,13 @@ const SlidesPage: React.FC = () => {
       return;
     }
 
-    notify("info", "Exporting slide as SVG...");
-    
+    notify("info", "Exporting slide as SVG (Affinity-compatible)...");
+     
     const success = await exportAndDownloadSlideSvg(
       slideId,
       slide.title || `Slide ${slide.order + 1}`,
-      slide.backgroundColor
+      slide.backgroundColor,
+      true
     );
 
     if (success) {

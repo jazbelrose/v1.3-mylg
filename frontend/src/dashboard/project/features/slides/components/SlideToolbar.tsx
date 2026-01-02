@@ -1631,7 +1631,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                       }}
                     >
                       <Download size={18} className="dropdown-icon" />
-                      <span className="text">Export Slide as SVG</span>
+                      <span className="text">Export Slide as SVG (Affinity)</span>
                     </button>
                   )}
                   {onExportAllPdf && (

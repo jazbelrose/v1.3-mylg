@@ -11,6 +11,14 @@ import SlidesPdfDocument, { type SlideImageData } from './SlidesPdfDocument';
 const NATIVE_SLIDE_WIDTH = 1920;
 const NATIVE_SLIDE_HEIGHT = 1080;
 
+function escapeXmlText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeXmlAttr(value: string): string {
+  return escapeXmlText(value).replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
 /**
  * CSS selectors to find the slide capture root element
  */
@@ -342,7 +350,9 @@ export interface ExportSvgOptions {
 }
 
 /**
- * Export a single slide as an editable SVG with proper layers
+ * Export a single slide as SVG.
+ * - Default: browser-native SVG (may include foreignObject).
+ * - rasterizeForDesignSoftware: wraps a high-res PNG for maximum compatibility.
  */
 export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<string | null> {
   const {
@@ -397,15 +407,17 @@ export async function exportSlideAsSvg(options: ExportSvgOptions): Promise<strin
 
       // Create an SVG that wraps the PNG image
       // This is fully compatible with all design software
+      const safeTitleText = escapeXmlText(slideTitle);
+      const safeTitleAttr = escapeXmlAttr(slideTitle);
       const svgString = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
-     width="${NATIVE_SLIDE_WIDTH}" height="${NATIVE_SLIDE_HEIGHT}" 
-     viewBox="0 0 ${NATIVE_SLIDE_WIDTH} ${NATIVE_SLIDE_HEIGHT}">
-  <title>${slideTitle}</title>
-  <g id="slide-content" data-name="${slideTitle}">
+      width="${NATIVE_SLIDE_WIDTH}" height="${NATIVE_SLIDE_HEIGHT}" 
+      viewBox="0 0 ${NATIVE_SLIDE_WIDTH} ${NATIVE_SLIDE_HEIGHT}">
+  <title>${safeTitleText}</title>
+  <g id="slide-content" data-name="${safeTitleAttr}">
     <image id="slide-image" data-name="Slide Background" 
            width="${NATIVE_SLIDE_WIDTH}" height="${NATIVE_SLIDE_HEIGHT}" 
-           xlink:href="${pngDataUrl}"/>
+           href="${pngDataUrl}" xlink:href="${pngDataUrl}"/>
   </g>
 </svg>`;
       return svgString;
