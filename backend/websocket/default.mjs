@@ -21,6 +21,57 @@ const apigwManagementApi = new ApiGatewayManagementApiClient({
 const inboxTable = process.env.INBOX_TABLE;
 const notificationsTable = process.env.NOTIFICATIONS_TABLE;
 const projectsTable = process.env.PROJECTS_TABLE;
+const pendingBatchesTable = process.env.PENDING_BATCHES_TABLE || "PendingEditBatches";
+const activityTable = process.env.ACTIVITY_TABLE || "ProjectActivity";
+
+// ============================================================================
+// NOTIFICATION & ACTIVITY CONFIGURATION
+// ============================================================================
+
+const BATCH_CONFIG = {
+  IDLE_THRESHOLD_MS: 90_000,          // 90 seconds
+  MAX_BATCH_INTERVAL_MS: 30 * 60_000, // 30 minutes
+  ACTIVITY_TTL_DAYS: 90,
+};
+
+/**
+ * Events that should create notifications (rare, interruptive)
+ */
+const NOTIFICATION_TRIGGERS = new Set([
+  'mention',
+  'share',
+  'review_request',
+  'review_complete',
+  'publish',
+  'comment_resolved',
+  'comment_reopened',
+  'failure',
+  'slide_to_task',
+  'project_invite',
+  'task_assigned',
+  'message',
+]);
+
+/**
+ * Events that should NOT create notifications or activity (completely ignored)
+ */
+const IGNORED_EVENTS = new Set([
+  'autosave',
+  'autosave_tick',
+  'yjs_sync',
+  'yjs_update',
+  'presence_join',
+  'presence_leave',
+  'cursor_move',
+  'cursor_update',
+  'selection_change',
+  'editor_open',
+  'editor_close',
+  'heartbeat',
+  'idle_timeout',
+  'background_sync',
+  'connection_reconnect',
+]);
 
 const REVISION_AWARE_ACTIONS = new Set(["budgetUpdated", "lineLocked", "lineUnlocked", "lockLineUpdated"]);
 
@@ -105,6 +156,19 @@ export const handler = async (event) => {
 
       return { statusCode: 200 };
     }
+
+    // =========================================================================
+    // ACTIVITY & NOTIFICATION SYSTEM
+    // =========================================================================
+    
+    case "trackSlideEdit":
+      return await handleTrackSlideEdit(event, payload, userId);
+    
+    case "fetchProjectActivity":
+      return await handleFetchProjectActivity(event, payload);
+    
+    case "createNotification":
+      return await handleCreateNotification(payload, userId);
 
     default:
       console.warn("⚠️ Unknown action:", action);
@@ -1086,3 +1150,221 @@ const handleUserLocation = async (payload) => {
   console.log("📍 handleUserLocation called with payload:", payload);
   return { statusCode: 200, body: "userLocation handled" };
 };
+
+// ============================================================================
+// ACTIVITY & NOTIFICATION HANDLERS
+// ============================================================================
+
+/**
+ * Track slide edits for batching into activity events.
+ * Called from frontend on meaningful content changes (not cursors/presence).
+ * 
+ * Payload: { projectId, deckId, deckName, changes: [{ slideId, slideNumber, changeType }], userName }
+ */
+const handleTrackSlideEdit = async (event, payload, userId) => {
+  const { projectId, deckId, deckName, changes, userName, userAvatar } = payload || {};
+
+  if (!projectId || !changes || !Array.isArray(changes) || changes.length === 0) {
+    return { statusCode: 400, body: "Missing projectId or changes array" };
+  }
+
+  // Generate or use existing batch ID (per user + project + deck)
+  const batchId = `${userId}#${projectId}#${deckId || "default"}`;
+  const nowIso = new Date().toISOString();
+
+  try {
+    // Try to update existing batch first
+    const existing = await dynamoDb.send(new GetCommand({
+      TableName: pendingBatchesTable,
+      Key: { batchId },
+    }));
+
+    if (existing.Item) {
+      // Append to existing batch
+      const existingChanges = existing.Item.changes || [];
+      const updatedChanges = [...existingChanges, ...changes].slice(-BATCH_CONFIG.MAX_BATCH_INTERVAL_MS);
+
+      await dynamoDb.send(new UpdateCommand({
+        TableName: pendingBatchesTable,
+        Key: { batchId },
+        UpdateExpression: "SET #changes = :changes, lastEditAt = :now",
+        ExpressionAttributeNames: { "#changes": "changes" },
+        ExpressionAttributeValues: {
+          ":changes": updatedChanges,
+          ":now": nowIso,
+        },
+      }));
+    } else {
+      // Create new batch
+      await dynamoDb.send(new PutCommand({
+        TableName: pendingBatchesTable,
+        Item: {
+          batchId,
+          projectId,
+          deckId: deckId || "default",
+          deckName: deckName || "Slides",
+          userId,
+          userName: userName || "Someone",
+          userAvatar,
+          changes,
+          firstEditAt: nowIso,
+          lastEditAt: nowIso,
+        },
+      }));
+    }
+
+    console.log(`[trackSlideEdit] Updated batch ${batchId} with ${changes.length} changes`);
+    return { statusCode: 200, body: "Edit tracked" };
+  } catch (err) {
+    console.error("[trackSlideEdit] Error:", err);
+    return { statusCode: 500, body: "Failed to track edit" };
+  }
+};
+
+/**
+ * Fetch project activity for the Activity panel.
+ * Returns recent activity events for a project.
+ * 
+ * Payload: { projectId, limit? }
+ */
+const handleFetchProjectActivity = async (event, payload) => {
+  const connectionId = event.requestContext?.connectionId;
+  const { projectId, limit = 50 } = payload || {};
+
+  if (!projectId) {
+    return { statusCode: 400, body: "Missing projectId" };
+  }
+
+  try {
+    const result = await dynamoDb.send(new QueryCommand({
+      TableName: activityTable,
+      KeyConditionExpression: "projectId = :p",
+      ExpressionAttributeValues: { ":p": projectId },
+      ScanIndexForward: false, // Most recent first
+      Limit: Math.min(limit, 100),
+    }));
+
+    await apigwManagementApi.send(new PostToConnectionCommand({
+      ConnectionId: connectionId,
+      Data: JSON.stringify({
+        action: "activityBatch",
+        projectId,
+        items: result.Items || [],
+      }),
+    }));
+
+    return { statusCode: 200 };
+  } catch (err) {
+    console.error("[fetchProjectActivity] Error:", err);
+    return { statusCode: 500, body: "Failed to fetch activity" };
+  }
+};
+
+/**
+ * Create a notification for a specific user.
+ * Only allowed for NOTIFICATION_TRIGGERS event types.
+ * 
+ * Payload: { type, recipientId, title, body?, projectId, ... }
+ */
+const handleCreateNotification = async (payload, senderId) => {
+  const {
+    type,
+    recipientId,
+    title,
+    body,
+    projectId,
+    projectName,
+    slideId,
+    deckId,
+    versionId,
+    commentId,
+    taskId,
+    senderName,
+    senderAvatar,
+    actionUrl,
+    meta,
+  } = payload || {};
+
+  // Validate notification type
+  if (!NOTIFICATION_TRIGGERS.has(type)) {
+    console.warn(`[createNotification] Rejected non-notifiable event type: ${type}`);
+    return { statusCode: 400, body: `Event type '${type}' is not notifiable` };
+  }
+
+  if (!recipientId || !title) {
+    return { statusCode: 400, body: "Missing recipientId or title" };
+  }
+
+  // Never notify the actor themselves
+  if (recipientId === senderId) {
+    console.log(`[createNotification] Skipping self-notification for ${senderId}`);
+    return { statusCode: 200, body: "Skipped self-notification" };
+  }
+
+  const notificationId = `N#${Date.now()}#${uuid()}`;
+  const nowIso = new Date().toISOString();
+
+  const notification = {
+    notificationId,
+    userId: recipientId,
+    type,
+    category: inferCategory(type),
+    title,
+    body,
+    projectId,
+    projectName,
+    slideId,
+    deckId,
+    versionId,
+    commentId,
+    taskId,
+    senderId,
+    senderName: senderName || "Someone",
+    senderAvatar,
+    createdAt: nowIso,
+    actionUrl,
+    meta,
+    read: false,
+  };
+
+  try {
+    // Write to Notifications table
+    await dynamoDb.send(new PutCommand({
+      TableName: notificationsTable,
+      Item: notification,
+    }));
+
+    // Send via WebSocket to recipient if online
+    await broadcastToUser(recipientId, {
+      action: "notification",
+      ...notification,
+    });
+
+    console.log(`[createNotification] Created ${type} notification for ${recipientId}`);
+    return { statusCode: 200, body: "Notification created" };
+  } catch (err) {
+    console.error("[createNotification] Error:", err);
+    return { statusCode: 500, body: "Failed to create notification" };
+  }
+};
+
+/**
+ * Infer category from notification type
+ */
+function inferCategory(type) {
+  const categoryMap = {
+    mention: 'slides',
+    share: 'slides',
+    review_request: 'slides',
+    review_complete: 'slides',
+    publish: 'slides',
+    comment_resolved: 'slides',
+    comment_reopened: 'slides',
+    failure: 'system',
+    slide_to_task: 'tasks',
+    project_invite: 'project',
+    task_assigned: 'tasks',
+    message: 'messages',
+  };
+  return categoryMap[type] || 'system';
+}

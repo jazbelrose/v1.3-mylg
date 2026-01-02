@@ -388,3 +388,58 @@ Resources:
       SSESpecification:
         SSEEnabled: true
       DeletionProtectionEnabled: true
+  
+  # ============================================================================
+  # ACTIVITY SYSTEM TABLES
+  # ============================================================================
+  
+  ProjectActivity:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: ProjectActivity
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: activityId
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: activityId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: activityId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+  
+  PendingEditBatches:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: PendingEditBatches
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: batchId
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: batchId
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      # No deletion protection - this is transient data
+      DeletionProtectionEnabled: false
