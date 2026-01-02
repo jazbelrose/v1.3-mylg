@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ChatWindowProps } from "../types";
 import { ChatMessage } from "../MessageItem";
 import { DMFile, ChatFile } from "@/shared/utils/messageUtils";
@@ -8,6 +8,42 @@ import FileUpload from "./FileUpload";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { renderFilePreview } from "../utils/filePreview";
 import { getFileNameFromUrl } from "@/shared/utils/fileUtils";
+
+const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+/** Compute group position flags for each message */
+function computeGroupPositions(messages: ChatMessage[], currentUserId?: string) {
+  const parseTs = (m?: ChatMessage | null) => {
+    if (!m?.timestamp) return null;
+    const d = new Date(m.timestamp as any);
+    return Number.isNaN(+d) ? null : d;
+  };
+
+  const isSameGroup = (a: ChatMessage | null, b: ChatMessage | null) => {
+    if (!a || !b) return false;
+    if (a.senderId !== b.senderId) return false;
+    const tsA = parseTs(a);
+    const tsB = parseTs(b);
+    if (!tsA || !tsB) return false;
+    return Math.abs(+tsB - +tsA) <= MESSAGE_GROUP_WINDOW_MS;
+  };
+
+  return messages.map((msg, i) => {
+    const prev = i > 0 ? messages[i - 1] : null;
+    const next = i < messages.length - 1 ? messages[i + 1] : null;
+    const isFirstInGroup = !isSameGroup(prev, msg);
+    const isLastInGroup = !isSameGroup(msg, next);
+    const isCurrentUser = msg.senderId === currentUserId;
+
+    // For outgoing messages, find if this is the last one in the current outgoing group
+    let isLastOutgoingInGroup = false;
+    if (isCurrentUser && isLastInGroup) {
+      isLastOutgoingInGroup = true;
+    }
+
+    return { isFirstInGroup, isLastInGroup, isLastOutgoingInGroup };
+  });
+}
 
 const ChatWindow: React.FC<ChatWindowProps & {
   onDelete: (msg: ChatMessage) => void;
@@ -45,6 +81,12 @@ const ChatWindow: React.FC<ChatWindowProps & {
   onReact,
   openPreviewModal,
 }) => {
+  // Compute group position flags for all messages
+  const groupPositions = useMemo(
+    () => computeGroupPositions(displayMessages as ChatMessage[], userData?.userId),
+    [displayMessages, userData?.userId]
+  );
+
   if (isMobile && !showConversation) {
     return null;
   }
@@ -125,22 +167,29 @@ const ChatWindow: React.FC<ChatWindowProps & {
             Looks quiet. Drop your first idea here.
           </div>
         ) : (
-          displayMessages.map((msg, index) => (
-            <MessageItem
-              key={msg.optimisticId || msg.messageId || String(msg.timestamp)}
-              msg={msg as ChatMessage}
-              prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
-              userData={userData}
-              allUsers={allUsers}
-              openPreviewModal={openPreviewModal}
-              folderKey={folderKey}
-              renderFilePreview={renderFilePreview}
-              getFileNameFromUrl={getFileNameFromUrl}
-              onDelete={onDelete}
-              onEditRequest={onEditRequest}
-              onReact={onReact}
-            />
-          ))
+          displayMessages.map((msg, index) => {
+            const pos = groupPositions[index] || { isFirstInGroup: true, isLastInGroup: true, isLastOutgoingInGroup: false };
+            return (
+              <MessageItem
+                key={msg.optimisticId || msg.messageId || String(msg.timestamp)}
+                msg={msg as ChatMessage}
+                prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
+                nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
+                userData={userData}
+                allUsers={allUsers}
+                openPreviewModal={openPreviewModal}
+                folderKey={folderKey}
+                renderFilePreview={renderFilePreview}
+                getFileNameFromUrl={getFileNameFromUrl}
+                onDelete={onDelete}
+                onEditRequest={onEditRequest}
+                onReact={onReact}
+                isFirstInGroup={pos.isFirstInGroup}
+                isLastInGroup={pos.isLastInGroup}
+                isLastOutgoingInGroup={pos.isLastOutgoingInGroup}
+              />
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

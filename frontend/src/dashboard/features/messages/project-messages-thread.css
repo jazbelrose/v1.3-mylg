@@ -18,19 +18,46 @@
   color: #ddd;
 }
 
+/* Apple-style time separator pill */
+.time-separator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 12px 0 8px;
+}
+
+.time-separator-pill {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 .message-row {
-  margin-bottom: 10px;
+  margin-bottom: 2px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: 2px 4px;
   border-radius: 12px;
 }
 
 .message-row.message-row--grouped {
-  margin-top: 2px;
-  margin-bottom: 6px;
+  margin-top: 0;
+  margin-bottom: 1px;
+}
+
+.message-row.message-row--first-in-group {
+  margin-top: 10px;
+}
+
+.message-row.message-row--last-in-group {
+  margin-bottom: 4px;
 }
 
 .message-row--incoming {
@@ -52,7 +79,13 @@
 .message-row:hover,
 .message-row:focus-within,
 .message-row--active {
-  background: rgba(255, 255, 255, 0.03);
+  /* No background - keep it clean */
+}
+
+.message-row:hover .message-bubble,
+.message-row:focus-within .message-bubble,
+.message-row--active .message-bubble {
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .message-author-row {
@@ -225,76 +258,110 @@
 
 .message-underbar {
   position: relative;
-  margin-top: 6px;
+  margin-top: 4px;
   display: flex;
   gap: 6px;
   align-items: center;
   width: 100%;
+  min-height: 22px;
+}
+
+/* Reactions are always visible */
+.message-underbar-reactions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Hover-reveal container for timestamp, edited, and action buttons */
+.message-underbar-hover-reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.message-row:hover .message-underbar-hover-reveal,
+.message-row:focus-within .message-underbar-hover-reveal,
+.message-row--active .message-underbar-hover-reveal {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .message-underbar-meta {
   font-size: 11px;
-  opacity: 0.65;
+  opacity: 0.55;
   white-space: nowrap;
 }
 
-.message-underbar-sep {
-  font-size: 10px;
+.message-underbar-meta--time {
+  opacity: 0.5;
+}
+
+.message-underbar-meta--edited {
   opacity: 0.45;
-  line-height: 1;
-  user-select: none;
-}
-
-.message-underbar-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.message-underbar-reactions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
+  font-style: italic;
 }
 
 .message-underbar-buttons {
   display: inline-flex;
   align-items: center;
+  gap: 2px;
+}
+
+/* Delivery status indicator */
+.message-underbar-status {
+  display: flex;
+  align-items: center;
   gap: 4px;
+}
+
+.message-status-indicator {
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
 }
 
 .reaction-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px;
+  gap: 3px;
+  height: 20px;
+  padding: 0 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   color: #fff;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.reaction-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .reaction-chip.is-selected {
   background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .reaction-chip-emoji {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .reaction-chip-count {
-  opacity: 0.85;
+  opacity: 0.75;
+  font-size: 10px;
 }
 
 .message-underbar-btn {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -303,14 +370,14 @@
   border: none;
   color: #fff;
   cursor: pointer;
-  opacity: 0.85;
+  opacity: 0.6;
   transition: opacity 0.15s ease, background 0.15s ease;
 }
 
 .message-underbar-btn:hover,
 .message-underbar-btn:focus {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.10);
 }
 
 .action-bar {

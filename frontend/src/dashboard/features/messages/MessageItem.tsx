@@ -19,6 +19,7 @@ const LONG_MESSAGE_READER_THRESHOLD = { lines: 60, chars: 4000 };
 const LONG_MESSAGE_READER_PREVIEW = { lines: 10, chars: 1200 };
 const LONG_MESSAGE_COLLAPSE_ANIM_MS = 220;
 const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
+const TIME_SEPARATOR_GAP_MS = 15 * 60 * 1000; // 15 minutes gap triggers time separator
 
 const countTextLines = (text: string) => {
   if (!text) return 0;
@@ -169,6 +170,7 @@ export interface SimpleUser {
 interface MessageItemProps {
   msg: ChatMessage;
   prevMsg?: ChatMessage | null;
+  nextMsg?: ChatMessage | null;
   userData?: SimpleUser | null;
   allUsers?: SimpleUser[];
   openPreviewModal: (file: ChatFile | DMFile) => void;
@@ -178,11 +180,18 @@ interface MessageItemProps {
   onDelete?: (msg: ChatMessage) => void;
   onEditRequest?: (msg: ChatMessage) => void;
   onReact?: (messageId: string, emoji: Emoji) => void;
+  /** True if this is the first message in a sender group */
+  isFirstInGroup?: boolean;
+  /** True if this is the last message in a sender group */
+  isLastInGroup?: boolean;
+  /** True if this outgoing message is the last one in the current outgoing group */
+  isLastOutgoingInGroup?: boolean;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({
   msg,
   prevMsg,
+  nextMsg,
   userData,
   allUsers = [],
   openPreviewModal,
@@ -192,6 +201,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
   onDelete,
   onEditRequest,
   onReact,
+  isFirstInGroup = false,
+  isLastInGroup = false,
+  isLastOutgoingInGroup = false,
 }) => {
   const { isOnline } = useOnlineStatus() as { isOnline: (id?: string | null) => boolean };
   const isCurrentUser = msg.senderId === (userData?.userId ?? "");
@@ -360,17 +372,15 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const outgoingHeaderStatus =
     isOptimistic ? "Sending…" : isFailed ? "Failed" : isEdited ? "Edited" : null;
 
-  const underbarMetaParts = useMemo(() => {
-    const parts: string[] = [];
-    if (isOptimistic) parts.push("Sending…");
-    else if (isFailed) parts.push("Failed");
-    else parts.push(formattedTime);
+  // Build underbar meta - timestamp and edited now only shown on hover
+  const statusText = useMemo(() => {
+    if (isOptimistic) return "Sending…";
+    if (isFailed) return "Failed";
+    return null;
+  }, [isFailed, isOptimistic]);
 
-    if (isEdited && !isOptimistic && !isFailed) parts.push("Edited");
-    return parts;
-  }, [formattedTime, isEdited, isFailed, isOptimistic]);
-
-  const underbarMetaText = underbarMetaParts.join(" · ");
+  // For accessibility label
+  const underbarMetaText = statusText || formattedTime;
 
   const hasReactions = useMemo(
     () => Object.values(msg.reactions || {}).some((users) => Array.isArray(users) && users.length > 0),
@@ -427,10 +437,30 @@ const MessageItem: React.FC<MessageItemProps> = ({
     return Math.abs(+b - +a) <= MESSAGE_GROUP_WINDOW_MS;
   }, [msg.senderId, msg.timestamp, prevMsg]);
 
-  const showAuthorRow = !isGroupedWithPrev;
+  // Time separator: show when gap > 15 min OR first message of the day
+  const showTimeSeparator = useMemo(() => {
+    if (!prevMsg) return false; // First message shows date bubble, not time separator
+    const prevTs = parseTs(prevMsg);
+    const currTs = parseTs(msg);
+    if (!prevTs || !currTs) return false;
+    // Same day check already handled by date bubble
+    const prevDay = prevTs.toDateString();
+    const currDay = currTs.toDateString();
+    if (prevDay !== currDay) return false; // Date bubble will show instead
+    return Math.abs(+currTs - +prevTs) >= TIME_SEPARATOR_GAP_MS;
+  }, [msg.timestamp, prevMsg]);
+
+  const timeSeparatorText = useMemo(() => {
+    if (!showTimeSeparator) return '';
+    return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }, [showTimeSeparator, messageDate]);
+
+  // Use passed props for group position, fallback to computed
+  const showAuthorRow = isFirstInGroup || !isGroupedWithPrev;
 
   const showIncomingAuthorRow = !isCurrentUser && showAuthorRow;
-  const showOutgoingAuthorRow = isCurrentUser && showAuthorRow && !!outgoingHeaderStatus;
+  // Only show outgoing author row for first in group when sending/failed status
+  const showOutgoingAuthorRow = isCurrentUser && showAuthorRow && (isOptimistic || isFailed);
 
   // date bubble logic
   let showDateBubble = !prevMsg;
@@ -574,9 +604,14 @@ const MessageItem: React.FC<MessageItemProps> = ({
   return (
     <>
       {showDateBubble && <div className="date-bubble">{formattedDate}</div>}
+      {showTimeSeparator && (
+        <div className="time-separator">
+          <span className="time-separator-pill">{timeSeparatorText}</span>
+        </div>
+      )}
 
       <div
-        className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev ? "message-row--grouped" : ""} ${menuOpen || showReactions ? "message-row--active" : ""}`}
+        className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev && !showTimeSeparator ? "message-row--grouped" : ""} ${isFirstInGroup ? "message-row--first-in-group" : ""} ${isLastInGroup ? "message-row--last-in-group" : ""} ${menuOpen || showReactions ? "message-row--active" : ""}`}
       >
         {(showIncomingAuthorRow || showOutgoingAuthorRow) && (
           <div className="message-author-row">
@@ -642,30 +677,29 @@ const MessageItem: React.FC<MessageItemProps> = ({
             <div className="message-underbar" aria-label="Message controls">
               {!isCurrentUser && (
                 <>
-                  <div className="message-underbar-meta" aria-label={underbarMetaText}>
-                    {underbarMetaText}
+                  {/* Reactions always visible if present */}
+                  <div className="message-underbar-reactions">
+                    {hasReactions &&
+                      Object.entries(msg.reactions || {}).map(([emoji, users]) =>
+                        users.length > 0 ? (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
+                            onClick={() => handleEmojiClick(emoji)}
+                            aria-label={`React ${emoji} (${users.length})`}
+                          >
+                            <span className="reaction-chip-emoji">{emoji}</span>
+                            <span className="reaction-chip-count">{users.length}</span>
+                          </button>
+                        ) : null
+                      )}
                   </div>
-                  <span className="message-underbar-sep" aria-hidden="true">·</span>
 
-                  <div className="message-underbar-actions">
-                    <div className="message-underbar-reactions">
-                      {hasReactions &&
-                        Object.entries(msg.reactions || {}).map(([emoji, users]) =>
-                          users.length > 0 ? (
-                            <button
-                              key={emoji}
-                              type="button"
-                              className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
-                              onClick={() => handleEmojiClick(emoji)}
-                              aria-label={`React ${emoji} (${users.length})`}
-                            >
-                              <span className="reaction-chip-emoji">{emoji}</span>
-                              <span className="reaction-chip-count">{users.length}</span>
-                            </button>
-                          ) : null
-                        )}
-                    </div>
-
+                  {/* Hover-reveal: timestamp, edited, action buttons */}
+                  <div className="message-underbar-hover-reveal">
+                    <span className="message-underbar-meta message-underbar-meta--time">{formattedTime}</span>
+                    {isEdited && <span className="message-underbar-meta message-underbar-meta--edited">Edited</span>}
                     <div className="message-underbar-buttons">
                       <button
                         type="button"
@@ -679,7 +713,6 @@ const MessageItem: React.FC<MessageItemProps> = ({
                       >
                         <Plus size={15} />
                       </button>
-
                       <button
                         type="button"
                         className="message-underbar-btn"
@@ -699,7 +732,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
 
               {isCurrentUser && (
                 <>
-                  <div className="message-underbar-actions">
+                  {/* Hover-reveal: action buttons, timestamp, edited */}
+                  <div className="message-underbar-hover-reveal">
                     <div className="message-underbar-buttons">
                       <button
                         type="button"
@@ -713,7 +747,6 @@ const MessageItem: React.FC<MessageItemProps> = ({
                       >
                         <MoreHorizontal size={15} />
                       </button>
-
                       <button
                         type="button"
                         className="message-underbar-btn"
@@ -727,30 +760,35 @@ const MessageItem: React.FC<MessageItemProps> = ({
                         <Plus size={15} />
                       </button>
                     </div>
+                    {isEdited && <span className="message-underbar-meta message-underbar-meta--edited">Edited</span>}
+                    <span className="message-underbar-meta message-underbar-meta--time">{formattedTime}</span>
+                  </div>
 
-                    <div className="message-underbar-reactions">
-                      {hasReactions &&
-                        Object.entries(msg.reactions || {}).map(([emoji, users]) =>
-                          users.length > 0 ? (
-                            <button
-                              key={emoji}
-                              type="button"
-                              className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
-                              onClick={() => handleEmojiClick(emoji)}
-                              aria-label={`React ${emoji} (${users.length})`}
-                            >
-                              <span className="reaction-chip-emoji">{emoji}</span>
-                              <span className="reaction-chip-count">{users.length}</span>
-                            </button>
-                          ) : null
-                        )}
+                  {/* Reactions always visible if present */}
+                  <div className="message-underbar-reactions">
+                    {hasReactions &&
+                      Object.entries(msg.reactions || {}).map(([emoji, users]) =>
+                        users.length > 0 ? (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`reaction-chip ${userReactions.includes(emoji) ? "is-selected" : ""}`}
+                            onClick={() => handleEmojiClick(emoji)}
+                            aria-label={`React ${emoji} (${users.length})`}
+                          >
+                            <span className="reaction-chip-emoji">{emoji}</span>
+                            <span className="reaction-chip-count">{users.length}</span>
+                          </button>
+                        ) : null
+                      )}
+                  </div>
+
+                  {/* Delivery status: only on last outgoing message in group */}
+                  {isLastOutgoingInGroup && statusText && (
+                    <div className="message-underbar-status">
+                      <span className="message-status-indicator">{statusText}</span>
                     </div>
-                  </div>
-
-                  <span className="message-underbar-sep" aria-hidden="true">·</span>
-                  <div className="message-underbar-meta" aria-label={underbarMetaText}>
-                    {underbarMetaText}
-                  </div>
+                  )}
                 </>
               )}
 

@@ -128,6 +128,8 @@ type ProjectMessagesThreadProps = {
 
 const pmKey = (pid: string) => `project_messages_${pid}`;
 
+const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
 const SCROLL_TOLERANCE_PX = 10;
 
 if (typeof document !== "undefined") {
@@ -242,6 +244,34 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
       return m;
     });
   }, [messages]);
+
+  // Compute group position flags for Apple-style grouping
+  const groupPositions = React.useMemo(() => {
+    const parseTs = (m?: Message | null) => {
+      if (!m?.timestamp) return null;
+      const d = new Date(m.timestamp as any);
+      return Number.isNaN(+d) ? null : d;
+    };
+
+    const isSameGroup = (a: Message | null, b: Message | null) => {
+      if (!a || !b) return false;
+      if (a.senderId !== b.senderId) return false;
+      const tsA = parseTs(a);
+      const tsB = parseTs(b);
+      if (!tsA || !tsB) return false;
+      return Math.abs(+tsB - +tsA) <= MESSAGE_GROUP_WINDOW_MS;
+    };
+
+    return displayMessages.map((msg, i) => {
+      const prev = i > 0 ? displayMessages[i - 1] : null;
+      const next = i < displayMessages.length - 1 ? displayMessages[i + 1] : null;
+      const isFirstInGroup = !isSameGroup(prev, msg);
+      const isLastInGroup = !isSameGroup(msg, next);
+      const isCurrentUser = msg.senderId === userData?.userId;
+      const isLastOutgoingInGroup = isCurrentUser && isLastInGroup;
+      return { isFirstInGroup, isLastInGroup, isLastOutgoingInGroup };
+    });
+  }, [displayMessages, userData?.userId]);
 
   const [isLoading, setIsLoading] = useState(
     () => !projectMessages[projectId]?.length
@@ -1057,22 +1087,29 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 Looks quiet. Drop your first idea here.
               </div>
             ) : (
-              displayMessages.map((msg, index) => (
-                <MessageItem
-                  key={msg.messageId || msg.optimisticId || String(msg.timestamp)}
-                  msg={msg as ChatMessage}
-                  prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
-                  userData={userData}
-                  allUsers={allUsers}
-                  openPreviewModal={openPreviewModal}
-                  folderKey={folderKey}
-                  renderFilePreview={renderFilePreview}
-                  getFileNameFromUrl={getFileNameFromUrl}
-                  onDelete={(m: ChatMessage) => setDeleteTarget(m as Message)}
-                  onEditRequest={(m: ChatMessage) => setEditTarget(m as Message)}
-                  onReact={reactToMessage}
-                />
-              ))
+              displayMessages.map((msg, index) => {
+                const pos = groupPositions[index] || { isFirstInGroup: true, isLastInGroup: true, isLastOutgoingInGroup: false };
+                return (
+                  <MessageItem
+                    key={msg.messageId || msg.optimisticId || String(msg.timestamp)}
+                    msg={msg as ChatMessage}
+                    prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
+                    nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
+                    userData={userData}
+                    allUsers={allUsers}
+                    openPreviewModal={openPreviewModal}
+                    folderKey={folderKey}
+                    renderFilePreview={renderFilePreview}
+                    getFileNameFromUrl={getFileNameFromUrl}
+                    onDelete={(m: ChatMessage) => setDeleteTarget(m as Message)}
+                    onEditRequest={(m: ChatMessage) => setEditTarget(m as Message)}
+                    onReact={reactToMessage}
+                    isFirstInGroup={pos.isFirstInGroup}
+                    isLastInGroup={pos.isLastInGroup}
+                    isLastOutgoingInGroup={pos.isLastOutgoingInGroup}
+                  />
+                );
+              })
             )}
             <div ref={messagesEndRef} style={{ height: "1px", flexShrink: 0 }} />
           </div>
