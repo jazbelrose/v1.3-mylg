@@ -1107,6 +1107,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     isFirstInGroup={pos.isFirstInGroup}
                     isLastInGroup={pos.isLastInGroup}
                     isLastOutgoingInGroup={pos.isLastOutgoingInGroup}
+                    projectColor={activeProject?.color as string | undefined}
                   />
                 );
               })

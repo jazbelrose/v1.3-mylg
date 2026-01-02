@@ -38,18 +38,18 @@
 }
 
 .message-row {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 2px 4px;
+  padding: 2px 4px 6px;
   border-radius: 12px;
 }
 
 .message-row.message-row--grouped {
   margin-top: 0;
-  margin-bottom: 1px;
+  margin-bottom: 2px;
 }
 
 .message-row.message-row--first-in-group {
@@ -57,7 +57,7 @@
 }
 
 .message-row.message-row--last-in-group {
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .message-row--incoming {
@@ -70,10 +70,12 @@
 
 .message-row--incoming .message-underbar {
   justify-content: flex-start;
+  flex-direction: row;
 }
 
 .message-row--outgoing .message-underbar {
   justify-content: flex-end;
+  flex-direction: row-reverse;
 }
 
 .message-row:hover,
@@ -254,6 +256,23 @@
 
 .message-actions-item--danger {
   color: #ff6b6b;
+}
+
+/* Menu metadata footer */
+.message-actions-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 4px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.message-actions-edited {
+  font-style: italic;
+  opacity: 0.8;
 }
 
 .message-underbar {

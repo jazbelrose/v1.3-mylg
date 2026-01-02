@@ -186,6 +186,8 @@ interface MessageItemProps {
   isLastInGroup?: boolean;
   /** True if this outgoing message is the last one in the current outgoing group */
   isLastOutgoingInGroup?: boolean;
+  /** Project color for outgoing message bubbles */
+  projectColor?: string | null;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({
@@ -204,6 +206,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   isFirstInGroup = false,
   isLastInGroup = false,
   isLastOutgoingInGroup = false,
+  projectColor,
 }) => {
   const { isOnline } = useOnlineStatus() as { isOnline: (id?: string | null) => boolean };
   const isCurrentUser = msg.senderId === (userData?.userId ?? "");
@@ -459,8 +462,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const showAuthorRow = isFirstInGroup || !isGroupedWithPrev;
 
   const showIncomingAuthorRow = !isCurrentUser && showAuthorRow;
-  // Only show outgoing author row for first in group when sending/failed status
-  const showOutgoingAuthorRow = isCurrentUser && showAuthorRow && (isOptimistic || isFailed);
+  // Always show outgoing author row for first in group (mirroring sender behavior)
+  const showOutgoingAuthorRow = isCurrentUser && showAuthorRow;
 
   // date bubble logic
   let showDateBubble = !prevMsg;
@@ -633,23 +636,21 @@ const MessageItem: React.FC<MessageItemProps> = ({
               </>
             ) : (
               <>
-                {(isOptimistic || isFailed) && (
-                  <span className="message-author-avatar-wrap" aria-hidden="true">
-                    {senderThumbnail ? (
-                      <img
-                        src={senderThumbnailUrl}
-                        alt=""
-                        className="message-author-avatar"
-                      />
-                    ) : (
-                      <User className="message-author-avatar" />
-                    )}
-                  </span>
-                )}
                 <div className="message-author-name">You</div>
                 {outgoingHeaderStatus && (
                   <div className="message-author-status">{outgoingHeaderStatus}</div>
                 )}
+                <span className="message-author-avatar-wrap" aria-hidden="true">
+                  {senderThumbnail ? (
+                    <img
+                      src={senderThumbnailUrl}
+                      alt=""
+                      className="message-author-avatar"
+                    />
+                  ) : (
+                    <User className="message-author-avatar" />
+                  )}
+                </span>
               </>
             )}
           </div>
@@ -659,7 +660,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
           <div className="bubble-container">
             <div
               className="message-bubble"
-              style={{ background: isCurrentUser ? "#FA3356" : "#333" }}
+              style={{ background: isCurrentUser ? (projectColor || "#FA3356") : "#333" }}
               ref={bubbleRef}
               tabIndex={0}
             >
@@ -782,13 +783,6 @@ const MessageItem: React.FC<MessageItemProps> = ({
                         ) : null
                       )}
                   </div>
-
-                  {/* Delivery status: only on last outgoing message in group */}
-                  {isLastOutgoingInGroup && statusText && (
-                    <div className="message-underbar-status">
-                      <span className="message-status-indicator">{statusText}</span>
-                    </div>
-                  )}
                 </>
               )}
 
@@ -836,6 +830,11 @@ const MessageItem: React.FC<MessageItemProps> = ({
                       Delete
                     </button>
                   )}
+                  {/* Metadata footer in menu */}
+                  <div className="message-actions-meta">
+                    <span>{formattedDate} · {formattedTime}</span>
+                    {isEdited && <span className="message-actions-edited">Edited</span>}
+                  </div>
                 </div>
               )}
             </div>
