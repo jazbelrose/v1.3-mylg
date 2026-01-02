@@ -1106,10 +1106,13 @@ export async function generateSlideThumbnail(
   content?: string,
   backgroundImage?: string
 ): Promise<string | null> {
+  const timings: Record<string, number> = { start: Date.now() };
+  
   // Try server-side thumbnail generation first if content is provided
-  if (content && !backgroundImage) {
+  if (content) {
     try {
-      console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}`);
+      console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}${backgroundImage ? ' (with background image)' : ''}`);
+      timings.serverStart = Date.now();
       const response = await apiFetch<{ url: string }>(THUMBNAILS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1120,10 +1123,12 @@ export async function generateSlideThumbnail(
           width: 320,
           height: 180,
           backgroundColor,
+          backgroundImage,
         }),
       });
+      timings.serverDone = Date.now();
       if (response.url) {
-        console.log(`[Thumbnails] Server-side generation successful for slide ${slideId}`);
+        console.log(`[Thumbnails] Server-side generation successful for slide ${slideId} in ${timings.serverDone - timings.serverStart}ms`);
         return response.url;
       }
     } catch (error) {
@@ -1133,11 +1138,18 @@ export async function generateSlideThumbnail(
 
   // Fallback to client-side generation
   try {
+    const clientStart = Date.now();
+    console.log(`[Thumbnails] Starting client-side generation for slide ${slideId}`);
+    
     const { element: editorElement, container: slideContainer } = await locateSlideCaptureElement(slideId);
+    console.log(`[Thumbnails] Element located in ${Date.now() - clientStart}ms`);
+    
     if (!editorElement) {
       if (slideContainer) {
         console.warn(`Editor element not found for slide ${slideId}, falling back to slide container`);
-        return await generateAndUploadThumbnail(slideContainer, projectId, slideId, backgroundColor);
+        const result = await generateAndUploadThumbnail(slideContainer, projectId, slideId, backgroundColor);
+        console.log(`[Thumbnails] Client-side generation completed in ${Date.now() - clientStart}ms`);
+        return result;
       }
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
@@ -1147,7 +1159,9 @@ export async function generateSlideThumbnail(
       console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
     }
 
-    return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
+    const result = await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
+    console.log(`[Thumbnails] Client-side generation completed in ${Date.now() - clientStart}ms`);
+    return result;
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;
@@ -1164,10 +1178,13 @@ export async function generateSlideThumbnailWithSize(
   content?: string,
   backgroundImage?: string
 ): Promise<string | null> {
+  const timings: Record<string, number> = { start: Date.now() };
+  
   // Try server-side thumbnail generation first if content is provided
-  if (content && !backgroundImage) {
+  if (content) {
     try {
-      console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}`);
+      console.log(`[Thumbnails] Attempting server-side generation for slide ${slideId}${backgroundImage ? ' (with background image)' : ''}`);
+      timings.serverStart = Date.now();
       const response = await apiFetch<{ url: string }>(THUMBNAILS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1178,10 +1195,12 @@ export async function generateSlideThumbnailWithSize(
           width: 320,
           height: 180,
           backgroundColor,
+          backgroundImage,
         }),
       });
+      timings.serverDone = Date.now();
       if (response.url) {
-        console.log(`[Thumbnails] Server-side generation successful for slide ${slideId}`);
+        console.log(`[Thumbnails] Server-side generation successful for slide ${slideId} in ${timings.serverDone - timings.serverStart}ms`);
         return response.url;
       }
     } catch (error) {
@@ -1191,11 +1210,18 @@ export async function generateSlideThumbnailWithSize(
 
   // Fallback to client-side generation
   try {
+    const clientStart = Date.now();
+    console.log(`[Thumbnails] Starting client-side generation (with size) for slide ${slideId}`);
+    
     const { element: editorElement, container: slideContainer } = await locateSlideCaptureElement(slideId);
+    console.log(`[Thumbnails] Element located in ${Date.now() - clientStart}ms`);
+    
     if (!editorElement) {
       if (slideContainer) {
         console.warn(`Editor element not found for slide ${slideId}, falling back to slide container`);
-        return await generateAndUploadThumbnail(slideContainer, projectId, slideId, backgroundColor);
+        const result = await generateAndUploadThumbnail(slideContainer, projectId, slideId, backgroundColor);
+        console.log(`[Thumbnails] Client-side generation completed in ${Date.now() - clientStart}ms`);
+        return result;
       }
       console.warn(`Editor element not found for slide ${slideId}`);
       return null;
@@ -1205,7 +1231,9 @@ export async function generateSlideThumbnailWithSize(
       console.warn(`Inner editor element not found for slide ${slideId}, falling back to slide container`);
     }
 
-    return await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
+    const result = await generateAndUploadThumbnail(editorElement, projectId, slideId, backgroundColor);
+    console.log(`[Thumbnails] Client-side generation completed in ${Date.now() - clientStart}ms`);
+    return result;
   } catch (error) {
     console.error(`Failed to generate thumbnail for slide ${slideId}:`, error);
     return null;

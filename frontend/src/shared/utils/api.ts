@@ -497,6 +497,53 @@ export const {
 export const projectFileDeleteUrl = (projectId: string): string =>
   `${PROJECTS_URL}/${projectId}/files/delete`;
 
+/**
+ * POST /projects/{projectId}/slides/{slideId}/thumbnail
+ * Atomic update of a single slide's thumbnail without touching the full slides array.
+ */
+export const slideThumbnailPatchUrl = (projectId: string, slideId: string): string =>
+  `${PROJECTS_URL}/${projectId}/slides/${slideId}/thumbnail`;
+
+/**
+ * Patch a single slide's thumbnail atomically.
+ * Uses monotonic revision check to prevent race conditions.
+ */
+export interface PatchSlideThumbnailPayload {
+  thumbUrl: string;
+  thumbRevision: number;
+  versionId?: string;
+  generatedAt?: string;
+  width?: number;
+  height?: number;
+  etag?: string;
+}
+
+export interface PatchSlideThumbnailResponse {
+  updated: boolean;
+  reason?: string;
+  currentRevision?: number;
+  incomingRevision?: number;
+  slideId?: string;
+  versionId?: string;
+  projectId?: string;
+  thumbUrl?: string;
+  thumbRevision?: number;
+}
+
+export async function patchSlideThumbnail(
+  projectId: string,
+  slideId: string,
+  payload: PatchSlideThumbnailPayload
+): Promise<PatchSlideThumbnailResponse> {
+  const url = slideThumbnailPatchUrl(projectId, slideId);
+  const response = await apiFetch<PatchSlideThumbnailResponse>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return response;
+}
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Deck Versions API
 // ───────────────────────────────────────────────────────────────────────────────

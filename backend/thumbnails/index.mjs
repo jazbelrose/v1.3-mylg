@@ -622,7 +622,7 @@ function renderDocumentContent(lexicalJson) {
   return content || '<p></p>';
 }
 
-async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundOverride) {
+async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundOverride, backgroundImageUrl) {
   await hydrateThumbnailAssetUrls(lexicalJson);
 
   const elements = Array.isArray(lexicalJson?.elements) ? lexicalJson.elements : [];
@@ -636,6 +636,13 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
   const scaledHeight = BASE_CANVAS_HEIGHT * scale;
   const offsetX = Math.max(0, (targetWidth - scaledWidth) / 2);
   const offsetY = Math.max(0, (targetHeight - scaledHeight) / 2);
+  
+  // Resolve background image URL if provided
+  let resolvedBackgroundImageUrl = '';
+  if (backgroundImageUrl && typeof backgroundImageUrl === 'string') {
+    resolvedBackgroundImageUrl = await resolveAssetUrlForThumbnail(backgroundImageUrl);
+  }
+  
   const slideWrapperStyle = [
     'position:absolute',
     `top:${offsetY}px`,
@@ -806,11 +813,27 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
           padding-left: 16px;
           border-left: 4px solid currentColor;
         }
+        .slide-background-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          z-index: 0;
+        }
+        .slide-content {
+          position: relative;
+          z-index: 1;
+        }
       </style>
     </head>
     <body>
       <div class="thumbnail-stage">
         <div class="slide-wrapper" style="${slideWrapperStyle}">
+          ${resolvedBackgroundImageUrl ? `<div class="slide-background-image" style="background-image: url('${escapeHtml(resolvedBackgroundImageUrl)}');"></div>` : ''}
           <div class="slide-content">
             ${structuredHtml}
           </div>
@@ -821,6 +844,8 @@ async function renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backg
 }
 
 async function generateThumbnail(html, width, height) {
+  const timings = { start: Date.now() };
+  
   const viewport = {
     width,
     height,
@@ -836,6 +861,7 @@ async function generateThumbnail(html, width, height) {
 
   let browser;
   try {
+    timings.chromiumStart = Date.now();
     const executablePath = await chromium.executablePath();
     browser = await puppeteer.launch({
       args: [
@@ -849,6 +875,8 @@ async function generateThumbnail(html, width, height) {
       executablePath,
       headless: 'shell',
     });
+    timings.chromiumReady = Date.now();
+    console.log(`[TIMING] Chromium launch: ${timings.chromiumReady - timings.chromiumStart}ms`);
 
     const page = await browser.newPage();
     
@@ -864,10 +892,14 @@ async function generateThumbnail(html, width, height) {
       }
     });
     
+    timings.setContentStart = Date.now();
     await page.setViewport(viewport);
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    timings.setContentDone = Date.now();
+    console.log(`[TIMING] Set content (networkidle0): ${timings.setContentDone - timings.setContentStart}ms`);
     
     // Wait for fonts to load (prevents text reflow)
+    timings.fontsStart = Date.now();
     await page.evaluate(async (timeoutMs) => {
       if (!document.fonts) return;
       await Promise.race([
@@ -884,6 +916,8 @@ async function generateThumbnail(html, width, height) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn('FONT_WAIT_TIMEOUT', { timeoutMs: fontWaitTimeoutMs, message });
     }
+    timings.fontsDone = Date.now();
+    console.log(`[TIMING] Fonts ready: ${timings.fontsDone - timings.fontsStart}ms`);
     
     // Log font status for debugging
     await page.evaluate(() => {
@@ -893,11 +927,48 @@ async function generateThumbnail(html, width, height) {
       })));
     });
     
-    // Wait longer for images to load
-    await page.waitForTimeout(2000);
-    
-    // Wait for images to settle (loaded OR errored). Don't fail thumbnail generation if a remote image is slow/broken.
+    // Wait for all images to load using deterministic approach
+    timings.imagesStart = Date.now();
     try {
+      // First, wait for images using Promise-based approach in page context
+      await page.evaluate(async () => {
+        const images = Array.from(document.images);
+        if (images.length === 0) return;
+        
+        await Promise.all(images.map(img => {
+          if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+            // Fallback timeout per image
+            setTimeout(resolve, 5000);
+          });
+        }));
+      });
+      
+      // Also wait for background images by checking computed styles
+      await page.evaluate(async () => {
+        const elementsWithBg = Array.from(document.querySelectorAll('[style*="background-image"]'));
+        const bgPromises = elementsWithBg.map(el => {
+          const style = window.getComputedStyle(el);
+          const bgImage = style.backgroundImage;
+          if (!bgImage || bgImage === 'none') return Promise.resolve();
+          
+          const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
+          if (!urlMatch || !urlMatch[1]) return Promise.resolve();
+          
+          return new Promise(resolve => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = resolve;
+            setTimeout(resolve, 5000);
+            img.src = urlMatch[1];
+          });
+        });
+        await Promise.all(bgPromises);
+      });
+      
+      // Wait for images to settle (loaded OR errored)
       await page.waitForFunction(
         () => Array.from(document.images).every((img) => img.complete && (img.naturalWidth > 0 || img.src === '')),
         { timeout: imageWaitTimeoutMs }
@@ -906,9 +977,11 @@ async function generateThumbnail(html, width, height) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn('IMAGE_WAIT_TIMEOUT', { timeoutMs: imageWaitTimeoutMs, message });
     }
+    timings.imagesDone = Date.now();
+    console.log(`[TIMING] Images ready: ${timings.imagesDone - timings.imagesStart}ms`);
     
-    // Additional wait for any late-loading images
-    await page.waitForTimeout(500);
+    // Small safety buffer for any late rendering (reduced from 500ms)
+    await page.waitForTimeout(100);
     
     // Check if images loaded
     const imagesStatus = await page.evaluate(() => {
@@ -923,7 +996,13 @@ async function generateThumbnail(html, width, height) {
     });
     console.log('Images status:', JSON.stringify(imagesStatus, null, 2));
     
-    return await page.screenshot({ type: 'png' });
+    timings.screenshotStart = Date.now();
+    const screenshot = await page.screenshot({ type: 'png' });
+    timings.screenshotDone = Date.now();
+    console.log(`[TIMING] Screenshot: ${timings.screenshotDone - timings.screenshotStart}ms`);
+    console.log(`[TIMING] Total generateThumbnail: ${timings.screenshotDone - timings.start}ms`);
+    
+    return screenshot;
   } finally {
     if (browser) {
       await browser.close();
@@ -931,14 +1010,16 @@ async function generateThumbnail(html, width, height) {
   }
 }
 
-function buildThumbnailKey(projectId, slideId, width, height, lexicalJson) {
+function buildThumbnailKey(projectId, slideId, width, height, lexicalJson, backgroundImage) {
   const safeProject = safeSegment(projectId, 'anonymous');
   const safeSlide = safeSegment(slideId, 'slide');
-  const hash = hashInput({ lexicalJson, width, height, renderVersion: THUMBNAIL_RENDER_VERSION });
+  const hash = hashInput({ lexicalJson, width, height, backgroundImage, renderVersion: THUMBNAIL_RENDER_VERSION });
   return `public/thumbnails/${safeProject}/${safeSlide}-${hash}-${width}x${height}.png`;
 }
 
 export async function handler(event) {
+  const handlerStart = Date.now();
+  
   if ((event?.httpMethod || event?.requestContext?.httpMethod) === 'OPTIONS') {
     return preflightFromEvent(event);
   }
@@ -954,8 +1035,9 @@ export async function handler(event) {
     const projectId = body?.projectId;
     const slideId = body?.slideId;
     const backgroundColor = body?.backgroundColor;
+    const backgroundImage = body?.backgroundImage;
 
-    console.log('Parsed inputs:', { targetWidth, targetHeight, projectId, slideId, backgroundColor });
+    console.log('Parsed inputs:', { targetWidth, targetHeight, projectId, slideId, backgroundColor, backgroundImage: backgroundImage ? 'present' : 'none' });
     console.log('Lexical JSON:', JSON.stringify(lexicalJson, null, 2));
 
     if (!lexicalJson) {
@@ -965,14 +1047,17 @@ export async function handler(event) {
       throw new Error('BUCKET_NAME environment variable is not configured');
     }
 
-    const html = await renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundColor);
+    const htmlStart = Date.now();
+    const html = await renderLexicalToHtml(lexicalJson, targetWidth, targetHeight, backgroundColor, backgroundImage);
+    console.log(`[TIMING] HTML generation: ${Date.now() - htmlStart}ms`);
     console.log('Generated HTML length:', html.length);
     console.log('Generated HTML snippet:', html.substring(0, 500));
 
     const imageBuffer = await generateThumbnail(html, targetWidth, targetHeight);
     console.log('Screenshot buffer length:', imageBuffer.length);
 
-    const key = buildThumbnailKey(projectId, slideId, targetWidth, targetHeight, lexicalJson);
+    const s3Start = Date.now();
+    const key = buildThumbnailKey(projectId, slideId, targetWidth, targetHeight, lexicalJson, backgroundImage);
     console.log('S3 key:', key);
 
     await s3
@@ -984,6 +1069,7 @@ export async function handler(event) {
         CacheControl: 'public,max-age=31536000,immutable',
       })
       .promise();
+    console.log(`[TIMING] S3 upload: ${Date.now() - s3Start}ms`);
 
     console.log('S3 upload successful for key:', key);
 
@@ -993,6 +1079,7 @@ export async function handler(event) {
         : `https://${CDN_DOMAIN}`;
     const url = `${cdnBase.replace(/\/$/, '')}/${key}`;
 
+    console.log(`[TIMING] Total handler: ${Date.now() - handlerStart}ms`);
     return json(200, headers, { url });
   } catch (error) {
     console.error('Thumbnail generation failed:', error);

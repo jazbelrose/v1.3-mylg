@@ -2212,6 +2212,174 @@ const duplicateDeckVersion = async (e, C, { projectId, versionId }) => {
   });
 };
 
+// POST /projects/{projectId}/slides/{slideId}/thumbnail
+// Atomic update of a single slide's thumbnail fields without touching the full slides array
+const patchSlideThumbnail = async (e, C, { projectId, slideId }) => {
+  const body = B(e);
+  const now = nowISO();
+
+  const { thumbUrl, thumbRevision, generatedAt, width, height, etag, versionId } = body;
+
+  if (!thumbUrl || thumbRevision === undefined) {
+    return json(400, C, { error: "Missing required fields: thumbUrl and thumbRevision" });
+  }
+
+  const incomingRevision = Number(thumbRevision);
+  if (!Number.isFinite(incomingRevision) || incomingRevision < 0) {
+    return json(400, C, { error: "Invalid thumbRevision: must be a non-negative number" });
+  }
+
+  // Determine which table to update based on whether a versionId is provided
+  if (versionId) {
+    // Update slide in DeckVersions table
+    // First, get the current version to find the slide
+    const versionRes = await ddb.get({
+      TableName: DECK_VERSIONS_TABLE,
+      Key: { projectId, versionId },
+      ProjectionExpression: "slides",
+    });
+
+    if (!versionRes.Item) {
+      return json(404, C, { error: "Deck version not found" });
+    }
+
+    const slides = versionRes.Item.slides || [];
+    const slideIndex = slides.findIndex((s) => s.id === slideId);
+
+    if (slideIndex === -1) {
+      return json(404, C, { error: "Slide not found in version" });
+    }
+
+    const currentSlide = slides[slideIndex];
+    const currentRevision = Number(currentSlide.thumbRevision) || 0;
+
+    // Monotonicity check: only apply if incoming revision is greater
+    if (incomingRevision <= currentRevision) {
+      return json(200, C, {
+        updated: false,
+        reason: "stale_revision",
+        currentRevision,
+        incomingRevision,
+        slideId,
+      });
+    }
+
+    // Update the slide's thumbnail fields
+    const updatedSlide = {
+      ...currentSlide,
+      thumbnail: thumbUrl,
+      thumbRevision: incomingRevision,
+      ...(generatedAt && { thumbGeneratedAt: generatedAt }),
+      ...(width && { thumbWidth: width }),
+      ...(height && { thumbHeight: height }),
+      ...(etag && { thumbEtag: etag }),
+    };
+
+    slides[slideIndex] = updatedSlide;
+
+    // Use update with condition to prevent race conditions
+    try {
+      await ddb.update({
+        TableName: DECK_VERSIONS_TABLE,
+        Key: { projectId, versionId },
+        UpdateExpression: "SET #slides = :slides, #updatedAt = :now",
+        ExpressionAttributeNames: {
+          "#slides": "slides",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":slides": slides,
+          ":now": now,
+        },
+      });
+    } catch (updateError) {
+      console.error("Failed to update slide thumbnail in deck version:", updateError);
+      return json(500, C, { error: "Failed to update slide thumbnail" });
+    }
+
+    return json(200, C, {
+      updated: true,
+      slideId,
+      versionId,
+      thumbUrl,
+      thumbRevision: incomingRevision,
+    });
+  } else {
+    // Update slide in main Projects table
+    const projectRes = await ddb.get({
+      TableName: PROJECTS_TABLE,
+      Key: { projectId },
+      ProjectionExpression: "slides",
+    });
+
+    if (!projectRes.Item) {
+      return json(404, C, { error: "Project not found" });
+    }
+
+    const slides = projectRes.Item.slides || [];
+    const slideIndex = slides.findIndex((s) => s.id === slideId);
+
+    if (slideIndex === -1) {
+      return json(404, C, { error: "Slide not found in project" });
+    }
+
+    const currentSlide = slides[slideIndex];
+    const currentRevision = Number(currentSlide.thumbRevision) || 0;
+
+    // Monotonicity check: only apply if incoming revision is greater
+    if (incomingRevision <= currentRevision) {
+      return json(200, C, {
+        updated: false,
+        reason: "stale_revision",
+        currentRevision,
+        incomingRevision,
+        slideId,
+      });
+    }
+
+    // Update the slide's thumbnail fields
+    const updatedSlide = {
+      ...currentSlide,
+      thumbnail: thumbUrl,
+      thumbRevision: incomingRevision,
+      ...(generatedAt && { thumbGeneratedAt: generatedAt }),
+      ...(width && { thumbWidth: width }),
+      ...(height && { thumbHeight: height }),
+      ...(etag && { thumbEtag: etag }),
+    };
+
+    slides[slideIndex] = updatedSlide;
+
+    // Update the project
+    try {
+      await ddb.update({
+        TableName: PROJECTS_TABLE,
+        Key: { projectId },
+        UpdateExpression: "SET #slides = :slides, #updatedAt = :now",
+        ExpressionAttributeNames: {
+          "#slides": "slides",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":slides": slides,
+          ":now": now,
+        },
+      });
+    } catch (updateError) {
+      console.error("Failed to update slide thumbnail in project:", updateError);
+      return json(500, C, { error: "Failed to update slide thumbnail" });
+    }
+
+    return json(200, C, {
+      updated: true,
+      slideId,
+      projectId,
+      thumbUrl,
+      thumbRevision: incomingRevision,
+    });
+  }
+};
+
 /* ============== Routes ============== */
 const routes = [
   { m: "GET",    r: /^\/projects\/health$/i,                                                    h: health },
@@ -2262,6 +2430,9 @@ const routes = [
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/quick-links$/i,                          h: getQuickLinks },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/quick-links$/i,                          h: addQuickLink },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/thumbnails$/i,                           h: getThumbnails },
+
+  // Slide thumbnail patch (atomic, race-free thumbnail updates)
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/slides\/(?<slideId>[^/]+)\/thumbnail$/i, h: patchSlideThumbnail },
 
   // Galleries
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/galleries$/i,                          h: listProjectGalleries },
