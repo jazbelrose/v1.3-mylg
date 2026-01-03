@@ -133,9 +133,10 @@ const VariantPreview: React.FC<VariantPreviewProps> = ({
   const renderFrame = useCallback((frame: GeneratedFrame, frameIndex: number) => {
     const scale = 0.1; // Scale down by 10x for preview
     const isText = frame.contentType === "text";
-    const imageUrl = !isText && previewImages.length > 0 
-      ? previewImages[frameIndex % previewImages.length] 
-      : null;
+    const imageFrameIdx = !isText
+      ? variant.frames.slice(0, frameIndex + 1).filter((f) => f.contentType === "image").length - 1
+      : -1;
+    const imageUrl = !isText && previewImages.length > 0 ? previewImages[imageFrameIdx] ?? null : null;
     
     // Create unique clip path ID for this frame
     const clipId = `clip-${variant.id}-${frame.id}`;

@@ -342,11 +342,18 @@ function createGeneratedFrames(
 ): GeneratedFrame[] {
   const frameConfigs = input.frameConfigs ?? [];
   
-  // Find the largest frame as hero
-  let maxArea = 0;
+  // Determine hero frame: prefer user-locked hero frames, otherwise pick largest.
+  const lockedHeroIndices = frameConfigs
+    .map((cfg, i) => (cfg?.locks?.lockHero ? i : -1))
+    .filter((i) => i >= 0);
+
   let heroIndex = 0;
-  baseFrames.forEach((f, i) => {
-    const area = f.width * f.height;
+  let maxArea = 0;
+
+  const candidateIndices = lockedHeroIndices.length > 0 ? lockedHeroIndices : baseFrames.map((_, i) => i);
+  candidateIndices.forEach((i) => {
+    const f = baseFrames[i];
+    const area = (f?.width ?? 0) * (f?.height ?? 0);
     if (area > maxArea) {
       maxArea = area;
       heroIndex = i;
@@ -401,10 +408,20 @@ function generateVariant(
     DEFAULT_BASE_RADIUS
   );
 
+  const overrides = input.overrides;
+  const overrideGutter =
+    typeof overrides?.gutter === "number" && Number.isFinite(overrides.gutter)
+      ? Math.max(0, Math.round(overrides.gutter))
+      : null;
+  const overrideRadius =
+    typeof overrides?.radius === "number" && Number.isFinite(overrides.radius)
+      ? Math.max(0, Math.round(overrides.radius))
+      : null;
+
   // Use frozen values if locks are enabled, otherwise use taste-applied values
   const margin = frozen?.margin ?? tasteApplied.margin;
-  const gutter = frozen?.gutter ?? tasteApplied.gutter;
-  const radius = frozen?.radius ?? tasteApplied.radius;
+  const gutter = frozen?.gutter ?? overrideGutter ?? tasteApplied.gutter;
+  const radius = frozen?.radius ?? overrideRadius ?? tasteApplied.radius;
 
   const rng = createRng(variantSeed);
 
@@ -487,6 +504,8 @@ export function generateMagicLayouts(input: MagicLayoutInput): MagicLayoutOutput
     canvasWidth: input.canvasWidth ?? DEFAULT_CANVAS_WIDTH,
     canvasHeight: input.canvasHeight ?? DEFAULT_CANVAS_HEIGHT,
     globalLocks: input.globalLocks ?? { lockSpacing: false, lockRadius: false },
+    sessionKey: input.sessionKey,
+    overrides: input.overrides,
     frameConfigs: input.frameConfigs,
     lockedFrames: input.lockedFrames,
     variantCount: input.variantCount ?? DEFAULT_VARIANT_COUNT,
@@ -496,7 +515,7 @@ export function generateMagicLayouts(input: MagicLayoutInput): MagicLayoutOutput
   const candidateCount = variantCount * CANDIDATES_PER_VARIANT;
   
   // Get frozen tokens for locked values (prevents drift across regen)
-  const sessionKey = normalizedInput.seed;
+  const sessionKey = normalizedInput.sessionKey ?? normalizedInput.seed;
   const tasteMode = getTasteMode(normalizedInput.tasteMode);
   const tasteApplied = applyTasteTokens(
     tasteMode.tokens,
@@ -504,13 +523,24 @@ export function generateMagicLayouts(input: MagicLayoutInput): MagicLayoutOutput
     DEFAULT_BASE_GUTTER,
     DEFAULT_BASE_RADIUS
   );
+
+  const resolvedGutter =
+    typeof normalizedInput.overrides?.gutter === "number" && Number.isFinite(normalizedInput.overrides.gutter)
+      ? Math.max(0, Math.round(normalizedInput.overrides.gutter))
+      : tasteApplied.gutter;
+  const resolvedRadius =
+    typeof normalizedInput.overrides?.radius === "number" && Number.isFinite(normalizedInput.overrides.radius)
+      ? Math.max(0, Math.round(normalizedInput.overrides.radius))
+      : tasteApplied.radius;
+
+  const resolvedMargin = tasteApplied.margin;
   
   const frozen = getFrozenTokens(
     sessionKey,
     normalizedInput.globalLocks,
-    tasteApplied.gutter,
-    tasteApplied.radius,
-    tasteApplied.margin
+    resolvedGutter,
+    resolvedRadius,
+    resolvedMargin
   );
   
   // Generate all candidates
@@ -564,11 +594,13 @@ export function generateMagicLayoutVariant(
     canvasWidth: input.canvasWidth ?? DEFAULT_CANVAS_WIDTH,
     canvasHeight: input.canvasHeight ?? DEFAULT_CANVAS_HEIGHT,
     globalLocks: input.globalLocks ?? { lockSpacing: false, lockRadius: false },
+    sessionKey: input.sessionKey,
+    overrides: input.overrides,
     frameConfigs: input.frameConfigs,
     lockedFrames: input.lockedFrames,
   };
 
-  const sessionKey = sessionSeed ?? normalizedInput.seed;
+  const sessionKey = sessionSeed ?? normalizedInput.sessionKey ?? normalizedInput.seed;
   const tasteMode = getTasteMode(normalizedInput.tasteMode);
   const tasteApplied = applyTasteTokens(
     tasteMode.tokens,
@@ -580,8 +612,12 @@ export function generateMagicLayoutVariant(
   const frozen = getFrozenTokens(
     sessionKey,
     normalizedInput.globalLocks ?? { lockSpacing: false, lockRadius: false },
-    tasteApplied.gutter,
-    tasteApplied.radius,
+    typeof normalizedInput.overrides?.gutter === "number" && Number.isFinite(normalizedInput.overrides.gutter)
+      ? Math.max(0, Math.round(normalizedInput.overrides.gutter))
+      : tasteApplied.gutter,
+    typeof normalizedInput.overrides?.radius === "number" && Number.isFinite(normalizedInput.overrides.radius)
+      ? Math.max(0, Math.round(normalizedInput.overrides.radius))
+      : tasteApplied.radius,
     tasteApplied.margin
   );
 

@@ -255,6 +255,15 @@ export type MagicLayoutInput = {
   
   /** Global locks */
   globalLocks: GlobalLocks;
+
+  /** Stable session key used for frozen tokens across regenerations */
+  sessionKey?: string;
+
+  /** Optional global overrides (bypass taste-derived values) */
+  overrides?: {
+    gutter?: number;
+    radius?: number;
+  };
   
   /** Per-frame configurations (optional, for locking/content) */
   frameConfigs?: Array<{

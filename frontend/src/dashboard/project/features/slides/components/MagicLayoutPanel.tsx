@@ -13,6 +13,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   RefreshCw,
+  RotateCcw,
   X,
   Check,
   LayoutGrid,
@@ -96,6 +97,70 @@ const DEFAULT_FRAME_CONFIG: FrameUIConfig = {
   locks: { lockPosition: false, lockCrop: false, lockHero: false },
 };
 
+function PlanSlideSvgPreview({
+  variant,
+  images,
+  previewId,
+}: {
+  variant: LayoutVariant;
+  images: Array<string | null>;
+  previewId: string;
+}) {
+  const viewBox = `0 0 ${variant.canvas.width / 10} ${variant.canvas.height / 10}`;
+  const scale = 0.1;
+
+  let imageCursor = 0;
+
+  return (
+    <svg className="magic-layout-panel__plan-svg" viewBox={viewBox} preserveAspectRatio="xMidYMid meet">
+      {variant.frames.map((frame) => {
+        const isText = frame.contentType === "text";
+        const imageUrl = !isText ? images[imageCursor++] ?? null : null;
+        const clipId = `clip-${previewId}-${variant.id}-${frame.id}`;
+
+        return (
+          <g key={frame.id}>
+            {imageUrl && (
+              <defs>
+                <clipPath id={clipId}>
+                  <rect
+                    x={frame.x * scale}
+                    y={frame.y * scale}
+                    width={frame.width * scale}
+                    height={frame.height * scale}
+                    rx={Math.min(frame.radius * scale, 2)}
+                  />
+                </clipPath>
+              </defs>
+            )}
+            {imageUrl && (
+              <image
+                href={imageUrl}
+                x={frame.x * scale}
+                y={frame.y * scale}
+                width={frame.width * scale}
+                height={frame.height * scale}
+                preserveAspectRatio="xMidYMid slice"
+                clipPath={`url(#${clipId})`}
+              />
+            )}
+            <rect
+              x={frame.x * scale}
+              y={frame.y * scale}
+              width={frame.width * scale}
+              height={frame.height * scale}
+              rx={Math.min(frame.radius * scale, 2)}
+              fill={imageUrl ? "none" : isText ? "rgba(79, 140, 255, 0.3)" : "rgba(255, 255, 255, 0.10)"}
+              stroke={isText ? "rgba(79, 140, 255, 0.6)" : "rgba(255, 255, 255, 0.35)"}
+              strokeWidth={isText ? 0.8 : 0.5}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   open,
   onClose,
@@ -109,6 +174,14 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   const [mode, setMode] = useState<LayoutMode>("grid");
   const [tasteMode, setTasteMode] = useState<TasteModeId>("apple-clean");
   const [seed, setSeed] = useState(() => `${Date.now()}`);
+  const [sessionId, setSessionId] = useState(() => `${Date.now()}`);
+  const sessionKey = useMemo(() => `${sessionId}#${tasteMode}`, [sessionId, tasteMode]);
+
+  // Global spacing / radius controls
+  const [spacingMode, setSpacingMode] = useState<"auto" | "custom">("auto");
+  const [spacingValue, setSpacingValue] = useState(24);
+  const [radiusMode, setRadiusMode] = useState<"auto" | "custom">("auto");
+  const [radiusValue, setRadiusValue] = useState(16);
 
   // Global locks
   const [globalLocks, setGlobalLocks] = useState<GlobalLocks>({
@@ -124,6 +197,9 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   const [candidatePlans, setCandidatePlans] = useState<LayoutVariant[][] | null>(null);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [previewVariantIndex, setPreviewVariantIndex] = useState<number | null>(null);
+
+  // Optional per-plan / per-slide regeneration overrides (multi-slide plans only)
+  const [planSeedOverrides, setPlanSeedOverrides] = useState<Record<number, Record<number, string>>>({});
 
   // Image selection
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -168,9 +244,14 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
       mode,
       tasteMode,
       seed,
+      sessionKey,
       canvasWidth: 1920,
       canvasHeight: 1080,
       globalLocks,
+      overrides: {
+        gutter: spacingMode === "custom" ? spacingValue : undefined,
+        radius: radiusMode === "custom" ? radiusValue : undefined,
+      },
       frameConfigs: frameConfigs.map((cfg, i) => ({
         contentType: cfg.contentType,
         imageSrc: selectedImages[i] ?? cfg.imageSrc,
@@ -203,14 +284,21 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     } else {
       setCandidatePlans(null);
     }
-  }, [open, count, mode, tasteMode, seed, globalLocks, frameConfigs, selectedImages, slideCount]);
+  }, [open, count, mode, tasteMode, seed, globalLocks, frameConfigs, selectedImages, slideCount, sessionKey, spacingMode, spacingValue, radiusMode, radiusValue]);
 
   // Reset seed when opening
   useEffect(() => {
     if (open) {
       setSeed(`${Date.now()}`);
+      setSessionId(`${Date.now()}`);
+      setPlanSeedOverrides({});
     }
   }, [open]);
+
+  // Clear per-slide overrides when generation settings change
+  useEffect(() => {
+    setPlanSeedOverrides({});
+  }, [seed, tasteMode, mode, count]);
 
   const handleGenerate = useCallback(() => {
     setSeed(`${Date.now()}`);
@@ -223,6 +311,76 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     // For now, we just track which variant is being previewed
   }, []);
 
+  const shufflePlanSlide = useCallback((planIndex: number, slideIndex: number) => {
+    setPlanSeedOverrides((prev) => {
+      const plan = { ...(prev[planIndex] ?? {}) };
+      plan[slideIndex] = `${Date.now()}#${Math.random().toString(16).slice(2)}`;
+      return { ...prev, [planIndex]: plan };
+    });
+  }, []);
+
+  const resetPlanOverrides = useCallback((planIndex: number) => {
+    setPlanSeedOverrides((prev) => {
+      if (!prev[planIndex]) return prev;
+      const next = { ...prev };
+      delete next[planIndex];
+      return next;
+    });
+  }, []);
+
+  const shuffleAllPlanSlides = useCallback(
+    (planIndex: number) => {
+      setPlanSeedOverrides((prev) => {
+        const plan = { ...(prev[planIndex] ?? {}) };
+        for (let slideIndex = 1; slideIndex < slideCount; slideIndex++) {
+          plan[slideIndex] = `${Date.now()}#${slideIndex}#${Math.random().toString(16).slice(2)}`;
+        }
+        return { ...prev, [planIndex]: plan };
+      });
+    },
+    [slideCount]
+  );
+
+  const selectedPlanPreview = useMemo(() => {
+    if (!layoutOutput || !layoutOutput.variants[selectedVariantIndex]) return null;
+
+    const selectedVariant = layoutOutput.variants[selectedVariantIndex];
+    const sessionSeed = layoutOutput.input.seed || seed;
+
+    const basePlan = (() => {
+      if (slideCount <= 1) return [selectedVariant];
+      const existing = candidatePlans?.[selectedVariantIndex];
+      if (existing && existing.length === slideCount) return existing;
+      const plan: LayoutVariant[] = [selectedVariant];
+      for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
+        const variantSeed = `${sessionSeed}#plan${selectedVariantIndex}#slide${slideIdx}`;
+        plan.push(generateMagicLayoutVariant(layoutOutput.input, variantSeed, slideIdx, sessionSeed));
+      }
+      return plan;
+    })();
+
+    const overridesForPlan = planSeedOverrides[selectedVariantIndex] ?? {};
+    const planVariants = basePlan.map((variant, slideIdx) => {
+      if (slideIdx === 0) return variant;
+      const overrideSeed = overridesForPlan[slideIdx];
+      if (!overrideSeed) return variant;
+      return generateMagicLayoutVariant(layoutOutput.input, overrideSeed, slideIdx, sessionSeed);
+    });
+
+    const slideImages: Array<Array<string | null>> = [];
+    let cursor = 0;
+    for (const variant of planVariants) {
+      const imageFrameCount = variant.frames.filter((f) => f.contentType === "image").length;
+      const slideImageSet: Array<string | null> = [];
+      for (let frameIdx = 0; frameIdx < imageFrameCount; frameIdx++) {
+        slideImageSet.push(cursor < selectedImages.length ? selectedImages[cursor++] : null);
+      }
+      slideImages.push(slideImageSet);
+    }
+
+    return { variants: planVariants, slideImages };
+  }, [layoutOutput, selectedVariantIndex, slideCount, candidatePlans, seed, planSeedOverrides, selectedImages]);
+
   /**
    * Core apply logic - builds slide images and calls onApply
    */
@@ -234,16 +392,27 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     const selectedPlanVariants = (() => {
       if (slideCount <= 1) return [selectedVariant];
 
-      const existing = candidatePlans?.[selectedVariantIndex];
-      if (existing && existing.length === slideCount) return existing;
-
       const sessionSeed = layoutOutput.input.seed || seed;
-      const plan: LayoutVariant[] = [selectedVariant];
-      for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
-        const variantSeed = `${sessionSeed}#plan${selectedVariantIndex}#slide${slideIdx}`;
-        plan.push(generateMagicLayoutVariant(layoutOutput.input, variantSeed, slideIdx, sessionSeed));
-      }
-      return plan;
+      const existing = candidatePlans?.[selectedVariantIndex];
+      const basePlan =
+        existing && existing.length === slideCount
+          ? existing
+          : (() => {
+              const plan: LayoutVariant[] = [selectedVariant];
+              for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
+                const variantSeed = `${sessionSeed}#plan${selectedVariantIndex}#slide${slideIdx}`;
+                plan.push(generateMagicLayoutVariant(layoutOutput.input, variantSeed, slideIdx, sessionSeed));
+              }
+              return plan;
+            })();
+
+      const overridesForPlan = planSeedOverrides[selectedVariantIndex] ?? {};
+      return basePlan.map((variant, slideIdx) => {
+        if (slideIdx === 0) return variant;
+        const overrideSeed = overridesForPlan[slideIdx];
+        if (!overrideSeed) return variant;
+        return generateMagicLayoutVariant(layoutOutput.input, overrideSeed, slideIdx, sessionSeed);
+      });
     })();
 
     // Deal imported images across slides in order with no repeats.
@@ -285,7 +454,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
     setSelectedImages([]);
     onClose();
-  }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, slideCount, textStyle, onApply, onClose, candidatePlans, seed]);
+  }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, slideCount, textStyle, onApply, onClose, candidatePlans, seed, planSeedOverrides]);
 
   /**
    * Handle apply button click - shows confirmation if slide has existing content
@@ -348,6 +517,14 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
       setFrameConfigs((prev) => {
         const updated = [...prev];
         if (updated[frameIndex]) {
+          const turningOn = !updated[frameIndex].locks[lockType];
+          if (lockType === "lockHero" && turningOn) {
+            // Only allow one hero lock at a time
+            for (let i = 0; i < updated.length; i++) {
+              if (i === frameIndex || !updated[i]) continue;
+              updated[i] = { ...updated[i], locks: { ...updated[i].locks, lockHero: false } };
+            }
+          }
           updated[frameIndex] = {
             ...updated[frameIndex],
             locks: {
@@ -472,6 +649,16 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   const activeTaste = useMemo(() => getTasteMode(tasteMode), [tasteMode]);
   const tasteModeIds = useMemo(() => getTasteModeIds(), []);
 
+  const effectiveGutter = useMemo(() => {
+    if (spacingMode === "custom") return spacingValue;
+    return layoutOutput?.variants[0]?.gutter ?? spacingValue;
+  }, [layoutOutput, spacingMode, spacingValue]);
+
+  const effectiveRadius = useMemo(() => {
+    if (radiusMode === "custom") return radiusValue;
+    return layoutOutput?.variants[0]?.frames?.[0]?.radius ?? radiusValue;
+  }, [layoutOutput, radiusMode, radiusValue]);
+
   // Text frames in selected variant
   const textFrameIndices = useMemo(
     () =>
@@ -490,6 +677,15 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     if (selectedImages.length === 0 || imageFrameCount === 0) return 1;
     return Math.ceil(selectedImages.length / imageFrameCount);
   }, [selectedImages.length, imageFrameCount]);
+
+  const dealingStats = useMemo(() => {
+    const slotsPerSlide = Math.max(0, imageFrameCount);
+    const totalSlots = Math.max(1, slideCount) * slotsPerSlide;
+    const usedImages = Math.min(selectedImages.length, totalSlots);
+    const unusedImages = Math.max(0, selectedImages.length - usedImages);
+    const emptyFrames = Math.max(0, totalSlots - selectedImages.length);
+    return { slotsPerSlide, totalSlots, usedImages, unusedImages, emptyFrames };
+  }, [imageFrameCount, selectedImages.length, slideCount]);
 
   // Auto-set slide count based on images
   const handleAutoSlideCount = useCallback(() => {
@@ -573,33 +769,77 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
           <span className="magic-layout-panel__taste-desc">{activeTaste.description}</span>
         </div>
 
-        {/* Global Locks */}
+        {/* Global Layout */}
         {showAdvanced && (
           <div className="magic-layout-panel__global-locks">
-            <span className="magic-layout-panel__section-label">Global Locks</span>
-            <div className="magic-layout-panel__lock-buttons">
-              <button
-                type="button"
-                className={`magic-layout-panel__lock-btn ${
-                  globalLocks.lockSpacing ? "magic-layout-panel__lock-btn--active" : ""
-                }`}
-                onClick={() => toggleGlobalLock("lockSpacing")}
-                title="Lock spacing"
-              >
-                {globalLocks.lockSpacing ? <Lock size={12} /> : <Unlock size={12} />}
-                <span>Spacing</span>
-              </button>
-              <button
-                type="button"
-                className={`magic-layout-panel__lock-btn ${
-                  globalLocks.lockRadius ? "magic-layout-panel__lock-btn--active" : ""
-                }`}
-                onClick={() => toggleGlobalLock("lockRadius")}
-                title="Lock radius"
-              >
-                {globalLocks.lockRadius ? <Lock size={12} /> : <Unlock size={12} />}
-                <span>Radius</span>
-              </button>
+            <span className="magic-layout-panel__section-label">Global Layout</span>
+
+            <div className="magic-layout-panel__global-row">
+              <span className="magic-layout-panel__global-row-label">Spacing</span>
+              <div className="magic-layout-panel__global-row-controls">
+                <label className="magic-layout-panel__global-toggle">
+                  <input
+                    type="checkbox"
+                    checked={spacingMode === "auto"}
+                    onChange={(e) => setSpacingMode(e.target.checked ? "auto" : "custom")}
+                  />
+                  <span>Auto</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={effectiveGutter}
+                  disabled={spacingMode === "auto"}
+                  onChange={(e) => setSpacingValue(Math.max(0, Math.min(120, Number(e.target.value) || 0)))}
+                  className="magic-layout-panel__global-input"
+                />
+                <button
+                  type="button"
+                  className={`magic-layout-panel__lock-btn ${
+                    globalLocks.lockSpacing ? "magic-layout-panel__lock-btn--active" : ""
+                  }`}
+                  onClick={() => toggleGlobalLock("lockSpacing")}
+                  title="Lock spacing across regenerations"
+                >
+                  {globalLocks.lockSpacing ? <Lock size={12} /> : <Unlock size={12} />}
+                  <span>Lock</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="magic-layout-panel__global-row">
+              <span className="magic-layout-panel__global-row-label">Radius</span>
+              <div className="magic-layout-panel__global-row-controls">
+                <label className="magic-layout-panel__global-toggle">
+                  <input
+                    type="checkbox"
+                    checked={radiusMode === "auto"}
+                    onChange={(e) => setRadiusMode(e.target.checked ? "auto" : "custom")}
+                  />
+                  <span>Auto</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={80}
+                  value={effectiveRadius}
+                  disabled={radiusMode === "auto"}
+                  onChange={(e) => setRadiusValue(Math.max(0, Math.min(80, Number(e.target.value) || 0)))}
+                  className="magic-layout-panel__global-input"
+                />
+                <button
+                  type="button"
+                  className={`magic-layout-panel__lock-btn ${
+                    globalLocks.lockRadius ? "magic-layout-panel__lock-btn--active" : ""
+                  }`}
+                  onClick={() => toggleGlobalLock("lockRadius")}
+                  title="Lock radius across regenerations"
+                >
+                  {globalLocks.lockRadius ? <Lock size={12} /> : <Unlock size={12} />}
+                  <span>Lock</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -622,6 +862,60 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             }
             previewImages={selectedImages}
           />
+        )}
+
+        {/* Plan Preview (multi-slide) */}
+        {slideCount > 1 && selectedPlanPreview && (
+          <div className="magic-layout-panel__plan-preview">
+            <div className="magic-layout-panel__plan-header">
+              <span className="magic-layout-panel__section-label">Plan Preview</span>
+              <div className="magic-layout-panel__plan-actions">
+                <button
+                  type="button"
+                  className="magic-layout-panel__lock-btn"
+                  onClick={() => shuffleAllPlanSlides(selectedVariantIndex)}
+                  title="Regenerate layouts for slides 2+ in this plan"
+                >
+                  <RefreshCw size={12} />
+                  <span>Shuffle Slides</span>
+                </button>
+                <button
+                  type="button"
+                  className="magic-layout-panel__lock-btn"
+                  onClick={() => resetPlanOverrides(selectedVariantIndex)}
+                  title="Reset per-slide regenerations for this plan"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="magic-layout-panel__plan-strip">
+              {selectedPlanPreview.variants.map((variant, idx) => (
+                <div key={`${variant.id}-${idx}`} className="magic-layout-panel__plan-slide">
+                  <div className="magic-layout-panel__plan-slide-label">
+                    <span>Slide {idx + 1}</span>
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        className="magic-layout-panel__plan-slide-shuffle"
+                        onClick={() => shufflePlanSlide(selectedVariantIndex, idx)}
+                        title={`Regenerate slide ${idx + 1} layout`}
+                      >
+                        <RefreshCw size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <PlanSlideSvgPreview
+                    variant={variant}
+                    images={selectedPlanPreview.slideImages[idx] ?? []}
+                    previewId={`plan-${selectedVariantIndex}-slide-${idx}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Frame Configs (per-tile settings) */}
@@ -647,16 +941,38 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
                         <Type size={11} />
                       )}
                     </button>
-                    <button
-                      type="button"
-                      className={`magic-layout-panel__frame-lock ${
-                        cfg.locks.lockPosition ? "magic-layout-panel__frame-lock--active" : ""
-                      }`}
-                      onClick={() => toggleFrameLock(i, "lockPosition")}
-                      title="Lock position"
-                    >
-                      {cfg.locks.lockPosition ? <Lock size={10} /> : <Unlock size={10} />}
-                    </button>
+                    <div className="magic-layout-panel__frame-locks">
+                      <button
+                        type="button"
+                        className={`magic-layout-panel__frame-lock ${
+                          cfg.locks.lockPosition ? "magic-layout-panel__frame-lock--active" : ""
+                        }`}
+                        onClick={() => toggleFrameLock(i, "lockPosition")}
+                        title="Lock position"
+                      >
+                        {cfg.locks.lockPosition ? <Lock size={10} /> : <Unlock size={10} />}
+                      </button>
+                      <button
+                        type="button"
+                        className={`magic-layout-panel__frame-lock ${
+                          cfg.locks.lockHero ? "magic-layout-panel__frame-lock--active" : ""
+                        }`}
+                        onClick={() => toggleFrameLock(i, "lockHero")}
+                        title="Lock as hero"
+                      >
+                        {cfg.locks.lockHero ? <Lock size={10} /> : <Unlock size={10} />}
+                      </button>
+                      <button
+                        type="button"
+                        className={`magic-layout-panel__frame-lock ${
+                          cfg.locks.lockCrop ? "magic-layout-panel__frame-lock--active" : ""
+                        }`}
+                        onClick={() => toggleFrameLock(i, "lockCrop")}
+                        title="Lock crop (reserved)"
+                      >
+                        {cfg.locks.lockCrop ? <Lock size={10} /> : <Unlock size={10} />}
+                      </button>
+                    </div>
                   </div>
                   {cfg.contentType === "text" && (
                     <input
@@ -861,13 +1177,23 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             </button>
           )}
           <span className="magic-layout-panel__slides-hint">
-            {slideCount === 1
-              ? selectedImages.length > imageFrameCount
-                ? `${selectedImages.length - imageFrameCount} images won't be used`
-                : "Single slide"
-              : selectedImages.length > 0
-                ? `${slideCount} slides • ${selectedImages.length} images distributed`
-                : `${slideCount} slides`}
+            {slideCount === 1 ? (
+              selectedImages.length === 0 ? (
+                "Single slide"
+              ) : dealingStats.unusedImages > 0 ? (
+                `${dealingStats.usedImages} used • ${dealingStats.unusedImages} unused`
+              ) : dealingStats.emptyFrames > 0 ? (
+                `${dealingStats.usedImages} used • ${dealingStats.emptyFrames} empty frames`
+              ) : (
+                `${dealingStats.usedImages} used`
+              )
+            ) : selectedImages.length === 0 ? (
+              `${slideCount} slides • ${dealingStats.totalSlots} empty frames`
+            ) : (
+              `${slideCount} slides • ${dealingStats.usedImages} used` +
+              (dealingStats.unusedImages > 0 ? ` • ${dealingStats.unusedImages} unused` : "") +
+              (dealingStats.emptyFrames > 0 ? ` • ${dealingStats.emptyFrames} empty frames` : "")
+            )}
           </span>
         </div>
 
