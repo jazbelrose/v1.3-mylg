@@ -180,6 +180,8 @@ const handleSetActiveConversation = async (event, payload) => {
   const connectionId = event.requestContext.connectionId;
   const authorizerUserId = event.requestContext?.authorizer?.userId; // ✅ add this for presence
   const { conversationId, revision } = payload || {};
+  const hasDeckVersionId = payload && Object.prototype.hasOwnProperty.call(payload, "deckVersionId");
+  const deckVersionId = hasDeckVersionId ? String(payload.deckVersionId || "").trim() : "";
 
   if (!connectionId || !conversationId) {
     console.warn("⚠️ Missing connectionId or conversationId");
@@ -200,12 +202,23 @@ const handleSetActiveConversation = async (event, payload) => {
   const nowIso = new Date().toISOString();
 
   try {
-    // Idempotent update (no condition) — safe even if called multiple times
+    let updateExpression = "SET activeConversation = :c, activeRevision = :rev, updatedAt = :now";
+    const values = { ":c": conv, ":rev": revValue, ":now": nowIso };
+    if (hasDeckVersionId) {
+      if (deckVersionId) {
+        updateExpression += ", activeDeckVersionId = :dv";
+        values[":dv"] = deckVersionId;
+      } else {
+        updateExpression += " REMOVE activeDeckVersionId";
+      }
+    }
+
+    // Idempotent update (no condition) - safe even if called multiple times
     await dynamoDb.send(new UpdateCommand({
       TableName: process.env.CONNECTIONS_TABLE,
       Key: { connectionId },
-      UpdateExpression: "SET activeConversation = :c, activeRevision = :rev, updatedAt = :now",
-      ExpressionAttributeValues: { ":c": conv, ":rev": revValue, ":now": nowIso },
+      UpdateExpression: updateExpression,
+      ExpressionAttributeValues: values,
     }));
 
     console.log(`✅ Set activeConversation for ${connectionId} → ${conv}`);
@@ -221,6 +234,7 @@ const handleSetActiveConversation = async (event, payload) => {
             userId: authorizerUserId || null,       // ✅ include userId for presence
             activeConversation: conv,
             activeRevision: revValue,
+            ...(hasDeckVersionId && deckVersionId ? { activeDeckVersionId: deckVersionId } : {}),
             createdAt: nowIso,
             updatedAt: nowIso,
           },

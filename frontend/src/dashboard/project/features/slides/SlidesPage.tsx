@@ -486,6 +486,55 @@ const SlidesPage: React.FC = () => {
     }
   }, [projectId, activeProject, fetchProjectDetails]);
 
+  // Ensure the backend can scope slide-related realtime events (imports, thumbnails, etc.)
+  // to the currently viewed deck version.
+  useEffect(() => {
+    if (!ws || !projectId) return;
+
+    const payload = JSON.stringify({
+      action: "setActiveConversation",
+      conversationId: `project#${projectId}`,
+      deckVersionId: activeVersionId || null,
+    });
+
+    const onOpen = (): void => {
+      try {
+        ws.send(payload);
+      } catch {
+        /* no-op */
+      }
+    };
+
+    if (ws.readyState === WebSocket.OPEN) {
+      onOpen();
+    } else {
+      ws.addEventListener("open", onOpen);
+    }
+
+    return () => {
+      ws.removeEventListener("open", onOpen);
+    };
+  }, [ws, projectId, activeVersionId]);
+
+  // Best-effort cleanup: clear the active deck version when leaving the Slides view.
+  useEffect(() => {
+    if (!ws || !projectId) return;
+    return () => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.send(
+          JSON.stringify({
+            action: "setActiveConversation",
+            conversationId: `project#${projectId}`,
+            deckVersionId: null,
+          })
+        );
+      } catch {
+        /* no-op */
+      }
+    };
+  }, [ws, projectId]);
+
   // Handle slide imports via websocket broadcast (from create-gallery Lambda)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -548,6 +597,13 @@ const SlidesPage: React.FC = () => {
       }
 
       if (data.action === "slidesImportProgress" && projectId && data.projectId === projectId) {
+        // Version filtering: only show import progress for our active version.
+        const importVersionId = (data.versionId as string | undefined) ?? undefined;
+        const ourVersionId = activeVersionId ?? undefined;
+        if (importVersionId !== undefined && importVersionId !== ourVersionId) {
+          return;
+        }
+
         setPdfImportStatus("processing");
         const percent = Math.max(0, Math.min(99, Math.round(Number(data.percent ?? 0))));
         setPdfImportProgress(percent);
@@ -561,6 +617,13 @@ const SlidesPage: React.FC = () => {
       }
 
       if (data.action === "slidesImportFailed" && projectId && data.projectId === projectId) {
+        // Version filtering: only show failures for our active version.
+        const importVersionId = (data.versionId as string | undefined) ?? undefined;
+        const ourVersionId = activeVersionId ?? undefined;
+        if (importVersionId !== undefined && importVersionId !== ourVersionId) {
+          return;
+        }
+
         setPdfImportStatus("idle");
         setPdfImportProgress(0);
         setPdfImportDetail(null);
@@ -595,9 +658,13 @@ const SlidesPage: React.FC = () => {
         
         setSlides(slidesWithDisplayThumbnails);
 
-        // If a version is active, persist the imported slides to that version too
-        if (activeVersionId) {
+        // Backward compatibility: older Lambdas used to update base project slides only.
+        // When that happens, we persist the imported slides into the active version.
+        if (activeVersionId && importVersionId === undefined) {
           void updateVersion(activeVersionId, { slides: sortedSlides });
+        } else if (activeVersionId) {
+          // Keep the deck versions cache in sync (prevents version switch from reverting).
+          void fetchVersions();
         }
 
         if (data.importId) {
@@ -618,7 +685,7 @@ const SlidesPage: React.FC = () => {
 
     window.addEventListener("ws-message", onWsMessage as EventListener);
     return () => window.removeEventListener("ws-message", onWsMessage as EventListener);
-  }, [projectId, makeUiThumbnail, uiThumbsEnabled, userId, activeVersionId, sanitizeThumbnailForPersist, updateVersion]);
+  }, [projectId, makeUiThumbnail, uiThumbsEnabled, userId, activeVersionId, sanitizeThumbnailForPersist, updateVersion, fetchVersions]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1350,6 +1417,10 @@ const SlidesPage: React.FC = () => {
   const uploadPdfForSlidesImport = useCallback(
     async (file: File) => {
       if (!projectId) return;
+      if (!activeVersionId) {
+        notify("error", "Select a deck version before importing");
+        return;
+      }
 
       try {
         setPdfImportStatus("uploading");
@@ -1366,7 +1437,7 @@ const SlidesPage: React.FC = () => {
             galleryName: file.name,
             importToSlides: true,
             // Pass the active version ID so the import targets the correct version
-            versionId: activeVersionId || undefined,
+            versionId: activeVersionId,
           }),
         });
 

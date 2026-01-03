@@ -52,6 +52,7 @@ dynamodb = boto3.resource('dynamodb')
 galleries_table = dynamodb.Table(os.environ.get('GALLERIES_TABLE', 'Galleries'))
 connections_table = dynamodb.Table(os.environ.get('CONNECTIONS_TABLE', 'Connections'))
 projects_table = dynamodb.Table(os.environ.get('PROJECTS_TABLE', 'Projects'))
+deck_versions_table = dynamodb.Table(os.environ.get('DECK_VERSIONS_TABLE', 'DeckVersions'))
 
 
 EMPTY_LEXICAL_CONTENT = json.dumps({
@@ -353,13 +354,18 @@ def broadcast_to_conversation(conversation_id, payload):
         print('broadcast_to_conversation error', e)
 
 
-def list_conversation_connection_ids(conversation_id: str):
+def list_conversation_connection_ids(conversation_id: str, deck_version_id: str = None):
     try:
         data = connections_table.scan().get('Items', [])
         ids = []
+        target_version_id = (deck_version_id or '').strip()
         for c in data:
             active_conv = (c.get('activeConversation') or '').strip()
             if active_conv == (conversation_id or '').strip():
+                if target_version_id:
+                    active_deck_version_id = (c.get('activeDeckVersionId') or '').strip()
+                    if target_version_id != active_deck_version_id:
+                        continue
                 cid = c.get('connectionId')
                 if cid:
                     ids.append(cid)
@@ -576,22 +582,20 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
     if not project_id or not pdf_key:
         raise ValueError("project_id and pdf_key required")
 
-    project_res = projects_table.get_item(Key={'projectId': project_id})
-    project = project_res.get('Item') or {}
-    
-    # Determine which slides to merge with based on version context
+    project = None
+    existing_slides = []
+
+    # Determine which slides to merge with based on version context.
+    # Deck versions are stored in the DeckVersions table (PK projectId, SK versionId).
     if version_id:
-        # Import to specific version
-        versions = project.get('deckVersions', [])
-        version = next((v for v in versions if v.get('versionId') == version_id), None)
-        if version:
-            existing_slides = version.get('slides', []) if isinstance(version.get('slides'), list) else []
-        else:
-            # Version not found, fall back to base slides and clear version_id
-            print(f'[process_pdf_import_to_slides] version {version_id} not found, falling back to base slides')
-            existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
-            version_id = None
+        version_res = deck_versions_table.get_item(Key={'projectId': project_id, 'versionId': version_id})
+        version_item = version_res.get('Item') or None
+        if not version_item:
+            raise ValueError(f"Deck version not found: {version_id}")
+        existing_slides = version_item.get('slides', []) if isinstance(version_item.get('slides'), list) else []
     else:
+        project_res = projects_table.get_item(Key={'projectId': project_id})
+        project = project_res.get('Item') or {}
         existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
     max_order = -1
     for s in existing_slides:
@@ -603,8 +607,10 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
 
     import_id = str(uuid.uuid4())
     base_path = f"projects/{project_id}/slides/imports/{import_id}"
+    if version_id:
+        base_path = f"projects/{project_id}/deck-versions/{version_id}/slides/imports/{import_id}"
     conversation_id = f'project#{project_id}'
-    recipient_ids = list_conversation_connection_ids(conversation_id)
+    recipient_ids = list_conversation_connection_ids(conversation_id, deck_version_id=version_id)
     last_progress_sent_at = 0.0
 
     max_pdf_bytes = _env_int("SLIDES_IMPORT_MAX_PDF_BYTES", 350 * 1024 * 1024)
@@ -624,9 +630,9 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
             'projectId': project_id,
             'importId': import_id,
             'message': msg,
+            'versionId': version_id,
         }
         recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
-        broadcast_to_conversation(conversation_id, payload)
         return {'projectId': project_id, 'importId': import_id, 'skipped': True, 'reason': msg}
 
     # Let the UI know we're alive even before we have page count.
@@ -639,6 +645,7 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
             'currentPage': 0,
             'totalPages': 0,
             'percent': 0,
+            'versionId': version_id,
         }
         recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
 
@@ -672,10 +679,13 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
             'currentPage': int(current_page or 0),
             'totalPages': int(total_pages or 0),
             'percent': percent,
+            'versionId': version_id,
         }
         recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
 
     try:
+        # Refresh recipients in case the user navigated to the slides view after upload started.
+        recipient_ids = list_conversation_connection_ids(conversation_id, deck_version_id=version_id)
         page_urls, _page_count = render_pdf_pages_to_s3(
             pdf_tmp_path,
             base_path,
@@ -693,9 +703,9 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
                 'projectId': project_id,
                 'importId': import_id,
                 'message': str(e),
+                'versionId': version_id,
             }
             recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
-            broadcast_to_conversation(conversation_id, payload)
         except Exception as broadcast_error:
             print('[process_pdf_import_to_slides] failed to broadcast failure', broadcast_error)
         raise
@@ -739,21 +749,13 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
     ts = _now_iso()
     
     if version_id:
-        # Update slides within the specific version
-        versions = project.get('deckVersions', [])
-        updated_versions = []
-        for v in versions:
-            if v.get('versionId') == version_id:
-                updated_versions.append({**v, 'slides': convert_floats_to_decimals(merged_slides)})
-            else:
-                updated_versions.append(v)
-        
-        projects_table.update_item(
-            Key={'projectId': project_id},
-            UpdateExpression="SET #versions = :versions, #updatedAt = :ts",
-            ExpressionAttributeNames={'#versions': 'deckVersions', '#updatedAt': 'updatedAt'},
+        # Update slides within the specific deck version record.
+        deck_versions_table.update_item(
+            Key={'projectId': project_id, 'versionId': version_id},
+            UpdateExpression="SET #slides = :slides, #updatedAt = :ts",
+            ExpressionAttributeNames={'#slides': 'slides', '#updatedAt': 'updatedAt'},
             ExpressionAttributeValues={
-                ':versions': convert_floats_to_decimals(updated_versions),
+                ':slides': convert_floats_to_decimals(merged_slides),
                 ':ts': ts,
             },
         )
@@ -773,8 +775,9 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
 
     # Broadcast a purpose-built event for the slides UI, plus a generic projectUpdated for other views.
     # Include versionId so clients can filter by their active version context.
-    broadcast_to_conversation(
-        f'project#{project_id}',
+    recipient_ids = list_conversation_connection_ids(conversation_id, deck_version_id=version_id)
+    broadcast_to_connection_ids(
+        recipient_ids,
         {
             'action': 'slidesImported',
             'projectId': project_id,
@@ -782,16 +785,16 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, ver
             'pageCount': len(page_urls),
             'slides': merged_slides_jsonable,
             'versionId': version_id,
-        }
+        },
     )
-    broadcast_to_conversation(
-        f'project#{project_id}',
+    broadcast_to_connection_ids(
+        recipient_ids,
         {
             'action': 'projectUpdated',
             'projectId': project_id,
             'fields': {'slides': merged_slides_jsonable},
             'versionId': version_id,
-        }
+        },
     )
 
     return {

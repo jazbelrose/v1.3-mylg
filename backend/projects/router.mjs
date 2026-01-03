@@ -1559,6 +1559,33 @@ const createGalleryUpload = async (e, C) => {
     return json(400, C, { error: "importToSlides only supports PDF uploads" });
   }
 
+  // Slides import must target exactly one deck version. If the caller doesn't pass a versionId,
+  // try to use the project's activeDeckVersionId; otherwise error.
+  let effectiveVersionId = versionId;
+  if (importToSlides) {
+    if (!effectiveVersionId) {
+      const projectRes = await ddb.get({
+        TableName: PROJECTS_TABLE,
+        Key: { projectId },
+        ProjectionExpression: "activeDeckVersionId",
+      });
+      effectiveVersionId = projectRes.Item?.activeDeckVersionId || null;
+    }
+
+    if (!effectiveVersionId) {
+      return json(400, C, { error: "versionId is required for importToSlides" });
+    }
+
+    const versionRes = await ddb.get({
+      TableName: DECK_VERSIONS_TABLE,
+      Key: { projectId, versionId: effectiveVersionId },
+      ProjectionExpression: "projectId, versionId",
+    });
+    if (!versionRes.Item) {
+      return json(404, C, { error: "Deck version not found", versionId: effectiveVersionId });
+    }
+  }
+
   // Validate file type
   const allowedTypes = ['application/pdf', 'image/svg+xml', 'image/png', 'text/xml'];
   if (!allowedTypes.includes(contentType) && !contentType.startsWith('image/svg')) {
@@ -1592,7 +1619,7 @@ const createGalleryUpload = async (e, C) => {
   if (passwordEnabled !== undefined) metadata.passwordenabled = String(passwordEnabled);
   if (passwordTimeout) metadata.passwordtimeout = String(passwordTimeout);
   if (importToSlides) metadata.importtoslides = "true";
-  if (versionId) metadata.versionid = versionId;
+  if (importToSlides) metadata.versionid = String(effectiveVersionId);
 
   try {
     // Create presigned URL for upload
