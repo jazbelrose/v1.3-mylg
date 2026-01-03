@@ -4,7 +4,7 @@ import { Calendar as CalendarIcon, CheckSquare, ChevronDown, Clock, Pencil } fro
 import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
 
 import type { CalendarEvent, CalendarTask } from "../utils";
-import { compareDateStrings, formatTimeLabel, parseIsoDate, fmt } from "../utils";
+import { compareDateStrings, formatTimeLabel, parseIsoDate, fmtLocal } from "../utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useUser } from "@/app/contexts/useUser";
@@ -54,6 +54,7 @@ export type EventsAndTasksProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onOpenTasksOverview: () => void;
+  hideMapPill?: boolean;
   eventFilter?: EventFilter;
   taskFilter?: TaskFilter;
   onEventFilterChange?: (next: EventFilter) => void;
@@ -68,6 +69,7 @@ function EventsAndTasks({
   onEditEvent,
   onEditTask,
   onOpenTasksOverview,
+  hideMapPill = false,
   eventFilter: eventFilterProp,
   taskFilter: taskFilterProp,
   onEventFilterChange,
@@ -120,7 +122,7 @@ function EventsAndTasks({
       return sortedEvents;
     }
 
-    const today = fmt(new Date());
+    const today = fmtLocal(new Date());
     return sortedEvents.filter((event) => {
       if (resolvedEventFilter === "upcoming") {
         return event.date >= today;
@@ -192,15 +194,17 @@ function EventsAndTasks({
       <div className="events-tasks__header">
         <div className="events-tasks__header-row events-tasks__header-row--primary">
           <div className="events-tasks__title">Events & Tasks</div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="events-tasks__map-pill"
-            onClick={onOpenTasksOverview}
-          >
-            Open Map
-          </Button>
+          {hideMapPill ? null : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="events-tasks__map-pill"
+              onClick={onOpenTasksOverview}
+            >
+              Open Map
+            </Button>
+          )}
         </div>
         {hideFilterControls ? null : (
           <div className="events-tasks__header-row events-tasks__header-row--secondary">

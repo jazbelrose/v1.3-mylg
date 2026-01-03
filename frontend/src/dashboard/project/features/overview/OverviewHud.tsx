@@ -13,7 +13,7 @@ import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { HealthStrip } from './components/HealthStrip';
-import { EventsTasksPanel } from './components/EventsTasksPanel';
+import { OverviewEventsAndTasks } from './components/OverviewEventsAndTasks';
 import { ActivityPanel } from './components/ActivityPanel';
 import { ProjectPoster } from './components/ProjectPoster';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
@@ -270,7 +270,7 @@ export function OverviewHud({
       <div className={styles.bottomGrid}>
         {/* Left: Events & Tasks Panel */}
         <div className={styles.bottomPanel}>
-          <EventsTasksPanel
+          <OverviewEventsAndTasks
             projectId={projectId}
             projectTitle={projectTitle}
             events={events}

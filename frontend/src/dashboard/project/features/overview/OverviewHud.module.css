@@ -1160,8 +1160,30 @@
 .apBody {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.apFeedRegion {
+  flex: 0 0 auto;
+  height: clamp(160px, 34%, 240px);
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.apFeedScroll {
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.apFeedEmpty {
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
 }
 
 .apList {
@@ -1237,6 +1259,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Primary tile - messages */
@@ -2401,4 +2427,65 @@
 
 .heroMapHoverVisible {
   opacity: 1;
+}
+
+.heroMapActionButton {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.heroMapActionButton:hover {
+  background: rgba(0, 0, 0, 0.72);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.heroMapActionButton:active {
+  transform: translateY(1px);
+}
+
+/* ============================================================================
+   OVERVIEW EVENTS & TASKS (calendar-style component wrapper)
+   ============================================================================ */
+
+.overviewEventsCard {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.eventsConflictChip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: rgba(248, 113, 113, 0.95);
+  pointer-events: none;
 }

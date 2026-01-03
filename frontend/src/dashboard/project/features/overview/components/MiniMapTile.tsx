@@ -13,6 +13,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Map as MapIcon } from 'lucide-react';
 import styles from '../OverviewHud.module.css';
 
 // Simple pin marker SVG
@@ -110,6 +111,19 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
       <div className={`${styles.heroMapHover} ${isHovered ? styles.heroMapHoverVisible : ''}`}>
         <span>Open Map</span>
       </div>
+
+      <button
+        type="button"
+        className={styles.heroMapActionButton}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.();
+        }}
+        aria-label="Open tasks map"
+        title="Open tasks map"
+      >
+        <MapIcon size={14} aria-hidden />
+      </button>
     </div>
   );
 }

@@ -294,39 +294,13 @@ export function ActivityPanel({
       });
     });
 
-    recentFiles.forEach((f) => {
-      if (!f?.fileId || !f?.uploadedAt) return;
-      const fileName = (f.fileName || "").trim();
-      if (!fileName) return;
-      items.push({
-        activityId: `file-${f.fileId}`,
-        type: "file",
-        summary: `Uploaded ${fileName}`,
-        createdAt: f.uploadedAt,
-      });
-    });
-
-    recentLinks.forEach((l) => {
-      if (!l?.linkId || !l?.url) return;
-      const createdAt = l.sharedAt || new Date(0).toISOString();
-      const title = (l.title || "").trim();
-      const host = l.url.replace(/^https?:\/\//, "").split("/")[0] || l.url;
-      items.push({
-        activityId: `link-${l.linkId}`,
-        type: "link",
-        summary: title ? `Quick link: ${title}` : `Quick link: ${host}`,
-        createdAt,
-        metadata: { link: l.url },
-      });
-    });
-
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return {
       feedItems: items.slice(0, maxItems),
       feedCount: items.length,
     };
-  }, [activities, recentMessages, recentFiles, recentLinks, maxItems]);
+  }, [activities, recentMessages, maxItems]);
 
   const hasFeed = feedItems.length > 0;
   const hasMessages = recentMessages.length > 0;
@@ -341,6 +315,17 @@ export function ActivityPanel({
     }
   }, [onViewAll, navigate, projectId, projectTitle]);
 
+  const handleOpenFiles = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('project-open-files', { detail: { projectId } })
+      );
+      return;
+    }
+
+    navigate(getProjectDashboardPath(projectId, projectTitle, '/gallery'));
+  }, [navigate, projectId, projectTitle]);
+
   const handleActivityClick = useCallback((activity: ActivityEvent) => {
     // Navigate based on type
     const typeLC = activity.type?.toLowerCase() || '';
@@ -349,9 +334,22 @@ export function ActivityPanel({
     if (typeLC.includes('budget')) path = '/budget';
     else if (typeLC.includes('slide') || typeLC.includes('deck')) path = '/slides';
     else if (typeLC.includes('task')) path = '/tasks';
-    else if (typeLC.includes('gallery')) path = '/gallery';
-    else if (typeLC.includes('file')) path = '/gallery';
-    else if (typeLC.includes('message') || typeLC.includes('comment')) path = '/messages';
+    else if (
+      typeLC.includes('gallery') ||
+      typeLC.includes('image') ||
+      typeLC.includes('file') ||
+      typeLC.includes('upload')
+    ) {
+      handleOpenFiles();
+      return;
+    }
+    else if (typeLC.includes('message') || typeLC.includes('comment')) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('project-open-chat'));
+        return;
+      }
+      path = '/messages';
+    }
     else if (typeLC.includes('link')) {
       const url = activity.metadata?.link;
       if (url && typeof window !== 'undefined') {
@@ -363,9 +361,13 @@ export function ActivityPanel({
     if (path) {
       navigate(getProjectDashboardPath(projectId, projectTitle, path));
     }
-  }, [navigate, projectId, projectTitle]);
+  }, [navigate, projectId, projectTitle, handleOpenFiles]);
 
   const handleOpenMessages = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('project-open-chat'));
+      return;
+    }
     navigate(getProjectDashboardPath(projectId, projectTitle, '/messages'));
   }, [navigate, projectId, projectTitle]);
 
@@ -387,17 +389,23 @@ export function ActivityPanel({
 
       {/* Body */}
       <div className={styles.apBody}>
-        {hasFeed && (
-          <div className={styles.apList}>
-            {feedItems.map(activity => (
-              <ActivityItem
-                key={activity.activityId}
-                activity={activity}
-                onClick={() => handleActivityClick(activity)}
-              />
-            ))}
+        <div className={styles.apFeedRegion}>
+          <div className={styles.apFeedScroll}>
+            {hasFeed ? (
+              <div className={styles.apList}>
+                {feedItems.map((activity) => (
+                  <ActivityItem
+                    key={activity.activityId}
+                    activity={activity}
+                    onClick={() => handleActivityClick(activity)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className={styles.apFeedEmpty}>No recent activity</div>
+            )}
           </div>
-        )}
+        </div>
 
         <div className={styles.apUtility}>
             {/* Messages Section */}
@@ -441,7 +449,7 @@ export function ActivityPanel({
                 <button
                   type="button"
                   className={styles.apSectionLink}
-                  onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/gallery'))}
+                  onClick={handleOpenFiles}
                 >
                   Gallery
                 </button>
@@ -449,7 +457,14 @@ export function ActivityPanel({
               {hasFiles ? (
                 <div className={styles.apFilesGrid}>
                   {recentFiles.slice(0, 4).map(file => (
-                    <div key={file.fileId} className={styles.apFileThumb} title={file.fileName}>
+                    <div
+                      key={file.fileId}
+                      className={styles.apFileThumb}
+                      title={file.fileName}
+                      onClick={handleOpenFiles}
+                      role="button"
+                      tabIndex={0}
+                    >
                       {file.thumbnailUrl ? (
                         <img src={file.thumbnailUrl} alt={file.fileName} />
                       ) : (

@@ -45,6 +45,21 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
 }) => {
   const overviewData = useOverviewData(projectId);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOpenFiles = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
+      if (detail?.projectId && detail.projectId !== projectId) return;
+      setFilesOpen(true);
+    };
+
+    window.addEventListener("project-open-files", handleOpenFiles);
+    return () => {
+      window.removeEventListener("project-open-files", handleOpenFiles);
+    };
+  }, [projectId, setFilesOpen]);
+
   return (
     <div className="overview-layout overview-hud-layout">
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />

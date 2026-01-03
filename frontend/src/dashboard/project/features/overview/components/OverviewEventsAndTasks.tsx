@@ -8,6 +8,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import EventsAndTasks from '@/dashboard/project/features/calendar/components/EventsAndTasks';
+import '@/dashboard/project/features/calendar/calendar-preview.css';
 import type { CalendarEvent, CalendarTask } from '@/dashboard/project/features/calendar/utils';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import styles from '../OverviewHud.module.css';
@@ -47,10 +48,10 @@ interface OverviewEventsAndTasksProps {
   projectTitle?: string;
   events: RawEvent[];
   tasks: RawTask[];
-  maxItems?: number;
   onToggleTask?: (id: string) => void;
   onEditEvent?: (event: CalendarEvent) => void;
   onEditTask?: (task: CalendarTask) => void;
+  onOpenMap?: () => void;
 }
 
 // ============================================================================
@@ -62,17 +63,16 @@ export function OverviewEventsAndTasks({
   projectTitle,
   events,
   tasks,
-  maxItems = 6,
   onToggleTask,
   onEditEvent,
   onEditTask,
+  onOpenMap,
 }: OverviewEventsAndTasksProps) {
   const navigate = useNavigate();
   
   // Convert raw events to CalendarEvent format
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return events
-      .slice(0, maxItems)
       .map(e => ({
         id: e.id || e.eventId || '',
         date: e.date || '',
@@ -85,12 +85,11 @@ export function OverviewEventsAndTasks({
         guests: [],
         source: e as unknown as CalendarEvent['source'],
       }));
-  }, [events, maxItems]);
+  }, [events]);
   
   // Convert raw tasks to CalendarTask format
   const calendarTasks: CalendarTask[] = useMemo(() => {
     return tasks
-      .slice(0, maxItems)
       .map(t => ({
         id: t.id || t.taskId || '',
         title: t.title || 'Untitled task',
@@ -100,7 +99,7 @@ export function OverviewEventsAndTasks({
         assignedTo: typeof t.assignedTo === 'string' ? t.assignedTo : undefined,
         source: (t.source ?? t) as CalendarTask['source'],
       }));
-  }, [tasks, maxItems]);
+  }, [tasks]);
   
   const handleToggleTask = useCallback((id: string) => {
     onToggleTask?.(id);
@@ -125,8 +124,13 @@ export function OverviewEventsAndTasks({
   }, [navigate, projectId, projectTitle, onEditTask]);
   
   const handleOpenTasksOverview = useCallback(() => {
+    if (onOpenMap) {
+      onOpenMap();
+      return;
+    }
+
     navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks'));
-  }, [navigate, projectId, projectTitle]);
+  }, [navigate, onOpenMap, projectId, projectTitle]);
 
   // Calculate conflict count for header chip
   const conflictCount = useMemo(() => {
@@ -165,6 +169,7 @@ export function OverviewEventsAndTasks({
         onOpenTasksOverview={handleOpenTasksOverview}
         eventFilter="upcoming"
         taskFilter="open"
+        hideMapPill
         hideFilterControls={false}
       />
     </div>

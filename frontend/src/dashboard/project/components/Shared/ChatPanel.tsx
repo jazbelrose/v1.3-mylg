@@ -83,6 +83,32 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const hasDraggedRef = useRef<boolean>(false);
   const resizingRef = useRef<boolean>(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const flashTimeoutRef = useRef<number | null>(null);
+
+  const flashPanel = useCallback(() => {
+    const node = panelRef.current;
+    if (!node || typeof window === "undefined") return;
+
+    node.classList.remove("flash");
+    void node.offsetWidth;
+    node.classList.add("flash");
+
+    if (flashTimeoutRef.current) {
+      window.clearTimeout(flashTimeoutRef.current);
+    }
+
+    flashTimeoutRef.current = window.setTimeout(() => {
+      node.classList.remove("flash");
+    }, 950);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && flashTimeoutRef.current) {
+        window.clearTimeout(flashTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -101,12 +127,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       /* ignore write errors */
     }
   }, [size]);
-
-  useEffect(() => {
-    if (openSignal > 0) {
-      setOpen(true);
-    }
-  }, [openSignal]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -214,6 +234,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     },
     [size.height]
   );
+
+  useEffect(() => {
+    if (openSignal <= 0) return;
+    handleSetOpen(true);
+
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => flashPanel());
+    }
+  }, [openSignal, handleSetOpen, flashPanel]);
 
   const startDrag = (e: React.MouseEvent) => {
     if (!floating || isMobile) return;

@@ -188,39 +188,70 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
     const local = projectId ? projectMessages?.[projectId] : undefined;
     const source = Array.isArray(local) && local.length > 0 ? local : fetchedMessages;
 
+    const toIso = (value: unknown): string => {
+      if (!value) return "";
+      const parsed = new Date(String(value));
+      return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+    };
+
     const items = (source as Array<{
       messageId?: string;
       optimisticId?: string;
       text?: string;
       body?: string;
       content?: string;
+      title?: string;
       timestamp?: string;
+      createdAt?: string;
+      editedAt?: string;
+      updatedAt?: string;
+      dateCreated?: string;
       username?: string;
       userName?: string;
       senderName?: string;
+      createdByName?: string;
       senderId?: string;
       senderAvatar?: string;
       userAvatar?: string;
+      file?: { fileName?: string };
+      attachments?: Array<{ name?: string; fileName?: string }>;
     }>)
       .filter((m) => {
         const id = m.messageId || m.optimisticId;
-        if (!id) return false;
+        if (!id) return true;
         return !(deletedMessageIds && deletedMessageIds.has(id));
       })
-      .map((m) => {
-        const id = m.messageId || m.optimisticId || '';
-        const text = m.text || m.body || m.content || '';
-        const timestamp = m.timestamp || '';
+      .map((m, index) => {
+        const timestamp = toIso(
+          m.timestamp ||
+            m.createdAt ||
+            m.updatedAt ||
+            m.editedAt ||
+            m.dateCreated
+        );
+
+        const fileName =
+          m.file?.fileName ||
+          m.attachments?.[0]?.fileName ||
+          m.attachments?.[0]?.name ||
+          "";
+
+        const text = (m.text || m.body || m.content || m.title || "").trim() || (fileName ? `Sent ${fileName}` : "");
+
+        const explicitId = (m.messageId || m.optimisticId || "").trim();
+        const messageId = explicitId || (timestamp ? `msg-${timestamp}-${index}` : `msg-${index}`);
+
         return {
-          messageId: id,
+          messageId,
           text,
-          timestamp,
+          timestamp: timestamp || new Date(0).toISOString(),
           senderId: m.senderId,
-          senderName: m.senderName || m.userName || m.username,
+          senderName:
+            m.senderName || m.createdByName || m.userName || m.username,
           senderAvatar: m.senderAvatar || m.userAvatar,
         };
       })
-      .filter((m) => Boolean(m.timestamp && m.text))
+      .filter((m) => Boolean(m.text))
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return items.slice(0, 10);
