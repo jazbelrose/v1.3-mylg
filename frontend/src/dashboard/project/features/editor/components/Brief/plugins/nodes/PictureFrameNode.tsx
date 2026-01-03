@@ -1137,6 +1137,7 @@ function PictureFrameComponent({
               src={localPreviewSrc || imageSrc || undefined}
               alt="Picture Frame"
               draggable={false}
+              crossOrigin="anonymous"
               style={{
                 width: "100%",
                 height: "100%",

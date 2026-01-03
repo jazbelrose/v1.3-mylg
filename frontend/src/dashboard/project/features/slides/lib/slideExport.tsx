@@ -225,13 +225,29 @@ function syncImageSources(original: HTMLElement, clone: HTMLElement): void {
     const cloneImg = cloneImages[i];
 
     const bestSrc = origImg.currentSrc || origImg.src || origImg.getAttribute('src') || '';
+    
+    // Determine if this is a network image (needs CORS handling)
+    // Only force CORS for URLs that actually go over the network (http/https or protocol-relative)
+    const isNetworkSrc =
+      typeof bestSrc === 'string' &&
+      (/^https?:\/\//i.test(bestSrc) || bestSrc.startsWith('//'));
+    
+    // IMPORTANT: Set crossorigin BEFORE setting src to prevent canvas tainting.
+    // If original had crossorigin, copy it; otherwise default to "anonymous" for network images.
+    if (isNetworkSrc) {
+      const origCross = origImg.getAttribute('crossorigin');
+      const desired = origCross || 'anonymous';
+      
+      if (!cloneImg.hasAttribute('crossorigin')) {
+        cloneImg.setAttribute('crossorigin', desired);
+      }
+      // Also set the DOM property (helps in some browsers/libraries)
+      (cloneImg as HTMLImageElement).crossOrigin = desired;
+    }
+    
+    // Now sync the src (after crossorigin is set)
     if (bestSrc && (!cloneImg.src || cloneImg.src !== bestSrc)) {
       cloneImg.src = bestSrc;
-    }
-
-    const crossorigin = origImg.getAttribute('crossorigin');
-    if (crossorigin && !cloneImg.hasAttribute('crossorigin')) {
-      cloneImg.setAttribute('crossorigin', crossorigin);
     }
   }
 

@@ -949,6 +949,7 @@ function ResizableImageComponent({
           src={src}
           alt={altText}
           draggable={true}
+          crossOrigin="anonymous"
           onDragStart={(e) => {
             // Set custom data type so picture frames can accept this image
             e.dataTransfer.setData("application/x-mylg-canvas-image", JSON.stringify({ src }));
