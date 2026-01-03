@@ -269,6 +269,14 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
       return true;
     });
 
+    console.log('[useOverviewData] recentMessages computed:', {
+      localArr: localArr.length,
+      fetchedArr: fetchedArr.length,
+      combined: source.length,
+      afterTransform: items.length,
+      dedupedItems: dedupedItems.length,
+    });
+
     return dedupedItems.slice(0, 10);
   }, [projectId, projectMessages, fetchedMessages, deletedMessageIds]);
 
@@ -358,14 +366,28 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
 
     let cancelled = false;
 
+    console.log('[useOverviewData] Fetching messages for project:', projectId);
+
     apiFetch<unknown>(`${GET_PROJECT_MESSAGES_URL}?projectId=${encodeURIComponent(projectId)}`)
       .then((data) => {
         if (cancelled) return;
-        const anyData = data as { items?: unknown[]; Items?: unknown[] } | unknown[];
-        const items = Array.isArray(anyData) ? anyData : anyData.items || anyData.Items || [];
+        console.log('[useOverviewData] API response:', data);
+        // Handle various API response shapes (array, items, Items, messages)
+        const anyData = data as { items?: unknown[]; Items?: unknown[]; messages?: unknown[] } | unknown[];
+        const items = Array.isArray(anyData)
+          ? anyData
+          : Array.isArray(anyData.messages)
+            ? anyData.messages
+            : Array.isArray(anyData.items)
+              ? anyData.items
+              : Array.isArray(anyData.Items)
+                ? anyData.Items
+                : [];
+        console.log('[useOverviewData] Extracted messages:', items.length);
         setFetchedMessages(Array.isArray(items) ? items : []);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[useOverviewData] Failed to fetch messages:', err);
         if (!cancelled) setFetchedMessages([]);
       });
 
