@@ -345,16 +345,22 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   );
 
   // Keyboard shortcuts (zoom + z-order)
+  // Standard design app shortcuts:
+  // Ctrl/⌘ + 0       = Fit to view
+  // Ctrl/⌘ + 1       = 100% zoom
+  // Ctrl/⌘ + 2       = 200% zoom
+  // Ctrl/⌘ + +/=     = Zoom in
+  // Ctrl/⌘ + -       = Zoom out
+  // Ctrl/⌘ + ]       = Bring forward
+  // Ctrl/⌘ + [       = Send backward
+  // Ctrl/⌘ + Shift + ] = Bring to front
+  // Ctrl/⌘ + Shift + [ = Send to back
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
       if (isCtrlOrCmd) {
         // Z-order shortcuts (classic design-app style)
-        // Ctrl/⌘]        = bring forward
-        // Ctrl/⌘[        = send backward
-        // Ctrl/⌘Shift]   = bring to front
-        // Ctrl/⌘Shift[   = send to back
         if (!event.altKey) {
           const isBracketRight = event.key === "]" || event.code === "BracketRight";
           const isBracketLeft = event.key === "[" || event.code === "BracketLeft";
@@ -380,7 +386,43 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
           }
         }
 
-         switch (event.key) {
+        switch (event.key) {
+          // Zoom presets (Affinity/Adobe style)
+          case '0':
+            event.preventDefault();
+            onResetZoom?.(); // Fit to view
+            break;
+          case '1':
+            event.preventDefault();
+            onSetZoom?.(100); // 100%
+            break;
+          case '2':
+            event.preventDefault();
+            onSetZoom?.(200); // 200%
+            break;
+          case '3':
+            event.preventDefault();
+            onSetZoom?.(50); // 50%
+            break;
+          case '4':
+            event.preventDefault();
+            onSetZoom?.(25); // 25%
+            break;
+          case '5':
+            event.preventDefault();
+            onSetZoom?.(300); // 300%
+            break;
+          // Zoom in/out
+          case '=':
+          case '+':
+            event.preventDefault();
+            onZoomIn?.();
+            break;
+          case '-':
+            event.preventDefault();
+            onZoomOut?.();
+            break;
+          // Grouping
           case 'g':
           case 'G':
             if (toolbarActions?.onGroupSelection) {
@@ -397,6 +439,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               toolbarActions.onUngroupSelection();
             }
             break;
+          // Duplicate
           case 'd':
           case 'D':
             if (toolbarActions?.onDuplicateSelection) {
@@ -405,26 +448,13 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               toolbarActions.onDuplicateSelection();
             }
             break;
-          case '=':
-          case '+':
-            event.preventDefault();
-            onZoomIn?.();
-            break;
-          case '-':
-            event.preventDefault();
-            onZoomOut?.();
-            break;
-          case '0':
-            event.preventDefault();
-            onResetZoom?.();
-            break;
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown, true);
     return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [onZoomIn, onZoomOut, onResetZoom, toolbarActions]);
+  }, [onZoomIn, onZoomOut, onResetZoom, onSetZoom, toolbarActions]);
 
   const customToolbar = toolbarActions ? (
     <SlideToolbar
