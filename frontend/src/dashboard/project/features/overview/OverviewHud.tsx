@@ -87,6 +87,7 @@ interface OverviewHudProps {
   endDate?: string;
   coverImage?: string;
   address?: string;
+  location?: { lat: number; lng: number };
   budgetStats: BudgetStats | null;
   events: CalendarEvent[];
   tasks: TaskItem[];
@@ -110,6 +111,7 @@ export function OverviewHud({
   endDate,
   coverImage,
   address,
+  location,
   budgetStats,
   events,
   tasks,
@@ -180,6 +182,7 @@ export function OverviewHud({
         deckVersions={deckVersions}
         galleries={galleries}
         locationName={address}
+        locationCoords={location}
         onOpenMap={handleOpenMap}
         risksCount={risksCount}
         tasksDueCount={tasksDueCount}

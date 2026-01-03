@@ -18,10 +18,10 @@ import {
   Clock, 
   Calendar,
   Layers,
-  MapPin
 } from 'lucide-react';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import { formatRelativeTime } from '../utils';
+import { MiniMapTile } from './MiniMapTile';
 import styles from '../OverviewHud.module.css';
 
 // ============================================================================
@@ -309,19 +309,17 @@ export function ProjectPoster({
     return null;
   };
   
-  // Get location initials for fallback
-  const locationInitials = useMemo(() => {
-    if (!locationName) return null;
-    const words = locationName.trim().split(/[\s,]+/);
-    if (words.length === 0) return '?';
-    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
-    return (words[0][0] + (words[1]?.[0] || '')).toUpperCase();
-  }, [locationName]);
-
   const handleMapClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onOpenMap?.();
   };
+
+  // Check if we have valid coordinates for real map
+  const hasValidCoords = locationCoords && 
+    typeof locationCoords.lat === 'number' && 
+    typeof locationCoords.lng === 'number' &&
+    !isNaN(locationCoords.lat) && 
+    !isNaN(locationCoords.lng);
   
   return (
     <div className={styles.projectPoster} onClick={handleClick}>
@@ -331,16 +329,15 @@ export function ProjectPoster({
         {renderDeckBadge()}
       </div>
 
-      {/* Map Tile (top-right corner) */}
-      {(locationName || onOpenMap) && (
-        <button
-          type="button"
-          className={styles.posterMapTile}
-          onClick={handleMapClick}
-          title={locationName || 'Open map'}
-        >
-          <MapPin size={16} />
-        </button>
+      {/* Map Tile (top-right corner) - Real Leaflet map */}
+      {hasValidCoords && (
+        <div className={styles.posterMapTileWrapper} onClick={handleMapClick}>
+          <MiniMapTile
+            lat={locationCoords.lat}
+            lng={locationCoords.lng}
+            onClick={onOpenMap}
+          />
+        </div>
       )}
       
       {/* Overlay */}

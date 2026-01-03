@@ -68,6 +68,7 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
         endDate={overviewData.endDate}
         coverImage={overviewData.coverImage}
         address={address}
+        location={overviewData.location}
         budgetStats={overviewData.budgetStats}
         events={overviewData.events}
         tasks={overviewData.tasks}

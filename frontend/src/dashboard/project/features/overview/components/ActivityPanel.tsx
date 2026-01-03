@@ -58,11 +58,30 @@ interface ChatMessage {
   isPinned?: boolean;
 }
 
+interface RecentFile {
+  fileId: string;
+  fileName: string;
+  fileType?: string;
+  thumbnailUrl?: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+}
+
+interface RecentLink {
+  linkId: string;
+  url: string;
+  title?: string;
+  sharedAt: string;
+  sharedBy?: string;
+}
+
 interface ActivityPanelProps {
   projectId: string;
   projectTitle?: string;
   activities: ActivityEvent[];
   recentMessages?: ChatMessage[];
+  recentFiles?: RecentFile[];
+  recentLinks?: RecentLink[];
   maxItems?: number;
   onViewAll?: () => void;
   onPinMessage?: (messageId: string) => void;
@@ -241,6 +260,8 @@ export function ActivityPanel({
   projectTitle,
   activities,
   recentMessages = [],
+  recentFiles = [],
+  recentLinks = [],
   maxItems = 15,
   onViewAll,
   onPinMessage,
@@ -254,6 +275,8 @@ export function ActivityPanel({
 
   const hasActivity = displayedActivities.length > 0;
   const hasMessages = recentMessages.length > 0;
+  const hasFiles = recentFiles.length > 0;
+  const hasLinks = recentLinks.length > 0;
   const showUtilityState = !hasActivity;
 
   const handleViewAll = useCallback(() => {
@@ -303,17 +326,24 @@ export function ActivityPanel({
       {/* Body */}
       <div className={styles.apBody}>
         {showUtilityState ? (
-          // Utility State - Tile-based layout for empty state
+          // Utility State - Show messages, files, links when no activity
           <div className={styles.apUtility}>
-            {/* Chat Highlights Tile - Primary */}
-            <div className={styles.apUtilityTile}>
-              <div className={styles.apTileHeader}>
+            {/* Messages Section */}
+            <div className={styles.apUtilitySection}>
+              <div className={styles.apSectionHeader}>
                 <MessageCircle size={14} />
                 <span>Messages</span>
+                <button
+                  type="button"
+                  className={styles.apSectionLink}
+                  onClick={handleOpenMessages}
+                >
+                  Open Chat
+                </button>
               </div>
               {hasMessages ? (
-                <div className={styles.apTileContent}>
-                  {recentMessages.slice(0, 2).map(msg => (
+                <div className={styles.apSectionContent}>
+                  {recentMessages.slice(0, 3).map(msg => (
                     <div
                       key={msg.messageId}
                       className={styles.apMiniMessage}
@@ -322,69 +352,69 @@ export function ActivityPanel({
                       tabIndex={0}
                     >
                       <span className={styles.apMiniSender}>{msg.senderName?.split(' ')[0] || 'User'}:</span>
-                      <span className={styles.apMiniText}>{msg.text.slice(0, 50)}{msg.text.length > 50 ? '…' : ''}</span>
+                      <span className={styles.apMiniText}>{msg.text.slice(0, 60)}{msg.text.length > 60 ? '…' : ''}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className={styles.apTileEmpty}>
-                  <span>No messages yet</span>
-                </div>
+                <div className={styles.apSectionEmpty}>No messages yet</div>
               )}
-              <button
-                type="button"
-                className={styles.apTileAction}
-                onClick={handleOpenMessages}
-              >
-                Open Chat <ChevronRight size={12} />
-              </button>
             </div>
 
-            {/* Stats Row */}
-            <div className={styles.apUtilityStats}>
-              <div className={styles.apStatTile}>
-                <Pin size={12} />
-                <span className={styles.apStatValue}>0</span>
-                <span className={styles.apStatLabel}>Pinned</span>
+            {/* Recent Files Section */}
+            <div className={styles.apUtilitySection}>
+              <div className={styles.apSectionHeader}>
+                <FileUp size={14} />
+                <span>Recent Files</span>
+                <button
+                  type="button"
+                  className={styles.apSectionLink}
+                  onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/gallery'))}
+                >
+                  Gallery
+                </button>
               </div>
-              <div className={styles.apStatTile}>
-                <Link2 size={12} />
-                <span className={styles.apStatValue}>0</span>
-                <span className={styles.apStatLabel}>Links</span>
-              </div>
-              <div className={styles.apStatTile}>
-                <FileUp size={12} />
-                <span className={styles.apStatValue}>0</span>
-                <span className={styles.apStatLabel}>Uploads</span>
-              </div>
+              {hasFiles ? (
+                <div className={styles.apFilesGrid}>
+                  {recentFiles.slice(0, 4).map(file => (
+                    <div key={file.fileId} className={styles.apFileThumb} title={file.fileName}>
+                      {file.thumbnailUrl ? (
+                        <img src={file.thumbnailUrl} alt={file.fileName} />
+                      ) : (
+                        <FileUp size={16} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.apSectionEmpty}>No uploads yet</div>
+              )}
             </div>
 
-            {/* Quick Actions Grid */}
-            <div className={styles.apQuickGrid}>
-              <button
-                type="button"
-                className={styles.apGridAction}
-                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks?action=new'))}
-              >
-                <ListTodo size={16} />
-                <span>New Task</span>
-              </button>
-              <button
-                type="button"
-                className={styles.apGridAction}
-                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/calendar?action=new'))}
-              >
-                <Clock size={16} />
-                <span>Schedule</span>
-              </button>
-              <button
-                type="button"
-                className={styles.apGridAction}
-                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/gallery?action=upload'))}
-              >
-                <FileUp size={16} />
-                <span>Upload</span>
-              </button>
+            {/* Recent Links Section */}
+            <div className={styles.apUtilitySection}>
+              <div className={styles.apSectionHeader}>
+                <Link2 size={14} />
+                <span>Links</span>
+              </div>
+              {hasLinks ? (
+                <div className={styles.apSectionContent}>
+                  {recentLinks.slice(0, 3).map(link => (
+                    <a
+                      key={link.linkId}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.apLinkItem}
+                    >
+                      <Link2 size={12} />
+                      <span>{link.title || link.url.replace(/^https?:\/\//, '').slice(0, 35)}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.apSectionEmpty}>No links shared yet</div>
+              )}
             </div>
           </div>
         ) : (

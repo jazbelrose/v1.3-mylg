@@ -67,6 +67,7 @@ interface OverviewData {
   endDate: string | undefined;
   coverImage: string | undefined;
   address: string | undefined;
+  location: { lat: number; lng: number } | undefined;
   budgetStats: BudgetStats | null;
   events: CalendarEvent[];
   tasks: TaskItem[];
@@ -262,6 +263,7 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
     coverImage: (activeProject as unknown as { coverImage?: string; cover?: string })?.coverImage ||
                 (activeProject as unknown as { cover?: string })?.cover,
     address: activeProject?.address as string | undefined,
+    location: (activeProject as unknown as { location?: { lat: number; lng: number } })?.location,
     budgetStats,
     events,
     tasks,
