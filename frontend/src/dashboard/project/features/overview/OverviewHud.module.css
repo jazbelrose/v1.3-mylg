@@ -2458,7 +2458,7 @@
 }
 
 /* ============================================================================
-   OVERVIEW EVENTS & TASKS (calendar-style component wrapper)
+   OVERVIEW EVENTS & TASKS (CommandPanel wrapper)
    ============================================================================ */
 
 .overviewEventsCard {
@@ -2467,11 +2467,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 14px 16px;
-  background: var(--card-bg, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 14px;
   overflow: hidden;
+  /* Let CommandPanel handle its own padding and styling */
 }
 
 .eventsConflictChip {

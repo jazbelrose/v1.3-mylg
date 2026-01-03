@@ -1,0 +1,575 @@
+/* CommandPanel - Silicon Valley-style unified Events & Tasks */
+
+.commandPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--card-bg, rgba(12, 12, 12, 0.95));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  background: var(--bg-elevated, rgba(18, 18, 18, 0.98));
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  letter-spacing: -0.01em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background: transparent;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.searchToggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.calendarLink {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand, #fa3356);
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.calendarLink:hover {
+  background: rgba(250, 51, 86, 0.12);
+}
+
+/* Search */
+.searchWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--text-primary, #fff);
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.searchClear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.searchClear:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary, #fff);
+}
+
+/* ============================================================================
+   FILTER CHIPS
+   ============================================================================ */
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filterDivider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.filterChip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #fff);
+}
+
+.filterChipActive {
+  background: rgba(250, 51, 86, 0.15);
+  border-color: rgba(250, 51, 86, 0.4);
+  color: var(--brand, #fa3356);
+}
+
+.filterChipActive:hover {
+  background: rgba(250, 51, 86, 0.2);
+  color: var(--brand, #fa3356);
+}
+
+/* Counts */
+.counts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.45));
+}
+
+.countDot {
+  opacity: 0.5;
+}
+
+/* ============================================================================
+   CONTENT
+   ============================================================================ */
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0;
+  scrollbar-gutter: stable;
+}
+
+/* ============================================================================
+   DAY DIVIDER
+   ============================================================================ */
+
+.dayGroup {
+  margin-bottom: 8px;
+}
+
+.dayDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 6px;
+  position: sticky;
+  top: 0;
+  background: var(--card-bg, rgba(12, 12, 12, 0.98));
+  z-index: 5;
+}
+
+.dayDividerLabel {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted, rgba(255, 255, 255, 0.45));
+}
+
+.dayDividerLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dayItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+/* ============================================================================
+   TIMELINE ROW
+   ============================================================================ */
+
+.timelineRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.timelineRow:hover,
+.timelineRowHovered {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.timelineRowSelected {
+  background: rgba(250, 51, 86, 0.08);
+}
+
+.timelineRowDone {
+  opacity: 0.55;
+}
+
+.timelineRowDone .rowTitle {
+  text-decoration: line-through;
+}
+
+/* Severity strip */
+.severityStrip {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.severityOverdue {
+  background: var(--color-error, #ef5350);
+  opacity: 1;
+}
+
+.severityDuesoon {
+  background: var(--color-warning, #ff9800);
+  opacity: 1;
+}
+
+.severityNormal {
+  opacity: 0;
+}
+
+.severityDone {
+  background: var(--color-success, #4caf50);
+  opacity: 0.5;
+}
+
+/* Row left: time pill + icon */
+.rowLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
+.timePill {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+  white-space: nowrap;
+}
+
+.typeIcon {
+  flex-shrink: 0;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+/* Row center: title */
+.rowCenter {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rowTitle {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary, #fff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Row right: assignee + actions */
+.rowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.assigneeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted, rgba(255, 255, 255, 0.7));
+}
+
+/* Primary action button */
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(250, 51, 86, 0.15);
+  color: var(--brand, #fa3356);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.primaryAction:hover {
+  background: rgba(250, 51, 86, 0.25);
+}
+
+/* Overflow button */
+.overflowButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.overflowButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #fff);
+}
+
+/* ============================================================================
+   CONTEXT MENU
+   ============================================================================ */
+
+.contextMenu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--bg-elevated, rgba(24, 24, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+}
+
+.contextMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #fff);
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.contextMenuItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.contextMenuItem svg {
+  flex-shrink: 0;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.contextMenuItemDanger {
+  color: var(--color-error, #ef5350);
+}
+
+.contextMenuItemDanger svg {
+  color: var(--color-error, #ef5350);
+}
+
+.contextMenuDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.shortcut {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-muted, rgba(255, 255, 255, 0.35));
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+/* ============================================================================
+   EMPTY STATE
+   ============================================================================ */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted, rgba(255, 255, 255, 0.3));
+  margin-bottom: 12px;
+}
+
+.emptyText {
+  font-size: 0.85rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  margin-bottom: 16px;
+}
+
+.emptyActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.emptyAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-primary, #fff);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emptyAction:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  .filterRow {
+    flex-wrap: wrap;
+  }
+  
+  .rowLeft {
+    min-width: 80px;
+  }
+  
+  .timePill {
+    font-size: 0.62rem;
+  }
+  
+  .primaryAction span {
+    display: none;
+  }
+  
+  .assigneeBadge {
+    width: 20px;
+    height: 20px;
+    font-size: 0.55rem;
+  }
+}
