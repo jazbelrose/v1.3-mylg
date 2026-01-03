@@ -263,6 +263,8 @@ const SlidesPage: React.FC = () => {
   const slidesRef = useRef<Slide[]>([]);
   const pendingThumbPersistRef = useRef<Map<string, number>>(new Map());
   const thumbPersistTimerRef = useRef<number | null>(null);
+  // Track when slides were just imported to prevent sync effect from overwriting them
+  const justImportedRef = useRef<boolean>(false);
   const pendingInitialSlideIdRef = useRef<string | null>(
     typeof (location.state as { activeSlideId?: unknown } | null | undefined)?.activeSlideId === "string"
       ? ((location.state as { activeSlideId?: unknown }).activeSlideId as string)
@@ -577,7 +579,15 @@ const SlidesPage: React.FC = () => {
           thumbnail: (!uiThumbsEnabled && slide.thumbnail) ? makeUiThumbnail(slide.thumbnail) : slide.thumbnail,
         }));
 
+        // Mark that we just imported slides to prevent sync effect from overwriting them
+        justImportedRef.current = true;
+        
         setSlides(slidesWithDisplayThumbnails);
+
+        // If a version is active, persist the imported slides to that version too
+        if (activeVersionId) {
+          void updateVersion(activeVersionId, { slides: sortedSlides });
+        }
 
         if (data.importId) {
           const firstImported = slidesWithDisplayThumbnails.find(
@@ -597,7 +607,7 @@ const SlidesPage: React.FC = () => {
 
     window.addEventListener("ws-message", onWsMessage as EventListener);
     return () => window.removeEventListener("ws-message", onWsMessage as EventListener);
-  }, [projectId, makeUiThumbnail, uiThumbsEnabled, userId, activeVersionId, sanitizeThumbnailForPersist]);
+  }, [projectId, makeUiThumbnail, uiThumbsEnabled, userId, activeVersionId, sanitizeThumbnailForPersist, updateVersion]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -626,6 +636,13 @@ const SlidesPage: React.FC = () => {
 
   useEffect(() => {
     if (!projectId) return;
+
+    // Skip syncing if we just imported slides - the import handler already set the correct state
+    // and we need to wait for the version update to propagate
+    if (justImportedRef.current) {
+      justImportedRef.current = false;
+      return;
+    }
 
     // Use slides from active version if available, otherwise fall back to project slides
     const sourceSlides = activeVersion?.slides ?? activeProject?.slides;
