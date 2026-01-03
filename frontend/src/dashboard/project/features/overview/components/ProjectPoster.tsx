@@ -339,11 +339,7 @@ export function ProjectPoster({
           onClick={handleMapClick}
           title={locationName || 'Open map'}
         >
-          {locationInitials ? (
-            <span className={styles.posterMapInitials}>{locationInitials}</span>
-          ) : (
-            <MapPin size={16} />
-          )}
+          <MapPin size={16} />
         </button>
       )}
       

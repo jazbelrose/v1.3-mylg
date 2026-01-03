@@ -1795,6 +1795,8 @@
     rgba(0, 0, 0, 0.4) 40%,
     rgba(0, 0, 0, 0) 70%
   );
+  pointer-events: none; /* Let clicks pass through transparent areas */
+  z-index: 2;
 }
 
 .posterInfo {
@@ -1802,6 +1804,7 @@
   flex-direction: column;
   gap: 4px;
   margin-bottom: 8px;
+  pointer-events: auto; /* Re-enable for content */
 }
 
 .posterTitle {
@@ -1832,6 +1835,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  pointer-events: auto; /* Re-enable for chips */
 }
 
 .posterChip {
@@ -1874,7 +1878,7 @@
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
-  z-index: 5;
+  z-index: 10;
   color: rgba(255, 255, 255, 0.8);
 }
 
@@ -1892,13 +1896,14 @@
   color: inherit;
 }
 
-/* Progress Ring (top-right corner) - shifts if map tile present */
+/* Progress Ring (top-right corner, offset if map tile present) */
 .posterProgressRing {
   position: absolute;
   top: 10px;
-  right: 10px;
+  right: 62px; /* Offset to avoid map tile (44px + gap) */
   width: 36px;
   height: 36px;
+  z-index: 9;
 }
 
 .posterProgressRing svg {
