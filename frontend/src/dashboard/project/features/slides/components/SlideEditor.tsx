@@ -55,6 +55,12 @@ interface SlideEditorProps {
   onResetZoom?: () => void;
   onSetZoom?: (level: number) => void;
   onNewSlide?: () => void;
+  /** Callback to create multiple slides with Magic Layout */
+  onCreateSlidesWithLayout?: (
+    variant: LayoutVariant,
+    slideImages: string[][],
+    options: { mode: LayoutMode; seed: string; tasteMode: TasteModeId }
+  ) => Promise<void>;
   toolbarPortalContainer?: HTMLElement | null;
   // Deck version props
   versionDropdown?: React.ReactNode;
@@ -94,6 +100,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onResetZoom,
   onSetZoom,
   onNewSlide,
+  onCreateSlidesWithLayout,
   toolbarPortalContainer,
   versionDropdown,
 }) => {
@@ -157,18 +164,56 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   );
 
   const handleApplyMagicLayout = useCallback(
-    (
+    async (
       variant: LayoutVariant,
-      options: { mode: LayoutMode; seed: string; tasteMode: TasteModeId }
+      options: { 
+        mode: LayoutMode; 
+        seed: string; 
+        tasteMode: TasteModeId;
+        slideCount?: number;
+        slideImages?: string[][];
+        textStyle?: { fontStyle: string; dropCap: boolean; autoSize: boolean };
+      }
     ) => {
-      toolbarActions?.onApplyMagicLayout({
-        variant,
-        mode: options.mode,
-        seed: options.seed,
-        tasteMode: options.tasteMode,
-      });
+      const slideCount = options.slideCount ?? 1;
+      const slideImages = options.slideImages ?? [];
+
+      // Multi-slide: delegate to parent to create additional slides
+      if (slideCount > 1 && slideImages.length > 1 && onCreateSlidesWithLayout) {
+        // Apply first slide to current editor
+        toolbarActions?.onApplyMagicLayout({
+          variant,
+          mode: options.mode,
+          seed: options.seed,
+          tasteMode: options.tasteMode,
+          slideCount: 1,
+          slideImages: slideImages.length > 0 ? [slideImages[0]] : undefined,
+          textStyle: options.textStyle,
+        });
+
+        // Create remaining slides via parent callback
+        const remainingSlideImages = slideImages.slice(1);
+        if (remainingSlideImages.length > 0) {
+          await onCreateSlidesWithLayout(variant, remainingSlideImages, {
+            mode: options.mode,
+            seed: options.seed,
+            tasteMode: options.tasteMode,
+          });
+        }
+      } else {
+        // Single slide: apply to current editor
+        toolbarActions?.onApplyMagicLayout({
+          variant,
+          mode: options.mode,
+          seed: options.seed,
+          tasteMode: options.tasteMode,
+          slideCount: 1,
+          slideImages: slideImages.length > 0 ? [slideImages[0]] : undefined,
+          textStyle: options.textStyle,
+        });
+      }
     },
-    [toolbarActions]
+    [toolbarActions, onCreateSlidesWithLayout]
   );
 
   useEffect(() => {

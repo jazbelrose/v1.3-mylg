@@ -22,6 +22,9 @@ import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "./lib/lexicalContent";
+import { generateMagicLayoutContent } from "./lib/magicLayoutToLexical";
+import type { LayoutVariant, TasteModeId } from "./lib/magicLayoutTypes";
+import type { LayoutMode } from "./lib/pictureFrameLayoutGenerator";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl, patchSlideThumbnail } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
@@ -923,6 +926,58 @@ const SlidesPage: React.FC = () => {
     saveSlides(updatedSlides);
   }, [slides, saveSlides]);
 
+  /**
+   * Create multiple slides with Magic Layout content
+   * Called from SlideEditor when multi-slide magic layout is applied
+   */
+  const handleCreateSlidesWithLayout = useCallback(
+    async (
+      variant: LayoutVariant,
+      slideImages: string[][],
+      options: {
+        mode: LayoutMode;
+        seed: string;
+        tasteMode: TasteModeId;
+      }
+    ): Promise<void> => {
+      if (!slideImages || slideImages.length === 0) {
+        return;
+      }
+
+      const newSlides: Slide[] = slideImages.map((images, idx) => {
+        const slideOrder = slides.length + idx;
+        // Generate Lexical content with the magic layout and images
+        const content = generateMagicLayoutContent(
+          variant,
+          images,
+          options.tasteMode
+        );
+
+        return {
+          id: uuidv4(),
+          title: `Slide ${slideOrder + 1}`,
+          order: slideOrder,
+          backgroundColor: '#101112',
+          content,
+        };
+      });
+
+      const updatedSlides = [...slides, ...newSlides];
+      setSlides(updatedSlides);
+      // Select the first new slide
+      if (newSlides.length > 0) {
+        setActiveSlideId(newSlides[0].id);
+      }
+      setIsDirty(true);
+
+      // Save to backend
+      saveSlides(updatedSlides);
+
+      notify("success", `Created ${newSlides.length} new slide${newSlides.length > 1 ? 's' : ''} with layout`);
+    },
+    [slides, saveSlides]
+  );
+
   const handleSlideSelect = useCallback(
     (slideId: string) => {
       // Clear autosave timer to prevent race condition with thumbnail generation
@@ -1531,6 +1586,7 @@ const SlidesPage: React.FC = () => {
                   onResetZoom={handleResetZoom}
                   onSetZoom={handleSetZoom}
                   onNewSlide={handleNewSlide}
+                  onCreateSlidesWithLayout={handleCreateSlidesWithLayout}
                   toolbarPortalContainer={toolbarPortalNode}
                   versionDropdown={versionDropdown}
                 />

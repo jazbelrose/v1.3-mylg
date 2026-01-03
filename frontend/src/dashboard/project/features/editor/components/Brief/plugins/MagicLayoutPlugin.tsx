@@ -237,15 +237,19 @@ export default function MagicLayoutPlugin(): React.ReactElement | null {
     return editor.registerCommand(
       INSERT_MAGIC_LAYOUT_COMMAND,
       (payload: InsertMagicLayoutPayload) => {
-        const { variant, tasteMode } = payload;
+        const { variant, tasteMode, slideImages } = payload;
 
         if (!variant || !variant.frames || variant.frames.length === 0) {
           console.warn("MagicLayoutPlugin: No frames in variant");
           return true;
         }
 
+        // Get the image set for this slide (first one, since each slide gets its own command)
+        const currentSlideImages = slideImages?.[0] ?? [];
+
         editor.update(() => {
           const nodes: LexicalNode[] = [];
+          let imageFrameIndex = 0;
 
           variant.frames.forEach((frame) => {
             if (frame.contentType === "text") {
@@ -253,8 +257,13 @@ export default function MagicLayoutPlugin(): React.ReactElement | null {
               const textBox = createTextBoxFromFrame(frame, tasteMode);
               nodes.push(textBox);
             } else {
-              // Create PictureFrame for image frames
-              const pictureFrame = createPictureFrameFromFrame(frame, tasteMode);
+              // Get image from slideImages if available, otherwise use frame's imageSrc
+              const imageSrc = currentSlideImages[imageFrameIndex] ?? frame.imageSrc;
+              imageFrameIndex++;
+
+              // Create PictureFrame with the assigned image
+              const frameWithImage = { ...frame, imageSrc };
+              const pictureFrame = createPictureFrameFromFrame(frameWithImage, tasteMode);
               nodes.push(pictureFrame);
             }
           });

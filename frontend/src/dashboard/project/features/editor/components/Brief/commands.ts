@@ -42,6 +42,16 @@ export type InsertMagicLayoutPayload = {
   mode: "grid" | "masonry";
   seed: string;
   tasteMode: TasteModeId;
+  /** Number of slides to create (default: 1) */
+  slideCount?: number;
+  /** Images for each slide - outer array is slides, inner is frame images */
+  slideImages?: string[][];
+  /** Text styling options */
+  textStyle?: {
+    fontStyle: string;
+    dropCap: boolean;
+    autoSize: boolean;
+  };
 };
 
 export const INSERT_MAGIC_LAYOUT_COMMAND: LexicalCommand<InsertMagicLayoutPayload> = createCommand(
