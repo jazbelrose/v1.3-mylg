@@ -60,6 +60,8 @@ export interface MagicLayoutPanelProps {
       seed: string;
       tasteMode: TasteModeId;
       slideCount?: number;
+      /** Images for each slide - outer array is slides, inner is frame images */
+      slideImages?: string[][];
       textStyle?: {
         fontStyle: string;
         dropCap: boolean;
@@ -196,14 +198,67 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
     const selectedVariant = layoutOutput.variants[selectedVariantIndex];
     
-    // Merge selected images into variant frames
+    // Count how many image frames we have per slide
+    const imageFrameCount = selectedVariant.frames.filter(f => f.contentType === "image").length;
+    
+    // Distribute images across slides, prioritizing unused images
+    // Each slide gets a different set of images from the pool
+    const slideImages: string[][] = [];
+    const usedImages = new Set<string>();
+    
+    for (let slideIdx = 0; slideIdx < slideCount; slideIdx++) {
+      const slideImageSet: string[] = [];
+      
+      for (let frameIdx = 0; frameIdx < imageFrameCount; frameIdx++) {
+        // First, try to find an unused image
+        let imageToUse: string | null = null;
+        
+        for (const img of selectedImages) {
+          if (!usedImages.has(img)) {
+            imageToUse = img;
+            usedImages.add(img);
+            break;
+          }
+        }
+        
+        // If all images are used, cycle through again (for decks with more slides than images)
+        if (!imageToUse && selectedImages.length > 0) {
+          // Reset used set if we've gone through all images
+          if (usedImages.size >= selectedImages.length) {
+            usedImages.clear();
+          }
+          // Pick next available
+          for (const img of selectedImages) {
+            if (!usedImages.has(img)) {
+              imageToUse = img;
+              usedImages.add(img);
+              break;
+            }
+          }
+        }
+        
+        if (imageToUse) {
+          slideImageSet.push(imageToUse);
+        }
+      }
+      
+      slideImages.push(slideImageSet);
+    }
+    
+    // Merge first slide's images into variant frames for preview/single slide case
     const variantWithImages: LayoutVariant = {
       ...selectedVariant,
-      frames: selectedVariant.frames.map((frame, i) => ({
-        ...frame,
-        imageSrc:
-          frame.contentType === "image" ? selectedImages[i] ?? frame.imageSrc : null,
-      })),
+      frames: selectedVariant.frames.map((frame, i) => {
+        if (frame.contentType !== "image") return frame;
+        // Get index within image frames only
+        const imageFrameIdx = selectedVariant.frames
+          .slice(0, i + 1)
+          .filter(f => f.contentType === "image").length - 1;
+        return {
+          ...frame,
+          imageSrc: slideImages[0]?.[imageFrameIdx] ?? frame.imageSrc,
+        };
+      }),
     };
 
     onApply(variantWithImages, {
@@ -211,6 +266,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
       seed: selectedVariant.seed,
       tasteMode,
       slideCount,
+      slideImages: slideCount > 1 ? slideImages : undefined,
       textStyle,
     });
 
@@ -381,6 +437,21 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
         .filter((i) => i >= 0),
     [frameConfigs]
   );
+
+  // Calculate suggested slide count based on images and frame count
+  const imageFrameCount = useMemo(() => {
+    return frameConfigs.filter((cfg) => cfg.contentType === "image").length || count;
+  }, [frameConfigs, count]);
+
+  const suggestedSlideCount = useMemo(() => {
+    if (selectedImages.length === 0 || imageFrameCount === 0) return 1;
+    return Math.ceil(selectedImages.length / imageFrameCount);
+  }, [selectedImages.length, imageFrameCount]);
+
+  // Auto-set slide count based on images
+  const handleAutoSlideCount = useCallback(() => {
+    setSlideCount(suggestedSlideCount);
+  }, [suggestedSlideCount]);
 
   if (!open) return null;
 
@@ -725,13 +796,29 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
           <input
             type="number"
             min={1}
-            max={10}
+            max={20}
             value={slideCount}
-            onChange={(e) => setSlideCount(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+            onChange={(e) => setSlideCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
             className="magic-layout-panel__slides-input"
           />
+          {selectedImages.length > imageFrameCount && suggestedSlideCount > 1 && slideCount !== suggestedSlideCount && (
+            <button
+              type="button"
+              className="magic-layout-panel__btn magic-layout-panel__btn--auto"
+              onClick={handleAutoSlideCount}
+              title={`Auto-set to ${suggestedSlideCount} slides to use all ${selectedImages.length} images`}
+            >
+              Auto: {suggestedSlideCount}
+            </button>
+          )}
           <span className="magic-layout-panel__slides-hint">
-            {slideCount > 1 ? `Create ${slideCount} slides with this layout` : "Single slide"}
+            {slideCount === 1
+              ? selectedImages.length > imageFrameCount
+                ? `${selectedImages.length - imageFrameCount} images won't be used`
+                : "Single slide"
+              : selectedImages.length > 0
+                ? `${slideCount} slides • ${selectedImages.length} images distributed`
+                : `${slideCount} slides`}
           </span>
         </div>
 
