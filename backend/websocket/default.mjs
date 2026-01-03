@@ -174,6 +174,7 @@ export const handler = async (event) => {
     case "slideDeleted":
     case "slideDuplicated":
     case "slideReordered":
+    case "slideThumbnailUpdated":
     case "deckVersionCreated":
     case "deckVersionUpdated":
     case "deckVersionDeleted":

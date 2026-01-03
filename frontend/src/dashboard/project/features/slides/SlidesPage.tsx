@@ -290,14 +290,16 @@ const SlidesPage: React.FC = () => {
     slidesRef.current = slides;
   }, [slides]);
 
-  // Helper to add a cache-busting query param for immediate UI refresh
-  const makeUiThumbnail = useCallback((url: string) => {
+  // Helper to add a stable cache-busting query param for immediate UI refresh.
+  // Prefer `thumbRevision` when available so thumbnails don't "jitter" on re-sync.
+  const makeUiThumbnail = useCallback((url: string, thumbRevision?: number) => {
     if (!url) {
       return url;
     }
 
     const resolved = getFileUrl(url);
-    return `${resolved}${resolved.includes("?") ? "&" : "?"}t=${Date.now()}`;
+    const token = typeof thumbRevision === "number" && Number.isFinite(thumbRevision) ? thumbRevision : Date.now();
+    return `${resolved}${resolved.includes("?") ? "&" : "?"}t=${token}`;
   }, []);
 
   // Helper to strip cache-bust query params before persisting to backend
@@ -455,7 +457,7 @@ const SlidesPage: React.FC = () => {
       setSlides((prev) => {
         const next = prev.map((s) =>
           s.id === slideId
-            ? { ...s, thumbnail: makeUiThumbnail(readyUrl), thumbRevision }
+            ? { ...s, thumbnail: makeUiThumbnail(readyUrl, thumbRevision), thumbRevision }
             : s
         );
         slidesRef.current = next;
@@ -675,9 +677,9 @@ const SlidesPage: React.FC = () => {
 
               if (!shouldUpdateThumb) return local;
 
-              return {
+          return {
                 ...local,
-                thumbnail: makeUiThumbnail(incomingThumb),
+                thumbnail: makeUiThumbnail(incomingThumb, incomingRevision || undefined),
                 thumbRevision: incomingRevision || localRev,
               };
             })
@@ -713,7 +715,7 @@ const SlidesPage: React.FC = () => {
             if (shouldUpdateThumb) {
               return {
                 ...local,
-                thumbnail: makeUiThumbnail(remote.thumbnail),
+                thumbnail: makeUiThumbnail(remote.thumbnail, typeof remote.thumbRevision === "number" ? remote.thumbRevision : undefined),
                 thumbRevision: remote.thumbRevision,
               };
             }
@@ -787,7 +789,7 @@ const SlidesPage: React.FC = () => {
         const sortedSlides = [...data.slides].sort((a, b) => (a.order || 0) - (b.order || 0));
         const slidesWithDisplayThumbnails = sortedSlides.map((slide) => ({
           ...slide,
-          thumbnail: (!uiThumbsEnabled && slide.thumbnail) ? makeUiThumbnail(slide.thumbnail) : slide.thumbnail,
+          thumbnail: (!uiThumbsEnabled && slide.thumbnail) ? makeUiThumbnail(slide.thumbnail, typeof slide.thumbRevision === "number" ? slide.thumbRevision : undefined) : slide.thumbnail,
         }));
 
         // Mark that we just imported slides to prevent sync effect from overwriting them
@@ -873,22 +875,35 @@ const SlidesPage: React.FC = () => {
       );
 
       // Transform thumbnails to display URLs with cache-busting
-      const slidesWithDisplayThumbnails = sortedSlides.map(slide => ({
+      const slidesWithDisplayThumbnails = sortedSlides.map((slide) => ({
         ...slide,
-        thumbnail: (!uiThumbsEnabled && slide.thumbnail)
-          ? makeUiThumbnail(slide.thumbnail)
-          : slide.thumbnail,
+        thumbnail:
+          !uiThumbsEnabled && slide.thumbnail
+            ? makeUiThumbnail(slide.thumbnail, typeof slide.thumbRevision === "number" ? slide.thumbRevision : undefined)
+            : slide.thumbnail,
       }));
 
       setSlides((prevSlides) => {
-        const sameLength = prevSlides.length === slidesWithDisplayThumbnails.length;
+        const prevById = new Map(prevSlides.map((s) => [s.id, s]));
+        const merged = slidesWithDisplayThumbnails.map((remote) => {
+          const local = prevById.get(remote.id);
+          if (!local) return remote;
+          if (uiThumbsEnabled) return remote;
+
+          const localRev = typeof local.thumbRevision === "number" ? local.thumbRevision : 0;
+          const remoteRev = typeof remote.thumbRevision === "number" ? remote.thumbRevision : 0;
+
+          // Never revert a newer local thumbnail to an older remote one.
+          if (local.thumbnail && (remote.thumbnail == null || localRev > remoteRev)) {
+            return { ...remote, thumbnail: local.thumbnail, thumbRevision: localRev };
+          }
+          return remote;
+        });
+
+        const sameLength = prevSlides.length === merged.length;
         const sameContent =
-          sameLength &&
-          prevSlides.every(
-            (slide, index) =>
-              JSON.stringify(slide) === JSON.stringify(slidesWithDisplayThumbnails[index])
-          );
-        return sameContent ? prevSlides : slidesWithDisplayThumbnails;
+          sameLength && prevSlides.every((slide, index) => JSON.stringify(slide) === JSON.stringify(merged[index]));
+        return sameContent ? prevSlides : merged;
       });
 
       setActiveSlideId((current) => {
