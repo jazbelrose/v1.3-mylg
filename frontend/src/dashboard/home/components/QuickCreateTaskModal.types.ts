@@ -35,6 +35,13 @@ export type QuickCreateTaskModalTask = {
   startAt?: string | number | Date | null;
   endAt?: string | number | Date | null;
   status?: string | null;
+  kind?: string | null;
+  tags?: string[] | null;
+  cluster?: string | null;
+  durationMinutes?: number | null;
+  focusBlockId?: string | null;
+  focusChildTaskIds?: string[] | null;
+  focusChecklist?: Array<{ taskId: string; title: string }> | null;
   assigneeId?: string | null;
   assigneeIds?: string[] | null;
   assigneeTokens?: string[] | null;

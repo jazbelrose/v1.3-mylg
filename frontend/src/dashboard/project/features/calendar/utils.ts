@@ -28,6 +28,13 @@ export type CalendarTask = {
   done?: boolean;
   description?: string;
   status?: ApiTask["status"];
+  kind?: string;
+  tags?: string[];
+  cluster?: string;
+  durationMinutes?: number;
+  focusBlockId?: string;
+  focusChildTaskIds?: string[];
+  focusChecklist?: Array<{ taskId: string; title: string }>;
   assignedTo?: string;
   assigneeIds?: string[];
   createdById?: string;
@@ -555,6 +562,39 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
     }
   }
 
+  const kind = typeof (task as { kind?: unknown }).kind === "string" ? (task as { kind?: string }).kind : undefined;
+  const tags = Array.isArray((task as { tags?: unknown }).tags)
+    ? ((task as { tags?: unknown }).tags as unknown[])
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => value.trim())
+    : undefined;
+  const cluster = typeof (task as { cluster?: unknown }).cluster === "string" ? (task as { cluster?: string }).cluster : undefined;
+  const durationMinutes =
+    typeof (task as { durationMinutes?: unknown }).durationMinutes === "number" &&
+    Number.isFinite((task as { durationMinutes?: number }).durationMinutes)
+      ? (task as { durationMinutes?: number }).durationMinutes
+      : undefined;
+  const focusBlockId =
+    typeof (task as { focusBlockId?: unknown }).focusBlockId === "string"
+      ? (task as { focusBlockId?: string }).focusBlockId
+      : undefined;
+  const focusChildTaskIds = Array.isArray((task as { focusChildTaskIds?: unknown }).focusChildTaskIds)
+    ? ((task as { focusChildTaskIds?: unknown }).focusChildTaskIds as unknown[]).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      )
+    : undefined;
+  const focusChecklist = Array.isArray((task as { focusChecklist?: unknown }).focusChecklist)
+    ? ((task as { focusChecklist?: unknown }).focusChecklist as unknown[])
+        .map((value) => {
+          const rec = (value ?? {}) as Record<string, unknown>;
+          const taskId = typeof rec.taskId === "string" ? rec.taskId.trim() : "";
+          const title = typeof rec.title === "string" ? rec.title.trim() : "";
+          if (!taskId || !title) return null;
+          return { taskId, title };
+        })
+        .filter((value): value is { taskId: string; title: string } => value !== null)
+    : undefined;
+
   return {
     id:
       task.taskId ||
@@ -567,6 +607,13 @@ export const normalizeTask = (task: ApiTask): CalendarTask => {
     done: task.status === "done",
     description: task.description ?? undefined,
     status: task.status,
+    kind,
+    tags,
+    cluster,
+    durationMinutes,
+    focusBlockId,
+    focusChildTaskIds,
+    focusChecklist,
     assignedTo: normalizedAssignedTo,
     assigneeIds,
     createdById,

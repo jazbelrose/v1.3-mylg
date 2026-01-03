@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckSquare, ChevronLeft, ChevronRight, Menu, Search } from "lucide-react";
+import { CheckSquare, ChevronLeft, ChevronRight, Menu, Search, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   normalizeTask as normalizeQuickTask,
@@ -42,7 +42,10 @@ import CalendarTaskDrawer from "./CalendarTaskDrawer";
 import MiniCalendar, { type MiniCalendarActivityItem } from "./MiniCalendar";
 import MonthGrid from "./MonthGrid";
 import WeekGrid from "./WeekGrid";
-import { CalendarEvent, CalendarTask, fmt, safeDate, isSameDay, formatTimeLabel } from "../utils";
+import { CalendarEvent, CalendarTask, fmt, fmtLocal, safeDate, isSameDay, formatTimeLabel } from "../utils";
+import TaskSpellbookModal, { type TaskSpellbookApplyRequest } from "./TaskSpellbookModal";
+import { buildDoablePlans, formatMinutesHHMM } from "../lib/doablePlanner";
+import { parseTimeToMinutes } from "./timelineLayout";
 
 import "../calendar-preview.css";
 
@@ -117,6 +120,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   });
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSpellbookOpen, setIsSpellbookOpen] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(() => new Set());
@@ -573,6 +577,34 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [activeProjectId, activeProjectName, taskProjects],
   );
 
+  const handleOpenQuickIntentModal = useCallback(
+    (date: Date) => {
+      setInternalDate(date);
+      const fallbackProjectId = activeProjectId ?? taskProjects[0]?.id ?? null;
+      if (!fallbackProjectId) {
+        notify("error", "Add a project before creating tasks.");
+        return;
+      }
+
+      const fallbackProjectName =
+        activeProjectName ??
+        taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
+        null;
+
+      const draft: QuickCreateTaskModalTask = {
+        projectId: fallbackProjectId,
+        projectName: fallbackProjectName ?? null,
+        dueDate: date,
+        status: "todo",
+        kind: "intent",
+      };
+
+      setQuickTaskDraft(draft);
+      setIsQuickTaskModalOpen(true);
+    },
+    [activeProjectId, activeProjectName, taskProjects],
+  );
+
   const handleTaskDrawerClose = useCallback(() => {
     setIsQuickTaskModalOpen(false);
     setQuickTaskDraft(null);
@@ -591,6 +623,288 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleTaskDrawerRefresh = useCallback(() => {
     handleRefreshTasks();
   }, [handleRefreshTasks]);
+
+  const handleOpenSpellbook = useCallback(() => {
+    setIsSpellbookOpen(true);
+  }, []);
+
+  const handleCloseSpellbook = useCallback(() => {
+    setIsSpellbookOpen(false);
+  }, []);
+
+  const handleApplySpellbook = useCallback(
+    async (request: TaskSpellbookApplyRequest) => {
+      if (!activeProjectId) {
+        notify("error", "Select a project to create tasks.");
+        return;
+      }
+
+      const targetDate = request.targetDate;
+      const createdChildTasks: Array<{ itemIndex: number; task: Task }> = [];
+
+      const createChildOps = request.variant.items.map(async (item, itemIndex) => {
+        if (item.kind === "intent") {
+          const payload: Task = {
+            projectId: activeProjectId,
+            title: item.title,
+            status: "todo",
+            dueDate: targetDate,
+            dueAt: targetDate,
+            kind: "intent",
+            cluster: item.cluster,
+            tags: item.tags,
+            durationMinutes: item.durationMinutes,
+          };
+          await createTask(payload);
+          return;
+        }
+
+        const payload: Task = {
+          projectId: activeProjectId,
+          title: item.title,
+          status: "todo",
+          dueDate: targetDate,
+          dueAt: targetDate,
+          kind: "task",
+          cluster: item.cluster,
+          tags: item.tags,
+          durationMinutes: item.durationMinutes,
+        };
+
+        const created = await createTask(payload);
+        createdChildTasks.push({ itemIndex, task: created });
+      });
+
+      try {
+        await Promise.all(createChildOps);
+
+        const childByIndex = new Map(createdChildTasks.map((entry) => [entry.itemIndex, entry.task]));
+
+        if (request.variant.focusBlocks.length > 0 && request.plan) {
+          const focusBlockOps = request.plan.placements.map(async (placement) => {
+            const match = placement.draftId.match(/^block-(\d+)$/);
+            if (!match) return;
+            const blockIndex = Number(match[1]);
+            const block = request.variant.focusBlocks[blockIndex];
+            if (!block) return;
+
+            const startTime = formatMinutesHHMM(placement.startMinutes);
+            const endTime = formatMinutesHHMM(placement.endMinutes);
+            const startAt = buildIsoDateTime(targetDate, startTime);
+            const endAt = buildIsoDateTime(targetDate, endTime);
+
+            const childTasks = block.itemIndexes
+              .map((idx) => childByIndex.get(idx))
+              .filter((value): value is Task => Boolean(value));
+
+            const payload: Task = {
+              projectId: activeProjectId,
+              title: block.title,
+              status: "todo",
+              dueDate: endAt ?? targetDate,
+              dueAt: endAt ?? targetDate,
+              startAt,
+              endAt,
+              kind: "focus_block",
+              cluster: block.cluster,
+              durationMinutes: block.durationMinutes,
+              focusChildTaskIds: childTasks.map((task) => task.taskId!).filter(Boolean),
+              focusChecklist: childTasks.map((task) => ({ taskId: task.taskId!, title: task.title })),
+            };
+
+            const createdFocus = await createTask(payload);
+
+            const focusTaskId = createdFocus.taskId;
+            if (!focusTaskId) return;
+
+            const linkOps = childTasks.map((task) => {
+              if (!task.taskId) return Promise.resolve(null);
+              return updateTask({
+                projectId: activeProjectId,
+                taskId: task.taskId,
+                focusBlockId: focusTaskId,
+                startAt: null,
+                endAt: null,
+                dueDate: targetDate,
+                dueAt: targetDate,
+              });
+            });
+
+            await Promise.all(linkOps);
+          });
+
+          await Promise.all(focusBlockOps);
+        } else if (request.plan) {
+          const placementOps = request.plan.placements.map(async (placement) => {
+            const match = placement.draftId.match(/^item-(\d+)$/);
+            if (!match) return;
+            const itemIndex = Number(match[1]);
+            const created = childByIndex.get(itemIndex);
+            if (!created?.taskId) return;
+
+            const startTime = formatMinutesHHMM(placement.startMinutes);
+            const endTime = formatMinutesHHMM(placement.endMinutes);
+            const startAt = buildIsoDateTime(targetDate, startTime);
+            const endAt = buildIsoDateTime(targetDate, endTime);
+
+            await updateTask({
+              projectId: activeProjectId,
+              taskId: created.taskId,
+              startAt,
+              endAt,
+              dueDate: endAt ?? targetDate,
+              dueAt: endAt ?? targetDate,
+            });
+          });
+
+          await Promise.all(placementOps);
+        }
+
+        await onRefreshTasks();
+        notify("success", "Spellbook applied.");
+      } catch (error) {
+        console.error("Failed to apply spellbook", error);
+        notify("error", "Unable to apply spellbook. Please try again.");
+      }
+    },
+    [activeProjectId, onRefreshTasks],
+  );
+
+  const handleConvertToFocusBlock = useCallback(
+    async (selectedTasks: CalendarTask[]) => {
+      if (!activeProjectId) {
+        notify("error", "Select a project to create a focus block.");
+        return;
+      }
+
+      const eligible = selectedTasks
+        .filter((task) => {
+          const source = task.source as ApiTask;
+          return source.projectId === activeProjectId;
+        })
+        .filter((task) => task.kind !== "intent" && task.kind !== "focus_block" && !task.focusBlockId);
+
+      if (eligible.length < 2) {
+        notify("error", "Select at least 2 tasks to make a focus block.");
+        return;
+      }
+
+      const dateIso = eligible[0].due ?? fmtLocal(internalDate);
+
+      const clusterCounts = new Map<string, number>();
+      eligible.forEach((task) => {
+        const label = task.cluster?.trim() || "";
+        if (!label) return;
+        clusterCounts.set(label, (clusterCounts.get(label) ?? 0) + 1);
+      });
+      const bestCluster = [...clusterCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+      const title = bestCluster ? `${bestCluster}: focus block` : "Focus block";
+
+      const durationMinutes = Math.max(
+        30,
+        Math.min(
+          240,
+          eligible.reduce((sum, task) => {
+            if (typeof task.durationMinutes === "number" && Number.isFinite(task.durationMinutes)) {
+              return sum + task.durationMinutes;
+            }
+            const startMinutes = task.start ? parseTimeToMinutes(task.start) : null;
+            const endMinutes = task.end ? parseTimeToMinutes(task.end) : null;
+            if (startMinutes != null && endMinutes != null && endMinutes > startMinutes) {
+              return sum + (endMinutes - startMinutes);
+            }
+            return sum + POINTER_TASK_DEFAULT_DURATION_MINUTES;
+          }, 0),
+        ),
+      );
+
+      const selectedIds = new Set(eligible.map((task) => task.id));
+      const busy = [
+        ...events
+          .filter((event) => event.date === dateIso && Boolean(event.start) && Boolean(event.end) && !event.allDay)
+          .map((event) => {
+            const start = event.start ? parseTimeToMinutes(event.start) : null;
+            const end = event.end ? parseTimeToMinutes(event.end) : null;
+            if (start == null || end == null || end <= start) return null;
+            return { startMinutes: start, endMinutes: end };
+          })
+          .filter((block): block is { startMinutes: number; endMinutes: number } => block !== null),
+        ...tasks
+          .filter((task) => task.due === dateIso && Boolean(task.start) && Boolean(task.end))
+          .filter((task) => !selectedIds.has(task.id))
+          .map((task) => {
+            const start = task.start ? parseTimeToMinutes(task.start) : null;
+            const end = task.end ? parseTimeToMinutes(task.end) : null;
+            if (start == null || end == null || end <= start) return null;
+            return { startMinutes: start, endMinutes: end };
+          })
+          .filter((block): block is { startMinutes: number; endMinutes: number } => block !== null),
+      ];
+
+      const plan = buildDoablePlans({
+        drafts: [{ id: "focus", title, durationMinutes }],
+        busy,
+      })[0];
+      const placement = plan?.placements?.[0] ?? null;
+
+      const startMinutes = placement?.startMinutes ?? 9 * 60;
+      const endMinutes = placement?.endMinutes ?? Math.min(17 * 60, startMinutes + durationMinutes);
+      const startAt = buildIsoDateTime(dateIso, formatMinutesHHMM(startMinutes));
+      const endAt = buildIsoDateTime(dateIso, formatMinutesHHMM(endMinutes));
+
+      const childTaskIds = eligible
+        .map((task) => resolveTaskIdentifier(task))
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+      try {
+        const focusTask = await createTask({
+          projectId: activeProjectId,
+          title,
+          status: "todo",
+          kind: "focus_block",
+          cluster: bestCluster || undefined,
+          durationMinutes,
+          startAt,
+          endAt,
+          dueDate: endAt ?? dateIso,
+          dueAt: endAt ?? dateIso,
+          focusChildTaskIds: childTaskIds,
+          focusChecklist: eligible.map((task) => ({
+            taskId: resolveTaskIdentifier(task) ?? task.id,
+            title: task.title,
+          })),
+        });
+
+        if (!focusTask.taskId) {
+          notify("error", "Unable to create focus block.");
+          return;
+        }
+
+        await Promise.all(
+          eligible.map((task) => {
+            const taskId = resolveTaskIdentifier(task);
+            if (!taskId) return Promise.resolve(null);
+            return updateTask({
+              projectId: activeProjectId,
+              taskId,
+              focusBlockId: focusTask.taskId!,
+              startAt: null,
+              endAt: null,
+              dueDate: dateIso,
+              dueAt: dateIso,
+            });
+          }),
+        );
+
+        await onRefreshTasks();
+        notify("success", "Converted to focus block.");
+      } catch (error) {
+        console.error("Failed to convert to focus block", error);
+        notify("error", "Unable to convert to focus block. Please try again.");
+      }
+    },
+    [activeProjectId, events, internalDate, onRefreshTasks, tasks],
+  );
 
   const handleRescheduleEntries = useCallback(
     async (changes: CalendarEntryChanges[]) => {
@@ -1006,6 +1320,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     Month
                   </button>
                 </div>
+                <div className="calendar-controls__actions">
+                  <button type="button" className="calendar-controls__action-btn" onClick={handleOpenSpellbook}>
+                    <Sparkles size={16} aria-hidden />
+                    <span>Spellbook</span>
+                  </button>
+                </div>
               </div>
 
               <div className="calendar-view">
@@ -1035,6 +1355,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onEditTask={handleOpenEditTask}
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
+                      onCreateIntent={handleOpenQuickIntentModal}
                       canCreateTasks={canCreateTasks}
                       teamMembers={teamMembers}
                       activeProjectId={activeProjectId}
@@ -1045,6 +1366,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onRescheduleEntries={handleRescheduleEntries}
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
+                      onConvertToFocusBlock={handleConvertToFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
                     />
@@ -1060,6 +1382,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onEditTask={handleOpenEditTask}
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
+                      onCreateIntent={handleOpenQuickIntentModal}
                       canCreateTasks={canCreateTasks}
                       teamMembers={teamMembers}
                       activeProjectId={activeProjectId}
@@ -1070,6 +1393,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onRescheduleEntries={handleRescheduleEntries}
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
+                      onConvertToFocusBlock={handleConvertToFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
                     />
@@ -1132,6 +1456,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             ? () => onDeleteEvent(modalState.event!.source)
             : undefined
         }
+      />
+
+      <TaskSpellbookModal
+        isOpen={isSpellbookOpen}
+        anchorDate={internalDate}
+        events={events}
+        tasks={tasks}
+        onClose={handleCloseSpellbook}
+        onApply={handleApplySpellbook}
       />
       <CalendarTaskDrawer
         open={isQuickTaskModalOpen}

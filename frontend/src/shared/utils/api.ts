@@ -102,10 +102,20 @@ export interface Task extends JsonRecord {
   assigneeIds?: string[];
   assigneeTokens?: string[];
   dueDate?: string; // ISO
+  /** Legacy / backend alias for dueDate (kept for compatibility with older task DAL code). */
+  dueAt?: string; // ISO
   startAt?: string | null; // ISO-like local datetime string (YYYY-MM-DDTHH:mm:ss) or ISO
   endAt?: string | null; // ISO-like local datetime string (YYYY-MM-DDTHH:mm:ss) or ISO
   address?: string;
   location?: { lat: number; lng: number };
+  /** MYLG extensions used by Calendar + Tasks premium features. */
+  kind?: 'task' | 'intent' | 'focus_block' | string;
+  tags?: string[];
+  cluster?: string;
+  durationMinutes?: number;
+  focusBlockId?: string;
+  focusChildTaskIds?: string[];
+  focusChecklist?: Array<{ taskId: string; title: string }>;
   noteAttachments?: Array<{
     id: string;
     fileName: string;

@@ -45,6 +45,7 @@ export type DayGridProps = {
   onEditTask: (task: CalendarTask) => void;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
+  onCreateIntent?: (date: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
   activeProjectId?: string | null;
@@ -56,6 +57,7 @@ export type DayGridProps = {
   // Context menu / popover actions
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
+  onConvertToFocusBlock?: (tasks: CalendarTask[]) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
 };
@@ -114,7 +116,7 @@ const ENTRY_MIN_HEIGHT_PX = 24;
 const ENTRY_RADIUS_PX = 12;
 const COLUMN_GAP_PX = 4;
 const QUICK_ADD_POPOVER_WIDTH = 200;
-const QUICK_ADD_POPOVER_HEIGHT = 140;
+const QUICK_ADD_POPOVER_HEIGHT = 176;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
 
@@ -170,6 +172,7 @@ function DayGrid({
   onEditTask,
   onCreateEvent,
   onCreateTask,
+  onCreateIntent,
   canCreateTasks,
   teamMembers,
   activeProjectId,
@@ -180,6 +183,7 @@ function DayGrid({
   onRescheduleEntries,
   onSubmitForReview,
   onMarkAsDone,
+  onConvertToFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
 }: DayGridProps) {
@@ -286,16 +290,37 @@ function DayGrid({
       if (fmtLocal(taskDate) !== key) return;
       const hour = parseHour(task.start);
       if (hour == null) {
+        if (task.kind === "intent") return;
+        if (task.focusBlockId) return;
         floating.push(task);
       }
     });
     return floating;
   }, [tasks, key]);
 
+  const dayIntents = useMemo(() => {
+    const intents: CalendarTask[] = [];
+    tasks.forEach((task) => {
+      if (!task.due) return;
+      const taskDate = safeDate(task.due);
+      if (!taskDate) return;
+      if (fmtLocal(taskDate) !== key) return;
+      if (task.kind !== "intent") return;
+      intents.push(task);
+    });
+    return intents;
+  }, [tasks, key]);
+
   const teamMemberLookup = useMemo(
     () => buildTeamMemberLookup(teamMembers ?? []),
     [teamMembers],
   );
+
+  const calendarTaskById = useMemo(() => {
+    const map = new Map<string, CalendarTask>();
+    tasks.forEach((task) => map.set(task.id, task));
+    return map;
+  }, [tasks]);
 
   const timelineEntriesByHour = useMemo(() => {
     const dayEntries: Array<TimelineHourEntry<CalendarEvent | CalendarTask>> = [];
@@ -346,6 +371,8 @@ function DayGrid({
       const taskDate = safeDate(task.due);
       if (!taskDate) return;
       if (fmtLocal(taskDate) !== key) return;
+      if (task.kind === "intent") return;
+      if (task.focusBlockId) return;
       const startMinutes = parseTimeToMinutes(task.start);
       if (startMinutes == null) return;
       const fallbackEnd =
@@ -821,6 +848,16 @@ function DayGrid({
     [canCreateTasks, onCreateTask],
   );
 
+  const triggerCreateIntent = useCallback(
+    (slotDate: Date) => {
+      if (!canCreateTasks) return;
+      onCreateIntent?.(slotDate);
+      setQuickAddOpen(false);
+      setPointerQuickAdd(null);
+    },
+    [canCreateTasks, onCreateIntent],
+  );
+
   const handleCreateEvent = useCallback(
     (hour?: number) => {
       const baseDate = hour == null ? setTime(date, 9) : setTime(date, hour);
@@ -1081,6 +1118,29 @@ function DayGrid({
 
     const entrySelectionKey = `${entry.type}:${entry.id}`;
     const isEntrySelected = selectedEntryKeys.has(entrySelectionKey);
+    const isFocusBlock =
+      entry.type === "task" &&
+      (entry.payload as CalendarTask | undefined)?.kind === "focus_block";
+    const focusMeter = (() => {
+      if (!isFocusBlock) return null;
+      const task = entry.payload as CalendarTask;
+      const childIds =
+        task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      if (childIds.length === 0) return null;
+      const doneCount = childIds.reduce((sum, id) => {
+        const child = calendarTaskById.get(id);
+        if (!child) return sum;
+        return sum + (child.status === "done" ? 1 : 0);
+      }, 0);
+      return (
+        <span
+          className="week-grid__focus-meter"
+          aria-label={`Focus block progress ${doneCount} of ${childIds.length}`}
+        >
+          {doneCount}/{childIds.length}
+        </span>
+      );
+    })();
 
     const inlineAvatars =
       entry.avatars.length > 0 ? (
@@ -1109,6 +1169,7 @@ function DayGrid({
           >
             {entry.title}
           </div>
+          {focusMeter}
         </div>
       </div>
     );
@@ -1127,6 +1188,7 @@ function DayGrid({
       entry.type === "event"
         ? "week-grid__timeline-entry--event"
         : "week-grid__timeline-entry--task",
+      isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
       stacked ? "week-grid__timeline-entry--stacked" : "",
       isEntrySelected ? "week-grid__timeline-entry--selected" : "",
       isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
@@ -1287,8 +1349,23 @@ function DayGrid({
               }}
             >
               {hourIndex === 0 &&
-                (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0) && (
+                (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0 || dayIntents.length > 0) && (
                   <div className="week-grid__all-day day-grid__all-day">
+                    {dayIntents.length > 0 && (
+                      <div className="week-grid__intents" aria-label="Intents">
+                        {dayIntents.map((task) => (
+                          <button
+                            key={`${task.id}-intent`}
+                            type="button"
+                            className="week-grid__intent-chip"
+                            onClick={() => onEditTask(task)}
+                            title="Intent (click to edit)"
+                          >
+                            {task.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {dayAllDayEvents.map((event) => {
                       const eventPillStyle = {
                         background: hexToRgba(projectColor).replace(/[\d.]+\)$/, '0.18)'),
@@ -1423,6 +1500,14 @@ function DayGrid({
           >
             Task
           </button>
+          <button
+            type="button"
+            className="week-grid__action-popover-option week-grid__action-popover-option--intent"
+            onClick={() => triggerCreateIntent(pointerQuickAdd.date)}
+            disabled={!canCreateTasks || !onCreateIntent}
+          >
+            Intent
+          </button>
         </div>
       )}
       {contextMenu && (
@@ -1442,6 +1527,7 @@ function DayGrid({
           }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
+          onConvertToFocusBlock={onConvertToFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
         />

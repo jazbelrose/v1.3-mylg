@@ -47,6 +47,7 @@ export type WeekGridProps = {
   onEditTask: (task: CalendarTask) => void;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
+  onCreateIntent?: (date: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
   activeProjectId?: string | null;
@@ -58,6 +59,7 @@ export type WeekGridProps = {
   // Context menu / popover actions
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
+  onConvertToFocusBlock?: (tasks: CalendarTask[]) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
 };
@@ -189,7 +191,7 @@ type InteractionState = {
 };
 
 const QUICK_ADD_POPOVER_WIDTH = 200;
-const QUICK_ADD_POPOVER_HEIGHT = 140;
+const QUICK_ADD_POPOVER_HEIGHT = 176;
 const QUICK_ADD_POPOVER_OFFSET = 12;
 const QUICK_ADD_POPOVER_MARGIN = 8;
 
@@ -228,6 +230,7 @@ function WeekGrid({
   onEditTask,
   onCreateEvent,
   onCreateTask,
+  onCreateIntent,
   canCreateTasks,
   teamMembers,
   activeProjectId,
@@ -238,6 +241,7 @@ function WeekGrid({
   onRescheduleEntries,
   onSubmitForReview,
   onMarkAsDone,
+  onConvertToFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
 }: WeekGridProps) {
@@ -369,6 +373,30 @@ function WeekGrid({
       // Normalize task.due to match map keys format
       const taskDate = safeDate(task.due);
       if (!taskDate) return;
+      const dayKey = fmtLocal(taskDate);
+      const bucket = map.get(dayKey);
+      if (!bucket) return;
+
+      if (task.kind === "intent") {
+        bucket.allDay.push(task);
+        return;
+      }
+
+      if (task.focusBlockId) {
+        return;
+      }
+
+      const source = task.source as unknown as Record<string, unknown>;
+      const hasStart =
+        parseDateTimeCandidate(source.startAt) ??
+        parseDateTimeCandidate((source as { start_at?: unknown }).start_at) ??
+        (task.due && task.start ? buildLocalDateTime(task.due, task.start) : null);
+
+      if (hasStart) {
+        return;
+      }
+
+      bucket.allDay.push(task);
     });
     return map;
   }, [days, tasks]);
@@ -377,6 +405,12 @@ function WeekGrid({
     () => buildTeamMemberLookup(teamMembers ?? []),
     [teamMembers],
   );
+
+  const calendarTaskById = useMemo(() => {
+    const map = new Map<string, CalendarTask>();
+    tasks.forEach((task) => map.set(task.id, task));
+    return map;
+  }, [tasks]);
 
   const timelineEntriesByDay = useMemo(() => {
     const dayKeys = new Set(days.map((day) => fmtLocal(day)));
@@ -432,6 +466,8 @@ function WeekGrid({
     });
 
     tasks.forEach((task) => {
+      if (task.kind === "intent") return;
+      if (task.focusBlockId) return;
       const source = task.source as unknown as Record<string, unknown>;
       const rawStartDateTime =
         parseDateTimeCandidate(source.startAt) ??
@@ -1107,6 +1143,29 @@ function WeekGrid({
     const isEntrySelected = selectedEntryKeys.has(entrySelectionKey);
     const previewTitle = getWeekEntryPreview(entry.title);
     const tooltipLabel = entry.timeLabel ? `${entry.title} · ${entry.timeLabel}` : entry.title;
+    const isFocusBlock =
+      entry.type === "task" &&
+      (entry.payload as CalendarTask | undefined)?.kind === "focus_block";
+    const focusMeter = (() => {
+      if (!isFocusBlock) return null;
+      const task = entry.payload as CalendarTask;
+      const childIds =
+        task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      if (childIds.length === 0) return null;
+      const doneCount = childIds.reduce((sum, id) => {
+        const child = calendarTaskById.get(id);
+        if (!child) return sum;
+        return sum + (child.status === "done" ? 1 : 0);
+      }, 0);
+      return (
+        <span
+          className="week-grid__focus-meter"
+          aria-label={`Focus block progress ${doneCount} of ${childIds.length}`}
+        >
+          {doneCount}/{childIds.length}
+        </span>
+      );
+    })();
     const inlineAvatars =
       entry.avatars.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
@@ -1128,6 +1187,7 @@ function WeekGrid({
       entry.type === "event"
         ? "week-grid__timeline-entry--event"
         : "week-grid__timeline-entry--task",
+      isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
       stacked ? "week-grid__timeline-entry--stacked" : "",
       isEntrySelected ? "week-grid__timeline-entry--selected" : "",
       isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
@@ -1174,6 +1234,7 @@ function WeekGrid({
           >
             {previewTitle}
           </div>
+          {focusMeter}
         </div>
       </div>
     );
@@ -1271,6 +1332,16 @@ function WeekGrid({
       setPointerQuickAdd(null);
     },
     [canCreateTasks, onCreateTask],
+  );
+
+  const triggerCreateIntent = useCallback(
+    (date: Date) => {
+      if (!canCreateTasks) return;
+      onCreateIntent?.(date);
+      setQuickAddKey(null);
+      setPointerQuickAdd(null);
+    },
+    [canCreateTasks, onCreateIntent],
   );
 
   const handleCreateEvent = useCallback(
@@ -1455,6 +1526,9 @@ function WeekGrid({
               });
             };
 
+            const allDayIntents = dayTaskBucket.allDay.filter((task) => task.kind === "intent");
+            const allDayTasks = dayTaskBucket.allDay.filter((task) => task.kind !== "intent");
+
             return (
                 <div
                   key={`${key}-${hour}`}
@@ -1477,6 +1551,21 @@ function WeekGrid({
                 {hourIndex === 0 &&
                   (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0) && (
                     <div className="week-grid__all-day">
+                      {allDayIntents.length > 0 && (
+                        <div className="week-grid__intents" aria-label="Intents">
+                          {allDayIntents.map((task) => (
+                            <button
+                              key={`${task.id}-intent`}
+                              type="button"
+                              className="week-grid__intent-chip"
+                              onClick={() => onEditTask(task)}
+                              title="Intent (click to edit)"
+                            >
+                              {task.title}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       {dayEventBucket.allDay.map((event) => {
                         const eventPillStyle = {
                           background: hexToRgba(projectColor).replace(/[\d.]+\)$/, '0.18)'),
@@ -1502,7 +1591,7 @@ function WeekGrid({
                         </div>
                       );
                       })}
-                      {dayTaskBucket.allDay.map((task) => (
+                      {allDayTasks.map((task) => (
                         <button
                           key={task.id}
                           type="button"
@@ -1602,6 +1691,14 @@ function WeekGrid({
           >
             Task
           </button>
+          <button
+            type="button"
+            className="week-grid__action-popover-option week-grid__action-popover-option--intent"
+            onClick={() => triggerCreateIntent(pointerQuickAdd.date)}
+            disabled={!canCreateTasks || !onCreateIntent}
+          >
+            Intent
+          </button>
         </div>
       )}
       {contextMenu && (
@@ -1621,6 +1718,7 @@ function WeekGrid({
           }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
+          onConvertToFocusBlock={onConvertToFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
         />

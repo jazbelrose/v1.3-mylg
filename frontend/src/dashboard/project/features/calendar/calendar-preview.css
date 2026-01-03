@@ -2843,3 +2843,345 @@
   height: 14px;
   flex-shrink: 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Task Spellbook (paste → plans → apply)                                      */
+/* -------------------------------------------------------------------------- */
+
+.calendar-controls__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 6px;
+}
+
+.calendar-controls__action-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.calendar-controls__action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.calendar-controls__action-btn:active {
+  transform: translateY(1px);
+}
+
+.calendar-controls__action-btn span {
+  white-space: nowrap;
+}
+
+.task-spellbook__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.task-spellbook {
+  width: min(1100px, 96vw);
+  height: min(720px, 86vh);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(24, 24, 32, 0.96);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.task-spellbook__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.task-spellbook__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.task-spellbook__close {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.task-spellbook__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.task-spellbook__body {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 14px;
+  padding: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.task-spellbook__input {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 12px;
+}
+
+.task-spellbook__textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 14px 14px;
+  outline: none;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.task-spellbook__textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.task-spellbook__textarea:focus {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.task-spellbook__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.task-spellbook__meta-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.task-spellbook__meta-field span {
+  white-space: nowrap;
+}
+
+.task-spellbook__date {
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 10px;
+}
+
+.task-spellbook__meta-field--toggle {
+  justify-content: flex-end;
+}
+
+.task-spellbook__meta-field--toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.task-spellbook__summary {
+  grid-column: 1 / -1;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.task-spellbook__right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 14px;
+}
+
+.task-spellbook__section {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+}
+
+.task-spellbook__section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.task-spellbook__section-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.task-spellbook__section-hint {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.task-spellbook__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-spellbook__rail-btn {
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.task-spellbook__rail-btn:hover:enabled {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.task-spellbook__rail-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.task-spellbook__rail-btn--active {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.32);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+.task-spellbook__rail-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-spellbook__rail-metric {
+  font-weight: 500;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.task-spellbook__rail-hint {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.task-spellbook__actions {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.task-spellbook__btn {
+  height: 40px;
+  border-radius: 14px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
+.task-spellbook__btn--ghost {
+  background: transparent;
+}
+
+.task-spellbook__btn--primary {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.42);
+}
+
+.task-spellbook__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .task-spellbook__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Week view: Intent chips (non-scheduled commitments). */
+.week-grid__intents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  margin-bottom: 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.week-grid__intent-chip {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week-grid__intent-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.week-grid__timeline-entry--focus-block {
+  background: rgba(99, 102, 241, 0.16) !important;
+  border-color: rgba(99, 102, 241, 0.32) !important;
+}
+
+.week-grid__focus-meter {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.85);
+}

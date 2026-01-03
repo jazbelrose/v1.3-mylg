@@ -8,7 +8,7 @@
 
 import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Send, CheckCircle, Copy, Trash2, Pencil } from "lucide-react";
+import { Send, CheckCircle, Copy, Trash2, Pencil, Layers } from "lucide-react";
 import type { CalendarTask, CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 
@@ -33,6 +33,7 @@ export interface CalendarEntryContextMenuProps {
   onEdit?: (entry: CalendarTask | CalendarEvent) => void;
   onSubmitForReview?: (entries: CalendarTask[]) => void;
   onMarkAsDone?: (entries: CalendarTask[]) => void;
+  onConvertToFocusBlock?: (entries: CalendarTask[]) => void;
   onDuplicate?: (entries: ContextMenuEntry[]) => void;
   onDelete?: (entries: ContextMenuEntry[]) => void;
 }
@@ -46,6 +47,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   onEdit,
   onSubmitForReview,
   onMarkAsDone,
+  onConvertToFocusBlock,
   onDuplicate,
   onDelete,
 }) => {
@@ -80,6 +82,15 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     () => actionableTasks.filter((t) => t.status !== "done"),
     [actionableTasks]
   );
+
+  const focusBlockCandidates = useMemo(() => {
+    return actionableTasks.filter((t) => {
+      if (t.kind === "intent") return false;
+      if (t.kind === "focus_block") return false;
+      if (t.focusBlockId) return false;
+      return true;
+    });
+  }, [actionableTasks]);
 
   // Close on click outside
   useEffect(() => {
@@ -157,6 +168,13 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     onClose();
   }, [tasksForDone, onMarkAsDone, onClose]);
 
+  const handleConvertToFocusBlock = useCallback(() => {
+    if (onConvertToFocusBlock && focusBlockCandidates.length >= 2) {
+      onConvertToFocusBlock(focusBlockCandidates);
+    }
+    onClose();
+  }, [focusBlockCandidates, onConvertToFocusBlock, onClose]);
+
   const handleDuplicate = useCallback(() => {
     if (onDuplicate) {
       onDuplicate(effectiveEntries);
@@ -223,6 +241,19 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
         >
           <CheckCircle className="calendar-entry-context-menu__icon" />
           <span>Mark as Done{isMultiSelect && tasksForDone.length > 0 ? ` (${tasksForDone.length})` : ""}</span>
+        </button>
+      )}
+
+      {/* Convert selected tasks into a Focus Block */}
+      {onConvertToFocusBlock && focusBlockCandidates.length >= 2 && (
+        <button
+          type="button"
+          className="calendar-entry-context-menu__item"
+          onClick={handleConvertToFocusBlock}
+          role="menuitem"
+        >
+          <Layers className="calendar-entry-context-menu__icon" />
+          <span>Convert to Focus Block ({focusBlockCandidates.length})</span>
         </button>
       )}
 
