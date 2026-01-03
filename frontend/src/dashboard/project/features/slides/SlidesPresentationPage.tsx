@@ -5,7 +5,7 @@ import { Maximize2, Minimize2, X } from "lucide-react";
 import { useData } from "@/app/contexts/useData";
 import type { Slide } from "@/app/contexts/DataProvider";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
-import { getFileUrl } from "@/shared/utils/api";
+import { getFileUrl, apiFetch, deckVersionUrl } from "@/shared/utils/api";
 
 import SlideReadOnlyRenderer from "./components/SlideReadOnlyRenderer";
 import "./presentation.css";
@@ -30,23 +30,66 @@ const SlidesPresentationPage: React.FC = () => {
   const [scale, setScale] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [versionSlides, setVersionSlides] = useState<Slide[] | null>(null);
+  const [versionLoading, setVersionLoading] = useState(false);
 
+  const versionIdFromUrl = searchParams.get("versionId");
+
+  // Fetch version-specific slides if versionId is provided
+  useEffect(() => {
+    if (!projectId || !versionIdFromUrl) {
+      setVersionSlides(null);
+      return;
+    }
+
+    let cancelled = false;
+    setVersionLoading(true);
+
+    (async () => {
+      try {
+        const response = await apiFetch(deckVersionUrl(projectId, versionIdFromUrl)) as { slides?: Slide[] } | null;
+        if (cancelled) return;
+        if (response?.slides && Array.isArray(response.slides)) {
+          setVersionSlides(response.slides);
+        } else {
+          setVersionSlides(null);
+        }
+      } catch (error) {
+        console.warn("[Presentation] Failed to load version slides:", error);
+        if (!cancelled) {
+          setVersionSlides(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setVersionLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, versionIdFromUrl]);
+
+  // Use version slides if loaded, otherwise fall back to project slides
   const slides = useMemo<Slide[]>(() => {
-    const projectSlides = activeProject?.slides;
-    if (!Array.isArray(projectSlides)) {
+    const sourceSlides = versionSlides ?? activeProject?.slides;
+    if (!Array.isArray(sourceSlides)) {
       return [];
     }
-    return [...projectSlides].sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [activeProject?.slides]);
+    return [...sourceSlides].sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [versionSlides, activeProject?.slides]);
 
   const slideIdFromUrl = searchParams.get("slideId");
 
+  // Only fetch project details if we don't have a version specified (fallback mode)
   useEffect(() => {
     if (!projectId) return;
+    if (versionIdFromUrl) return; // Skip if we're loading version-specific slides
     if (!activeProject || activeProject.projectId !== projectId || !activeProject.slides) {
       fetchProjectDetails(projectId);
     }
-  }, [projectId, activeProject, fetchProjectDetails]);
+  }, [projectId, activeProject, fetchProjectDetails, versionIdFromUrl]);
 
   useEffect(() => {
     if (slides.length === 0) {

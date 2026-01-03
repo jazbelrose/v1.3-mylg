@@ -1783,8 +1783,9 @@ const SlidesPage: React.FC = () => {
       onDeleteVersion={handleQuickDelete}
       onSetDefault={setDefaultVersion}
       onSetClientDefault={setClientDefaultVersion}
+      accentColor={activeProject?.color}
     />
-  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions, handleQuickRename, handleQuickDuplicate, handleQuickDelete, setDefaultVersion, setClientDefaultVersion]);
+  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions, handleQuickRename, handleQuickDuplicate, handleQuickDelete, setDefaultVersion, setClientDefaultVersion, activeProject?.color]);
 
   if (!projectId) {
     return <div>No project ID provided</div>;
@@ -1794,7 +1795,12 @@ const SlidesPage: React.FC = () => {
     if (!activeSlideId) return;
     const title = activeProject?.title ?? "";
     const path = getProjectDashboardPath(projectId, title, "/slides/present");
-    navigate(`${path}?slideId=${encodeURIComponent(activeSlideId)}`);
+    const params = new URLSearchParams();
+    params.set("slideId", activeSlideId);
+    if (activeVersionId) {
+      params.set("versionId", activeVersionId);
+    }
+    navigate(`${path}?${params.toString()}`);
   };
 
   return (

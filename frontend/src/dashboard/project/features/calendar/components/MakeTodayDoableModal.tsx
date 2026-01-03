@@ -26,6 +26,8 @@ export type MakeTodayDoableModalProps = {
   tasks: CalendarTask[];
   onClose: () => void;
   onApply: (request: MakeTodayDoableApplyRequest) => Promise<void> | void;
+  /** Active project accent color (hex format, e.g., "#FA3356") */
+  accentColor?: string | null;
 };
 
 const buildBusyBlocksForDate = (dateIso: string, events: CalendarEvent[], tasks: CalendarTask[]): BusyBlock[] => {
@@ -58,6 +60,16 @@ const buildBusyBlocksForDate = (dateIso: string, events: CalendarEvent[], tasks:
 const railButtonClass = (active: boolean) =>
   `task-spellbook__rail-btn ${active ? "task-spellbook__rail-btn--active" : ""}`;
 
+// Helper to convert hex to RGB string
+function hexToRgb(hex: string): string {
+  const cleaned = hex.replace("#", "");
+  const bigint = parseInt(cleaned, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `${r}, ${g}, ${b}`;
+}
+
 export default function MakeTodayDoableModal({
   isOpen,
   date,
@@ -65,6 +77,7 @@ export default function MakeTodayDoableModal({
   tasks,
   onClose,
   onApply,
+  accentColor,
 }: MakeTodayDoableModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const dateIso = useMemo(() => fmtLocal(date), [date]);
@@ -156,13 +169,29 @@ export default function MakeTodayDoableModal({
     }
   }, [dateIso, drafts.length, onApply, onClose, selectedPlan, selectedTaskIds]);
 
+  // Compute accent style for CSS variables (must be before early return)
+  const accentStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (!accentColor || typeof accentColor !== "string" || accentColor.trim() === "") {
+      return undefined;
+    }
+    const trimmed = accentColor.trim();
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
+      return undefined;
+    }
+    const rgb = hexToRgb(trimmed);
+    return {
+      "--spellbook-accent": trimmed,
+      "--spellbook-accent-rgb": rgb,
+    } as React.CSSProperties;
+  }, [accentColor]);
+
   if (!isOpen) return null;
 
   const canApply = drafts.length > 0 && !isApplying;
 
   const modal = (
     <div className="task-spellbook__backdrop" onMouseDown={handleBackdropMouseDown} role="presentation">
-      <div className="task-spellbook doable-modal" ref={dialogRef} role="dialog" aria-label="Make today doable">
+      <div className="task-spellbook doable-modal" ref={dialogRef} role="dialog" aria-label="Make today doable" style={accentStyle}>
         <div className="task-spellbook__header">
           <div className="task-spellbook__title">
             <Wand2 size={16} aria-hidden />

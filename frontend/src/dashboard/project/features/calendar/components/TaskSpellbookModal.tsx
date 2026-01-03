@@ -30,6 +30,8 @@ export type TaskSpellbookModalProps = {
   tasks: CalendarTask[];
   onClose: () => void;
   onApply: (request: TaskSpellbookApplyRequest) => Promise<void> | void;
+  /** Active project accent color (hex format, e.g., "#FA3356") */
+  accentColor?: string | null;
 };
 
 const buildBusyBlocksForDate = (dateIso: string, events: CalendarEvent[], tasks: CalendarTask[]): BusyBlock[] => {
@@ -82,6 +84,16 @@ const toDraftsFromVariant = (variant: SpellbookVariant): DoableDraft[] => {
     }));
 };
 
+// Helper to convert hex to RGB string
+function hexToRgb(hex: string): string {
+  const cleaned = hex.replace("#", "");
+  const bigint = parseInt(cleaned, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `${r}, ${g}, ${b}`;
+}
+
 export default function TaskSpellbookModal({
   isOpen,
   anchorDate,
@@ -89,6 +101,7 @@ export default function TaskSpellbookModal({
   tasks,
   onClose,
   onApply,
+  accentColor,
 }: TaskSpellbookModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -174,13 +187,29 @@ export default function TaskSpellbookModal({
     }
   }, [anchorDate, autoPack, onApply, onClose, parseResult, selectedPlan, selectedVariant, targetDate, text]);
 
+  // Compute accent style for CSS variables (must be before early return)
+  const accentStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (!accentColor || typeof accentColor !== "string" || accentColor.trim() === "") {
+      return undefined;
+    }
+    const trimmed = accentColor.trim();
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
+      return undefined;
+    }
+    const rgb = hexToRgb(trimmed);
+    return {
+      "--spellbook-accent": trimmed,
+      "--spellbook-accent-rgb": rgb,
+    } as React.CSSProperties;
+  }, [accentColor]);
+
   if (!isOpen) return null;
 
   const canApply = isMeaningfulText(text) && !isApplying;
 
   const modal = (
     <div className="task-spellbook__backdrop" onMouseDown={handleBackdropMouseDown} role="presentation">
-      <div className="task-spellbook" ref={dialogRef} role="dialog" aria-label="Task Spellbook">
+      <div className="task-spellbook" ref={dialogRef} role="dialog" aria-label="Task Spellbook" style={accentStyle}>
         <div className="task-spellbook__header">
           <div className="task-spellbook__title">
             <Sparkles size={16} aria-hidden />

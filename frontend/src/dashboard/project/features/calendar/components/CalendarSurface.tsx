@@ -1560,6 +1560,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         tasks={tasks}
         onClose={handleCloseSpellbook}
         onApply={handleApplySpellbook}
+        accentColor={activeProjectColor}
       />
       <MakeTodayDoableModal
         isOpen={isDoableOpen}
@@ -1568,6 +1569,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         tasks={tasks}
         onClose={handleCloseDoable}
         onApply={handleApplyDoable}
+        accentColor={activeProjectColor}
       />
       <CalendarTaskDrawer
         open={isQuickTaskModalOpen}

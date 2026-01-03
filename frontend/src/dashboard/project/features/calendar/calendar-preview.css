@@ -2876,9 +2876,9 @@
 }
 
 .calendar-controls__action-btn--active {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: rgba(99, 102, 241, 0.42);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+  background: rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.18);
+  border-color: rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.42);
+  box-shadow: 0 0 0 2px rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.12);
 }
 
 .calendar-controls__action-btn:active {
@@ -2906,7 +2906,7 @@
   height: min(720px, 86vh);
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(24, 24, 32, 0.96);
+  background: var(--bg3);
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
@@ -3082,9 +3082,9 @@
 }
 
 .task-spellbook__rail-btn--active {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: rgba(99, 102, 241, 0.32);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+  background: rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.18);
+  border-color: rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.32);
+  box-shadow: 0 0 0 2px rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.12);
 }
 
 .task-spellbook__rail-title {
@@ -3132,8 +3132,8 @@
 }
 
 .task-spellbook__btn--primary {
-  background: rgba(99, 102, 241, 0.22);
-  border-color: rgba(99, 102, 241, 0.42);
+  background: rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.22);
+  border-color: rgba(var(--spellbook-accent-rgb, 99, 102, 241), 0.42);
 }
 
 .task-spellbook__btn:disabled {
