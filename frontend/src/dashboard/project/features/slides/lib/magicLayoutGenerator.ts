@@ -49,6 +49,77 @@ const DEFAULT_VARIANT_COUNT = 6;
 const CANDIDATES_PER_VARIANT = 4; // Generate 4x candidates, pick best
 
 // =============================================================================
+// FROZEN TOKENS (for global lock persistence)
+// =============================================================================
+
+/** 
+ * Stores frozen layout tokens when global locks are enabled.
+ * These values persist across regen to prevent drift.
+ */
+export interface FrozenTokens {
+  gutter?: number;
+  radius?: number;
+  margin?: Margin;
+}
+
+// Module-level storage for frozen tokens (keyed by session/seed)
+const frozenTokensCache = new Map<string, FrozenTokens>();
+
+/**
+ * Get or create frozen tokens for a layout session
+ */
+function getFrozenTokens(
+  sessionKey: string,
+  globalLocks: { lockSpacing: boolean; lockRadius: boolean },
+  currentGutter: number,
+  currentRadius: number,
+  currentMargin: Margin
+): FrozenTokens {
+  const cached = frozenTokensCache.get(sessionKey);
+  
+  if (cached) {
+    // Return cached frozen values only for locked properties
+    return {
+      gutter: globalLocks.lockSpacing ? cached.gutter : undefined,
+      radius: globalLocks.lockRadius ? cached.radius : undefined,
+      margin: globalLocks.lockSpacing ? cached.margin : undefined,
+    };
+  }
+  
+  // First generation - store current values as frozen
+  const newFrozen: FrozenTokens = {
+    gutter: currentGutter,
+    radius: currentRadius,
+    margin: currentMargin,
+  };
+  frozenTokensCache.set(sessionKey, newFrozen);
+  
+  return {
+    gutter: globalLocks.lockSpacing ? currentGutter : undefined,
+    radius: globalLocks.lockRadius ? currentRadius : undefined,
+    margin: globalLocks.lockSpacing ? currentMargin : undefined,
+  };
+}
+
+/**
+ * Clear frozen tokens for a session (when locks are released)
+ */
+export function clearFrozenTokens(sessionKey: string): void {
+  frozenTokensCache.delete(sessionKey);
+}
+
+/**
+ * Update frozen tokens with new values (when user explicitly changes locked values)
+ */
+export function updateFrozenTokens(
+  sessionKey: string,
+  updates: Partial<FrozenTokens>
+): void {
+  const existing = frozenTokensCache.get(sessionKey) ?? {};
+  frozenTokensCache.set(sessionKey, { ...existing, ...updates });
+}
+
+// =============================================================================
 // SEEDED RNG (same as pictureFrameLayoutGenerator for consistency)
 // =============================================================================
 
@@ -316,18 +387,24 @@ function createGeneratedFrames(
 function generateVariant(
   input: MagicLayoutInput,
   variantIndex: number,
-  variantSeed: string
+  variantSeed: string,
+  frozen?: FrozenTokens
 ): LayoutVariant {
   const tasteMode = getTasteMode(input.tasteMode);
   const tokens = tasteMode.tokens;
 
   // Apply taste tokens to base values
-  const { margin, gutter, radius } = applyTasteTokens(
+  const tasteApplied = applyTasteTokens(
     tokens,
     DEFAULT_BASE_MARGIN,
-    input.globalLocks.lockSpacing ? DEFAULT_BASE_GUTTER : DEFAULT_BASE_GUTTER,
-    input.globalLocks.lockRadius ? DEFAULT_BASE_RADIUS : DEFAULT_BASE_RADIUS
+    DEFAULT_BASE_GUTTER,
+    DEFAULT_BASE_RADIUS
   );
+
+  // Use frozen values if locks are enabled, otherwise use taste-applied values
+  const margin = frozen?.margin ?? tasteApplied.margin;
+  const gutter = frozen?.gutter ?? tasteApplied.gutter;
+  const radius = frozen?.radius ?? tasteApplied.radius;
 
   const rng = createRng(variantSeed);
 
@@ -418,12 +495,30 @@ export function generateMagicLayouts(input: MagicLayoutInput): MagicLayoutOutput
   const variantCount = normalizedInput.variantCount!;
   const candidateCount = variantCount * CANDIDATES_PER_VARIANT;
   
+  // Get frozen tokens for locked values (prevents drift across regen)
+  const sessionKey = normalizedInput.seed;
+  const tasteMode = getTasteMode(normalizedInput.tasteMode);
+  const tasteApplied = applyTasteTokens(
+    tasteMode.tokens,
+    DEFAULT_BASE_MARGIN,
+    DEFAULT_BASE_GUTTER,
+    DEFAULT_BASE_RADIUS
+  );
+  
+  const frozen = getFrozenTokens(
+    sessionKey,
+    normalizedInput.globalLocks,
+    tasteApplied.gutter,
+    tasteApplied.radius,
+    tasteApplied.margin
+  );
+  
   // Generate all candidates
   const allCandidates: LayoutVariant[] = [];
   
   for (let i = 0; i < candidateCount; i++) {
     const candidateSeed = deriveSeed(normalizedInput.seed, i);
-    const variant = generateVariant(normalizedInput, i, candidateSeed);
+    const variant = generateVariant(normalizedInput, i, candidateSeed, frozen);
     allCandidates.push(variant);
   }
 

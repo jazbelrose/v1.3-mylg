@@ -100,6 +100,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   // Generated variants
   const [layoutOutput, setLayoutOutput] = useState<MagicLayoutOutput | null>(null);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [previewVariantIndex, setPreviewVariantIndex] = useState<number | null>(null);
 
   // Image selection
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -157,6 +158,13 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
   const handleGenerate = useCallback(() => {
     setSeed(`${Date.now()}`);
+  }, []);
+
+  // Handler for hover preview - ghost applies a variant temporarily
+  const handleHoverPreview = useCallback((index: number | null) => {
+    setPreviewVariantIndex(index);
+    // In the future, this could dispatch a preview command to show ghost overlay
+    // For now, we just track which variant is being previewed
   }, []);
 
   const handleApply = useCallback(() => {
@@ -442,6 +450,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             variants={layoutOutput.variants}
             selectedIndex={selectedVariantIndex}
             onSelect={setSelectedVariantIndex}
+            onHoverPreview={handleHoverPreview}
             enableKeyboardShortcuts={true}
           />
         )}

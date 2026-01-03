@@ -112,6 +112,51 @@
   z-index: 2;
 }
 
+/* Ghost preview badge for hover state */
+.variant-preview__preview-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(79, 140, 255, 0.85);
+  border-radius: 6px;
+  z-index: 3;
+  pointer-events: none;
+  animation: previewBadgeFadeIn 0.15s ease-out;
+}
+
+@keyframes previewBadgeFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Hover state (ghost preview active) */
+.variant-preview--hovered {
+  background: rgba(79, 140, 255, 0.08);
+  border-color: rgba(79, 140, 255, 0.4);
+  box-shadow: 0 0 16px rgba(79, 140, 255, 0.15);
+}
+
+.variant-preview--hovered .variant-preview__svg {
+  opacity: 0.85;
+}
+
+.variant-preview--hovered .variant-preview__number {
+  color: rgba(79, 140, 255, 0.9);
+}
+
 .variant-preview__score {
   position: absolute;
   bottom: 4px;
@@ -127,6 +172,10 @@
 
 .variant-preview--selected .variant-preview__score {
   color: rgba(79, 140, 255, 0.9);
+}
+
+.variant-preview--hovered .variant-preview__score {
+  color: rgba(79, 140, 255, 0.7);
 }
 
 /* Responsive adjustments */

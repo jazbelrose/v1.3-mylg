@@ -3,12 +3,13 @@
  * 
  * Features:
  * - Displays miniature previews of all variants
- * - Click to select a variant
+ * - Hover = ghost-apply preview (Phase 1.5)
+ * - Click = commit selection
  * - Keyboard shortcuts 1-6 for quick selection
  * - Visual indication of selected/hovered variant
  */
 
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { LayoutVariant, GeneratedFrame } from "../lib/magicLayoutTypes";
 import "./VariantsRail.css";
 
@@ -17,8 +18,10 @@ export interface VariantsRailProps {
   variants: LayoutVariant[];
   /** Currently selected variant index */
   selectedIndex: number;
-  /** Callback when variant is selected */
+  /** Callback when variant is selected (committed) */
   onSelect: (index: number) => void;
+  /** Callback for hover preview (ghost-apply) */
+  onHoverPreview?: (index: number | null) => void;
   /** Whether to enable keyboard shortcuts (1-6) */
   enableKeyboardShortcuts?: boolean;
   /** Optional class name */
@@ -29,9 +32,12 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
   variants,
   selectedIndex,
   onSelect,
+  onHoverPreview,
   enableKeyboardShortcuts = true,
   className = "",
 }) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   // Keyboard shortcuts 1-6
   useEffect(() => {
     if (!enableKeyboardShortcuts) return;
@@ -54,11 +60,22 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [enableKeyboardShortcuts, variants.length, onSelect]);
 
+  // Handle hover preview
+  const handleMouseEnter = useCallback((index: number) => {
+    setHoveredIndex(index);
+    onHoverPreview?.(index);
+  }, [onHoverPreview]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredIndex(null);
+    onHoverPreview?.(null);
+  }, [onHoverPreview]);
+
   return (
     <div className={`variants-rail ${className}`}>
       <div className="variants-rail__header">
         <span className="variants-rail__title">Layouts</span>
-        <span className="variants-rail__hint">Press 1-{variants.length} to select</span>
+        <span className="variants-rail__hint">Hover to preview, click to apply</span>
       </div>
       <div className="variants-rail__grid">
         {variants.map((variant, index) => (
@@ -67,7 +84,10 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
             variant={variant}
             index={index}
             isSelected={index === selectedIndex}
+            isHovered={index === hoveredIndex}
             onSelect={() => onSelect(index)}
+            onMouseEnter={() => handleMouseEnter(index)}
+            onMouseLeave={handleMouseLeave}
           />
         ))}
       </div>
@@ -79,14 +99,20 @@ interface VariantPreviewProps {
   variant: LayoutVariant;
   index: number;
   isSelected: boolean;
+  isHovered: boolean;
   onSelect: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }
 
 const VariantPreview: React.FC<VariantPreviewProps> = ({
   variant,
   index,
   isSelected,
+  isHovered,
   onSelect,
+  onMouseEnter,
+  onMouseLeave,
 }) => {
   // Calculate SVG viewBox based on canvas
   const viewBox = `0 0 ${variant.canvas.width / 10} ${variant.canvas.height / 10}`;
@@ -154,14 +180,26 @@ const VariantPreview: React.FC<VariantPreviewProps> = ({
   // Score display
   const scorePercent = Math.round(variant.score * 100);
 
+  // Build class name with hover and selected states
+  const className = [
+    "variant-preview",
+    isSelected && "variant-preview--selected",
+    isHovered && !isSelected && "variant-preview--hovered",
+  ].filter(Boolean).join(" ");
+
   return (
     <button
       type="button"
-      className={`variant-preview ${isSelected ? "variant-preview--selected" : ""}`}
+      className={className}
       onClick={onSelect}
-      title={`Layout ${index + 1} (Score: ${scorePercent}%)`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      title={`Layout ${index + 1} (Score: ${scorePercent}%) - Click to apply`}
     >
       <div className="variant-preview__number">{index + 1}</div>
+      {isHovered && !isSelected && (
+        <div className="variant-preview__preview-badge">Preview</div>
+      )}
       <svg
         viewBox={viewBox}
         className="variant-preview__svg"

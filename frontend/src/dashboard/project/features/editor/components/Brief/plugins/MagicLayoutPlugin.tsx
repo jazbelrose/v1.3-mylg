@@ -5,8 +5,11 @@
  * - PictureFrameNode for image frames
  * - TextBoxNode for text frames (styled copy blocks)
  * 
- * Text frames are converted to positioned TextBox nodes with styling
- * derived from the taste mode's TypePack.
+ * Phase 1.5 Polish:
+ * - Taste-based padding for text frames
+ * - Optional subtle tile background
+ * - Title line-balance (CSS text-wrap: balance)
+ * - Drop-cap presets
  */
 
 import React, { useEffect } from "react";
@@ -28,7 +31,12 @@ import {
 import { $createPictureFrameNode, PictureFrameNode } from "./nodes/PictureFrameNode";
 import { $createTextBoxNode, TextBoxNode } from "./nodes/TextBoxNode";
 import { getTasteMode } from "@/dashboard/project/features/slides/lib/tasteModes";
-import type { GeneratedFrame, TasteModeId, TypePack } from "@/dashboard/project/features/slides/lib/magicLayoutTypes";
+import { 
+  getTextFrameStyle, 
+  balanceText,
+  type TextFrameStyle,
+} from "@/dashboard/project/features/slides/lib/textFrameStyles";
+import type { GeneratedFrame, TasteModeId, TypePack, TextIntent } from "@/dashboard/project/features/slides/lib/magicLayoutTypes";
 
 /**
  * Calculate font size based on frame dimensions and text intent
@@ -95,6 +103,7 @@ function getFontWeight(intent: string, typePack: TypePack): number {
 
 /**
  * Create a styled TextBoxNode from a text frame
+ * Phase 1.5: Includes editorial styling (padding, backgrounds, line-balance, drop-caps)
  */
 function createTextBoxFromFrame(
   frame: GeneratedFrame,
@@ -103,6 +112,15 @@ function createTextBoxFromFrame(
   const taste = getTasteMode(tasteMode);
   const typePack = taste.tokens.typePack;
   const radius = taste.tokens.radiusBase;
+  const intent = frame.textConfig?.intent ?? "body";
+
+  // Get editorial text frame styling (Phase 1.5)
+  const textStyle = getTextFrameStyle(
+    frame.width,
+    frame.height,
+    tasteMode,
+    intent
+  );
 
   // Create text box with frame dimensions
   const textBox = $createTextBoxNode(
@@ -119,8 +137,12 @@ function createTextBoxFromFrame(
 
   // Add paragraph with styled text content
   const paragraph = $createParagraphNode();
-  const intent = frame.textConfig?.intent ?? "body";
-  const content = frame.textConfig?.content ?? "";
+  let content = frame.textConfig?.content ?? "";
+
+  // Apply line-balance for headlines (Phase 1.5)
+  if ((intent === "headline" || intent === "subheadline") && content) {
+    content = balanceText(content, 40);
+  }
 
   if (content) {
     const textNode = $createTextNode(content);
@@ -132,7 +154,12 @@ function createTextBoxFromFrame(
     const lineHeight = typePack.bodyLineHeight;
     const letterSpacing = intent === "headline" ? typePack.headlineTracking : 0;
 
-    // Build CSS style string
+    // Build CSS style string with editorial padding (Phase 1.5)
+    const bg = textStyle.background;
+    const bgColor = bg.enabled 
+      ? `rgba(${hexToRgb(bg.color)}, ${bg.opacity})`
+      : "transparent";
+
     const styleString = [
       `font-family: ${fontFamily}`,
       `font-size: ${fontSize}px`,
@@ -140,6 +167,15 @@ function createTextBoxFromFrame(
       `line-height: ${lineHeight}`,
       `letter-spacing: ${letterSpacing}em`,
       "color: rgba(255, 255, 255, 0.95)",
+      // Editorial padding (applied to text box container)
+      `padding: ${textStyle.padding.top}px ${textStyle.padding.right}px ${textStyle.padding.bottom}px ${textStyle.padding.left}px`,
+      `background-color: ${bgColor}`,
+      `border-radius: ${textStyle.background.borderRadius}px`,
+      // Line balance for headlines
+      ...(intent === "headline" || intent === "subheadline" 
+        ? ["text-wrap: balance", "word-break: normal"]
+        : []
+      ),
     ].join("; ");
 
     textNode.setStyle(styleString);
@@ -148,6 +184,15 @@ function createTextBoxFromFrame(
 
   textBox.append(paragraph);
   return textBox;
+}
+
+// Helper to convert hex to RGB string
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (result) {
+    return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+  }
+  return "255, 255, 255";
 }
 
 /**
