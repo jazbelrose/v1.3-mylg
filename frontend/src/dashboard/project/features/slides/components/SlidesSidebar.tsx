@@ -9,7 +9,7 @@ import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
-import { normalizeFileUrl } from "@/shared/utils/api";
+import { getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import "./SlidesSidebar.css";
 
@@ -37,8 +37,17 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
     : uiThumbsEnabled
       ? thumbnailUrl ?? slide.thumbnail ?? slide.backgroundImage ?? null
       : slide.thumbnail ?? slide.backgroundImage ?? null;
-  // Important: preserve cache-busting query params (e.g. `?t=...`) on already-resolved URLs.
-  const resolvedSrc = resolvedSrcRaw ? normalizeFileUrl(resolvedSrcRaw) : null;
+  // Important:
+  // - Preserve cache-busting query params (e.g. `?t=...`) on already-resolved URLs.
+  // - For plain keys / bare S3 URLs (no query), prefer `getFileUrl` so the app can route
+  //   through the configured CDN (some buckets block direct public access).
+  const resolvedSrc = useMemo(() => {
+    if (!resolvedSrcRaw) return null;
+    if (resolvedSrcRaw.includes("?")) {
+      return normalizeFileUrl(resolvedSrcRaw);
+    }
+    return getFileUrl(resolvedSrcRaw);
+  }, [resolvedSrcRaw]);
 
   const bgColor = slide.backgroundColor || '#101112';
   const getContrastingColor = (color: string) => {
