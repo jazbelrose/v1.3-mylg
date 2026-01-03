@@ -10,6 +10,7 @@
  */
 
 import React, { useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { HealthStrip } from './components/HealthStrip';
 import { EventsTasksPanel } from './components/EventsTasksPanel';
@@ -150,6 +151,8 @@ export function OverviewHud({
   onOpenMap,
   clientMode = false,
 }: OverviewHudProps) {
+  const navigate = useNavigate();
+  const routeLocation = useLocation();
   const isOpenTask = useCallback((task: TaskItem): boolean => {
     const status = task.status?.toLowerCase() || '';
     return !['done', 'complete', 'completed', 'archived'].includes(status);
@@ -177,9 +180,17 @@ export function OverviewHud({
   const handleOpenMap = useCallback(() => {
     if (onOpenMap) {
       onOpenMap();
+      return;
     }
-    // Map modal functionality would be implemented here if needed
-  }, [onOpenMap]);
+
+    navigate('/dashboard/tasks', {
+      state: {
+        projectId,
+        from: routeLocation.pathname,
+        fromContext: 'overview',
+      },
+    });
+  }, [onOpenMap, navigate, projectId, routeLocation.pathname]);
 
   // Compute status metrics for poster
   const risksCount = visibleTasks.filter(t => {

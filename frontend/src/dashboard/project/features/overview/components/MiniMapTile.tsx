@@ -39,6 +39,7 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const zoom = 12;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -46,7 +47,7 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
     // Create map - fully locked down
     const map = L.map(containerRef.current, {
       center: [lat, lng],
-      zoom: 14,
+      zoom,
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -76,9 +77,9 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
   // Update center if lat/lng changes
   useEffect(() => {
     if (mapRef.current) {
-      mapRef.current.setView([lat, lng], 14, { animate: false });
+      mapRef.current.setView([lat, lng], zoom, { animate: false });
     }
-  }, [lat, lng]);
+  }, [lat, lng, zoom]);
 
   return (
     <div

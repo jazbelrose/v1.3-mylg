@@ -269,11 +269,66 @@ export function ActivityPanel({
 }: ActivityPanelProps) {
   const navigate = useNavigate();
 
-  const displayedActivities = useMemo(() => {
-    return activities.slice(0, maxItems);
-  }, [activities, maxItems]);
+  const { feedItems, feedCount } = useMemo(() => {
+    const items: ActivityEvent[] = [];
 
-  const hasActivity = displayedActivities.length > 0;
+    activities.forEach((a) => {
+      if (!a?.activityId || !a?.createdAt) return;
+      items.push(a);
+    });
+
+    recentMessages.forEach((m) => {
+      if (!m?.messageId || !m?.timestamp) return;
+      const sender = m.senderName?.trim();
+      const prefix = sender ? `${sender.split(" ")[0]}: ` : "";
+      const text = (m.text || "").trim();
+      if (!text) return;
+      items.push({
+        activityId: `message-${m.messageId}`,
+        type: "message",
+        summary: `${prefix}${text}`,
+        createdAt: m.timestamp,
+        userId: m.senderId,
+        userName: m.senderName,
+        userAvatar: m.senderAvatar,
+      });
+    });
+
+    recentFiles.forEach((f) => {
+      if (!f?.fileId || !f?.uploadedAt) return;
+      const fileName = (f.fileName || "").trim();
+      if (!fileName) return;
+      items.push({
+        activityId: `file-${f.fileId}`,
+        type: "file",
+        summary: `Uploaded ${fileName}`,
+        createdAt: f.uploadedAt,
+      });
+    });
+
+    recentLinks.forEach((l) => {
+      if (!l?.linkId || !l?.url) return;
+      const createdAt = l.sharedAt || new Date(0).toISOString();
+      const title = (l.title || "").trim();
+      const host = l.url.replace(/^https?:\/\//, "").split("/")[0] || l.url;
+      items.push({
+        activityId: `link-${l.linkId}`,
+        type: "link",
+        summary: title ? `Quick link: ${title}` : `Quick link: ${host}`,
+        createdAt,
+        metadata: { link: l.url },
+      });
+    });
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return {
+      feedItems: items.slice(0, maxItems),
+      feedCount: items.length,
+    };
+  }, [activities, recentMessages, recentFiles, recentLinks, maxItems]);
+
+  const hasFeed = feedItems.length > 0;
   const hasMessages = recentMessages.length > 0;
   const hasFiles = recentFiles.length > 0;
   const hasLinks = recentLinks.length > 0;
@@ -295,7 +350,15 @@ export function ActivityPanel({
     else if (typeLC.includes('slide') || typeLC.includes('deck')) path = '/slides';
     else if (typeLC.includes('task')) path = '/tasks';
     else if (typeLC.includes('gallery')) path = '/gallery';
+    else if (typeLC.includes('file')) path = '/gallery';
     else if (typeLC.includes('message') || typeLC.includes('comment')) path = '/messages';
+    else if (typeLC.includes('link')) {
+      const url = activity.metadata?.link;
+      if (url && typeof window !== 'undefined') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
     
     if (path) {
       navigate(getProjectDashboardPath(projectId, projectTitle, path));
@@ -311,7 +374,7 @@ export function ActivityPanel({
       {/* Header */}
       <div className={styles.apHeader}>
         <h3 className={styles.apTitle}>Activity</h3>
-        {activities.length > maxItems && (
+        {feedCount > maxItems && (
           <button
             type="button"
             className={styles.apViewAll}
@@ -324,6 +387,18 @@ export function ActivityPanel({
 
       {/* Body */}
       <div className={styles.apBody}>
+        {hasFeed && (
+          <div className={styles.apList}>
+            {feedItems.map(activity => (
+              <ActivityItem
+                key={activity.activityId}
+                activity={activity}
+                onClick={() => handleActivityClick(activity)}
+              />
+            ))}
+          </div>
+        )}
+
         <div className={styles.apUtility}>
             {/* Messages Section */}
             <div className={styles.apUtilitySection}>
@@ -414,18 +489,6 @@ export function ActivityPanel({
               )}
             </div>
         </div>
-
-        {hasActivity && (
-          <div className={styles.apList}>
-            {displayedActivities.map(activity => (
-              <ActivityItem
-                key={activity.activityId}
-                activity={activity}
-                onClick={() => handleActivityClick(activity)}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -182,8 +182,15 @@ export function computeScheduleHealth(
 
   const nextScheduledItem = allItems[0]?.label || null;
 
-  // Count conflicts (simplified - overlapping events)
-  const conflictCount = detectConflicts(events, tasks).length;
+  // Count conflicts - overlapping scheduled time windows (future items only)
+  const futureTasks = tasks.filter(t => {
+    const when = t.startAt || t.dueDate;
+    if (!when) return false;
+    const d = new Date(when);
+    return !isNaN(d.getTime()) && d >= today;
+  });
+
+  const conflictCount = detectConflicts(futureEvents, futureTasks).length;
 
   let status: ScheduleHealth['status'] = 'on-track';
   if (conflictCount > 0) {

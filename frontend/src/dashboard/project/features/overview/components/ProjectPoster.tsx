@@ -221,7 +221,7 @@ export function ProjectPoster({
   };
 
   const handleOpenTasks = () => {
-    navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks'));
+    navigate('/dashboard/tasks', { state: { projectId, fromContext: 'overview' } });
   };
 
   const handleMapClick = () => {

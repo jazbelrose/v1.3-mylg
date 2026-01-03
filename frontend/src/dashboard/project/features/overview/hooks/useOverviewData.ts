@@ -150,17 +150,35 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
 
   const recentLinks = useMemo<OverviewData['recentLinks']>(() => {
     const links = Array.isArray(activeProject?.quickLinks) ? activeProject?.quickLinks : [];
-    const now = new Date().toISOString();
+
+    const toIsoOrEpoch = (value: unknown): string => {
+      if (!value) return new Date(0).toISOString();
+      const d = new Date(String(value));
+      return Number.isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString();
+    };
+
+    const projectFallbackTimestamp = toIsoOrEpoch(
+      (activeProject as unknown as { updatedAt?: string; dateCreated?: string })?.updatedAt ||
+        (activeProject as unknown as { dateCreated?: string })?.dateCreated
+    );
+
     return links
       .slice(0, 10)
       .map((l: unknown) => {
-        const link = l as { id?: string; title?: string; name?: string; url?: string };
+        const link = l as {
+          id?: string;
+          title?: string;
+          name?: string;
+          url?: string;
+          createdAt?: string;
+          updatedAt?: string;
+        };
         const url = link.url || '';
         return {
           linkId: link.id || url || `${Math.random()}`,
           url,
           title: link.title || link.name,
-          sharedAt: now,
+          sharedAt: toIsoOrEpoch(link.updatedAt || link.createdAt || projectFallbackTimestamp),
         };
       })
       .filter((l) => Boolean(l.url));
