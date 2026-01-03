@@ -1017,6 +1017,194 @@ const createTask = async (e, C, { projectId }) => {
   return json(201, C, { projectId, task: item });
 };
 
+const bulkCreateTasks = async (e, C, { projectId }) => {
+  const b = B(e);
+  const inputTasks = Array.isArray(b) ? b : Array.isArray(b?.tasks) ? b.tasks : [];
+
+  if (!Array.isArray(inputTasks) || inputTasks.length === 0) {
+    return json(400, C, { error: "tasks must be a non-empty array" });
+  }
+
+  if (inputTasks.length > 200) {
+    return json(413, C, { error: "Too many tasks (max 200)" });
+  }
+
+  const { userId, username, displayName, email } = getUserFromEvent(e);
+  const ts = nowISO();
+
+  const sanitize = (task) => {
+    const body = { ...(task || {}) };
+    delete body.createdAt;
+    delete body.updatedAt;
+    delete body.statusDueDateTaskId;
+    delete body.createdBy;
+    delete body.createdById;
+    delete body.createdByName;
+    delete body.createdByUsername;
+    delete body.createdByEmail;
+    delete body.thread;
+    delete body.reviewState;
+    delete body.currentSubmissionId;
+    return body;
+  };
+
+  const items = inputTasks.map((task) => {
+    const body = sanitize(task);
+    const taskId = body.taskId || `T-${uuidv4()}`;
+    delete body.taskId;
+    delete body.projectId;
+
+    const item = {
+      ...body,
+      projectId,
+      taskId,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+
+    item.title = typeof item.title === "string" ? item.title : "";
+    item.status = normalizeTaskStatus(item.status);
+    item.projectId = projectId;
+    item.taskId = taskId;
+
+    if (userId) {
+      item.createdBy = userId;
+      item.createdById = userId;
+    }
+    if (displayName) item.createdByName = displayName;
+    if (username) item.createdByUsername = username;
+    if (email) item.createdByEmail = email;
+    if (!item.reviewerId && item.createdById) {
+      item.reviewerId = item.createdById;
+    }
+
+    item.archived = false;
+    if (item.status === "done") {
+      item.completedAt = item.completedAt || ts;
+    } else if (item.completedAt !== undefined) {
+      item.completedAt = null;
+    }
+
+    if (item.reviewNote == null) {
+      item.reviewNote = "";
+    }
+    if (!Array.isArray(item.thread)) {
+      item.thread = [];
+    }
+    if (item.currentSubmissionId === undefined) {
+      item.currentSubmissionId = null;
+    }
+    if (typeof item.reviewState !== "string" || !item.reviewState.trim()) {
+      item.reviewState = "";
+    }
+
+    const statusSortKey = buildStatusSortKey(item.status, item.dueAt, taskId);
+    item.statusSortKey = statusSortKey;
+    item.statusDueDateTaskId = statusSortKey.replace("##", "#").replace("##", "#");
+
+    return item;
+  });
+
+  const requests = items.map((Item) => ({ PutRequest: { Item } }));
+  const batches = chunk(requests, 25);
+
+  for (const batch of batches) {
+    let unprocessed = batch;
+    for (let attempt = 0; attempt < 6 && unprocessed.length > 0; attempt++) {
+      const result = await ddb.batchWrite({
+        RequestItems: {
+          [TASKS_TABLE]: unprocessed,
+        },
+      });
+      const leftover = result?.UnprocessedItems?.[TASKS_TABLE] || [];
+      unprocessed = Array.isArray(leftover) ? leftover : [];
+      if (unprocessed.length > 0) {
+        const delay = Math.min(2000, 150 * Math.pow(2, attempt));
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+
+    if (unprocessed.length > 0) {
+      return json(503, C, { error: "Failed to write all tasks. Please retry." });
+    }
+  }
+
+  return json(201, C, { projectId, tasks: items });
+};
+
+const bulkPatchTasks = async (e, C, { projectId }) => {
+  const b = B(e);
+  const updates = Array.isArray(b) ? b : Array.isArray(b?.updates) ? b.updates : [];
+
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return json(400, C, { error: "updates must be a non-empty array" });
+  }
+
+  if (updates.length > 200) {
+    return json(413, C, { error: "Too many updates (max 200)" });
+  }
+
+  const now = nowISO();
+  const out = [];
+
+  for (const entry of updates) {
+    const taskId = entry?.taskId || entry?.id;
+    if (!taskId || typeof taskId !== "string") {
+      return json(400, C, { error: "Each update must include taskId" });
+    }
+
+    const fields = entry?.fields && typeof entry.fields === "object" ? entry.fields : entry;
+    const updatesObj = { ...(fields || {}) };
+    delete updatesObj.taskId;
+    delete updatesObj.id;
+    delete updatesObj.projectId;
+
+    delete updatesObj.createdAt;
+    delete updatesObj.createdBy;
+    delete updatesObj.createdById;
+    delete updatesObj.createdByName;
+    delete updatesObj.createdByUsername;
+    delete updatesObj.createdByEmail;
+    delete updatesObj.statusDueDateTaskId;
+    delete updatesObj.statusSortKey;
+    delete updatesObj.updatedAt;
+    delete updatesObj.completedAt;
+    delete updatesObj.reviewRequestedAt;
+    delete updatesObj.reviewedAt;
+    delete updatesObj.reviewNote;
+    delete updatesObj.needsChangesNote;
+    delete updatesObj.archived;
+    delete updatesObj.archivedAt;
+    delete updatesObj.archivedById;
+    delete updatesObj.thread;
+    delete updatesObj.reviewState;
+    delete updatesObj.currentSubmissionId;
+
+    const statusValue = updatesObj.status;
+    if (statusValue !== undefined) {
+      delete updatesObj.status;
+      const nextStatus = normalizeTaskStatus(statusValue);
+      const restrictedTargets = new Set(["in_review", "needs_changes", "done", "archived"]);
+      if (restrictedTargets.has(nextStatus)) {
+        return json(400, C, { error: "Status transition requires a dedicated endpoint" });
+      }
+    }
+
+    const updated = await dalUpdateTaskFields({
+      ddb,
+      tableName: TASKS_TABLE,
+      projectId,
+      taskId,
+      fields: updatesObj,
+      now,
+    });
+
+    out.push(updated);
+  }
+
+  return json(200, C, { projectId, tasks: out });
+};
+
 const getTask = async (_e, C, { projectId, taskId }) => {
   const r = await ddb.get({ TableName: TASKS_TABLE, Key: { projectId, taskId } });
   return json(200, C, r.Item || null);
@@ -2565,6 +2753,8 @@ const routes = [
   // Tasks
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/tasks$/i,                                h: listTasks },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks$/i,                                h: createTask },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/bulk$/i,                           h: bulkCreateTasks },
+  { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/bulk$/i,                           h: bulkPatchTasks },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: getTask },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review-transition$/i, h: reviewTransition },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request$/i, h: requestTaskReview },

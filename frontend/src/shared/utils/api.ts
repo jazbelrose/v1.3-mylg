@@ -908,6 +908,25 @@ export async function createTask(task: Task): Promise<Task> {
   return res as Task;
 }
 
+export async function createTasksBulk(projectId: string, tasks: Task[]): Promise<Task[]> {
+  if (!projectId) throw new Error("projectId is required for createTasksBulk");
+  const list = Array.isArray(tasks) ? tasks : [];
+  if (list.length === 0) return [];
+
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/bulk`;
+  const res = await apiFetch<{ projectId?: string; tasks?: Task[] } | Task[]>(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tasks: list.map((task) => ({ ...task, projectId })) }),
+  });
+
+  if (Array.isArray(res)) return res as Task[];
+  if (res && typeof res === "object" && "tasks" in res && Array.isArray(res.tasks)) {
+    return res.tasks as Task[];
+  }
+  return [];
+}
+
 // IMPORTANT: Do NOT use updateTask() to move a task into in_review, needs_changes,
 // done, or archived. Those transitions must go through the dedicated review-transition /
 // archive endpoints documented in TASK_STATUS_TRANSITIONS.md.
@@ -921,6 +940,33 @@ export async function updateTask(task: Task): Promise<Task> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+export async function updateTasksBulk(
+  projectId: string,
+  updates: Array<{ taskId: string; fields: Partial<Task> }>,
+): Promise<Task[]> {
+  if (!projectId) throw new Error("projectId is required for updateTasksBulk");
+  const list = Array.isArray(updates) ? updates : [];
+  if (list.length === 0) return [];
+
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/bulk`;
+  const res = await apiFetch<{ projectId?: string; tasks?: Task[] } | Task[]>(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      updates: list.map((entry) => ({
+        taskId: entry.taskId,
+        fields: { ...(entry.fields || {}), projectId },
+      })),
+    }),
+  });
+
+  if (Array.isArray(res)) return res as Task[];
+  if (res && typeof res === "object" && "tasks" in res && Array.isArray(res.tasks)) {
+    return res.tasks as Task[];
+  }
+  return [];
 }
 
 export async function deleteTask({ projectId, taskId }: { projectId: string; taskId: string }): Promise<{ ok: true }> {

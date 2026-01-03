@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckSquare, ChevronLeft, ChevronRight, Menu, Search, Sparkles } from "lucide-react";
+import { BrushCleaning, CheckSquare, ChevronLeft, ChevronRight, Menu, Search, Sparkles, Wand2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   normalizeTask as normalizeQuickTask,
@@ -18,7 +18,8 @@ import CreateCalendarItemModal, {
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import {
   createTask,
-  updateTask,
+  createTasksBulk,
+  updateTasksBulk,
   deleteTask,
   reviewTransitionTask,
   type Task as ApiTask,
@@ -46,6 +47,7 @@ import { CalendarEvent, CalendarTask, fmt, fmtLocal, safeDate, isSameDay, format
 import TaskSpellbookModal, { type TaskSpellbookApplyRequest } from "./TaskSpellbookModal";
 import { buildDoablePlans, formatMinutesHHMM } from "../lib/doablePlanner";
 import { parseTimeToMinutes } from "./timelineLayout";
+import MakeTodayDoableModal, { type MakeTodayDoableApplyRequest } from "./MakeTodayDoableModal";
 
 import "../calendar-preview.css";
 
@@ -121,6 +123,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [isEventsDrawerOpen, setIsEventsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSpellbookOpen, setIsSpellbookOpen] = useState(false);
+  const [isDoableOpen, setIsDoableOpen] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(false);
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(() => new Set());
@@ -332,6 +336,23 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     });
   }, [tasks, normalizedSearchTerm, quickTaskById]);
 
+  const doneCountsByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    tasks.forEach((task) => {
+      if (task.status !== "done" && task.status !== "archived") return;
+      const dueDate = task.due ? safeDate(task.due) : null;
+      if (!dueDate) return;
+      const key = fmtLocal(dueDate);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return map;
+  }, [tasks]);
+
+  const effectiveTasks = useMemo(() => {
+    if (!hideCompleted) return visibleTasks;
+    return visibleTasks.filter((task) => task.status !== "done" && task.status !== "archived");
+  }, [hideCompleted, visibleTasks]);
+
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
 
   const eventById = useMemo(() => {
@@ -344,11 +365,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const taskById = useMemo(() => {
     const map = new Map<string, CalendarTask>();
-    visibleTasks.forEach((task) => {
+    effectiveTasks.forEach((task) => {
       map.set(task.id, task);
     });
     return map;
-  }, [visibleTasks]);
+  }, [effectiveTasks]);
 
   const miniCalendarActivityMap = useMemo<Record<string, MiniCalendarActivityItem[]>>(() => {
     const map: Record<string, MiniCalendarActivityItem[]> = {};
@@ -378,7 +399,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       map[key] = [...(map[key] ?? []), entry];
     });
 
-    visibleTasks.forEach((task) => {
+    effectiveTasks.forEach((task) => {
       if (!task.due) return;
       const taskDate = safeDate(task.due) ?? new Date(task.due);
       if (Number.isNaN(taskDate.getTime())) {
@@ -417,7 +438,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     });
 
     return map;
-  }, [visibleEvents, visibleTasks, activeProjectColor]);
+  }, [visibleEvents, effectiveTasks, activeProjectColor]);
 
   const miniCalendarActivityDates = useMemo(
     () => Object.keys(miniCalendarActivityMap),
@@ -632,6 +653,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     setIsSpellbookOpen(false);
   }, []);
 
+  const handleOpenDoable = useCallback(() => {
+    setIsDoableOpen(true);
+  }, []);
+
+  const handleCloseDoable = useCallback(() => {
+    setIsDoableOpen(false);
+  }, []);
+
+  const handleToggleDoneSweep = useCallback(() => {
+    setHideCompleted((prev) => !prev);
+  }, []);
+
   const handleApplySpellbook = useCallback(
     async (request: TaskSpellbookApplyRequest) => {
       if (!activeProjectId) {
@@ -640,64 +673,35 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
 
       const targetDate = request.targetDate;
-      const createdChildTasks: Array<{ itemIndex: number; task: Task }> = [];
-
-      const createChildOps = request.variant.items.map(async (item, itemIndex) => {
-        if (item.kind === "intent") {
-          const payload: Task = {
-            projectId: activeProjectId,
-            title: item.title,
-            status: "todo",
-            dueDate: targetDate,
-            dueAt: targetDate,
-            kind: "intent",
-            cluster: item.cluster,
-            tags: item.tags,
-            durationMinutes: item.durationMinutes,
-          };
-          await createTask(payload);
-          return;
-        }
-
-        const payload: Task = {
+      try {
+        const childPayloads: Task[] = request.variant.items.map((item) => ({
           projectId: activeProjectId,
           title: item.title,
           status: "todo",
           dueDate: targetDate,
           dueAt: targetDate,
-          kind: "task",
+          kind: item.kind === "intent" ? "intent" : "task",
           cluster: item.cluster,
           tags: item.tags,
           durationMinutes: item.durationMinutes,
-        };
+        }));
 
-        const created = await createTask(payload);
-        createdChildTasks.push({ itemIndex, task: created });
-      });
+        const createdChildren = await createTasksBulk(activeProjectId, childPayloads);
+        const childByIndex = new Map(createdChildren.map((task, idx) => [idx, task]));
 
-      try {
-        await Promise.all(createChildOps);
-
-        const childByIndex = new Map(createdChildTasks.map((entry) => [entry.itemIndex, entry.task]));
-
-        if (request.variant.focusBlocks.length > 0 && request.plan) {
-          const focusBlockOps = request.plan.placements.map(async (placement) => {
-            const match = placement.draftId.match(/^block-(\d+)$/);
-            if (!match) return;
-            const blockIndex = Number(match[1]);
-            const block = request.variant.focusBlocks[blockIndex];
-            if (!block) return;
-
-            const startTime = formatMinutesHHMM(placement.startMinutes);
-            const endTime = formatMinutesHHMM(placement.endMinutes);
-            const startAt = buildIsoDateTime(targetDate, startTime);
-            const endAt = buildIsoDateTime(targetDate, endTime);
+        if (request.variant.focusBlocks.length > 0) {
+          const focusPayloads: Task[] = request.variant.focusBlocks.map((block, blockIndex) => {
+            const placement = request.plan?.placements.find((p) => p.draftId === `block-${blockIndex}`) ?? null;
+            const startAt =
+              placement != null ? buildIsoDateTime(targetDate, formatMinutesHHMM(placement.startMinutes)) : null;
+            const endAt =
+              placement != null ? buildIsoDateTime(targetDate, formatMinutesHHMM(placement.endMinutes)) : null;
 
             const childTasks = block.itemIndexes
               .map((idx) => childByIndex.get(idx))
               .filter((value): value is Task => Boolean(value));
 
-            const payload: Task = {
+            return {
               projectId: activeProjectId,
               title: block.title,
               status: "todo",
@@ -709,55 +713,63 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               cluster: block.cluster,
               durationMinutes: block.durationMinutes,
               focusChildTaskIds: childTasks.map((task) => task.taskId!).filter(Boolean),
-              focusChecklist: childTasks.map((task) => ({ taskId: task.taskId!, title: task.title })),
+              focusChecklist: childTasks
+                .map((task) => (task.taskId ? { taskId: task.taskId, title: task.title } : null))
+                .filter((value): value is { taskId: string; title: string } => value !== null),
             };
-
-            const createdFocus = await createTask(payload);
-
-            const focusTaskId = createdFocus.taskId;
-            if (!focusTaskId) return;
-
-            const linkOps = childTasks.map((task) => {
-              if (!task.taskId) return Promise.resolve(null);
-              return updateTask({
-                projectId: activeProjectId,
-                taskId: task.taskId,
-                focusBlockId: focusTaskId,
-                startAt: null,
-                endAt: null,
-                dueDate: targetDate,
-                dueAt: targetDate,
-              });
-            });
-
-            await Promise.all(linkOps);
           });
 
-          await Promise.all(focusBlockOps);
+          const createdFocusBlocks = await createTasksBulk(activeProjectId, focusPayloads);
+
+          const linkUpdates: Array<{ taskId: string; fields: Partial<Task> }> = [];
+          request.variant.focusBlocks.forEach((block, blockIndex) => {
+            const focusTaskId = createdFocusBlocks[blockIndex]?.taskId ?? null;
+            if (!focusTaskId) return;
+            block.itemIndexes.forEach((itemIndex) => {
+              const child = childByIndex.get(itemIndex);
+              if (!child?.taskId) return;
+              linkUpdates.push({
+                taskId: child.taskId,
+                fields: {
+                  focusBlockId: focusTaskId,
+                  startAt: null,
+                  endAt: null,
+                  dueDate: targetDate,
+                  dueAt: targetDate,
+                },
+              });
+            });
+          });
+
+          if (linkUpdates.length > 0) {
+            await updateTasksBulk(activeProjectId, linkUpdates);
+          }
         } else if (request.plan) {
-          const placementOps = request.plan.placements.map(async (placement) => {
+          const placementUpdates: Array<{ taskId: string; fields: Partial<Task> }> = [];
+          request.plan.placements.forEach((placement) => {
             const match = placement.draftId.match(/^item-(\d+)$/);
             if (!match) return;
             const itemIndex = Number(match[1]);
             const created = childByIndex.get(itemIndex);
             if (!created?.taskId) return;
 
-            const startTime = formatMinutesHHMM(placement.startMinutes);
-            const endTime = formatMinutesHHMM(placement.endMinutes);
-            const startAt = buildIsoDateTime(targetDate, startTime);
-            const endAt = buildIsoDateTime(targetDate, endTime);
+            const startAt = buildIsoDateTime(targetDate, formatMinutesHHMM(placement.startMinutes));
+            const endAt = buildIsoDateTime(targetDate, formatMinutesHHMM(placement.endMinutes));
 
-            await updateTask({
-              projectId: activeProjectId,
+            placementUpdates.push({
               taskId: created.taskId,
-              startAt,
-              endAt,
-              dueDate: endAt ?? targetDate,
-              dueAt: endAt ?? targetDate,
+              fields: {
+                startAt,
+                endAt,
+                dueDate: endAt ?? targetDate,
+                dueAt: endAt ?? targetDate,
+              },
             });
           });
 
-          await Promise.all(placementOps);
+          if (placementUpdates.length > 0) {
+            await updateTasksBulk(activeProjectId, placementUpdates);
+          }
         }
 
         await onRefreshTasks();
@@ -768,6 +780,55 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
     },
     [activeProjectId, onRefreshTasks],
+  );
+
+  const handleApplyDoable = useCallback(
+    async (request: MakeTodayDoableApplyRequest) => {
+      if (!activeProjectId) return;
+
+      const taskByCalendarId = new Map<string, CalendarTask>();
+      tasks.forEach((task) => taskByCalendarId.set(task.id, task));
+
+      const updatesByProject = new Map<string, Array<{ taskId: string; fields: Partial<Task> }>>();
+      request.plan.placements.forEach((placement) => {
+        const calendarTask = taskByCalendarId.get(placement.draftId);
+        if (!calendarTask) return;
+        const taskId = resolveTaskIdentifier(calendarTask);
+        if (!taskId) return;
+
+        const source = calendarTask.source as Partial<ApiTask>;
+        const projectId = source.projectId ?? activeProjectId;
+        if (!projectId) return;
+
+        const startAt = buildIsoDateTime(request.dateIso, formatMinutesHHMM(placement.startMinutes));
+        const endAt = buildIsoDateTime(request.dateIso, formatMinutesHHMM(placement.endMinutes));
+
+        const updates = updatesByProject.get(projectId) ?? [];
+        updates.push({
+          taskId,
+          fields: {
+            startAt,
+            endAt,
+            dueDate: endAt ?? request.dateIso,
+            dueAt: endAt ?? request.dateIso,
+          },
+        });
+        updatesByProject.set(projectId, updates);
+      });
+
+      try {
+        const operations = [...updatesByProject.entries()].map(([projectId, updates]) =>
+          updateTasksBulk(projectId, updates),
+        );
+        if (operations.length > 0) await Promise.all(operations);
+        await onRefreshTasks();
+        notify("success", "Plan applied.");
+      } catch (error) {
+        console.error("Failed to apply doable plan", error);
+        notify("error", "Unable to apply plan. Please try again.");
+      }
+    },
+    [activeProjectId, onRefreshTasks, tasks],
   );
 
   const handleConvertToFocusBlock = useCallback(
@@ -856,11 +917,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         .map((task) => resolveTaskIdentifier(task))
         .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
-      try {
-        const focusTask = await createTask({
-          projectId: activeProjectId,
-          title,
-          status: "todo",
+        try {
+          const focusTask = await createTask({
+            projectId: activeProjectId,
+            title,
+            status: "todo",
           kind: "focus_block",
           cluster: bestCluster || undefined,
           durationMinutes,
@@ -880,21 +941,23 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           return;
         }
 
-        await Promise.all(
-          eligible.map((task) => {
-            const taskId = resolveTaskIdentifier(task);
-            if (!taskId) return Promise.resolve(null);
-            return updateTask({
-              projectId: activeProjectId,
-              taskId,
+        const childUpdates: Array<{ taskId: string; fields: Partial<Task> }> = eligible
+          .map((task) => resolveTaskIdentifier(task))
+          .filter((value): value is string => Boolean(value))
+          .map((taskId) => ({
+            taskId,
+            fields: {
               focusBlockId: focusTask.taskId!,
               startAt: null,
               endAt: null,
               dueDate: dateIso,
               dueAt: dateIso,
-            });
-          }),
-        );
+            },
+          }));
+
+        if (childUpdates.length > 0) {
+          await updateTasksBulk(activeProjectId, childUpdates);
+        }
 
         await onRefreshTasks();
         notify("success", "Converted to focus block.");
@@ -939,6 +1002,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
 
       if (taskChanges.length) {
+        const createsByProject = new Map<string, Task[]>();
+        const updatesByProject = new Map<string, Array<{ taskId: string; fields: Partial<Task> }>>();
+
         taskChanges.forEach((change) => {
           const task = change.entry as CalendarTask;
           const source = task.source as ApiTask;
@@ -948,34 +1014,47 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           if (!projectId) return;
 
           const dueDate = change.date;
-          const startIso = buildIsoDateTime(dueDate, change.start);
-          const endIso = buildIsoDateTime(dueDate, change.end);
+          const startAt = buildIsoDateTime(dueDate, change.start);
+          const endAt = buildIsoDateTime(dueDate, change.end);
+          const dueAt = endAt ?? dueDate;
 
           if (change.duplicate) {
             const payload: Task = {
               projectId,
               title: task.title ?? "Untitled task",
               description: task.description ?? undefined,
-              dueDate: endIso ?? dueDate,
-              startAt: startIso,
-              endAt: endIso,
+              dueDate: dueAt,
+              dueAt,
+              startAt,
+              endAt,
               assigneeId: source.assigneeId,
               assigneeIds: source.assigneeIds,
               address: source.address,
               location: source.location,
             };
-            operations.push(createTask(payload));
-          } else if (taskId) {
-            const payload: Task = {
-              projectId,
-              taskId,
-              title: task.title,
-              dueDate: endIso ?? dueDate,
-              ...(startIso !== null ? { startAt: startIso } : {}),
-              ...(endIso !== null ? { endAt: endIso } : {}),
-            };
-            operations.push(updateTask(payload));
+            createsByProject.set(projectId, [...(createsByProject.get(projectId) ?? []), payload]);
+            return;
           }
+
+          if (!taskId) return;
+          const fields: Partial<Task> = {
+            title: task.title,
+            dueDate: dueAt,
+            dueAt,
+            startAt,
+            endAt,
+          };
+          updatesByProject.set(projectId, [
+            ...(updatesByProject.get(projectId) ?? []),
+            { taskId, fields },
+          ]);
+        });
+
+        createsByProject.forEach((payloads, projectId) => {
+          operations.push(createTasksBulk(projectId, payloads));
+        });
+        updatesByProject.forEach((updates, projectId) => {
+          operations.push(updateTasksBulk(projectId, updates));
         });
       }
 
@@ -1267,7 +1346,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                 ) : (
                   <EventsAndTasks
                     events={visibleEvents}
-                    tasks={visibleTasks}
+                    tasks={effectiveTasks}
                     onToggleTask={onToggleTask}
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
@@ -1325,6 +1404,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     <Sparkles size={16} aria-hidden />
                     <span>Spellbook</span>
                   </button>
+                  <button type="button" className="calendar-controls__action-btn" onClick={handleOpenDoable}>
+                    <Wand2 size={16} aria-hidden />
+                    <span>Make today doable</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`calendar-controls__action-btn${hideCompleted ? " calendar-controls__action-btn--active" : ""}`}
+                    onClick={handleToggleDoneSweep}
+                  >
+                    <BrushCleaning size={16} aria-hidden />
+                    <span>{hideCompleted ? "Undo sweep" : "Sweep done"}</span>
+                  </button>
                 </div>
               </div>
 
@@ -1334,7 +1425,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     viewDate={internalDate}
                     selectedDate={internalDate}
                     events={visibleEvents}
-                    tasks={visibleTasks}
+                    tasks={effectiveTasks}
                     onSelectDate={handleSelectDate}
                     onOpenCreate={handleOpenCreate}
                     onOpenQuickTask={(date) => handleOpenQuickTaskModal(date)}
@@ -1350,7 +1441,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     <WeekGrid
                       anchorDate={internalDate}
                       events={visibleEvents}
-                      tasks={visibleTasks}
+                      tasks={effectiveTasks}
+                      hideCompleted={hideCompleted}
+                      doneCountsByDay={doneCountsByDay}
                       onEditEvent={handleOpenEditEvent}
                       onEditTask={handleOpenEditTask}
                       onCreateEvent={handleOpenCreate}
@@ -1377,7 +1470,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     <DayGrid
                       date={internalDate}
                       events={visibleEvents}
-                      tasks={visibleTasks}
+                      tasks={effectiveTasks}
+                      hideCompleted={hideCompleted}
+                      doneCountsByDay={doneCountsByDay}
                       onEditEvent={handleOpenEditEvent}
                       onEditTask={handleOpenEditTask}
                       onCreateEvent={handleOpenCreate}
@@ -1466,6 +1561,14 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         onClose={handleCloseSpellbook}
         onApply={handleApplySpellbook}
       />
+      <MakeTodayDoableModal
+        isOpen={isDoableOpen}
+        date={internalDate}
+        events={events}
+        tasks={tasks}
+        onClose={handleCloseDoable}
+        onApply={handleApplyDoable}
+      />
       <CalendarTaskDrawer
         open={isQuickTaskModalOpen}
         task={quickTaskDraft}
@@ -1481,7 +1584,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         <MobileEventsDrawer
           open={isEventsDrawerOpen}
           events={visibleEvents}
-          tasks={visibleTasks}
+          tasks={effectiveTasks}
           onClose={handleCloseMobileDrawer}
           onToggleTask={onToggleTask}
           onEditEvent={handleOpenEditEvent}

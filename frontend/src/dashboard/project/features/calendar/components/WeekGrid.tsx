@@ -43,6 +43,8 @@ export type WeekGridProps = {
   anchorDate: Date;
   events: CalendarEvent[];
   tasks: CalendarTask[];
+  hideCompleted?: boolean;
+  doneCountsByDay?: Map<string, number>;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
@@ -226,6 +228,8 @@ function WeekGrid({
   anchorDate,
   events,
   tasks,
+  hideCompleted,
+  doneCountsByDay,
   onEditEvent,
   onEditTask,
   onCreateEvent,
@@ -1508,6 +1512,7 @@ function WeekGrid({
             const key = fmtLocal(day);
             const dayEventBucket = eventsByDay.get(key) ?? { allDay: [] };
             const dayTaskBucket = tasksByDay.get(key) ?? { allDay: [] };
+            const doneCount = hideCompleted ? (doneCountsByDay?.get(key) ?? 0) : 0;
             const timelineEntries = timelineEntriesByDay.get(key)?.get(hour) ?? [];
             const slotId = `${day.getTime()}-${hour}`;
             const isExpandedSlot = expandedSlots.has(slotId);
@@ -1549,7 +1554,7 @@ function WeekGrid({
                   }}
                 >
                 {hourIndex === 0 &&
-                  (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0) && (
+                  (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0 || doneCount > 0) && (
                     <div className="week-grid__all-day">
                       {allDayIntents.length > 0 && (
                         <div className="week-grid__intents" aria-label="Intents">
@@ -1564,6 +1569,11 @@ function WeekGrid({
                               {task.title}
                             </button>
                           ))}
+                        </div>
+                      )}
+                      {hideCompleted && doneCount > 0 && (
+                        <div className="week-grid__done-sweep-badge" title="Completed tasks hidden">
+                          Done · {doneCount}
                         </div>
                       )}
                       {dayEventBucket.allDay.map((event) => {

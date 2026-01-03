@@ -41,6 +41,8 @@ export type DayGridProps = {
   date: Date;
   events: CalendarEvent[];
   tasks: CalendarTask[];
+  hideCompleted?: boolean;
+  doneCountsByDay?: Map<string, number>;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
@@ -168,6 +170,8 @@ function DayGrid({
   date,
   events,
   tasks,
+  hideCompleted,
+  doneCountsByDay,
   onEditEvent,
   onEditTask,
   onCreateEvent,
@@ -188,6 +192,10 @@ function DayGrid({
   onDeleteEntries,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
+  const doneCount = useMemo(
+    () => (hideCompleted ? (doneCountsByDay?.get(key) ?? 0) : 0),
+    [doneCountsByDay, hideCompleted, key],
+  );
   const hours = useMemo(() => Array.from({ length: HOURS_IN_DAY }, (_, index) => index), []);
   
   const projectColor = useMemo(
@@ -1349,7 +1357,7 @@ function DayGrid({
               }}
             >
               {hourIndex === 0 &&
-                (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0 || dayIntents.length > 0) && (
+                (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0 || dayIntents.length > 0 || doneCount > 0) && (
                   <div className="week-grid__all-day day-grid__all-day">
                     {dayIntents.length > 0 && (
                       <div className="week-grid__intents" aria-label="Intents">
@@ -1364,6 +1372,11 @@ function DayGrid({
                             {task.title}
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {hideCompleted && doneCount > 0 && (
+                      <div className="week-grid__done-sweep-badge" title="Completed tasks hidden">
+                        Done · {doneCount}
                       </div>
                     )}
                     {dayAllDayEvents.map((event) => {
