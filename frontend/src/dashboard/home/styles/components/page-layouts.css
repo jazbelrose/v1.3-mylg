@@ -29,8 +29,7 @@
 .overview-hud-layout {
   padding: 16px;
   gap: 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden; /* No scroll on outer - panels scroll internally */
 }
 
 .budget-layout {
