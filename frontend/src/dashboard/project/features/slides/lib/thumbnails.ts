@@ -2,12 +2,19 @@
 import { toBlob } from 'html-to-image';
 import { uploadData } from 'aws-amplify/storage';
 import { getFileUrl, THUMBNAILS_URL, apiFetch } from '@/shared/utils/api';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import SlideReadOnlyRenderer from '../components/SlideReadOnlyRenderer';
 import { isUiThumbsEnabled } from './featureFlags';
 
 const NATIVE_SLIDE_WIDTH = 1920;
 const NATIVE_SLIDE_HEIGHT = 1080;
 const DEFAULT_THUMB_WIDTH = 320;
 const DEFAULT_THUMB_HEIGHT = 180;
+
+function isJsdomEnvironment(): boolean {
+  return typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent);
+}
 
 function resolveThumbnailCaptureRoot(element: HTMLElement): HTMLElement {
   return (
@@ -37,10 +44,12 @@ async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 5000): Promise
   if (typeof document === 'undefined') return;
 
   const images = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
-  
-  // Also find elements with background images (picture frames, slide backgrounds)
+
+  // Also find elements with background images (picture frames, slide backgrounds).
+  // Include the root element's computed background image as well (not always inline).
   const bgImageElements = Array.from(root.querySelectorAll('[style*="background-image"]')) as HTMLElement[];
-  
+  const rootComputedBg = typeof window !== 'undefined' ? window.getComputedStyle(root).backgroundImage : '';
+
   const imagePromises: Promise<void>[] = [];
   
   // Wait for img elements
@@ -49,51 +58,65 @@ async function waitForImagesToLoad(root: HTMLElement, timeoutMs = 5000): Promise
     if (!img.src) return;
     
     imagePromises.push(
-      new Promise<void>((resolve) => {
+      (async () => {
         if (img.complete && img.naturalWidth > 0) {
-          resolve();
+          try {
+            if (typeof img.decode === 'function') {
+              await img.decode();
+            }
+          } catch {
+            // ignore decode failures; onload already happened
+          }
           return;
         }
-        const cleanup = () => {
-          img.removeEventListener('load', onDone);
-          img.removeEventListener('error', onDone);
-        };
-        const onDone = () => {
-          cleanup();
-          resolve();
-        };
-        img.addEventListener('load', onDone);
-        img.addEventListener('error', onDone);
-        
-        // Additional fallback: if image has src but hasn't triggered load/error,
-        // force a reload by reassigning src
-        if (img.src && !img.complete) {
-          const currentSrc = img.src;
-          img.src = '';
-          img.src = currentSrc;
+
+        await new Promise<void>((resolve) => {
+          const onDone = () => {
+            img.removeEventListener('load', onDone);
+            img.removeEventListener('error', onDone);
+            resolve();
+          };
+          img.addEventListener('load', onDone);
+          img.addEventListener('error', onDone);
+        });
+
+        try {
+          if (typeof img.decode === 'function') {
+            await img.decode();
+          }
+        } catch {
+          // ignore
         }
-      })
+      })()
     );
   });
   
   // Wait for background images by preloading them
+  const preloadBgImage = (bgImage: string) => {
+    const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
+    if (!urlMatch || !urlMatch[1]) return;
+    const url = urlMatch[1];
+    imagePromises.push(
+      new Promise<void>((resolve) => {
+        const preloadImg = new Image();
+        preloadImg.decoding = 'async';
+        preloadImg.onload = () => resolve();
+        preloadImg.onerror = () => resolve();
+        preloadImg.src = url;
+        if (preloadImg.complete) resolve();
+      })
+    );
+  };
+
+  if (rootComputedBg && rootComputedBg !== 'none') {
+    preloadBgImage(rootComputedBg);
+  }
+
   bgImageElements.forEach((el) => {
     const style = window.getComputedStyle(el);
     const bgImage = style.backgroundImage;
     if (bgImage && bgImage !== 'none') {
-      const urlMatch = bgImage.match(/url\(["']?([^"')]+)["']?\)/);
-      if (urlMatch && urlMatch[1]) {
-        imagePromises.push(
-          new Promise<void>((resolve) => {
-            const preloadImg = new Image();
-            preloadImg.onload = () => resolve();
-            preloadImg.onerror = () => resolve();
-            preloadImg.src = urlMatch[1];
-            // Quick resolve if already cached
-            if (preloadImg.complete) resolve();
-          })
-        );
-      }
+      preloadBgImage(bgImage);
     }
   });
   
@@ -386,7 +409,7 @@ async function captureElementBlob(
 
   // CRITICAL: Wait for images in the ORIGINAL element to load BEFORE cloning.
   // This ensures picture frame images are fully loaded before we capture.
-  await waitForImagesToLoad(captureRoot, 2000);
+  await waitForImagesToLoad(captureRoot, 5000);
   
   // Give React an extra moment to update any state after images load
   await nextAnimationFrame();
@@ -442,14 +465,14 @@ async function captureElementBlob(
       if (typeof document !== "undefined" && document.fonts?.ready) {
         await document.fonts.ready;
       }
-      await waitForImagesToLoad(clone, 2000);
+      await waitForImagesToLoad(clone, 5000);
       
       // Additional wait on retry attempts to allow images more time to load
       if (attempt > 0) {
         await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
         // Re-sync images on retry in case they loaded in the original
         syncImageSources(captureRoot, clone);
-        await waitForImagesToLoad(clone, 2000);
+        await waitForImagesToLoad(clone, 5000);
       }
       
       const blob = await toBlob(clone, {
@@ -500,8 +523,13 @@ const MAX_CACHE_ENTRIES = 200; // Maximum number of cached thumbnails per projec
 const MAX_CACHE_SIZE_MB = 150; // Maximum cache size in MB
 
 // Cache key format: slides:<projectId>:<slideId>:<contentHash>:<bgColorHash>
-const makeCacheKey = (projectId: string, slideId: string, contentHash: string, bgColorHash: string) =>
-  `slides:${projectId}:${slideId}:${contentHash}:${bgColorHash}`;
+const makeCacheKey = (
+  projectId: string,
+  slideId: string,
+  contentHash: string,
+  bgColorHash: string,
+  bgImageHash: string
+) => `slides:${projectId}:${slideId}:${contentHash}:${bgColorHash}:${bgImageHash}`;
 
 const warmInflightKeys = new Set<string>();
 const inflightRenderMap = new Map<string, Promise<Blob | null>>();
@@ -658,6 +686,15 @@ export async function hashBackgroundColor(color: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
 }
 
+export async function hashBackgroundImage(backgroundImage: string): Promise<string> {
+  if (!backgroundImage) return 'none';
+  const encoder = new TextEncoder();
+  const data = encoder.encode(backgroundImage);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 8);
+}
+
 // Read blob from IndexedDB cache
 async function readBlob(key: string): Promise<Blob | null> {
   try {
@@ -738,7 +775,8 @@ async function renderThumbnailOffscreen(
   content: string,
   width: number = 1920,
   height: number = 1080,
-  backgroundColor: string = '#101112'
+  backgroundColor: string = '#101112',
+  backgroundImage?: string | null
 ): Promise<Blob | null> {
   if (typeof document === "undefined") {
     return null;
@@ -756,7 +794,13 @@ async function renderThumbnailOffscreen(
     }
   }
 
-  // Fallback to simple text representation if capturing the DOM failed
+  // True offscreen render for slides that were never mounted in the editor DOM.
+  // This is critical for stable thumbnails: relying on locateSlideCaptureElement()
+  // only works for visited slides.
+  // Avoid rendering Lexical in unit tests (jsdom) — it is heavy and may not be fully supported there.
+  if (isJsdomEnvironment()) {
+    console.warn(`Thumbnail capture: skipping Lexical offscreen render in jsdom for slide ${slideId}`);
+  } else {
   const container = document.createElement('div');
   container.style.position = 'fixed';
   container.style.left = '-10000px';
@@ -765,13 +809,71 @@ async function renderThumbnailOffscreen(
   container.style.height = `${height}px`;
   container.style.backgroundColor = backgroundColor;
   container.style.overflow = 'hidden';
+  container.style.pointerEvents = 'none';
   container.style.zIndex = '-1';
-  container.setAttribute('data-slide-id', slideId);
+
+  if (backgroundImage) {
+    container.style.backgroundImage = `url(${getFileUrl(backgroundImage)})`;
+    container.style.backgroundSize = 'cover';
+    container.style.backgroundPosition = 'center';
+    container.style.backgroundRepeat = 'no-repeat';
+  }
+
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  try {
+    root.render(
+      React.createElement(
+        'div',
+        {
+          style: {
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            overflow: 'hidden',
+          },
+        },
+        React.createElement(SlideReadOnlyRenderer, { content, contentPadding: '96px 120px' })
+      )
+    );
+
+    await nextAnimationFrame();
+    await nextAnimationFrame();
+    await waitForImagesToLoad(container, 8000);
+
+    const capturedBlob = await captureElementBlob(container, width, height, backgroundColor);
+    if (capturedBlob) {
+      return capturedBlob;
+    }
+  } catch (error) {
+    console.warn('Thumbnail capture: offscreen React render failed, falling back to placeholder render:', error);
+  } finally {
+    try {
+      root.unmount();
+    } catch {
+      // ignore
+    }
+    container.remove();
+  }
+  }
+
+  // Fallback to simple text representation if capturing the DOM failed
+  const placeholder = document.createElement('div');
+  placeholder.style.position = 'fixed';
+  placeholder.style.left = '-10000px';
+  placeholder.style.top = '0';
+  placeholder.style.width = `${width}px`;
+  placeholder.style.height = `${height}px`;
+  placeholder.style.backgroundColor = backgroundColor;
+  placeholder.style.overflow = 'hidden';
+  placeholder.style.zIndex = '-1';
+  placeholder.setAttribute('data-slide-id', slideId);
 
   try {
     const titleMatch = content.match(/"text":"([^"]+)"/);
     const slideText = titleMatch ? titleMatch[1] : 'Slide content';
-    container.innerHTML = `
+    placeholder.innerHTML = `
       <div style="width: 100%; height: 100%; padding: 40px; font-family: Arial, sans-serif; font-size: 24px; line-height: 1.4; display: flex; align-items: center; justify-content: center; text-align: center;">
         <div style="max-width: 1600px;">
           ${slideText.substring(0, 200)}${slideText.length > 200 ? '...' : ''}
@@ -780,14 +882,14 @@ async function renderThumbnailOffscreen(
     `;
   } catch (error) {
     console.warn('Failed to parse slide content for thumbnail:', error);
-    container.innerHTML = `
+    placeholder.innerHTML = `
       <div style="width: 100%; height: 100%; padding: 40px; font-family: Arial, sans-serif; font-size: 24px; line-height: 1.4; display: flex; align-items: center; justify-content: center; color: #666;">
         Slide ${slideId}
       </div>
     `;
   }
 
-  document.body.appendChild(container);
+  document.body.appendChild(placeholder);
 
   try {
     if (document.fonts?.ready) {
@@ -797,7 +899,7 @@ async function renderThumbnailOffscreen(
     let lastError: unknown = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const blob = await toBlob(container, {
+        const blob = await toBlob(placeholder, {
           canvasWidth: width,
           canvasHeight: height,
           backgroundColor,
@@ -836,7 +938,7 @@ async function renderThumbnailOffscreen(
     console.error('Failed to render thumbnail offscreen:', error);
     return new Blob([], { type: 'image/png' });
   } finally {
-    container.remove();
+    placeholder.remove();
   }
 }
 
@@ -845,6 +947,7 @@ export async function getOrRenderThumb({
   projectId,
   slideId,
   content,
+  backgroundImage,
   width = 1920,
   height = 1080,
   backgroundColor = '#101112'
@@ -852,6 +955,7 @@ export async function getOrRenderThumb({
   projectId: string;
   slideId: string;
   content: string;
+  backgroundImage?: string | null;
   width?: number;
   height?: number;
   backgroundColor?: string;
@@ -865,7 +969,8 @@ export async function getOrRenderThumb({
     // Generate content hash and background color hash
     const contentHash = await hashContent(content);
     const bgColorHash = await hashBackgroundColor(backgroundColor);
-    const cacheKey = makeCacheKey(projectId, slideId, contentHash, bgColorHash);
+    const bgImageHash = await hashBackgroundImage(backgroundImage ?? '');
+    const cacheKey = makeCacheKey(projectId, slideId, contentHash, bgColorHash, bgImageHash);
     
     // Check cache first
     const cachedBlob = await readBlob(cacheKey);
@@ -877,7 +982,7 @@ export async function getOrRenderThumb({
     let renderPromise = inflightRenderMap.get(cacheKey);
     if (!renderPromise) {
       renderPromise = (async () => {
-        const blob = await renderThumbnailOffscreen(slideId, content, width, height, backgroundColor);
+        const blob = await renderThumbnailOffscreen(slideId, content, width, height, backgroundColor, backgroundImage ?? null);
         if (!blob) {
           return null;
         }
@@ -941,7 +1046,7 @@ export async function refreshAllThumbnails(projectId: string): Promise<void> {
 // Warm thumbnails for visible range (preload)
 export async function warmThumbsForVisibleRange(
   projectId: string,
-  slides: Array<{ id: string; content?: string; backgroundColor?: string }>,
+  slides: Array<{ id: string; content?: string; backgroundColor?: string; backgroundImage?: string | null }>,
   visibleStart: number = 0,
   visibleEnd: number = slides.length
 ): Promise<void> {
@@ -949,17 +1054,27 @@ export async function warmThumbsForVisibleRange(
   
   const visibleSlides = slides.slice(Math.max(0, visibleStart - 2), visibleEnd + 2);
 
-  const tasks = visibleSlides
-    .filter((slide) => typeof slide.content === 'string' && slide.content.length > 0)
-    .map(async (slide) => {
+  const candidates = visibleSlides.filter((slide) => typeof slide.content === 'string' && slide.content.length > 0);
+  if (candidates.length === 0) return;
+
+  let index = 0;
+  const concurrency = Math.min(2, candidates.length);
+
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (true) {
+      const slide = candidates[index++];
+      if (!slide) return;
+
       const content = slide.content as string;
       const backgroundColor = slide.backgroundColor || '#101112';
+      const backgroundImage = slide.backgroundImage ?? null;
       const hash = await hashContent(content);
       const bgColorHash = await hashBackgroundColor(backgroundColor);
-      const cacheKey = makeCacheKey(projectId, slide.id, hash, bgColorHash);
+      const bgImageHash = await hashBackgroundImage(backgroundImage ?? '');
+      const cacheKey = makeCacheKey(projectId, slide.id, hash, bgColorHash, bgImageHash);
 
       if (warmInflightKeys.has(cacheKey)) {
-        return;
+        continue;
       }
 
       warmInflightKeys.add(cacheKey);
@@ -968,11 +1083,11 @@ export async function warmThumbsForVisibleRange(
           projectId,
           slideId: slide.id,
           content,
+          backgroundImage,
           backgroundColor,
         });
 
         if (url) {
-          // We only needed to ensure the blob is cached, so revoke immediately
           URL.revokeObjectURL(url);
         }
       } catch (error) {
@@ -980,9 +1095,10 @@ export async function warmThumbsForVisibleRange(
       } finally {
         warmInflightKeys.delete(cacheKey);
       }
-    });
+    }
+  });
 
-  await Promise.allSettled(tasks);
+  await Promise.allSettled(workers);
 }
 
 /**

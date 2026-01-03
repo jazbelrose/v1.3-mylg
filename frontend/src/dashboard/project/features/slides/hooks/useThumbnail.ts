@@ -7,6 +7,7 @@ interface UseThumbnailOptions {
   projectId: string;
   slideId: string;
   content?: string;
+  backgroundImage?: string | null;
   backgroundColor?: string;
   width?: number;
   height?: number;
@@ -23,6 +24,7 @@ export function useThumbnail({
   projectId,
   slideId,
   content,
+  backgroundImage = null,
   backgroundColor = '#101112',
   width = 1920,
   height = 1080,
@@ -34,7 +36,12 @@ export function useThumbnail({
   // Track active object URL so we can revoke it when it is replaced
   const currentUrlRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
-  const lastLoadedRef = useRef<{ hash: string; backgroundColor: string; refreshSeq: number } | null>(null);
+  const lastLoadedRef = useRef<{
+    hash: string;
+    backgroundColor: string;
+    backgroundImage: string | null;
+    refreshSeq: number;
+  } | null>(null);
 
   const [refreshSeq, setRefreshSeq] = useState(0);
 
@@ -116,7 +123,13 @@ export function useThumbnail({
         }
 
         const alreadyLoaded = lastLoadedRef.current;
-        if (alreadyLoaded && alreadyLoaded.hash === hash && alreadyLoaded.backgroundColor === backgroundColor && alreadyLoaded.refreshSeq === currentRefreshSeq) {
+        if (
+          alreadyLoaded &&
+          alreadyLoaded.hash === hash &&
+          alreadyLoaded.backgroundColor === backgroundColor &&
+          alreadyLoaded.backgroundImage === backgroundImage &&
+          alreadyLoaded.refreshSeq === currentRefreshSeq
+        ) {
           // Nothing to do; we already have the thumbnail for this hash and background color
           setIsLoading(false);
           return;
@@ -130,6 +143,7 @@ export function useThumbnail({
           projectId,
           slideId,
           content,
+          backgroundImage,
           backgroundColor,
           width,
           height,
@@ -162,7 +176,7 @@ export function useThumbnail({
 
         const previousUrl = currentUrlRef.current;
         currentUrlRef.current = url;
-        lastLoadedRef.current = { hash, backgroundColor, refreshSeq: currentRefreshSeq };
+        lastLoadedRef.current = { hash, backgroundColor, backgroundImage, refreshSeq: currentRefreshSeq };
         setThumbnailUrl(url);
         setIsLoading(false);
         setError(null);
@@ -199,7 +213,7 @@ export function useThumbnail({
         debounceTimerRef.current = null;
       }
     };
-  }, [projectId, slideId, content, backgroundColor, width, height, refreshSeq, decodeImage]);
+  }, [projectId, slideId, content, backgroundImage, backgroundColor, width, height, refreshSeq, decodeImage]);
 
   useEffect(() => () => {
     if (currentUrlRef.current) {

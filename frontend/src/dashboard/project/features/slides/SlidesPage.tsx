@@ -269,6 +269,12 @@ const SlidesPage: React.FC = () => {
   const pendingBackgroundColorSaveSlidesRef = useRef<Slide[] | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflightThumbnailsRef = useRef<Set<string>>(new Set());
+  // Background backfill of missing thumbnails (server-thumbnails mode).
+  // Needed so thumbnails update even when slides are never visited.
+  const thumbBackfillQueueRef = useRef<string[]>([]);
+  const thumbBackfillQueuedRef = useRef<Set<string>>(new Set());
+  const thumbBackfillRunningRef = useRef(false);
+  const thumbBackfillLastAttemptRef = useRef<Map<string, number>>(new Map());
   const slidesRef = useRef<Slide[]>([]);
   const pendingThumbPersistRef = useRef<Map<string, number>>(new Map());
   const thumbPersistTimerRef = useRef<number | null>(null);
@@ -460,6 +466,77 @@ const SlidesPage: React.FC = () => {
     [makeUiThumbnail, queueThumbnailPersist]
   );
 
+  const enqueueThumbBackfill = useCallback((slideId: string) => {
+    if (!slideId) return;
+    const now = Date.now();
+    const lastAttempt = thumbBackfillLastAttemptRef.current.get(slideId) ?? 0;
+    if (now - lastAttempt < 30_000) {
+      return;
+    }
+    if (thumbBackfillQueuedRef.current.has(slideId)) return;
+    thumbBackfillQueuedRef.current.add(slideId);
+    thumbBackfillQueueRef.current.push(slideId);
+  }, []);
+
+  const runThumbBackfill = useCallback(async () => {
+    if (thumbBackfillRunningRef.current) return;
+    thumbBackfillRunningRef.current = true;
+    try {
+      while (thumbBackfillQueueRef.current.length > 0) {
+        if (!projectId || uiThumbsEnabled) break;
+
+        const slideId = thumbBackfillQueueRef.current.shift();
+        if (!slideId) continue;
+        thumbBackfillQueuedRef.current.delete(slideId);
+
+        const slide = slidesRef.current.find((s) => s.id === slideId);
+        if (!slide) continue;
+        if (slide.thumbnail) continue;
+        if (shouldSkipThumbnailForSlide(slide)) continue;
+        if (!slide.content || slide.content.length === 0) continue;
+
+        if (inflightThumbnailsRef.current.has(slideId)) continue;
+        inflightThumbnailsRef.current.add(slideId);
+        thumbBackfillLastAttemptRef.current.set(slideId, Date.now());
+
+        try {
+          const width = 1920;
+          const height = 1080;
+          const bgColor = slide.backgroundColor || "#101112";
+
+          let generatedUrl: string | null = null;
+          await saveSlideThumb(
+            projectId,
+            slideId,
+            (thumbnailUrl) => {
+              generatedUrl = thumbnailUrl;
+            },
+            { width, height, backgroundColor: bgColor, content: slide.content, backgroundImage: slide.backgroundImage }
+          );
+
+          if (!generatedUrl) continue;
+
+          let readyUrl = generatedUrl;
+          try {
+            readyUrl = await waitForThumbnailReady(generatedUrl);
+          } catch (error) {
+            console.warn(`[Thumbnails] Backfill ready-check failed for slide ${slideId}:`, error);
+          }
+
+          applyThumbnailUpdate(slideId, readyUrl);
+        } catch (error) {
+          console.warn(`[Thumbnails] Backfill generation failed for slide ${slideId}:`, error);
+        } finally {
+          inflightThumbnailsRef.current.delete(slideId);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    } finally {
+      thumbBackfillRunningRef.current = false;
+    }
+  }, [projectId, uiThumbsEnabled, shouldSkipThumbnailForSlide, applyThumbnailUpdate]);
+
   const handleBack = () => {
     const title = activeProject?.title ?? "";
 
@@ -565,8 +642,49 @@ const SlidesPage: React.FC = () => {
         slides?: Slide[];
         senderId?: string;
         versionId?: string;
+        slideId?: string;
+        thumbnail?: string;
+        thumbRevision?: number;
         fields?: { slides?: Slide[] };
       };
+
+      if (
+        data.action === "slideThumbnailUpdated" &&
+        projectId &&
+        data.projectId === projectId &&
+        !uiThumbsEnabled &&
+        ((activeVersionId && data.versionId === activeVersionId) || (!activeVersionId && !data.versionId))
+      ) {
+        const slideId = typeof data.slideId === "string" ? data.slideId : null;
+        const incomingThumb = typeof data.thumbnail === "string" ? data.thumbnail : null;
+        const incomingRevision = typeof data.thumbRevision === "number" ? data.thumbRevision : 0;
+
+        if (slideId && incomingThumb) {
+          setSlides((prev) =>
+            prev.map((local) => {
+              if (local.id !== slideId) return local;
+
+              const remoteThumbBase = sanitizeThumbnailForPersist(incomingThumb);
+              const localThumbBase = sanitizeThumbnailForPersist(local.thumbnail);
+              const localRev = typeof local.thumbRevision === "number" ? local.thumbRevision : 0;
+
+              const shouldUpdateThumb =
+                !local.thumbnail ||
+                remoteThumbBase !== localThumbBase ||
+                (incomingRevision > 0 && incomingRevision > localRev);
+
+              if (!shouldUpdateThumb) return local;
+
+              return {
+                ...local,
+                thumbnail: makeUiThumbnail(incomingThumb),
+                thumbRevision: incomingRevision || localRev,
+              };
+            })
+          );
+        }
+        return;
+      }
 
       // Handle projectUpdated to sync thumbnails from other users
       if (data.action === "projectUpdated" && 
@@ -847,6 +965,23 @@ const SlidesPage: React.FC = () => {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [projectId, activeSlideId, uiThumbsEnabled]);
+
+  // Backfill missing thumbnails even for slides the user never visits.
+  useEffect(() => {
+    if (!projectId || uiThumbsEnabled) {
+      return;
+    }
+
+    for (const slide of slides) {
+      if (!slide) continue;
+      if (slide.thumbnail) continue;
+      if (shouldSkipThumbnailForSlide(slide)) continue;
+      if (!slide.content || slide.content.length === 0) continue;
+      enqueueThumbBackfill(slide.id);
+    }
+
+    void runThumbBackfill();
+  }, [slides, projectId, uiThumbsEnabled, shouldSkipThumbnailForSlide, enqueueThumbBackfill, runThumbBackfill]);
 
   // Generate thumbnails for the active slide if it doesn't have one yet
   // This ensures the first slide (and any newly created slides) get thumbnails
