@@ -6,6 +6,10 @@ import os
 import re
 import base64
 import uuid
+import datetime
+import time
+import tempfile
+import gc
 from io import BytesIO
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
@@ -27,10 +31,48 @@ def convert_floats_to_decimals(obj):
         return obj
 
 
+def convert_decimals_to_numbers(obj):
+    if isinstance(obj, Decimal):
+        try:
+            if obj % 1 == 0:
+                return int(obj)
+        except Exception:
+            pass
+        return float(obj)
+    elif isinstance(obj, list):
+        return [convert_decimals_to_numbers(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_decimals_to_numbers(v) for k, v in obj.items()}
+    else:
+        return obj
+
+
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 galleries_table = dynamodb.Table(os.environ.get('GALLERIES_TABLE', 'Galleries'))
 connections_table = dynamodb.Table(os.environ.get('CONNECTIONS_TABLE', 'Connections'))
+projects_table = dynamodb.Table(os.environ.get('PROJECTS_TABLE', 'Projects'))
+
+
+EMPTY_LEXICAL_CONTENT = json.dumps({
+    "root": {
+        "children": [
+            {
+                "children": [],
+                "direction": None,
+                "format": "",
+                "indent": 0,
+                "type": "paragraph",
+                "version": 1,
+            }
+        ],
+        "direction": None,
+        "format": "",
+        "indent": 0,
+        "type": "root",
+        "version": 1,
+    }
+})
 
 
 def mgmt_endpoint():
@@ -108,12 +150,19 @@ def extract_images(svg_content, base_path, bucket):
     return svg_content, urls
 
 
-def process_pdf(pdf_bytes, base_path, bucket):
+def process_pdf(pdf_bytes, base_path, bucket, on_progress=None):
     print(f"[process_pdf] opening PDF bytes={len(pdf_bytes)}")
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    print(f"[process_pdf] PDF has {len(doc)} pages")
+    total_pages = len(doc)
+    print(f"[process_pdf] PDF has {total_pages} pages")
     counter, urls, image_map = 1, [], []
     page_image_urls = []
+
+    if on_progress:
+        try:
+            on_progress(0, total_pages)
+        except Exception as e:
+            print('[process_pdf] on_progress(0) failed', e)
 
     for pno, page in enumerate(doc, start=1):
         images = page.get_images(full=True)
@@ -156,11 +205,129 @@ def process_pdf(pdf_bytes, base_path, bucket):
         )
         page_image_urls.append(f"https://{bucket}.s3.amazonaws.com/{page_key}")
 
+        if on_progress:
+            try:
+                on_progress(pno, total_pages)
+            except Exception as e:
+                print(f'[process_pdf] on_progress({pno}) failed', e)
+
     print("[process_pdf] saving updated PDF…")
     buf = BytesIO()
     doc.save(buf, deflate=True, garbage=4)
     doc.close()
     return buf.getvalue(), urls, image_map, page_image_urls
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        return int(default)
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return float(default)
+    try:
+        return float(str(raw).strip())
+    except Exception:
+        return float(default)
+
+
+def _choose_pdf_render_scale(total_pages: int, pdf_size_bytes: int | None) -> float:
+    # Heuristic: keep quality high for small decks, but reduce render load for large decks.
+    scale = 2.0
+    if total_pages >= 160:
+        scale = 1.0
+    elif total_pages >= 80:
+        scale = 1.5
+
+    if pdf_size_bytes and pdf_size_bytes >= 60 * 1024 * 1024:
+        scale = min(scale, 1.25)
+
+    return scale
+
+
+def render_pdf_pages_to_s3(
+    pdf_path: str,
+    base_path: str,
+    bucket: str,
+    *,
+    on_progress=None,
+    base_scale: float | None = None,
+    max_render_px: int | None = 2200,
+    max_pages: int | None = None,
+    pdf_size_bytes: int | None = None,
+):
+    doc = None
+    page_urls = []
+    try:
+        print(f"[render_pdf_pages_to_s3] opening PDF file={pdf_path}")
+        doc = fitz.open(pdf_path)
+        total_pages = len(doc)
+        if max_pages and total_pages > int(max_pages):
+            raise ValueError(f"PDF has {total_pages} pages; max supported is {int(max_pages)} pages")
+
+        chosen_base_scale = float(base_scale) if base_scale is not None else _choose_pdf_render_scale(total_pages, pdf_size_bytes)
+        print(f"[render_pdf_pages_to_s3] PDF has {total_pages} pages; base_scale={chosen_base_scale}; max_render_px={max_render_px}")
+
+        if on_progress:
+            try:
+                on_progress(0, total_pages)
+            except Exception as e:
+                print('[render_pdf_pages_to_s3] on_progress(0) failed', e)
+
+        for page_index in range(total_pages):
+            page_number = page_index + 1
+            page = doc.load_page(page_index)
+
+            scale = float(chosen_base_scale or 1.0)
+            try:
+                if max_render_px:
+                    rect = page.rect
+                    max_side_pts = max(float(rect.width or 0), float(rect.height or 0))
+                    if max_side_pts > 0:
+                        scale_cap = float(max_render_px) / max_side_pts
+                        scale = min(scale, scale_cap)
+            except Exception:
+                pass
+            scale = max(0.5, min(scale, 4.0))
+
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            page_key = f"{base_path}/pages/page_{page_number}.jpg"
+            s3.put_object(
+                Bucket=bucket,
+                Key=page_key,
+                Body=pix.tobytes("jpg"),
+                ContentType="image/jpeg",
+            )
+            page_urls.append(f"https://{bucket}.s3.amazonaws.com/{page_key}")
+
+            del pix
+            try:
+                del page
+            except Exception:
+                pass
+            if page_number % 8 == 0:
+                gc.collect()
+
+            if on_progress:
+                try:
+                    on_progress(page_number, total_pages)
+                except Exception as e:
+                    print(f'[render_pdf_pages_to_s3] on_progress({page_number}) failed', e)
+
+        return page_urls, total_pages
+    finally:
+        try:
+            if doc is not None:
+                doc.close()
+        except Exception:
+            pass
 
 
 def broadcast_to_conversation(conversation_id, payload):
@@ -184,6 +351,44 @@ def broadcast_to_conversation(conversation_id, payload):
                 pass
     except Exception as e:
         print('broadcast_to_conversation error', e)
+
+
+def list_conversation_connection_ids(conversation_id: str):
+    try:
+        data = connections_table.scan().get('Items', [])
+        ids = []
+        for c in data:
+            active_conv = (c.get('activeConversation') or '').strip()
+            if active_conv == (conversation_id or '').strip():
+                cid = c.get('connectionId')
+                if cid:
+                    ids.append(cid)
+        return ids
+    except Exception as e:
+        print('list_conversation_connection_ids error', e)
+        return []
+
+
+def broadcast_to_connection_ids(connection_ids, payload):
+    stale = []
+    alive = []
+
+    for cid in (connection_ids or []):
+        if not cid:
+            continue
+        res = post_ws(cid, payload)
+        if res == 'gone':
+            stale.append(cid)
+        elif res is True:
+            alive.append(cid)
+
+    for cid in stale:
+        try:
+            connections_table.delete_item(Key={'connectionId': cid})
+        except Exception:
+            pass
+
+    return alive
 
 
 def process_request(body, cors_headers):
@@ -343,6 +548,261 @@ def process_request(body, cors_headers):
     }
 
 
+def _now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _parse_bool_meta(value: str) -> bool:
+    if value is None:
+        return False
+    return str(value).strip().lower() in ("1", "true", "yes", "y", "on")
+
+
+def _project_id_from_upload_key(key: str):
+    try:
+        parts = (key or "").split("/")
+        if len(parts) >= 2 and parts[0] == "uploads":
+            return parts[1]
+    except Exception:
+        pass
+    return None
+
+
+def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, version_id: str = None):
+    """
+    Import PDF pages as slides. If version_id is provided, imports to that specific
+    deck version rather than the base project slides.
+    """
+    if not project_id or not pdf_key:
+        raise ValueError("project_id and pdf_key required")
+
+    project_res = projects_table.get_item(Key={'projectId': project_id})
+    project = project_res.get('Item') or {}
+    
+    # Determine which slides to merge with based on version context
+    if version_id:
+        # Import to specific version
+        versions = project.get('deckVersions', [])
+        version = next((v for v in versions if v.get('versionId') == version_id), None)
+        if version:
+            existing_slides = version.get('slides', []) if isinstance(version.get('slides'), list) else []
+        else:
+            # Version not found, fall back to base slides and clear version_id
+            print(f'[process_pdf_import_to_slides] version {version_id} not found, falling back to base slides')
+            existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
+            version_id = None
+    else:
+        existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
+    max_order = -1
+    for s in existing_slides:
+        try:
+            max_order = max(max_order, int(s.get('order', 0)))
+        except Exception:
+            pass
+    start_order = max_order + 1
+
+    import_id = str(uuid.uuid4())
+    base_path = f"projects/{project_id}/slides/imports/{import_id}"
+    conversation_id = f'project#{project_id}'
+    recipient_ids = list_conversation_connection_ids(conversation_id)
+    last_progress_sent_at = 0.0
+
+    max_pdf_bytes = _env_int("SLIDES_IMPORT_MAX_PDF_BYTES", 350 * 1024 * 1024)
+    max_pages = _env_int("SLIDES_IMPORT_MAX_PAGES", 400)
+    max_render_px = _env_int("SLIDES_IMPORT_MAX_RENDER_PX", 2200)
+    base_scale_env = os.environ.get("SLIDES_IMPORT_BASE_SCALE")
+    base_scale = None
+    if base_scale_env is not None and str(base_scale_env).strip() != "":
+        base_scale = _env_float("SLIDES_IMPORT_BASE_SCALE", 2.0)
+
+    head = s3.head_object(Bucket=bucket, Key=pdf_key)
+    pdf_size_bytes = int(head.get("ContentLength") or 0)
+    if max_pdf_bytes and pdf_size_bytes and pdf_size_bytes > int(max_pdf_bytes):
+        msg = f"PDF is too large ({round(pdf_size_bytes / (1024 * 1024), 1)} MB); max supported is {round(int(max_pdf_bytes) / (1024 * 1024), 1)} MB"
+        payload = {
+            'action': 'slidesImportFailed',
+            'projectId': project_id,
+            'importId': import_id,
+            'message': msg,
+        }
+        recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
+        broadcast_to_conversation(conversation_id, payload)
+        return {'projectId': project_id, 'importId': import_id, 'skipped': True, 'reason': msg}
+
+    # Let the UI know we're alive even before we have page count.
+    if recipient_ids:
+        payload = {
+            'action': 'slidesImportProgress',
+            'projectId': project_id,
+            'importId': import_id,
+            'stage': 'downloading',
+            'currentPage': 0,
+            'totalPages': 0,
+            'percent': 0,
+        }
+        recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
+
+    pdf_tmp = tempfile.NamedTemporaryFile(prefix="slides-import-", suffix=".pdf", delete=False)
+    pdf_tmp_path = pdf_tmp.name
+    pdf_tmp.close()
+
+    # Stream the PDF to /tmp to avoid holding the whole file in memory.
+    s3.download_file(bucket, pdf_key, pdf_tmp_path)
+
+    def _send_progress(current_page: int, total_pages: int):
+        nonlocal recipient_ids, last_progress_sent_at
+        if not recipient_ids:
+            return
+
+        now = time.time()
+        is_final = bool(total_pages and current_page >= total_pages)
+        if not is_final and (now - last_progress_sent_at) < 0.75:
+            return
+        last_progress_sent_at = now
+
+        percent = 0
+        if total_pages and total_pages > 0:
+            percent = int((current_page / total_pages) * 100)
+
+        payload = {
+            'action': 'slidesImportProgress',
+            'projectId': project_id,
+            'importId': import_id,
+            'stage': 'rendering',
+            'currentPage': int(current_page or 0),
+            'totalPages': int(total_pages or 0),
+            'percent': percent,
+        }
+        recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
+
+    try:
+        page_urls, _page_count = render_pdf_pages_to_s3(
+            pdf_tmp_path,
+            base_path,
+            bucket,
+            on_progress=_send_progress,
+            base_scale=base_scale,
+            max_render_px=max_render_px or None,
+            max_pages=max_pages or None,
+            pdf_size_bytes=pdf_size_bytes or None,
+        )
+    except Exception as e:
+        try:
+            payload = {
+                'action': 'slidesImportFailed',
+                'projectId': project_id,
+                'importId': import_id,
+                'message': str(e),
+            }
+            recipient_ids = broadcast_to_connection_ids(recipient_ids, payload)
+            broadcast_to_conversation(conversation_id, payload)
+        except Exception as broadcast_error:
+            print('[process_pdf_import_to_slides] failed to broadcast failure', broadcast_error)
+        raise
+    finally:
+        try:
+            os.remove(pdf_tmp_path)
+        except Exception:
+            pass
+
+    # Keep a copy of the original/updated PDFs alongside the page renders for later debugging/use.
+    try:
+        s3.copy_object(
+            Bucket=bucket,
+            CopySource={'Bucket': bucket, 'Key': pdf_key},
+            Key=f"{base_path}/source-original.pdf",
+            ContentType='application/pdf',
+        )
+    except Exception as e:
+        print('[process_pdf_import_to_slides] failed to copy original pdf', e)
+
+    new_slides = []
+    for idx, page_url in enumerate(page_urls, start=1):
+        slide_id = str(uuid.uuid4())
+        slide_order = start_order + (idx - 1)
+        new_slides.append({
+            'id': slide_id,
+            'title': f"Slide {slide_order + 1}",
+            'order': slide_order,
+            'backgroundColor': '#101112',
+            'backgroundImage': page_url,
+            'content': EMPTY_LEXICAL_CONTENT,
+            'importMeta': {
+                'type': 'pdf',
+                'importId': import_id,
+                'sourceKey': pdf_key,
+                'page': idx,
+            }
+        })
+
+    merged_slides = (existing_slides or []) + new_slides
+    ts = _now_iso()
+    
+    if version_id:
+        # Update slides within the specific version
+        versions = project.get('deckVersions', [])
+        updated_versions = []
+        for v in versions:
+            if v.get('versionId') == version_id:
+                updated_versions.append({**v, 'slides': convert_floats_to_decimals(merged_slides)})
+            else:
+                updated_versions.append(v)
+        
+        projects_table.update_item(
+            Key={'projectId': project_id},
+            UpdateExpression="SET #versions = :versions, #updatedAt = :ts",
+            ExpressionAttributeNames={'#versions': 'deckVersions', '#updatedAt': 'updatedAt'},
+            ExpressionAttributeValues={
+                ':versions': convert_floats_to_decimals(updated_versions),
+                ':ts': ts,
+            },
+        )
+    else:
+        # Update base project slides
+        projects_table.update_item(
+            Key={'projectId': project_id},
+            UpdateExpression="SET #slides = :slides, #updatedAt = :ts",
+            ExpressionAttributeNames={'#slides': 'slides', '#updatedAt': 'updatedAt'},
+            ExpressionAttributeValues={
+                ':slides': convert_floats_to_decimals(merged_slides),
+                ':ts': ts,
+            },
+        )
+
+    merged_slides_jsonable = convert_decimals_to_numbers(merged_slides)
+
+    # Broadcast a purpose-built event for the slides UI, plus a generic projectUpdated for other views.
+    # Include versionId so clients can filter by their active version context.
+    broadcast_to_conversation(
+        f'project#{project_id}',
+        {
+            'action': 'slidesImported',
+            'projectId': project_id,
+            'importId': import_id,
+            'pageCount': len(page_urls),
+            'slides': merged_slides_jsonable,
+            'versionId': version_id,
+        }
+    )
+    broadcast_to_conversation(
+        f'project#{project_id}',
+        {
+            'action': 'projectUpdated',
+            'projectId': project_id,
+            'fields': {'slides': merged_slides_jsonable},
+            'versionId': version_id,
+        }
+    )
+
+    return {
+        'projectId': project_id,
+        'importId': import_id,
+        'pageCount': len(page_urls),
+        'slidesAdded': len(new_slides),
+        'basePath': base_path,
+    }
+
+
 def lambda_handler(event, context):
     cors_headers = {
         "Access-Control-Allow-Origin": "*",
@@ -356,6 +816,32 @@ def lambda_handler(event, context):
         key = record['s3']['object']['key']
         obj = s3.get_object(Bucket=bucket, Key=key)
         meta = obj.get('Metadata', {})
+        import_to_slides = _parse_bool_meta(meta.get('importtoslides')) or ('/slides-import/' in (key or ''))
+
+        if import_to_slides:
+            if not key.lower().endswith('.pdf'):
+                return {
+                    'statusCode': 400,
+                    'headers': cors_headers,
+                    'body': json.dumps({'message': 'importToSlides only supports PDF uploads'}),
+                }
+            try:
+                project_id = meta.get('projectid') or _project_id_from_upload_key(key)
+                version_id = meta.get('versionid')  # Extract versionId for version-specific imports
+                result = process_pdf_import_to_slides(project_id, key, bucket, version_id=version_id)
+                return {
+                    'statusCode': 200,
+                    'headers': cors_headers,
+                    'body': json.dumps(result),
+                }
+            except Exception as e:
+                print('process_pdf_import_to_slides failed', e)
+                return {
+                    'statusCode': 500,
+                    'headers': cors_headers,
+                    'body': json.dumps({'message': 'Failed to import PDF to slides', 'detail': str(e)}),
+                }
+
         body = {
             'projectId': meta.get('projectid'),
             'galleryName': meta.get('galleryname', os.path.basename(key)),
