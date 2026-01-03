@@ -2061,10 +2061,13 @@
 
 .heroBanner {
   display: grid;
-  grid-template-columns: clamp(140px, 16vw, 220px) 1fr;
-  gap: 0;
-  min-height: 160px;
-  max-height: 240px;
+  --hero-map-size: clamp(160px, 18vw, 240px);
+  grid-template-areas: "info map";
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  padding: 12px;
+  min-height: calc(var(--hero-map-size) + 24px);
+  max-height: 280px;
   border-radius: 12px;
   overflow: hidden;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
@@ -2079,29 +2082,25 @@
 
 /* Left column: Map */
 .heroMapColumn {
+  grid-area: map;
   position: relative;
   display: flex;
-  align-items: stretch;
-  background: #1a1a2e;
-}
-
-.heroMapColumn .miniMapTile {
-  width: 100%;
-  height: 100%;
-  min-height: 160px;
-  border-radius: 0;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
 }
 
 /* Map placeholder when no coords */
 .heroMapPlaceholder {
-  width: 100%;
-  height: 100%;
-  min-height: 160px;
+  width: var(--hero-map-size);
+  height: var(--hero-map-size);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: opacity 0.15s ease;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .heroMapPlaceholder:hover {
@@ -2117,13 +2116,15 @@
 
 /* Right column: Project info */
 .heroInfoColumn {
+  grid-area: info;
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  min-height: 160px;
   background-size: cover;
   background-position: center;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .heroInfoOverlay {
@@ -2219,6 +2220,13 @@
   margin-top: 8px;
 }
 
+.heroPrimaryCTALabel {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .heroPrimaryCTA {
   display: inline-flex;
   align-items: center;
@@ -2263,8 +2271,8 @@
 /* Hero responsive */
 @media (max-width: 768px) {
   .heroBanner {
-    grid-template-columns: clamp(100px, 25vw, 160px) 1fr;
-    min-height: 140px;
+    --hero-map-size: clamp(140px, 26vw, 200px);
+    min-height: calc(var(--hero-map-size) + 24px);
   }
   
   .heroTitle {
@@ -2285,15 +2293,28 @@
 @media (max-width: 480px) {
   .heroBanner {
     grid-template-columns: 1fr;
-    grid-template-rows: 100px 1fr;
+    grid-template-areas:
+      "map"
+      "info";
+    grid-template-rows: 110px 1fr;
+    gap: 0;
+    padding: 0;
+    min-height: 0;
   }
   
   .heroMapColumn {
-    order: 1;
+    justify-content: stretch;
+  }
+
+  .heroMapTile,
+  .heroMapPlaceholder {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
   }
   
   .heroInfoColumn {
-    order: 2;
+    border-radius: 0;
     min-height: 120px;
   }
 }
@@ -2304,12 +2325,12 @@
 
 .heroMapTile {
   position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 160px;
+  width: var(--hero-map-size);
+  height: var(--hero-map-size);
   cursor: pointer;
   overflow: hidden;
   background: #1a1a2e;
+  border-radius: 12px;
 }
 
 .heroMapLeaflet {
@@ -2342,10 +2363,14 @@
 .heroMapLabel {
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  text-transform: none;
+  letter-spacing: 0.2px;
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Hover overlay */

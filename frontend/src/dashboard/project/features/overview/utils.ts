@@ -278,8 +278,10 @@ export function detectConflicts(
 interface DeckVersion {
   versionId?: string;
   title?: string;
+  name?: string;
   version?: string;
   isDefault?: boolean;
+  isClientDefault?: boolean;
   exportedAt?: string;
   createdAt?: string;
   approvalState?: string;
@@ -297,10 +299,13 @@ export function computeDeliverablesHealth(deckVersions: DeckVersion[]): Delivera
   }
 
   // Find the default or most recent deck
-  const defaultDeck = deckVersions.find(d => d.isDefault) || deckVersions[0];
+  const defaultDeck =
+    deckVersions.find(d => d.isClientDefault) ||
+    deckVersions.find(d => d.isDefault) ||
+    deckVersions[0];
   
   return {
-    latestDeckName: defaultDeck.title || 'Untitled Deck',
+    latestDeckName: defaultDeck.title || defaultDeck.name || 'Untitled Deck',
     latestDeckVersion: defaultDeck.version || 'v1',
     lastExportTime: defaultDeck.exportedAt || defaultDeck.createdAt || null,
     approvalState: (defaultDeck.approvalState as 'approved' | 'pending' | 'none') || null,

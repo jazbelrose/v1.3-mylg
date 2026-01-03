@@ -10,8 +10,6 @@
  */
 
 import React, { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 
 import { HealthStrip } from './components/HealthStrip';
 import { EventsTasksPanel } from './components/EventsTasksPanel';
@@ -78,6 +76,32 @@ interface ActivityEvent {
   userAvatar?: string;
 }
 
+interface ChatMessage {
+  messageId: string;
+  text: string;
+  timestamp: string;
+  senderId?: string;
+  senderName?: string;
+  senderAvatar?: string;
+}
+
+interface RecentFile {
+  fileId: string;
+  fileName: string;
+  fileType?: string;
+  thumbnailUrl?: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+}
+
+interface RecentLink {
+  linkId: string;
+  url: string;
+  title?: string;
+  sharedAt: string;
+  sharedBy?: string;
+}
+
 interface OverviewHudProps {
   projectId: string;
   projectTitle?: string;
@@ -93,6 +117,9 @@ interface OverviewHudProps {
   deckVersions: DeckVersion[];
   galleries: Gallery[];
   activities: ActivityEvent[];
+  recentMessages?: ChatMessage[];
+  recentFiles?: RecentFile[];
+  recentLinks?: RecentLink[];
   onOpenMap?: () => void;
   /** Client mode: hides internal controls, shows only client-facing data */
   clientMode?: boolean;
@@ -117,10 +144,16 @@ export function OverviewHud({
   deckVersions,
   galleries,
   activities,
+  recentMessages,
+  recentFiles,
+  recentLinks,
   onOpenMap,
   clientMode = false,
 }: OverviewHudProps) {
-  const navigate = useNavigate();
+  const isOpenTask = useCallback((task: TaskItem): boolean => {
+    const status = task.status?.toLowerCase() || '';
+    return !['done', 'complete', 'completed', 'archived'].includes(status);
+  }, []);
 
   // Filter tasks for client mode (hide internal tasks)
   const visibleTasks = clientMode
@@ -154,19 +187,42 @@ export function OverviewHud({
     return status === 'blocked' || status === 'at-risk';
   }).length;
 
-  const tasksDueCount = visibleTasks.filter(t => {
-    if (!t.dueDate) return false;
-    const due = new Date(t.dueDate);
-    const today = new Date();
-    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return due <= weekFromNow;
-  }).length;
+  const { overdueCount, tasksDueCount } = React.useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const weekFromNowEnd = new Date(todayStart);
+    weekFromNowEnd.setDate(weekFromNowEnd.getDate() + 7);
+    weekFromNowEnd.setHours(23, 59, 59, 999);
+
+    let overdue = 0;
+    let dueSoon = 0;
+
+    visibleTasks.forEach(t => {
+      if (!isOpenTask(t) || !t.dueDate) return;
+      const due = new Date(t.dueDate);
+      if (Number.isNaN(due.getTime())) return;
+
+      if (due < todayStart) {
+        overdue += 1;
+        return;
+      }
+
+      if (due <= weekFromNowEnd) {
+        dueSoon += 1;
+      }
+    });
+
+    return { overdueCount: overdue, tasksDueCount: dueSoon };
+  }, [visibleTasks, isOpenTask]);
 
   const totalTasks = visibleTasks.length;
   const completedTasks = visibleTasks.filter(t => 
     t.status?.toLowerCase() === 'done' || t.status?.toLowerCase() === 'complete'
   ).length;
   const completedPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : undefined;
+
+  const hasBudget = Boolean(budgetStats && (budgetStats.budgetedCost || budgetStats.ballpark));
 
   return (
     <div className={styles.overviewHud}>
@@ -184,7 +240,9 @@ export function OverviewHud({
         onOpenMap={handleOpenMap}
         risksCount={risksCount}
         tasksDueCount={tasksDueCount}
+        overdueCount={overdueCount}
         completedPercent={completedPercent}
+        hasBudget={hasBudget}
       />
 
       {/* Health Strip - 4 tiles */}
@@ -216,6 +274,9 @@ export function OverviewHud({
             projectId={projectId}
             projectTitle={projectTitle}
             activities={visibleActivities}
+            recentMessages={recentMessages}
+            recentFiles={recentFiles}
+            recentLinks={recentLinks}
             maxItems={20}
           />
         </div>

@@ -75,6 +75,9 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
         deckVersions={overviewData.deckVersions}
         galleries={overviewData.galleries}
         activities={overviewData.activities}
+        recentMessages={overviewData.recentMessages}
+        recentFiles={overviewData.recentFiles}
+        recentLinks={overviewData.recentLinks}
       />
     </div>
   );

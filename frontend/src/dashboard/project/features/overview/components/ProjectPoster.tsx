@@ -30,8 +30,10 @@ import styles from '../OverviewHud.module.css';
 interface DeckVersion {
   versionId?: string;
   title?: string;
+  name?: string;
   version?: string;
   isDefault?: boolean;
+  isClientDefault?: boolean;
   thumbnail?: string;
   exportedAt?: string;
   createdAt?: string;
@@ -110,14 +112,33 @@ function formatDateRange(start?: string, end?: string): string {
   return '';
 }
 
-function getCityFromAddress(address?: string): string {
+function stripZipCodes(text: string): string {
+  return text
+    .replace(/\b\d{5}(?:-\d{4})?\b/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*$/g, '')
+    .trim();
+}
+
+function getLocationLabel(address?: string): string {
   if (!address) return '';
-  // Extract city from address - typically before state/zip
-  const parts = address.split(',').map(p => p.trim());
+  const cleaned = stripZipCodes(address);
+  const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
+
   if (parts.length >= 2) {
-    return parts[parts.length - 2]; // Usually city is second to last
+    return `${parts[0]}, ${parts[1]}`;
   }
-  return parts[0] || '';
+  return parts[0] || cleaned;
+}
+
+function getPreferredDeck(deckVersions: DeckVersion[]): DeckVersion | undefined {
+  return (
+    deckVersions.find(d => d.isClientDefault) ||
+    deckVersions.find(d => d.isDefault) ||
+    deckVersions.find(d => d.thumbnail) ||
+    deckVersions[0]
+  );
 }
 
 // ============================================================================
@@ -151,11 +172,7 @@ export function ProjectPoster({
     !isNaN(locationCoords.lat) && 
     !isNaN(locationCoords.lng);
 
-  // Get latest deck info
-  const latestDeck = useMemo(() => {
-    const deckWithThumb = deckVersions.find(d => d.thumbnail);
-    return deckWithThumb || deckVersions[0];
-  }, [deckVersions]);
+  const preferredDeck = useMemo(() => getPreferredDeck(deckVersions), [deckVersions]);
 
   const hasDeck = deckVersions.length > 0;
 
@@ -165,11 +182,7 @@ export function ProjectPoster({
     [startDate, endDate]
   );
 
-  // City label for map
-  const cityLabel = useMemo(() => 
-    getCityFromAddress(locationName), 
-    [locationName]
-  );
+  const locationLabel = useMemo(() => getLocationLabel(locationName), [locationName]);
 
   // Build status line
   const statusLine = useMemo(() => {
@@ -217,32 +230,7 @@ export function ProjectPoster({
 
   return (
     <div className={styles.heroBanner}>
-      {/* Left: Map Tile */}
-      <div className={styles.heroMapColumn}>
-        {hasValidCoords ? (
-          <MiniMapTile
-            lat={locationCoords.lat}
-            lng={locationCoords.lng}
-            cityLabel={cityLabel}
-            onClick={handleMapClick}
-          />
-        ) : (
-          // Fallback if no coords
-          <div 
-            className={styles.heroMapPlaceholder}
-            style={{ background: gradient }}
-            onClick={handleMapClick}
-            role="button"
-            tabIndex={0}
-          >
-            <span className={styles.heroMapPlaceholderText}>
-              {locationName ? 'No coordinates' : 'No location'}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Right: Project Info Stack */}
+      {/* Left: Project Info Stack */}
       <div 
         className={styles.heroInfoColumn}
         style={{ background: coverImage ? `url(${coverImage}) center/cover` : gradient }}
@@ -279,9 +267,11 @@ export function ProjectPoster({
                 onClick={(e) => { e.stopPropagation(); handleOpenDeck(); }}
               >
                 <Layers size={16} />
-                <span>Open Deck</span>
-                {latestDeck?.slideCount && (
-                  <span className={styles.heroCTABadge}>{latestDeck.slideCount}</span>
+                <span className={styles.heroPrimaryCTALabel}>
+                  Open {preferredDeck?.title || preferredDeck?.name || 'Deck'}
+                </span>
+                {preferredDeck?.slideCount && (
+                  <span className={styles.heroCTABadge}>{preferredDeck.slideCount}</span>
                 )}
                 <ChevronRight size={14} />
               </button>
@@ -298,6 +288,31 @@ export function ProjectPoster({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Right: Map Tile */}
+      <div className={styles.heroMapColumn}>
+        {hasValidCoords ? (
+          <MiniMapTile
+            lat={locationCoords.lat}
+            lng={locationCoords.lng}
+            cityLabel={locationLabel}
+            onClick={handleMapClick}
+          />
+        ) : (
+          // Fallback if no coords
+          <div 
+            className={styles.heroMapPlaceholder}
+            style={{ background: gradient }}
+            onClick={handleMapClick}
+            role="button"
+            tabIndex={0}
+          >
+            <span className={styles.heroMapPlaceholderText}>
+              {locationName ? 'No coordinates' : 'No location'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -48,8 +48,10 @@ interface TaskItem {
 interface DeckVersion {
   versionId?: string;
   title?: string;
+  name?: string;
   version?: string;
   isDefault?: boolean;
+  isClientDefault?: boolean;
   exportedAt?: string;
   createdAt?: string;
   approvalState?: string;

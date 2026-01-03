@@ -277,7 +277,6 @@ export function ActivityPanel({
   const hasMessages = recentMessages.length > 0;
   const hasFiles = recentFiles.length > 0;
   const hasLinks = recentLinks.length > 0;
-  const showUtilityState = !hasActivity;
 
   const handleViewAll = useCallback(() => {
     if (onViewAll) {
@@ -325,9 +324,7 @@ export function ActivityPanel({
 
       {/* Body */}
       <div className={styles.apBody}>
-        {showUtilityState ? (
-          // Utility State - Show messages, files, links when no activity
-          <div className={styles.apUtility}>
+        <div className={styles.apUtility}>
             {/* Messages Section */}
             <div className={styles.apUtilitySection}>
               <div className={styles.apSectionHeader}>
@@ -416,9 +413,9 @@ export function ActivityPanel({
                 <div className={styles.apSectionEmpty}>No links shared yet</div>
               )}
             </div>
-          </div>
-        ) : (
-          // Activity Feed
+        </div>
+
+        {hasActivity && (
           <div className={styles.apList}>
             {displayedActivities.map(activity => (
               <ActivityItem

@@ -9,7 +9,16 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '@/app/contexts/useData';
 import { useBudget } from '@/dashboard/project/features/budget/context/BudgetContext';
 import { useProjectActivity, type ActivityEvent } from '@/dashboard/project/features/activity/hooks/useProjectActivity';
-import { fetchTasks, fetchEvents, apiFetch, deckVersionsUrl } from '@/shared/utils/api';
+import { list } from 'aws-amplify/storage';
+import {
+  fetchTasks,
+  fetchEvents,
+  apiFetch,
+  deckVersionsUrl,
+  GET_PROJECT_MESSAGES_URL,
+  getFileUrl,
+  normalizeFileUrl,
+} from '@/shared/utils/api';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
 
 // ============================================================================
@@ -42,8 +51,10 @@ interface TaskItem {
 interface DeckVersion {
   versionId?: string;
   title?: string;
+  name?: string;
   version?: string;
   isDefault?: boolean;
+  isClientDefault?: boolean;
   thumbnail?: string;
   exportedAt?: string;
   createdAt?: string;
@@ -74,6 +85,29 @@ interface OverviewData {
   deckVersions: DeckVersion[];
   galleries: Gallery[];
   activities: ActivityEvent[];
+  recentMessages: Array<{
+    messageId: string;
+    text: string;
+    timestamp: string;
+    senderId?: string;
+    senderName?: string;
+    senderAvatar?: string;
+  }>;
+  recentFiles: Array<{
+    fileId: string;
+    fileName: string;
+    fileType?: string;
+    thumbnailUrl?: string;
+    uploadedAt: string;
+    uploadedBy?: string;
+  }>;
+  recentLinks: Array<{
+    linkId: string;
+    url: string;
+    title?: string;
+    sharedAt: string;
+    sharedBy?: string;
+  }>;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -84,10 +118,10 @@ interface OverviewData {
 // ============================================================================
 
 export function useOverviewData(projectId: string | undefined): OverviewData {
-  const { activeProject } = useData();
+  const { activeProject, projectMessages, deletedMessageIds } = useData();
   
   // Budget data from context
-  const { getStats, loading: budgetLoading } = useBudget();
+  const { getClientStats, loading: budgetLoading } = useBudget();
   
   // Activity data
   const { 
@@ -100,17 +134,79 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [deckVersions, setDeckVersions] = useState<DeckVersion[]>([]);
   const [galleries, setGalleries] = useState<Gallery[]>([]);
+  const [fetchedMessages, setFetchedMessages] = useState<unknown[]>([]);
+  const [recentFiles, setRecentFiles] = useState<OverviewData['recentFiles']>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Get budget stats
   const budgetStats = useMemo(() => {
     try {
-      return getStats();
+      return getClientStats();
     } catch {
       return null;
     }
-  }, [getStats]);
+  }, [getClientStats]);
+
+  const recentLinks = useMemo<OverviewData['recentLinks']>(() => {
+    const links = Array.isArray(activeProject?.quickLinks) ? activeProject?.quickLinks : [];
+    const now = new Date().toISOString();
+    return links
+      .slice(0, 10)
+      .map((l: unknown) => {
+        const link = l as { id?: string; title?: string; name?: string; url?: string };
+        const url = link.url || '';
+        return {
+          linkId: link.id || url || `${Math.random()}`,
+          url,
+          title: link.title || link.name,
+          sharedAt: now,
+        };
+      })
+      .filter((l) => Boolean(l.url));
+  }, [activeProject?.quickLinks]);
+
+  const recentMessages = useMemo<OverviewData['recentMessages']>(() => {
+    const local = projectId ? projectMessages?.[projectId] : undefined;
+    const source = Array.isArray(local) && local.length > 0 ? local : fetchedMessages;
+
+    const items = (source as Array<{
+      messageId?: string;
+      optimisticId?: string;
+      text?: string;
+      body?: string;
+      content?: string;
+      timestamp?: string;
+      username?: string;
+      userName?: string;
+      senderName?: string;
+      senderId?: string;
+      senderAvatar?: string;
+      userAvatar?: string;
+    }>)
+      .filter((m) => {
+        const id = m.messageId || m.optimisticId;
+        if (!id) return false;
+        return !(deletedMessageIds && deletedMessageIds.has(id));
+      })
+      .map((m) => {
+        const id = m.messageId || m.optimisticId || '';
+        const text = m.text || m.body || m.content || '';
+        const timestamp = m.timestamp || '';
+        return {
+          messageId: id,
+          text,
+          timestamp,
+          senderId: m.senderId,
+          senderName: m.senderName || m.userName || m.username,
+          senderAvatar: m.senderAvatar || m.userAvatar,
+        };
+      })
+      .filter((m) => Boolean(m.timestamp && m.text))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return items.slice(0, 10);
+  }, [projectId, projectMessages, fetchedMessages, deletedMessageIds]);
 
   // Extract events from active project or fetch them
   useEffect(() => {
@@ -192,6 +288,77 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
       });
   }, [projectId]);
 
+  // Fetch recent project messages (used to seed the Activity panel)
+  useEffect(() => {
+    if (!projectId) return;
+
+    let cancelled = false;
+
+    apiFetch<unknown>(`${GET_PROJECT_MESSAGES_URL}?projectId=${encodeURIComponent(projectId)}`)
+      .then((data) => {
+        if (cancelled) return;
+        const anyData = data as { items?: unknown[]; Items?: unknown[] } | unknown[];
+        const items = Array.isArray(anyData) ? anyData : anyData.items || anyData.Items || [];
+        setFetchedMessages(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedMessages([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  // Fetch recent files by listing project storage prefixes (uploads + editor + chat uploads)
+  useEffect(() => {
+    if (!projectId) return;
+
+    let cancelled = false;
+
+    const isImage = (name: string) => /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+
+    (async () => {
+      try {
+        const prefixes = ['uploads/', 'lexical/', 'chat_uploads/'].map((dir) => `projects/${projectId}/${dir}`);
+        const results = await Promise.all(prefixes.map((prefix) => list({ prefix, options: { accessLevel: 'guest' } })));
+
+        const files = results
+          .flatMap((r: { items?: unknown[] }) => r.items || [])
+          .filter((item) => {
+            const key = (item as { key?: string }).key;
+            return Boolean(key && !key.endsWith('/'));
+          })
+          .map((item) => {
+            const key = (item as { key: string }).key;
+            const name = key.split('/').pop() || key;
+            const fullKey = key.startsWith('public/') ? key : `public/${key}`;
+            const url = normalizeFileUrl(getFileUrl(fullKey));
+            const lastModifiedRaw = (item as { lastModified?: string | Date }).lastModified;
+            const uploadedAt = lastModifiedRaw ? new Date(lastModifiedRaw).toISOString() : new Date().toISOString();
+
+            return {
+              fileId: key,
+              fileName: name,
+              fileType: isImage(name) ? 'image' : undefined,
+              thumbnailUrl: isImage(name) ? url : undefined,
+              uploadedAt,
+            };
+          })
+          .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+          .slice(0, 8);
+
+        if (!cancelled) setRecentFiles(files);
+      } catch {
+        if (!cancelled) setRecentFiles([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
   // Get galleries from active project
   useEffect(() => {
     if (!projectId) return;
@@ -270,6 +437,9 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
     deckVersions,
     galleries,
     activities,
+    recentMessages,
+    recentFiles,
+    recentLinks,
     loading: loading || budgetLoading || activityLoading,
     error,
     refresh,
