@@ -188,41 +188,31 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     ) => {
       const slideCount = options.slideCount ?? 1;
       const slideImages = options.slideImages ?? [];
+      const normalizedSlideImages =
+        slideCount > 1
+          ? Array.from({ length: slideCount }, (_, i) => slideImages[i] ?? [])
+          : slideImages;
 
-      // Multi-slide: delegate to parent to create additional slides
-      if (slideCount > 1 && slideImages.length > 1 && onCreateSlidesWithLayout) {
-        // Apply first slide to current editor
-        toolbarActions?.onApplyMagicLayout({
-          variant,
+      // Multi-slide "Insert Slides": create exactly `slideCount` new slides (do not overwrite current slide)
+      if (slideCount > 1 && onCreateSlidesWithLayout) {
+        await onCreateSlidesWithLayout(variant, normalizedSlideImages, {
           mode: options.mode,
           seed: options.seed,
           tasteMode: options.tasteMode,
-          slideCount: 1,
-          slideImages: slideImages.length > 0 ? [slideImages[0]] : undefined,
-          textStyle: options.textStyle,
         });
-
-        // Create remaining slides via parent callback
-        const remainingSlideImages = slideImages.slice(1);
-        if (remainingSlideImages.length > 0) {
-          await onCreateSlidesWithLayout(variant, remainingSlideImages, {
-            mode: options.mode,
-            seed: options.seed,
-            tasteMode: options.tasteMode,
-          });
-        }
-      } else {
-        // Single slide: apply to current editor
-        toolbarActions?.onApplyMagicLayout({
-          variant,
-          mode: options.mode,
-          seed: options.seed,
-          tasteMode: options.tasteMode,
-          slideCount: 1,
-          slideImages: slideImages.length > 0 ? [slideImages[0]] : undefined,
-          textStyle: options.textStyle,
-        });
+        return;
       }
+
+      // Single slide: apply to current editor
+      toolbarActions?.onApplyMagicLayout({
+        variant,
+        mode: options.mode,
+        seed: options.seed,
+        tasteMode: options.tasteMode,
+        slideCount: 1,
+        slideImages: slideImages.length > 0 ? [slideImages[0]] : undefined,
+        textStyle: options.textStyle,
+      });
     },
     [toolbarActions, onCreateSlidesWithLayout]
   );

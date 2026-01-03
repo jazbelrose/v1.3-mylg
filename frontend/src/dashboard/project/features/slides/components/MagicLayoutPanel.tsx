@@ -2,7 +2,7 @@
  * MagicLayoutPanel - Upgraded layout generator with Pro features
  * 
  * Phase 1 MVP Features:
- * - Taste mode dropdown (Apple-clean, Brutalist)
+ * - Taste mode dropdown (Apple Clean, Brutalist, Fashion, Cyber, Pinterest, Museum)
  * - Variants rail with 6 candidates
  * - Per-frame locks (position, crop, hero)
  * - Global locks (spacing, radius)
@@ -37,7 +37,7 @@ import {
   type LayoutVariant,
   type GeneratedFrame,
 } from "../lib/magicLayoutGenerator";
-import { getTasteMode, getTasteModeIds, TASTE_MODES } from "../lib/tasteModes";
+import { getTasteMode, getTasteModeIds } from "../lib/tasteModes";
 import type {
   TasteModeId,
   FrameContentType,
@@ -471,6 +471,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
   // Active taste mode info
   const activeTaste = useMemo(() => getTasteMode(tasteMode), [tasteMode]);
+  const tasteModeIds = useMemo(() => getTasteModeIds(), []);
 
   // Text frames in selected variant
   const textFrameIndices = useMemo(
@@ -558,13 +559,11 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
               onChange={handleTasteModeChange}
               className="magic-layout-panel__select magic-layout-panel__select--taste"
             >
-              <option value="apple-clean">Apple Clean</option>
-              <option value="brutalist-grid">Brutalist</option>
-              {/* Phase 2: Add more taste modes */}
-              {/* <option value="fashion-editorial">Fashion Editorial</option> */}
-              {/* <option value="vaporwave-cyber">Vaporwave/Cyber</option> */}
-              {/* <option value="pinterest-collage">Pinterest Collage</option> */}
-              {/* <option value="museum-wall">Museum Wall</option> */}
+              {tasteModeIds.map((id) => (
+                <option key={id} value={id}>
+                  {getTasteMode(id).name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
