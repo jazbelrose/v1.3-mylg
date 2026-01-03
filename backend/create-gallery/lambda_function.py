@@ -568,13 +568,31 @@ def _project_id_from_upload_key(key: str):
     return None
 
 
-def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str):
+def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str, version_id: str = None):
+    """
+    Import PDF pages as slides. If version_id is provided, imports to that specific
+    deck version rather than the base project slides.
+    """
     if not project_id or not pdf_key:
         raise ValueError("project_id and pdf_key required")
 
     project_res = projects_table.get_item(Key={'projectId': project_id})
     project = project_res.get('Item') or {}
-    existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
+    
+    # Determine which slides to merge with based on version context
+    if version_id:
+        # Import to specific version
+        versions = project.get('deckVersions', [])
+        version = next((v for v in versions if v.get('versionId') == version_id), None)
+        if version:
+            existing_slides = version.get('slides', []) if isinstance(version.get('slides'), list) else []
+        else:
+            # Version not found, fall back to base slides and clear version_id
+            print(f'[process_pdf_import_to_slides] version {version_id} not found, falling back to base slides')
+            existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
+            version_id = None
+    else:
+        existing_slides = project.get('slides') if isinstance(project.get('slides'), list) else []
     max_order = -1
     for s in existing_slides:
         try:
@@ -719,19 +737,42 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str):
 
     merged_slides = (existing_slides or []) + new_slides
     ts = _now_iso()
-    projects_table.update_item(
-        Key={'projectId': project_id},
-        UpdateExpression="SET #slides = :slides, #updatedAt = :ts",
-        ExpressionAttributeNames={'#slides': 'slides', '#updatedAt': 'updatedAt'},
-        ExpressionAttributeValues={
-            ':slides': convert_floats_to_decimals(merged_slides),
-            ':ts': ts,
-        },
-    )
+    
+    if version_id:
+        # Update slides within the specific version
+        versions = project.get('deckVersions', [])
+        updated_versions = []
+        for v in versions:
+            if v.get('versionId') == version_id:
+                updated_versions.append({**v, 'slides': convert_floats_to_decimals(merged_slides)})
+            else:
+                updated_versions.append(v)
+        
+        projects_table.update_item(
+            Key={'projectId': project_id},
+            UpdateExpression="SET #versions = :versions, #updatedAt = :ts",
+            ExpressionAttributeNames={'#versions': 'deckVersions', '#updatedAt': 'updatedAt'},
+            ExpressionAttributeValues={
+                ':versions': convert_floats_to_decimals(updated_versions),
+                ':ts': ts,
+            },
+        )
+    else:
+        # Update base project slides
+        projects_table.update_item(
+            Key={'projectId': project_id},
+            UpdateExpression="SET #slides = :slides, #updatedAt = :ts",
+            ExpressionAttributeNames={'#slides': 'slides', '#updatedAt': 'updatedAt'},
+            ExpressionAttributeValues={
+                ':slides': convert_floats_to_decimals(merged_slides),
+                ':ts': ts,
+            },
+        )
 
     merged_slides_jsonable = convert_decimals_to_numbers(merged_slides)
 
     # Broadcast a purpose-built event for the slides UI, plus a generic projectUpdated for other views.
+    # Include versionId so clients can filter by their active version context.
     broadcast_to_conversation(
         f'project#{project_id}',
         {
@@ -740,6 +781,7 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str):
             'importId': import_id,
             'pageCount': len(page_urls),
             'slides': merged_slides_jsonable,
+            'versionId': version_id,
         }
     )
     broadcast_to_conversation(
@@ -748,6 +790,7 @@ def process_pdf_import_to_slides(project_id: str, pdf_key: str, bucket: str):
             'action': 'projectUpdated',
             'projectId': project_id,
             'fields': {'slides': merged_slides_jsonable},
+            'versionId': version_id,
         }
     )
 
@@ -784,7 +827,8 @@ def lambda_handler(event, context):
                 }
             try:
                 project_id = meta.get('projectid') or _project_id_from_upload_key(key)
-                result = process_pdf_import_to_slides(project_id, key, bucket)
+                version_id = meta.get('versionid')  # Extract versionId for version-specific imports
+                result = process_pdf_import_to_slides(project_id, key, bucket, version_id=version_id)
                 return {
                     'statusCode': 200,
                     'headers': cors_headers,

@@ -572,6 +572,15 @@ const SlidesPage: React.FC = () => {
         return;
       }
 
+      // CRITICAL: Only apply import if it matches our active version context
+      // If importing user was on a version and we're not on that version (or vice versa), skip
+      const importVersionId = (data.versionId as string | undefined) ?? null;
+      const ourVersionId = activeVersionId ?? null;
+      if (importVersionId !== ourVersionId) {
+        console.log(`[SlidesPage] Ignoring slidesImported for version ${importVersionId}, we are on ${ourVersionId}`);
+        return;
+      }
+
       if (Array.isArray(data.slides)) {
         const sortedSlides = [...data.slides].sort((a, b) => (a.order || 0) - (b.order || 0));
         const slidesWithDisplayThumbnails = sortedSlides.map((slide) => ({
@@ -1354,6 +1363,8 @@ const SlidesPage: React.FC = () => {
             contentType: "application/pdf",
             galleryName: file.name,
             importToSlides: true,
+            // Pass the active version ID so the import targets the correct version
+            versionId: activeVersionId || undefined,
           }),
         });
 
@@ -1391,7 +1402,7 @@ const SlidesPage: React.FC = () => {
         notify("error", "Failed to import PDF");
       }
     },
-    [projectId]
+    [projectId, activeVersionId]
   );
 
   const handlePdfImportFileSelected = useCallback(

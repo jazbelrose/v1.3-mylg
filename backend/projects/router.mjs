@@ -1548,6 +1548,7 @@ const createGalleryUpload = async (e, C) => {
     passwordTimeout,
     importToSlides,
     key: customKey,
+    versionId, // For version-specific PDF imports
   } = b;
   
   if (!projectId || !fileName || !contentType) {
@@ -1591,6 +1592,7 @@ const createGalleryUpload = async (e, C) => {
   if (passwordEnabled !== undefined) metadata.passwordenabled = String(passwordEnabled);
   if (passwordTimeout) metadata.passwordtimeout = String(passwordTimeout);
   if (importToSlides) metadata.importtoslides = "true";
+  if (versionId) metadata.versionid = versionId;
 
   try {
     // Create presigned URL for upload
