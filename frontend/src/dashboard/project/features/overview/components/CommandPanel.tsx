@@ -2,15 +2,18 @@
  * CommandPanel - Silicon Valley-style unified Events & Tasks panel
  * 
  * Features:
- * - Segmented filter chips: Today · Next 7 · Next 30 · All + Me · Team
+ * - Segmented filter chips: Today · Next 7 · Next 30 · All + Me · Team · All
  * - Unified timeline feed with day dividers
  * - Hover quick actions with one primary action per row
+ * - Single-click row opens Popover (Calendar parity)
+ * - Double-click opens QuickCreate/Edit Task modal
+ * - Auto-scroll to "Today" after data loads
  * - Compact/Comfortable density toggle
  * - Status as signal (thin severity strip/dot)
  * - Keyboard shortcuts (Enter, D, E, S)
  */
 
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -24,7 +27,10 @@ import {
   Plus,
   Search,
   X,
+  Pencil,
+  CheckSquare,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import styles from './CommandPanel.module.css';
 
 // ============================================================================
@@ -54,6 +60,7 @@ export interface TimelineTask {
   done?: boolean;
   assignedTo?: string;
   assigneeId?: string;
+  assigneeIds?: string[];
   isOverdue?: boolean;
   isDueSoon?: boolean;
   source?: unknown;
@@ -67,6 +74,7 @@ export interface CommandPanelProps {
   currentUserId?: string;
   onToggleTask?: (id: string) => void;
   onEditItem?: (item: TimelineItem) => void;
+  onQuickEditTask?: (task: TimelineTask) => void;
   onDeleteItem?: (item: TimelineItem) => void;
   onDuplicateItem?: (item: TimelineItem) => void;
   onSubmitForReview?: (item: TimelineTask) => void;
@@ -210,15 +218,19 @@ function getInitials(name?: string): string {
 interface FilterChipProps {
   label: string;
   active: boolean;
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }
 
-function FilterChip({ label, active, onClick }: FilterChipProps) {
+function FilterChip({ label, active, disabled, title, onClick }: FilterChipProps) {
   return (
     <button
       type="button"
-      className={`${styles.filterChip} ${active ? styles.filterChipActive : ''}`}
+      className={`${styles.filterChip} ${active ? styles.filterChipActive : ''} ${disabled ? styles.filterChipDisabled : ''}`}
       onClick={onClick}
+      disabled={disabled}
+      title={title}
     >
       {label}
     </button>
@@ -242,10 +254,13 @@ interface TimelineRowProps {
   item: TimelineItem;
   isHovered: boolean;
   isSelected: boolean;
+  popoverOpen: boolean;
+  onPopoverOpenChange: (open: boolean) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onClick: () => void;
+  onDoubleClick: () => void;
   onPrimaryAction: () => void;
+  onEditAction: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
@@ -253,10 +268,13 @@ function TimelineRow({
   item,
   isHovered,
   isSelected,
+  popoverOpen,
+  onPopoverOpenChange,
   onMouseEnter,
   onMouseLeave,
-  onClick,
+  onDoubleClick,
   onPrimaryAction,
+  onEditAction,
   onContextMenu,
 }: TimelineRowProps) {
   const isTask = item.type === 'task';
@@ -265,79 +283,113 @@ function TimelineRow({
   const assignee = isTask ? (item as TimelineTask).assignedTo : undefined;
   
   return (
-    <div
-      className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''}`}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') onClick();
-        if (e.key === 'd' || e.key === 'D') onPrimaryAction();
-      }}
-    >
-      {/* Severity strip */}
-      <div className={`${styles.severityStrip} ${styles[`severity${severity.charAt(0).toUpperCase() + severity.slice(1).replace('-', '')}`]}`} />
-      
-      {/* Time pill + icon */}
-      <div className={styles.rowLeft}>
-        <span className={styles.timePill}>{formatTimePill(item)}</span>
-        {isTask ? (
-          <ListTodo size={14} className={styles.typeIcon} />
-        ) : (
-          <CalendarIcon size={14} className={styles.typeIcon} />
-        )}
-      </div>
-      
-      {/* Title */}
-      <div className={styles.rowCenter}>
-        <span className={styles.rowTitle} title={item.title}>
-          {item.title || 'Untitled'}
-        </span>
-      </div>
-      
-      {/* Right: assignee + primary action + overflow */}
-      <div className={styles.rowRight}>
-        {assignee && (
-          <span className={styles.assigneeBadge} title={assignee}>
-            {getInitials(assignee)}
-          </span>
-        )}
-        
-        {/* Primary action (visible on hover) */}
-        {isHovered && (
+    <Popover open={popoverOpen} onOpenChange={onPopoverOpenChange}>
+      <PopoverTrigger asChild>
+        <div
+          className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''}`}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDoubleClick();
+          }}
+          onContextMenu={onContextMenu}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onEditAction();
+            if (e.key === 'd' || e.key === 'D') onPrimaryAction();
+          }}
+        >
+          {/* Severity strip */}
+          <div className={`${styles.severityStrip} ${styles[`severity${severity.charAt(0).toUpperCase() + severity.slice(1).replace('-', '')}`]}`} />
+          
+          {/* Time pill + icon */}
+          <div className={styles.rowLeft}>
+            <span className={styles.timePill}>{formatTimePill(item)}</span>
+            {isTask ? (
+              <ListTodo size={14} className={styles.typeIcon} />
+            ) : (
+              <CalendarIcon size={14} className={styles.typeIcon} />
+            )}
+          </div>
+          
+          {/* Title */}
+          <div className={styles.rowCenter}>
+            <span className={styles.rowTitle} title={item.title}>
+              {item.title || 'Untitled'}
+            </span>
+          </div>
+          
+          {/* Right: assignee + primary action + overflow (always rendered, visibility controlled via CSS) */}
+          <div className={styles.rowRight}>
+            {assignee && (
+              <span className={styles.assigneeBadge} title={assignee}>
+                {getInitials(assignee)}
+              </span>
+            )}
+            
+            {/* Primary action (always in DOM, visible via CSS on hover) */}
+            <button
+              type="button"
+              className={`${styles.primaryAction} ${!isHovered ? styles.actionHidden : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPrimaryAction();
+              }}
+              title={isTask ? 'Mark done' : 'Open'}
+            >
+              {isTask ? <Check size={14} /> : <Edit3 size={14} />}
+              <span>{isTask ? 'Done' : 'Open'}</span>
+            </button>
+            
+            {/* Overflow menu trigger (always in DOM, visible via CSS on hover) */}
+            <button
+              type="button"
+              className={`${styles.overflowButton} ${!isHovered ? styles.actionHidden : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onContextMenu(e);
+              }}
+              title="More actions"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+          </div>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent
+        className={styles.rowPopover}
+        align="end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isTask && (
           <button
             type="button"
-            className={styles.primaryAction}
-            onClick={(e) => {
-              e.stopPropagation();
+            className={styles.popoverAction}
+            onClick={() => {
+              onPopoverOpenChange(false);
               onPrimaryAction();
             }}
-            title={isTask ? 'Mark done' : 'Open'}
           >
-            {isTask ? <Check size={14} /> : <Edit3 size={14} />}
-            <span>{isTask ? 'Done' : 'Open'}</span>
+            <CheckSquare size={14} aria-hidden />
+            <span>{isDone ? 'Mark incomplete' : 'Mark done'}</span>
           </button>
         )}
-        
-        {/* Overflow menu trigger */}
-        {isHovered && (
-          <button
-            type="button"
-            className={styles.overflowButton}
-            onClick={(e) => {
-              e.stopPropagation();
-              onContextMenu(e);
-            }}
-            title="More actions"
-          >
-            <MoreHorizontal size={14} />
-          </button>
-        )}
-      </div>
-    </div>
+        <button
+          type="button"
+          className={styles.popoverAction}
+          onClick={() => {
+            onPopoverOpenChange(false);
+            onEditAction();
+          }}
+        >
+          <Pencil size={14} aria-hidden />
+          <span>Open {isTask ? 'task' : 'event'}</span>
+        </button>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -430,6 +482,7 @@ export function CommandPanel({
   currentUserId,
   onToggleTask,
   onEditItem,
+  onQuickEditTask,
   onDeleteItem,
   onDuplicateItem,
   onSubmitForReview,
@@ -437,25 +490,32 @@ export function CommandPanel({
   onCreateEvent,
   onViewCalendar,
 }: CommandPanelProps) {
-  // Filters
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('next7');
-  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('me');
+  // Filters - default to All/All
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   
-  // Selection & hover state
+  // Selection, hover, popover state
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     item: TimelineItem;
     position: { x: number; y: number };
   } | null>(null);
+  
+  // Refs for auto-scroll to Today or nearest upcoming
+  const contentRef = useRef<HTMLDivElement>(null);
+  const dayGroupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
+  
+  const todayKey = useMemo(() => getDateKey(today), [today]);
   
   // Combine and filter items
   const filteredItems = useMemo(() => {
@@ -488,11 +548,13 @@ export function CommandPanel({
         }
       }
       
-      // Assignee filter (only applies to tasks)
-      if (item.type === 'task' && assigneeFilter !== 'all') {
+      // Assignee filter (only applies to tasks, requires currentUserId)
+      if (item.type === 'task' && assigneeFilter !== 'all' && currentUserId) {
         const task = item as TimelineTask;
+        // Check both assigneeId and assigneeIds array
         const isMyTask = task.assigneeId === currentUserId || 
-                         (!task.assigneeId && !task.assignedTo);
+                         (task.assigneeIds?.includes(currentUserId) ?? false) ||
+                         (!task.assigneeId && !task.assignedTo && !task.assigneeIds?.length);
         
         if (assigneeFilter === 'me' && !isMyTask) return false;
         if (assigneeFilter === 'team' && isMyTask) return false;
@@ -538,6 +600,36 @@ export function CommandPanel({
     
     return Array.from(groups.entries());
   }, [filteredItems, today]);
+  
+  // Auto-scroll to "Today" or nearest upcoming on data/filter changes
+  useLayoutEffect(() => {
+    if (!contentRef.current || groupedItems.length === 0) return;
+    
+    // Use requestAnimationFrame to ensure DOM is ready
+    const frameId = requestAnimationFrame(() => {
+      const refs = dayGroupRefs.current;
+      
+      // First try to find Today
+      let targetRef = refs.get(todayKey);
+      
+      // If no Today, find nearest upcoming date
+      if (!targetRef) {
+        const sortedKeys = Array.from(refs.keys()).sort();
+        for (const key of sortedKeys) {
+          if (key >= todayKey && key !== 'no-date') {
+            targetRef = refs.get(key);
+            break;
+          }
+        }
+      }
+      
+      if (targetRef && contentRef.current) {
+        targetRef.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+    
+    return () => cancelAnimationFrame(frameId);
+  }, [groupedItems, todayKey, timeFilter, assigneeFilter]);
   
   // Counts
   const taskCount = filteredItems.filter(i => i.type === 'task').length;
@@ -664,14 +756,21 @@ export function CommandPanel({
           </div>
           <div className={styles.filterDivider} />
           <div className={styles.filterGroup}>
-            {(Object.keys(ASSIGNEE_FILTER_LABELS) as AssigneeFilter[]).map(filter => (
-              <FilterChip
-                key={filter}
-                label={ASSIGNEE_FILTER_LABELS[filter]}
-                active={assigneeFilter === filter}
-                onClick={() => setAssigneeFilter(filter)}
-              />
-            ))}
+            {(Object.keys(ASSIGNEE_FILTER_LABELS) as AssigneeFilter[]).map(filter => {
+              const isMeFilter = filter === 'me';
+              const isDisabled = isMeFilter && !currentUserId;
+              
+              return (
+                <FilterChip
+                  key={filter}
+                  label={ASSIGNEE_FILTER_LABELS[filter]}
+                  active={assigneeFilter === filter}
+                  disabled={isDisabled}
+                  title={isDisabled ? 'Sign in to filter by your tasks' : undefined}
+                  onClick={() => !isDisabled && setAssigneeFilter(filter)}
+                />
+              );
+            })}
           </div>
         </div>
         
@@ -684,7 +783,7 @@ export function CommandPanel({
       </div>
       
       {/* Content */}
-      <div className={styles.content}>
+      <div className={`${styles.content} ${groupedItems.length === 0 ? styles.contentEmpty : ''}`} ref={contentRef}>
         {groupedItems.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>
@@ -707,29 +806,50 @@ export function CommandPanel({
             </div>
           </div>
         ) : (
-          groupedItems.map(([key, group]) => (
-            <div key={key} className={styles.dayGroup}>
-              <DayDivider label={group.label} />
-              <div className={styles.dayItems}>
-                {group.items.map(item => (
-                  <TimelineRow
-                    key={item.id}
-                    item={item}
-                    isHovered={hoveredId === item.id}
-                    isSelected={selectedId === item.id}
-                    onMouseEnter={() => setHoveredId(item.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    onClick={() => {
-                      setSelectedId(item.id);
-                      onEditItem?.(item);
-                    }}
-                    onPrimaryAction={() => handlePrimaryAction(item)}
-                    onContextMenu={(e) => handleContextMenu(e, item)}
-                  />
-                ))}
+          groupedItems.map(([key, group]) => {
+            return (
+              <div
+                key={key}
+                className={styles.dayGroup}
+                ref={(el) => {
+                  if (el) {
+                    dayGroupRefs.current.set(key, el);
+                  } else {
+                    dayGroupRefs.current.delete(key);
+                  }
+                }}
+              >
+                <DayDivider label={group.label} />
+                <div className={styles.dayItems}>
+                  {group.items.map(item => (
+                    <TimelineRow
+                      key={item.id}
+                      item={item}
+                      isHovered={hoveredId === item.id}
+                      isSelected={selectedId === item.id}
+                      popoverOpen={activePopoverId === item.id}
+                      onPopoverOpenChange={(open) => setActivePopoverId(open ? item.id : null)}
+                      onMouseEnter={() => setHoveredId(item.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      onDoubleClick={() => {
+                        if (item.type === 'task' && onQuickEditTask) {
+                          onQuickEditTask(item as TimelineTask);
+                        } else {
+                          onEditItem?.(item);
+                        }
+                      }}
+                      onPrimaryAction={() => handlePrimaryAction(item)}
+                      onEditAction={() => {
+                        setSelectedId(item.id);
+                        onEditItem?.(item);
+                      }}
+                      onContextMenu={(e) => handleContextMenu(e, item)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
       

@@ -44,6 +44,7 @@ interface RawTask {
   status?: string;
   assignedTo?: string | { name?: string; email?: string }[];
   assigneeId?: string;
+  assigneeIds?: string[];
   address?: string;
   done?: boolean;
   source?: unknown;
@@ -57,6 +58,7 @@ interface OverviewEventsAndTasksProps {
   onToggleTask?: (id: string) => void;
   onEditEvent?: (event: TimelineEvent) => void;
   onEditTask?: (task: TimelineTask) => void;
+  onQuickEditTask?: (task: TimelineTask) => void;
   onOpenMap?: () => void;
 }
 
@@ -72,6 +74,7 @@ export function OverviewEventsAndTasks({
   onToggleTask,
   onEditEvent,
   onEditTask,
+  onQuickEditTask,
   onOpenMap,
 }: OverviewEventsAndTasksProps) {
   const navigate = useNavigate();
@@ -126,6 +129,7 @@ export function OverviewEventsAndTasks({
         done: t.done ?? false,
         assignedTo,
         assigneeId: t.assigneeId,
+        assigneeIds: t.assigneeIds,
         isOverdue,
         isDueSoon,
         source: t.source ?? t,
@@ -177,6 +181,7 @@ export function OverviewEventsAndTasks({
         currentUserId={userId}
         onToggleTask={handleToggleTask}
         onEditItem={handleEditItem}
+        onQuickEditTask={onQuickEditTask}
         onViewCalendar={handleViewCalendar}
         onCreateTask={handleCreateTask}
         onCreateEvent={handleCreateEvent}

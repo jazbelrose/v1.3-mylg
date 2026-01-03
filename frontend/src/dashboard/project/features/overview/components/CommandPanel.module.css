@@ -193,6 +193,12 @@
   color: var(--brand, #fa3356);
 }
 
+.filterChipDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Counts */
 .counts {
   display: flex;
@@ -217,6 +223,15 @@
   overflow-x: hidden;
   padding: 8px 0;
   scrollbar-gutter: stable;
+  /* Position relative for sticky day headers */
+  position: relative;
+}
+
+/* Empty state wrapper - flex center when content is empty */
+.contentEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ============================================================================
@@ -261,7 +276,7 @@
 }
 
 /* ============================================================================
-   TIMELINE ROW
+   TIMELINE ROW (normalized layout: fixed left, flex middle, fixed right)
    ============================================================================ */
 
 .timelineRow {
@@ -273,6 +288,9 @@
   cursor: pointer;
   transition: background 0.15s ease;
   position: relative;
+  /* Ensure rows don't overflow or shrink */
+  min-width: 0;
+  width: 100%;
 }
 
 .timelineRow:hover,
@@ -324,13 +342,14 @@
   opacity: 0.5;
 }
 
-/* Row left: time pill + icon */
+/* Row left: time pill + icon (FIXED WIDTH) */
 .rowLeft {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex: 0 0 110px; /* Fixed width, no grow, no shrink */
   min-width: 110px;
+  max-width: 110px;
 }
 
 .timePill {
@@ -338,6 +357,8 @@
   font-weight: 500;
   color: var(--text-muted, rgba(255, 255, 255, 0.55));
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .typeIcon {
@@ -345,9 +366,9 @@
   color: var(--text-muted, rgba(255, 255, 255, 0.4));
 }
 
-/* Row center: title */
+/* Row center: title (FLEXIBLE with ellipsis) */
 .rowCenter {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
 }
@@ -360,14 +381,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-/* Row right: assignee + actions */
+/* Row right: assignee + actions (FIXED WIDTH) */
 .rowRight {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto; /* Don't grow, don't shrink, auto width */
   flex-shrink: 0;
+  min-width: 80px; /* Reserve space for actions to prevent jitter */
+  justify-content: flex-end;
 }
 
 .assigneeBadge {
@@ -422,6 +447,51 @@
 .overflowButton:hover {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary, #fff);
+}
+
+/* Hidden action state (no layout shift) */
+.actionHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============================================================================
+   ROW POPOVER (Calendar parity)
+   ============================================================================ */
+
+.rowPopover {
+  min-width: 160px;
+  padding: 6px;
+  background: var(--bg-elevated, rgba(24, 24, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+}
+
+.popoverAction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #fff);
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.popoverAction:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.popoverAction svg {
+  flex-shrink: 0;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
 }
 
 /* ============================================================================

@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { HealthStrip } from './components/HealthStrip';
 import { OverviewEventsAndTasks } from './components/OverviewEventsAndTasks';
+import type { TimelineTask } from './components/CommandPanel';
 import { ActivityPanel } from './components/ActivityPanel';
 import { ProjectPoster } from './components/ProjectPoster';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
@@ -122,6 +123,8 @@ interface OverviewHudProps {
   recentFiles?: RecentFile[];
   recentLinks?: RecentLink[];
   onOpenMap?: () => void;
+  /** Double-click quick edit for tasks */
+  onQuickEditTask?: (task: TaskItem) => void;
   /** Client mode: hides internal controls, shows only client-facing data */
   clientMode?: boolean;
 }
@@ -149,6 +152,7 @@ export function OverviewHud({
   recentFiles,
   recentLinks,
   onOpenMap,
+  onQuickEditTask,
   clientMode = false,
 }: OverviewHudProps) {
   const navigate = useNavigate();
@@ -276,6 +280,13 @@ export function OverviewHud({
             events={events}
             tasks={visibleTasks}
             onOpenMap={handleOpenMap}
+            onQuickEditTask={onQuickEditTask ? (task: TimelineTask) => {
+              // Find the original task data to pass to parent
+              const originalTask = tasks.find(t => (t.id || t.taskId) === task.id);
+              if (originalTask) {
+                onQuickEditTask(originalTask);
+              }
+            } : undefined}
           />
         </div>
 
