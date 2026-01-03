@@ -63,6 +63,10 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
       <OverviewHud
         projectId={projectId}
         projectTitle={projectTitle}
+        projectColor={overviewData.projectColor}
+        startDate={overviewData.startDate}
+        endDate={overviewData.endDate}
+        coverImage={overviewData.coverImage}
         address={address}
         budgetStats={overviewData.budgetStats}
         events={overviewData.events}

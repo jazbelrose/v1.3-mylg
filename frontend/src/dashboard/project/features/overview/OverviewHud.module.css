@@ -667,3 +667,233 @@
     font-size: 20px;
   }
 }
+
+/* ============================================================================
+   PROJECT POSTER (Hero Visual Element)
+   ============================================================================ */
+
+.projectPoster {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--card-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.15s ease;
+}
+
+.projectPoster:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.15));
+}
+
+.posterVisual {
+  position: absolute;
+  inset: 0;
+}
+
+.posterImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.posterPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.posterMonogram {
+  font-size: 48px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  letter-spacing: 2px;
+}
+
+/* Gallery Mosaic */
+.galleryMosaic {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  gap: 2px;
+}
+
+.mosaicTwo {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mosaicFour {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.mosaicSix {
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.mosaicSix .mosaicImage:first-child {
+  grid-row: span 2;
+}
+
+.mosaicImage {
+  overflow: hidden;
+}
+
+.mosaicImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.projectPoster:hover .mosaicImage img {
+  transform: scale(1.03);
+}
+
+/* Deck Badge */
+.posterDeckBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Overlay - gradient fade at bottom */
+.posterOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.4) 40%,
+    rgba(0, 0, 0, 0) 70%
+  );
+}
+
+.posterInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.posterTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  line-height: 1.3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  
+  /* Clamp to 2 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.posterDates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Status Chips */
+.posterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.posterChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.posterChipWarning {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.posterChipSuccess {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+/* Progress Ring (top-right corner) */
+.posterProgressRing {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+}
+
+.posterProgressRing svg {
+  transform: rotate(-90deg);
+}
+
+.progressBg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 3;
+}
+
+.progressFill {
+  fill: none;
+  stroke: var(--color-primary, #3b82f6);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .projectPoster {
+    aspect-ratio: 2 / 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .projectPoster {
+    aspect-ratio: 16 / 10;
+  }
+  
+  .posterMonogram {
+    font-size: 32px;
+  }
+  
+  .posterTitle {
+    font-size: 16px;
+  }
+}

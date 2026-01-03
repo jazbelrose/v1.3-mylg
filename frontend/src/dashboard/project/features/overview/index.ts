@@ -9,6 +9,7 @@ export { TimelineNext7Days } from './components/TimelineNext7Days';
 export { RecentUpdates } from './components/RecentUpdates';
 export { AssetsPreview } from './components/AssetsPreview';
 export { LocationRow } from './components/LocationRow';
+export { ProjectPoster } from './components/ProjectPoster';
 
 // Hooks
 export { useOverviewData } from './hooks/useOverviewData';

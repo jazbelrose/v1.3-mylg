@@ -18,6 +18,7 @@ import { TimelineNext7Days } from './components/TimelineNext7Days';
 import { RecentUpdates } from './components/RecentUpdates';
 import { AssetsPreview } from './components/AssetsPreview';
 import { LocationRow } from './components/LocationRow';
+import { ProjectPoster } from './components/ProjectPoster';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
 import type { TimelineItem } from './types';
 
@@ -83,6 +84,10 @@ interface ActivityEvent {
 interface OverviewHudProps {
   projectId: string;
   projectTitle?: string;
+  projectColor?: string;
+  startDate?: string;
+  endDate?: string;
+  coverImage?: string;
   address?: string;
   budgetStats: BudgetStats | null;
   events: CalendarEvent[];
@@ -102,6 +107,10 @@ interface OverviewHudProps {
 export function OverviewHud({
   projectId,
   projectTitle,
+  projectColor,
+  startDate,
+  endDate,
+  coverImage,
   address,
   budgetStats,
   events,
@@ -145,8 +154,43 @@ export function OverviewHud({
     navigate(getProjectDashboardPath(projectId, projectTitle, path));
   }, [navigate, projectId, projectTitle]);
 
+  // Compute status metrics for poster
+  const risksCount = visibleTasks.filter(t => {
+    const status = t.status?.toLowerCase() || '';
+    return status === 'blocked' || status === 'at-risk';
+  }).length;
+
+  const tasksDueCount = visibleTasks.filter(t => {
+    if (!t.dueDate) return false;
+    const due = new Date(t.dueDate);
+    const today = new Date();
+    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return due <= weekFromNow;
+  }).length;
+
+  const totalTasks = visibleTasks.length;
+  const completedTasks = visibleTasks.filter(t => 
+    t.status?.toLowerCase() === 'done' || t.status?.toLowerCase() === 'complete'
+  ).length;
+  const completedPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : undefined;
+
   return (
     <div className={styles.overviewHud}>
+      {/* Project Poster - Hero Visual */}
+      <ProjectPoster
+        projectId={projectId}
+        projectTitle={projectTitle || 'Project'}
+        projectColor={projectColor}
+        startDate={startDate}
+        endDate={endDate}
+        coverImage={coverImage}
+        deckVersions={deckVersions}
+        galleries={galleries}
+        risksCount={risksCount}
+        tasksDueCount={tasksDueCount}
+        completedPercent={completedPercent}
+      />
+
       {/* Location Row (compact) */}
       {address && (
         <LocationRow address={address} onOpenMap={handleOpenMap} />

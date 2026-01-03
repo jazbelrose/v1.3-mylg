@@ -62,6 +62,10 @@ interface Gallery {
 interface OverviewData {
   projectId: string;
   projectTitle: string | undefined;
+  projectColor: string | undefined;
+  startDate: string | undefined;
+  endDate: string | undefined;
+  coverImage: string | undefined;
   address: string | undefined;
   budgetStats: BudgetStats | null;
   events: CalendarEvent[];
@@ -251,6 +255,12 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
   return {
     projectId: projectId || '',
     projectTitle: activeProject?.title,
+    projectColor: (activeProject as unknown as { color?: string })?.color,
+    startDate: (activeProject as unknown as { startDate?: string })?.startDate,
+    endDate: (activeProject as unknown as { endDate?: string; dueDate?: string })?.endDate ||
+             (activeProject as unknown as { dueDate?: string })?.dueDate,
+    coverImage: (activeProject as unknown as { coverImage?: string; cover?: string })?.coverImage ||
+                (activeProject as unknown as { cover?: string })?.cover,
     address: activeProject?.address as string | undefined,
     budgetStats,
     events,
