@@ -233,17 +233,18 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     }
 
     const calculateFitScale = () => {
-      const target = canvasRef.current;
-      if (!target) {
+      // Use viewport (the fixed scrollable container) for fit calculation
+      // not the sizer which changes size based on current zoom
+      const viewport = viewportRef.current;
+      if (!viewport) {
         return;
       }
 
-      const rect = target.getBoundingClientRect();
-      const styles = window.getComputedStyle(target);
-      const paddingX =
-        parseFloat(styles.paddingLeft || "0") + parseFloat(styles.paddingRight || "0");
-      const paddingY =
-        parseFloat(styles.paddingTop || "0") + parseFloat(styles.paddingBottom || "0");
+      const rect = viewport.getBoundingClientRect();
+      
+      // Account for sizer padding (40px left, 80px right, 40px top/bottom)
+      const paddingX = 40 + 80; // left + right padding
+      const paddingY = 40 + 40; // top + bottom padding
 
       const availableWidth = rect.width - paddingX;
       const availableHeight = rect.height - paddingY;
@@ -267,8 +268,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
           })
         : null;
 
-    if (canvasRef.current && resizeObserver) {
-      resizeObserver.observe(canvasRef.current);
+    if (viewportRef.current && resizeObserver) {
+      resizeObserver.observe(viewportRef.current);
     }
 
     window.addEventListener("resize", calculateFitScale);
