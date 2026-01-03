@@ -1419,14 +1419,15 @@ const SlidesPage: React.FC = () => {
       onVersionSelect={switchVersion}
       onManageVersions={() => setVersionsModalOpen(true)}
       onCreateVersion={async () => {
-        const newVersion = await createVersion({ name: `Version ${versions.length + 1}`, slides });
+        // Create an empty version - users can duplicate via Manage Versions if needed
+        const newVersion = await createVersion({ name: `Version ${versions.length + 1}` });
         if (newVersion) {
           switchVersion(newVersion.versionId);
         }
       }}
       canManageVersions={canManageVersions}
     />
-  ), [versions, activeVersion, switchVersion, createVersion, slides, canManageVersions]);
+  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions]);
 
   if (!projectId) {
     return <div>No project ID provided</div>;
@@ -1489,7 +1490,9 @@ const SlidesPage: React.FC = () => {
         activeVersionId={activeVersionId}
         onSwitchVersion={switchVersion}
         onCreateVersion={async (options) => {
-          const newVersion = await createVersion({ ...options, slides });
+          // Do not pass slides - if user wants to duplicate, they select via "Duplicate from" dropdown
+          // which sets duplicateFromVersionId and the backend handles cloning
+          const newVersion = await createVersion(options);
           if (newVersion) {
             switchVersion(newVersion.versionId);
           }
