@@ -110,8 +110,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const [layoutPanelOpen, setLayoutPanelOpen] = useState(false);
   const [magicPanelOpen, setMagicPanelOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const toolbarContainerRef = useRef<HTMLDivElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const scaleRef = useRef(1);
 
   const { saveSlide, markDirty } = useSlidePersistence({
     projectId,
@@ -275,6 +278,71 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       resizeObserver?.disconnect();
     };
   }, []);
+
+  // Track viewport size for centered positioning
+  useEffect(() => {
+    const updateViewportSize = () => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      const rect = viewport.getBoundingClientRect();
+      setViewportSize({ width: rect.width, height: rect.height });
+    };
+
+    updateViewportSize();
+
+    const resizeObserver = typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(updateViewportSize)
+      : null;
+
+    if (viewportRef.current && resizeObserver) {
+      resizeObserver.observe(viewportRef.current);
+    }
+
+    return () => resizeObserver?.disconnect();
+  }, []);
+
+  // Keep scale ref in sync for cursor-anchored zoom
+  useEffect(() => {
+    scaleRef.current = zoom / 100;
+  }, [zoom]);
+
+  // Cursor-anchored zoom handler
+  const handleWheelZoom = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      // Only handle Ctrl+wheel (zoom gesture)
+      if (!event.ctrlKey && !event.metaKey) return;
+      if (!onSetZoom) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const rect = viewport.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const oldScale = scaleRef.current;
+      const delta = event.deltaY > 0 ? -10 : 10;
+      const newZoom = Math.max(25, Math.min(300, zoom + delta));
+      const newScale = newZoom / 100;
+      const ratio = newScale / oldScale;
+
+      // Adjust scroll to keep point under cursor stable
+      const newScrollLeft = (viewport.scrollLeft + x) * ratio - x;
+      const newScrollTop = (viewport.scrollTop + y) * ratio - y;
+
+      onSetZoom(newZoom);
+
+      // Apply scroll after state update
+      requestAnimationFrame(() => {
+        viewport.scrollLeft = Math.max(0, newScrollLeft);
+        viewport.scrollTop = Math.max(0, newScrollTop);
+      });
+    },
+    [zoom, onSetZoom]
+  );
 
   // Keyboard shortcuts (zoom + z-order)
   useEffect(() => {
@@ -475,40 +543,56 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
             />
           </div>
 
-          {zoom !== 100 && (
-            <div className="slide-editor__zoom-warning">
-              Zoom active: Positions may not match thumbnails. Reset to 100% for accuracy.
-            </div>
-          )}
-
+          {/* Viewport container - handles scrolling */}
           <div 
-            className="slide-editor__canvas" 
-            ref={canvasRef}
+            className="slide-editor__viewport" 
+            ref={viewportRef}
             onContextMenu={handleContextMenu}
+            onWheel={handleWheelZoom}
           >
+            {/* Sizer - creates scrollable area based on scaled size */}
             <div
-              className="slide-editor__canvas-scaler"
+              className="slide-editor__sizer"
+              ref={canvasRef}
               style={{
-                transform: `scale(${appliedScale})`,
-                transformOrigin: "center center",
+                // Add padding around the canvas (40px on each side, scaled)
+                width: Math.max(STAGE_WIDTH * appliedScale + 80, viewportSize.width),
+                height: Math.max(STAGE_HEIGHT * appliedScale + 80, viewportSize.height),
+                // Center when content is smaller than viewport
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 40,
+                boxSizing: 'border-box',
               }}
             >
+              {/* Scaled content wrapper */}
               <div
-                className="slide-editor__canvas-inner"
+                className="slide-editor__canvas-scaler"
                 style={{
-                  width: `${STAGE_WIDTH}px`,
-                  height: `${STAGE_HEIGHT}px`,
-                  backgroundColor: slide.backgroundColor || '#101112',
-                  ...(backgroundImageUrl
-                    ? {
-                        backgroundImage: `url("${backgroundImageUrl}")`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "center",
-                        backgroundSize: "contain",
-                      }
-                    : null),
+                  width: STAGE_WIDTH,
+                  height: STAGE_HEIGHT,
+                  transform: `scale(${appliedScale})`,
+                  transformOrigin: "center center",
+                  flexShrink: 0,
                 }}
               >
+                <div
+                  className="slide-editor__canvas-inner"
+                  style={{
+                    width: `${STAGE_WIDTH}px`,
+                    height: `${STAGE_HEIGHT}px`,
+                    backgroundColor: slide.backgroundColor || '#101112',
+                    ...(backgroundImageUrl
+                      ? {
+                          backgroundImage: `url("${backgroundImageUrl}")`,
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "center",
+                          backgroundSize: "contain",
+                        }
+                      : null),
+                  }}
+                >
                 <div className="slide-editor__slide-frame">
                   <LexicalEditor
                     key={slide.id}
@@ -528,6 +612,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                   />
                 </div>
               </div>
+            </div>
             </div>
           </div>
 
