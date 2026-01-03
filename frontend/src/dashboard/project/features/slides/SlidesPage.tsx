@@ -572,11 +572,13 @@ const SlidesPage: React.FC = () => {
         return;
       }
 
-      // CRITICAL: Only apply import if it matches our active version context
-      // If importing user was on a version and we're not on that version (or vice versa), skip
-      const importVersionId = (data.versionId as string | undefined) ?? null;
-      const ourVersionId = activeVersionId ?? null;
-      if (importVersionId !== ourVersionId) {
+      // Version filtering: Only apply import if it matches our active version context.
+      // If the backend sends a versionId, we check it matches ours. If backend doesn't send
+      // versionId (old Lambda), we accept the import for backward compatibility.
+      const importVersionId = (data.versionId as string | undefined) ?? undefined;
+      const ourVersionId = activeVersionId ?? undefined;
+      // Only filter if the backend explicitly sent a versionId that doesn't match ours
+      if (importVersionId !== undefined && importVersionId !== ourVersionId) {
         console.log(`[SlidesPage] Ignoring slidesImported for version ${importVersionId}, we are on ${ourVersionId}`);
         return;
       }
