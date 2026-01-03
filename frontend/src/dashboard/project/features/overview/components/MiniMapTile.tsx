@@ -1,14 +1,16 @@
 /**
- * MiniMapTile - Small Leaflet map for the hero poster
+ * MiniMapTile - Real Leaflet map tile for hero banner
  * 
  * Features:
- * - Real Leaflet map tiles (not a placeholder)
+ * - Real Leaflet map tiles (CartoDB dark)
  * - Shows venue marker at provided lat/lng
  * - Locked: no pan/zoom/interactions
+ * - City label overlay at bottom
+ * - "Open map" hover state
  * - Click opens full Map view
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import styles from '../OverviewHud.module.css';
@@ -16,25 +18,27 @@ import styles from '../OverviewHud.module.css';
 // Simple pin marker SVG
 const PIN_ICON = L.icon({
   iconUrl: `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg width="24" height="32" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 20 12 20s12-11 12-20c0-6.627-5.373-12-12-12z" fill="#3b82f6"/>
-      <circle cx="12" cy="12" r="5" fill="#fff"/>
+    `<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="#3b82f6"/>
+      <circle cx="14" cy="14" r="5" fill="#fff"/>
     </svg>`
   )}`,
-  iconSize: [24, 32],
-  iconAnchor: [12, 32],
+  iconSize: [28, 36],
+  iconAnchor: [14, 36],
 });
 
 interface MiniMapTileProps {
   lat: number;
   lng: number;
+  cityLabel?: string; // e.g., "San Francisco" or "DTLA"
   onClick?: () => void;
   className?: string;
 }
 
-export function MiniMapTile({ lat, lng, onClick, className }: MiniMapTileProps) {
+export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMapTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -78,9 +82,10 @@ export function MiniMapTile({ lat, lng, onClick, className }: MiniMapTileProps) 
 
   return (
     <div
-      ref={containerRef}
-      className={`${styles.miniMapTile} ${className || ''}`}
+      className={`${styles.heroMapTile} ${className || ''}`}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -88,8 +93,23 @@ export function MiniMapTile({ lat, lng, onClick, className }: MiniMapTileProps) 
           onClick?.();
         }
       }}
-      title="Click to open map"
-    />
+      title={cityLabel || 'Open map'}
+    >
+      {/* Leaflet container */}
+      <div ref={containerRef} className={styles.heroMapLeaflet} />
+      
+      {/* Bottom gradient + city label */}
+      <div className={styles.heroMapOverlay}>
+        {cityLabel && (
+          <span className={styles.heroMapLabel}>{cityLabel}</span>
+        )}
+      </div>
+
+      {/* Hover state */}
+      <div className={`${styles.heroMapHover} ${isHovered ? styles.heroMapHoverVisible : ''}`}>
+        <span>Open Map</span>
+      </div>
+    </div>
   );
 }
 

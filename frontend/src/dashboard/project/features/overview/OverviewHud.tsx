@@ -16,7 +16,6 @@ import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import { HealthStrip } from './components/HealthStrip';
 import { EventsTasksPanel } from './components/EventsTasksPanel';
 import { ActivityPanel } from './components/ActivityPanel';
-import { LocationRow } from './components/LocationRow';
 import { ProjectPoster } from './components/ProjectPoster';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
 
@@ -171,7 +170,7 @@ export function OverviewHud({
 
   return (
     <div className={styles.overviewHud}>
-      {/* Project Poster - Hero Visual */}
+      {/* Project Poster - 2-Column Hero (Map + Info) */}
       <ProjectPoster
         projectId={projectId}
         projectTitle={projectTitle || 'Project'}
@@ -180,7 +179,6 @@ export function OverviewHud({
         endDate={endDate}
         coverImage={coverImage}
         deckVersions={deckVersions}
-        galleries={galleries}
         locationName={address}
         locationCoords={location}
         onOpenMap={handleOpenMap}
@@ -188,11 +186,6 @@ export function OverviewHud({
         tasksDueCount={tasksDueCount}
         completedPercent={completedPercent}
       />
-
-      {/* Location Row (compact) */}
-      {address && (
-        <LocationRow address={address} onOpenMap={handleOpenMap} />
-      )}
 
       {/* Health Strip - 4 tiles */}
       <HealthStrip
