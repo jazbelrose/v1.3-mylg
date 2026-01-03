@@ -179,13 +179,8 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
     }
 
     const handleOpenChat = () => {
+      // Just unhide the chat - preserve the stored floating/docked mode from localStorage
       setIsChatHidden(false);
-      setFloatingThread((prev) => {
-        if (!prev) {
-          return true;
-        }
-        return prev;
-      });
       setChatOpenSignal((prev) => prev + 1);
     };
 
@@ -201,17 +196,13 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
   }, []);
 
   const handleShowChat = React.useCallback(() => {
+    // Just unhide the chat - preserve the stored floating/docked mode from localStorage
+    // Only force floating on mobile where docked mode doesn't work well
     setIsChatHidden(false);
     setChatOpenSignal((prev) => prev + 1);
 
     if (isMobile) {
-      setFloatingThread((prev) => {
-        if (prev) {
-          return prev;
-        }
-
-        return true;
-      });
+      setFloatingThread(true);
     }
   }, [isMobile, setFloatingThread, setIsChatHidden, setChatOpenSignal]);
 

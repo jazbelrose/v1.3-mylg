@@ -1167,7 +1167,7 @@
 
 .apFeedRegion {
   flex: 0 0 auto;
-  height: clamp(160px, 34%, 240px);
+  height: clamp(120px, 22%, 180px);
   min-height: 0;
   overflow: hidden;
   border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));

@@ -185,8 +185,15 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
   }, [activeProject?.quickLinks]);
 
   const recentMessages = useMemo<OverviewData['recentMessages']>(() => {
+    // Merge messages from both sources:
+    // - projectMessages: real-time updates from WebSocket (when chat is open)
+    // - fetchedMessages: API fetch on mount (always available)
     const local = projectId ? projectMessages?.[projectId] : undefined;
-    const source = Array.isArray(local) && local.length > 0 ? local : fetchedMessages;
+    const localArr = Array.isArray(local) ? local : [];
+    const fetchedArr = Array.isArray(fetchedMessages) ? fetchedMessages : [];
+    
+    // Combine both sources - the deduplication and sorting below handles duplicates
+    const source = [...localArr, ...fetchedArr];
 
     const toIso = (value: unknown): string => {
       if (!value) return "";
@@ -254,7 +261,15 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
       .filter((m) => Boolean(m.text))
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    return items.slice(0, 10);
+    // Deduplicate by messageId (merged sources may have overlapping messages)
+    const seen = new Set<string>();
+    const dedupedItems = items.filter((m) => {
+      if (seen.has(m.messageId)) return false;
+      seen.add(m.messageId);
+      return true;
+    });
+
+    return dedupedItems.slice(0, 10);
   }, [projectId, projectMessages, fetchedMessages, deletedMessageIds]);
 
   // Extract events from active project or fetch them

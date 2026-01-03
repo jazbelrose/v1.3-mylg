@@ -272,26 +272,10 @@ export function ActivityPanel({
   const { feedItems, feedCount } = useMemo(() => {
     const items: ActivityEvent[] = [];
 
+    // Only include real activity events, NOT chat messages
     activities.forEach((a) => {
       if (!a?.activityId || !a?.createdAt) return;
       items.push(a);
-    });
-
-    recentMessages.forEach((m) => {
-      if (!m?.messageId || !m?.timestamp) return;
-      const sender = m.senderName?.trim();
-      const prefix = sender ? `${sender.split(" ")[0]}: ` : "";
-      const text = (m.text || "").trim();
-      if (!text) return;
-      items.push({
-        activityId: `message-${m.messageId}`,
-        type: "message",
-        summary: `${prefix}${text}`,
-        createdAt: m.timestamp,
-        userId: m.senderId,
-        userName: m.senderName,
-        userAvatar: m.senderAvatar,
-      });
     });
 
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -300,7 +284,7 @@ export function ActivityPanel({
       feedItems: items.slice(0, maxItems),
       feedCount: items.length,
     };
-  }, [activities, recentMessages, maxItems]);
+  }, [activities, maxItems]);
 
   const hasFeed = feedItems.length > 0;
   const hasMessages = recentMessages.length > 0;
