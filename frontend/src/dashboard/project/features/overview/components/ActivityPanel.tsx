@@ -303,60 +303,87 @@ export function ActivityPanel({
       {/* Body */}
       <div className={styles.apBody}>
         {showUtilityState ? (
-          // Utility State - No activity yet
+          // Utility State - Tile-based layout for empty state
           <div className={styles.apUtility}>
-            <div className={styles.apUtilityHeader}>
-              <MessageCircle size={16} />
-              <span>No activity yet</span>
-            </div>
-            <p className={styles.apUtilityText}>
-              Changes, comments, and updates will appear here as your team collaborates.
-            </p>
-
-            {/* Chat highlights if available */}
-            {hasMessages && (
-              <div className={styles.apChatSection}>
-                <div className={styles.apChatSectionHeader}>
-                  <span>Recent Messages</span>
-                  <button
-                    type="button"
-                    className={styles.apChatSeeAll}
-                    onClick={handleOpenMessages}
-                  >
-                    Open Chat
-                  </button>
-                </div>
-                <div className={styles.apChatList}>
-                  {recentMessages.slice(0, 3).map(msg => (
-                    <ChatHighlight
+            {/* Chat Highlights Tile - Primary */}
+            <div className={styles.apUtilityTile}>
+              <div className={styles.apTileHeader}>
+                <MessageCircle size={14} />
+                <span>Messages</span>
+              </div>
+              {hasMessages ? (
+                <div className={styles.apTileContent}>
+                  {recentMessages.slice(0, 2).map(msg => (
+                    <div
                       key={msg.messageId}
-                      message={msg}
-                      onPin={() => onPinMessage?.(msg.messageId)}
-                      onCreateTask={() => onCreateTaskFromMessage?.(msg)}
+                      className={styles.apMiniMessage}
                       onClick={handleOpenMessages}
-                    />
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <span className={styles.apMiniSender}>{msg.senderName?.split(' ')[0] || 'User'}:</span>
+                      <span className={styles.apMiniText}>{msg.text.slice(0, 50)}{msg.text.length > 50 ? '…' : ''}</span>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Quick Actions */}
-            <div className={styles.apQuickActions}>
+              ) : (
+                <div className={styles.apTileEmpty}>
+                  <span>No messages yet</span>
+                </div>
+              )}
               <button
                 type="button"
-                className={styles.apQuickAction}
-                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/messages'))}
+                className={styles.apTileAction}
+                onClick={handleOpenMessages}
               >
-                <MessageCircle size={14} />
-                <span>Open Chat</span>
+                Open Chat <ChevronRight size={12} />
+              </button>
+            </div>
+
+            {/* Stats Row */}
+            <div className={styles.apUtilityStats}>
+              <div className={styles.apStatTile}>
+                <Pin size={12} />
+                <span className={styles.apStatValue}>0</span>
+                <span className={styles.apStatLabel}>Pinned</span>
+              </div>
+              <div className={styles.apStatTile}>
+                <Link2 size={12} />
+                <span className={styles.apStatValue}>0</span>
+                <span className={styles.apStatLabel}>Links</span>
+              </div>
+              <div className={styles.apStatTile}>
+                <FileUp size={12} />
+                <span className={styles.apStatValue}>0</span>
+                <span className={styles.apStatLabel}>Uploads</span>
+              </div>
+            </div>
+
+            {/* Quick Actions Grid */}
+            <div className={styles.apQuickGrid}>
+              <button
+                type="button"
+                className={styles.apGridAction}
+                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks?action=new'))}
+              >
+                <ListTodo size={16} />
+                <span>New Task</span>
               </button>
               <button
                 type="button"
-                className={styles.apQuickAction}
-                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks'))}
+                className={styles.apGridAction}
+                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/calendar?action=new'))}
               >
-                <ListTodo size={14} />
-                <span>View Tasks</span>
+                <Clock size={16} />
+                <span>Schedule</span>
+              </button>
+              <button
+                type="button"
+                className={styles.apGridAction}
+                onClick={() => navigate(getProjectDashboardPath(projectId, projectTitle, '/gallery?action=upload'))}
+              >
+                <FileUp size={16} />
+                <span>Upload</span>
               </button>
             </div>
           </div>

@@ -179,6 +179,8 @@ export function OverviewHud({
         coverImage={coverImage}
         deckVersions={deckVersions}
         galleries={galleries}
+        locationName={address}
+        onOpenMap={handleOpenMap}
         risksCount={risksCount}
         tasksDueCount={tasksDueCount}
         completedPercent={completedPercent}

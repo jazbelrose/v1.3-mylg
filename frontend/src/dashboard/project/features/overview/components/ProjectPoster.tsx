@@ -17,7 +17,8 @@ import {
   CheckCircle2, 
   Clock, 
   Calendar,
-  Layers
+  Layers,
+  MapPin
 } from 'lucide-react';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import { formatRelativeTime } from '../utils';
@@ -55,6 +56,10 @@ interface ProjectPosterProps {
   coverImage?: string;
   deckVersions?: DeckVersion[];
   galleries?: Gallery[];
+  // Location for map tile
+  locationName?: string;
+  locationCoords?: { lat: number; lng: number };
+  onOpenMap?: () => void;
   // Status metrics for overlay chips
   risksCount?: number;
   tasksDueCount?: number;
@@ -187,6 +192,9 @@ export function ProjectPoster({
   coverImage,
   deckVersions = [],
   galleries = [],
+  locationName,
+  locationCoords,
+  onOpenMap,
   risksCount = 0,
   tasksDueCount = 0,
   completedPercent,
@@ -301,6 +309,20 @@ export function ProjectPoster({
     return null;
   };
   
+  // Get location initials for fallback
+  const locationInitials = useMemo(() => {
+    if (!locationName) return null;
+    const words = locationName.trim().split(/[\s,]+/);
+    if (words.length === 0) return '?';
+    if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+    return (words[0][0] + (words[1]?.[0] || '')).toUpperCase();
+  }, [locationName]);
+
+  const handleMapClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenMap?.();
+  };
+  
   return (
     <div className={styles.projectPoster} onClick={handleClick}>
       {/* Visual Layer */}
@@ -308,6 +330,22 @@ export function ProjectPoster({
         {renderVisual()}
         {renderDeckBadge()}
       </div>
+
+      {/* Map Tile (top-right corner) */}
+      {(locationName || onOpenMap) && (
+        <button
+          type="button"
+          className={styles.posterMapTile}
+          onClick={handleMapClick}
+          title={locationName || 'Open map'}
+        >
+          {locationInitials ? (
+            <span className={styles.posterMapInitials}>{locationInitials}</span>
+          ) : (
+            <MapPin size={16} />
+          )}
+        </button>
+      )}
       
       {/* Overlay */}
       <div className={styles.posterOverlay}>

@@ -104,13 +104,13 @@ interface EventsTasksPanelProps {
 // CONSTANTS
 // ============================================================================
 
-const VIEW_PRESETS: { value: ViewPreset; label: string }[] = [
-  { value: 'next7', label: 'Next 7 Days' },
-  { value: 'today', label: 'Today' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'open', label: 'Open' },
-  { value: 'conflicts', label: 'Conflicts' },
-  { value: 'completed', label: 'Completed' },
+const VIEW_PRESETS: { value: ViewPreset; label: string; short: string }[] = [
+  { value: 'next7', label: 'Next 7 Days', short: '7 Days' },
+  { value: 'today', label: 'Today', short: 'Today' },
+  { value: 'overdue', label: 'Overdue', short: 'Overdue' },
+  { value: 'open', label: 'All Open', short: 'Open' },
+  { value: 'conflicts', label: 'Conflicts', short: 'Conflicts' },
+  { value: 'completed', label: 'Completed', short: 'Done' },
 ];
 
 const DEFAULT_REFINERS: RefinerState = {
@@ -496,7 +496,8 @@ export function EventsTasksPanel({
     setSearchQuery('');
   }, []);
 
-  const currentPresetLabel = VIEW_PRESETS.find(p => p.value === viewPreset)?.label || 'Filter';
+  const currentPreset = VIEW_PRESETS.find(p => p.value === viewPreset);
+  const currentPresetShort = currentPreset?.short || 'Filter';
   const hasActiveFilters = viewPreset !== 'next7' || searchQuery.length > 0;
 
   const totalCount = grouped.overdue.length + grouped.dueSoon.length + grouped.later.length;
@@ -546,7 +547,8 @@ export function EventsTasksPanel({
                 type="button"
                 className={`${styles.etFilterPill} ${hasActiveFilters ? styles.etFilterActive : ''}`}
               >
-                <span>{currentPresetLabel}</span>
+                <span className={styles.etViewLabel}>View</span>
+                <span className={styles.etViewValue}>{currentPresetShort}</span>
                 <ChevronDown size={12} />
               </button>
             </PopoverTrigger>
