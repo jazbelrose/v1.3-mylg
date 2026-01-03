@@ -1,0 +1,137 @@
+/* VariantsRail.css - Styling for the layout variants rail component */
+
+.variants-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.variants-rail__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.variants-rail__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.variants-rail__hint {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.variants-rail__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+/* Variant Preview Button */
+.variant-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  overflow: hidden;
+}
+
+.variant-preview:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.variant-preview--selected {
+  background: rgba(79, 140, 255, 0.1);
+  border-color: rgba(79, 140, 255, 0.6);
+  box-shadow: 0 0 12px rgba(79, 140, 255, 0.2);
+}
+
+.variant-preview--selected:hover {
+  background: rgba(79, 140, 255, 0.15);
+  border-color: rgba(79, 140, 255, 0.8);
+}
+
+.variant-preview__number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.variant-preview--selected .variant-preview__number {
+  color: rgba(79, 140, 255, 1);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.variant-preview__svg {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+}
+
+.variant-preview__checkmark {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  background: linear-gradient(135deg, #4f8cff 0%, #3a6fd8 100%);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.variant-preview__score {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.variant-preview--selected .variant-preview__score {
+  color: rgba(79, 140, 255, 0.9);
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .variants-rail__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

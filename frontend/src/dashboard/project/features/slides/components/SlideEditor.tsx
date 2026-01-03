@@ -5,6 +5,7 @@ import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/
 import SlideToolbar from "./SlideToolbar";
 import SlideContextMenu, { type ContextMenuPosition } from "./SlideContextMenu";
 import LayoutGeneratorPanel from "./LayoutGeneratorPanel";
+import MagicLayoutPanel from "./MagicLayoutPanel";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { useEditTracking } from "../hooks/useEditTracking";
@@ -20,6 +21,7 @@ import {
   type LetterSpacing,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
 import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
+import type { LayoutVariant, TasteModeId } from "../lib/magicLayoutTypes";
 import "./SlideEditor.css";
 
 interface SlideEditorProps {
@@ -98,6 +100,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
   const [layoutPanelOpen, setLayoutPanelOpen] = useState(false);
+  const [magicPanelOpen, setMagicPanelOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const toolbarContainerRef = useRef<HTMLDivElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
@@ -138,9 +141,32 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     setLayoutPanelOpen(false);
   }, []);
 
+  const handleOpenMagicPanel = useCallback(() => {
+    setMagicPanelOpen(true);
+  }, []);
+
+  const handleCloseMagicPanel = useCallback(() => {
+    setMagicPanelOpen(false);
+  }, []);
+
   const handleApplyLayout = useCallback(
     (count: number, mode: LayoutMode, seed: string, images?: string[]) => {
       toolbarActions?.onApplyPictureFrameLayout(count, mode, seed, images);
+    },
+    [toolbarActions]
+  );
+
+  const handleApplyMagicLayout = useCallback(
+    (
+      variant: LayoutVariant,
+      options: { mode: LayoutMode; seed: string; tasteMode: TasteModeId }
+    ) => {
+      toolbarActions?.onApplyMagicLayout({
+        variant,
+        mode: options.mode,
+        seed: options.seed,
+        tasteMode: options.tasteMode,
+      });
     },
     [toolbarActions]
   );
@@ -337,6 +363,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onInsertTextBox={toolbarActions.onInsertTextBox}
       onInsertPictureFrame={toolbarActions.onInsertPictureFrame}
       onOpenLayoutPanel={handleOpenLayoutPanel}
+      onOpenMagicPanel={handleOpenMagicPanel}
       onInsertFigma={toolbarActions.onFigma}
       onInsertLayout={(template: string) => toolbarActions.onInsertLayout(template)}
       // Property update handlers (keep in toolbar)
@@ -386,6 +413,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               open={layoutPanelOpen}
               onClose={handleCloseLayoutPanel}
               onApply={handleApplyLayout}
+            />
+            <MagicLayoutPanel
+              open={magicPanelOpen}
+              onClose={handleCloseMagicPanel}
+              onApply={handleApplyMagicLayout}
             />
           </div>
 

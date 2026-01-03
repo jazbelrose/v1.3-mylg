@@ -34,6 +34,20 @@ export const INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND: LexicalCommand<
   "INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME"
 );
 
+// Magic Layout Generator Pro types and commands
+import type { LayoutVariant, TasteModeId, FrameContentType, TileLocks, TextFrameConfig } from "@/dashboard/project/features/slides/lib/magicLayoutTypes";
+
+export type InsertMagicLayoutPayload = {
+  variant: LayoutVariant;
+  mode: "grid" | "masonry";
+  seed: string;
+  tasteMode: TasteModeId;
+};
+
+export const INSERT_MAGIC_LAYOUT_COMMAND: LexicalCommand<InsertMagicLayoutPayload> = createCommand(
+  "INSERT_MAGIC_LAYOUT"
+);
+
 
 
 

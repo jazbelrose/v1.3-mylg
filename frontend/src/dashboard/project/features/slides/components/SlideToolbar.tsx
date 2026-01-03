@@ -285,6 +285,8 @@ interface SlideToolbarProps {
   onInsertPictureFrame?: () => void;
   /** Opens the floating layout generator panel */
   onOpenLayoutPanel?: () => void;
+  /** Opens the Magic Layout Generator Pro panel */
+  onOpenMagicPanel?: () => void;
   onInsertFigma?: () => void;
   onInsertLayout?: (template: string) => void;
   onSetCodeLanguage?: (lang: string) => void;
@@ -354,6 +356,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onInsertTextBox,
   onInsertPictureFrame,
   onOpenLayoutPanel,
+  onOpenMagicPanel,
   onSetCodeLanguage,
   onUpdateImageBorderRadius,
   onUpdateImageBorder,
@@ -671,6 +674,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
     onOpenLayoutPanel?.();
     closeDropdown();
   }, [onOpenLayoutPanel, closeDropdown]);
+
+  const handleOpenMagicPanel = useCallback(() => {
+    onOpenMagicPanel?.();
+    closeDropdown();
+  }, [onOpenMagicPanel, closeDropdown]);
 
   const handleZoomPreset = (level: number) => {
     onSetZoom?.(level);
@@ -1733,6 +1741,10 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
               <button type="button" className="item" onClick={handleOpenLayoutPanel}>
                 <LayoutOutlined className="dropdown-icon" />
                 <span className="text">Picture Frame Layout…</span>
+              </button>
+              <button type="button" className="item" onClick={handleOpenMagicPanel}>
+                <LayoutOutlined className="dropdown-icon" />
+                <span className="text">✨ Magic Layout Pro…</span>
               </button>
               <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
                 <FileImageOutlined className="dropdown-icon" />

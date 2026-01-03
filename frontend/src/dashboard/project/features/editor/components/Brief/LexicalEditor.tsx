@@ -66,6 +66,7 @@ import ToolbarActionsPlugin from "./plugins/ToolbarActionsPlugin";
 import ToolbarContextPlugin from "./plugins/ToolbarContextPlugin";
 import TextBoxPlugin from "./plugins/TextBoxPlugin";
 import PictureFramePlugin from "./plugins/PictureFramePlugin";
+import MagicLayoutPlugin from "./plugins/MagicLayoutPlugin";
 import TextBoxTransformPlugin from "./plugins/TextBoxTransformPlugin";
 import DeleteTextBoxPlugin from "./plugins/DeleteTextBoxPlugin";
 import TextBoxKeyboardShortcutsPlugin from "./plugins/TextBoxKeyboardShortcutsPlugin";
@@ -470,6 +471,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         <LayoutPlugin showToolbarButton={false} />
         <TextBoxPlugin />
         <PictureFramePlugin />
+        <MagicLayoutPlugin />
         <TextBoxTransformPlugin scale={scale} />
         <DeleteTextBoxPlugin />
         <TextBoxKeyboardShortcutsPlugin />

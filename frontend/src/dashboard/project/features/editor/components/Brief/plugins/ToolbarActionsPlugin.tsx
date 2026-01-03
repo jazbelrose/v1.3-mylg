@@ -36,6 +36,8 @@ import {
   INSERT_PICTURE_FRAME_LAYOUT_COMMAND,
   INSERT_IMAGE_TO_PICTURE_FRAME_COMMAND,
   INSERT_IMAGE_FROM_PROJECT_TO_PICTURE_FRAME_COMMAND,
+  INSERT_MAGIC_LAYOUT_COMMAND,
+  type InsertMagicLayoutPayload,
 } from "../commands";
 import { INSERT_LAYOUT_COMMAND } from "@/dashboard/project/features/editor/components/Brief/plugins/LayoutCommands";
 import { ResizableImageNode } from "./nodes/ResizableImageNode";
@@ -117,6 +119,8 @@ export type ToolbarActions = {
   onInsertImageFromProjectToPictureFrame: () => void;
   onLineHeightChange: (value: string) => void;
   onLetterSpacingChange: (value: string) => void;
+  /** Apply Magic Layout with variant and styling */
+  onApplyMagicLayout: (payload: InsertMagicLayoutPayload) => void;
 };
 
 type Props = {
@@ -233,6 +237,9 @@ export default function ToolbarActionsPlugin({ registerToolbar }: Props): null {
       },
       onApplyPictureFrameLayout: (count: number, mode: "grid" | "masonry", seed: string, images?: string[]) => {
         editor.dispatchCommand(INSERT_PICTURE_FRAME_LAYOUT_COMMAND, { count, mode, seed, images });
+      },
+      onApplyMagicLayout: (payload: InsertMagicLayoutPayload) => {
+        editor.dispatchCommand(INSERT_MAGIC_LAYOUT_COMMAND, payload);
       },
 
       onInsertLayout: (template: string) =>
