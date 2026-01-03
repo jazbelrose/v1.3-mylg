@@ -182,7 +182,14 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
         </div>
       )}
       {isLoading && uiThumbsEnabled && (
-        <div className="slides-sidebar__thumbnail-status">Updating…</div>
+        <div className="slides-sidebar__thumbnail-status">
+          <span className="slides-sidebar__thumbnail-loader">
+            <span className="slides-sidebar__thumbnail-loader-dot" />
+            <span className="slides-sidebar__thumbnail-loader-dot" />
+            <span className="slides-sidebar__thumbnail-loader-dot" />
+          </span>
+          <span>Updating</span>
+        </div>
       )}
     </div>
   );

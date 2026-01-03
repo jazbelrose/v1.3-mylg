@@ -66,6 +66,8 @@ export const useFileManagerState = ({
 }: UseFileManagerStateParams) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // Track last clicked index for shift+click range selection
+  const lastClickedIndexRef = useRef<number | null>(null);
   const [folderKey, setFolderKey] = useState<string>(folder);
   const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]);
   const [isFilesModalOpen, setFilesModalOpen] = useState<boolean>(Boolean(isOpen));
@@ -218,16 +220,49 @@ export const useFileManagerState = ({
     });
   }, []);
 
+  /**
+   * Handle selection change with support for:
+   * - Shift+click: Range select from last clicked to current
+   * - Ctrl/Cmd+click: Toggle individual item
+   * - Plain click: Toggle (in multi mode) or single select
+   */
   const handleSelectionChange = useCallback(
-    (url: string) => {
+    (url: string, index?: number, event?: React.MouseEvent) => {
+      const isShift = event?.shiftKey ?? false;
+      const isCtrl = event?.ctrlKey || event?.metaKey;
+      const currentIndex = index ?? displayedFiles.findIndex((f) => f.url === url);
+
+      // Shift+click: range selection
+      if (isShift && lastClickedIndexRef.current !== null && currentIndex !== -1) {
+        const start = Math.min(lastClickedIndexRef.current, currentIndex);
+        const end = Math.max(lastClickedIndexRef.current, currentIndex);
+        const rangeUrls = displayedFiles.slice(start, end + 1).map((f) => f.url);
+        
+        setSelectedItems((prev) => {
+          const newSelected = new Set(prev);
+          rangeUrls.forEach((u) => newSelected.add(u));
+          return newSelected;
+        });
+        return;
+      }
+
+      // Ctrl/Cmd+click or normal multi-select: toggle
       setSelectedItems((prev) => {
         const newSelected = new Set(prev);
-        if (newSelected.has(url)) newSelected.delete(url);
-        else newSelected.add(url);
+        if (newSelected.has(url)) {
+          newSelected.delete(url);
+        } else {
+          newSelected.add(url);
+        }
         return newSelected;
       });
+
+      // Update last clicked index for next shift+click
+      if (currentIndex !== -1) {
+        lastClickedIndexRef.current = currentIndex;
+      }
     },
-    []
+    [displayedFiles]
   );
 
   const handleSelectAll = useCallback(() => {
@@ -267,7 +302,7 @@ export const useFileManagerState = ({
   }, [displayedFiles, currentIndex]);
 
   const handleFileClick = useCallback(
-    (file: FileItem, index: number) => {
+    (file: FileItem, index: number, event?: React.MouseEvent) => {
       // Selection mode takes precedence
       if (isSelectionEnabled) {
         // Validate file type if filtering for images
@@ -286,16 +321,16 @@ export const useFileManagerState = ({
           return;
         }
         
-        // Multi-select mode (future expansion)
+        // Multi-select mode with shift/ctrl support
         if (selectionMode === 'multi') {
-          handleSelectionChange(file.url);
+          handleSelectionChange(file.url, index, event);
           return;
         }
       }
       
       // Original behavior for normal mode
       if (isSelectMode) {
-        handleSelectionChange(file.url);
+        handleSelectionChange(file.url, index, event);
       } else {
         const extension = file.fileName.split(".").pop()?.toLowerCase();
         if (extension === "html") {
@@ -319,6 +354,20 @@ export const useFileManagerState = ({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isFilesModalOpen, isImageModalOpen, closeFilesModal, closeImageModal]);
+
+  // Ctrl+A / Cmd+A to select all when file manager is open and in multi-select mode
+  useEffect(() => {
+    const handleSelectAllKeyboard = (e: KeyboardEvent) => {
+      if (!isFilesModalOpen) return;
+      if (!isSelectMode && !isSelectionEnabled) return;
+      if (e.key === "a" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSelectAll();
+      }
+    };
+    window.addEventListener("keydown", handleSelectAllKeyboard);
+    return () => window.removeEventListener("keydown", handleSelectAllKeyboard);
+  }, [isFilesModalOpen, isSelectMode, isSelectionEnabled, handleSelectAll]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

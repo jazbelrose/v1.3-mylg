@@ -25,8 +25,8 @@ interface FileManagerContentProps {
   selectedItems: Set<string>;
   selectedFilesCount: number;
   viewMode: ViewMode;
-  onFileClick: (file: FileItem, index: number) => void;
-  onSelectionChange: (url: string) => void;
+  onFileClick: (file: FileItem, index: number, event?: React.MouseEvent) => void;
+  onSelectionChange: (url: string, index?: number, event?: React.MouseEvent) => void;
   isSelected: (url: string) => boolean;
   onDownloadSingle: (file: FileItem) => void;
   onDeleteSingle: (url: string) => void;
@@ -153,11 +153,11 @@ export const FileManagerContent = ({
               {displayedFiles.map((file, index) => (
                 <li key={file.url} className={styles.fileItem}>
                   <div
-                    onClick={() => {
+                    onClick={(e) => {
                       if (selectionMode === 'multi' || isSelectMode) {
-                        onSelectionChange(file.url);
+                        onSelectionChange(file.url, index, e);
                       } else {
-                        onFileClick(file, index);
+                        onFileClick(file, index, e);
                       }
                     }}
                     className={`${styles.filePreview} ${(selectionMode === 'multi' || isSelectMode) ? styles.clickable : ""}`}
@@ -189,7 +189,7 @@ export const FileManagerContent = ({
               <tbody>
                 {displayedFiles.map((file, index) => (
                   <tr key={file.url}>
-                    <td onClick={() => onFileClick(file, index)}>{file.fileName}</td>
+                    <td onClick={(e) => onFileClick(file, index, e)}>{file.fileName}</td>
                     <td>
                       <button
                         className={styles.iconButton}

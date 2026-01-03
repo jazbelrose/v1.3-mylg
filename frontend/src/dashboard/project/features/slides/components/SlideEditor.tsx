@@ -22,6 +22,7 @@ import {
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
 import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import type { LayoutVariant, TasteModeId } from "../lib/magicLayoutTypes";
+import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
 import "./SlideEditor.css";
 
 interface SlideEditorProps {
@@ -155,6 +156,13 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const handleCloseMagicPanel = useCallback(() => {
     setMagicPanelOpen(false);
   }, []);
+
+  // Close panels when slide changes to prevent stale state
+  useEffect(() => {
+    setMagicPanelOpen(false);
+    setLayoutPanelOpen(false);
+    setContextMenuPosition(null);
+  }, [slide.id]);
 
   const handleApplyLayout = useCallback(
     (count: number, mode: LayoutMode, seed: string, images?: string[]) => {
@@ -463,6 +471,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               open={magicPanelOpen}
               onClose={handleCloseMagicPanel}
               onApply={handleApplyMagicLayout}
+              hasExistingContent={!isLexicalContentEffectivelyEmpty(slide.content)}
             />
           </div>
 

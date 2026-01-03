@@ -48,6 +48,7 @@ import type {
 import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import VariantsRail from "./VariantsRail";
 import { FileManager, type FileItem } from "@/dashboard/project/components/FileManager";
+import { ConfirmModal } from "@/shared/ui";
 import "./MagicLayoutPanel.css";
 
 export interface MagicLayoutPanelProps {
@@ -71,6 +72,8 @@ export interface MagicLayoutPanelProps {
   ) => void;
   /** Optional: pre-loaded project images for gallery selection */
   projectImageUrls?: Array<{ url: string; name: string }>;
+  /** Whether the current slide has existing content (for confirmation dialog) */
+  hasExistingContent?: boolean;
 }
 
 // Frame config for UI state
@@ -95,6 +98,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   onClose,
   onApply,
   projectImageUrls,
+  hasExistingContent = false,
 }) => {
   // Core settings
   const [count, setCount] = useState(6);
@@ -135,6 +139,13 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
   // Settings panel expanded
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Confirmation dialog for existing content
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const pendingApplyRef = useRef<{
+    variant: LayoutVariant;
+    options: Parameters<typeof onApply>[1];
+  } | null>(null);
 
   // Initialize frame configs when count changes
   useEffect(() => {
@@ -193,7 +204,10 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     // For now, we just track which variant is being previewed
   }, []);
 
-  const handleApply = useCallback(() => {
+  /**
+   * Core apply logic - builds slide images and calls onApply
+   */
+  const executeApply = useCallback(() => {
     if (!layoutOutput || !layoutOutput.variants[selectedVariantIndex]) return;
 
     const selectedVariant = layoutOutput.variants[selectedVariantIndex];
@@ -273,6 +287,35 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     setSelectedImages([]);
     onClose();
   }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, slideCount, textStyle, onApply, onClose]);
+
+  /**
+   * Handle apply button click - shows confirmation if slide has existing content
+   */
+  const handleApply = useCallback(() => {
+    if (!layoutOutput || !layoutOutput.variants[selectedVariantIndex]) return;
+
+    // If the current slide has existing content and this is a single-slide apply,
+    // show confirmation dialog
+    if (hasExistingContent && slideCount === 1) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+
+    // Otherwise proceed directly
+    executeApply();
+  }, [layoutOutput, selectedVariantIndex, hasExistingContent, slideCount, executeApply]);
+
+  /**
+   * Handle confirmation to overwrite existing content
+   */
+  const handleConfirmOverwrite = useCallback(() => {
+    setShowOverwriteConfirm(false);
+    executeApply();
+  }, [executeApply]);
+
+  const handleCancelOverwrite = useCallback(() => {
+    setShowOverwriteConfirm(false);
+  }, []);
 
   const handleCountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Math.max(1, Math.min(20, Number(e.target.value) || 1));
@@ -881,6 +924,16 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
           fileTypeFilter="images"
         />
       )}
+
+      {/* Confirmation dialog for overwriting existing content */}
+      <ConfirmModal
+        isOpen={showOverwriteConfirm}
+        onRequestClose={handleCancelOverwrite}
+        onConfirm={handleConfirmOverwrite}
+        message="This slide already has content. Applying this layout will add new frames on top of the existing content. Do you want to continue?"
+        confirmLabel="Apply Layout"
+        cancelLabel="Cancel"
+      />
     </div>
   );
 };
