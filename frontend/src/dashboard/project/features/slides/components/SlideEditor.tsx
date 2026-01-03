@@ -302,9 +302,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   }, []);
 
   // Keep scale ref in sync for cursor-anchored zoom
+  // Keep scale ref in sync for cursor-anchored zoom
   useEffect(() => {
-    scaleRef.current = zoom / 100;
-  }, [zoom]);
+    // For fit mode (zoom=0), use fitScale; otherwise use zoom percentage
+    scaleRef.current = zoom === 0 ? fitScale : zoom / 100;
+  }, [zoom, fitScale]);
 
   // Cursor-anchored zoom handler
   const handleWheelZoom = useCallback(
@@ -325,7 +327,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
       const oldScale = scaleRef.current;
       const delta = event.deltaY > 0 ? -10 : 10;
-      const newZoom = Math.max(25, Math.min(300, zoom + delta));
+      // When in fit mode (zoom=0), start from the effective fit percentage
+      const currentZoom = zoom === 0 ? Math.round(fitScale * 100) : zoom;
+      const newZoom = Math.max(25, Math.min(300, currentZoom + delta));
       const newScale = newZoom / 100;
       const ratio = newScale / oldScale;
 
@@ -341,7 +345,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
         viewport.scrollTop = Math.max(0, newScrollTop);
       });
     },
-    [zoom, onSetZoom]
+    [zoom, fitScale, onSetZoom]
   );
 
   // Keyboard shortcuts (zoom + z-order)
@@ -545,8 +549,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       ? ReactDOM.createPortal(customToolbar, toolbarPortalContainer)
       : customToolbar;
 
-  const scale = zoom / 100;
-  const appliedScale = Math.max(scale * fitScale, 0.01);
+  // Compute scale: zoom=0 means "fit to view", otherwise use zoom percentage directly
+  const scale = zoom === 0 ? fitScale : zoom / 100;
+  const appliedScale = Math.max(scale, 0.01);
   const backgroundImageUrl = slide.backgroundImage ? getFileUrl(slide.backgroundImage) : null;
 
   return (

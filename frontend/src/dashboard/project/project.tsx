@@ -1,22 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 
-import BudgetOverviewCard from "@/dashboard/project/features/budget/components/BudgetOverviewCard";
+import { OverviewHud, useOverviewData } from "@/dashboard/project/features/overview";
 
-import GalleryComponent from "@/dashboard/project/components/Gallery/GalleryComponent";
-
-import { ActivityPanel } from "@/dashboard/project/features/activity";
-
-import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
-import CalendarOverviewCard from "@/dashboard/project/components/Shared/calendar/CalendarOverviewCard";
-import ProjectWeekWidget from "@/dashboard/project/components/Shared/calendar/ProjectWeekWidget";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
-import LocationComponent from "@/dashboard/project/components/Shared/LocationComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
-import TasksComponent from "@/dashboard/project/components/Tasks/TasksComponent";
-import TasksComponentMobile from "@/dashboard/project/components/Tasks/TasksComponentMobile";
 import { BudgetProvider } from "@/dashboard/project/features/budget/context/BudgetProvider";
+import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/useSocket";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -27,12 +18,66 @@ import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import Spinner from "@/shared/ui/Spinner";
 
-const MOBILE_LAYOUT_WIDTH = 640;
-const TASKS_MOBILE_WIDTH = 768;
-
 interface LocationState {
   flashDate?: string;
 }
+
+// ============================================================================
+// OverviewHudWrapper - Uses the hook inside BudgetProvider context
+// ============================================================================
+
+interface OverviewHudWrapperProps {
+  projectId: string;
+  projectTitle?: string;
+  address?: string;
+  filesOpen: boolean;
+  setFilesOpen: (open: boolean) => void;
+  quickLinksRef: React.RefObject<QuickLinksRef | null>;
+}
+
+const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
+  projectId,
+  projectTitle,
+  address,
+  filesOpen,
+  setFilesOpen,
+  quickLinksRef,
+}) => {
+  const overviewData = useOverviewData(projectId);
+
+  return (
+    <div className="overview-layout overview-hud-layout">
+      <QuickLinksComponent ref={quickLinksRef} hideTrigger />
+
+      {FileManagerComponent && (
+        <FileManagerComponent
+          {...{
+            isOpen: filesOpen,
+            onRequestClose: () => setFilesOpen(false),
+            showTrigger: false,
+            folder: "uploads",
+          }}
+        />
+      )}
+
+      <OverviewHud
+        projectId={projectId}
+        projectTitle={projectTitle}
+        address={address}
+        budgetStats={overviewData.budgetStats}
+        events={overviewData.events}
+        tasks={overviewData.tasks}
+        deckVersions={overviewData.deckVersions}
+        galleries={overviewData.galleries}
+        activities={overviewData.activities}
+      />
+    </div>
+  );
+};
+
+// ============================================================================
+// SingleProject - Main project overview page
+// ============================================================================
 
 const SingleProject: React.FC = () => {
   const {
@@ -45,21 +90,11 @@ const SingleProject: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const flashDate = (location.state as LocationState)?.flashDate;
 
   const { projectId } = useParams<{ projectId: string }>();
   const [filesOpen, setFilesOpen] = useState<boolean>(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const { ws } = useSocket();
-
-  const [isMobileBudgetLayout, setIsMobileBudgetLayout] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth <= MOBILE_LAYOUT_WIDTH;
-  });
-  const [isMobileTasksLayout, setIsMobileTasksLayout] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth <= TASKS_MOBILE_WIDTH;
-  });
 
   const projectNameFromPath = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
@@ -74,9 +109,6 @@ const SingleProject: React.FC = () => {
       return cleanSegment;
     }
   }, [location.pathname]);
-
-  // Stable helpers
-  const noop = useCallback(() => {}, []);
 
   const parseStatusToNumber = useCallback((status: unknown): number => {
     if (status === undefined || status === null) return 0;
@@ -109,17 +141,6 @@ const SingleProject: React.FC = () => {
     navigate("/dashboard/projects");
   }, [navigate]);
 
-  const openCalendarPage = useCallback(() => {
-    if (!resolvedActiveProject) return;
-    navigate(
-      getProjectDashboardPath(
-        resolvedActiveProject.projectId,
-        resolvedActiveProject.title,
-        "/calendar"
-      )
-    );
-  }, [resolvedActiveProject, navigate]);
-
   const handleProjectDeleted = useCallback(
     (deletedProjectId: string) => {
       setProjects((prev) => prev.filter((p) => p.projectId !== deletedProjectId));
@@ -138,20 +159,6 @@ const SingleProject: React.FC = () => {
     },
     [fetchProjectDetails]
   );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsMobileBudgetLayout(width <= MOBILE_LAYOUT_WIDTH);
-      setIsMobileTasksLayout(width <= TASKS_MOBILE_WIDTH);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
 
   // Keep the active project in sync with the ID from the route and track loading state.
   useEffect(() => {
@@ -272,56 +279,6 @@ const SingleProject: React.FC = () => {
     };
   }, [ws, resolvedActiveProject?.projectId]);
 
-  const calendarProject = resolvedActiveProject
-    ? (resolvedActiveProject as {
-        projectId: string;
-        title?: string;
-        color?: string;
-        dateCreated?: string;
-        productionStart?: string;
-        finishline?: string;
-        timelineEvents?: Array<{
-          id: string;
-          eventId?: string;
-          date: string;
-          description?: string;
-          hours?: number | string;
-          budgetItemId?: string | null;
-          createdAt?: string;
-          payload?: Record<string, unknown>;
-        }>;
-        address?: string;
-        company?: string;
-        clientName?: string;
-        invoiceBrandName?: string;
-        invoiceBrandAddress?: string;
-        clientAddress?: string;
-        invoiceBrandPhone?: string;
-        clientPhone?: string;
-        clientEmail?: string;
-      })
-    : null;
-
-  const calendarOverviewCard = calendarProject ? (
-    <CalendarOverviewCard
-      project={calendarProject}
-      initialFlashDate={flashDate}
-      showEventList={false}
-      onWrapperClick={openCalendarPage}
-      onDateSelect={noop}
-    />
-  ) : null;
-
-  const calendarWeekWidget = calendarProject ? (
-    <ProjectWeekWidget
-      project={calendarProject}
-      initialFlashDate={flashDate}
-      showEventList={false}
-      onWrapperClick={openCalendarPage}
-      onDateSelect={noop}
-    />
-  ) : null;
-
   const shouldShowLoader = Boolean(
     projectId &&
       (isProjectLoading || (!resolvedActiveProject && latestRequestedProjectId.current === projectId))
@@ -366,76 +323,14 @@ const SingleProject: React.FC = () => {
 
   const projectContent = resolvedActiveProject ? (
     <BudgetProvider projectId={resolvedActiveProject.projectId}>
-      <div className="overview-layout">
-        <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-
-        {FileManagerComponent && (
-          <FileManagerComponent
-            {...{
-              isOpen: filesOpen,
-              onRequestClose: () => setFilesOpen(false),
-              showTrigger: false,
-              folder: "uploads",
-            }}
-          />
-        )}
-
-        <div
-          className={`dashboard-layout budget-calendar-layout${
-            isMobileBudgetLayout ? " budget-calendar-layout--stacked" : ""
-          }`}
-        >
-          <div className="budget-column">
-            <BudgetOverviewCard projectId={resolvedActiveProject.projectId} />
-            {isMobileBudgetLayout && (
-              <div className="budget-calendar-mobile-card">{calendarWeekWidget}</div>
-            )}
-
-            <GalleryComponent />
-
-            <ActivityPanel projectId={resolvedActiveProject.projectId} />
-          </div>
-          {!isMobileBudgetLayout && <div className="calendar-column">{calendarOverviewCard}</div>}
-        </div>
-
-        {/* <Timeline
-          activeProject={resolvedActiveProject as Project & { status: string; milestoneTitles?: string[] }}
-          parseStatusToNumber={parseStatusToNumber}
-          onActiveProjectChange={handleActiveProjectChange}
-        /> */}
-
-        <div
-          className={`dashboard-layout timeline-location-row${
-            isMobileTasksLayout ? " timeline-location-row--tasks-only" : ""
-          }`}
-        >
-          {!isMobileTasksLayout && (
-            <div className="location-wrapper">
-              <LocationComponent
-                activeProject={resolvedActiveProject}
-                onActiveProjectChange={handleActiveProjectChange}
-              />
-            </div>
-          )}
-          <div className="tasks-wrapper">
-            {isMobileTasksLayout ? (
-              <TasksComponentMobile
-                projectId={resolvedActiveProject.projectId}
-                projectName={resolvedActiveProject.title}
-                projectColor={resolvedActiveProject.color as string | undefined}
-                activeProject={resolvedActiveProject}
-                onActiveProjectChange={handleActiveProjectChange}
-              />
-            ) : (
-              <TasksComponent
-                projectId={resolvedActiveProject.projectId}
-                projectName={resolvedActiveProject.title}
-                projectColor={resolvedActiveProject.color as string | undefined}
-              />
-            )}
-          </div>
-        </div>
-      </div>
+      <OverviewHudWrapper 
+        projectId={resolvedActiveProject.projectId}
+        projectTitle={resolvedActiveProject.title}
+        address={resolvedActiveProject.address as string | undefined}
+        filesOpen={filesOpen}
+        setFilesOpen={setFilesOpen}
+        quickLinksRef={quickLinksRef}
+      />
     </BudgetProvider>
   ) : null;
 

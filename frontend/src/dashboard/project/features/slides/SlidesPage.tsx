@@ -16,7 +16,7 @@ import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
 import { notify } from "@/shared/ui/ToastNotifications";
-import { ConfirmModal } from "@/shared/ui";
+import { ConfirmModal, PromptModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
 import { disconnectAllSlideProviders } from "./lib/yjs";
 import { saveSlideThumb } from "./lib/thumbnails";
@@ -221,6 +221,10 @@ const SlidesPage: React.FC = () => {
   } = useDeckVersions({ projectId: projectId || "" });
 
   const [versionsModalOpen, setVersionsModalOpen] = useState(false);
+  const [renameVersionOpen, setRenameVersionOpen] = useState(false);
+  const [versionToRename, setVersionToRename] = useState<{ versionId: string; name: string } | null>(null);
+  const [deleteVersionConfirmOpen, setDeleteVersionConfirmOpen] = useState(false);
+  const [versionToDelete, setVersionToDelete] = useState<string | null>(null);
 
   // Computed active version ID for props
   const activeVersionId = activeVersion?.versionId ?? null;
@@ -233,7 +237,8 @@ const SlidesPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
-  const [zoom, setZoom] = useState(100);
+  // Zoom state: 0 = "fit to view", otherwise percentage (25-300)
+  const [zoom, setZoom] = useState(0);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
   const [toolbarPortalNode, setToolbarPortalNode] = useState<HTMLDivElement | null>(null);
@@ -1387,19 +1392,35 @@ const SlidesPage: React.FC = () => {
   );
 
   const handleZoomIn = useCallback(() => {
-    setZoom(prev => Math.min(prev + 25, 200));
+    setZoom(prev => {
+      // If in fit mode (0), jump to 50%, otherwise increment
+      if (prev === 0) return 50;
+      return Math.min(prev + 25, 300);
+    });
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    setZoom(prev => Math.max(prev - 25, 25));
+    setZoom(prev => {
+      // If in fit mode (0), stay in fit mode
+      if (prev === 0) return 0;
+      // If at minimum percentage, go to fit mode
+      if (prev <= 25) return 0;
+      return Math.max(prev - 25, 25);
+    });
   }, []);
 
   const handleResetZoom = useCallback(() => {
-    setZoom(100);
+    // 0 means "fit to view" mode
+    setZoom(0);
   }, []);
 
   const handleSetZoom = useCallback((level: number) => {
-    setZoom(Math.max(25, Math.min(level, 200)));
+    // Allow 0 for fit mode, otherwise clamp to valid percentage range
+    if (level === 0) {
+      setZoom(0);
+    } else {
+      setZoom(Math.max(25, Math.min(level, 300)));
+    }
   }, []);
 
   const activeSlide = slides.find((s) => s.id === activeSlideId);
@@ -1410,6 +1431,39 @@ const SlidesPage: React.FC = () => {
       : pdfImportDetail?.totalPages
         ? `Importing slides… ${Math.min(pdfImportDetail.currentPage, pdfImportDetail.totalPages)}/${pdfImportDetail.totalPages}`
         : "Importing slides…";
+
+  // Handlers for quick actions from version dropdown context menu
+  const handleQuickRename = useCallback((version: { versionId: string; name: string }) => {
+    setVersionToRename({ versionId: version.versionId, name: version.name });
+    setRenameVersionOpen(true);
+  }, []);
+
+  const handleQuickDuplicate = useCallback(async (versionId: string) => {
+    const version = versions.find((v) => v.versionId === versionId);
+    const newVersion = await duplicateVersion(versionId, version ? `${version.name} (Copy)` : undefined);
+    if (newVersion) {
+      switchVersion(newVersion.versionId);
+    }
+  }, [versions, duplicateVersion, switchVersion]);
+
+  const handleQuickDelete = useCallback((versionId: string) => {
+    setVersionToDelete(versionId);
+    setDeleteVersionConfirmOpen(true);
+  }, []);
+
+  const handleConfirmDeleteVersion = useCallback(async () => {
+    if (!versionToDelete) return;
+    await deleteVersion(versionToDelete);
+    setDeleteVersionConfirmOpen(false);
+    setVersionToDelete(null);
+  }, [versionToDelete, deleteVersion]);
+
+  const handleRenameSubmit = useCallback(async (newName: string) => {
+    if (!versionToRename || !newName.trim()) return;
+    await updateVersion(versionToRename.versionId, { name: newName.trim() });
+    setRenameVersionOpen(false);
+    setVersionToRename(null);
+  }, [versionToRename, updateVersion]);
 
   // Version dropdown for the toolbar
   const versionDropdown = useMemo(() => (
@@ -1426,8 +1480,13 @@ const SlidesPage: React.FC = () => {
         }
       }}
       canManageVersions={canManageVersions}
+      onRenameVersion={handleQuickRename}
+      onDuplicateVersion={handleQuickDuplicate}
+      onDeleteVersion={handleQuickDelete}
+      onSetDefault={setDefaultVersion}
+      onSetClientDefault={setClientDefaultVersion}
     />
-  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions]);
+  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions, handleQuickRename, handleQuickDuplicate, handleQuickDelete, setDefaultVersion, setClientDefaultVersion]);
 
   if (!projectId) {
     return <div>No project ID provided</div>;
@@ -1503,6 +1562,31 @@ const SlidesPage: React.FC = () => {
         onDuplicateVersion={duplicateVersion}
         onSetDefault={setDefaultVersion}
         onSetClientDefault={setClientDefaultVersion}
+      />
+      {/* Quick rename modal from dropdown context menu */}
+      <PromptModal
+        isOpen={renameVersionOpen}
+        onRequestClose={() => {
+          setRenameVersionOpen(false);
+          setVersionToRename(null);
+        }}
+        onSubmit={handleRenameSubmit}
+        message="Rename version"
+        defaultValue={versionToRename?.name ?? ""}
+        submitLabel="Rename"
+        cancelLabel="Cancel"
+      />
+      {/* Quick delete confirm from dropdown context menu */}
+      <ConfirmModal
+        isOpen={deleteVersionConfirmOpen}
+        onRequestClose={() => {
+          setDeleteVersionConfirmOpen(false);
+          setVersionToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteVersion}
+        message="Delete this version? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
       />
       {filesOpen && (
         <FileManagerComponent

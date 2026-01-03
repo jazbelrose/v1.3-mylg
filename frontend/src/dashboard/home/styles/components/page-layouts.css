@@ -25,6 +25,14 @@
 
 }
 
+/* Overview HUD - new Apple/SV-style layout */
+.overview-hud-layout {
+  padding: 16px;
+  gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .budget-layout {
   display: flex;
   flex-direction: column;

@@ -1,6 +1,7 @@
 // DeckVersionDropdown.tsx - Version selector dropdown for slides toolbar
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { ChevronDown, Plus, Settings, Check, Star, Users } from "lucide-react";
+import ReactDOM from "react-dom";
+import { ChevronDown, Plus, Settings, Check, Star, Users, Copy, Trash2, Edit2, UserCheck, StarIcon } from "lucide-react";
 import { DeckVersion } from "@/app/contexts/DataProvider";
 import "./DeckVersionDropdown.css";
 
@@ -14,6 +15,19 @@ export interface DeckVersionDropdownProps {
   disabled?: boolean;
   /** Accent color derived from project color (hex format, e.g., "#FA3356") */
   accentColor?: string;
+  /** Quick action callbacks for context menu */
+  onDuplicateVersion?: (versionId: string) => void;
+  onDeleteVersion?: (versionId: string) => void;
+  onSetDefault?: (versionId: string) => void;
+  onSetClientDefault?: (versionId: string) => void;
+  onRenameVersion?: (version: DeckVersion) => void;
+}
+
+interface ContextMenuState {
+  isOpen: boolean;
+  x: number;
+  y: number;
+  version: DeckVersion | null;
 }
 
 export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
@@ -25,9 +39,21 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
   canManageVersions,
   disabled = false,
   accentColor,
+  onDuplicateVersion,
+  onDeleteVersion,
+  onSetDefault,
+  onSetClientDefault,
+  onRenameVersion,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    isOpen: false,
+    x: 0,
+    y: 0,
+    version: null,
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Compute accent color CSS variable style
   const accentStyle = accentColor
@@ -47,30 +73,43 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      // Close dropdown if clicking outside
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        // Don't close if clicking inside context menu
+        if (contextMenuRef.current && contextMenuRef.current.contains(target)) {
+          return;
+        }
         setIsOpen(false);
+      }
+      
+      // Close context menu if clicking outside (context menu is portaled to body)
+      if (contextMenu.isOpen && contextMenuRef.current && !contextMenuRef.current.contains(target)) {
+        setContextMenu((prev) => ({ ...prev, isOpen: false }));
       }
     };
 
-    if (isOpen) {
+    if (isOpen || contextMenu.isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, contextMenu.isOpen]);
 
   // Close on escape
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsOpen(false);
+        setContextMenu((prev) => ({ ...prev, isOpen: false }));
       }
     };
 
-    if (isOpen) {
+    if (isOpen || contextMenu.isOpen) {
       document.addEventListener("keydown", handleEscape);
     }
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isOpen]);
+  }, [isOpen, contextMenu.isOpen]);
 
   const handleVersionClick = useCallback(
     (versionId: string) => {
@@ -89,6 +128,35 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
     onManageVersions();
     setIsOpen(false);
   }, [onManageVersions]);
+
+  // Context menu handlers
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent, version: DeckVersion) => {
+      if (!canManageVersions) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setContextMenu({
+        isOpen: true,
+        x: event.clientX,
+        y: event.clientY,
+        version,
+      });
+    },
+    [canManageVersions]
+  );
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const handleContextAction = useCallback(
+    (action: () => void) => {
+      action();
+      closeContextMenu();
+      setIsOpen(false);
+    },
+    [closeContextMenu]
+  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -135,8 +203,10 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
                     : ""
                 }`}
                 onClick={() => handleVersionClick(version.versionId)}
+                onContextMenu={(e) => handleContextMenu(e, version)}
                 role="option"
                 aria-selected={version.versionId === activeVersion?.versionId}
+                title={canManageVersions ? "Right-click for quick actions" : undefined}
               >
                 <div className="deck-version-dropdown__item-content">
                   <div className="deck-version-dropdown__item-name">
@@ -189,6 +259,93 @@ export const DeckVersionDropdown: React.FC<DeckVersionDropdownProps> = ({
           )}
         </div>
       )}
+
+      {/* Context Menu - portaled to body for proper z-index stacking */}
+      {contextMenu.isOpen && contextMenu.version && canManageVersions &&
+        ReactDOM.createPortal(
+          <div
+            ref={contextMenuRef}
+            className="deck-version-dropdown__context-menu"
+            style={{
+              position: "fixed",
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            {onRenameVersion && (
+              <button
+                type="button"
+                className="deck-version-dropdown__context-item"
+                onClick={() =>
+                  handleContextAction(() => onRenameVersion(contextMenu.version!))
+                }
+              >
+                <Edit2 size={14} />
+                <span>Rename</span>
+              </button>
+            )}
+            {onDuplicateVersion && (
+              <button
+                type="button"
+                className="deck-version-dropdown__context-item"
+                onClick={() =>
+                  handleContextAction(() =>
+                    onDuplicateVersion(contextMenu.version!.versionId)
+                  )
+                }
+              >
+                <Copy size={14} />
+                <span>Duplicate</span>
+              </button>
+            )}
+            {onSetDefault && !contextMenu.version.isDefault && (
+              <button
+                type="button"
+                className="deck-version-dropdown__context-item"
+                onClick={() =>
+                  handleContextAction(() =>
+                    onSetDefault(contextMenu.version!.versionId)
+                  )
+                }
+              >
+                <StarIcon size={14} />
+                <span>Set as Default</span>
+              </button>
+            )}
+            {onSetClientDefault && !contextMenu.version.isClientDefault && (
+              <button
+                type="button"
+                className="deck-version-dropdown__context-item"
+                onClick={() =>
+                  handleContextAction(() =>
+                    onSetClientDefault(contextMenu.version!.versionId)
+                  )
+                }
+              >
+                <UserCheck size={14} />
+                <span>Set as Client Default</span>
+              </button>
+            )}
+            {onDeleteVersion && versions.length > 1 && (
+              <>
+                <div className="deck-version-dropdown__context-divider" />
+                <button
+                  type="button"
+                  className="deck-version-dropdown__context-item deck-version-dropdown__context-item--danger"
+                  onClick={() =>
+                    handleContextAction(() =>
+                      onDeleteVersion(contextMenu.version!.versionId)
+                    )
+                  }
+                >
+                  <Trash2 size={14} />
+                  <span>Delete</span>
+                </button>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

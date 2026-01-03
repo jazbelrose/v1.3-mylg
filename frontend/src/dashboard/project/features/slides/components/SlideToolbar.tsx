@@ -1498,26 +1498,35 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           ref={zoomButtonRef}
           title="Zoom"
         >
-          <span className="toolbar-item__label">{zoom}%</span>
+          <span className="toolbar-item__label">{zoom === 0 ? "Fit" : `${zoom}%`}</span>
           <i className="chevron-down" />
         </button>
         {activeDropdown === zoomDropdownId &&
           ReactDOM.createPortal(
             <div className="dropdown" data-slide-dropdown ref={dropdownRef}>
-              <button type="button" className="item" onClick={callAndClose(onZoomIn)} disabled={zoom >= 200}>
+              <button type="button" className="item" onClick={callAndClose(onZoomIn)} disabled={zoom >= 300}>
                 <ZoomIn size={18} className="dropdown-icon" />
                 <span className="text">Zoom In</span>
               </button>
-              <button type="button" className="item" onClick={callAndClose(onZoomOut)} disabled={zoom <= 25}>
+              <button type="button" className="item" onClick={callAndClose(onZoomOut)} disabled={zoom === 0}>
                 <ZoomOut size={18} className="dropdown-icon" />
                 <span className="text">Zoom Out</span>
               </button>
-              <button type="button" className="item" onClick={callAndClose(onResetZoom)} disabled={zoom === 100}>
+              <button type="button" className="item" onClick={callAndClose(onResetZoom)} disabled={zoom === 0}>
                 <RotateCcw size={18} className="dropdown-icon" />
-                <span className="text">Reset Zoom</span>
+                <span className="text">Fit to View</span>
               </button>
               <div className="dropdown-divider" />
-              {[50, 75, 100, 125, 150, 200].map((level) => (
+              <button
+                type="button"
+                className={`item${zoom === 0 ? " active" : ""}`}
+                disabled={!onSetZoom}
+                onClick={() => handleZoomPreset(0)}
+              >
+                <span className="text">Fit</span>
+                {zoom === 0 && <span className="active">✓</span>}
+              </button>
+              {[50, 75, 100, 125, 150, 200, 300].map((level) => (
                 <button
                   key={level}
                   type="button"

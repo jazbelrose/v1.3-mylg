@@ -1,15 +1,47 @@
-/**
- * Overview Feature - Project HUD Components
- * 
- * A Silicon Valley / Apple-grade "Project HUD" that provides:
- * - Health Strip: Budget, Schedule, Deliverables, Risks at a glance
- * - Timeline: Unified 7-day view of events + tasks
- * - Recent Updates: Activity feed
- * - Assets Preview: Decks, galleries, files summary
- */
+// Overview HUD feature exports
 
+// Main component
+export { OverviewHud, default } from './OverviewHud';
+
+// Sub-components
 export { HealthStrip } from './components/HealthStrip';
 export { TimelineNext7Days } from './components/TimelineNext7Days';
 export { RecentUpdates } from './components/RecentUpdates';
 export { AssetsPreview } from './components/AssetsPreview';
-export { ProjectHUD } from './components/ProjectHUD';
+export { LocationRow } from './components/LocationRow';
+
+// Hooks
+export { useOverviewData } from './hooks/useOverviewData';
+
+// Types
+export type {
+  HealthMetric,
+  BudgetHealth,
+  ScheduleHealth,
+  DeliverablesHealth,
+  RisksHealth,
+  TimelineItem,
+  TimelineDay,
+  RecentUpdate,
+  AssetPreview,
+  TimelineFilter,
+} from './types';
+
+// Utils
+export {
+  formatDayLabel,
+  formatRelativeTime,
+  formatTimeRange,
+  parseTimeString,
+  getNext7Days,
+  isSameDay,
+  computeBudgetHealth,
+  computeScheduleHealth,
+  computeDeliverablesHealth,
+  computeRisksHealth,
+  detectConflicts,
+  groupTimelineByDay,
+  formatCurrency,
+  formatVariance,
+  getActivityIcon,
+} from './utils';
