@@ -12,7 +12,7 @@ custom:
   env: ${file(../serverless.common.yml):env}
   pythonRequirements:
     dockerizePip: false
-
+    pythonBin: D:/MYLG/App/v1.3-mylg/.venv/Scripts/python.exe
 provider:
   name: aws
   runtime: python3.12
@@ -20,7 +20,6 @@ provider:
   stage: ${opt:stage, 'dev'}
   memorySize: 2048
   timeout: 300
-  ephemeralStorageSize: 2048
   stackName: ${self:custom.app}-${self:custom.ver}-${self:service}-${sls:stage}
   tags:
     App: MYLG
@@ -50,6 +49,8 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}/index/*
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/DeckVersions
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/DeckVersions/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/DeckVersions
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/DeckVersions/index/*
         - Effect: Allow
           Action:
             - execute-api:ManageConnections
@@ -62,7 +63,6 @@ functions:
     runtime: python3.12
     timeout: 300
     memorySize: 2048
-    ephemeralStorageSize: 2048
     package:
       patterns:
         - lambda_function.py
