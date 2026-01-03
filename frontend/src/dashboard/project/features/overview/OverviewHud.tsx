@@ -14,13 +14,11 @@ import { useNavigate } from 'react-router-dom';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 
 import { HealthStrip } from './components/HealthStrip';
-import { TimelineNext7Days } from './components/TimelineNext7Days';
-import { RecentUpdates } from './components/RecentUpdates';
-import { AssetsPreview } from './components/AssetsPreview';
+import { EventsTasksPanel } from './components/EventsTasksPanel';
+import { ActivityPanel } from './components/ActivityPanel';
 import { LocationRow } from './components/LocationRow';
 import { ProjectPoster } from './components/ProjectPoster';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
-import type { TimelineItem } from './types';
 
 import styles from './OverviewHud.module.css';
 
@@ -149,11 +147,6 @@ export function OverviewHud({
     // Map modal functionality would be implemented here if needed
   }, [onOpenMap]);
 
-  const handleTimelineItemClick = useCallback((item: TimelineItem) => {
-    const path = item.type === 'event' ? '/calendar' : '/tasks';
-    navigate(getProjectDashboardPath(projectId, projectTitle, path));
-  }, [navigate, projectId, projectTitle]);
-
   // Compute status metrics for poster
   const risksCount = visibleTasks.filter(t => {
     const status = t.status?.toLowerCase() || '';
@@ -206,33 +199,26 @@ export function OverviewHud({
         deckVersions={deckVersions}
       />
 
-      {/* Main 2-column content */}
-      <div className={styles.mainContent}>
-        {/* Left: Timeline */}
-        <div className={styles.leftColumn}>
-          <TimelineNext7Days
+      {/* Bottom: Two-column work surfaces (full height to bottom) */}
+      <div className={styles.bottomGrid}>
+        {/* Left: Events & Tasks Panel */}
+        <div className={styles.bottomPanel}>
+          <EventsTasksPanel
             projectId={projectId}
             projectTitle={projectTitle}
             events={events}
             tasks={visibleTasks}
-            onItemClick={handleTimelineItemClick}
+            onOpenMap={handleOpenMap}
           />
         </div>
 
-        {/* Right: Updates + Assets */}
-        <div className={styles.rightColumn}>
-          <RecentUpdates
+        {/* Right: Activity Panel */}
+        <div className={styles.bottomPanel}>
+          <ActivityPanel
             projectId={projectId}
             projectTitle={projectTitle}
             activities={visibleActivities}
-            maxItems={6}
-          />
-
-          <AssetsPreview
-            projectId={projectId}
-            projectTitle={projectTitle}
-            deckVersions={deckVersions}
-            galleries={galleries}
+            maxItems={20}
           />
         </div>
       </div>

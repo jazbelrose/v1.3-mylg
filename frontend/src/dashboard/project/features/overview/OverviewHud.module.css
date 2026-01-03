@@ -25,7 +25,7 @@
   flex-shrink: 0; /* Don't shrink */
 }
 
-/* Main content - 2 column layout */
+/* Main content - 2 column layout (legacy) */
 .mainContent {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -49,6 +49,34 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* ============================================================================
+   BOTTOM GRID - Two equal work surfaces (Tasks | Activity)
+   ============================================================================ */
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bottomPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Make child cards stretch to fill panel */
+.bottomPanel > * {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ============================================================================
@@ -411,13 +439,14 @@
 }
 
 /* ============================================================================
-   RECENT UPDATES
+   RECENT UPDATES (Activity Panel)
    ============================================================================ */
 
 .updatesCard {
   display: flex;
   flex-direction: column;
-  flex-shrink: 0; /* Don't shrink */
+  flex: 1;
+  min-height: 0;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   border-radius: 14px;
@@ -430,6 +459,7 @@
   justify-content: space-between;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  flex-shrink: 0;
 }
 
 .updatesTitle {
@@ -439,9 +469,11 @@
 }
 
 .updatesList {
+  flex: 1;
+  min-height: 0;
   padding: 8px 0;
-  max-height: 280px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .updateItem {
@@ -648,6 +680,716 @@
 }
 
 /* ============================================================================
+   EVENTS & TASKS PANEL (Left)
+   Apple-level design for the unified tasks/events list
+   ============================================================================ */
+
+.etPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--card-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.etHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  background: var(--card-bg, rgba(255, 255, 255, 0.02));
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.etHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.etTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0;
+}
+
+.etMapButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  background: var(--button-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.etMapButton:hover {
+  background: var(--button-hover-bg, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #fff);
+}
+
+.etFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.etSearchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  transition: border-color 0.15s ease;
+}
+
+.etSearchBox:focus-within {
+  border-color: var(--color-primary, #3b82f6);
+}
+
+.etSearchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+}
+
+.etSearchInput::placeholder {
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+}
+
+.etSearchClear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: var(--text-muted, rgba(255, 255, 255, 0.3));
+  border: none;
+  border-radius: 50%;
+  color: var(--card-bg, #1a1a1a);
+  cursor: pointer;
+}
+
+.etFilterPill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  background: var(--filter-bg, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.etFilterPill:hover,
+.etFilterPill.etFilterActive {
+  background: var(--filter-active-bg, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #fff);
+}
+
+.etFilterPopover {
+  min-width: 220px;
+  padding: 12px;
+  background: var(--popover-bg, #1a1a1a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.etFilterHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.etFilterTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.etFilterReset {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-primary, #3b82f6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.etFilterReset:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.etFilterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.etFilterOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.etFilterOption:hover {
+  background: var(--item-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.etFilterOption.active {
+  background: var(--filter-active-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #fff);
+}
+
+.etFilterDivider {
+  height: 1px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  margin: 10px 0;
+}
+
+.etFilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  background: transparent;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+
+.etFilterChip:hover,
+.etFilterChip.active {
+  background: var(--filter-active-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #fff);
+  border-color: var(--text-muted, rgba(255, 255, 255, 0.2));
+}
+
+.etBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.etGroup {
+  margin-bottom: 4px;
+}
+
+.etGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 6px;
+  position: sticky;
+  top: 0;
+  background: var(--card-bg, rgba(26, 26, 26, 0.95));
+  backdrop-filter: blur(8px);
+  z-index: 1;
+}
+
+.etGroupLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.etGroupCount {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  background: var(--badge-bg, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.etItemRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.etItemRow:hover {
+  background: var(--item-hover-bg, rgba(255, 255, 255, 0.04));
+}
+
+.etItemRow:focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: -2px;
+}
+
+.etItemCompleted {
+  opacity: 0.6;
+}
+
+.etItemCompleted .etItemTitle {
+  text-decoration: line-through;
+}
+
+.etItemContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.etItemTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #fff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.etItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.etItemMeta svg {
+  flex-shrink: 0;
+}
+
+.etItemRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.etItemStatus {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.etItemStatusNeutral {
+  background: var(--badge-neutral-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+}
+
+.etItemStatusWarning {
+  background: var(--badge-warning-bg, rgba(245, 158, 11, 0.15));
+  color: var(--badge-warning-text, #fbbf24);
+}
+
+.etItemStatusCritical {
+  background: var(--badge-critical-bg, rgba(239, 68, 68, 0.15));
+  color: var(--badge-critical-text, #f87171);
+}
+
+.etItemStatusSuccess {
+  background: var(--badge-success-bg, rgba(34, 197, 94, 0.15));
+  color: var(--badge-success-text, #4ade80);
+}
+
+.etItemAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--avatar-bg, rgba(255, 255, 255, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  overflow: hidden;
+}
+
+.etItemAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.etEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.etEmptyIcon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.etEmptyText {
+  font-size: 13px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+/* ============================================================================
+   ACTIVITY PANEL (Right)
+   Project activity feed with utility state
+   ============================================================================ */
+
+.apPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--card-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.apHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  flex-shrink: 0;
+}
+
+.apTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  margin: 0;
+}
+
+.apViewAll {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-primary, #3b82f6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.apViewAll:hover {
+  opacity: 0.8;
+}
+
+.apBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.apList {
+  padding: 4px 0;
+}
+
+.apItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.apItem:hover {
+  background: var(--item-hover-bg, rgba(255, 255, 255, 0.04));
+}
+
+.apItemIcon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--icon-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  flex-shrink: 0;
+}
+
+.apItemSuccess .apItemIcon {
+  background: var(--success-bg, rgba(34, 197, 94, 0.15));
+  color: var(--success-text, #4ade80);
+}
+
+.apItemInfo .apItemIcon {
+  background: var(--info-bg, rgba(59, 130, 246, 0.15));
+  color: var(--info-text, #60a5fa);
+}
+
+.apItemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.apItemSummary {
+  font-size: 13px;
+  color: var(--text-primary, #fff);
+  line-height: 1.4;
+}
+
+.apItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.apItemAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Utility State (empty state with actions) */
+.apUtility {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.apUtilityHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.apUtilityText {
+  font-size: 12px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  line-height: 1.5;
+  margin: 0;
+}
+
+.apChatSection {
+  margin-top: 8px;
+}
+
+.apChatSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.apChatSectionHeader span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+.apChatSeeAll {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-primary, #3b82f6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.apChatList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.apChatItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--chat-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.apChatItem:hover {
+  background: var(--chat-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.apChatContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.apChatSender {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  margin-bottom: 2px;
+}
+
+.apPinnedIcon {
+  color: var(--color-warning, #f59e0b);
+}
+
+.apChatText {
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.apChatLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-primary, #3b82f6);
+  text-decoration: none;
+}
+
+.apChatLink:hover {
+  text-decoration: underline;
+}
+
+.apChatMeta {
+  font-size: 10px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
+  margin-top: 4px;
+}
+
+.apChatActions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.apChatItem:hover .apChatActions {
+  opacity: 1;
+}
+
+.apChatAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--action-bg, rgba(255, 255, 255, 0.08));
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.apChatAction:hover {
+  background: var(--action-hover-bg, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary, #fff);
+}
+
+.apQuickActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.apQuickAction {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  background: var(--button-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.apQuickAction:hover {
+  background: var(--button-hover-bg, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #fff);
+}
+
+/* ============================================================================
    RESPONSIVE
    ============================================================================ */
 
@@ -658,6 +1400,37 @@
 
   .mainContent {
     grid-template-columns: 1fr;
+  }
+
+  .bottomGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .bottomPanel {
+    max-height: 50vh; /* Cap height on tablet so both panels are visible */
+  }
+
+  /* Events & Tasks Panel responsive */
+  .etHeader {
+    padding: 12px 14px;
+  }
+
+  .etFilterRow {
+    flex-wrap: wrap;
+  }
+
+  .etSearchBox {
+    min-width: 140px;
+  }
+
+  /* Activity Panel responsive */
+  .apUtility {
+    padding: 20px 14px;
+  }
+
+  .apQuickActions {
+    flex-wrap: wrap;
   }
 }
 
@@ -676,6 +1449,55 @@
 
   .healthTilePrimary {
     font-size: 20px;
+  }
+
+  .bottomGrid {
+    gap: 10px;
+  }
+
+  .bottomPanel {
+    max-height: 40vh;
+  }
+
+  /* Events & Tasks Panel mobile */
+  .etTitle {
+    font-size: 14px;
+  }
+
+  .etMapButton span {
+    display: none; /* Hide text, show icon only */
+  }
+
+  .etMapButton {
+    padding: 6px;
+  }
+
+  .etItemRow {
+    padding: 8px 12px;
+  }
+
+  .etItemStatus {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  /* Activity Panel mobile */
+  .apTitle {
+    font-size: 14px;
+  }
+
+  .apItem {
+    padding: 8px 12px;
+  }
+
+  .apItemIcon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .apQuickAction {
+    flex: 1;
+    justify-content: center;
   }
 }
 
