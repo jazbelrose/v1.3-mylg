@@ -32,6 +32,15 @@ import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
 
+const deckVersionBroadcastActions = new Set([
+  "deckVersionCreated",
+  "deckVersionUpdated",
+  "deckVersionDeleted",
+  "deckVersionDuplicated",
+  "deckVersionSetDefault",
+  "deckVersionSetClientDefault",
+]);
+
 type PdfImportDetail = {
   stage: string;
   currentPage: number;
@@ -596,6 +605,16 @@ const SlidesPage: React.FC = () => {
         return;
       }
 
+      if (
+        projectId &&
+        data.projectId === projectId &&
+        typeof data.action === "string" &&
+        deckVersionBroadcastActions.has(data.action)
+      ) {
+        void fetchVersions();
+        return;
+      }
+
       if (data.action === "slidesImportProgress" && projectId && data.projectId === projectId) {
         // Version filtering: only show import progress for our active version.
         const importVersionId = (data.versionId as string | undefined) ?? undefined;
@@ -990,6 +1009,28 @@ const SlidesPage: React.FC = () => {
   ]
   );
 
+  const sendSlideEvent = useCallback(
+    (action: string, payload: Record<string, unknown> = {}) => {
+      if (!projectId || !ws || ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.send(
+          JSON.stringify({
+            projectId,
+            conversationId: `project#${projectId}`,
+            username: userName || "Someone",
+            senderId: userId,
+            ...(activeVersionId && { versionId: activeVersionId }),
+            action,
+            ...payload,
+          })
+        );
+      } catch (error) {
+        console.warn(`[SlidesPage] websocket ${action} failed`, error);
+      }
+    },
+    [projectId, ws, userId, userName, activeVersionId]
+  );
+
   const handleNewSlide = useCallback(() => {
     const newSlide: Slide = {
       id: uuidv4(),
@@ -1024,6 +1065,7 @@ const SlidesPage: React.FC = () => {
 
     // Save to backend
     saveSlides(updatedSlides);
+    sendSlideEvent("slideCreated", { slideId: newSlide.id });
   }, [slides, saveSlides]);
 
   /**
@@ -1072,6 +1114,7 @@ const SlidesPage: React.FC = () => {
 
       // Save to backend
       saveSlides(updatedSlides);
+      sendSlideEvent("slideCreated", { slideIds: newSlides.map((s) => s.id) });
 
       notify("success", `Created ${newSlides.length} new slide${newSlides.length > 1 ? 's' : ''} with layout`);
     },
@@ -1136,6 +1179,7 @@ const SlidesPage: React.FC = () => {
     setSlides(reorderedSlides);
     setIsDirty(true);
     saveSlides(reorderedSlides);
+    sendSlideEvent("slideReordered", { slideIds: reorderedSlides.map((slide) => slide.id) });
   }, [saveSlides]);
 
   const handleDuplicateSlide = useCallback((slideId?: string) => {
@@ -1156,6 +1200,7 @@ const SlidesPage: React.FC = () => {
     setIsDirty(true);
 
     saveSlides(updatedSlides);
+    sendSlideEvent("slideDuplicated", { slideId: duplicatedSlide.id, sourceSlideId: targetSlideId });
     notify("success", "Slide duplicated");
   }, [slides, activeSlideId, saveSlides]);
 
@@ -1188,6 +1233,7 @@ const SlidesPage: React.FC = () => {
       setActiveSlideId(nextActiveId);
       setIsDirty(true);
       saveSlides(reorderedSlides);
+      sendSlideEvent("slideDeleted", { slideIds: uniqueIds });
 
       notify("success", uniqueIds.length === 1 ? "Slide deleted" : `Deleted ${uniqueIds.length} slides`);
     },

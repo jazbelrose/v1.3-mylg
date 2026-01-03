@@ -170,9 +170,44 @@ export const handler = async (event) => {
     case "createNotification":
       return await handleCreateNotification(payload, userId);
 
+    case "slideCreated":
+    case "slideDeleted":
+    case "slideDuplicated":
+    case "slideReordered":
+    case "deckVersionCreated":
+    case "deckVersionUpdated":
+    case "deckVersionDeleted":
+    case "deckVersionDuplicated":
+    case "deckVersionSetDefault":
+    case "deckVersionSetClientDefault":
+      return await forwardProjectEvent(payload);
+
     default:
       console.warn("⚠️ Unknown action:", action);
       return { statusCode: 400, body: `Unknown action: ${action}` };
+  }
+};
+
+const forwardProjectEvent = async (payload) => {
+  if (!payload) {
+    return { statusCode: 400, body: "Missing payload" };
+  }
+
+  const projectId = payload.projectId || "";
+  const conversationId = String(
+    (payload.conversationId || (projectId ? `project#${projectId}` : "")) || ""
+  ).trim();
+
+  if (!conversationId) {
+    return { statusCode: 400, body: "Missing conversationId" };
+  }
+
+  try {
+    await broadcastToConversation(conversationId, payload);
+    return { statusCode: 200, body: "Project event broadcast" };
+  } catch (err) {
+    console.error("? forwardProjectEvent failed", err);
+    return { statusCode: 500, body: "Failed to broadcast project event" };
   }
 };
 

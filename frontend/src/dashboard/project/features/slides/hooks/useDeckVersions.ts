@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { DeckVersion, DeckVersionStatus, Slide, Role } from "@/app/contexts/DataProvider";
 import { useData } from "@/app/contexts/useData";
+import { useSocket } from "@/app/contexts/useSocket";
 import {
   apiFetch,
   deckVersionsUrl,
@@ -72,7 +73,8 @@ export function useDeckVersions({
   projectId,
   autoLoad = true,
 }: UseDeckVersionsOptions): UseDeckVersionsReturn {
-  const { isAdmin, isDesigner, isClient } = useData();
+  const { isAdmin, isDesigner, isClient, userId, userName } = useData();
+  const { ws } = useSocket();
   const [versions, setVersions] = useState<DeckVersion[]>([]);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +86,26 @@ export function useDeckVersions({
   const activeVersion = useMemo(
     () => versions.find((v) => v.versionId === activeVersionId) ?? null,
     [versions, activeVersionId]
+  );
+
+  const sendDeckVersionEvent = useCallback(
+    (payload: Record<string, unknown>) => {
+      if (!projectId || !ws || ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.send(
+          JSON.stringify({
+            projectId,
+            conversationId: `project#${projectId}`,
+            username: userName || "Someone",
+            senderId: userId,
+            ...payload,
+          })
+        );
+      } catch (error) {
+        console.warn("[DeckVersions] websocket send failed", error);
+      }
+    },
+    [projectId, ws, userId, userName]
   );
 
   // Get default version for current user
@@ -148,6 +170,7 @@ export function useDeckVersions({
 
         setVersions((prev) => [...prev, newVersion]);
         notify("success", `Version "${newVersion.name}" created`);
+        sendDeckVersionEvent({ action: "deckVersionCreated", versionId: newVersion.versionId });
         return newVersion;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to create version";
@@ -174,6 +197,7 @@ export function useDeckVersions({
         setVersions((prev) =>
           prev.map((v) => (v.versionId === versionId ? updated : v))
         );
+        sendDeckVersionEvent({ action: "deckVersionUpdated", versionId });
         return updated;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to update version";
@@ -207,6 +231,7 @@ export function useDeckVersions({
         }
 
         notify("success", "Version deleted");
+        sendDeckVersionEvent({ action: "deckVersionDeleted", versionId });
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to delete version";
@@ -236,6 +261,7 @@ export function useDeckVersions({
         );
 
         notify("success", `"${updated.name}" is now the default version`);
+        sendDeckVersionEvent({ action: "deckVersionSetDefault", versionId });
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to set default version";
@@ -265,6 +291,7 @@ export function useDeckVersions({
         );
 
         notify("success", `"${updated.name}" is now the client default version`);
+        sendDeckVersionEvent({ action: "deckVersionSetClientDefault", versionId });
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to set client default version";
@@ -290,6 +317,11 @@ export function useDeckVersions({
 
         setVersions((prev) => [...prev, duplicated]);
         notify("success", `Version duplicated as "${duplicated.name}"`);
+        sendDeckVersionEvent({
+          action: "deckVersionDuplicated",
+          versionId: duplicated.versionId,
+          sourceVersionId: versionId,
+        });
         return duplicated;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to duplicate version";
