@@ -319,7 +319,7 @@ function serializePictureFrame(
  */
 export function generateMagicLayoutContent(
   variant: LayoutVariant,
-  images: string[],
+  images: Array<string | null | undefined>,
   tasteMode: TasteModeId
 ): string {
   const nodes: Array<SerializedPictureFrameNode | SerializedTextBoxNode> = [];
@@ -329,8 +329,8 @@ export function generateMagicLayoutContent(
     if (frame.contentType === "text") {
       nodes.push(serializeTextBoxFrame(frame, tasteMode));
     } else {
-      // Get image from provided array, or use frame's default
-      const imageSrc = images[imageFrameIndex] ?? frame.imageSrc;
+      // Use provided images in order; if we run out, keep the remaining frames empty.
+      const imageSrc = images[imageFrameIndex] ?? null;
       imageFrameIndex++;
       nodes.push(serializePictureFrame(frame, imageSrc, tasteMode));
     }

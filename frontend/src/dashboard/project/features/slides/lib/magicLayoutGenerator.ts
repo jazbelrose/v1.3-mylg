@@ -544,6 +544,51 @@ export function generateMagicLayouts(input: MagicLayoutInput): MagicLayoutOutput
 }
 
 /**
+ * Generate a single (fast) magic layout variant for a given seed.
+ *
+ * This is intended for multi-slide plans where we want unique layouts per slide
+ * without paying the full ranking/scoring cost of `generateMagicLayouts` for
+ * every slide.
+ */
+export function generateMagicLayoutVariant(
+  input: MagicLayoutInput,
+  variantSeed: string,
+  variantIndex = 0,
+  sessionSeed?: string
+): LayoutVariant {
+  const normalizedInput: MagicLayoutInput = {
+    frameCount: Math.max(1, Math.min(20, input.frameCount)),
+    mode: input.mode ?? "grid",
+    tasteMode: input.tasteMode ?? "apple-clean",
+    seed: input.seed || `${Date.now()}`,
+    canvasWidth: input.canvasWidth ?? DEFAULT_CANVAS_WIDTH,
+    canvasHeight: input.canvasHeight ?? DEFAULT_CANVAS_HEIGHT,
+    globalLocks: input.globalLocks ?? { lockSpacing: false, lockRadius: false },
+    frameConfigs: input.frameConfigs,
+    lockedFrames: input.lockedFrames,
+  };
+
+  const sessionKey = sessionSeed ?? normalizedInput.seed;
+  const tasteMode = getTasteMode(normalizedInput.tasteMode);
+  const tasteApplied = applyTasteTokens(
+    tasteMode.tokens,
+    DEFAULT_BASE_MARGIN,
+    DEFAULT_BASE_GUTTER,
+    DEFAULT_BASE_RADIUS
+  );
+
+  const frozen = getFrozenTokens(
+    sessionKey,
+    normalizedInput.globalLocks ?? { lockSpacing: false, lockRadius: false },
+    tasteApplied.gutter,
+    tasteApplied.radius,
+    tasteApplied.margin
+  );
+
+  return generateVariant(normalizedInput, variantIndex, variantSeed, frozen);
+}
+
+/**
  * Regenerate layouts with new seed while preserving locked frames
  */
 export function regenerateMagicLayouts(

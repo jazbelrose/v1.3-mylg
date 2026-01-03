@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import {
   generateMagicLayouts,
+  generateMagicLayoutVariant,
   generatePreviewLayout,
   type MagicLayoutOutput,
   type LayoutVariant,
@@ -54,15 +55,17 @@ import "./MagicLayoutPanel.css";
 export interface MagicLayoutPanelProps {
   open: boolean;
   onClose: () => void;
+  /** When true, Magic Layout inserts new slides and never overwrites the current slide. */
+  insertOnly?: boolean;
   onApply: (
-    variant: LayoutVariant,
+    variants: LayoutVariant[],
     options: {
       mode: LayoutMode;
       seed: string;
       tasteMode: TasteModeId;
       slideCount?: number;
       /** Images for each slide - outer array is slides, inner is frame images */
-      slideImages?: string[][];
+      slideImages?: Array<Array<string | null>>;
       textStyle?: {
         fontStyle: string;
         dropCap: boolean;
@@ -96,6 +99,7 @@ const DEFAULT_FRAME_CONFIG: FrameUIConfig = {
 export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   open,
   onClose,
+  insertOnly = false,
   onApply,
   projectImageUrls,
   hasExistingContent = false,
@@ -117,6 +121,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
   // Generated variants
   const [layoutOutput, setLayoutOutput] = useState<MagicLayoutOutput | null>(null);
+  const [candidatePlans, setCandidatePlans] = useState<LayoutVariant[][] | null>(null);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [previewVariantIndex, setPreviewVariantIndex] = useState<number | null>(null);
 
@@ -142,10 +147,6 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
   // Confirmation dialog for existing content
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
-  const pendingApplyRef = useRef<{
-    variant: LayoutVariant;
-    options: Parameters<typeof onApply>[1];
-  } | null>(null);
 
   // Initialize frame configs when count changes
   useEffect(() => {
@@ -184,7 +185,25 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
     setLayoutOutput(output);
     setSelectedVariantIndex(0);
-  }, [open, count, mode, tasteMode, seed, globalLocks, frameConfigs, selectedImages]);
+
+    // When inserting multiple slides, each candidate represents a multi-slide plan:
+    // slide 1 uses the chosen candidate, and subsequent slides get unique layouts
+    // derived from the same generation settings.
+    if (slideCount > 1) {
+      const sessionSeed = output.input.seed || seed;
+      const plans = output.variants.map((baseVariant, planIdx) => {
+        const plan: LayoutVariant[] = [baseVariant];
+        for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
+          const variantSeed = `${sessionSeed}#plan${planIdx}#slide${slideIdx}`;
+          plan.push(generateMagicLayoutVariant(output.input, variantSeed, slideIdx, sessionSeed));
+        }
+        return plan;
+      });
+      setCandidatePlans(plans);
+    } else {
+      setCandidatePlans(null);
+    }
+  }, [open, count, mode, tasteMode, seed, globalLocks, frameConfigs, selectedImages, slideCount]);
 
   // Reset seed when opening
   useEffect(() => {
@@ -211,82 +230,62 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
     if (!layoutOutput || !layoutOutput.variants[selectedVariantIndex]) return;
 
     const selectedVariant = layoutOutput.variants[selectedVariantIndex];
-    
-    // Count how many image frames we have per slide
-    const imageFrameCount = selectedVariant.frames.filter(f => f.contentType === "image").length;
-    
-    // Distribute images across slides, prioritizing unused images
-    // Each slide gets a different set of images from the pool
-    const slideImages: string[][] = [];
-    const usedImages = new Set<string>();
-    
-    for (let slideIdx = 0; slideIdx < slideCount; slideIdx++) {
-      const slideImageSet: string[] = [];
-      
-      for (let frameIdx = 0; frameIdx < imageFrameCount; frameIdx++) {
-        // First, try to find an unused image
-        let imageToUse: string | null = null;
-        
-        for (const img of selectedImages) {
-          if (!usedImages.has(img)) {
-            imageToUse = img;
-            usedImages.add(img);
-            break;
-          }
-        }
-        
-        // If all images are used, cycle through again (for decks with more slides than images)
-        if (!imageToUse && selectedImages.length > 0) {
-          // Reset used set if we've gone through all images
-          if (usedImages.size >= selectedImages.length) {
-            usedImages.clear();
-          }
-          // Pick next available
-          for (const img of selectedImages) {
-            if (!usedImages.has(img)) {
-              imageToUse = img;
-              usedImages.add(img);
-              break;
-            }
-          }
-        }
-        
-        if (imageToUse) {
-          slideImageSet.push(imageToUse);
-        }
-      }
-      
-      slideImages.push(slideImageSet);
-    }
-    
-    // Merge first slide's images into variant frames for preview/single slide case
-    const variantWithImages: LayoutVariant = {
-      ...selectedVariant,
-      frames: selectedVariant.frames.map((frame, i) => {
-        if (frame.contentType !== "image") return frame;
-        // Get index within image frames only
-        const imageFrameIdx = selectedVariant.frames
-          .slice(0, i + 1)
-          .filter(f => f.contentType === "image").length - 1;
-        return {
-          ...frame,
-          imageSrc: slideImages[0]?.[imageFrameIdx] ?? frame.imageSrc,
-        };
-      }),
-    };
 
-    onApply(variantWithImages, {
+    const selectedPlanVariants = (() => {
+      if (slideCount <= 1) return [selectedVariant];
+
+      const existing = candidatePlans?.[selectedVariantIndex];
+      if (existing && existing.length === slideCount) return existing;
+
+      const sessionSeed = layoutOutput.input.seed || seed;
+      const plan: LayoutVariant[] = [selectedVariant];
+      for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
+        const variantSeed = `${sessionSeed}#plan${selectedVariantIndex}#slide${slideIdx}`;
+        plan.push(generateMagicLayoutVariant(layoutOutput.input, variantSeed, slideIdx, sessionSeed));
+      }
+      return plan;
+    })();
+
+    // Deal imported images across slides in order with no repeats.
+    // When we run out, remaining frames stay empty (null).
+    const dealtSlideImages: Array<Array<string | null>> = [];
+    let cursor = 0;
+    for (const variant of selectedPlanVariants) {
+      const imageFrameCount = variant.frames.filter((f) => f.contentType === "image").length;
+      const slideImageSet: Array<string | null> = [];
+      for (let frameIdx = 0; frameIdx < imageFrameCount; frameIdx++) {
+        slideImageSet.push(cursor < selectedImages.length ? selectedImages[cursor++] : null);
+      }
+      dealtSlideImages.push(slideImageSet);
+    }
+
+    // Apply-time variants: ensure the first slide preview reflects dealt images.
+    const variantsWithImages: LayoutVariant[] = selectedPlanVariants.map((variant, slideIdx) => {
+      if (slideIdx !== 0) return variant;
+      return {
+        ...variant,
+        frames: variant.frames.map((frame, i) => {
+          if (frame.contentType !== "image") return frame;
+          const imageFrameIdx =
+            variant.frames.slice(0, i + 1).filter((f) => f.contentType === "image").length - 1;
+          const imageSrc = dealtSlideImages[0]?.[imageFrameIdx] ?? null;
+          return { ...frame, imageSrc };
+        }),
+      };
+    });
+
+    onApply(variantsWithImages, {
       mode,
       seed: selectedVariant.seed,
       tasteMode,
       slideCount,
-      slideImages: slideCount > 1 ? slideImages : undefined,
+      slideImages: dealtSlideImages,
       textStyle,
     });
 
     setSelectedImages([]);
     onClose();
-  }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, slideCount, textStyle, onApply, onClose]);
+  }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, slideCount, textStyle, onApply, onClose, candidatePlans, seed]);
 
   /**
    * Handle apply button click - shows confirmation if slide has existing content
@@ -296,14 +295,14 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
     // If the current slide has existing content and this is a single-slide apply,
     // show confirmation dialog
-    if (hasExistingContent && slideCount === 1) {
+    if (!insertOnly && hasExistingContent && slideCount === 1) {
       setShowOverwriteConfirm(true);
       return;
     }
 
     // Otherwise proceed directly
     executeApply();
-  }, [layoutOutput, selectedVariantIndex, hasExistingContent, slideCount, executeApply]);
+  }, [layoutOutput, selectedVariantIndex, hasExistingContent, slideCount, executeApply, insertOnly]);
 
   /**
    * Handle confirmation to overwrite existing content
@@ -613,6 +612,14 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             onSelect={setSelectedVariantIndex}
             onHoverPreview={handleHoverPreview}
             enableKeyboardShortcuts={true}
+            titleText={slideCount > 1 ? `Plans (${slideCount} slides)` : "Layouts"}
+            hintText={
+              slideCount > 1
+                ? "Pick a plan, click to insert"
+                : insertOnly
+                  ? "Hover to preview, click to insert"
+                  : "Hover to preview, click to apply"
+            }
             previewImages={selectedImages}
           />
         )}
@@ -881,13 +888,21 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             className="magic-layout-panel__btn magic-layout-panel__btn--primary"
             onClick={handleApply}
             disabled={!selectedVariant}
-            title={slideCount > 1 ? `Insert ${slideCount} slides with layout ${selectedVariantIndex + 1}` : "Apply selected layout"}
+            title={
+              slideCount > 1
+                ? `Insert ${slideCount} slides (plan ${selectedVariantIndex + 1})`
+                : insertOnly
+                  ? `Insert 1 slide (layout ${selectedVariantIndex + 1})`
+                  : "Apply selected layout"
+            }
           >
             <Check size={14} />
             <span>
               {slideCount > 1
-                ? `Apply to ${slideCount} Slides`
-                : `Apply Layout ${selectedVariantIndex + 1}`}
+                ? `Insert ${slideCount} Slides`
+                : insertOnly
+                  ? "Insert Slide"
+                  : `Apply Layout ${selectedVariantIndex + 1}`}
             </span>
           </button>
         </div>

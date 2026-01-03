@@ -1224,8 +1224,8 @@ const SlidesPage: React.FC = () => {
    */
   const handleCreateSlidesWithLayout = useCallback(
     async (
-      variant: LayoutVariant,
-      slideImages: string[][],
+      variants: LayoutVariant[],
+      slideImages: Array<Array<string | null>>,
       options: {
         mode: LayoutMode;
         seed: string;
@@ -1237,6 +1237,7 @@ const SlidesPage: React.FC = () => {
       }
 
       const newSlides: Slide[] = slideImages.map((images, idx) => {
+        const variant = variants[idx] ?? variants[0];
         const slideOrder = slides.length + idx;
         // Generate Lexical content with the magic layout and images
         const content = generateMagicLayoutContent(

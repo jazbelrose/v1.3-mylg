@@ -26,6 +26,10 @@ export interface VariantsRailProps {
   enableKeyboardShortcuts?: boolean;
   /** Optional class name */
   className?: string;
+  /** Optional title text */
+  titleText?: string;
+  /** Optional hint text */
+  hintText?: string;
   /** Optional images to show in preview frames */
   previewImages?: string[];
 }
@@ -37,6 +41,8 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
   onHoverPreview,
   enableKeyboardShortcuts = true,
   className = "",
+  titleText = "Layouts",
+  hintText = "Hover to preview, click to apply",
   previewImages = [],
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -77,8 +83,8 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
   return (
     <div className={`variants-rail ${className}`}>
       <div className="variants-rail__header">
-        <span className="variants-rail__title">Layouts</span>
-        <span className="variants-rail__hint">Hover to preview, click to apply</span>
+        <span className="variants-rail__title">{titleText}</span>
+        <span className="variants-rail__hint">{hintText}</span>
       </div>
       <div className="variants-rail__grid">
         {variants.map((variant, index) => (

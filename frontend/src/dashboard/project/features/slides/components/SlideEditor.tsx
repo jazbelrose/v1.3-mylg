@@ -58,8 +58,8 @@ interface SlideEditorProps {
   onNewSlide?: () => void;
   /** Callback to create multiple slides with Magic Layout */
   onCreateSlidesWithLayout?: (
-    variant: LayoutVariant,
-    slideImages: string[][],
+    variants: LayoutVariant[],
+    slideImages: Array<Array<string | null>>,
     options: { mode: LayoutMode; seed: string; tasteMode: TasteModeId }
   ) => Promise<void>;
   toolbarPortalContainer?: HTMLElement | null;
@@ -176,26 +176,25 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const handleApplyMagicLayout = useCallback(
     async (
-      variant: LayoutVariant,
+      variants: LayoutVariant[],
       options: { 
         mode: LayoutMode; 
         seed: string; 
         tasteMode: TasteModeId;
         slideCount?: number;
-        slideImages?: string[][];
+        slideImages?: Array<Array<string | null>>;
         textStyle?: { fontStyle: string; dropCap: boolean; autoSize: boolean };
       }
     ) => {
       const slideCount = options.slideCount ?? 1;
       const slideImages = options.slideImages ?? [];
-      const normalizedSlideImages =
-        slideCount > 1
-          ? Array.from({ length: slideCount }, (_, i) => slideImages[i] ?? [])
-          : slideImages;
+      const normalizedSlideCount = Math.max(1, slideCount);
+      const normalizedSlideImages = Array.from({ length: normalizedSlideCount }, (_, i) => slideImages[i] ?? []);
+      const normalizedVariants = Array.from({ length: normalizedSlideCount }, (_, i) => variants[i] ?? variants[0]).filter(Boolean);
 
-      // Multi-slide "Insert Slides": create exactly `slideCount` new slides (do not overwrite current slide)
-      if (slideCount > 1 && onCreateSlidesWithLayout) {
-        await onCreateSlidesWithLayout(variant, normalizedSlideImages, {
+      // Insert-mode: always create new slides when parent callback exists (including Insert Slides = 1)
+      if (onCreateSlidesWithLayout) {
+        await onCreateSlidesWithLayout(normalizedVariants, normalizedSlideImages, {
           mode: options.mode,
           seed: options.seed,
           tasteMode: options.tasteMode,
@@ -204,13 +203,16 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       }
 
       // Single slide: apply to current editor
+      const firstSlideImages = (normalizedSlideImages[0] ?? []).filter(
+        (img): img is string => typeof img === "string" && img.length > 0
+      );
       toolbarActions?.onApplyMagicLayout({
-        variant,
+        variant: normalizedVariants[0],
         mode: options.mode,
         seed: options.seed,
         tasteMode: options.tasteMode,
         slideCount: 1,
-        slideImages: slideImages.length > 0 ? [slideImages[0]] : undefined,
+        slideImages: firstSlideImages.length > 0 ? [firstSlideImages] : undefined,
         textStyle: options.textStyle,
       });
     },
@@ -565,6 +567,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               open={magicPanelOpen}
               onClose={handleCloseMagicPanel}
               onApply={handleApplyMagicLayout}
+              insertOnly={Boolean(onCreateSlidesWithLayout)}
               hasExistingContent={!isLexicalContentEffectivelyEmpty(slide.content)}
             />
           </div>
