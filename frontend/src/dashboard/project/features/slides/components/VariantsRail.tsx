@@ -26,6 +26,8 @@ export interface VariantsRailProps {
   enableKeyboardShortcuts?: boolean;
   /** Optional class name */
   className?: string;
+  /** Optional images to show in preview frames */
+  previewImages?: string[];
 }
 
 const VariantsRail: React.FC<VariantsRailProps> = ({
@@ -35,6 +37,7 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
   onHoverPreview,
   enableKeyboardShortcuts = true,
   className = "",
+  previewImages = [],
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -88,6 +91,7 @@ const VariantsRail: React.FC<VariantsRailProps> = ({
             onSelect={() => onSelect(index)}
             onMouseEnter={() => handleMouseEnter(index)}
             onMouseLeave={handleMouseLeave}
+            previewImages={previewImages}
           />
         ))}
       </div>
@@ -103,6 +107,7 @@ interface VariantPreviewProps {
   onSelect: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  previewImages?: string[];
 }
 
 const VariantPreview: React.FC<VariantPreviewProps> = ({
@@ -113,24 +118,58 @@ const VariantPreview: React.FC<VariantPreviewProps> = ({
   onSelect,
   onMouseEnter,
   onMouseLeave,
+  previewImages = [],
 }) => {
   // Calculate SVG viewBox based on canvas
   const viewBox = `0 0 ${variant.canvas.width / 10} ${variant.canvas.height / 10}`;
 
-  // Render frames as rectangles
-  const renderFrame = useCallback((frame: GeneratedFrame) => {
+  // Render frames as rectangles with optional images
+  const renderFrame = useCallback((frame: GeneratedFrame, frameIndex: number) => {
     const scale = 0.1; // Scale down by 10x for preview
     const isText = frame.contentType === "text";
+    const imageUrl = !isText && previewImages.length > 0 
+      ? previewImages[frameIndex % previewImages.length] 
+      : null;
+    
+    // Create unique clip path ID for this frame
+    const clipId = `clip-${variant.id}-${frame.id}`;
     
     return (
       <g key={frame.id}>
+        {/* Clip path for rounded corners on images */}
+        {imageUrl && (
+          <defs>
+            <clipPath id={clipId}>
+              <rect
+                x={frame.x * scale}
+                y={frame.y * scale}
+                width={frame.width * scale}
+                height={frame.height * scale}
+                rx={Math.min(frame.radius * scale, 2)}
+              />
+            </clipPath>
+          </defs>
+        )}
+        {/* Image (if available) */}
+        {imageUrl && (
+          <image
+            href={imageUrl}
+            x={frame.x * scale}
+            y={frame.y * scale}
+            width={frame.width * scale}
+            height={frame.height * scale}
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${clipId})`}
+          />
+        )}
+        {/* Frame outline */}
         <rect
           x={frame.x * scale}
           y={frame.y * scale}
           width={frame.width * scale}
           height={frame.height * scale}
           rx={Math.min(frame.radius * scale, 2)}
-          fill={isText ? "rgba(79, 140, 255, 0.3)" : "rgba(255, 255, 255, 0.15)"}
+          fill={imageUrl ? "none" : isText ? "rgba(79, 140, 255, 0.3)" : "rgba(255, 255, 255, 0.15)"}
           stroke={isText ? "rgba(79, 140, 255, 0.6)" : "rgba(255, 255, 255, 0.4)"}
           strokeWidth={isText ? 0.8 : 0.5}
         />
@@ -175,7 +214,7 @@ const VariantPreview: React.FC<VariantPreviewProps> = ({
         )}
       </g>
     );
-  }, []);
+  }, [previewImages, variant.id]);
 
   // Score display
   const scorePercent = Math.round(variant.score * 100);
@@ -226,7 +265,7 @@ const VariantPreview: React.FC<VariantPreviewProps> = ({
           strokeDasharray="2 2"
         />
         {/* Frames */}
-        {variant.frames.map(renderFrame)}
+        {variant.frames.map((frame, frameIndex) => renderFrame(frame, frameIndex))}
       </svg>
       {isSelected && <div className="variant-preview__checkmark">✓</div>}
       <div className="variant-preview__score">{scorePercent}%</div>

@@ -26,6 +26,9 @@ import {
   Image as ImageIcon,
   Sparkles,
   Settings2,
+  Layers,
+  CheckCircle2,
+  Wand2,
 } from "lucide-react";
 import {
   generateMagicLayouts,
@@ -56,8 +59,16 @@ export interface MagicLayoutPanelProps {
       mode: LayoutMode;
       seed: string;
       tasteMode: TasteModeId;
+      slideCount?: number;
+      textStyle?: {
+        fontStyle: string;
+        dropCap: boolean;
+        autoSize: boolean;
+      };
     }
   ) => void;
+  /** Optional: pre-loaded project images for gallery selection */
+  projectImageUrls?: Array<{ url: string; name: string }>;
 }
 
 // Frame config for UI state
@@ -81,6 +92,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   open,
   onClose,
   onApply,
+  projectImageUrls,
 }) => {
   // Core settings
   const [count, setCount] = useState(6);
@@ -105,7 +117,19 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
   // Image selection
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
+  const [projectImages, setProjectImages] = useState<Array<{ url: string; name: string }>>([]);
+  const [showProjectGallery, setShowProjectGallery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Multi-slide insert
+  const [slideCount, setSlideCount] = useState(1);
+
+  // Text styling options
+  const [textStyle, setTextStyle] = useState({
+    fontStyle: "clean" as "clean" | "serif" | "mono" | "display",
+    dropCap: false,
+    autoSize: true,
+  });
 
   // Settings panel expanded
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -186,11 +210,13 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
       mode,
       seed: selectedVariant.seed,
       tasteMode,
+      slideCount,
+      textStyle,
     });
 
     setSelectedImages([]);
     onClose();
-  }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, onApply, onClose]);
+  }, [layoutOutput, selectedVariantIndex, selectedImages, mode, tasteMode, slideCount, textStyle, onApply, onClose]);
 
   const handleCountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Math.max(1, Math.min(20, Number(e.target.value) || 1));
@@ -291,9 +317,31 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
       const ext = f.fileName.toLowerCase().split(".").pop() || "";
       return ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext);
     });
-    const imageUrls = imageFiles.map((f) => f.url);
-    setSelectedImages((prev) => [...prev, ...imageUrls]);
+    // Populate project gallery for checkbox selection
+    const images = imageFiles.map((f) => ({ url: f.url, name: f.fileName }));
+    setProjectImages(images);
+    setShowProjectGallery(true);
     setIsFileManagerOpen(false);
+  }, []);
+
+  // Toggle image selection in gallery
+  const handleToggleProjectImage = useCallback((url: string) => {
+    setSelectedImages((prev) => {
+      if (prev.includes(url)) {
+        return prev.filter((u) => u !== url);
+      }
+      return [...prev, url];
+    });
+  }, []);
+
+  // Select all project images
+  const handleSelectAllProjectImages = useCallback(() => {
+    setSelectedImages(projectImages.map((img) => img.url));
+  }, [projectImages]);
+
+  // Clear project gallery
+  const handleCloseProjectGallery = useCallback(() => {
+    setShowProjectGallery(false);
   }, []);
 
   const handleRemoveImage = useCallback((index: number) => {
@@ -452,6 +500,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             onSelect={setSelectedVariantIndex}
             onHoverPreview={handleHoverPreview}
             enableKeyboardShortcuts={true}
+            previewImages={selectedImages}
           />
         )}
 
@@ -545,10 +594,11 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             )}
           </div>
 
+          {/* Selected Images Thumbnails */}
           {selectedImages.length > 0 && (
             <div className="magic-layout-panel__images-grid">
               {selectedImages.map((url, i) => (
-                <div key={i} className="magic-layout-panel__image-thumb">
+                <div key={i} className="magic-layout-panel__image-thumb magic-layout-panel__image-thumb--selected">
                   <img src={url} alt={`Selected ${i + 1}`} />
                   <button
                     type="button"
@@ -558,10 +608,131 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
                   >
                     <X size={10} />
                   </button>
+                  <span className="magic-layout-panel__gallery-index">{i + 1}</span>
                 </div>
               ))}
             </div>
           )}
+        </div>
+
+        {/* Project Image Gallery - Checkbox selection mode */}
+        {showProjectGallery && projectImages.length > 0 && (
+          <div className="magic-layout-panel__project-gallery">
+            <div className="magic-layout-panel__gallery-header">
+              <div className="magic-layout-panel__gallery-title">
+                <FolderOpen size={14} />
+                <span>Project Images</span>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span className="magic-layout-panel__gallery-count">
+                  {selectedImages.filter((u) => projectImages.some((p) => p.url === u)).length} / {projectImages.length}
+                </span>
+                <button
+                  type="button"
+                  className="magic-layout-panel__btn magic-layout-panel__btn--icon"
+                  onClick={handleSelectAllProjectImages}
+                  title="Select all"
+                >
+                  <CheckCircle2 size={12} />
+                </button>
+                <button
+                  type="button"
+                  className="magic-layout-panel__btn magic-layout-panel__btn--icon"
+                  onClick={handleCloseProjectGallery}
+                  title="Close gallery"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </div>
+            <div className="magic-layout-panel__gallery-grid">
+              {projectImages.map((img, i) => {
+                const isSelected = selectedImages.includes(img.url);
+                const selectionIndex = selectedImages.indexOf(img.url);
+                return (
+                  <div
+                    key={i}
+                    className={`magic-layout-panel__gallery-item ${isSelected ? "magic-layout-panel__gallery-item--selected" : ""}`}
+                    onClick={() => handleToggleProjectImage(img.url)}
+                    title={img.name}
+                  >
+                    <img src={img.url} alt={img.name} loading="lazy" />
+                    <span className="magic-layout-panel__gallery-check">
+                      {isSelected && <Check size={12} />}
+                    </span>
+                    {isSelected && (
+                      <span className="magic-layout-panel__gallery-index">{selectionIndex + 1}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Text Styling Section */}
+        {textFrameIndices.length > 0 && (
+          <div className="magic-layout-panel__text-section">
+            <div className="magic-layout-panel__text-header">
+              <Wand2 size={14} />
+              <span>Editorial Text Magic</span>
+            </div>
+            <div className="magic-layout-panel__text-controls">
+              <div className="magic-layout-panel__text-field">
+                <label htmlFor="ml-font-style">Font Style</label>
+                <select
+                  id="ml-font-style"
+                  value={textStyle.fontStyle}
+                  onChange={(e) => setTextStyle((prev) => ({ ...prev, fontStyle: e.target.value as typeof prev.fontStyle }))}
+                  className="magic-layout-panel__text-select"
+                >
+                  <option value="clean">Clean Sans</option>
+                  <option value="serif">Editorial Serif</option>
+                  <option value="mono">Mono/Tech</option>
+                  <option value="display">Display Bold</option>
+                </select>
+              </div>
+              <div className="magic-layout-panel__text-field">
+                <label className="magic-layout-panel__text-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={textStyle.dropCap}
+                    onChange={(e) => setTextStyle((prev) => ({ ...prev, dropCap: e.target.checked }))}
+                  />
+                  Drop Cap
+                </label>
+              </div>
+              <div className="magic-layout-panel__text-field">
+                <label className="magic-layout-panel__text-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={textStyle.autoSize}
+                    onChange={(e) => setTextStyle((prev) => ({ ...prev, autoSize: e.target.checked }))}
+                  />
+                  Auto-size Font
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Multi-Slide Insert */}
+        <div className="magic-layout-panel__slides-section">
+          <div className="magic-layout-panel__slides-label">
+            <Layers size={14} />
+            <span>Insert Slides</span>
+          </div>
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={slideCount}
+            onChange={(e) => setSlideCount(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+            className="magic-layout-panel__slides-input"
+          />
+          <span className="magic-layout-panel__slides-hint">
+            {slideCount > 1 ? `Create ${slideCount} slides with this layout` : "Single slide"}
+          </span>
         </div>
 
         {/* Actions */}
@@ -581,10 +752,14 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
             className="magic-layout-panel__btn magic-layout-panel__btn--primary"
             onClick={handleApply}
             disabled={!selectedVariant}
-            title="Apply selected layout"
+            title={slideCount > 1 ? `Insert ${slideCount} slides with layout ${selectedVariantIndex + 1}` : "Apply selected layout"}
           >
             <Check size={14} />
-            <span>Apply Layout {selectedVariantIndex + 1}</span>
+            <span>
+              {slideCount > 1
+                ? `Apply to ${slideCount} Slides`
+                : `Apply Layout ${selectedVariantIndex + 1}`}
+            </span>
           </button>
         </div>
 
