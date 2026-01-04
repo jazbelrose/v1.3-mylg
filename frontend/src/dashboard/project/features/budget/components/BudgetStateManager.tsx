@@ -28,6 +28,7 @@ interface BudgetStateManagerState extends Record<string, unknown> {
   isRevisionModalOpen: boolean;
   isCreateModalOpen: boolean;
   isEventModalOpen: boolean;
+  isSpellbookModalOpen: boolean;
   isConfirmingDelete: boolean;
   
   // Modal controls
@@ -35,6 +36,7 @@ interface BudgetStateManagerState extends Record<string, unknown> {
   setRevisionModalOpen: (open: boolean) => void;
   setCreateModalOpen: (open: boolean) => void;
   setEventModalOpen: (open: boolean) => void;
+  setSpellbookModalOpen: (open: boolean) => void;
   setIsConfirmingDelete: (open: boolean) => void;
   
   // Table configuration
@@ -102,6 +104,7 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
   const [isRevisionModalOpen, setRevisionModalOpen] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isEventModalOpen, setEventModalOpen] = useState(false);
+  const [isSpellbookModalOpen, setSpellbookModalOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   
   // Table configuration
@@ -340,6 +343,7 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     isRevisionModalOpen,
     isCreateModalOpen,
     isEventModalOpen,
+    isSpellbookModalOpen,
     isConfirmingDelete,
     
     // Modal controls
@@ -347,6 +351,7 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     setRevisionModalOpen,
     setCreateModalOpen,
     setEventModalOpen,
+    setSpellbookModalOpen,
     setIsConfirmingDelete,
     
     // Table configuration
@@ -399,7 +404,7 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     calculateHeaderTotals,
   }), [
     undoStack, redoStack, pushHistory, handleUndo, handleRedo,
-    isBudgetModalOpen, isRevisionModalOpen, isCreateModalOpen, isEventModalOpen, isConfirmingDelete,
+    isBudgetModalOpen, isRevisionModalOpen, isCreateModalOpen, isEventModalOpen, isSpellbookModalOpen, isConfirmingDelete,
     groupBy, sortField, sortOrder, filterQuery, selectedRowKeys, isSelectMode,
     editItem, prefillItem, nextElementKey,
     deleteTargets,

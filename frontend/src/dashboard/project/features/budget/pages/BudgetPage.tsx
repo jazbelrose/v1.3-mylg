@@ -27,6 +27,9 @@ import BudgetItemsTable from "@/dashboard/project/features/budget/components/Bud
 import BudgetStateManager from "@/dashboard/project/features/budget/components/BudgetStateManager";
 import BudgetEventManager from "@/dashboard/project/features/budget/components/BudgetEventManager";
 import BudgetTableLogic from "@/dashboard/project/features/budget/components/BudgetTableLogic";
+import BudgetSpellbookModal, {
+  type BudgetSpellbookApplyRequest,
+} from "@/dashboard/project/features/budget/components/BudgetSpellbookModal";
 import { BudgetProvider} from "@/dashboard/project/features/budget/context/BudgetProvider";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import { useData } from "@/app/contexts/useData";
@@ -34,6 +37,7 @@ import type { Project, TimelineEvent } from "@/app/contexts/DataProvider";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
+import { slugify } from "@/shared/utils/slug";
 import {
   fetchBudgetHeaders,
   updateBudgetItem,
@@ -43,6 +47,7 @@ import {
 } from "@/shared/utils/api";
 import { v4 as uuid } from "uuid";
 import type { InvoiceDetailsPayload } from "@/dashboard/project/features/budget/components/invoicePreviewTypes";
+import { notify } from "@/shared/ui/ToastNotifications";
 
 
 const TABLE_BOTTOM_MARGIN = 20;
@@ -92,6 +97,16 @@ const BudgetPageContent = () => {
   const activeRevisionNumber = useMemo(
     () => Number((budgetHeader as Record<string, unknown> | null)?.revision ?? NaN),
     [budgetHeader]
+  );
+
+  const hasBudgetHeader = useMemo(() => {
+    const budgetId = (budgetHeader as { budgetId?: string | number } | null)?.budgetId;
+    return budgetId !== undefined && budgetId !== null && String(budgetId).trim() !== "";
+  }, [budgetHeader]);
+
+  const createDisabledReason = useMemo(
+    () => (hasBudgetHeader ? undefined : "Create a budget before adding line items."),
+    [hasBudgetHeader],
   );
 
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
@@ -303,6 +318,204 @@ const BudgetPageContent = () => {
       setClients(Array.from(cSet));
     },
     []
+  );
+
+  const normalizeMatchText = (value: unknown) =>
+    String(value ?? "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, " ")
+      .trim();
+
+  const tokenSet = (value: string) =>
+    new Set(value.split(/\s+/g).filter((token) => token.length >= 3));
+
+  const jaccardSimilarity = (a: Set<string>, b: Set<string>) => {
+    if (a.size === 0 && b.size === 0) return 1;
+    let intersection = 0;
+    for (const token of a) {
+      if (b.has(token)) intersection += 1;
+    }
+    const union = a.size + b.size - intersection;
+    return union > 0 ? intersection / union : 0;
+  };
+
+  const allocateElementKeySequence = useCallback(
+    (count: number) => {
+      const slug = slugify((activeProject?.title as string) || "");
+      let max = 0;
+      budgetItems.forEach((it) => {
+        if (typeof it.elementKey === "string") {
+          const match = it.elementKey.match(/-(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!Number.isNaN(num) && num > max) max = num;
+          }
+        }
+      });
+      return Array.from({ length: count }, (_, idx) => `${slug}-${String(max + idx + 1).padStart(4, "0")}`);
+    },
+    [activeProject?.title, budgetItems],
+  );
+
+  const allocateElementIds = useCallback(
+    (categories: string[]) => {
+      const maxByCategory = new Map<string, number>();
+      budgetItems.forEach((it) => {
+        const cat = String((it as Record<string, unknown>)?.category ?? "");
+        const elementId = String((it as Record<string, unknown>)?.elementId ?? "");
+        if (!cat || !elementId) return;
+        const match = elementId.match(/-(\d+)$/);
+        if (!match) return;
+        const num = parseInt(match[1], 10);
+        if (Number.isNaN(num)) return;
+        maxByCategory.set(cat, Math.max(maxByCategory.get(cat) ?? 0, num));
+      });
+
+      const counters = new Map<string, number>();
+      return categories.map((cat) => {
+        const current = counters.get(cat) ?? (maxByCategory.get(cat) ?? 0);
+        const next = current + 1;
+        counters.set(cat, next);
+        return `${cat}-${String(next).padStart(4, "0")}`;
+      });
+    },
+    [budgetItems],
+  );
+
+  const handleApplyBudgetSpellbook = useCallback(
+    async (request: BudgetSpellbookApplyRequest, stateManager: Record<string, unknown>) => {
+      if (!activeProject?.projectId) return;
+      if (!budgetHeader?.budgetId) return;
+
+      const projectId = activeProject.projectId;
+      const budgetId = String(budgetHeader.budgetId);
+      const revision = Number(budgetHeader.revision ?? 1);
+
+      const linesOnly = budgetItems.filter(
+        (it) => typeof it?.budgetItemId === "string" && String(it.budgetItemId).startsWith("LINE-"),
+      );
+
+      (stateManager as { pushHistory?: () => void }).pushHistory?.();
+
+      try {
+        if (request.applyMode === "replace") {
+          await Promise.all(linesOnly.map((it) => deleteBudgetItem(projectId, String(it.budgetItemId))));
+        }
+
+        const remaining = request.applyMode === "replace" ? [] : [...linesOnly];
+        const toUpdate: Array<{ existing: Record<string, unknown>; draft: Record<string, unknown> }> = [];
+        const toCreate: Array<Record<string, unknown>> = [];
+
+        const normalizedExisting = remaining.map((item) => ({
+          item,
+          category: String((item as Record<string, unknown>)?.category ?? ""),
+          descTokens: tokenSet(normalizeMatchText((item as Record<string, unknown>)?.description ?? "")),
+        }));
+
+        request.variant.lines.forEach((draft) => {
+          const normalizedDraftDesc = normalizeMatchText(draft.description);
+          const draftTokens = tokenSet(normalizedDraftDesc);
+          const draftCategory = String(draft.category);
+
+          if (request.applyMode === "merge") {
+            let bestIdx = -1;
+            let bestScore = 0;
+
+            normalizedExisting.forEach((candidate, idx) => {
+              if (candidate.category !== draftCategory) return;
+              const score = jaccardSimilarity(candidate.descTokens, draftTokens);
+              if (score > bestScore) {
+                bestScore = score;
+                bestIdx = idx;
+              }
+            });
+
+            if (bestIdx >= 0 && bestScore >= 0.72) {
+              const matched = normalizedExisting.splice(bestIdx, 1)[0];
+              toUpdate.push({
+                existing: matched.item as unknown as Record<string, unknown>,
+                draft: {
+                  category: draft.category,
+                  description: normalizedDraftDesc,
+                  quantity: draft.quantity,
+                  unit: draft.unit,
+                  itemBudgetedCost: draft.itemBudgetedCost,
+                  itemMarkUp: draft.itemMarkUp,
+                  areaGroup: String(draft.areaGroup).trim().toUpperCase(),
+                  invoiceGroup: String(draft.invoiceGroup).trim().toUpperCase(),
+                },
+              });
+              return;
+            }
+          }
+
+          toCreate.push({
+            category: draft.category,
+            description: normalizedDraftDesc,
+            quantity: draft.quantity,
+            unit: draft.unit,
+            itemBudgetedCost: draft.itemBudgetedCost,
+            itemMarkUp: draft.itemMarkUp,
+            itemFinalCost: "",
+            itemActualCost: "",
+            itemReconciledCost: "",
+            paymentStatus: "UNPAID",
+            paymentTerms: "NET 30",
+            areaGroup: String(draft.areaGroup).trim().toUpperCase(),
+            invoiceGroup: String(draft.invoiceGroup).trim().toUpperCase(),
+          });
+        });
+
+        const elementKeys = allocateElementKeySequence(toCreate.length);
+        const elementIds = allocateElementIds(toCreate.map((d) => String(d.category)));
+
+        const createdItems = await Promise.all(
+          toCreate.map((draft, idx) =>
+            createBudgetItem(projectId, budgetId, {
+              ...draft,
+              elementKey: elementKeys[idx],
+              elementId: elementIds[idx],
+              budgetItemId: `LINE-${uuid()}`,
+              revision,
+            }),
+          ),
+        );
+
+        const updatedItems = await Promise.all(
+          toUpdate.map(({ existing, draft }) =>
+            updateBudgetItem(projectId, String(existing.budgetItemId), { ...draft, revision }),
+          ),
+        );
+
+        const nextLines = (() => {
+          const byId = new Map<string, Record<string, unknown>>();
+          const base = request.applyMode === "replace" ? [] : [...linesOnly];
+          base.forEach((it) => byId.set(String((it as Record<string, unknown>)?.budgetItemId ?? ""), it as any));
+          updatedItems.forEach((it) => byId.set(String((it as Record<string, unknown>)?.budgetItemId ?? ""), it as any));
+          createdItems.forEach((it) => byId.set(String((it as Record<string, unknown>)?.budgetItemId ?? ""), it as any));
+          return Array.from(byId.values());
+        })();
+
+        setBudgetItems(nextLines as any);
+        computeGroupsAndClients(nextLines as any, budgetHeader as any);
+        await (stateManager as { syncHeaderTotals?: (items: unknown[]) => Promise<void> }).syncHeaderTotals?.(nextLines);
+        emitBudgetUpdate();
+        notify("success", `Spellbook applied (${createdItems.length} added${updatedItems.length ? `, ${updatedItems.length} updated` : ""}).`);
+      } catch (err) {
+        console.error("Failed to apply budget spellbook", err);
+        notify("error", "Failed to apply Spellbook.");
+      }
+    },
+    [
+      activeProject?.projectId,
+      allocateElementIds,
+      allocateElementKeySequence,
+      budgetHeader,
+      budgetItems,
+      computeGroupsAndClients,
+      emitBudgetUpdate,
+      setBudgetItems,
+    ],
   );
 
   const refresh = useCallback(async () => {
@@ -813,13 +1026,6 @@ const BudgetPageContent = () => {
                                           prevKeys.filter((id) => !availableRowIdSet.has(id))
                                         );
                                       };
-                                      const hasBudgetHeader = Boolean(
-                                        (budgetHeader as { budgetId?: string | number } | null)?.budgetId
-                                      );
-                                      const createDisabledReason = hasBudgetHeader
-                                        ? undefined
-                                        : "Create a budget before adding line items.";
-
                                       return (
                                         <>
                                           <BudgetToolbar
@@ -827,8 +1033,11 @@ const BudgetPageContent = () => {
                                             handleDuplicateSelected={eventHandlers.handleDuplicateSelected}
                                             openDeleteModal={eventHandlers.openDeleteModal}
                                             openCreateModal={eventHandlers.openCreateModal}
+                                            openSpellbookModal={() => stateManager.setSpellbookModalOpen(true)}
                                             canCreateLineItems={hasBudgetHeader}
                                             createDisabledReason={createDisabledReason}
+                                            canUseSpellbook={hasBudgetHeader}
+                                            spellbookDisabledReason={createDisabledReason}
                                             filterQuery={stateManager.filterQuery as string}
                                             onFilterQueryChange={
                                               stateManager.setFilterQuery as (query: string) => void
@@ -912,6 +1121,14 @@ const BudgetPageContent = () => {
                               onInvoiceSaved={handleRevisionInvoiceSaved}
                               isAdmin={canEdit}
                               activeProject={activeProject}
+                            />
+                            <BudgetSpellbookModal
+                              isOpen={stateManager.isSpellbookModalOpen}
+                              onRequestClose={() => stateManager.setSpellbookModalOpen(false)}
+                              revisionLabel={`REV.${Number((budgetHeader as Record<string, unknown>)?.revision ?? 1)}`}
+                              canApply={hasBudgetHeader}
+                              applyDisabledReason={createDisabledReason}
+                              onApply={(request) => handleApplyBudgetSpellbook(request, stateManager as any)}
                             />
                             <CreateLineItemModal
                               isOpen={stateManager.isCreateModalOpen}

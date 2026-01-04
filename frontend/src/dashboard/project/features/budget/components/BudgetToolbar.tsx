@@ -3,6 +3,7 @@ import { Pagination } from "antd";
 import { Tooltip as AntTooltip } from "antd";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClone, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { Sparkles } from "lucide-react";
 import BudgetMobileFilter from "./BudgetMobileFilter";
 import styles from "./BudgetToolbar.module.css";
 
@@ -15,8 +16,11 @@ interface BudgetToolbarProps {
   handleDuplicateSelected: () => void;
   openDeleteModal: (ids: string[]) => void;
   openCreateModal?: () => void;
+  openSpellbookModal?: () => void;
   canCreateLineItems?: boolean;
   createDisabledReason?: string;
+  canUseSpellbook?: boolean;
+  spellbookDisabledReason?: string;
   filterQuery: string;
   onFilterQueryChange: (query: string) => void;
   sortField: string | null;
@@ -41,8 +45,11 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
   handleDuplicateSelected,
   openDeleteModal,
   openCreateModal,
+  openSpellbookModal,
   canCreateLineItems = true,
   createDisabledReason,
+  canUseSpellbook = true,
+  spellbookDisabledReason,
   filterQuery,
   onFilterQueryChange,
   sortField,
@@ -304,6 +311,42 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
                 </div>
               )}
             </div>
+          </>
+        )}
+        {openSpellbookModal && (
+          <>
+            {spellbookDisabledReason && !canUseSpellbook ? (
+              <AntTooltip title={spellbookDisabledReason}>
+                <span>
+                  <button
+                    type="button"
+                    className={styles.spellbookButton}
+                    onClick={openSpellbookModal}
+                    aria-label="Open spellbook"
+                    disabled
+                    aria-disabled="true"
+                  >
+                    <span className={styles.spellbookIcon} aria-hidden="true">
+                      <Sparkles size={16} />
+                    </span>
+                    <span className={styles.spellbookLabel}>Spellbook</span>
+                  </button>
+                </span>
+              </AntTooltip>
+            ) : (
+              <button
+                type="button"
+                className={styles.spellbookButton}
+                onClick={openSpellbookModal}
+                aria-label="Open spellbook"
+                disabled={!canUseSpellbook}
+              >
+                <span className={styles.spellbookIcon} aria-hidden="true">
+                  <Sparkles size={16} />
+                </span>
+                <span className={styles.spellbookLabel}>Spellbook</span>
+              </button>
+            )}
           </>
         )}
         {openCreateModal && (

@@ -1,0 +1,451 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 14000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(18px, 4vh, 56px) 16px;
+  background: var(--overlay-color);
+  backdrop-filter: blur(10px);
+}
+
+.overlayAfterOpen {
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+.overlayBeforeClose {
+  opacity: 0;
+}
+
+.modal {
+  width: min(1180px, 100%);
+  max-height: calc(100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  background: color-mix(in srgb, var(--bg3) 92%, transparent);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+  color: var(--text);
+}
+
+.modalAfterOpen {
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.modalBeforeClose {
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg3) 90%, transparent),
+    color-mix(in srgb, var(--bg2) 78%, transparent)
+  );
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.close:hover {
+  background: color-mix(in srgb, var(--bg2) 84%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 90%, transparent);
+}
+
+.close:active {
+  transform: scale(0.98);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(360px, 1fr);
+  gap: 14px;
+  padding: 14px;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.leftPane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+}
+
+.textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 260px;
+  padding: 14px 14px 10px 14px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.textarea::placeholder {
+  color: color-mix(in srgb, var(--text) 52%, transparent);
+}
+
+.quickMeta {
+  padding: 10px 14px 12px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.summary {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+}
+
+.rightPane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 12px;
+}
+
+.rail {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.railButton {
+  flex: 1 1 170px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 72%, transparent);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.railButton:hover {
+  background: color-mix(in srgb, var(--bg2) 86%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 88%, transparent);
+  transform: translateY(-1px);
+}
+
+.railButtonActive {
+  border-color: color-mix(in srgb, var(--color-accent) 75%, white 25%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent) 18%, var(--bg2) 82%),
+    color-mix(in srgb, var(--bg2) 92%, transparent)
+  );
+}
+
+.railLabel {
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.railHint {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.preview {
+  flex: 1 1 auto;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 12px;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.totalCard {
+  border-radius: 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+  background: color-mix(in srgb, var(--bg3) 82%, transparent);
+}
+
+.totalLabel {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--text) 60%, transparent);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.totalValue {
+  margin-top: 6px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.breakdownTitle {
+  font-weight: 650;
+  font-size: 0.85rem;
+}
+
+.breakdownRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.breakdownRow {
+  display: grid;
+  grid-template-columns: 120px 1fr 110px;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.breakdownLabel {
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breakdownBar {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-color) 52%, transparent);
+  overflow: hidden;
+}
+
+.breakdownFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 82%, white 18%), var(--color-accent));
+}
+
+.breakdownValue {
+  text-align: right;
+  color: color-mix(in srgb, var(--text) 74%, transparent);
+}
+
+.breakdownEmpty {
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  font-size: 0.82rem;
+}
+
+.lines {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.linesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 650;
+  font-size: 0.85rem;
+  padding: 0 2px;
+}
+
+.linesCount {
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  font-weight: 600;
+}
+
+.linesTable {
+  margin-top: 8px;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg3) 74%, transparent);
+}
+
+.lineRow {
+  display: grid;
+  grid-template-columns: 1fr 170px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 52%, transparent);
+}
+
+.lineRow:last-child {
+  border-bottom: 0;
+}
+
+.lineCategory {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.lineDesc {
+  margin-top: 3px;
+  font-weight: 650;
+  font-size: 0.88rem;
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.lineGroups {
+  margin-top: 6px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: color-mix(in srgb, var(--text) 60%, transparent);
+}
+
+.lineQty {
+  text-align: right;
+}
+
+.lineQtyTop {
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.lineQtyBottom {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.footer {
+  padding: 12px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 78%, transparent);
+}
+
+.toggles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.field input,
+.field select {
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 78%, transparent);
+  color: var(--text);
+  padding: 0 10px;
+}
+
+.inlineField {
+  display: grid;
+  grid-template-columns: 1fr 72px;
+  gap: 8px;
+  align-items: center;
+}
+
+.checkboxField {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.checkboxField input {
+  width: 18px;
+  height: 18px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cancel {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--text) 82%, transparent);
+  cursor: pointer;
+}
+
+.apply {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 70%, white 30%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 28%, var(--bg3) 72%),
+    color-mix(in srgb, var(--color-accent) 18%, var(--bg3) 82%)
+  );
+  color: color-mix(in srgb, var(--text) 96%, transparent);
+  cursor: pointer;
+}
+
+.apply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+  .toggles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .inlineField {
+    grid-template-columns: 1fr 90px;
+  }
+  .totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
