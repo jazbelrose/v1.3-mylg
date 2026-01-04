@@ -1645,9 +1645,10 @@
 }
 
 /* Stacks render additional body lines; keep avatar aligned top-right like normal blocks */
-.week-grid__timeline-entry--task-stack .week-grid__timeline-entry-avatars,
-.week-grid__timeline-entry--overlap-stack .week-grid__timeline-entry-avatars {
+.week-grid__timeline-entry.week-grid__timeline-entry--task-stack .week-grid__timeline-entry-avatars,
+.week-grid__timeline-entry.week-grid__timeline-entry--overlap-stack .week-grid__timeline-entry-avatars {
   top: 6px;
+  bottom: auto;
   transform: none;
 }
 

@@ -1304,14 +1304,31 @@ function WeekGrid({
       event.stopPropagation();
       setPopover(null); // Close popover when context menu opens
       setStackPopover(null);
+
+      const eligibleSelectedTasksCount = (() => {
+        if (selectedEntryKeys.size < 2) return 0;
+        const eligible: CalendarTask[] = [];
+        selectedEntryKeys.forEach((key) => {
+          const lookup = entryLookup.get(key);
+          if (!lookup) return;
+          if (lookup.entry.type !== "task") return;
+          const task = lookup.entry.payload as CalendarTask;
+          if (task.kind === "intent") return;
+          if (task.kind === "focus_block") return;
+          if (task.focusBlockId) return;
+          eligible.push(task);
+        });
+        return eligible.length;
+      })();
+
       setContextMenu({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload as CalendarTask | CalendarEvent,
-        allowConvertToFocusBlock: Boolean(event.shiftKey),
+        allowConvertToFocusBlock: Boolean(event.shiftKey) && eligibleSelectedTasksCount >= 2,
       });
     },
-    [],
+    [entryLookup, selectedEntryKeys],
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -1374,14 +1391,30 @@ function WeekGrid({
         );
       }
 
+      const eligibleSelectedTasksCount = (() => {
+        if (selectedEntryKeys.size < 2) return 0;
+        const eligible: CalendarTask[] = [];
+        selectedEntryKeys.forEach((key) => {
+          const lookup = entryLookup.get(key);
+          if (!lookup) return;
+          if (lookup.entry.type !== "task") return;
+          const task = lookup.entry.payload as CalendarTask;
+          if (task.kind === "intent") return;
+          if (task.kind === "focus_block") return;
+          if (task.focusBlockId) return;
+          eligible.push(task);
+        });
+        return eligible.length;
+      })();
+
       setContextMenu({
         position: { x: event.clientX, y: event.clientY },
         entryType: child.entryType,
         entry: child.entry,
-        allowConvertToFocusBlock: Boolean(event.shiftKey),
+        allowConvertToFocusBlock: Boolean(event.shiftKey) && eligibleSelectedTasksCount >= 2,
       });
     },
-    [onEntrySelect, selectedEntryKeys],
+    [entryLookup, onEntrySelect, selectedEntryKeys],
   );
 
   // Handle single click vs double click for entries

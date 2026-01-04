@@ -1048,15 +1048,33 @@ function DayGrid({
     ) => {
       event.preventDefault();
       event.stopPropagation();
+
+      const eligibleSelectedTasksCount = (() => {
+        if (selectedEntryKeys.size < 2) return 0;
+        const eligible: CalendarTask[] = [];
+        selectedEntryKeys.forEach((key) => {
+          const [, id] = key.split(":");
+          const lookup = entryLookup[id];
+          if (!lookup) return;
+          if (lookup.type !== "task") return;
+          const task = lookup.payload as CalendarTask;
+          if (task.kind === "intent") return;
+          if (task.kind === "focus_block") return;
+          if (task.focusBlockId) return;
+          eligible.push(task);
+        });
+        return eligible.length;
+      })();
+
       setContextMenu({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload,
         // Convert to Focus Block should only appear when invoked via shift+right-click
-        allowConvertToFocusBlock: Boolean(event.shiftKey),
+        allowConvertToFocusBlock: Boolean(event.shiftKey) && eligibleSelectedTasksCount >= 2,
       });
     },
-    [],
+    [entryLookup, selectedEntryKeys],
   );
 
   const handleCloseContextMenu = useCallback(() => {
