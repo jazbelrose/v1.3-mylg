@@ -41,6 +41,7 @@ export interface CalendarEntryPopoverProps {
   onClose: () => void;
   onEdit: () => void;
   onEditFocusChild?: (task: CalendarTask) => void;
+  onOpenFocusChildContextMenu?: (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
   onDuplicate?: (entries: ContextMenuEntry[]) => void;
@@ -57,6 +58,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   onClose,
   onEdit,
   onEditFocusChild,
+  onOpenFocusChildContextMenu,
   onSubmitForReview,
   onMarkAsDone,
   onDuplicate,
@@ -116,6 +118,12 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      const targetElement = target instanceof HTMLElement ? target : null;
+
+      // If the user is interacting with the context menu, don't treat it as an outside click.
+      if (targetElement?.closest(".calendar-entry-context-menu")) {
+        return;
+      }
       if (
         popoverRef.current &&
         !popoverRef.current.contains(target) &&
@@ -377,37 +385,17 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                       onEditFocusChild?.(child);
                       onClose();
                     }}
+                    onContextMenu={(e) => {
+                      if (!onOpenFocusChildContextMenu) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onOpenFocusChildContextMenu(child, e);
+                    }}
                     title={childTitle}
                   >
                     <div className="calendar-entry-popover__child-title">{childTitle}</div>
                     {childTime && <div className="calendar-entry-popover__child-time">{childTime}</div>}
                   </button>
-                  {onDuplicate && (
-                    <button
-                      type="button"
-                      className="calendar-stack-popover__aux"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicateChild(child);
-                      }}
-                      title="Duplicate"
-                    >
-                      <Copy aria-hidden />
-                    </button>
-                  )}
-                  {onDelete && (
-                    <button
-                      type="button"
-                      className="calendar-stack-popover__aux calendar-stack-popover__aux--danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChild(child);
-                      }}
-                      title="Delete"
-                    >
-                      <Trash2 aria-hidden />
-                    </button>
-                  )}
                 </div>
               );
             })}

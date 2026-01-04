@@ -1408,8 +1408,6 @@ function WeekGrid({
       event.preventDefault();
       event.stopPropagation();
 
-      setPopover(null);
-
       const key = `${child.entryType}:${child.entry.id}`;
       const isAlreadySelected = selectedEntryKeys.has(key);
       if (!isAlreadySelected) {
@@ -1440,6 +1438,43 @@ function WeekGrid({
         position: { x: event.clientX, y: event.clientY },
         entryType: child.entryType,
         entry: child.entry,
+        allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
+      });
+    },
+    [entryLookup, onEntrySelect, selectedEntryKeys],
+  );
+
+  const handleOpenContextMenuFromFocusChild = useCallback(
+    (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const key = `task:${task.id}`;
+      const isAlreadySelected = selectedEntryKeys.has(key);
+      if (!isAlreadySelected) {
+        onEntrySelect?.("task", task.id, Boolean(event.shiftKey));
+      }
+
+      const eligibleSelectedTasksCount = (() => {
+        if (selectedEntryKeys.size < 2) return 0;
+        const eligible: CalendarTask[] = [];
+        selectedEntryKeys.forEach((selectedKey) => {
+          const lookup = entryLookup.get(selectedKey);
+          if (!lookup) return;
+          if (lookup.entry.type !== "task") return;
+          const selectedTask = lookup.entry.payload as CalendarTask;
+          if (selectedTask.kind === "intent") return;
+          if (selectedTask.kind === "focus_block") return;
+          if (selectedTask.focusBlockId) return;
+          eligible.push(selectedTask);
+        });
+        return eligible.length;
+      })();
+
+      setContextMenu({
+        position: { x: event.clientX, y: event.clientY },
+        entryType: "task",
+        entry: task,
         allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
       });
     },
@@ -2417,6 +2452,7 @@ function WeekGrid({
             handleClosePopover();
           }}
           onEditFocusChild={(task) => onEditTask(task)}
+          onOpenFocusChildContextMenu={handleOpenContextMenuFromFocusChild}
           onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}
           onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
           onDuplicate={onDuplicateEntries}

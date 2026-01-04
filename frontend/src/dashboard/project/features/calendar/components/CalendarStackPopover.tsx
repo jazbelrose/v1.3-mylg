@@ -122,6 +122,10 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       if (targetElement?.closest(".calendar-entry-popover")) {
         return;
       }
+      // If the user is interacting with the right-click context menu, don't treat it as an outside click.
+      if (targetElement?.closest(".calendar-entry-context-menu")) {
+        return;
+      }
       if (
         popoverRef.current &&
         !popoverRef.current.contains(target) &&
