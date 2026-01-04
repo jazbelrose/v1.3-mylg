@@ -376,11 +376,14 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             {focusChildrenResolved.map((child) => {
               const childTitle = child.title || "Untitled task";
               const childTime = child.start && child.end ? `${child.start} - ${child.end}` : child.start || "";
+              const isChildDone = child.status === "done" || child.done === true;
               return (
                 <div key={child.id} className="calendar-entry-popover__child-row">
                   <button
                     type="button"
-                    className="calendar-entry-popover__child"
+                    className={
+                      `calendar-entry-popover__child${isChildDone ? " calendar-entry-popover__child--done" : ""}`
+                    }
                     onClick={() => {
                       onEditFocusChild?.(child);
                       onClose();
@@ -393,8 +396,22 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                     }}
                     title={childTitle}
                   >
-                    <div className="calendar-entry-popover__child-title">{childTitle}</div>
-                    {childTime && <div className="calendar-entry-popover__child-time">{childTime}</div>}
+                    <div
+                      className={
+                        `calendar-entry-popover__child-title${isChildDone ? " calendar-entry-popover__child-title--done" : ""}`
+                      }
+                    >
+                      {childTitle}
+                    </div>
+                    {childTime && (
+                      <div
+                        className={
+                          `calendar-entry-popover__child-time${isChildDone ? " calendar-entry-popover__child-time--done" : ""}`
+                        }
+                      >
+                        {childTime}
+                      </div>
+                    )}
                   </button>
                 </div>
               );

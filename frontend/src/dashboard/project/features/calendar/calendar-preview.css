@@ -2960,6 +2960,18 @@
   color: rgba(226, 232, 240, 0.72);
 }
 
+.calendar-entry-popover__child--done {
+  opacity: 0.58;
+}
+
+.calendar-entry-popover__child-title--done {
+  text-decoration: line-through;
+}
+
+.calendar-entry-popover__child-time--done {
+  text-decoration: line-through;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Calendar Stack Popover (task stack + overlap stack)
 ─────────────────────────────────────────────────────────────────────────── */

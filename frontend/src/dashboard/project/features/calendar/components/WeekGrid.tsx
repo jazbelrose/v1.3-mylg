@@ -2435,19 +2435,50 @@ function WeekGrid({
         />
       )}
       {popover && (
+        (() => {
+          const resolvedEntry = (() => {
+            if (popover.entryType !== "task") return popover.entry;
+            const taskId = (popover.entry as CalendarTask).id;
+            return calendarTaskById.get(taskId) ?? (popover.entry as CalendarTask);
+          })();
+
+          const resolvedFocusChildren = (() => {
+            if (popover.entryType !== "task") return undefined;
+            const task = resolvedEntry as CalendarTask;
+            const isFocusBlock =
+              task.kind === "focus_block" ||
+              (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+              (task.focusChecklist && task.focusChecklist.length > 0);
+            if (!isFocusBlock) return undefined;
+
+            const focusId = task.source?.taskId ?? task.id;
+            const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+            const childrenFromIds = childIds
+              .map((id) => calendarTaskById.get(id))
+              .filter((value): value is CalendarTask => Boolean(value));
+            const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+            const children = Array.from(
+              new Map(
+                [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [childTask.source?.taskId ?? childTask.id, childTask]),
+              ).values(),
+            ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
+            return children.length ? children : undefined;
+          })();
+
+          return (
         <CalendarEntryPopover
           anchorElement={popover.anchorElement}
           entryType={popover.entryType}
-          entry={popover.entry}
+          entry={resolvedEntry}
           selectedCount={selectedEntryKeys.size}
           teamMembers={teamMembers}
-          focusChildren={popover.focusChildren}
+          focusChildren={resolvedFocusChildren}
           onClose={handleClosePopover}
           onEdit={() => {
             if (popover.entryType === "event") {
               onEditEvent(popover.entry as CalendarEvent);
             } else {
-              onEditTask(popover.entry as CalendarTask);
+              onEditTask(resolvedEntry as CalendarTask);
             }
             handleClosePopover();
           }}
@@ -2458,6 +2489,8 @@ function WeekGrid({
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
         />
+          );
+        })()
       )}
       {contextMenu && (
         <CalendarEntryContextMenu
