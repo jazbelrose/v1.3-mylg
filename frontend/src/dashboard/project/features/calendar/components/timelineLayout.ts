@@ -175,7 +175,7 @@ export const parseTimeToMinutes = (value?: string): number | undefined => {
 
 export type TimelineBaseEntry<T> = {
   id: string;
-  type: "event" | "task";
+  type: "event" | "task" | "taskStack" | "overlapStack";
   payload: T;
   title: string;
   timeLabel?: string;

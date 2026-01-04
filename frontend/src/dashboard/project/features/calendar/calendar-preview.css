@@ -1471,9 +1471,24 @@
   cursor: grab;
 }
 
+.week-grid__timeline-entry--task-stack,
+.week-grid__timeline-entry--overlap-stack {
+  cursor: grab;
+}
+
 .week-grid__timeline-entry--event:active,
 .week-grid__timeline-entry--task:active {
   cursor: grabbing;
+}
+
+.week-grid__timeline-entry--task-stack:active,
+.week-grid__timeline-entry--overlap-stack:active {
+  cursor: grabbing;
+}
+
+.week-grid__timeline-entry--task-stack .week-grid__timeline-entry-title,
+.week-grid__timeline-entry--overlap-stack .week-grid__timeline-entry-title {
+  font-weight: 700;
 }
 
 .week-grid__timeline-entry--task {
@@ -1555,6 +1570,13 @@
   border-radius: 50%;
   border: 2px solid rgba(12, 14, 22, 0.9);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.week-grid__timeline-avatar--more {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(245, 245, 245, 0.9);
+  background: rgba(255, 255, 255, 0.08);
 }
 .week-grid__timeline-entry-avatars .week-grid__timeline-avatar:not(:first-child) {
   margin-left: -6px;
@@ -2787,6 +2809,116 @@
   padding: 12px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Calendar Stack Popover (task stack + overlap stack)
+─────────────────────────────────────────────────────────────────────────── */
+
+.calendar-stack-popover__list {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.calendar-stack-popover__group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.calendar-stack-popover__group-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #0c0c0c;
+  flex-shrink: 0;
+}
+
+.calendar-stack-popover__group-avatar--empty {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.calendar-stack-popover__group-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.9);
+}
+
+.calendar-stack-popover__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.calendar-stack-popover__item {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.calendar-stack-popover__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.calendar-stack-popover__item-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-stack-popover__item-time {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: rgba(245, 245, 245, 0.6);
+}
+
+.calendar-stack-popover__item.is-done .calendar-stack-popover__item-title {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.calendar-stack-popover__drag,
+.calendar-stack-popover__done,
+.calendar-stack-popover__focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(245, 245, 245, 0.85);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.calendar-stack-popover__drag:hover,
+.calendar-stack-popover__done:hover,
+.calendar-stack-popover__focus:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.calendar-stack-popover__done svg {
+  width: 14px;
+  height: 14px;
+}
+
+.calendar-stack-popover__footer {
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
 }
 

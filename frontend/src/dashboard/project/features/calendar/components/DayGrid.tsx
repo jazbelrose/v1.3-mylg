@@ -413,7 +413,12 @@ function DayGrid({
     });
 
     const arranged = assignTimelineColumns(dayEntries);
-    const layout = new Map<number, ReturnType<typeof assignTimelineColumns>>();
+    const layout = new Map<
+      number,
+      Array<
+        TimelineHourEntry<CalendarEvent | CalendarTask> & { columnIndex: number; columnCount: number }
+      >
+    >();
     arranged.forEach((entry) => {
       if (entry.hour < 0 || entry.hour > 23) return;
       const bucket = layout.get(entry.hour) ?? [];
