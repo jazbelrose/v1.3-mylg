@@ -1457,10 +1457,12 @@ function DayGrid({
         onMouseLeave={handleEntryMouseLeave}
       >
         <div className="week-grid__timeline-entry-main">
-          {content}
+          <div className="week-grid__timeline-entry-body">
+            {content}
+            {renderFocusBlockChildren()}
+          </div>
           {inlineAvatars}
         </div>
-        {renderFocusBlockChildren()}
         {focusMeter}
       </button>
     );
