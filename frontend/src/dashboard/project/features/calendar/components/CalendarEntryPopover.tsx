@@ -219,6 +219,18 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     return [];
   }, [event, focusChildrenResolved, isFocusBlock, isTask, memberLookup, task]);
 
+  const focusMeter = useMemo(() => {
+    if (!isTask || !task) return null;
+    if (!isFocusBlock) return null;
+    const total = focusChildrenResolved.length;
+    if (total <= 0) return null;
+    const done = focusChildrenResolved.reduce((sum, child) => {
+      const isDone = child.status === "done" || child.done === true;
+      return sum + (isDone ? 1 : 0);
+    }, 0);
+    return { done, total };
+  }, [focusChildrenResolved, isFocusBlock, isTask, task]);
+
   // Get formatted assignee names (not user IDs)
   const assigneeNames = useMemo(() => {
     if (!isTask || !task) return null;
@@ -324,15 +336,15 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         </button>
         
         {/* Avatar stack (aligned right, overlapped like calendar blocks) */}
-        {avatars.length > 0 && (
+        {(isFocusBlock ? avatars.slice(0, 1) : avatars).length > 0 && (
           <div className="calendar-entry-popover__avatars">
-            {avatars.map((avatar, index) => (
+            {(isFocusBlock ? avatars.slice(0, 1) : avatars).map((avatar, index) => (
               <span
                 key={avatar.key}
                 className="calendar-entry-popover__avatar-wrapper"
                 style={{ 
-                  zIndex: avatars.length - index,
-                  marginLeft: index > 0 ? "-8px" : 0 
+                  zIndex: (isFocusBlock ? 1 : avatars.length) - index,
+                  marginLeft: !isFocusBlock && index > 0 ? "-8px" : 0 
                 }}
               >
                 <ProjectAvatar
@@ -375,7 +387,14 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             </span>
           </div>
         )}
-        {isTask && task?.status && (
+        {isTask && isFocusBlock && focusMeter && (
+          <div className="calendar-entry-popover__detail-row">
+            <span className="calendar-entry-popover__status calendar-entry-popover__status--focus-meter">
+              {focusMeter.done}/{focusMeter.total}
+            </span>
+          </div>
+        )}
+        {isTask && !isFocusBlock && task?.status && (
           <div className="calendar-entry-popover__detail-row">
             <span
               className={`calendar-entry-popover__status calendar-entry-popover__status--${task.status}`}

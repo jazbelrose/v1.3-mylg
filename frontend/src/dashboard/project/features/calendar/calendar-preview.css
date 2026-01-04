@@ -2874,6 +2874,12 @@
   color: rgba(156, 163, 175, 0.9);
 }
 
+.calendar-entry-popover__status--focus-meter {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(245, 245, 245, 0.9);
+}
+
 .calendar-entry-popover__status--in_progress {
   background: rgba(59, 130, 246, 0.15);
   color: rgba(96, 165, 250, 0.95);
@@ -2989,6 +2995,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.calendar-stack-popover__header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .calendar-stack-popover__header-avatar {

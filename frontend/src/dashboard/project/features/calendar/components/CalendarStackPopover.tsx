@@ -6,6 +6,7 @@
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Pencil } from "lucide-react";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
@@ -29,10 +30,12 @@ export interface CalendarStackPopoverProps {
   kind: StackPopoverKind;
   title: string;
   avatars?: TimelineAvatar[];
+  focusMeter?: { done: number; total: number } | null;
   projectColor: string;
   children: StackPopoverChild[];
   teamMembers?: ProjectTeamMember[];
   onClose: () => void;
+  onEditTitle?: () => void;
   onOpenDetails: (child: StackPopoverChild, anchorElement: HTMLElement) => void;
   onOpenContextMenu: (child: StackPopoverChild, event: React.MouseEvent<HTMLElement>) => void;
 }
@@ -42,10 +45,12 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   kind,
   title,
   avatars,
+  focusMeter,
   projectColor,
   children,
   teamMembers,
   onClose,
+  onEditTitle,
   onOpenDetails,
   onOpenContextMenu,
 }) => {
@@ -196,8 +201,31 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
       <div className="calendar-entry-popover__header calendar-stack-popover__header">
-        <div className="calendar-entry-popover__title">{title}</div>
-        {headerAvatars}
+        {onEditTitle ? (
+          <button
+            type="button"
+            className="calendar-entry-popover__title-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditTitle();
+            }}
+            title="Click to edit"
+          >
+            <span className="calendar-entry-popover__title">{title}</span>
+            <Pencil className="calendar-entry-popover__edit-icon" aria-hidden />
+          </button>
+        ) : (
+          <div className="calendar-entry-popover__title">{title}</div>
+        )}
+
+        <div className="calendar-stack-popover__header-right" aria-hidden>
+          {focusMeter && focusMeter.total > 0 ? (
+            <span className="calendar-entry-popover__status calendar-entry-popover__status--focus-meter">
+              {focusMeter.done}/{focusMeter.total}
+            </span>
+          ) : null}
+          {headerAvatars}
+        </div>
       </div>
 
       <div className="calendar-stack-popover__list">

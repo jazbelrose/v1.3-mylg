@@ -1434,8 +1434,8 @@ function DayGrid({
           <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
-            {focusMeter}
           </div>
+          {focusMeter}
         </motion.div>
       );
     }
@@ -1459,9 +1459,9 @@ function DayGrid({
         <div className="week-grid__timeline-entry-main">
           {content}
           {inlineAvatars}
-          {focusMeter}
         </div>
         {renderFocusBlockChildren()}
+        {focusMeter}
       </button>
     );
   };

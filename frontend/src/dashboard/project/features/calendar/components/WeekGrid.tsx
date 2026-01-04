@@ -1924,8 +1924,8 @@ function WeekGrid({
                 {renderInlineStackList()}
               </div>
               {inlineAvatars}
-              {focusMeter}
             </div>
+            {focusMeter}
           </button>
         );
       }
@@ -1980,8 +1980,8 @@ function WeekGrid({
               {renderInlineStackList()}
             </div>
             {inlineAvatars}
-            {focusMeter}
           </div>
+          {focusMeter}
         </button>
       );
     }
@@ -2011,8 +2011,8 @@ function WeekGrid({
           <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
-            {focusMeter}
           </div>
+          {focusMeter}
         </motion.div>
       );
     }
@@ -2041,8 +2041,8 @@ function WeekGrid({
             {renderFocusBlockChildren()}
           </div>
           {inlineAvatars}
-          {focusMeter}
         </div>
+        {focusMeter}
       </button>
     );
   };
@@ -2461,13 +2461,8 @@ function WeekGrid({
         </div>
       )}
       {stackPopover && (
-        <CalendarStackPopover
-          anchorElement={stackPopover.anchorElement}
-          kind={stackPopover.kind}
-          title={stackPopover.title}
-          avatars={stackPopover.avatars}
-          projectColor={projectColor}
-          children={stackPopover.childEntryKeys
+        (() => {
+          const stackChildren = stackPopover.childEntryKeys
             .map((entryKey): StackPopoverChild | null => {
               const lookup = entryLookup.get(entryKey);
               if (!lookup) return null;
@@ -2479,12 +2474,64 @@ function WeekGrid({
               }
               return null;
             })
-            .filter((child): child is StackPopoverChild => Boolean(child))}
+            .filter((child): child is StackPopoverChild => Boolean(child));
+
+          const primaryChild = stackChildren[0];
+
+          const focusMeter = (() => {
+            const focusTask = stackChildren.find((c) => {
+              if (c.entryType !== "task") return false;
+              const t = c.entry as CalendarTask;
+              const hasChildren =
+                t.kind === "focus_block" ||
+                (t.focusChildTaskIds && t.focusChildTaskIds.length > 0) ||
+                (t.focusChecklist && t.focusChecklist.length > 0);
+              return hasChildren;
+            });
+            if (!focusTask || focusTask.entryType !== "task") return null;
+            const task = focusTask.entry as CalendarTask;
+            const focusId = task.source?.taskId ?? task.id;
+            const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+            const childrenFromIds = childIds
+              .map((id) => calendarTaskById.get(id))
+              .filter((value): value is CalendarTask => Boolean(value));
+            const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+            const children = Array.from(
+              new Map(
+                [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [childTask.source?.taskId ?? childTask.id, childTask]),
+              ).values(),
+            );
+            const total = children.length;
+            if (total <= 0) return null;
+            const done = children.reduce((sum, child) => sum + (child.status === "done" || child.done ? 1 : 0), 0);
+            return { done, total };
+          })();
+
+          return (
+        <CalendarStackPopover
+          anchorElement={stackPopover.anchorElement}
+          kind={stackPopover.kind}
+          title={stackPopover.title}
+          avatars={stackPopover.avatars}
+          focusMeter={focusMeter}
+          projectColor={projectColor}
+          children={stackChildren}
           teamMembers={teamMembers}
           onClose={handleCloseStackPopover}
+          onEditTitle={() => {
+            if (!primaryChild) return;
+            if (primaryChild.entryType === "event") {
+              onEditEvent(primaryChild.entry as CalendarEvent);
+            } else {
+              onEditTask(primaryChild.entry as CalendarTask);
+            }
+            handleCloseStackPopover();
+          }}
           onOpenDetails={handleOpenDetailsFromStackPopover}
           onOpenContextMenu={handleOpenContextMenuFromStackPopover}
         />
+          );
+        })()
       )}
       {popover && (
         (() => {
