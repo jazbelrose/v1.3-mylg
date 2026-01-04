@@ -3624,11 +3624,6 @@
   width: max-content;
 }
 
-.week-grid__timeline-entry--focus-block {
-  background: rgba(220, 38, 38, 0.18) !important;
-  border-color: rgba(220, 38, 38, 0.4) !important;
-}
-
 .week-grid__focus-meter {
   margin-left: auto;
   font-size: 0.72rem;

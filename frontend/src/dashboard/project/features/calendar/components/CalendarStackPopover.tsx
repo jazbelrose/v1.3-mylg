@@ -53,17 +53,29 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
   const memberLookup = useMemo(() => buildTeamMemberLookup(teamMembers), [teamMembers]);
 
-  const headerAvatar = useMemo(() => {
-    const first = avatars?.[0];
-    if (!first) return null;
+  const headerAvatars = useMemo(() => {
+    if (!avatars || avatars.length === 0) return null;
     return (
-      <ProjectAvatar
-        className="calendar-stack-popover__header-avatar"
-        thumb={first.thumb ?? undefined}
-        name={first.name}
-        shape="circle"
-        radius={12}
-      />
+      <div className="calendar-entry-popover__avatars" aria-hidden>
+        {avatars.map((avatar, index) => (
+          <span
+            key={avatar.key}
+            className="calendar-entry-popover__avatar-wrapper"
+            style={{
+              zIndex: avatars.length - index,
+              marginLeft: index > 0 ? "-8px" : 0,
+            }}
+          >
+            <ProjectAvatar
+              className="calendar-entry-popover__avatar"
+              thumb={avatar.thumb ?? undefined}
+              name={avatar.name}
+              shape="circle"
+              radius={10}
+            />
+          </span>
+        ))}
+      </div>
     );
   }, [avatars]);
 
@@ -185,7 +197,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
       <div className="calendar-entry-popover__header calendar-stack-popover__header">
         <div className="calendar-entry-popover__title">{title}</div>
-        {headerAvatar}
+        {headerAvatars}
       </div>
 
       <div className="calendar-stack-popover__list">

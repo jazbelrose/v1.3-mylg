@@ -1688,7 +1688,8 @@ function WeekGrid({
         </div>
       ) : null;
     
-    const color = entry.projectColor || projectColor;
+    // Stacks are UI-computed aggregates; keep them aligned to the active project's color.
+    const color = isStack ? projectColor : entry.projectColor || projectColor;
     const pillStyle = {
       ...entryStyle,
       background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
@@ -1781,7 +1782,7 @@ function WeekGrid({
         <div className="week-grid__stack-list" aria-hidden>
           {visible.map((child) => {
             const childKey = `${child.type}:${child.id}`;
-            const childColor = child.projectColor || color;
+            const childColor = color;
             return (
               <div
                 key={childKey}
