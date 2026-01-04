@@ -355,8 +355,6 @@ function WeekGrid({
     avatars: TimelineAvatar[];
   } | null>(null);
 
-  const [unsuppressedEntryKeyForDrag, setUnsuppressedEntryKeyForDrag] = useState<string | null>(null);
-
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
   }, [onRescheduleEntries]);
@@ -846,9 +844,6 @@ function WeekGrid({
     entriesByDay.forEach((dayEntries, dayKey) => {
       const baseVisible = dayEntries.filter((entry) => {
         const key = `${entry.type}:${entry.id}`;
-        if (unsuppressedEntryKeyForDrag && key === unsuppressedEntryKeyForDrag) {
-          return true;
-        }
         if (overlapSuppressed.has(key)) return false;
         if (taskSuppressed.has(key)) return false;
         return true;
@@ -874,7 +869,7 @@ function WeekGrid({
     });
 
     return { renderTimelineEntriesByDay: layout, baseEntryLookup: baseEntryLookupMap };
-  }, [days, events, tasks, teamMemberLookup, unsuppressedEntryKeyForDrag]);
+  }, [days, events, tasks, teamMemberLookup]);
 
   const entryLookup = useMemo(() => baseEntryLookup, [baseEntryLookup]);
 
@@ -974,8 +969,6 @@ function WeekGrid({
       if (changes.length && onReschedule) {
         onReschedule(changes);
       }
-
-      setUnsuppressedEntryKeyForDrag(null);
     };
 
     document.addEventListener("pointerup", handlePointerUp);
@@ -1234,37 +1227,6 @@ function WeekGrid({
     [],
   );
 
-  const startDragOutFromPopover = useCallback(
-    (entryKey: string, pointerEvent: React.PointerEvent) => {
-      if (pointerEvent.button !== 0) return;
-      const lookup = entryLookup.get(entryKey);
-      if (!lookup) return;
-
-      setPopover(null);
-      setContextMenu(null);
-      setStackPopover(null);
-
-      // Temporarily show the child in-grid so it can be the drag preview.
-      setUnsuppressedEntryKeyForDrag(entryKey);
-
-      isDraggingRef.current = false;
-
-      interactionRef.current = {
-        mode: "drag",
-        startX: pointerEvent.clientX,
-        startY: pointerEvent.clientY,
-        targets: [createTarget(lookup.entry, lookup.dayKey)],
-        duplicate: false,
-        isCopyMode: false,
-        startDayIndex: dayIndexLookup.get(lookup.dayKey) ?? 0,
-        previewEntryKey: undefined,
-      };
-      setIsCopyMode(false);
-      pointerEvent.preventDefault();
-    },
-    [createTarget, dayIndexLookup, entryLookup],
-  );
-
   const handleEntryMouseLeave = useCallback((event: React.MouseEvent<HTMLElement>) => {
     // Mark anchor as not hovered
     isAnchorHoverRef.current = false;
@@ -1363,6 +1325,64 @@ function WeekGrid({
   const handleCloseStackPopover = useCallback(() => {
     setStackPopover(null);
   }, []);
+
+  const handleOpenDetailsFromStackPopover = useCallback(
+    (child: StackPopoverChild, anchor: HTMLElement) => {
+      setContextMenu(null);
+
+      onEntrySelect?.(
+        child.entryType === "event" ? "event" : "task",
+        child.entry.id,
+        false,
+      );
+
+      const focusChildren = (() => {
+        if (child.entryType !== "task") return undefined;
+        const task = child.entry as CalendarTask;
+        if (task.kind !== "focus_block") return undefined;
+        const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+        const children = childIds
+          .map((id) => calendarTaskById.get(id))
+          .filter((value): value is CalendarTask => Boolean(value));
+        return children.length ? children : undefined;
+      })();
+
+      setPopover({
+        anchorElement: anchor,
+        entryType: child.entryType,
+        entry: child.entry,
+        focusChildren,
+      });
+    },
+    [calendarTaskById, onEntrySelect],
+  );
+
+  const handleOpenContextMenuFromStackPopover = useCallback(
+    (child: StackPopoverChild, event: React.MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setPopover(null);
+
+      const key = `${child.entryType}:${child.entry.id}`;
+      const isAlreadySelected = selectedEntryKeys.has(key);
+      if (!isAlreadySelected) {
+        onEntrySelect?.(
+          child.entryType === "event" ? "event" : "task",
+          child.entry.id,
+          Boolean(event.shiftKey),
+        );
+      }
+
+      setContextMenu({
+        position: { x: event.clientX, y: event.clientY },
+        entryType: child.entryType,
+        entry: child.entry,
+        allowConvertToFocusBlock: Boolean(event.shiftKey),
+      });
+    },
+    [onEntrySelect, selectedEntryKeys],
+  );
 
   // Handle single click vs double click for entries
   const handleEntryClick = useCallback(
@@ -2220,29 +2240,30 @@ function WeekGrid({
           </button>
         </div>
       )}
-      {contextMenu && (
-        <CalendarEntryContextMenu
-          position={contextMenu.position}
-          entryType={contextMenu.entryType}
-          entry={contextMenu.entry}
-          selectedEntries={getSelectedContextMenuEntries()}
-          onClose={handleCloseContextMenu}
-          onEdit={(e) => {
-            if (contextMenu.entryType === "event") {
-              onEditEvent(e as CalendarEvent);
-            } else {
-              onEditTask(e as CalendarTask);
-            }
-            handleCloseContextMenu();
-          }}
-          onSubmitForReview={onSubmitForReview}
-          onMarkAsDone={onMarkAsDone}
-          onConvertToFocusBlock={
-            contextMenu.allowConvertToFocusBlock ? onConvertToFocusBlock : undefined
-          }
-          onUngroupFocusBlock={onUngroupFocusBlock}
-          onDuplicate={onDuplicateEntries}
-          onDelete={onDeleteEntries}
+      {stackPopover && (
+        <CalendarStackPopover
+          anchorElement={stackPopover.anchorElement}
+          kind={stackPopover.kind}
+          title={stackPopover.title}
+          avatars={stackPopover.avatars}
+          projectColor={projectColor}
+          children={stackPopover.childEntryKeys
+            .map((entryKey): StackPopoverChild | null => {
+              const lookup = entryLookup.get(entryKey);
+              if (!lookup) return null;
+              if (lookup.entry.type === "task") {
+                return { entryKey, entryType: "task", entry: lookup.entry.payload as CalendarTask };
+              }
+              if (lookup.entry.type === "event") {
+                return { entryKey, entryType: "event", entry: lookup.entry.payload as CalendarEvent };
+              }
+              return null;
+            })
+            .filter((child): child is StackPopoverChild => Boolean(child))}
+          teamMembers={teamMembers}
+          onClose={handleCloseStackPopover}
+          onOpenDetails={handleOpenDetailsFromStackPopover}
+          onOpenContextMenu={handleOpenContextMenuFromStackPopover}
         />
       )}
       {popover && (
@@ -2269,32 +2290,27 @@ function WeekGrid({
           onDelete={onDeleteEntries}
         />
       )}
-      {stackPopover && (
-        <CalendarStackPopover
-          anchorElement={stackPopover.anchorElement}
-          kind={stackPopover.kind}
-          title={stackPopover.title}
-          avatars={stackPopover.avatars}
-          projectColor={projectColor}
-          children={stackPopover.childEntryKeys
-            .map((entryKey): StackPopoverChild | null => {
-              const lookup = entryLookup.get(entryKey);
-              if (!lookup) return null;
-              if (lookup.entry.type === "task") {
-                return { entryKey, entryType: "task", entry: lookup.entry.payload as CalendarTask };
-              }
-              if (lookup.entry.type === "event") {
-                return { entryKey, entryType: "event", entry: lookup.entry.payload as CalendarEvent };
-              }
-              return null;
-            })
-            .filter((child): child is StackPopoverChild => Boolean(child))}
-          teamMembers={teamMembers}
-          onClose={handleCloseStackPopover}
-          onEditTask={(task) => onEditTask(task)}
-          onEditEvent={(event) => onEditEvent(event)}
-          onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
-          onStartDragOut={startDragOutFromPopover}
+      {contextMenu && (
+        <CalendarEntryContextMenu
+          position={contextMenu.position}
+          entryType={contextMenu.entryType}
+          entry={contextMenu.entry}
+          selectedEntries={getSelectedContextMenuEntries()}
+          onClose={handleCloseContextMenu}
+          onEdit={(e) => {
+            if (contextMenu.entryType === "event") {
+              onEditEvent(e as CalendarEvent);
+            } else {
+              onEditTask(e as CalendarTask);
+            }
+            handleCloseContextMenu();
+          }}
+          onSubmitForReview={onSubmitForReview}
+          onMarkAsDone={onMarkAsDone}
+          onConvertToFocusBlock={
+            contextMenu.allowConvertToFocusBlock ? onConvertToFocusBlock : undefined
+          }
+          onUngroupFocusBlock={onUngroupFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
         />

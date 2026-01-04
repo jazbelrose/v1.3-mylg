@@ -4,20 +4,17 @@
  * Folded-only inspector popover for Task Stack + Overlap Stack tiles.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle, Pencil, Copy, Trash2 } from "lucide-react";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import {
   buildEventAvatars,
   buildTeamMemberLookup,
-  parseAssigneeUserId,
+  buildTaskAvatars,
   type TimelineAvatar,
 } from "./timelineLayout";
-
-import type { ContextMenuEntry } from "./CalendarEntryContextMenu";
 
 export type StackPopoverKind = "taskStack" | "overlapStack";
 
@@ -36,25 +33,9 @@ export interface CalendarStackPopoverProps {
   children: StackPopoverChild[];
   teamMembers?: ProjectTeamMember[];
   onClose: () => void;
-  onEditTask: (task: CalendarTask) => void;
-  onEditEvent: (event: CalendarEvent) => void;
-  onMarkAsDone?: (tasks: CalendarTask[]) => void;
-  onStartDragOut: (entryKey: string, pointerEvent: React.PointerEvent) => void;
-  onDuplicate?: (entries: ContextMenuEntry[]) => void;
-  onDelete?: (entries: ContextMenuEntry[]) => void;
+  onOpenDetails: (child: StackPopoverChild, anchorElement: HTMLElement) => void;
+  onOpenContextMenu: (child: StackPopoverChild, event: React.MouseEvent<HTMLElement>) => void;
 }
-
-type GroupedChildren = {
-  label: string;
-  avatar: TimelineAvatar | null;
-  children: StackPopoverChild[];
-};
-
-const getDisplayName = (member?: ProjectTeamMember | null): string => {
-  if (!member) return "";
-  const full = `${member.firstName || ""} ${member.lastName || ""}`.trim();
-  return full || member.userId || "";
-};
 
 export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   anchorElement,
@@ -65,12 +46,8 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   children,
   teamMembers,
   onClose,
-  onEditTask,
-  onEditEvent,
-  onMarkAsDone,
-  onStartDragOut,
-  onDuplicate,
-  onDelete,
+  onOpenDetails,
+  onOpenContextMenu,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +68,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   }, [avatars]);
 
   const isSingleUser = Boolean((avatars?.length ?? 0) === 1);
+  const showRowAvatars = kind === "overlapStack" && !isSingleUser;
 
   useEffect(() => {
     if (!popoverRef.current || !anchorElement) return;
@@ -137,6 +115,13 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      const targetElement = target instanceof HTMLElement ? target : null;
+
+      // If the user is interacting with another calendar popover (e.g. the single-item details popover
+      // opened from this list), don't treat it as an outside click.
+      if (targetElement?.closest(".calendar-entry-popover")) {
+        return;
+      }
       if (
         popoverRef.current &&
         !popoverRef.current.contains(target) &&
@@ -156,208 +141,80 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     };
   }, [anchorElement, onClose]);
 
-  const groups: GroupedChildren[] = useMemo(() => {
-    if (kind !== "overlapStack" || isSingleUser) {
-      return [
-        {
-          label: "",
-          avatar: null,
-          children,
-        },
-      ];
-    }
+  const rows = useMemo(() => {
+    const buildTimeRange = (child: StackPopoverChild): string => {
+      if (child.entryType === "event") {
+        const event = child.entry as CalendarEvent;
+        if (event.allDay) return "All day";
+        if (event.start && event.end) return `${event.start}–${event.end}`;
+        return event.start || "";
+      }
+      const task = child.entry as CalendarTask;
+      if (task.start && task.end) return `${task.start}–${task.end}`;
+      return task.start || "";
+    };
 
-    const map = new Map<string, GroupedChildren>();
-
-    children.forEach((child) => {
+    const buildRowAvatar = (child: StackPopoverChild): TimelineAvatar | null => {
+      if (!showRowAvatars) return null;
       if (child.entryType === "task") {
         const task = child.entry as CalendarTask;
-        const userId = parseAssigneeUserId(task.assignedTo) ??
-          (task.assigneeIds ? parseAssigneeUserId(task.assigneeIds[0]) : undefined);
-        const member = userId ? memberLookup.byId.get(userId) : undefined;
-        const label = getDisplayName(member) || "Unassigned";
-        const avatar = member
-          ? ({ key: member.userId, thumb: member.thumbnail ?? undefined, name: label } satisfies TimelineAvatar)
-          : null;
-
-        const groupKey = userId ?? label;
-        const existing = map.get(groupKey) ?? { label, avatar, children: [] };
-        existing.children.push(child);
-        map.set(groupKey, existing);
-        return;
+        return buildTaskAvatars(task, memberLookup)[0] ?? null;
       }
-
       const event = child.entry as CalendarEvent;
-      const avatars = buildEventAvatars(event, memberLookup);
-      const first = avatars[0] ?? null;
-      const label = first?.name ?? "Event";
-      const groupKey = first?.key ?? label;
-      const existing = map.get(groupKey) ?? { label, avatar: first, children: [] };
-      existing.children.push(child);
-      map.set(groupKey, existing);
-    });
+      return buildEventAvatars(event, memberLookup)[0] ?? null;
+    };
 
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [children, isSingleUser, kind, memberLookup]);
-
-  const handleDuplicateChild = useCallback(
-    (child: StackPopoverChild) => {
-      if (!onDuplicate) return;
-      const entry: ContextMenuEntry = {
-        entryType: child.entryType,
-        entry: child.entry,
-      };
-      onDuplicate([entry]);
-      onClose();
-    },
-    [onClose, onDuplicate],
-  );
-
-  const handleDeleteChild = useCallback(
-    (child: StackPopoverChild) => {
-      if (!onDelete) return;
-      const entry: ContextMenuEntry = {
-        entryType: child.entryType,
-        entry: child.entry,
-      };
-      onDelete([entry]);
-      onClose();
-    },
-    [onClose, onDelete],
-  );
+    return [...children]
+      .map((child) => {
+        const title = child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
+        return {
+          child,
+          title,
+          time: buildTimeRange(child),
+          avatar: buildRowAvatar(child),
+        };
+      })
+      .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
+  }, [children, memberLookup, showRowAvatars]);
 
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
       <div className="calendar-entry-popover__header calendar-stack-popover__header">
-        <button
-          type="button"
-          className="calendar-entry-popover__title-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <div className="calendar-entry-popover__title">{title}</div>
-          <Pencil className="calendar-entry-popover__edit-icon" aria-hidden />
-        </button>
+        <div className="calendar-entry-popover__title">{title}</div>
         {headerAvatar}
       </div>
 
       <div className="calendar-stack-popover__list">
-        {groups.map((group) => (
-          <div key={group.label || "__all"} className="calendar-stack-popover__group">
-            {kind === "overlapStack" && !isSingleUser && (
-              <div className="calendar-stack-popover__group-header">
-                {group.avatar ? (
+        {rows.map((row) => (
+          <div key={row.child.entryKey} className="calendar-stack-popover__row calendar-stack-popover__row--list">
+            <button
+              type="button"
+              className="calendar-stack-popover__item"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDetails(row.child, e.currentTarget);
+              }}
+              onContextMenu={(e) => {
+                e.stopPropagation();
+                onOpenContextMenu(row.child, e);
+              }}
+              title={row.title}
+            >
+              <span className="calendar-stack-popover__item-pill" style={{ background: projectColor }} aria-hidden />
+              <div className="calendar-stack-popover__item-title">{row.title}</div>
+              {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
+              {row.avatar ? (
+                <span className="calendar-stack-popover__row-avatar" aria-hidden>
                   <ProjectAvatar
-                    className="calendar-stack-popover__group-avatar"
-                    thumb={group.avatar.thumb ?? undefined}
-                    name={group.avatar.name}
+                    className="calendar-stack-popover__row-avatar-img"
+                    thumb={row.avatar.thumb ?? undefined}
+                    name={row.avatar.name}
                     shape="circle"
-                    radius={10}
+                    radius={9}
                   />
-                ) : (
-                  <div className="calendar-stack-popover__group-avatar calendar-stack-popover__group-avatar--empty" aria-hidden />
-                )}
-                <div className="calendar-stack-popover__group-title">{group.label}</div>
-              </div>
-            )}
-
-            {group.children.map((child) => {
-              const entryTitle = child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
-              const entryTime =
-                child.entryType === "task"
-                  ? (child.entry as CalendarTask).start && (child.entry as CalendarTask).end
-                    ? `${(child.entry as CalendarTask).start} - ${(child.entry as CalendarTask).end}`
-                    : (child.entry as CalendarTask).start || "No time set"
-                  : (child.entry as CalendarEvent).start && (child.entry as CalendarEvent).end
-                  ? `${(child.entry as CalendarEvent).start} - ${(child.entry as CalendarEvent).end}`
-                  : (child.entry as CalendarEvent).allDay
-                  ? "All day"
-                  : (child.entry as CalendarEvent).start || "No time set";
-
-              const isDone =
-                child.entryType === "task"
-                  ? Boolean((child.entry as CalendarTask).done || (child.entry as CalendarTask).status === "archived")
-                  : false;
-
-              return (
-                <div key={child.entryKey} className="calendar-stack-popover__row">
-                  <button
-                    type="button"
-                    className={`calendar-stack-popover__item${isDone ? " is-done" : ""}`}
-                    onClick={() => {
-                      if (child.entryType === "task") {
-                        onEditTask(child.entry as CalendarTask);
-                      } else {
-                        onEditEvent(child.entry as CalendarEvent);
-                      }
-                      onClose();
-                    }}
-                    title={entryTitle}
-                  >
-                    <span className="calendar-stack-popover__item-pill" style={{ background: projectColor }} aria-hidden />
-                    <div className="calendar-stack-popover__item-title">{entryTitle}</div>
-                    {kind === "overlapStack" && !isSingleUser && (
-                      <div className="calendar-stack-popover__item-time">{entryTime}</div>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="calendar-stack-popover__pullout"
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      onStartDragOut(child.entryKey, e);
-                    }}
-                  >
-                    Pull out
-                  </button>
-
-                  {onDuplicate && (
-                    <button
-                      type="button"
-                      className="calendar-stack-popover__aux"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicateChild(child);
-                      }}
-                    >
-                      <Copy aria-hidden />
-                      Duplicate
-                    </button>
-                  )}
-
-                  {onDelete && (
-                    <button
-                      type="button"
-                      className="calendar-stack-popover__aux calendar-stack-popover__aux--danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChild(child);
-                      }}
-                    >
-                      <Trash2 aria-hidden />
-                      Delete
-                    </button>
-                  )}
-
-                  {child.entryType === "task" && onMarkAsDone && !isDone && (
-                    <button
-                      type="button"
-                      className="calendar-stack-popover__done"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMarkAsDone([child.entry as CalendarTask]);
-                        onClose();
-                      }}
-                    >
-                      <CheckCircle aria-hidden />
-                      Done
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                </span>
+              ) : null}
+            </button>
           </div>
         ))}
       </div>
