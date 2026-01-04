@@ -14,6 +14,7 @@ import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 
 import { ProjectsContext } from "@/app/contexts/ProjectsContext";
 import { S3_PUBLIC_BASE, getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
+import { generateUniqueLexicalImageKey } from "@/shared/utils/fileUtils";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 import {
   applyModifierNodeSelection,
@@ -109,10 +110,7 @@ const encodeS3Key = (key: string = "") =>
     .join("/");
 
 async function uploadImageFileToS3PublicUrl(file: File, projectId: string): Promise<string | null> {
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).slice(2, 8);
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
-  const key = `projects/${projectId}/lexical/${timestamp}_${randomId}_${safeName}`;
+  const key = generateUniqueLexicalImageKey(file.name, projectId);
   try {
     await uploadData({
       key,

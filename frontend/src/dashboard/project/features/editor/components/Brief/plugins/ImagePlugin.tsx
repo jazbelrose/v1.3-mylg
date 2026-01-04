@@ -15,6 +15,7 @@ import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { DEFAULT_IMAGE_BORDER_RADIUS } from "./nodes/imageBorderRadius";
 import { useData } from "@/app/contexts/useData";
 import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
+import { generateUniqueLexicalImageKey } from "@/shared/utils/fileUtils";
 import { OPEN_IMAGE_COMMAND } from "../commands";
 import FileManagerComponent, { type FileItem } from "@/dashboard/project/components/FileManager/FileManager";
 import { notify } from "@/shared/ui/ToastNotifications";
@@ -83,7 +84,7 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
 
     setIsUploading(true);
     const uploads = fs.map(async (f) => {
-      const key = `projects/${activeProject.projectId}/lexical/${f.name}`;
+      const key = generateUniqueLexicalImageKey(f.name, activeProject.projectId!);
       try {
         const { result } = await uploadData({
           key,

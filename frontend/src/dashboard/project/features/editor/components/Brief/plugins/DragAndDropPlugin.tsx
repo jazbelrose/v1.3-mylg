@@ -12,6 +12,7 @@ import { uploadData } from "aws-amplify/storage";
 import { useData } from "@/app/contexts/useData";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
+import { generateUniqueLexicalImageKey } from "@/shared/utils/fileUtils";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { $createSvgNode } from "./nodes/SvgNodeUtils";
@@ -77,7 +78,7 @@ async function uploadFileToS3(
   file: File,
   projectId: string
 ): Promise<string | null> {
-  const key = `projects/${projectId}/lexical/${file.name}`;
+  const key = generateUniqueLexicalImageKey(file.name, projectId);
   try {
     await uploadData({
       key,
