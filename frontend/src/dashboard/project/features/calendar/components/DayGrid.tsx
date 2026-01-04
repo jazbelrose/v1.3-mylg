@@ -60,6 +60,7 @@ export type DayGridProps = {
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
   onConvertToFocusBlock?: (tasks: CalendarTask[]) => void;
+  onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
 };
@@ -188,6 +189,7 @@ function DayGrid({
   onSubmitForReview,
   onMarkAsDone,
   onConvertToFocusBlock,
+  onUngroupFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
 }: DayGridProps) {
@@ -238,6 +240,7 @@ function DayGrid({
     position: ContextMenuPosition;
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
+    allowConvertToFocusBlock: boolean;
   } | null>(null);
 
   // Popover state for single-click inspector
@@ -245,6 +248,7 @@ function DayGrid({
     anchorElement: HTMLElement;
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
+    focusChildren?: CalendarTask[];
   } | null>(null);
 
   // Double-click detection refs
@@ -723,14 +727,25 @@ function DayGrid({
         }
       } else {
         // Single click → show popover
+        const focusChildren = (() => {
+          if (entry.type !== "task") return undefined;
+          const task = entry.payload as CalendarTask;
+          if (task.kind !== "focus_block") return undefined;
+          const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+          const children = childIds
+            .map((id) => calendarTaskById.get(id))
+            .filter((value): value is CalendarTask => Boolean(value));
+          return children.length ? children : undefined;
+        })();
         setPopover({
           anchorElement: clickEvent.currentTarget,
           entryType: entry.type === "event" ? "event" : "task",
           entry: entry.payload,
+          focusChildren,
         });
       }
     },
-    [onEditEvent, onEditTask],
+    [calendarTaskById, onEditEvent, onEditTask],
   );
 
   // Keyboard handler for entries
@@ -1037,6 +1052,8 @@ function DayGrid({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload,
+        // Convert to Focus Block should only appear when invoked via shift+right-click
+        allowConvertToFocusBlock: Boolean(event.shiftKey),
       });
     },
     [],
@@ -1545,7 +1562,10 @@ function DayGrid({
           }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
-          onConvertToFocusBlock={onConvertToFocusBlock}
+          onConvertToFocusBlock={
+            contextMenu.allowConvertToFocusBlock ? onConvertToFocusBlock : undefined
+          }
+          onUngroupFocusBlock={onUngroupFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
         />
@@ -1557,6 +1577,7 @@ function DayGrid({
           entry={popover.entry}
           selectedCount={selectedEntryKeys.size}
           teamMembers={teamMembers}
+          focusChildren={popover.focusChildren}
           onClose={handleClosePopover}
           onEdit={() => {
             if (popover.entryType === "event") {
@@ -1566,6 +1587,7 @@ function DayGrid({
             }
             handleClosePopover();
           }}
+          onEditFocusChild={(task) => onEditTask(task)}
           onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}
           onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
           onDuplicate={onDuplicateEntries}

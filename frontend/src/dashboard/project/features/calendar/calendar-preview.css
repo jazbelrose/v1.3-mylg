@@ -9,6 +9,39 @@
   flex-direction: column;
  
 }
+.calendar-stack-popover__aux {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 232, 240, 0.92);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.calendar-stack-popover__aux svg {
+  width: 14px;
+  height: 14px;
+}
+
+.calendar-stack-popover__aux:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.calendar-stack-popover__aux--danger {
+  color: rgba(239, 68, 68, 0.92);
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.calendar-stack-popover__aux--danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
 
 .calendar-shell {
   flex: 1;
@@ -1611,6 +1644,13 @@
   transform: translateY(-50%);
 }
 
+/* Stacks render additional body lines; keep avatar aligned top-right like normal blocks */
+.week-grid__timeline-entry--task-stack .week-grid__timeline-entry-avatars,
+.week-grid__timeline-entry--overlap-stack .week-grid__timeline-entry-avatars {
+  top: 6px;
+  transform: none;
+}
+
 .week-grid__timeline-avatar {
   width: 16px;
   height: 16px;
@@ -2860,6 +2900,63 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-wrap: wrap;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.calendar-entry-popover__children {
+  padding: 10px 16px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.calendar-entry-popover__children-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(245, 245, 245, 0.82);
+  margin-bottom: 8px;
+}
+
+.calendar-entry-popover__children-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-entry-popover__child-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-entry-popover__child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(245, 245, 245, 0.92);
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-entry-popover__child:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.calendar-entry-popover__child-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-entry-popover__child-time {
+  font-size: 0.7rem;
+  color: rgba(226, 232, 240, 0.72);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

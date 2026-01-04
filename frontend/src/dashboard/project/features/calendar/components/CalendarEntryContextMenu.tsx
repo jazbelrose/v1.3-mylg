@@ -34,6 +34,7 @@ export interface CalendarEntryContextMenuProps {
   onSubmitForReview?: (entries: CalendarTask[]) => void;
   onMarkAsDone?: (entries: CalendarTask[]) => void;
   onConvertToFocusBlock?: (entries: CalendarTask[]) => void;
+  onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicate?: (entries: ContextMenuEntry[]) => void;
   onDelete?: (entries: ContextMenuEntry[]) => void;
 }
@@ -48,6 +49,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   onSubmitForReview,
   onMarkAsDone,
   onConvertToFocusBlock,
+  onUngroupFocusBlock,
   onDuplicate,
   onDelete,
 }) => {
@@ -64,6 +66,12 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   
   const selectionCount = effectiveEntries.length;
   const isMultiSelect = selectionCount > 1;
+
+  const isFocusBlock = useMemo(() => {
+    if (entryType !== "task") return false;
+    const task = entry as CalendarTask;
+    return task.kind === "focus_block";
+  }, [entry, entryType]);
 
   // For multi-select, check if we have any tasks that can be actioned
   const actionableTasks = useMemo(
@@ -175,6 +183,15 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     onClose();
   }, [focusBlockCandidates, onConvertToFocusBlock, onClose]);
 
+  const handleUngroupFocusBlock = useCallback(() => {
+    if (!onUngroupFocusBlock) return;
+    if (entryType !== "task") return;
+    const task = entry as CalendarTask;
+    if (task.kind !== "focus_block") return;
+    onUngroupFocusBlock(task);
+    onClose();
+  }, [entry, entryType, onClose, onUngroupFocusBlock]);
+
   const handleDuplicate = useCallback(() => {
     if (onDuplicate) {
       onDuplicate(effectiveEntries);
@@ -254,6 +271,19 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
         >
           <Layers className="calendar-entry-context-menu__icon" />
           <span>Convert to Focus Block ({focusBlockCandidates.length})</span>
+        </button>
+      )}
+
+      {/* Convert Focus Block back into Time Blocks (Ungroup) */}
+      {!isMultiSelect && isFocusBlock && onUngroupFocusBlock && (
+        <button
+          type="button"
+          className="calendar-entry-context-menu__item"
+          onClick={handleUngroupFocusBlock}
+          role="menuitem"
+        >
+          <Layers className="calendar-entry-context-menu__icon" />
+          <span>Convert to Time Blocks (Ungroup)</span>
         </button>
       )}
 

@@ -68,6 +68,7 @@ export type WeekGridProps = {
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
   onConvertToFocusBlock?: (tasks: CalendarTask[]) => void;
+  onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
 };
@@ -274,6 +275,7 @@ function WeekGrid({
   onSubmitForReview,
   onMarkAsDone,
   onConvertToFocusBlock,
+  onUngroupFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
 }: WeekGridProps) {
@@ -334,6 +336,7 @@ function WeekGrid({
     position: ContextMenuPosition;
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
+    allowConvertToFocusBlock: boolean;
   } | null>(null);
 
   // Popover state for single-click inspector
@@ -341,6 +344,7 @@ function WeekGrid({
     anchorElement: HTMLElement;
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
+    focusChildren?: CalendarTask[];
   } | null>(null);
 
   const [stackPopover, setStackPopover] = useState<{
@@ -1342,6 +1346,7 @@ function WeekGrid({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload as CalendarTask | CalendarEvent,
+        allowConvertToFocusBlock: Boolean(event.shiftKey),
       });
     },
     [],
@@ -1407,14 +1412,25 @@ function WeekGrid({
       } else {
         // Single click → show popover
         setStackPopover(null);
+        const focusChildren = (() => {
+          if (entry.type !== "task") return undefined;
+          const task = entry.payload as CalendarTask;
+          if (task.kind !== "focus_block") return undefined;
+          const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+          const children = childIds
+            .map((id) => calendarTaskById.get(id))
+            .filter((value): value is CalendarTask => Boolean(value));
+          return children.length ? children : undefined;
+        })();
         setPopover({
           anchorElement: event.currentTarget,
           entryType: entry.type === "event" ? "event" : "task",
           entry: entry.payload as CalendarTask | CalendarEvent,
+          focusChildren,
         });
       }
     },
-    [onEditEvent, onEditTask, entryLookup],
+    [onEditEvent, onEditTask, entryLookup, calendarTaskById],
   );
 
   // Handle keyboard events for selected entries
@@ -2221,7 +2237,10 @@ function WeekGrid({
           }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
-          onConvertToFocusBlock={onConvertToFocusBlock}
+          onConvertToFocusBlock={
+            contextMenu.allowConvertToFocusBlock ? onConvertToFocusBlock : undefined
+          }
+          onUngroupFocusBlock={onUngroupFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
         />
@@ -2233,6 +2252,7 @@ function WeekGrid({
           entry={popover.entry}
           selectedCount={selectedEntryKeys.size}
           teamMembers={teamMembers}
+          focusChildren={popover.focusChildren}
           onClose={handleClosePopover}
           onEdit={() => {
             if (popover.entryType === "event") {
@@ -2242,6 +2262,7 @@ function WeekGrid({
             }
             handleClosePopover();
           }}
+          onEditFocusChild={(task) => onEditTask(task)}
           onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}
           onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
           onDuplicate={onDuplicateEntries}
@@ -2273,12 +2294,9 @@ function WeekGrid({
           onEditTask={(task) => onEditTask(task)}
           onEditEvent={(event) => onEditEvent(event)}
           onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
-          onConvertToFocusBlock={
-            stackPopover.kind === "taskStack" && onConvertToFocusBlock
-              ? (tasks) => onConvertToFocusBlock(tasks)
-              : undefined
-          }
           onStartDragOut={startDragOutFromPopover}
+          onDuplicate={onDuplicateEntries}
+          onDelete={onDeleteEntries}
         />
       )}
     </div>

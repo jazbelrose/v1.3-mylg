@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle, Pencil } from "lucide-react";
+import { CheckCircle, Pencil, Copy, Trash2 } from "lucide-react";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
@@ -16,6 +16,8 @@ import {
   parseAssigneeUserId,
   type TimelineAvatar,
 } from "./timelineLayout";
+
+import type { ContextMenuEntry } from "./CalendarEntryContextMenu";
 
 export type StackPopoverKind = "taskStack" | "overlapStack";
 
@@ -37,8 +39,9 @@ export interface CalendarStackPopoverProps {
   onEditTask: (task: CalendarTask) => void;
   onEditEvent: (event: CalendarEvent) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
-  onConvertToFocusBlock?: (tasks: CalendarTask[]) => void;
   onStartDragOut: (entryKey: string, pointerEvent: React.PointerEvent) => void;
+  onDuplicate?: (entries: ContextMenuEntry[]) => void;
+  onDelete?: (entries: ContextMenuEntry[]) => void;
 }
 
 type GroupedChildren = {
@@ -65,8 +68,9 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   onEditTask,
   onEditEvent,
   onMarkAsDone,
-  onConvertToFocusBlock,
   onStartDragOut,
+  onDuplicate,
+  onDelete,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -196,20 +200,31 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [children, isSingleUser, kind, memberLookup]);
 
-  const focusBlockTasks = useMemo(() => {
-    if (kind !== "taskStack") return [];
-    return children
-      .filter((child) => child.entryType === "task")
-      .map((child) => child.entry as CalendarTask);
-  }, [children, kind]);
+  const handleDuplicateChild = useCallback(
+    (child: StackPopoverChild) => {
+      if (!onDuplicate) return;
+      const entry: ContextMenuEntry = {
+        entryType: child.entryType,
+        entry: child.entry,
+      };
+      onDuplicate([entry]);
+      onClose();
+    },
+    [onClose, onDuplicate],
+  );
 
-  const handleConvertToFocusBlock = useCallback(() => {
-    if (kind !== "taskStack") return;
-    if (!onConvertToFocusBlock) return;
-    if (focusBlockTasks.length === 0) return;
-    onConvertToFocusBlock(focusBlockTasks);
-    onClose();
-  }, [focusBlockTasks, kind, onConvertToFocusBlock, onClose]);
+  const handleDeleteChild = useCallback(
+    (child: StackPopoverChild) => {
+      if (!onDelete) return;
+      const entry: ContextMenuEntry = {
+        entryType: child.entryType,
+        entry: child.entry,
+      };
+      onDelete([entry]);
+      onClose();
+    },
+    [onClose, onDelete],
+  );
 
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
@@ -298,6 +313,34 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                     Pull out
                   </button>
 
+                  {onDuplicate && (
+                    <button
+                      type="button"
+                      className="calendar-stack-popover__aux"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicateChild(child);
+                      }}
+                    >
+                      <Copy aria-hidden />
+                      Duplicate
+                    </button>
+                  )}
+
+                  {onDelete && (
+                    <button
+                      type="button"
+                      className="calendar-stack-popover__aux calendar-stack-popover__aux--danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChild(child);
+                      }}
+                    >
+                      <Trash2 aria-hidden />
+                      Delete
+                    </button>
+                  )}
+
                   {child.entryType === "task" && onMarkAsDone && !isDone && (
                     <button
                       type="button"
@@ -318,18 +361,6 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
           </div>
         ))}
       </div>
-
-      {kind === "taskStack" && onConvertToFocusBlock && (
-        <div className="calendar-stack-popover__footer">
-          <button
-            type="button"
-            className="calendar-stack-popover__focus"
-            onClick={handleConvertToFocusBlock}
-          >
-            Convert to Focus Block
-          </button>
-        </div>
-      )}
     </div>
   );
 

@@ -852,6 +852,29 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
       const dateIso = eligible[0].due ?? fmtLocal(internalDate);
 
+      const sameDay = eligible.filter((task) => (task.due ?? dateIso) === dateIso);
+      if (sameDay.length !== eligible.length) {
+        notify("error", "Select time blocks on the same day to make a focus block.");
+        return;
+      }
+
+      const timed = sameDay
+        .map((task) => {
+          const startMinutes = task.start ? parseTimeToMinutes(task.start) : null;
+          const endMinutes = task.end ? parseTimeToMinutes(task.end) : null;
+          if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) return null;
+          return { task, startMinutes, endMinutes };
+        })
+        .filter(
+          (value): value is { task: CalendarTask; startMinutes: number; endMinutes: number } =>
+            value !== null,
+        );
+
+      if (timed.length < 2) {
+        notify("error", "Select at least 2 scheduled time blocks to make a focus block.");
+        return;
+      }
+
       const clusterCounts = new Map<string, number>();
       eligible.forEach((task) => {
         const label = task.cluster?.trim() || "";
@@ -861,60 +884,14 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       const bestCluster = [...clusterCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
       const title = bestCluster ? `${bestCluster}: focus block` : "Focus block";
 
-      const durationMinutes = Math.max(
-        30,
-        Math.min(
-          240,
-          eligible.reduce((sum, task) => {
-            if (typeof task.durationMinutes === "number" && Number.isFinite(task.durationMinutes)) {
-              return sum + task.durationMinutes;
-            }
-            const startMinutes = task.start ? parseTimeToMinutes(task.start) : null;
-            const endMinutes = task.end ? parseTimeToMinutes(task.end) : null;
-            if (startMinutes != null && endMinutes != null && endMinutes > startMinutes) {
-              return sum + (endMinutes - startMinutes);
-            }
-            return sum + POINTER_TASK_DEFAULT_DURATION_MINUTES;
-          }, 0),
-        ),
-      );
-
-      const selectedIds = new Set(eligible.map((task) => task.id));
-      const busy = [
-        ...events
-          .filter((event) => event.date === dateIso && Boolean(event.start) && Boolean(event.end) && !event.allDay)
-          .map((event) => {
-            const start = event.start ? parseTimeToMinutes(event.start) : null;
-            const end = event.end ? parseTimeToMinutes(event.end) : null;
-            if (start == null || end == null || end <= start) return null;
-            return { startMinutes: start, endMinutes: end };
-          })
-          .filter((block): block is { startMinutes: number; endMinutes: number } => block !== null),
-        ...tasks
-          .filter((task) => task.due === dateIso && Boolean(task.start) && Boolean(task.end))
-          .filter((task) => !selectedIds.has(task.id))
-          .map((task) => {
-            const start = task.start ? parseTimeToMinutes(task.start) : null;
-            const end = task.end ? parseTimeToMinutes(task.end) : null;
-            if (start == null || end == null || end <= start) return null;
-            return { startMinutes: start, endMinutes: end };
-          })
-          .filter((block): block is { startMinutes: number; endMinutes: number } => block !== null),
-      ];
-
-      const plan = buildDoablePlans({
-        drafts: [{ id: "focus", title, durationMinutes }],
-        busy,
-      })[0];
-      const placement = plan?.placements?.[0] ?? null;
-
-      const startMinutes = placement?.startMinutes ?? 9 * 60;
-      const endMinutes = placement?.endMinutes ?? Math.min(17 * 60, startMinutes + durationMinutes);
+      const startMinutes = Math.min(...timed.map((t) => t.startMinutes));
+      const endMinutes = Math.max(...timed.map((t) => t.endMinutes));
+      const durationMinutes = Math.max(30, endMinutes - startMinutes);
       const startAt = buildIsoDateTime(dateIso, formatMinutesHHMM(startMinutes));
       const endAt = buildIsoDateTime(dateIso, formatMinutesHHMM(endMinutes));
 
-      const childTaskIds = eligible
-        .map((task) => resolveTaskIdentifier(task))
+      const childTaskIds = timed
+        .map((rec) => resolveTaskIdentifier(rec.task))
         .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
         try {
@@ -941,17 +918,13 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           return;
         }
 
-        const childUpdates: Array<{ taskId: string; fields: Partial<Task> }> = eligible
-          .map((task) => resolveTaskIdentifier(task))
+        const childUpdates: Array<{ taskId: string; fields: Partial<Task> }> = timed
+          .map((rec) => resolveTaskIdentifier(rec.task))
           .filter((value): value is string => Boolean(value))
           .map((taskId) => ({
             taskId,
             fields: {
               focusBlockId: focusTask.taskId!,
-              startAt: null,
-              endAt: null,
-              dueDate: dateIso,
-              dueAt: dateIso,
             },
           }));
 
@@ -967,6 +940,41 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
     },
     [activeProjectId, events, internalDate, onRefreshTasks, tasks],
+  );
+
+  const handleUngroupFocusBlock = useCallback(
+    async (focusBlock: CalendarTask) => {
+      const source = focusBlock.source as ApiTask;
+      if (!source.projectId || !source.taskId) return;
+      if (focusBlock.kind !== "focus_block") return;
+
+      const childIds =
+        focusBlock.focusChildTaskIds ?? focusBlock.focusChecklist?.map((item) => item.taskId) ?? [];
+
+      try {
+        if (childIds.length > 0) {
+          const updates: Array<{ taskId: string; fields: Partial<Task> }> = childIds.map((taskId) => ({
+            taskId,
+            fields: {
+              focusBlockId: null,
+            },
+          }));
+          await updateTasksBulk(source.projectId, updates);
+        }
+
+        await deleteTask({
+          projectId: source.projectId,
+          taskId: source.taskId,
+        });
+
+        await onRefreshTasks();
+        notify("success", "Ungrouped focus block.");
+      } catch (error) {
+        console.error("Failed to ungroup focus block", error);
+        notify("error", "Unable to ungroup focus block. Please try again.");
+      }
+    },
+    [onRefreshTasks],
   );
 
   const handleRescheduleEntries = useCallback(
@@ -1460,6 +1468,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
                       onConvertToFocusBlock={handleConvertToFocusBlock}
+                      onUngroupFocusBlock={handleUngroupFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
                     />
@@ -1489,6 +1498,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
                       onConvertToFocusBlock={handleConvertToFocusBlock}
+                      onUngroupFocusBlock={handleUngroupFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
                     />

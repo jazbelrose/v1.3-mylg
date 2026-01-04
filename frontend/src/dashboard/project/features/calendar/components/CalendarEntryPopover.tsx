@@ -37,8 +37,10 @@ export interface CalendarEntryPopoverProps {
   entry: CalendarTask | CalendarEvent;
   selectedCount: number;
   teamMembers?: ProjectTeamMember[];
+  focusChildren?: CalendarTask[];
   onClose: () => void;
   onEdit: () => void;
+  onEditFocusChild?: (task: CalendarTask) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
   onDuplicate?: (entries: ContextMenuEntry[]) => void;
@@ -51,8 +53,10 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   entry,
   selectedCount,
   teamMembers,
+  focusChildren,
   onClose,
   onEdit,
+  onEditFocusChild,
   onSubmitForReview,
   onMarkAsDone,
   onDuplicate,
@@ -135,6 +139,12 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const isTask = entryType === "task";
   const task = isTask ? (entry as CalendarTask) : null;
   const event = !isTask ? (entry as CalendarEvent) : null;
+
+  const focusChildrenResolved = useMemo(() => {
+    if (!isTask || !task) return [];
+    if (task.kind !== "focus_block") return [];
+    return focusChildren ?? [];
+  }, [focusChildren, isTask, task]);
 
   const title = isTask ? task?.title : event?.title;
   const timeLabel = isTask
@@ -232,6 +242,24 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     onClose();
   }, [entryType, entry, onDelete, onClose]);
 
+  const handleDuplicateChild = useCallback(
+    (child: CalendarTask) => {
+      if (!onDuplicate) return;
+      onDuplicate([{ entryType: "task", entry: child }]);
+      onClose();
+    },
+    [onClose, onDuplicate],
+  );
+
+  const handleDeleteChild = useCallback(
+    (child: CalendarTask) => {
+      if (!onDelete) return;
+      onDelete([{ entryType: "task", entry: child }]);
+      onClose();
+    },
+    [onClose, onDelete],
+  );
+
   const popoverContent = (
     <div
       ref={popoverRef}
@@ -313,6 +341,61 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           </div>
         )}
       </div>
+
+      {/* Focus Block children (Time Blocks) */}
+      {focusChildrenResolved.length > 0 && (
+        <div className="calendar-entry-popover__children">
+          <div className="calendar-entry-popover__children-title">Time Blocks</div>
+          <div className="calendar-entry-popover__children-list">
+            {focusChildrenResolved.map((child) => {
+              const childTitle = child.title || "Untitled task";
+              const childTime = child.start && child.end ? `${child.start} - ${child.end}` : child.start || "";
+              return (
+                <div key={child.id} className="calendar-entry-popover__child-row">
+                  <button
+                    type="button"
+                    className="calendar-entry-popover__child"
+                    onClick={() => {
+                      onEditFocusChild?.(child);
+                      onClose();
+                    }}
+                    title={childTitle}
+                  >
+                    <div className="calendar-entry-popover__child-title">{childTitle}</div>
+                    {childTime && <div className="calendar-entry-popover__child-time">{childTime}</div>}
+                  </button>
+                  {onDuplicate && (
+                    <button
+                      type="button"
+                      className="calendar-stack-popover__aux"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicateChild(child);
+                      }}
+                      title="Duplicate"
+                    >
+                      <Copy aria-hidden />
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      type="button"
+                      className="calendar-stack-popover__aux calendar-stack-popover__aux--danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChild(child);
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 aria-hidden />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="calendar-entry-popover__actions">
