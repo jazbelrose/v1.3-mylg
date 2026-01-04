@@ -11,7 +11,7 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/app/contexts/useUser';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
-import { updateTask } from '@/shared/utils/api';
+import { approveTask, requestTaskChanges } from '@/shared/utils/api';
 import CommandPanel, {
   type TimelineEvent,
   type TimelineTask,
@@ -169,7 +169,6 @@ export function OverviewEventsAndTasks({
     const wasToggled = toggledTaskIds.has(id);
     const originalDone = task.done ?? (task.status?.toLowerCase() === 'done');
     const currentDone = wasToggled ? !originalDone : originalDone;
-    const newStatus = currentDone ? 'todo' : 'done';
     
     // Optimistic update
     setToggledTaskIds(prev => {
@@ -183,12 +182,13 @@ export function OverviewEventsAndTasks({
     });
     
     try {
-      await updateTask({
-        projectId,
-        taskId,
-        title: task.title || 'Untitled',
-        status: newStatus,
-      });
+      if (currentDone) {
+        // Task is done, mark as needs changes (to reopen it)
+        await requestTaskChanges(projectId, taskId, { note: 'Reopened from Overview' });
+      } else {
+        // Task is not done, mark as done
+        await approveTask(projectId, taskId, { note: '' });
+      }
     } catch (err) {
       console.error('Failed to toggle task:', err);
       // Revert optimistic update on error
