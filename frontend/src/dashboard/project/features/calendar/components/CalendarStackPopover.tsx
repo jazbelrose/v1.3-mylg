@@ -29,6 +29,8 @@ export interface CalendarStackPopoverProps {
   anchorElement: HTMLElement;
   kind: StackPopoverKind;
   title: string;
+  avatars?: TimelineAvatar[];
+  projectColor: string;
   children: StackPopoverChild[];
   teamMembers?: ProjectTeamMember[];
   onClose: () => void;
@@ -55,6 +57,8 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   anchorElement,
   kind,
   title,
+  avatars,
+  projectColor,
   children,
   teamMembers,
   onClose,
@@ -67,6 +71,22 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const memberLookup = useMemo(() => buildTeamMemberLookup(teamMembers), [teamMembers]);
+
+  const headerAvatar = useMemo(() => {
+    const first = avatars?.[0];
+    if (!first) return null;
+    return (
+      <ProjectAvatar
+        className="calendar-stack-popover__header-avatar"
+        thumb={first.thumb ?? undefined}
+        name={first.name}
+        shape="circle"
+        radius={12}
+      />
+    );
+  }, [avatars]);
+
+  const isSingleUser = Boolean((avatars?.length ?? 0) === 1);
 
   useEffect(() => {
     if (!popoverRef.current || !anchorElement) return;
@@ -133,7 +153,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   }, [anchorElement, onClose]);
 
   const groups: GroupedChildren[] = useMemo(() => {
-    if (kind !== "overlapStack") {
+    if (kind !== "overlapStack" || isSingleUser) {
       return [
         {
           label: "",
@@ -174,7 +194,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     });
 
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [children, kind, memberLookup]);
+  }, [children, isSingleUser, kind, memberLookup]);
 
   const focusBlockTasks = useMemo(() => {
     if (kind !== "taskStack") return [];
@@ -193,7 +213,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
-      <div className="calendar-entry-popover__header">
+      <div className="calendar-entry-popover__header calendar-stack-popover__header">
         <button
           type="button"
           className="calendar-entry-popover__title-btn"
@@ -204,12 +224,13 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
           <div className="calendar-entry-popover__title">{title}</div>
           <Pencil className="calendar-entry-popover__edit-icon" aria-hidden />
         </button>
+        {headerAvatar}
       </div>
 
       <div className="calendar-stack-popover__list">
         {groups.map((group) => (
           <div key={group.label || "__all"} className="calendar-stack-popover__group">
-            {kind === "overlapStack" && (
+            {kind === "overlapStack" && !isSingleUser && (
               <div className="calendar-stack-popover__group-header">
                 {group.avatar ? (
                   <ProjectAvatar
@@ -259,21 +280,22 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                     }}
                     title={entryTitle}
                   >
+                    <span className="calendar-stack-popover__item-pill" style={{ background: projectColor }} aria-hidden />
                     <div className="calendar-stack-popover__item-title">{entryTitle}</div>
-                    {kind === "overlapStack" && (
+                    {kind === "overlapStack" && !isSingleUser && (
                       <div className="calendar-stack-popover__item-time">{entryTime}</div>
                     )}
                   </button>
 
                   <button
                     type="button"
-                    className="calendar-stack-popover__drag"
+                    className="calendar-stack-popover__pullout"
                     onPointerDown={(e) => {
                       e.stopPropagation();
                       onStartDragOut(child.entryKey, e);
                     }}
                   >
-                    Drag
+                    Pull out
                   </button>
 
                   {child.entryType === "task" && onMarkAsDone && !isDone && (

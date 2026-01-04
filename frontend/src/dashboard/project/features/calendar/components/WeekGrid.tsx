@@ -348,11 +348,10 @@ function WeekGrid({
     kind: StackPopoverKind;
     title: string;
     childEntryKeys: string[];
+    avatars: TimelineAvatar[];
   } | null>(null);
 
-  const dragOutRef = useRef<{
-    entryKey: string;
-  } | null>(null);
+  const [unsuppressedEntryKeyForDrag, setUnsuppressedEntryKeyForDrag] = useState<string | null>(null);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -758,11 +757,7 @@ function WeekGrid({
             const end = Math.max(...windowEntries.map((e) => e.endMinutes));
             const hour = Math.min(23, Math.max(0, Math.floor(start / MINUTES_IN_HOUR)));
 
-            const titles = windowEntries
-              .map((e) => getWeekEntryPreview(e.title))
-              .filter(Boolean)
-              .slice(0, 2);
-            const summary = `${titles.join(" · ") || "Task Stack"} (${windowEntries.length})`;
+            const summary = getWeekEntryPreview(windowEntries[0]?.title ?? "Tasks");
             const tileId = `task-stack-${dayKey}-${userId}-${start}-${end}-${windowEntries.length}`;
 
             childKeys.forEach((k) => suppressedByTaskStack.add(k));
@@ -778,7 +773,7 @@ function WeekGrid({
               title: summary,
               startMinutes: start,
               endMinutes: end,
-              avatars: [],
+              avatars: windowEntries[0]?.avatars?.slice(0, 1) ?? [],
               hour,
               projectColor,
             });
@@ -847,6 +842,9 @@ function WeekGrid({
     entriesByDay.forEach((dayEntries, dayKey) => {
       const baseVisible = dayEntries.filter((entry) => {
         const key = `${entry.type}:${entry.id}`;
+        if (unsuppressedEntryKeyForDrag && key === unsuppressedEntryKeyForDrag) {
+          return true;
+        }
         if (overlapSuppressed.has(key)) return false;
         if (taskSuppressed.has(key)) return false;
         return true;
@@ -872,52 +870,12 @@ function WeekGrid({
     });
 
     return { renderTimelineEntriesByDay: layout, baseEntryLookup: baseEntryLookupMap };
-  }, [days, events, tasks, teamMemberLookup]);
+  }, [days, events, tasks, teamMemberLookup, unsuppressedEntryKeyForDrag]);
 
   const entryLookup = useMemo(() => baseEntryLookup, [baseEntryLookup]);
 
   useEffect(() => {
     const handlePointerUp = (event: PointerEvent) => {
-      const dragOut = dragOutRef.current;
-      if (dragOut) {
-        dragOutRef.current = null;
-        const dropTarget = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
-        const cell = dropTarget?.closest(".week-grid__cell") as HTMLElement | null;
-        const dayKey = cell?.dataset.dayKey;
-        const hourRaw = cell?.dataset.hour;
-        if (!cell || !dayKey || hourRaw == null) {
-          return;
-        }
-        const hour = Number(hourRaw);
-        const lookup = entryLookup.get(dragOut.entryKey);
-        if (!lookup) {
-          return;
-        }
-        const duration = lookup.entry.endMinutes - lookup.entry.startMinutes;
-        const rect = cell.getBoundingClientRect();
-        const ratio = Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1);
-        const minuteOffset = Math.min(
-          Math.max(Math.round(ratio * MINUTES_IN_HOUR), 0),
-          MINUTES_IN_HOUR - 1,
-        );
-        const startMinutes = hour * MINUTES_IN_HOUR + minuteOffset;
-        const endMinutes = startMinutes + duration;
-        const [finalStart, finalEnd] = snapAndClampRange(startMinutes, endMinutes);
-        const change: CalendarEntryChanges = {
-          type: lookup.entry.type === "event" ? "event" : "task",
-          entry: lookup.entry.payload as CalendarEvent | CalendarTask,
-          date: dayKey,
-          start: formatTimeFromMinutes(finalStart),
-          end: formatTimeFromMinutes(finalEnd),
-          duplicate: false,
-        };
-        const onReschedule = rescheduleEntriesRef.current;
-        if (onReschedule) {
-          onReschedule([change]);
-        }
-        return;
-      }
-
       const state = interactionRef.current;
       if (!state) return;
       const grid = gridRef.current;
@@ -1012,6 +970,8 @@ function WeekGrid({
       if (changes.length && onReschedule) {
         onReschedule(changes);
       }
+
+      setUnsuppressedEntryKeyForDrag(null);
     };
 
     document.addEventListener("pointerup", handlePointerUp);
@@ -1272,16 +1232,33 @@ function WeekGrid({
 
   const startDragOutFromPopover = useCallback(
     (entryKey: string, pointerEvent: React.PointerEvent) => {
-      dragOutRef.current = { entryKey };
-      interactionRef.current = null;
-      setDragPreviewTransforms({});
-      setResizePreviewTransforms({});
+      if (pointerEvent.button !== 0) return;
+      const lookup = entryLookup.get(entryKey);
+      if (!lookup) return;
+
       setPopover(null);
       setContextMenu(null);
-      // Keep stack popover open while dragging out for context
+      setStackPopover(null);
+
+      // Temporarily show the child in-grid so it can be the drag preview.
+      setUnsuppressedEntryKeyForDrag(entryKey);
+
+      isDraggingRef.current = false;
+
+      interactionRef.current = {
+        mode: "drag",
+        startX: pointerEvent.clientX,
+        startY: pointerEvent.clientY,
+        targets: [createTarget(lookup.entry, lookup.dayKey)],
+        duplicate: false,
+        isCopyMode: false,
+        startDayIndex: dayIndexLookup.get(lookup.dayKey) ?? 0,
+        previewEntryKey: undefined,
+      };
+      setIsCopyMode(false);
       pointerEvent.preventDefault();
     },
-    [],
+    [createTarget, dayIndexLookup, entryLookup],
   );
 
   const handleEntryMouseLeave = useCallback((event: React.MouseEvent<HTMLElement>) => {
@@ -1394,13 +1371,18 @@ function WeekGrid({
 
       if (entry.type === "taskStack" || entry.type === "overlapStack") {
         const payload = entry.payload as TaskStackPayload | OverlapStackPayload;
+        const firstChildTitle = payload.childEntryKeys
+          .map((key) => entryLookup.get(key)?.entry.title)
+          .filter((t): t is string => Boolean(t && t.trim().length > 0))[0];
+        const popoverTitle = `${firstChildTitle ?? entry.title} (${payload.childEntryKeys.length})`;
         setPopover(null);
         setContextMenu(null);
         setStackPopover({
           anchorElement: event.currentTarget,
           kind: entry.type,
-          title: entry.title,
+          title: popoverTitle,
           childEntryKeys: payload.childEntryKeys,
+          avatars: entry.avatars,
         });
         return;
       }
@@ -1432,7 +1414,7 @@ function WeekGrid({
         });
       }
     },
-    [onEditEvent, onEditTask],
+    [onEditEvent, onEditTask, entryLookup],
   );
 
   // Handle keyboard events for selected entries
@@ -1512,7 +1494,18 @@ function WeekGrid({
   ) => {
     const entrySelectionKey = `${entry.type}:${entry.id}`;
     const isEntrySelected = selectedEntryKeys.has(entrySelectionKey);
-    const previewTitle = getWeekEntryPreview(entry.title);
+    const isStack = entry.type === "taskStack" || entry.type === "overlapStack";
+    const stackPayload = isStack ? (entry.payload as TaskStackPayload | OverlapStackPayload) : null;
+    const stackChildren = isStack
+      ? stackPayload!.childEntryKeys
+          .map((key) => entryLookup.get(key)?.entry)
+          .filter((child): child is WeekTimelineEntry => Boolean(child))
+          .sort((a, b) => a.startMinutes - b.startMinutes)
+      : [];
+    const isSingleUserStack = isStack && entry.avatars.length === 1;
+    const previewTitle = isSingleUserStack
+      ? getWeekEntryPreview(stackChildren[0]?.title ?? entry.title)
+      : getWeekEntryPreview(entry.title);
     const tooltipLabel = entry.timeLabel ? `${entry.title} · ${entry.timeLabel}` : entry.title;
     const isFocusBlock =
       entry.type === "task" &&
@@ -1592,7 +1585,7 @@ function WeekGrid({
     const content = (
       <div className="week-grid__timeline-entry-content">
         <div className="week-grid__timeline-entry-header">
-          {entry.type === "task" && (
+          {(entry.type === "task" || entry.type === "taskStack" || entry.type === "overlapStack") && (
             <span className="week-grid__timeline-entry-icon">
               <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
             </span>
@@ -1615,9 +1608,78 @@ function WeekGrid({
     );
     const resolvedKey = entryKeyOverride ?? entry.id;
 
+    const renderInlineStackList = () => {
+      if (!isSingleUserStack) return null;
+      if (!stackChildren.length) return null;
+
+      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const tileHeightPx = Math.max(32, minutesToPxWeek(durationMinutes));
+      const headerHeightPx = 16;
+      const paddingYPx = 12;
+      const lineHeightPx = 14;
+      const available = tileHeightPx - headerHeightPx - paddingYPx;
+      const maxLines = Math.max(0, Math.floor(available / lineHeightPx));
+      if (maxLines <= 0) return null;
+
+      const total = stackChildren.length;
+      const needsMore = total > maxLines;
+      const displayCount = needsMore ? Math.max(0, maxLines - 1) : Math.min(total, maxLines);
+      const visible = stackChildren.slice(0, displayCount);
+
+      return (
+        <div className="week-grid__stack-list" aria-hidden>
+          {visible.map((child) => {
+            const childKey = `${child.type}:${child.id}`;
+            const childColor = child.projectColor || color;
+            return (
+              <div
+                key={childKey}
+                className={`week-grid__stack-line${child.completed ? " is-complete" : ""}`}
+              >
+                <span className="week-grid__stack-pill" style={{ background: childColor }} aria-hidden />
+                <span className="week-grid__stack-text">{child.title}</span>
+              </div>
+            );
+          })}
+          {needsMore && (
+            <div className="week-grid__stack-line week-grid__stack-line--more">
+              +{total - displayCount} more
+            </div>
+          )}
+        </div>
+      );
+    };
+
     if (entry.type === "overlapStack") {
       const payload = entry.payload as OverlapStackPayload;
       const count = payload.childEntryKeys.length;
+
+      if (isSingleUserStack) {
+        return (
+          <button
+            key={resolvedKey}
+            type="button"
+            className={entryClasses}
+            data-entry-key={entrySelectionKey}
+            data-entry-type={entry.type}
+            onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
+            style={entryStyleWithPreview}
+            title={tooltipLabel}
+            aria-label={tooltipLabel}
+            onClick={(event) => handleEntryClick(event, entry)}
+            onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
+          >
+            <div className="week-grid__timeline-entry-main">
+              <div className="week-grid__timeline-entry-body">
+                {content}
+                {renderInlineStackList()}
+              </div>
+              {inlineAvatars}
+            </div>
+          </button>
+        );
+      }
+
       const extra = Math.max(count - entry.avatars.length, 0);
       const chips = entry.avatars.length ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
@@ -1662,7 +1724,13 @@ function WeekGrid({
           onClick={(event) => handleEntryClick(event, entry)}
           onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
         >
-          <div className="week-grid__timeline-entry-main">{content}</div>
+          <div className="week-grid__timeline-entry-main">
+            <div className="week-grid__timeline-entry-body">
+              {content}
+              {renderInlineStackList()}
+            </div>
+            {inlineAvatars}
+          </div>
         </button>
       );
     }
@@ -2185,6 +2253,8 @@ function WeekGrid({
           anchorElement={stackPopover.anchorElement}
           kind={stackPopover.kind}
           title={stackPopover.title}
+          avatars={stackPopover.avatars}
+          projectColor={projectColor}
           children={stackPopover.childEntryKeys
             .map((entryKey): StackPopoverChild | null => {
               const lookup = entryLookup.get(entryKey);

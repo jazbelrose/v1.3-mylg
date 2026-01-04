@@ -1488,7 +1488,7 @@
 
 .week-grid__timeline-entry--task-stack .week-grid__timeline-entry-title,
 .week-grid__timeline-entry--overlap-stack .week-grid__timeline-entry-title {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .week-grid__timeline-entry--task {
@@ -1519,6 +1519,56 @@
   gap: 4px;
   flex: 1;
   min-width: 0;
+}
+
+.week-grid__timeline-entry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.week-grid__stack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.week-grid__stack-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  color: rgba(245, 245, 245, 0.92);
+}
+
+.week-grid__stack-line.is-complete {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.week-grid__stack-line--more {
+  padding-left: 12px;
+  opacity: 0.8;
+}
+
+.week-grid__stack-pill {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.week-grid__stack-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 .week-grid__timeline-entry-header {
@@ -2824,6 +2874,21 @@
   background: rgba(0, 0, 0, 0.2);
 }
 
+.calendar-stack-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calendar-stack-popover__header-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
 .calendar-stack-popover__group-header {
   display: flex;
   align-items: center;
@@ -2864,6 +2929,21 @@
   padding: 8px 10px;
   cursor: pointer;
   min-width: 0;
+
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+.calendar-stack-popover__item-pill {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 6px;
+  height: 18px;
+  border-radius: 999px;
+  opacity: 0.95;
 }
 
 .calendar-stack-popover__item:hover {
@@ -2877,12 +2957,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .calendar-stack-popover__item-time {
   margin-top: 2px;
   font-size: 0.72rem;
   color: rgba(245, 245, 245, 0.6);
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .calendar-stack-popover__item.is-done .calendar-stack-popover__item-title {
@@ -2890,7 +2974,7 @@
   opacity: 0.75;
 }
 
-.calendar-stack-popover__drag,
+.calendar-stack-popover__pullout,
 .calendar-stack-popover__done,
 .calendar-stack-popover__focus {
   display: inline-flex;
@@ -2905,7 +2989,7 @@
   cursor: pointer;
 }
 
-.calendar-stack-popover__drag:hover,
+.calendar-stack-popover__pullout:hover,
 .calendar-stack-popover__done:hover,
 .calendar-stack-popover__focus:hover {
   background: rgba(255, 255, 255, 0.06);
