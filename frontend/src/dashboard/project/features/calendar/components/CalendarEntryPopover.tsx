@@ -373,6 +373,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       className="calendar-entry-popover"
       role="dialog"
       aria-label="Entry details"
+      onMouseDown={(e) => {
+        // This popover is rendered via a React portal; without stopping propagation,
+        // parent calendar click handlers can interpret clicks inside the popover as
+        // "click on empty grid" and close it immediately.
+        e.stopPropagation();
+      }}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Header with title and avatar stack */}
       <div className="calendar-entry-popover__header">
