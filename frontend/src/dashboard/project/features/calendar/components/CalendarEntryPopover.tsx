@@ -192,13 +192,32 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   // Build avatars (overlapped stack like calendar blocks)
   const avatars: TimelineAvatar[] = useMemo(() => {
     if (isTask && task) {
-      return buildTaskAvatars(task, memberLookup);
+      const direct = buildTaskAvatars(task, memberLookup);
+      if (direct.length > 0) return direct;
+
+      // Focus Blocks frequently have no assignee set on the parent; derive from child time blocks.
+      if (isFocusBlock && focusChildrenResolved.length > 0) {
+        const seen = new Set<string>();
+        const derived: TimelineAvatar[] = [];
+        focusChildrenResolved.forEach((child) => {
+          if (derived.length >= 3) return;
+          buildTaskAvatars(child, memberLookup).forEach((a) => {
+            if (derived.length >= 3) return;
+            if (seen.has(a.key)) return;
+            seen.add(a.key);
+            derived.push(a);
+          });
+        });
+        return derived;
+      }
+
+      return direct;
     }
     if (!isTask && event) {
       return buildEventAvatars(event, memberLookup);
     }
     return [];
-  }, [isTask, task, event, memberLookup]);
+  }, [event, focusChildrenResolved, isFocusBlock, isTask, memberLookup, task]);
 
   // Get formatted assignee names (not user IDs)
   const assigneeNames = useMemo(() => {

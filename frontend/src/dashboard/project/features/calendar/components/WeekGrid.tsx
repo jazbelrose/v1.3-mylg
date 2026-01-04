@@ -478,6 +478,41 @@ function WeekGrid({
       Array<WeekTimelineEntry>
     >();
 
+    const buildAvatarsForTaskEntry = (task: CalendarTask): TimelineAvatar[] => {
+      const direct = buildTaskAvatars(task, teamMemberLookup);
+      if (direct.length > 0) return direct;
+
+      // Focus Blocks often have no assignee set on the parent; derive from child time blocks.
+      const isFocusBlock =
+        task.kind === "focus_block" ||
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0);
+      if (!isFocusBlock) return direct;
+
+      const focusId = task.source?.taskId ?? task.id;
+      const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      const childrenFromIds = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((value): value is CalendarTask => Boolean(value));
+      const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+      const children = [...childrenFromIds, ...childrenFromFocusId];
+      if (children.length === 0) return [];
+
+      const seen = new Set<string>();
+      const derived: TimelineAvatar[] = [];
+      children.forEach((child) => {
+        if (derived.length >= 3) return;
+        buildTaskAvatars(child, teamMemberLookup).forEach((a) => {
+          if (derived.length >= 3) return;
+          if (seen.has(a.key)) return;
+          seen.add(a.key);
+          derived.push(a);
+        });
+      });
+
+      return derived;
+    };
+
     const addEntry = (
       dayKey: string,
       entry: WeekTimelineEntry,
@@ -604,7 +639,7 @@ function WeekGrid({
             timeLabel,
             startMinutes,
             endMinutes,
-            avatars: buildTaskAvatars(task, teamMemberLookup),
+            avatars: buildAvatarsForTaskEntry(task),
             completed: isComplete,
             hour,
           });
@@ -637,7 +672,7 @@ function WeekGrid({
         timeLabel,
         startMinutes,
         endMinutes,
-        avatars: buildTaskAvatars(task, teamMemberLookup),
+        avatars: buildAvatarsForTaskEntry(task),
         completed: isComplete,
         hour,
       });
