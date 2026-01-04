@@ -14,6 +14,7 @@
  */
 
 import React, { useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -61,6 +62,7 @@ export interface TimelineTask {
   assignedTo?: string;
   assigneeId?: string;
   assigneeIds?: string[];
+  assigneeTokens?: string[];
   isOverdue?: boolean;
   isDueSoon?: boolean;
   source?: unknown;
@@ -72,6 +74,7 @@ export interface CommandPanelProps {
   events: TimelineEvent[];
   tasks: TimelineTask[];
   currentUserId?: string;
+  currentUserEmail?: string;
   isUserLoading?: boolean;
   onToggleTask?: (id: string) => void;
   onEditItem?: (item: TimelineItem) => void;
@@ -417,6 +420,36 @@ function ContextMenu({
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const isTask = item.type === 'task';
+  const [adjustedPosition, setAdjustedPosition] = useState(position);
+  
+  // Adjust position to keep menu in viewport
+  useLayoutEffect(() => {
+    if (!menuRef.current) {
+      setAdjustedPosition(position);
+      return;
+    }
+    
+    const menu = menuRef.current;
+    const rect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const padding = 8;
+    
+    let x = position.x;
+    let y = position.y;
+    
+    // Adjust horizontal position if menu goes off-screen
+    if (x + rect.width > viewportWidth - padding) {
+      x = Math.max(padding, viewportWidth - rect.width - padding);
+    }
+    
+    // Adjust vertical position if menu goes off-screen
+    if (y + rect.height > viewportHeight - padding) {
+      y = Math.max(padding, viewportHeight - rect.height - padding);
+    }
+    
+    setAdjustedPosition({ x, y });
+  }, [position]);
   
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -436,11 +469,11 @@ function ContextMenu({
     };
   }, [onClose]);
   
-  return (
+  const menuContent = (
     <div
       ref={menuRef}
       className={styles.contextMenu}
-      style={{ top: position.y, left: position.x }}
+      style={{ top: adjustedPosition.y, left: adjustedPosition.x, position: 'fixed' }}
     >
       <button type="button" className={styles.contextMenuItem} onClick={onEdit}>
         <Edit3 size={14} />
@@ -471,6 +504,9 @@ function ContextMenu({
       </button>
     </div>
   );
+  
+  // Render in portal to document.body to avoid clipping
+  return createPortal(menuContent, document.body);
 }
 
 // ============================================================================
@@ -481,6 +517,7 @@ export function CommandPanel({
   events,
   tasks,
   currentUserId,
+  currentUserEmail,
   isUserLoading = false,
   onToggleTask,
   onEditItem,
@@ -554,10 +591,35 @@ export function CommandPanel({
       // Assignee filter (only applies to tasks, requires currentUserId)
       if (item.type === 'task' && assigneeFilter !== 'all' && currentUserId) {
         const task = item as TimelineTask;
-        // Check both assigneeId and assigneeIds array
+        
+        // Check if current user matches any assignee identifier:
+        // - Direct userId match in assigneeId or assigneeIds
+        // - Email match in assigneeTokens
+        // - Token format "name__userId" match in assigneeTokens
+        const matchesUserInTokens = (tokens?: string[]) => {
+          if (!tokens?.length) return false;
+          const normalizedEmail = currentUserEmail?.toLowerCase().trim();
+          return tokens.some(token => {
+            const t = token.toLowerCase().trim();
+            // Direct userId match
+            if (t === currentUserId.toLowerCase()) return true;
+            // Email match
+            if (normalizedEmail && t === normalizedEmail) return true;
+            // Token format "name__userId" or "__userId"
+            if (t.includes('__')) {
+              const parts = t.split('__');
+              const lastPart = parts[parts.length - 1]?.trim();
+              if (lastPart === currentUserId.toLowerCase()) return true;
+              if (normalizedEmail && lastPart === normalizedEmail) return true;
+            }
+            return false;
+          });
+        };
+        
         const isMyTask = task.assigneeId === currentUserId || 
                          (task.assigneeIds?.includes(currentUserId) ?? false) ||
-                         (!task.assigneeId && !task.assignedTo && !task.assigneeIds?.length);
+                         matchesUserInTokens(task.assigneeTokens) ||
+                         (!task.assigneeId && !task.assignedTo && !task.assigneeIds?.length && !task.assigneeTokens?.length);
         
         if (assigneeFilter === 'me' && !isMyTask) return false;
         if (assigneeFilter === 'team' && isMyTask) return false;
@@ -571,7 +633,7 @@ export function CommandPanel({
       
       return true;
     });
-  }, [events, tasks, timeFilter, assigneeFilter, searchQuery, today, currentUserId]);
+  }, [events, tasks, timeFilter, assigneeFilter, searchQuery, today, currentUserId, currentUserEmail]);
   
   // Group by day
   const groupedItems = useMemo(() => {
@@ -865,7 +927,12 @@ export function CommandPanel({
                       onPrimaryAction={() => handlePrimaryAction(item)}
                       onEditAction={() => {
                         setSelectedId(item.id);
-                        onEditItem?.(item);
+                        // For tasks, prefer QuickEditTask modal; for events use onEditItem
+                        if (item.type === 'task' && onQuickEditTask) {
+                          onQuickEditTask(item as TimelineTask);
+                        } else {
+                          onEditItem?.(item);
+                        }
                       }}
                       onContextMenu={(e) => handleContextMenu(e, item)}
                     />

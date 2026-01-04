@@ -17,6 +17,11 @@ import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import Spinner from "@/shared/ui/Spinner";
+import CalendarTaskDrawer from "@/dashboard/project/features/calendar/components/CalendarTaskDrawer";
+import type { 
+  QuickCreateTaskModalTask,
+  QuickCreateTaskModalEvent,
+} from "@/dashboard/home/components/QuickCreateTaskModal";
 
 interface LocationState {
   flashDate?: string;
@@ -44,6 +49,56 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
   quickLinksRef,
 }) => {
   const overviewData = useOverviewData(projectId);
+  
+  // Task drawer state for QuickCreateTaskModal
+  const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+  const [taskDrawerTask, setTaskDrawerTask] = useState<QuickCreateTaskModalTask | null>(null);
+  
+  // Handler for opening the task modal from Overview
+  const handleQuickEditTask = useCallback((task: Record<string, unknown>) => {
+    // Convert task to QuickCreateTaskModalTask format
+    const modalTask: QuickCreateTaskModalTask = {
+      taskId: (task.taskId as string) || (task.id as string) || '',
+      projectId: projectId,
+      projectName: projectTitle,
+      title: (task.title as string) || '',
+      description: task.description as string | undefined,
+      status: (task.status as string) || 'todo',
+      dueDate: task.dueDate as string | undefined,
+      startAt: task.startAt as string | null | undefined,
+      endAt: task.endAt as string | null | undefined,
+      address: task.address as string | undefined,
+      assigneeId: task.assigneeId as string | undefined,
+      assigneeIds: task.assigneeIds as string[] | undefined,
+      assigneeTokens: task.assigneeTokens as string[] | undefined,
+    };
+    setTaskDrawerTask(modalTask);
+    setTaskDrawerOpen(true);
+  }, [projectId, projectTitle]);
+  
+  const handleTaskDrawerClose = useCallback(() => {
+    setTaskDrawerOpen(false);
+    setTaskDrawerTask(null);
+  }, []);
+  
+  const handleTaskCreated = useCallback((event: QuickCreateTaskModalEvent) => {
+    // Refresh data after task creation
+    overviewData.refresh?.();
+    handleTaskDrawerClose();
+    console.log('[OverviewHud] Task created:', event);
+  }, [overviewData, handleTaskDrawerClose]);
+  
+  const handleTaskUpdated = useCallback(() => {
+    // Refresh data after task update
+    overviewData.refresh?.();
+    handleTaskDrawerClose();
+  }, [overviewData, handleTaskDrawerClose]);
+  
+  const handleTaskDeleted = useCallback(() => {
+    // Refresh data after task deletion
+    overviewData.refresh?.();
+    handleTaskDrawerClose();
+  }, [overviewData, handleTaskDrawerClose]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -59,6 +114,12 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
       window.removeEventListener("project-open-files", handleOpenFiles);
     };
   }, [projectId, setFilesOpen]);
+  
+  // Project list for the modal (just the current project)
+  const taskProjects = useMemo(() => [{
+    id: projectId,
+    name: projectTitle || 'Project',
+  }], [projectId, projectTitle]);
 
   return (
     <div className="overview-layout overview-hud-layout">
@@ -93,6 +154,20 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
         recentMessages={overviewData.recentMessages}
         recentFiles={overviewData.recentFiles}
         recentLinks={overviewData.recentLinks}
+        onQuickEditTask={handleQuickEditTask}
+      />
+      
+      {/* Task Edit Drawer (QuickCreateTaskModal) */}
+      <CalendarTaskDrawer
+        open={taskDrawerOpen}
+        task={taskDrawerTask}
+        projects={taskProjects}
+        activeProjectId={projectId}
+        activeProjectName={projectTitle}
+        onClose={handleTaskDrawerClose}
+        onCreated={handleTaskCreated}
+        onUpdated={handleTaskUpdated}
+        onDeleted={handleTaskDeleted}
       />
     </div>
   );

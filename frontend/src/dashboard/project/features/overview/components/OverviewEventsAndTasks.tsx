@@ -7,10 +7,11 @@
  * - Hover quick actions + primary action per row
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/app/contexts/useUser';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
+import { updateTask } from '@/shared/utils/api';
 import CommandPanel, {
   type TimelineEvent,
   type TimelineTask,
@@ -45,6 +46,7 @@ interface RawTask {
   assignedTo?: string | { name?: string; email?: string }[];
   assigneeId?: string;
   assigneeIds?: string[];
+  assigneeTokens?: string[];
   address?: string;
   done?: boolean;
   source?: unknown;
@@ -78,7 +80,11 @@ export function OverviewEventsAndTasks({
   onOpenMap,
 }: OverviewEventsAndTasksProps) {
   const navigate = useNavigate();
-  const { userId } = useUser();
+  const { userId, user } = useUser();
+  const userEmail = user?.email;
+  
+  // Local state to track toggled tasks (optimistic UI)
+  const [toggledTaskIds, setToggledTaskIds] = useState<Set<string>>(new Set());
   
   // Convert raw events to TimelineEvent format
   const timelineEvents: TimelineEvent[] = useMemo(() => {
@@ -103,13 +109,20 @@ export function OverviewEventsAndTasks({
     threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
     
     return tasks.map(t => {
+      const taskId = t.id || t.taskId || '';
       const dueDate = t.dueDate || t.due;
       const dueDateObj = dueDate ? new Date(dueDate) : null;
       const dueDateOnly = dueDateObj 
         ? new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate())
         : null;
       
-      const isOverdue = dueDateOnly ? dueDateOnly < today && !t.done : false;
+      // Account for local toggle state
+      const wasToggled = toggledTaskIds.has(taskId);
+      const originalDone = t.done ?? (t.status?.toLowerCase() === 'done');
+      const effectiveDone = wasToggled ? !originalDone : originalDone;
+      const effectiveStatus = effectiveDone ? 'done' : (t.status || 'todo');
+      
+      const isOverdue = dueDateOnly ? dueDateOnly < today && !effectiveDone : false;
       const isDueSoon = dueDateOnly && !isOverdue ? dueDateOnly <= threeDaysFromNow : false;
       
       // Format assignedTo
@@ -121,25 +134,75 @@ export function OverviewEventsAndTasks({
       }
       
       return {
-        id: t.id || t.taskId || '',
+        id: taskId,
         type: 'task' as const,
         title: t.title || 'Untitled task',
         dueDate,
-        status: t.status,
-        done: t.done ?? false,
+        status: effectiveStatus,
+        done: effectiveDone,
         assignedTo,
         assigneeId: t.assigneeId,
         assigneeIds: t.assigneeIds,
+        assigneeTokens: t.assigneeTokens,
         isOverdue,
         isDueSoon,
         source: t.source ?? t,
       };
     });
-  }, [tasks]);
+  }, [tasks, toggledTaskIds]);
   
-  const handleToggleTask = useCallback((id: string) => {
-    onToggleTask?.(id);
-  }, [onToggleTask]);
+  const handleToggleTask = useCallback(async (id: string) => {
+    // If parent provides toggle handler, use it
+    if (onToggleTask) {
+      onToggleTask(id);
+      return;
+    }
+    
+    // Otherwise, call API directly
+    const task = tasks.find(t => (t.id || t.taskId) === id);
+    if (!task) return;
+    
+    const taskId = task.taskId || task.id;
+    if (!taskId) return;
+    
+    // Determine current done state (check local toggle state first)
+    const wasToggled = toggledTaskIds.has(id);
+    const originalDone = task.done ?? (task.status?.toLowerCase() === 'done');
+    const currentDone = wasToggled ? !originalDone : originalDone;
+    const newStatus = currentDone ? 'todo' : 'done';
+    
+    // Optimistic update
+    setToggledTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    
+    try {
+      await updateTask({
+        projectId,
+        taskId,
+        title: task.title || 'Untitled',
+        status: newStatus,
+      });
+    } catch (err) {
+      console.error('Failed to toggle task:', err);
+      // Revert optimistic update on error
+      setToggledTaskIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+    }
+  }, [onToggleTask, tasks, projectId, toggledTaskIds]);
   
   const handleEditItem = useCallback((item: TimelineItem) => {
     if (item.type === 'event') {
@@ -179,6 +242,7 @@ export function OverviewEventsAndTasks({
         events={timelineEvents}
         tasks={timelineTasks}
         currentUserId={userId}
+        currentUserEmail={userEmail}
         onToggleTask={handleToggleTask}
         onEditItem={handleEditItem}
         onQuickEditTask={onQuickEditTask}

@@ -325,6 +325,9 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
           endAt: t.endAt,
           status: t.status,
           assignedTo: t.assigneeTokens?.join(', ') || t.assigneeId,
+          assigneeId: t.assigneeId,
+          assigneeIds: t.assigneeIds,
+          assigneeTokens: t.assigneeTokens,
           address: t.address,
         })));
       })
@@ -469,6 +472,9 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
         endAt: t.endAt,
         status: t.status,
         assignedTo: t.assigneeTokens?.join(', ') || t.assigneeId,
+        assigneeId: t.assigneeId,
+        assigneeIds: t.assigneeIds,
+        assigneeTokens: t.assigneeTokens,
         address: t.address,
       })));
 
