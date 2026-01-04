@@ -2355,7 +2355,7 @@
   height: var(--hero-map-size);
   cursor: pointer;
   overflow: hidden;
-  background: #1a1a2e;
+  background: transparent;
   border-radius: 12px;
 }
 
@@ -2366,22 +2366,23 @@
 }
 
 .heroMapLeaflet :global(.leaflet-container) {
-  background: #1a1a2e;
+  background: transparent;
 }
 
-/* Gradient overlay at bottom for city label */
+/* Hide all Leaflet controls for clean minimap */
+.heroMapLeaflet :global(.leaflet-control-container) {
+  display: none;
+}
+
+/* Label strip at bottom - no gradient overlay */
 .heroMapOverlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20px 12px 10px;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.75) 0%,
-    rgba(0, 0, 0, 0.4) 50%,
-    transparent 100%
-  );
+  height: auto;
+  padding: 8px 10px;
+  background: transparent;
   z-index: 2;
   pointer-events: none;
 }
@@ -2399,13 +2400,17 @@
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0.2px;
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
 }
 
 /* Scale bar indicator */

@@ -89,9 +89,6 @@ export function MiniMapTile({
   const [isHovered, setIsHovered] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(PREVIEW_ZOOM);
 
-  // FINGERPRINT: Confirm this file is live
-  console.log('🗺️ MiniMapTile LIVE', { radiusKm, PREVIEW_ZOOM, lat, lng, cityLabel });
-
   // Create/recreate map when coordinates change
   useEffect(() => {
     if (!containerRef.current) return;
@@ -102,13 +99,13 @@ export function MiniMapTile({
       mapRef.current = null;
     }
 
-    // Calculate bounds for the desired radius
+    // Calculate bounds for reference
     const bounds = getBoundsForRadius(lat, lng, radiusKm);
 
     // Create map - fully locked down, no interactions
     const map = L.map(containerRef.current, {
       center: [lat, lng],
-      zoom: PREVIEW_ZOOM,
+      zoom: 14,  // Deterministic neighborhood zoom (no guessing)
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -127,32 +124,13 @@ export function MiniMapTile({
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     });
 
-    // Debug tile loading
-    tiles.on('tileerror', (e) => {
-      console.warn('🧱 MiniMapTile tileerror:', e);
-    });
-
-    tiles.on('load', () => {
-      console.log('✅ MiniMapTile tiles loaded successfully');
-    });
-
     tiles.addTo(map);
 
     // Add marker
     L.marker([lat, lng], { icon: PIN_ICON }).addTo(map);
 
-    // Fit bounds after map is ready and container has stable size
-    map.whenReady(() => {
-      map.invalidateSize();
-      map.fitBounds(bounds, { 
-        maxZoom: 15,  // Allow neighborhood-level detail (streets and landmarks visible)
-        padding: [24, 24] 
-      });
-      // Update zoom state after fitBounds calculates final zoom
-      const finalZoom = Math.round(map.getZoom());
-      console.log('🗺️ MiniMapTile final zoom:', finalZoom, 'bounds:', bounds);
-      setCurrentZoom(finalZoom);
-    });
+    // Set zoom state
+    setCurrentZoom(14);
 
     mapRef.current = map;
 
@@ -189,20 +167,6 @@ export function MiniMapTile({
             <span className={styles.heroMapLabel}>{cityLabel}</span>
           )}
           <span className={styles.heroMapScale}>{scaleLabel}</span>
-          {/* FINGERPRINT: Visual confirmation this file is live */}
-          <span style={{ 
-            position: 'absolute', 
-            top: '4px', 
-            right: '4px', 
-            fontSize: '9px', 
-            background: 'rgba(59, 130, 246, 0.8)', 
-            color: 'white', 
-            padding: '2px 4px', 
-            borderRadius: '2px',
-            fontWeight: 600
-          }}>
-            LIVE z={currentZoom}
-          </span>
         </div>
       </div>
 
