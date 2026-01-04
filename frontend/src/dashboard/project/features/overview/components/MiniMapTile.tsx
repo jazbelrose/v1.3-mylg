@@ -4,10 +4,12 @@
  * Features:
  * - Real Leaflet map tiles (CartoDB dark)
  * - Shows venue marker at provided lat/lng
+ * - Context-level zoom (city/neighborhood, z=11-13)
+ * - Uses fitBounds to show ~3-5km radius around pin
  * - Locked: no pan/zoom/interactions
- * - City label overlay at bottom
+ * - City/neighborhood label overlay with scale bar
  * - "Open map" hover state
- * - Click opens full Map view
+ * - Click opens full Map view (where user can zoom in)
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,27 +30,81 @@ const PIN_ICON = L.icon({
   iconAnchor: [14, 36],
 });
 
+// Context zoom level for preview (shows neighborhood/city context)
+// z=11 ≈ 10km view, z=12 ≈ 5km view, z=13 ≈ 2.5km view
+const PREVIEW_ZOOM = 12;
+
+/**
+ * Calculate bounds for a given radius around a point
+ * @param lat - center latitude
+ * @param lng - center longitude  
+ * @param radiusKm - radius in kilometers
+ * @returns Leaflet LatLngBounds
+ */
+function getBoundsForRadius(lat: number, lng: number, radiusKm: number): L.LatLngBounds {
+  // Approximate degrees per km (varies by latitude)
+  const latDegPerKm = 1 / 111; // ~111km per degree latitude
+  const lngDegPerKm = 1 / (111 * Math.cos((lat * Math.PI) / 180)); // adjust for longitude
+  
+  const latOffset = radiusKm * latDegPerKm;
+  const lngOffset = radiusKm * lngDegPerKm;
+  
+  return L.latLngBounds(
+    [lat - latOffset, lng - lngOffset], // southwest
+    [lat + latOffset, lng + lngOffset]  // northeast
+  );
+}
+
+/**
+ * Get a scale bar label based on zoom level
+ */
+function getScaleLabel(zoom: number): string {
+  if (zoom >= 14) return '500m';
+  if (zoom >= 13) return '1 km';
+  if (zoom >= 12) return '2 km';
+  if (zoom >= 11) return '5 km';
+  return '10 km';
+}
+
 interface MiniMapTileProps {
   lat: number;
   lng: number;
-  cityLabel?: string; // e.g., "San Francisco" or "DTLA"
+  cityLabel?: string; // e.g., "San Francisco" or "Downtown LA"
+  radiusKm?: number; // Desired context radius (default: 4km for neighborhood view)
   onClick?: () => void;
   className?: string;
 }
 
-export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMapTileProps) {
+export function MiniMapTile({ 
+  lat, 
+  lng, 
+  cityLabel, 
+  radiusKm = 4, // Show ~4km radius by default (neighborhood/district context)
+  onClick, 
+  className 
+}: MiniMapTileProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const zoom = 12;
+  const [currentZoom, setCurrentZoom] = useState(PREVIEW_ZOOM);
 
+  // Create/recreate map when coordinates change
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!containerRef.current) return;
+    
+    // Clean up existing map
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
 
-    // Create map - fully locked down
+    // Calculate bounds for the desired radius
+    const bounds = getBoundsForRadius(lat, lng, radiusKm);
+
+    // Create map - fully locked down, no interactions
     const map = L.map(containerRef.current, {
       center: [lat, lng],
-      zoom,
+      zoom: PREVIEW_ZOOM,
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -59,7 +115,17 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
       keyboard: false,
     });
 
-    // Use dark-style tiles (CartoDB dark matter)
+    // Fit to bounds to show the radius, with max zoom limit for context
+    map.fitBounds(bounds, { 
+      maxZoom: 13,  // Never zoom in closer than z=13 for preview
+      padding: [10, 10] 
+    });
+    
+    // Get actual zoom after fitBounds and update state
+    const actualZoom = map.getZoom();
+    setCurrentZoom(Math.round(actualZoom));
+
+    // Use dark-style tiles (CartoDB dark matter) - includes city/neighborhood labels
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
     }).addTo(map);
@@ -73,14 +139,9 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
       map.remove();
       mapRef.current = null;
     };
-  }, [lat, lng]);
+  }, [lat, lng, radiusKm]);
 
-  // Update center if lat/lng changes
-  useEffect(() => {
-    if (mapRef.current) {
-      mapRef.current.setView([lat, lng], zoom, { animate: false });
-    }
-  }, [lat, lng, zoom]);
+  const scaleLabel = getScaleLabel(currentZoom);
 
   return (
     <div
@@ -100,11 +161,14 @@ export function MiniMapTile({ lat, lng, cityLabel, onClick, className }: MiniMap
       {/* Leaflet container */}
       <div ref={containerRef} className={styles.heroMapLeaflet} />
       
-      {/* Bottom gradient + city label */}
+      {/* Bottom gradient + city label + scale bar */}
       <div className={styles.heroMapOverlay}>
-        {cityLabel && (
-          <span className={styles.heroMapLabel}>{cityLabel}</span>
-        )}
+        <div className={styles.heroMapContextRow}>
+          {cityLabel && (
+            <span className={styles.heroMapLabel}>{cityLabel}</span>
+          )}
+          <span className={styles.heroMapScale}>{scaleLabel}</span>
+        </div>
       </div>
 
       {/* Hover state */}
