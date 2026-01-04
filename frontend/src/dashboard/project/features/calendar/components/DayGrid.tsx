@@ -1070,8 +1070,7 @@ function DayGrid({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload,
-        // Convert to Focus Block should only appear when invoked via shift+right-click
-        allowConvertToFocusBlock: Boolean(event.shiftKey) && eligibleSelectedTasksCount >= 2,
+        allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
       });
     },
     [entryLookup, selectedEntryKeys],

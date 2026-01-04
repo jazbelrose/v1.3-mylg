@@ -1325,7 +1325,7 @@ function WeekGrid({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload as CalendarTask | CalendarEvent,
-        allowConvertToFocusBlock: Boolean(event.shiftKey) && eligibleSelectedTasksCount >= 2,
+        allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
       });
     },
     [entryLookup, selectedEntryKeys],
@@ -1411,7 +1411,7 @@ function WeekGrid({
         position: { x: event.clientX, y: event.clientY },
         entryType: child.entryType,
         entry: child.entry,
-        allowConvertToFocusBlock: Boolean(event.shiftKey) && eligibleSelectedTasksCount >= 2,
+        allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
       });
     },
     [entryLookup, onEntrySelect, selectedEntryKeys],
