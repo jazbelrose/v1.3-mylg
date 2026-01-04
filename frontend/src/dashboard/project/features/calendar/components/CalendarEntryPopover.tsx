@@ -248,11 +248,28 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   }, [task, onSubmitForReview, onClose]);
 
   const handleMarkAsDone = useCallback(() => {
-    if (task && onMarkAsDone) {
+    if (!onMarkAsDone) {
+      onClose();
+      return;
+    }
+
+    // For Focus Blocks, treat “Done” as “All done” (mark all child time blocks as done).
+    if (isFocusBlock && focusChildrenResolved.length > 0) {
+      const pendingChildren = focusChildrenResolved.filter(
+        (t) => t.status !== "done" && t.done !== true,
+      );
+      if (pendingChildren.length > 0) {
+        onMarkAsDone(pendingChildren);
+      }
+      onClose();
+      return;
+    }
+
+    if (task) {
       onMarkAsDone([task]);
     }
     onClose();
-  }, [task, onMarkAsDone, onClose]);
+  }, [focusChildrenResolved, isFocusBlock, onClose, onMarkAsDone, task]);
 
   const handleDuplicate = useCallback(() => {
     if (onDuplicate) {
@@ -267,24 +284,6 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     }
     onClose();
   }, [entryType, entry, onDelete, onClose]);
-
-  const handleDuplicateChild = useCallback(
-    (child: CalendarTask) => {
-      if (!onDuplicate) return;
-      onDuplicate([{ entryType: "task", entry: child }]);
-      onClose();
-    },
-    [onClose, onDuplicate],
-  );
-
-  const handleDeleteChild = useCallback(
-    (child: CalendarTask) => {
-      if (!onDelete) return;
-      onDelete([{ entryType: "task", entry: child }]);
-      onClose();
-    },
-    [onClose, onDelete],
-  );
 
   const popoverContent = (
     <div
@@ -433,18 +432,18 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             <span>Review</span>
           </button>
         )}
-        {isTask && task && task.status !== "done" && onMarkAsDone && (
+        {isTask && onMarkAsDone && (
           <button
             type="button"
             className="calendar-entry-popover__action calendar-entry-popover__action--success"
             onClick={handleMarkAsDone}
-            title="Mark as Done"
+            title={isFocusBlock ? "Mark all as Done" : "Mark as Done"}
           >
             <CheckCircle className="calendar-entry-popover__action-icon" />
-            <span>Done</span>
+            <span>{isFocusBlock ? "All done" : "Done"}</span>
           </button>
         )}
-        {onDuplicate && (
+        {!isFocusBlock && onDuplicate && (
           <button
             type="button"
             className="calendar-entry-popover__action"
