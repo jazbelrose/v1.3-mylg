@@ -2028,6 +2028,7 @@
 
 .miniMapTile :global(.leaflet-container) {
   background: none !important;
+  outline: none !important;
 }
 
 /* Progress Ring (top-right corner, offset if map tile present) */
@@ -2373,10 +2374,13 @@
 .heroMapTile :global(.leaflet-pane) {
   opacity: 1 !important;
   filter: none !important;
+  background: none !important;
+  outline: none !important;
 }
 
 .heroMapLeaflet :global(.leaflet-container) {
-  background: #0a0a0a;
+  background: #0a0a0a !important;
+  outline: none !important;
 }
 
 /* Hide all Leaflet controls for clean minimap */
