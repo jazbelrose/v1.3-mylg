@@ -30,9 +30,9 @@ const PIN_ICON = L.icon({
   iconAnchor: [14, 36],
 });
 
-// Context zoom level for preview (shows neighborhood/city context)
-// z=11 ≈ 10km view, z=12 ≈ 5km view, z=13 ≈ 2.5km view
-const PREVIEW_ZOOM = 12;
+// Context zoom level for preview (shows neighborhood context)
+// z=12 ≈ 5km view, z=13 ≈ 2.5km view, z=14 ≈ 1.5km view
+const PREVIEW_ZOOM = 13;
 
 /**
  * Calculate bounds for a given radius around a point
@@ -59,9 +59,10 @@ function getBoundsForRadius(lat: number, lng: number, radiusKm: number): L.LatLn
  * Get a scale bar label based on zoom level
  */
 function getScaleLabel(zoom: number): string {
-  if (zoom >= 14) return '500m';
-  if (zoom >= 13) return '1 km';
-  if (zoom >= 12) return '2 km';
+  if (zoom >= 15) return '500m';
+  if (zoom >= 14) return '1 km';
+  if (zoom >= 13) return '2 km';
+  if (zoom >= 12) return '3 km';
   if (zoom >= 11) return '5 km';
   return '10 km';
 }
@@ -70,7 +71,7 @@ interface MiniMapTileProps {
   lat: number;
   lng: number;
   cityLabel?: string; // e.g., "San Francisco" or "Downtown LA"
-  radiusKm?: number; // Desired context radius (default: 4km for neighborhood view)
+  radiusKm?: number; // Desired context radius (default: 2.5km for neighborhood view)
   onClick?: () => void;
   className?: string;
 }
@@ -79,7 +80,7 @@ export function MiniMapTile({
   lat, 
   lng, 
   cityLabel, 
-  radiusKm = 4, // Show ~4km radius by default (neighborhood/district context)
+  radiusKm = 2.5, // Show ~2.5km radius by default (neighborhood context)
   onClick, 
   className 
 }: MiniMapTileProps) {
@@ -87,6 +88,9 @@ export function MiniMapTile({
   const mapRef = useRef<L.Map | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(PREVIEW_ZOOM);
+
+  // FINGERPRINT: Confirm this file is live
+  console.log('🗺️ MiniMapTile LIVE', { radiusKm, PREVIEW_ZOOM, lat, lng, cityLabel });
 
   // Create/recreate map when coordinates change
   useEffect(() => {
@@ -115,23 +119,40 @@ export function MiniMapTile({
       keyboard: false,
     });
 
-    // Fit to bounds to show the radius, with max zoom limit for context
-    map.fitBounds(bounds, { 
-      maxZoom: 13,  // Never zoom in closer than z=13 for preview
-      padding: [10, 10] 
-    });
-    
-    // Get actual zoom after fitBounds and update state
-    const actualZoom = map.getZoom();
-    setCurrentZoom(Math.round(actualZoom));
-
     // Use dark-style tiles (CartoDB dark matter) - includes city/neighborhood labels
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-    }).addTo(map);
+      subdomains: 'abcd',
+      crossOrigin: true,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    });
+
+    // Debug tile loading
+    tiles.on('tileerror', (e) => {
+      console.warn('🧱 MiniMapTile tileerror:', e);
+    });
+
+    tiles.on('load', () => {
+      console.log('✅ MiniMapTile tiles loaded successfully');
+    });
+
+    tiles.addTo(map);
 
     // Add marker
     L.marker([lat, lng], { icon: PIN_ICON }).addTo(map);
+
+    // Fit bounds after map is ready and container has stable size
+    map.whenReady(() => {
+      map.invalidateSize();
+      map.fitBounds(bounds, { 
+        maxZoom: 15,  // Allow neighborhood-level detail (streets and landmarks visible)
+        padding: [24, 24] 
+      });
+      // Update zoom state after fitBounds calculates final zoom
+      const finalZoom = Math.round(map.getZoom());
+      console.log('🗺️ MiniMapTile final zoom:', finalZoom, 'bounds:', bounds);
+      setCurrentZoom(finalZoom);
+    });
 
     mapRef.current = map;
 
@@ -168,6 +189,20 @@ export function MiniMapTile({
             <span className={styles.heroMapLabel}>{cityLabel}</span>
           )}
           <span className={styles.heroMapScale}>{scaleLabel}</span>
+          {/* FINGERPRINT: Visual confirmation this file is live */}
+          <span style={{ 
+            position: 'absolute', 
+            top: '4px', 
+            right: '4px', 
+            fontSize: '9px', 
+            background: 'rgba(59, 130, 246, 0.8)', 
+            color: 'white', 
+            padding: '2px 4px', 
+            borderRadius: '2px',
+            fontWeight: 600
+          }}>
+            LIVE z={currentZoom}
+          </span>
         </div>
       </div>
 
