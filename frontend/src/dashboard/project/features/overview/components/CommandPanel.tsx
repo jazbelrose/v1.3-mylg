@@ -262,10 +262,12 @@ interface TimelineRowProps {
   onPopoverOpenChange: (open: boolean) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onClick: () => void;
   onDoubleClick: () => void;
   onPrimaryAction: () => void;
   onEditAction: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onEllipsisClick: (e: React.MouseEvent) => void;
 }
 
 function TimelineRow({
@@ -276,35 +278,38 @@ function TimelineRow({
   onPopoverOpenChange,
   onMouseEnter,
   onMouseLeave,
+  onClick,
   onDoubleClick,
   onPrimaryAction,
   onEditAction,
   onContextMenu,
+  onEllipsisClick,
 }: TimelineRowProps) {
   const isTask = item.type === 'task';
   const severity = isTask ? getStatusSeverity(item as TimelineTask) : 'normal';
   const isDone = severity === 'done';
   const assignee = isTask ? (item as TimelineTask).assignedTo : undefined;
+  const ellipsisRef = useRef<HTMLButtonElement>(null);
   
   return (
-    <Popover open={popoverOpen} onOpenChange={onPopoverOpenChange}>
-      <PopoverTrigger asChild>
-        <div
-          className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''}`}
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
-          onDoubleClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onDoubleClick();
-          }}
-          onContextMenu={onContextMenu}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onEditAction();
-            if (e.key === 'd' || e.key === 'D') onPrimaryAction();
-          }}
+    <>
+      <div
+        className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''}`}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onClick={(e) => {
+          e.preventDefault();
+          onClick();
+        }}
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDoubleClick();
+        }}
+        onContextMenu={onContextMenu}
+        role="button"
+        tabIndex={-1}
+        data-item-id={item.id}
         >
           {/* Severity strip */}
           <div className={`${styles.severityStrip} ${styles[`severity${severity.charAt(0).toUpperCase() + severity.slice(1).replace('-', '')}`]}`} />
@@ -334,10 +339,10 @@ function TimelineRow({
               </span>
             )}
             
-            {/* Primary action (always in DOM, visible via CSS on hover) */}
+            {/* Primary action (always in DOM, visible via CSS on hover/selected) */}
             <button
               type="button"
-              className={`${styles.primaryAction} ${!isHovered ? styles.actionHidden : ''}`}
+              className={`${styles.primaryAction} ${!(isHovered || isSelected) ? styles.actionHidden : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onPrimaryAction();
@@ -348,52 +353,56 @@ function TimelineRow({
               <span>{isTask ? 'Done' : 'Open'}</span>
             </button>
             
-            {/* Overflow menu trigger (always in DOM, visible via CSS on hover) */}
-            <button
-              type="button"
-              className={`${styles.overflowButton} ${!isHovered ? styles.actionHidden : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onContextMenu(e);
-              }}
-              title="More actions"
-            >
-              <MoreHorizontal size={14} />
-            </button>
+            {/* Overflow menu trigger - opens popover (always in DOM, visible via CSS on hover/selected) */}
+            <Popover open={popoverOpen} onOpenChange={onPopoverOpenChange}>
+              <PopoverTrigger asChild>
+                <button
+                  ref={ellipsisRef}
+                  type="button"
+                  className={`${styles.overflowButton} ${!(isHovered || isSelected) ? styles.actionHidden : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEllipsisClick(e);
+                  }}
+                  title="More actions"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className={styles.rowPopover}
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isTask && (
+                  <button
+                    type="button"
+                    className={styles.popoverAction}
+                    onClick={() => {
+                      onPopoverOpenChange(false);
+                      onPrimaryAction();
+                    }}
+                  >
+                    <CheckSquare size={14} aria-hidden />
+                    <span>{isDone ? 'Mark incomplete' : 'Mark done'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.popoverAction}
+                  onClick={() => {
+                    onPopoverOpenChange(false);
+                    onEditAction();
+                  }}
+                >
+                  <Pencil size={14} aria-hidden />
+                  <span>Open {isTask ? 'task' : 'event'}</span>
+                </button>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
-      </PopoverTrigger>
-      <PopoverContent
-        className={styles.rowPopover}
-        align="end"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {isTask && (
-          <button
-            type="button"
-            className={styles.popoverAction}
-            onClick={() => {
-              onPopoverOpenChange(false);
-              onPrimaryAction();
-            }}
-          >
-            <CheckSquare size={14} aria-hidden />
-            <span>{isDone ? 'Mark incomplete' : 'Mark done'}</span>
-          </button>
-        )}
-        <button
-          type="button"
-          className={styles.popoverAction}
-          onClick={() => {
-            onPopoverOpenChange(false);
-            onEditAction();
-          }}
-        >
-          <Pencil size={14} aria-hidden />
-          <span>Open {isTask ? 'task' : 'event'}</span>
-        </button>
-      </PopoverContent>
-    </Popover>
+      </>
   );
 }
 
@@ -764,8 +773,83 @@ export function CommandPanel({
     }
   }, [contextMenu, onToggleTask, handleCloseContextMenu]);
   
+  // Flattened list of all visible item IDs for keyboard navigation
+  const allItemIds = useMemo(() => {
+    return groupedItems.flatMap(([, group]) => group.items.map(item => item.id));
+  }, [groupedItems]);
+  
+  // Find item by ID for keyboard actions
+  const findItemById = useCallback((id: string): TimelineItem | undefined => {
+    for (const [, group] of groupedItems) {
+      const found = group.items.find(item => item.id === id);
+      if (found) return found;
+    }
+    return undefined;
+  }, [groupedItems]);
+  
+  // Keyboard navigation handler for the panel
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Skip if focus is in an input/textarea/contenteditable
+    const target = e.target as HTMLElement;
+    if (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    ) {
+      return;
+    }
+    
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const currentIndex = selectedId ? allItemIds.indexOf(selectedId) : -1;
+      let newIndex: number;
+      
+      if (e.key === 'ArrowDown') {
+        newIndex = currentIndex < allItemIds.length - 1 ? currentIndex + 1 : currentIndex;
+        if (currentIndex === -1 && allItemIds.length > 0) newIndex = 0;
+      } else {
+        newIndex = currentIndex > 0 ? currentIndex - 1 : currentIndex;
+        if (currentIndex === -1 && allItemIds.length > 0) newIndex = allItemIds.length - 1;
+      }
+      
+      if (newIndex >= 0 && newIndex < allItemIds.length) {
+        const newId = allItemIds[newIndex];
+        setSelectedId(newId);
+        // Scroll selected row into view
+        const rowEl = contentRef.current?.querySelector(`[data-item-id="${newId}"]`);
+        rowEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    } else if (e.key === 'e' || e.key === 'E') {
+      // E = Edit selected item
+      if (selectedId) {
+        e.preventDefault();
+        const item = findItemById(selectedId);
+        if (item) {
+          if (item.type === 'task' && onQuickEditTask) {
+            onQuickEditTask(item as TimelineTask);
+          } else {
+            onEditItem?.(item);
+          }
+        }
+      }
+    } else if (e.key === 'd' || e.key === 'D') {
+      // D = Mark Done (toggle) for selected task
+      if (selectedId) {
+        const item = findItemById(selectedId);
+        if (item && item.type === 'task') {
+          e.preventDefault();
+          onToggleTask?.(item.id);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      // Escape = deselect
+      setSelectedId(null);
+      setActivePopoverId(null);
+    }
+  }, [selectedId, allItemIds, findItemById, onQuickEditTask, onEditItem, onToggleTask]);
+  
   return (
-    <div className={styles.commandPanel}>
+    <div className={styles.commandPanel} tabIndex={0} onKeyDown={handleKeyDown}>
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTop}>
@@ -917,6 +1001,11 @@ export function CommandPanel({
                       onPopoverOpenChange={(open) => setActivePopoverId(open ? item.id : null)}
                       onMouseEnter={() => setHoveredId(item.id)}
                       onMouseLeave={() => setHoveredId(null)}
+                      onClick={() => setSelectedId(item.id)}
+                      onEllipsisClick={(e) => {
+                        e.stopPropagation();
+                        setActivePopoverId(item.id);
+                      }}
                       onDoubleClick={() => {
                         if (item.type === 'task' && onQuickEditTask) {
                           onQuickEditTask(item as TimelineTask);
