@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, Plus } from "lucide-react";
+import { CheckSquare, Clock, ListTodo, Plus } from "lucide-react";
 import {
   CalendarEntryContextMenu,
   type ContextMenuPosition,
@@ -1287,7 +1287,7 @@ function DayGrid({
       }, 0);
       return (
         <span
-          className="week-grid__focus-meter"
+          className="week-grid__focus-meter week-grid__focus-meter--tile"
           aria-label={`Focus block progress ${doneCount} of ${childIds.length}`}
         >
           {doneCount}/{childIds.length}
@@ -1307,20 +1307,37 @@ function DayGrid({
         .filter((t): t is CalendarTask => !!t);
       if (childTasks.length === 0) return null;
       return (
-        <ul className="week-grid__focus-children-list">
-          {childTasks.map((child) => (
-            <li key={child.id} className={`week-grid__focus-child-item${child.status === "done" ? " is-done" : ""}`}>
-              {child.title}
-            </li>
-          ))}
+        <ul className="week-grid__focus-children-list" aria-hidden>
+          {childTasks.map((child) => {
+            const kind = (child.kind ?? "").toLowerCase();
+            const isEventLike = kind.includes("event");
+            return (
+              <li
+                key={child.id}
+                className={`week-grid__focus-child-item week-grid__focus-child-item--icon${
+                  child.status === "done" ? " is-done" : ""
+                }`}
+              >
+                <span className="week-grid__focus-child-icon" aria-hidden>
+                  {isEventLike ? (
+                    <Clock className="week-grid__focus-child-icon-svg" aria-hidden />
+                  ) : (
+                    <CheckSquare className="week-grid__focus-child-icon-svg" aria-hidden />
+                  )}
+                </span>
+                {child.title}
+              </li>
+            );
+          })}
         </ul>
       );
     };
 
+    const avatarsToRender = isFocusBlock ? entry.avatars.slice(0, 1) : entry.avatars;
     const inlineAvatars =
-      entry.avatars.length > 0 ? (
+      avatarsToRender.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "inline")}
+          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
 
@@ -1329,7 +1346,11 @@ function DayGrid({
         <div className="week-grid__timeline-entry-header">
           {entry.type === "task" && (
             <span className="week-grid__timeline-entry-icon">
-              <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+              {isFocusBlock ? (
+                <ListTodo className="week-grid__task-icon-svg" aria-hidden />
+              ) : (
+                <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+              )}
             </span>
           )}
           {entry.type === "event" && (
@@ -1344,7 +1365,6 @@ function DayGrid({
           >
             {entry.title}
           </div>
-          {focusMeter}
         </div>
       </div>
     );
@@ -1414,6 +1434,7 @@ function DayGrid({
           <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
+            {focusMeter}
           </div>
         </motion.div>
       );
@@ -1438,6 +1459,7 @@ function DayGrid({
         <div className="week-grid__timeline-entry-main">
           {content}
           {inlineAvatars}
+          {focusMeter}
         </div>
         {renderFocusBlockChildren()}
       </button>

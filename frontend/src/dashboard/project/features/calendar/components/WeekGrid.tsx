@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, Plus } from "lucide-react";
+import { CheckSquare, Clock, ListTodo, Plus } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import {
   CalendarEntryContextMenu,
@@ -1709,17 +1709,18 @@ function WeekGrid({
       }, 0);
       return (
         <span
-          className="week-grid__focus-meter"
+          className="week-grid__focus-meter week-grid__focus-meter--tile"
           aria-label={`Focus block progress ${doneCount} of ${childIds.length}`}
         >
           {doneCount}/{childIds.length}
         </span>
       );
     })();
+    const avatarsToRender = isFocusBlock ? entry.avatars.slice(0, 1) : entry.avatars;
     const inlineAvatars =
-      entry.avatars.length > 0 ? (
+      avatarsToRender.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "inline")}
+          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
     
@@ -1774,7 +1775,11 @@ function WeekGrid({
         <div className="week-grid__timeline-entry-header">
           {(entry.type === "task" || entry.type === "taskStack" || entry.type === "overlapStack") && (
             <span className="week-grid__timeline-entry-icon">
-              <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+              {entry.type === "task" && isFocusBlock ? (
+                <ListTodo className="week-grid__task-icon-svg" aria-hidden />
+              ) : (
+                <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+              )}
             </span>
           )}
           {entry.type === "event" && (
@@ -1789,7 +1794,6 @@ function WeekGrid({
           >
             {previewTitle}
           </div>
-          {focusMeter}
         </div>
       </div>
     );
@@ -1868,12 +1872,20 @@ function WeekGrid({
           {visible.map((child) => {
             const childKey = `task:${child.id}`;
             const isComplete = child.status === "done";
+            const kind = (child.kind ?? "").toLowerCase();
+            const isEventLike = kind.includes("event");
             return (
               <div
                 key={childKey}
                 className={`week-grid__stack-line${isComplete ? " is-complete" : ""}`}
               >
-                <span className="week-grid__stack-pill" style={{ background: color }} aria-hidden />
+                <span className="week-grid__focus-child-icon" aria-hidden>
+                  {isEventLike ? (
+                    <Clock className="week-grid__focus-child-icon-svg" aria-hidden />
+                  ) : (
+                    <CheckSquare className="week-grid__focus-child-icon-svg" aria-hidden />
+                  )}
+                </span>
                 <span className="week-grid__stack-text">{child.title}</span>
               </div>
             );
@@ -1912,6 +1924,7 @@ function WeekGrid({
                 {renderInlineStackList()}
               </div>
               {inlineAvatars}
+              {focusMeter}
             </div>
           </button>
         );
@@ -1967,6 +1980,7 @@ function WeekGrid({
               {renderInlineStackList()}
             </div>
             {inlineAvatars}
+            {focusMeter}
           </div>
         </button>
       );
@@ -1997,6 +2011,7 @@ function WeekGrid({
           <div className="week-grid__timeline-entry-main">
             {content}
             {inlineAvatars}
+            {focusMeter}
           </div>
         </motion.div>
       );
@@ -2026,6 +2041,7 @@ function WeekGrid({
             {renderFocusBlockChildren()}
           </div>
           {inlineAvatars}
+          {focusMeter}
         </div>
       </button>
     );
