@@ -140,13 +140,31 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const task = isTask ? (entry as CalendarTask) : null;
   const event = !isTask ? (entry as CalendarEvent) : null;
 
+  // Helper to detect Focus Blocks (by kind OR by having child task references for legacy support)
+  const isFocusBlock = useMemo(() => {
+    if (!isTask || !task) return false;
+    if (task.kind === "focus_block") return true;
+    const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+      (task.focusChecklist && task.focusChecklist.length > 0);
+    return hasChildren;
+  }, [isTask, task]);
+
   const focusChildrenResolved = useMemo(() => {
     if (!isTask || !task) return [];
-    if (task.kind !== "focus_block") return [];
+    if (!isFocusBlock) return [];
     return focusChildren ?? [];
-  }, [focusChildren, isTask, task]);
+  }, [focusChildren, isFocusBlock, isTask, task]);
 
-  const title = isTask ? task?.title : event?.title;
+  const rawTitle = isTask ? task?.title : event?.title;
+  const title = useMemo(() => {
+    if (!isTask || !task) return rawTitle;
+    if (!isFocusBlock) return rawTitle;
+    const normalized = (rawTitle ?? "").trim();
+    if (!normalized || normalized.toLowerCase() === "focus block") {
+      return focusChildrenResolved[0]?.title ?? rawTitle;
+    }
+    return rawTitle;
+  }, [focusChildrenResolved, isFocusBlock, isTask, rawTitle, task]);
   const timeLabel = isTask
     ? task?.start && task?.end
       ? `${task.start} - ${task.end}`

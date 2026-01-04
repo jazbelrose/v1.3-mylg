@@ -70,7 +70,11 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   const isFocusBlock = useMemo(() => {
     if (entryType !== "task") return false;
     const task = entry as CalendarTask;
-    return task.kind === "focus_block";
+    // Detect Focus Blocks by kind OR by having child task references (legacy support)
+    if (task.kind === "focus_block") return true;
+    const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+      (task.focusChecklist && task.focusChecklist.length > 0);
+    return hasChildren;
   }, [entry, entryType]);
 
   // For multi-select, check if we have any tasks that can be actioned
@@ -186,11 +190,11 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   const handleUngroupFocusBlock = useCallback(() => {
     if (!onUngroupFocusBlock) return;
     if (entryType !== "task") return;
+    if (!isFocusBlock) return;
     const task = entry as CalendarTask;
-    if (task.kind !== "focus_block") return;
     onUngroupFocusBlock(task);
     onClose();
-  }, [entry, entryType, onClose, onUngroupFocusBlock]);
+  }, [entry, entryType, isFocusBlock, onClose, onUngroupFocusBlock]);
 
   const handleDuplicate = useCallback(() => {
     if (onDuplicate) {
@@ -275,7 +279,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       )}
 
       {/* Convert Focus Block back into Time Blocks (Ungroup) */}
-      {!isMultiSelect && isFocusBlock && onUngroupFocusBlock && (
+      {isFocusBlock && onUngroupFocusBlock && (
         <button
           type="button"
           className="calendar-entry-context-menu__item"

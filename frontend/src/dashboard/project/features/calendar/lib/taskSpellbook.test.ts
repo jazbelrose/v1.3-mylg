@@ -16,9 +16,10 @@ describe("taskSpellbook", () => {
   it("builds variants with focus blocks", () => {
     const parsed = parseSpellbookInput(`Thumbnails:\n- cleanup\n- export\nCalendar:\n- week density pass`);
     const variants = buildSpellbookVariants(parsed);
-    const blocks4 = variants.find((v) => v.id === "blocks4");
-    expect(blocks4).toBeTruthy();
-    expect(blocks4!.focusBlocks.length).toBeGreaterThan(0);
+    // Focus blocks are manual-only; Spellbook should not auto-generate them.
+    expect(variants.length).toBe(1);
+    expect(variants[0].id).toBe("split");
+    expect(variants[0].focusBlocks.length).toBe(0);
   });
 });
 

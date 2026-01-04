@@ -3613,8 +3613,8 @@
 }
 
 .week-grid__timeline-entry--focus-block {
-  background: rgba(99, 102, 241, 0.16) !important;
-  border-color: rgba(99, 102, 241, 0.32) !important;
+  background: rgba(220, 38, 38, 0.18) !important;
+  border-color: rgba(220, 38, 38, 0.4) !important;
 }
 
 .week-grid__focus-meter {
@@ -3625,4 +3625,35 @@
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.85);
+}
+/* Focus Block children list (inline bullet points) */
+.week-grid__focus-children-list {
+  list-style: none;
+  margin: 4px 0 0 0;
+  padding: 0 4px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+}
+
+.week-grid__focus-child-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 1px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-grid__focus-child-item::before {
+  content: "•";
+  flex-shrink: 0;
+  color: rgba(220, 38, 38, 0.7);
+}
+
+.week-grid__focus-child-item.is-done {
+  text-decoration: line-through;
+  opacity: 0.6;
 }

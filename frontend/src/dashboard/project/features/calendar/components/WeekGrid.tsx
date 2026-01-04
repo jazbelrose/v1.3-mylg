@@ -452,7 +452,22 @@ function WeekGrid({
 
   const calendarTaskById = useMemo(() => {
     const map = new Map<string, CalendarTask>();
-    tasks.forEach((task) => map.set(task.id, task));
+    tasks.forEach((task) => {
+      if (task.id) map.set(task.id, task);
+      if (task.source?.taskId) map.set(task.source.taskId, task);
+      const legacyId = (task.source as { id?: string } | undefined)?.id;
+      if (legacyId) map.set(legacyId, task);
+    });
+    return map;
+  }, [tasks]);
+
+  const focusChildrenByFocusId = useMemo(() => {
+    const map = new Map<string, CalendarTask[]>();
+    tasks.forEach((task) => {
+      const focusId = task.focusBlockId;
+      if (!focusId) return;
+      map.set(focusId, [...(map.get(focusId) ?? []), task]);
+    });
     return map;
   }, [tasks]);
 
@@ -831,13 +846,16 @@ function WeekGrid({
     const taskSuppressed = new Set<string>();
     const taskTilesByDay = new Map<string, WeekTimelineEntry[]>();
 
-    entriesByDay.forEach((dayEntries, dayKey) => {
-      const { tiles, suppressedByTaskStack } = buildTaskStacksForDay(dayKey, dayEntries, overlapSuppressed);
-      if (tiles.length) {
-        taskTilesByDay.set(dayKey, tiles);
-      }
-      suppressedByTaskStack.forEach((k) => taskSuppressed.add(k));
-    });
+    // DISABLED: Auto-grouping of adjacent tasks into taskStacks
+    // Focus Blocks are now manual only via multi-select → right-click → Convert to Focus Block
+    // The buildTaskStacksForDay function is no longer called.
+    // entriesByDay.forEach((dayEntries, dayKey) => {
+    //   const { tiles, suppressedByTaskStack } = buildTaskStacksForDay(dayKey, dayEntries, overlapSuppressed);
+    //   if (tiles.length) {
+    //     taskTilesByDay.set(dayKey, tiles);
+    //   }
+    //   suppressedByTaskStack.forEach((k) => taskSuppressed.add(k));
+    // });
 
     // Render list per day with precedence: OverlapStack wins over TaskStack
     const renderEntriesByDay = new Map<string, WeekTimelineEntry[]>();
@@ -1356,11 +1374,22 @@ function WeekGrid({
       const focusChildren = (() => {
         if (child.entryType !== "task") return undefined;
         const task = child.entry as CalendarTask;
-        if (task.kind !== "focus_block") return undefined;
+        // Detect Focus Blocks by kind OR by having child task references (legacy support)
+        const isFocusBlock = task.kind === "focus_block" ||
+          (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+          (task.focusChecklist && task.focusChecklist.length > 0);
+        if (!isFocusBlock) return undefined;
+        const focusId = task.source?.taskId ?? task.id;
         const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
-        const children = childIds
+        const childrenFromIds = childIds
           .map((id) => calendarTaskById.get(id))
           .filter((value): value is CalendarTask => Boolean(value));
+        const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+        const children = Array.from(
+          new Map(
+            [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [childTask.source?.taskId ?? childTask.id, childTask]),
+          ).values(),
+        ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
         return children.length ? children : undefined;
       })();
 
@@ -1371,7 +1400,7 @@ function WeekGrid({
         focusChildren,
       });
     },
-    [calendarTaskById, onEntrySelect],
+    [calendarTaskById, focusChildrenByFocusId, onEntrySelect],
   );
 
   const handleOpenContextMenuFromStackPopover = useCallback(
@@ -1468,11 +1497,22 @@ function WeekGrid({
         const focusChildren = (() => {
           if (entry.type !== "task") return undefined;
           const task = entry.payload as CalendarTask;
-          if (task.kind !== "focus_block") return undefined;
+          // Detect Focus Blocks by kind OR by having child task references (legacy support)
+          const isFocusBlock = task.kind === "focus_block" ||
+            (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+            (task.focusChecklist && task.focusChecklist.length > 0);
+          if (!isFocusBlock) return undefined;
+          const focusId = task.source?.taskId ?? task.id;
           const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
-          const children = childIds
+          const childrenFromIds = childIds
             .map((id) => calendarTaskById.get(id))
             .filter((value): value is CalendarTask => Boolean(value));
+          const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+          const children = Array.from(
+            new Map(
+              [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [childTask.source?.taskId ?? childTask.id, childTask]),
+            ).values(),
+          ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
           return children.length ? children : undefined;
         })();
         setPopover({
@@ -1576,9 +1616,16 @@ function WeekGrid({
       ? getWeekEntryPreview(stackChildren[0]?.title ?? entry.title)
       : getWeekEntryPreview(entry.title);
     const tooltipLabel = entry.timeLabel ? `${entry.title} · ${entry.timeLabel}` : entry.title;
-    const isFocusBlock =
-      entry.type === "task" &&
-      (entry.payload as CalendarTask | undefined)?.kind === "focus_block";
+    const isFocusBlock = (() => {
+      if (entry.type !== "task") return false;
+      const task = entry.payload as CalendarTask | undefined;
+      if (!task) return false;
+      // Detect Focus Blocks by kind OR by having child task references (legacy support)
+      if (task.kind === "focus_block") return true;
+      const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0);
+      return hasChildren;
+    })();
     const focusMeter = (() => {
       if (!isFocusBlock) return null;
       const task = entry.payload as CalendarTask;
@@ -1706,6 +1753,56 @@ function WeekGrid({
                 className={`week-grid__stack-line${child.completed ? " is-complete" : ""}`}
               >
                 <span className="week-grid__stack-pill" style={{ background: childColor }} aria-hidden />
+                <span className="week-grid__stack-text">{child.title}</span>
+              </div>
+            );
+          })}
+          {needsMore && (
+            <div className="week-grid__stack-line week-grid__stack-line--more">
+              +{total - displayCount} more
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Render inline list of child tasks for Focus Blocks (legacy red style with children)
+    const renderFocusBlockChildren = () => {
+      if (!isFocusBlock) return null;
+      const task = entry.payload as CalendarTask;
+      const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      if (childIds.length === 0) return null;
+
+      const children = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((child): child is CalendarTask => Boolean(child));
+      if (children.length === 0) return null;
+
+      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const tileHeightPx = Math.max(32, minutesToPxWeek(durationMinutes));
+      const headerHeightPx = 16;
+      const paddingYPx = 12;
+      const lineHeightPx = 14;
+      const available = tileHeightPx - headerHeightPx - paddingYPx;
+      const maxLines = Math.max(0, Math.floor(available / lineHeightPx));
+      if (maxLines <= 0) return null;
+
+      const total = children.length;
+      const needsMore = total > maxLines;
+      const displayCount = needsMore ? Math.max(0, maxLines - 1) : Math.min(total, maxLines);
+      const visible = children.slice(0, displayCount);
+
+      return (
+        <div className="week-grid__stack-list" aria-hidden>
+          {visible.map((child) => {
+            const childKey = `task:${child.id}`;
+            const isComplete = child.status === "done";
+            return (
+              <div
+                key={childKey}
+                className={`week-grid__stack-line${isComplete ? " is-complete" : ""}`}
+              >
+                <span className="week-grid__stack-pill" style={{ background: color }} aria-hidden />
                 <span className="week-grid__stack-text">{child.title}</span>
               </div>
             );
@@ -1853,7 +1950,10 @@ function WeekGrid({
         onMouseLeave={handleEntryMouseLeave}
       >
         <div className="week-grid__timeline-entry-main">
-          {content}
+          <div className="week-grid__timeline-entry-body">
+            {content}
+            {renderFocusBlockChildren()}
+          </div>
           {inlineAvatars}
         </div>
       </button>

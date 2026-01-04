@@ -689,62 +689,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         const createdChildren = await createTasksBulk(activeProjectId, childPayloads);
         const childByIndex = new Map(createdChildren.map((task, idx) => [idx, task]));
 
-        if (request.variant.focusBlocks.length > 0) {
-          const focusPayloads: Task[] = request.variant.focusBlocks.map((block, blockIndex) => {
-            const placement = request.plan?.placements.find((p) => p.draftId === `block-${blockIndex}`) ?? null;
-            const startAt =
-              placement != null ? buildIsoDateTime(targetDate, formatMinutesHHMM(placement.startMinutes)) : null;
-            const endAt =
-              placement != null ? buildIsoDateTime(targetDate, formatMinutesHHMM(placement.endMinutes)) : null;
-
-            const childTasks = block.itemIndexes
-              .map((idx) => childByIndex.get(idx))
-              .filter((value): value is Task => Boolean(value));
-
-            return {
-              projectId: activeProjectId,
-              title: block.title,
-              status: "todo",
-              dueDate: endAt ?? targetDate,
-              dueAt: endAt ?? targetDate,
-              startAt,
-              endAt,
-              kind: "focus_block",
-              cluster: block.cluster,
-              durationMinutes: block.durationMinutes,
-              focusChildTaskIds: childTasks.map((task) => task.taskId!).filter(Boolean),
-              focusChecklist: childTasks
-                .map((task) => (task.taskId ? { taskId: task.taskId, title: task.title } : null))
-                .filter((value): value is { taskId: string; title: string } => value !== null),
-            };
-          });
-
-          const createdFocusBlocks = await createTasksBulk(activeProjectId, focusPayloads);
-
-          const linkUpdates: Array<{ taskId: string; fields: Partial<Task> }> = [];
-          request.variant.focusBlocks.forEach((block, blockIndex) => {
-            const focusTaskId = createdFocusBlocks[blockIndex]?.taskId ?? null;
-            if (!focusTaskId) return;
-            block.itemIndexes.forEach((itemIndex) => {
-              const child = childByIndex.get(itemIndex);
-              if (!child?.taskId) return;
-              linkUpdates.push({
-                taskId: child.taskId,
-                fields: {
-                  focusBlockId: focusTaskId,
-                  startAt: null,
-                  endAt: null,
-                  dueDate: targetDate,
-                  dueAt: targetDate,
-                },
-              });
-            });
-          });
-
-          if (linkUpdates.length > 0) {
-            await updateTasksBulk(activeProjectId, linkUpdates);
-          }
-        } else if (request.plan) {
+        if (request.plan) {
           const placementUpdates: Array<{ taskId: string; fields: Partial<Task> }> = [];
           request.plan.placements.forEach((placement) => {
             const match = placement.draftId.match(/^item-(\d+)$/);
@@ -882,7 +827,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         clusterCounts.set(label, (clusterCounts.get(label) ?? 0) + 1);
       });
       const bestCluster = [...clusterCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-      const title = bestCluster ? `${bestCluster}: focus block` : "Focus block";
+      const defaultFromFirstTask = timed[0]?.task?.title?.trim() ?? "";
+      const title = defaultFromFirstTask || (bestCluster ? `${bestCluster}: focus block` : "Focus block");
 
       const startMinutes = Math.min(...timed.map((t) => t.startMinutes));
       const endMinutes = Math.max(...timed.map((t) => t.endMinutes));
@@ -946,19 +892,92 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     async (focusBlock: CalendarTask) => {
       const source = focusBlock.source as ApiTask;
       if (!source.projectId || !source.taskId) return;
-      if (focusBlock.kind !== "focus_block") return;
+      // Detect Focus Blocks by kind OR by having child task references (legacy support)
+      const isFocusBlock = focusBlock.kind === "focus_block" ||
+        (focusBlock.focusChildTaskIds && focusBlock.focusChildTaskIds.length > 0) ||
+        (focusBlock.focusChecklist && focusBlock.focusChecklist.length > 0);
+      if (!isFocusBlock) return;
 
-      const childIds =
+      const focusId = source.taskId;
+      const declaredChildIds =
         focusBlock.focusChildTaskIds ?? focusBlock.focusChecklist?.map((item) => item.taskId) ?? [];
+
+      const scannedChildIds = tasks
+        .filter((task) => task.focusBlockId === focusId)
+        .map((task) => resolveTaskIdentifier(task))
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+      const childIds = Array.from(new Set([...declaredChildIds, ...scannedChildIds]));
+
+      const focusDateIso =
+        focusBlock.due ??
+        (typeof source.dueDate === "string" ? source.dueDate : undefined) ??
+        (typeof source.dueAt === "string" ? source.dueAt : undefined) ??
+        undefined;
+
+      const focusStartMinutes = focusBlock.start ? parseTimeToMinutes(focusBlock.start) : null;
+      const focusEndMinutes = focusBlock.end ? parseTimeToMinutes(focusBlock.end) : null;
+
+      const taskById = new Map<string, CalendarTask>();
+      tasks.forEach((task) => {
+        const id = resolveTaskIdentifier(task);
+        if (id) taskById.set(id, task);
+      });
+
+      const checklistOrder = new Map<string, number>();
+      (focusBlock.focusChecklist ?? []).forEach((item, idx) => {
+        if (item?.taskId) checklistOrder.set(item.taskId, idx);
+      });
 
       try {
         if (childIds.length > 0) {
-          const updates: Array<{ taskId: string; fields: Partial<Task> }> = childIds.map((taskId) => ({
-            taskId,
-            fields: {
-              focusBlockId: null,
-            },
-          }));
+          const updates: Array<{ taskId: string; fields: Partial<Task> }> = [];
+
+          const shouldReconstructTimes =
+            Boolean(focusDateIso) &&
+            typeof focusStartMinutes === "number" &&
+            typeof focusEndMinutes === "number" &&
+            focusEndMinutes > focusStartMinutes;
+
+          let cursorMinutes = typeof focusStartMinutes === "number" ? focusStartMinutes : 0;
+
+          const sortedChildIds = [...childIds].sort((a, b) => {
+            const aOrder = checklistOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+            const bOrder = checklistOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+            return a.localeCompare(b);
+          });
+
+          sortedChildIds.forEach((taskId) => {
+            const child = taskById.get(taskId) ?? null;
+
+            const hasTime = Boolean(child?.start && child?.end);
+            const shouldSetTime = shouldReconstructTimes && !hasTime;
+
+            const durationMinutes =
+              (typeof child?.durationMinutes === "number" && child.durationMinutes > 0
+                ? child.durationMinutes
+                : typeof (child?.source as { durationMinutes?: unknown } | undefined)?.durationMinutes === "number"
+                ? ((child?.source as { durationMinutes?: number }).durationMinutes ?? 30)
+                : 30);
+
+            const nextEnd = Math.min(
+              typeof focusEndMinutes === "number" ? focusEndMinutes : cursorMinutes + durationMinutes,
+              cursorMinutes + Math.max(15, durationMinutes),
+            );
+
+            const fields: Partial<Task> = { focusBlockId: null };
+            if (shouldSetTime && focusDateIso) {
+              fields.startAt = buildIsoDateTime(focusDateIso, formatMinutesHHMM(cursorMinutes));
+              fields.endAt = buildIsoDateTime(focusDateIso, formatMinutesHHMM(Math.max(cursorMinutes + 15, nextEnd)));
+              fields.dueDate = focusDateIso;
+              fields.dueAt = focusDateIso;
+              cursorMinutes = Math.max(cursorMinutes + 15, nextEnd);
+            }
+
+            updates.push({ taskId, fields });
+          });
+
           await updateTasksBulk(source.projectId, updates);
         }
 
@@ -974,7 +993,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Unable to ungroup focus block. Please try again.");
       }
     },
-    [onRefreshTasks],
+    [onRefreshTasks, tasks],
   );
 
   const handleRescheduleEntries = useCallback(

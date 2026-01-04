@@ -15,7 +15,7 @@ export type SpellbookParseResult = {
   totalMinutes: number;
 };
 
-export type SpellbookVariantId = "split" | "blocks4" | "focus2";
+export type SpellbookVariantId = "split";
 
 export type SpellbookFocusBlockDraft = {
   title: string;
@@ -200,55 +200,6 @@ export function parseSpellbookInput(
   return { items, clusters, totalMinutes };
 }
 
-const groupIntoBlocks = (
-  items: SpellbookDraftItem[],
-  blockCount: number,
-): SpellbookFocusBlockDraft[] => {
-  const byCluster = new Map<string, number[]>();
-  items.forEach((item, idx) => {
-    if (item.kind !== "task") return;
-    const key = item.cluster || DEFAULT_CLUSTER;
-    if (!byCluster.has(key)) byCluster.set(key, []);
-    byCluster.get(key)!.push(idx);
-  });
-
-  const clusterEntries = [...byCluster.entries()].sort((a, b) => b[1].length - a[1].length);
-  const blocks: SpellbookFocusBlockDraft[] = [];
-
-  for (const [cluster, indexes] of clusterEntries) {
-    if (blocks.length >= blockCount) break;
-    const durationMinutes = indexes.reduce((sum, idx) => sum + items[idx].durationMinutes, 0);
-    blocks.push({
-      title: cluster === DEFAULT_CLUSTER ? "Focus block" : `${cluster}: focus block`,
-      cluster,
-      itemIndexes: indexes,
-      durationMinutes: clampMinutes(durationMinutes || 30),
-    });
-  }
-
-  if (blocks.length < blockCount) {
-    const remainingIndexes: number[] = [];
-    items.forEach((item, idx) => {
-      if (item.kind !== "task") return;
-      if (blocks.some((block) => block.itemIndexes.includes(idx))) return;
-      remainingIndexes.push(idx);
-    });
-
-    while (blocks.length < blockCount && remainingIndexes.length > 0) {
-      const chunk = remainingIndexes.splice(0, Math.ceil(remainingIndexes.length / (blockCount - blocks.length)));
-      const durationMinutes = chunk.reduce((sum, idx) => sum + items[idx].durationMinutes, 0);
-      blocks.push({
-        title: "Focus block",
-        cluster: DEFAULT_CLUSTER,
-        itemIndexes: chunk,
-        durationMinutes: clampMinutes(durationMinutes || 30),
-      });
-    }
-  }
-
-  return blocks.filter((block) => block.itemIndexes.length > 0);
-};
-
 export function buildSpellbookVariants(result: SpellbookParseResult): SpellbookVariant[] {
   const baseItems = result.items;
   const splitItems: SpellbookDraftItem[] = [];
@@ -267,9 +218,6 @@ export function buildSpellbookVariants(result: SpellbookParseResult): SpellbookV
     });
   });
 
-  const blocks4 = groupIntoBlocks(baseItems, 4);
-  const focus2 = groupIntoBlocks(baseItems, 2);
-
   return [
     {
       id: "split",
@@ -277,20 +225,6 @@ export function buildSpellbookVariants(result: SpellbookParseResult): SpellbookV
       hint: "Clean titles, durations, clusters",
       items: splitItems,
       focusBlocks: [],
-    },
-    {
-      id: "blocks4",
-      label: `Compress into ${Math.max(blocks4.length, 1)} blocks`,
-      hint: "Reduce visual density in week view",
-      items: baseItems,
-      focusBlocks: blocks4,
-    },
-    {
-      id: "focus2",
-      label: `Make ${Math.max(focus2.length, 1)} focus sessions`,
-      hint: "Two big blocks, checklist inside",
-      items: baseItems,
-      focusBlocks: focus2,
     },
   ];
 }

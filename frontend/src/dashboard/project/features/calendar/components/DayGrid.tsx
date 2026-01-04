@@ -330,7 +330,22 @@ function DayGrid({
 
   const calendarTaskById = useMemo(() => {
     const map = new Map<string, CalendarTask>();
-    tasks.forEach((task) => map.set(task.id, task));
+    tasks.forEach((task) => {
+      if (task.id) map.set(task.id, task);
+      if (task.source?.taskId) map.set(task.source.taskId, task);
+      const legacyId = (task.source as { id?: string } | undefined)?.id;
+      if (legacyId) map.set(legacyId, task);
+    });
+    return map;
+  }, [tasks]);
+
+  const focusChildrenByFocusId = useMemo(() => {
+    const map = new Map<string, CalendarTask[]>();
+    tasks.forEach((task) => {
+      const focusId = task.focusBlockId;
+      if (!focusId) return;
+      map.set(focusId, [...(map.get(focusId) ?? []), task]);
+    });
     return map;
   }, [tasks]);
 
@@ -730,11 +745,22 @@ function DayGrid({
         const focusChildren = (() => {
           if (entry.type !== "task") return undefined;
           const task = entry.payload as CalendarTask;
-          if (task.kind !== "focus_block") return undefined;
+          // Detect Focus Blocks by kind OR by having child task references (legacy support)
+          const isFocusBlock = task.kind === "focus_block" ||
+            (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+            (task.focusChecklist && task.focusChecklist.length > 0);
+          if (!isFocusBlock) return undefined;
+          const focusId = task.source?.taskId ?? task.id;
           const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
-          const children = childIds
+          const childrenFromIds = childIds
             .map((id) => calendarTaskById.get(id))
             .filter((value): value is CalendarTask => Boolean(value));
+          const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+          const children = Array.from(
+            new Map(
+              [...childrenFromIds, ...childrenFromFocusId].map((child) => [child.source?.taskId ?? child.id, child]),
+            ).values(),
+          ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
           return children.length ? children : undefined;
         })();
         setPopover({
@@ -745,7 +771,7 @@ function DayGrid({
         });
       }
     },
-    [calendarTaskById, onEditEvent, onEditTask],
+    [calendarTaskById, focusChildrenByFocusId, onEditEvent, onEditTask],
   );
 
   // Keyboard handler for entries
@@ -1165,9 +1191,16 @@ function DayGrid({
 
     const entrySelectionKey = `${entry.type}:${entry.id}`;
     const isEntrySelected = selectedEntryKeys.has(entrySelectionKey);
-    const isFocusBlock =
-      entry.type === "task" &&
-      (entry.payload as CalendarTask | undefined)?.kind === "focus_block";
+    const isFocusBlock = (() => {
+      if (entry.type !== "task") return false;
+      const task = entry.payload as CalendarTask | undefined;
+      if (!task) return false;
+      // Detect Focus Blocks by kind OR by having child task references (legacy support)
+      if (task.kind === "focus_block") return true;
+      const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0);
+      return hasChildren;
+    })();
     const focusMeter = (() => {
       if (!isFocusBlock) return null;
       const task = entry.payload as CalendarTask;
@@ -1188,6 +1221,28 @@ function DayGrid({
         </span>
       );
     })();
+
+    // Render inline children for Focus Blocks (legacy layout)
+    const renderFocusBlockChildren = (): React.ReactNode => {
+      if (!isFocusBlock) return null;
+      const task = entry.payload as CalendarTask;
+      const childIds =
+        task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      if (childIds.length === 0) return null;
+      const childTasks = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((t): t is CalendarTask => !!t);
+      if (childTasks.length === 0) return null;
+      return (
+        <ul className="week-grid__focus-children-list">
+          {childTasks.map((child) => (
+            <li key={child.id} className={`week-grid__focus-child-item${child.status === "done" ? " is-done" : ""}`}>
+              {child.title}
+            </li>
+          ))}
+        </ul>
+      );
+    };
 
     const inlineAvatars =
       entry.avatars.length > 0 ? (
@@ -1311,6 +1366,7 @@ function DayGrid({
           {content}
           {inlineAvatars}
         </div>
+        {renderFocusBlockChildren()}
       </button>
     );
   };
