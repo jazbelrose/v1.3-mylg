@@ -30,10 +30,6 @@ const PIN_ICON = L.icon({
   iconAnchor: [14, 36],
 });
 
-// Context zoom level for preview (shows neighborhood context)
-// z=12 ≈ 5km view, z=13 ≈ 2.5km view, z=14 ≈ 1.5km view
-const PREVIEW_ZOOM = 13;
-
 /**
  * Calculate bounds for a given radius around a point
  * @param lat - center latitude
@@ -53,18 +49,6 @@ function getBoundsForRadius(lat: number, lng: number, radiusKm: number): L.LatLn
     [lat - latOffset, lng - lngOffset], // southwest
     [lat + latOffset, lng + lngOffset]  // northeast
   );
-}
-
-/**
- * Get a scale bar label based on zoom level
- */
-function getScaleLabel(zoom: number): string {
-  if (zoom >= 15) return '500m';
-  if (zoom >= 14) return '1 km';
-  if (zoom >= 13) return '2 km';
-  if (zoom >= 12) return '3 km';
-  if (zoom >= 11) return '5 km';
-  return '10 km';
 }
 
 interface MiniMapTileProps {
@@ -87,7 +71,6 @@ export function MiniMapTile({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [currentZoom, setCurrentZoom] = useState(PREVIEW_ZOOM);
 
   // Create/recreate map when coordinates change
   useEffect(() => {
@@ -129,9 +112,6 @@ export function MiniMapTile({
     // Add marker
     L.marker([lat, lng], { icon: PIN_ICON }).addTo(map);
 
-    // Set zoom state
-    setCurrentZoom(14);
-
     mapRef.current = map;
 
     return () => {
@@ -139,8 +119,6 @@ export function MiniMapTile({
       mapRef.current = null;
     };
   }, [lat, lng, radiusKm]);
-
-  const scaleLabel = getScaleLabel(currentZoom);
 
   return (
     <div
@@ -160,13 +138,12 @@ export function MiniMapTile({
       {/* Leaflet container */}
       <div ref={containerRef} className={styles.heroMapLeaflet} />
       
-      {/* Bottom gradient + city label + scale bar */}
+      {/* Bottom gradient + city label */}
       <div className={styles.heroMapOverlay}>
         <div className={styles.heroMapContextRow}>
           {cityLabel && (
             <span className={styles.heroMapLabel}>{cityLabel}</span>
           )}
-          <span className={styles.heroMapScale}>{scaleLabel}</span>
         </div>
       </div>
 
