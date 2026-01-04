@@ -150,26 +150,47 @@ export const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentPro
 
     const updatePosition = React.useCallback(() => {
       const trigger = triggerRef.current;
+      const content = contentRef.current;
 
       if (!trigger) return;
 
       const rect = trigger.getBoundingClientRect();
+      const contentHeight = content?.offsetHeight ?? 150; // estimate if not rendered yet
+      const viewportHeight = window.innerHeight;
+      const gap = 8;
+      
+      // Check if there's enough room below, if not flip to top
+      const spaceBelow = viewportHeight - rect.bottom - gap;
+      const flipToTop = spaceBelow < contentHeight && rect.top > contentHeight + gap;
+      
       const baseStyle: React.CSSProperties = {
-        top: rect.bottom + 8,
-        left: rect.left,
         transform: "translateX(0)",
       };
+      
+      if (flipToTop) {
+        // Position above the trigger
+        baseStyle.top = rect.top - gap;
+        baseStyle.transform = "translateY(-100%)";
+      } else {
+        // Position below the trigger
+        baseStyle.top = rect.bottom + gap;
+      }
 
       if (align === "center") {
         baseStyle.left = rect.left + rect.width / 2;
-        baseStyle.transform = "translateX(-50%)";
+        baseStyle.transform = flipToTop ? "translate(-50%, -100%)" : "translateX(-50%)";
       } else if (align === "end") {
         baseStyle.left = rect.right;
-        baseStyle.transform = "translateX(-100%)";
+        baseStyle.transform = flipToTop ? "translate(-100%, -100%)" : "translateX(-100%)";
+      } else {
+        baseStyle.left = rect.left;
+        if (flipToTop) {
+          baseStyle.transform = "translateY(-100%)";
+        }
       }
 
       setPositionStyle(baseStyle);
-    }, [align, triggerRef]);
+    }, [align, triggerRef, contentRef]);
 
     const refCallback = (node: HTMLDivElement | null) => {
       contentRef.current = node;

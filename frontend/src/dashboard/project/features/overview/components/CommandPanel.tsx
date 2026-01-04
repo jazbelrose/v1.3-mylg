@@ -72,6 +72,7 @@ export interface CommandPanelProps {
   events: TimelineEvent[];
   tasks: TimelineTask[];
   currentUserId?: string;
+  isUserLoading?: boolean;
   onToggleTask?: (id: string) => void;
   onEditItem?: (item: TimelineItem) => void;
   onQuickEditTask?: (task: TimelineTask) => void;
@@ -480,6 +481,7 @@ export function CommandPanel({
   events,
   tasks,
   currentUserId,
+  isUserLoading = false,
   onToggleTask,
   onEditItem,
   onQuickEditTask,
@@ -508,6 +510,7 @@ export function CommandPanel({
   // Refs for auto-scroll to Today or nearest upcoming
   const contentRef = useRef<HTMLDivElement>(null);
   const dayGroupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const didInitialAutoScrollRef = useRef(false);
   
   const today = useMemo(() => {
     const d = new Date();
@@ -601,35 +604,37 @@ export function CommandPanel({
     return Array.from(groups.entries());
   }, [filteredItems, today]);
   
-  // Auto-scroll to "Today" or nearest upcoming on data/filter changes
+  // Auto-scroll to "Today" or nearest upcoming - runs once on initial data load (instant, no visible jump)
   useLayoutEffect(() => {
+    // Only run once per mount
+    if (didInitialAutoScrollRef.current) return;
     if (!contentRef.current || groupedItems.length === 0) return;
     
-    // Use requestAnimationFrame to ensure DOM is ready
-    const frameId = requestAnimationFrame(() => {
-      const refs = dayGroupRefs.current;
-      
-      // First try to find Today
-      let targetRef = refs.get(todayKey);
-      
-      // If no Today, find nearest upcoming date
-      if (!targetRef) {
-        const sortedKeys = Array.from(refs.keys()).sort();
-        for (const key of sortedKeys) {
-          if (key >= todayKey && key !== 'no-date') {
-            targetRef = refs.get(key);
-            break;
-          }
+    const refs = dayGroupRefs.current;
+    
+    // First try to find Today
+    let targetRef = refs.get(todayKey);
+    
+    // If no Today, find nearest upcoming date
+    if (!targetRef) {
+      const sortedKeys = Array.from(refs.keys()).sort();
+      for (const key of sortedKeys) {
+        if (key >= todayKey && key !== 'no-date') {
+          targetRef = refs.get(key);
+          break;
         }
       }
-      
-      if (targetRef && contentRef.current) {
-        targetRef.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
+    }
     
-    return () => cancelAnimationFrame(frameId);
-  }, [groupedItems, todayKey, timeFilter, assigneeFilter]);
+    if (targetRef && contentRef.current) {
+      // Use instant scroll (scrollTop) so first paint is already positioned
+      const containerTop = contentRef.current.getBoundingClientRect().top;
+      const targetTop = targetRef.getBoundingClientRect().top;
+      const scrollOffset = targetTop - containerTop;
+      contentRef.current.scrollTop = scrollOffset;
+      didInitialAutoScrollRef.current = true;
+    }
+  }, [groupedItems, todayKey]);
   
   // Counts
   const taskCount = filteredItems.filter(i => i.type === 'task').length;
@@ -656,12 +661,18 @@ export function CommandPanel({
     setContextMenu(null);
   }, []);
   
+  // Context menu Edit => open QuickCreateTaskModal for tasks, or onEditItem for events
   const handleEdit = useCallback(() => {
     if (contextMenu) {
-      onEditItem?.(contextMenu.item);
+      const item = contextMenu.item;
+      if (item.type === 'task' && onQuickEditTask) {
+        onQuickEditTask(item as TimelineTask);
+      } else {
+        onEditItem?.(item);
+      }
       handleCloseContextMenu();
     }
-  }, [contextMenu, onEditItem, handleCloseContextMenu]);
+  }, [contextMenu, onQuickEditTask, onEditItem, handleCloseContextMenu]);
   
   const handleDelete = useCallback(() => {
     if (contextMenu) {
@@ -758,15 +769,28 @@ export function CommandPanel({
           <div className={styles.filterGroup}>
             {(Object.keys(ASSIGNEE_FILTER_LABELS) as AssigneeFilter[]).map(filter => {
               const isMeFilter = filter === 'me';
-              const isDisabled = isMeFilter && !currentUserId;
+              const isLoading = isMeFilter && isUserLoading;
+              const isDisabled = isMeFilter && (isUserLoading || !currentUserId);
+              
+              let chipLabel = ASSIGNEE_FILTER_LABELS[filter];
+              let chipTitle: string | undefined;
+              
+              if (isMeFilter) {
+                if (isLoading) {
+                  chipLabel = 'Loading…';
+                  chipTitle = 'Loading user…';
+                } else if (!currentUserId) {
+                  chipTitle = 'Sign in to filter by your tasks';
+                }
+              }
               
               return (
                 <FilterChip
                   key={filter}
-                  label={ASSIGNEE_FILTER_LABELS[filter]}
+                  label={chipLabel}
                   active={assigneeFilter === filter}
                   disabled={isDisabled}
-                  title={isDisabled ? 'Sign in to filter by your tasks' : undefined}
+                  title={chipTitle}
                   onClick={() => !isDisabled && setAssigneeFilter(filter)}
                 />
               );
