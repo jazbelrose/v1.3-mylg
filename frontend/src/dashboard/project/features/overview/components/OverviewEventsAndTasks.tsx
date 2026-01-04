@@ -11,7 +11,13 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/app/contexts/useUser';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
-import { approveTask, requestTaskChanges } from '@/shared/utils/api';
+import { 
+  approveTask, 
+  requestTaskChanges, 
+  deleteTask, 
+  deleteEvent,
+  requestTaskReview,
+} from '@/shared/utils/api';
 import CommandPanel, {
   type TimelineEvent,
   type TimelineTask,
@@ -62,6 +68,8 @@ interface OverviewEventsAndTasksProps {
   onEditTask?: (task: TimelineTask) => void;
   onQuickEditTask?: (task: TimelineTask) => void;
   onOpenMap?: () => void;
+  /** Called after a task/event is deleted or updated to refresh data */
+  onRefresh?: () => void;
 }
 
 // ============================================================================
@@ -78,6 +86,7 @@ export function OverviewEventsAndTasks({
   onEditTask,
   onQuickEditTask,
   onOpenMap,
+  onRefresh,
 }: OverviewEventsAndTasksProps) {
   const navigate = useNavigate();
   const { userId, user } = useUser();
@@ -235,6 +244,58 @@ export function OverviewEventsAndTasks({
   const handleCreateEvent = useCallback(() => {
     navigate(getProjectDashboardPath(projectId, projectTitle, '/calendar'));
   }, [navigate, projectId, projectTitle]);
+  
+  const handleDeleteItem = useCallback(async (item: TimelineItem) => {
+    try {
+      if (item.type === 'task') {
+        const task = tasks.find(t => (t.id || t.taskId) === item.id);
+        const taskId = task?.taskId || task?.id;
+        if (!taskId) {
+          console.error('Cannot delete task: no taskId found');
+          return;
+        }
+        await deleteTask({ projectId, taskId });
+      } else {
+        const event = events.find(e => (e.id || e.eventId) === item.id);
+        const eventId = event?.eventId || event?.id;
+        if (!eventId) {
+          console.error('Cannot delete event: no eventId found');
+          return;
+        }
+        await deleteEvent(projectId, eventId);
+      }
+      // Refresh data after deletion
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+    }
+  }, [projectId, tasks, events, onRefresh]);
+  
+  const handleDuplicateItem = useCallback((item: TimelineItem) => {
+    // Navigate to the appropriate page to create a duplicate
+    // This could be enhanced to open the create modal with pre-filled data
+    if (item.type === 'task') {
+      navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks'));
+    } else {
+      navigate(getProjectDashboardPath(projectId, projectTitle, '/calendar'));
+    }
+  }, [navigate, projectId, projectTitle]);
+  
+  const handleSubmitForReview = useCallback(async (task: TimelineTask) => {
+    try {
+      const rawTask = tasks.find(t => (t.id || t.taskId) === task.id);
+      const taskId = rawTask?.taskId || rawTask?.id;
+      if (!taskId) {
+        console.error('Cannot submit task for review: no taskId found');
+        return;
+      }
+      await requestTaskReview(projectId, taskId, { note: 'Submitted from Overview' });
+      // Refresh data after submission
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to submit task for review:', err);
+    }
+  }, [projectId, tasks, onRefresh]);
 
   return (
     <div className={styles.overviewEventsCard}>
@@ -246,6 +307,9 @@ export function OverviewEventsAndTasks({
         onToggleTask={handleToggleTask}
         onEditItem={handleEditItem}
         onQuickEditTask={onQuickEditTask}
+        onDeleteItem={handleDeleteItem}
+        onDuplicateItem={handleDuplicateItem}
+        onSubmitForReview={handleSubmitForReview}
         onViewCalendar={handleViewCalendar}
         onCreateTask={handleCreateTask}
         onCreateEvent={handleCreateEvent}

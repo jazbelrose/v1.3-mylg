@@ -127,6 +127,8 @@ interface OverviewHudProps {
   onQuickEditTask?: (task: TaskItem) => void;
   /** Client mode: hides internal controls, shows only client-facing data */
   clientMode?: boolean;
+  /** Called after a task/event is deleted or updated to refresh data */
+  onRefresh?: () => void;
 }
 
 // ============================================================================
@@ -154,6 +156,7 @@ export function OverviewHud({
   onOpenMap,
   onQuickEditTask,
   clientMode = false,
+  onRefresh,
 }: OverviewHudProps) {
   const navigate = useNavigate();
   const routeLocation = useLocation();
@@ -280,6 +283,7 @@ export function OverviewHud({
             events={events}
             tasks={visibleTasks}
             onOpenMap={handleOpenMap}
+            onRefresh={onRefresh}
             onQuickEditTask={onQuickEditTask ? (task: TimelineTask) => {
               // Find the original task data to pass to parent
               const originalTask = tasks.find(t => (t.id || t.taskId) === task.id);

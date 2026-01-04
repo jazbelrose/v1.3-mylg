@@ -155,6 +155,7 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
         recentFiles={overviewData.recentFiles}
         recentLinks={overviewData.recentLinks}
         onQuickEditTask={handleQuickEditTask}
+        onRefresh={overviewData.refresh}
       />
       
       {/* Task Edit Drawer (QuickCreateTaskModal) */}
