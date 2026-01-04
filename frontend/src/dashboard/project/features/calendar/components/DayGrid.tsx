@@ -45,6 +45,7 @@ export type DayGridProps = {
   doneCountsByDay?: Map<string, number>;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
+  onRenameTaskTitle?: (task: CalendarTask, title: string) => void | Promise<void>;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
   onCreateIntent?: (date: Date) => void;
@@ -175,6 +176,7 @@ function DayGrid({
   doneCountsByDay,
   onEditEvent,
   onEditTask,
+  onRenameTaskTitle,
   onCreateEvent,
   onCreateTask,
   onCreateIntent,
@@ -1788,6 +1790,7 @@ function DayGrid({
             }
             handleClosePopover();
           }}
+          onRenameTaskTitle={onRenameTaskTitle}
           onEditFocusChild={(task) => onEditTask(task)}
           onOpenFocusChildContextMenu={handleOpenContextMenuFromFocusChild}
           onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}

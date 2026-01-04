@@ -53,6 +53,7 @@ export type WeekGridProps = {
   doneCountsByDay?: Map<string, number>;
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
+  onRenameTaskTitle?: (task: CalendarTask, title: string) => void | Promise<void>;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
   onCreateIntent?: (date: Date) => void;
@@ -261,6 +262,7 @@ function WeekGrid({
   doneCountsByDay,
   onEditEvent,
   onEditTask,
+  onRenameTaskTitle,
   onCreateEvent,
   onCreateTask,
   onCreateIntent,
@@ -350,7 +352,8 @@ function WeekGrid({
   const [stackPopover, setStackPopover] = useState<{
     anchorElement: HTMLElement;
     kind: StackPopoverKind;
-    title: string;
+    baseTitle: string;
+    count: number;
     childEntryKeys: string[];
     avatars: TimelineAvatar[];
   } | null>(null);
@@ -1528,16 +1531,33 @@ function WeekGrid({
 
       if (entry.type === "taskStack" || entry.type === "overlapStack") {
         const payload = entry.payload as TaskStackPayload | OverlapStackPayload;
+
+        const isFocusBlockTask = (task: CalendarTask) =>
+          task.kind === "focus_block" ||
+          (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+          (task.focusChecklist && task.focusChecklist.length > 0);
+
+        const focusBlockChildTitle = payload.childEntryKeys
+          .map((key) => entryLookup.get(key)?.entry)
+          .find((childEntry) => {
+            if (!childEntry) return false;
+            if (childEntry.type !== "task") return false;
+            return isFocusBlockTask(childEntry.payload as CalendarTask);
+          })?.title;
+
         const firstChildTitle = payload.childEntryKeys
           .map((key) => entryLookup.get(key)?.entry.title)
           .filter((t): t is string => Boolean(t && t.trim().length > 0))[0];
-        const popoverTitle = `${firstChildTitle ?? entry.title} (${payload.childEntryKeys.length})`;
+
+        const baseTitle = `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
+        const count = payload.childEntryKeys.length;
         setPopover(null);
         setContextMenu(null);
         setStackPopover({
           anchorElement: event.currentTarget,
           kind: entry.type,
-          title: popoverTitle,
+          baseTitle,
+          count,
           childEntryKeys: payload.childEntryKeys,
           avatars: entry.avatars,
         });
@@ -2477,6 +2497,30 @@ function WeekGrid({
             .filter((child): child is StackPopoverChild => Boolean(child));
 
           const primaryChild = stackChildren[0];
+          const focusBlockChild = stackChildren.find((c) => {
+            if (c.entryType !== "task") return false;
+            const t = c.entry as CalendarTask;
+            return (
+              t.kind === "focus_block" ||
+              (t.focusChildTaskIds && t.focusChildTaskIds.length > 0) ||
+              (t.focusChecklist && t.focusChecklist.length > 0)
+            );
+          });
+          const editTarget = focusBlockChild ?? primaryChild;
+
+          const canInlineRename = Boolean(
+            editTarget &&
+              editTarget.entryType === "task" &&
+              onRenameTaskTitle &&
+              (() => {
+                const t = editTarget.entry as CalendarTask;
+                return (
+                  t.kind === "focus_block" ||
+                  (t.focusChildTaskIds && t.focusChildTaskIds.length > 0) ||
+                  (t.focusChecklist && t.focusChecklist.length > 0)
+                );
+              })(),
+          );
 
           const focusMeter = (() => {
             const focusTask = stackChildren.find((c) => {
@@ -2511,7 +2555,8 @@ function WeekGrid({
         <CalendarStackPopover
           anchorElement={stackPopover.anchorElement}
           kind={stackPopover.kind}
-          title={stackPopover.title}
+          title={stackPopover.baseTitle}
+          count={stackPopover.count}
           avatars={stackPopover.avatars}
           focusMeter={focusMeter}
           projectColor={projectColor}
@@ -2519,14 +2564,23 @@ function WeekGrid({
           teamMembers={teamMembers}
           onClose={handleCloseStackPopover}
           onEditTitle={() => {
-            if (!primaryChild) return;
-            if (primaryChild.entryType === "event") {
-              onEditEvent(primaryChild.entry as CalendarEvent);
+            if (!editTarget) return;
+            if (editTarget.entryType === "event") {
+              onEditEvent(editTarget.entry as CalendarEvent);
             } else {
-              onEditTask(primaryChild.entry as CalendarTask);
+              onEditTask(editTarget.entry as CalendarTask);
             }
             handleCloseStackPopover();
           }}
+          onRenameTitle={
+            canInlineRename
+              ? async (nextTitle) => {
+                  if (!editTarget || editTarget.entryType !== "task" || !onRenameTaskTitle) return;
+                  await onRenameTaskTitle(editTarget.entry as CalendarTask, nextTitle);
+                  setStackPopover((prev) => (prev ? { ...prev, baseTitle: nextTitle } : prev));
+                }
+              : undefined
+          }
           onOpenDetails={handleOpenDetailsFromStackPopover}
           onOpenContextMenu={handleOpenContextMenuFromStackPopover}
         />
@@ -2581,6 +2635,7 @@ function WeekGrid({
             }
             handleClosePopover();
           }}
+          onRenameTaskTitle={onRenameTaskTitle}
           onEditFocusChild={(task) => onEditTask(task)}
           onOpenFocusChildContextMenu={handleOpenContextMenuFromFocusChild}
           onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}

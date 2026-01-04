@@ -4,7 +4,7 @@
  * Folded-only inspector popover for Task Stack + Overlap Stack tiles.
  */
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pencil } from "lucide-react";
 import type { CalendarEvent, CalendarTask } from "../utils";
@@ -29,6 +29,7 @@ export interface CalendarStackPopoverProps {
   anchorElement: HTMLElement;
   kind: StackPopoverKind;
   title: string;
+  count?: number;
   avatars?: TimelineAvatar[];
   focusMeter?: { done: number; total: number } | null;
   projectColor: string;
@@ -36,6 +37,7 @@ export interface CalendarStackPopoverProps {
   teamMembers?: ProjectTeamMember[];
   onClose: () => void;
   onEditTitle?: () => void;
+  onRenameTitle?: (title: string) => void | Promise<void>;
   onOpenDetails: (child: StackPopoverChild, anchorElement: HTMLElement) => void;
   onOpenContextMenu: (child: StackPopoverChild, event: React.MouseEvent<HTMLElement>) => void;
 }
@@ -44,6 +46,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   anchorElement,
   kind,
   title,
+  count,
   avatars,
   focusMeter,
   projectColor,
@@ -51,10 +54,15 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   teamMembers,
   onClose,
   onEditTitle,
+  onRenameTitle,
   onOpenDetails,
   onOpenContextMenu,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [titleOverride, setTitleOverride] = useState<string | null>(null);
 
   const memberLookup = useMemo(() => buildTeamMemberLookup(teamMembers), [teamMembers]);
 
@@ -86,6 +94,52 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
   const isSingleUser = Boolean((avatars?.length ?? 0) === 1);
   const showRowAvatars = kind === "overlapStack" && !isSingleUser;
+
+  const canInlineRename = Boolean(onRenameTitle);
+  const displayTitle = titleOverride ?? title;
+  const displayTitleWithCount = typeof count === "number" ? `${displayTitle} (${count})` : displayTitle;
+
+  useEffect(() => {
+    if (!isEditingTitle) return;
+    const raf = requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isEditingTitle]);
+
+  const beginEditTitle = useCallback(() => {
+    if (!canInlineRename) {
+      onEditTitle?.();
+      return;
+    }
+
+    setDraftTitle((displayTitle ?? "").trim());
+    setIsEditingTitle(true);
+  }, [canInlineRename, displayTitle, onEditTitle]);
+
+  const commitTitle = useCallback(async () => {
+    if (!onRenameTitle) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const next = draftTitle.trim();
+    if (!next) {
+      setIsEditingTitle(false);
+      return;
+    }
+    try {
+      await onRenameTitle(next);
+      setTitleOverride(next);
+    } finally {
+      setIsEditingTitle(false);
+    }
+  }, [draftTitle, onRenameTitle]);
+
+  const cancelTitleEdit = useCallback(() => {
+    setIsEditingTitle(false);
+    setDraftTitle("");
+  }, []);
 
   useEffect(() => {
     if (!popoverRef.current || !anchorElement) return;
@@ -201,21 +255,45 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
       <div className="calendar-entry-popover__header calendar-stack-popover__header">
-        {onEditTitle ? (
-          <button
-            type="button"
-            className="calendar-entry-popover__title-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditTitle();
-            }}
-            title="Click to edit"
-          >
-            <span className="calendar-entry-popover__title">{title}</span>
-            <Pencil className="calendar-entry-popover__edit-icon" aria-hidden />
-          </button>
+        {(canInlineRename || onEditTitle) ? (
+          canInlineRename && isEditingTitle ? (
+            <div className="calendar-entry-popover__title-btn" role="group" aria-label="Edit title">
+              <input
+                ref={titleInputRef}
+                className="calendar-entry-popover__title"
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void commitTitle();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelTitleEdit();
+                  }
+                }}
+                onBlur={() => {
+                  void commitTitle();
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="calendar-entry-popover__title-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                beginEditTitle();
+              }}
+              title={canInlineRename ? "Click to rename" : "Click to edit"}
+            >
+              <span className="calendar-entry-popover__title">{displayTitleWithCount}</span>
+              <Pencil className="calendar-entry-popover__edit-icon" aria-hidden />
+            </button>
+          )
         ) : (
-          <div className="calendar-entry-popover__title">{title}</div>
+          <div className="calendar-entry-popover__title">{displayTitleWithCount}</div>
         )}
 
         <div className="calendar-stack-popover__header-right" aria-hidden>

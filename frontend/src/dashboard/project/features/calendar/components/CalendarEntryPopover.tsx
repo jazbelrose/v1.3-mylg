@@ -5,7 +5,7 @@
  * Shows entry details and quick actions without opening the full edit modal.
  */
 
-import React, { useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Send,
@@ -40,6 +40,7 @@ export interface CalendarEntryPopoverProps {
   focusChildren?: CalendarTask[];
   onClose: () => void;
   onEdit: () => void;
+  onRenameTaskTitle?: (task: CalendarTask, title: string) => void | Promise<void>;
   onEditFocusChild?: (task: CalendarTask) => void;
   onOpenFocusChildContextMenu?: (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
@@ -57,6 +58,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   focusChildren,
   onClose,
   onEdit,
+  onRenameTaskTitle,
   onEditFocusChild,
   onOpenFocusChildContextMenu,
   onSubmitForReview,
@@ -65,6 +67,10 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   onDelete,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [titleOverride, setTitleOverride] = useState<string | null>(null);
 
   // Position calculation
   useEffect(() => {
@@ -151,7 +157,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   // Helper to detect Focus Blocks (by kind OR by having child task references for legacy support)
   const isFocusBlock = useMemo(() => {
     if (!isTask || !task) return false;
-    if (task.kind === "focus_block") return true;
+    const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+    if (normalizedKind === "focus_block") return true;
     const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
       (task.focusChecklist && task.focusChecklist.length > 0);
     return hasChildren;
@@ -173,6 +180,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     }
     return rawTitle;
   }, [focusChildrenResolved, isFocusBlock, isTask, rawTitle, task]);
+
+  const displayTitle = titleOverride ?? title;
   const timeLabel = isTask
     ? task?.start && task?.end
       ? `${task.start} - ${task.end}`
@@ -266,10 +275,52 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     return names.length > 0 ? names : null;
   }, [isTask, task, memberLookup]);
 
-  const handleEdit = useCallback(() => {
-    onEdit();
-    onClose();
-  }, [onEdit, onClose]);
+  const canInlineRenameFocusBlock = Boolean(isTask && task && isFocusBlock && onRenameTaskTitle);
+
+  useEffect(() => {
+    if (!isEditingTitle) return;
+    const raf = requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isEditingTitle]);
+
+  const beginEditTitle = useCallback(() => {
+    if (!canInlineRenameFocusBlock) {
+      // Fallback: open the full editor. Let the parent decide whether to close the popover.
+      onEdit();
+      return;
+    }
+
+    const initial = ((rawTitle ?? "").trim() || (title ?? "").trim() || "").toString();
+    setDraftTitle(initial);
+    setIsEditingTitle(true);
+  }, [canInlineRenameFocusBlock, onEdit, rawTitle, title]);
+
+  const commitTitle = useCallback(async () => {
+    if (!canInlineRenameFocusBlock || !task || !onRenameTaskTitle) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const next = draftTitle.trim();
+    if (!next) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    try {
+      await onRenameTaskTitle(task, next);
+      setTitleOverride(next);
+    } finally {
+      setIsEditingTitle(false);
+    }
+  }, [canInlineRenameFocusBlock, draftTitle, onRenameTaskTitle, task]);
+
+  const cancelTitleEdit = useCallback(() => {
+    setIsEditingTitle(false);
+    setDraftTitle("");
+  }, []);
 
   const handleSubmitForReview = useCallback(() => {
     if (task && onSubmitForReview) {
@@ -325,15 +376,39 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     >
       {/* Header with title and avatar stack */}
       <div className="calendar-entry-popover__header">
-        <button
-          type="button"
-          className="calendar-entry-popover__title-btn"
-          onClick={handleEdit}
-          title="Click to edit"
-        >
-          <span className="calendar-entry-popover__title">{title}</span>
-          <Pencil className="calendar-entry-popover__edit-icon" />
-        </button>
+        {canInlineRenameFocusBlock && isEditingTitle ? (
+          <div className="calendar-entry-popover__title-btn" role="group" aria-label="Edit title">
+            <input
+              ref={titleInputRef}
+              className="calendar-entry-popover__title"
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void commitTitle();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelTitleEdit();
+                }
+              }}
+              onBlur={() => {
+                void commitTitle();
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="calendar-entry-popover__title-btn"
+            onClick={beginEditTitle}
+            title={canInlineRenameFocusBlock ? "Click to rename" : "Click to edit"}
+          >
+            <span className="calendar-entry-popover__title">{displayTitle}</span>
+            <Pencil className="calendar-entry-popover__edit-icon" />
+          </button>
+        )}
         
         {/* Avatar stack (aligned right, overlapped like calendar blocks) */}
         {(isFocusBlock ? avatars.slice(0, 1) : avatars).length > 0 && (

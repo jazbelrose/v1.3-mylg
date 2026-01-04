@@ -19,6 +19,7 @@ import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/compon
 import {
   createTask,
   createTasksBulk,
+  updateTask,
   updateTasksBulk,
   deleteTask,
   reviewTransitionTask,
@@ -1187,6 +1188,24 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [onRefreshTasks],
   );
 
+  const handleRenameTaskTitle = useCallback(
+    async (task: CalendarTask, title: string) => {
+      const nextTitle = title.trim();
+      if (!nextTitle) return;
+      const source = task.source as ApiTask;
+      if (!source.projectId || !source.taskId) return;
+      try {
+        await updateTask({ projectId: source.projectId, taskId: source.taskId, title: nextTitle } as Task);
+        notify("success", "Title updated");
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Failed to rename task:", error);
+        notify("error", "Failed to update title");
+      }
+    },
+    [onRefreshTasks],
+  );
+
   const handleSaveChanges = useCallback(
     (entry: CalendarTask | CalendarEvent) => {
       // Open the edit modal/drawer for the entry to allow saving changes
@@ -1473,6 +1492,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       doneCountsByDay={doneCountsByDay}
                       onEditEvent={handleOpenEditEvent}
                       onEditTask={handleOpenEditTask}
+                      onRenameTaskTitle={handleRenameTaskTitle}
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
                       onCreateIntent={handleOpenQuickIntentModal}
@@ -1503,6 +1523,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       doneCountsByDay={doneCountsByDay}
                       onEditEvent={handleOpenEditEvent}
                       onEditTask={handleOpenEditTask}
+                      onRenameTaskTitle={handleRenameTaskTitle}
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
                       onCreateIntent={handleOpenQuickIntentModal}
