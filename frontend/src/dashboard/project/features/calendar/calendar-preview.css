@@ -2747,6 +2747,13 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.calendar-entry-popover__header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .calendar-entry-popover__title-btn {
   display: flex;
   align-items: center;
@@ -2773,6 +2780,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Inline rename input should look like the title text (not a default white input) */
+.calendar-entry-popover__title-btn[role="group"] {
+  cursor: text;
+}
+
+.calendar-entry-popover__title-btn:focus-within {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.calendar-entry-popover__title-btn input.calendar-entry-popover__title {
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  appearance: none;
 }
 
 .calendar-entry-popover__edit-icon {

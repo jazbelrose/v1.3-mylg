@@ -16,7 +16,7 @@ import {
   Clock,
   Calendar,
 } from "lucide-react";
-import type { CalendarTask, CalendarEvent } from "../utils";
+import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
@@ -184,13 +184,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const displayTitle = titleOverride ?? title;
   const timeLabel = isTask
     ? task?.start && task?.end
-      ? `${task.start} - ${task.end}`
-      : task?.start || "No time set"
+      ? `${formatTimeLabel(task.start) ?? task.start} - ${formatTimeLabel(task.end) ?? task.end}`
+      : (formatTimeLabel(task?.start) ?? task?.start) || "No time set"
     : event?.start && event?.end
-    ? `${event.start} - ${event.end}`
-    : event?.allDay
-    ? "All day"
-    : event?.start || "No time set";
+      ? `${formatTimeLabel(event.start) ?? event.start} - ${formatTimeLabel(event.end) ?? event.end}`
+      : event?.allDay
+        ? "All day"
+        : (formatTimeLabel(event?.start) ?? event?.start) || "No time set";
 
   // Build team member lookup for avatar resolution
   const memberLookup = useMemo(
@@ -416,36 +416,43 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             <Pencil className="calendar-entry-popover__edit-icon" />
           </button>
         )}
-        
-        {/* Avatar stack (aligned right, overlapped like calendar blocks) */}
-        {(isFocusBlock ? avatars.slice(0, 1) : avatars).length > 0 && (
-          <div className="calendar-entry-popover__avatars">
-            {(isFocusBlock ? avatars.slice(0, 1) : avatars).map((avatar, index) => (
-              <span
-                key={avatar.key}
-                className="calendar-entry-popover__avatar-wrapper"
-                style={{ 
-                  zIndex: (isFocusBlock ? 1 : avatars.length) - index,
-                  marginLeft: !isFocusBlock && index > 0 ? "-8px" : 0 
-                }}
-              >
-                <ProjectAvatar
-                  className="calendar-entry-popover__avatar"
-                  thumb={avatar.thumb ?? undefined}
-                  name={avatar.name}
-                  shape="circle"
-                  radius={10}
-                />
-              </span>
-            ))}
-          </div>
-        )}
-        
-        {selectedCount > 1 && (
-          <span className="calendar-entry-popover__badge">
-            +{selectedCount - 1} more
-          </span>
-        )}
+
+        <div className="calendar-entry-popover__header-right" aria-hidden>
+          {/* Avatar stack (aligned right, overlapped like calendar blocks) */}
+          {(isFocusBlock ? avatars.slice(0, 1) : avatars).length > 0 && (
+            <div className="calendar-entry-popover__avatars">
+              {(isFocusBlock ? avatars.slice(0, 1) : avatars).map((avatar, index) => (
+                <span
+                  key={avatar.key}
+                  className="calendar-entry-popover__avatar-wrapper"
+                  style={{
+                    zIndex: (isFocusBlock ? 1 : avatars.length) - index,
+                    marginLeft: !isFocusBlock && index > 0 ? "-8px" : 0,
+                  }}
+                >
+                  <ProjectAvatar
+                    className="calendar-entry-popover__avatar"
+                    thumb={avatar.thumb ?? undefined}
+                    name={avatar.name}
+                    shape="circle"
+                    radius={10}
+                  />
+                </span>
+              ))}
+            </div>
+          )}
+
+          {selectedCount > 1 && (
+            <span className="calendar-entry-popover__badge">+{selectedCount - 1} more</span>
+          )}
+
+          {/* Focus meter pinned in header (n/n) */}
+          {isTask && isFocusBlock && focusMeter && (
+            <span className="calendar-entry-popover__status calendar-entry-popover__status--focus-meter">
+              {focusMeter.done}/{focusMeter.total}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Details */}
@@ -469,13 +476,6 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             </span>
           </div>
         )}
-        {isTask && isFocusBlock && focusMeter && (
-          <div className="calendar-entry-popover__detail-row">
-            <span className="calendar-entry-popover__status calendar-entry-popover__status--focus-meter">
-              {focusMeter.done}/{focusMeter.total}
-            </span>
-          </div>
-        )}
         {isTask && !isFocusBlock && task?.status && (
           <div className="calendar-entry-popover__detail-row">
             <span
@@ -494,7 +494,9 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           <div className="calendar-entry-popover__children-list">
             {focusChildrenResolved.map((child) => {
               const childTitle = child.title || "Untitled task";
-              const childTime = child.start && child.end ? `${child.start} - ${child.end}` : child.start || "";
+              const childTime = child.start && child.end
+                ? `${formatTimeLabel(child.start) ?? child.start} - ${formatTimeLabel(child.end) ?? child.end}`
+                : (formatTimeLabel(child.start) ?? child.start) || "";
               const isChildDone = child.status === "done" || child.done === true;
               return (
                 <div key={child.id} className="calendar-entry-popover__child-row">

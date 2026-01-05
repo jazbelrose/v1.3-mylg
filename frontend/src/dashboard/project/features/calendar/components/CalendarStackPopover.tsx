@@ -7,7 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pencil } from "lucide-react";
-import type { CalendarEvent, CalendarTask } from "../utils";
+import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import {
@@ -221,12 +221,16 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       if (child.entryType === "event") {
         const event = child.entry as CalendarEvent;
         if (event.allDay) return "All day";
-        if (event.start && event.end) return `${event.start}–${event.end}`;
-        return event.start || "";
+        if (event.start && event.end) {
+          return `${formatTimeLabel(event.start) ?? event.start}–${formatTimeLabel(event.end) ?? event.end}`;
+        }
+        return (formatTimeLabel(event.start) ?? event.start) || "";
       }
       const task = child.entry as CalendarTask;
-      if (task.start && task.end) return `${task.start}–${task.end}`;
-      return task.start || "";
+      if (task.start && task.end) {
+        return `${formatTimeLabel(task.start) ?? task.start}–${formatTimeLabel(task.end) ?? task.end}`;
+      }
+      return (formatTimeLabel(task.start) ?? task.start) || "";
     };
 
     const buildRowAvatar = (child: StackPopoverChild): TimelineAvatar | null => {
