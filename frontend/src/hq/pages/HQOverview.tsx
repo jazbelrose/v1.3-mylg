@@ -128,7 +128,7 @@ const HQOverview: React.FC = () => {
   return (
     <HQLayout
       title="HQ · Financial"
-      description="Company-level finance: accounts, ledger, burn, runway, and anomalies — powered by your CSV imports."
+      description="Accounts, ledger, burn, runway, and anomalies at a glance."
       actions={actions}
     >
       <div className={styles.page}>
