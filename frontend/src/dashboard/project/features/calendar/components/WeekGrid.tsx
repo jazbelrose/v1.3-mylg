@@ -361,10 +361,36 @@ function WeekGrid({
 
   const [overlapStackTitleOverrides, setOverlapStackTitleOverrides] = useState<Record<string, string>>({});
 
-  const buildOverlapTitleKey = useCallback((childEntryKeys: string[]) => {
-    const sorted = [...childEntryKeys].sort();
-    return sorted.join("|");
-  }, []);
+  const overlapTitleStorageKey = useMemo(() => {
+    const scope = (activeProjectId ?? "").trim() || "global";
+    return `calendar:overlapStackTitles:${scope}`;
+  }, [activeProjectId]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(overlapTitleStorageKey);
+      if (!raw) {
+        setOverlapStackTitleOverrides({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") {
+        setOverlapStackTitleOverrides({});
+        return;
+      }
+      setOverlapStackTitleOverrides(parsed as Record<string, string>);
+    } catch {
+      setOverlapStackTitleOverrides({});
+    }
+  }, [overlapTitleStorageKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(overlapTitleStorageKey, JSON.stringify(overlapStackTitleOverrides));
+    } catch {
+      // ignore
+    }
+  }, [overlapStackTitleOverrides, overlapTitleStorageKey]);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -938,6 +964,32 @@ function WeekGrid({
   }, [days, events, tasks, teamMemberLookup]);
 
   const entryLookup = useMemo(() => baseEntryLookup, [baseEntryLookup]);
+
+  const buildOverlapTitleKey = useCallback(
+    (childEntryKeys: string[]) => {
+      const stableIds = childEntryKeys
+        .map((key) => {
+          const lookup = entryLookup.get(key);
+          if (!lookup) return null;
+          const entry = lookup.entry;
+          if (entry.type === "task") {
+            const task = entry.payload as CalendarTask;
+            return task.source?.taskId ?? task.id ?? null;
+          }
+          if (entry.type === "event") {
+            const event = entry.payload as CalendarEvent;
+            return event.id ?? null;
+          }
+          return null;
+        })
+        .filter((id): id is string => Boolean(id));
+
+      // Fallback to raw keys if we couldn't resolve stable ids (should be rare).
+      const basis = stableIds.length ? stableIds : childEntryKeys;
+      return [...basis].sort().join("|");
+    },
+    [entryLookup],
+  );
 
   useEffect(() => {
     const handlePointerUp = (event: PointerEvent) => {
