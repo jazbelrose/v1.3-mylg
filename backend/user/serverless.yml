@@ -170,6 +170,11 @@ functions:
           authorizer:
             name: jwtAuthorizer
       - httpApi:
+          path: /postProjectToUserId
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
           path: /user/health
           method: GET
           authorizer:

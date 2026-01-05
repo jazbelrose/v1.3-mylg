@@ -506,6 +506,33 @@ async function postProjectToUserId(event, C) {
   return json(200, C, { userId, projectId, projects: r.Attributes.projects || [] });
 }
 
+// DELETE /postProjectToUserId (remove projectId from user.projects[])
+async function deleteProjectFromUserId(event, C) {
+  const userId = Q(event).userId;
+  const projectId = Q(event).projectId;
+  if (!userId) return json(400, C, { error: "userId required (query)" });
+  if (!projectId) return json(400, C, { error: "projectId required (query)" });
+
+  const current = await ddb.get({
+    TableName: USER_PROFILES_TABLE,
+    Key: { userId },
+    ProjectionExpression: "projects",
+  });
+  const existing = Array.isArray(current.Item?.projects) ? current.Item.projects : [];
+  const next = existing.filter((id) => id !== projectId);
+
+  const r = await ddb.update({
+    TableName: USER_PROFILES_TABLE,
+    Key: { userId },
+    UpdateExpression: "SET #projects = :p, #updatedAt = :u",
+    ExpressionAttributeNames: { "#projects": "projects", "#updatedAt": "updatedAt" },
+    ExpressionAttributeValues: { ":p": next, ":u": nowISO() },
+    ReturnValues: "ALL_NEW",
+  });
+
+  return json(200, C, { userId, projectId, projects: r.Attributes.projects || [] });
+}
+
 /* ---------- routes ---------- */
 const routes = [
   { M: "GET",    R: /^\/user\/health$/i,                                        H: health },
@@ -539,6 +566,7 @@ const routes = [
   // project link
   { M: "POST",   R: /^\/postProjectToUserId$/i,                                 H: postProjectToUserId },
   { M: "PUT",    R: /^\/postProjectToUserId$/i,                                 H: postProjectToUserId },
+  { M: "DELETE", R: /^\/postProjectToUserId$/i,                                 H: deleteProjectFromUserId },
 ];
 
 /* ---------- entry ---------- */

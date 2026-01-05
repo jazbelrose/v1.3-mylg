@@ -168,17 +168,23 @@ interface EditValues {
     return u?.firstName ? `${u.firstName} ${u.lastName ?? ""}` : id;
   };
 
-  const getUserProjects = (uid) =>
-    projects.filter(
-      (p) => Array.isArray(p.team) && p.team.some((m) => m.userId === uid),
-    );
+  const getUserProjects = (uid) => {
+    const user = allUsers.find((u) => u.userId === uid || u.username === uid);
+    const projectIds = Array.isArray(user?.projects) ? user.projects : [];
+    return projects.filter((p) => {
+      if (projectIds.includes(p.projectId)) return true;
+      return Array.isArray(p.team) && p.team.some((m) => m.userId === uid);
+    });
+  };
 
   const openModalForUser = (userId) => {
-    const ids = projects
+    const user = allUsers.find((u) => u.userId === userId || u.username === userId);
+    const idsFromProfile = Array.isArray(user?.projects) ? user.projects : [];
+    const idsFromTeam = projects
       .filter((p) => Array.isArray(p.team) && p.team.some((m) => m.userId === userId))
       .map((p) => p.projectId);
+    const ids = Array.from(new Set([...(idsFromProfile || []), ...(idsFromTeam || [])]));
     setAssignedProjects((prev) => ({ ...prev, [userId]: ids }));
-    const user = allUsers.find((u) => u.userId === userId);
     const collabs = Array.isArray(user?.collaborators) ? user.collaborators : [];
     setAssignedCollaborators((prev) => ({ ...prev, [userId]: collabs }));
     setProjectFilter('');
@@ -310,9 +316,12 @@ interface EditValues {
       collaborators: collaboratorIds,
     };
 
-    const originalIds = projects
-      .filter((p) => Array.isArray(p.team) && p.team.some((m) => m.userId === userId))
-      .map((p) => p.projectId);
+    const currentUser = allUsers.find((u) => u.userId === userId || u.username === userId);
+    const originalIds = Array.isArray(currentUser?.projects)
+      ? currentUser.projects
+      : projects
+          .filter((p) => Array.isArray(p.team) && p.team.some((m) => m.userId === userId))
+          .map((p) => p.projectId);
     const newIds = assignedProjects[userId] || [];
     const toAdd = newIds.filter((id) => !originalIds.includes(id));
     const toRemove = originalIds.filter((id) => !newIds.includes(id));
