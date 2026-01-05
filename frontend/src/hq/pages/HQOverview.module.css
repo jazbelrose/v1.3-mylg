@@ -1,52 +1,182 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 18px;
   font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
 }
 
-.filterRow {
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 38px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.primaryButton {
+  background: #fa3356;
+  color: white;
+  border-color: rgba(250, 51, 86, 0.6);
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.secondaryButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.hero {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(900px 260px at 12% 8%, rgba(250, 51, 86, 0.24), rgba(0, 0, 0, 0)),
+    radial-gradient(700px 260px at 88% 12%, rgba(45, 212, 191, 0.18), rgba(0, 0, 0, 0)),
+    rgba(255, 255, 255, 0.03);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.heroTopRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heroTitleBlock {
+  display: grid;
+  gap: 6px;
+}
+
+.heroTitle {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.heroSubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.heroFilters {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
-.filterButton {
+.filterChip {
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
-  transition: background 0.2s ease, border 0.2s ease, transform 0.2s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.filterButton:hover,
-.filterButton:focus-visible {
-  background: rgba(250, 51, 86, 0.24);
-  border-color: rgba(250, 51, 86, 0.45);
+.filterChip:hover,
+.filterChip:focus-visible {
+  background: rgba(250, 51, 86, 0.22);
+  border-color: rgba(250, 51, 86, 0.4);
   transform: translateY(-1px);
 }
 
-.filterButtonActive {
-  background: rgba(250, 51, 86, 0.36);
-  border-color: rgba(250, 51, 86, 0.68);
+.filterChipActive {
+  background: rgba(250, 51, 86, 0.34);
+  border-color: rgba(250, 51, 86, 0.62);
   color: #ffffff;
 }
 
-.cardsGrid {
+.kpiRow {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
-@media (max-width: 1199px) {
-  .cardsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.kpi {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.12);
+  padding: 14px 14px 12px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kpiLabel {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.kpiValue {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.94);
+  line-height: 1.05;
+}
+
+.kpiHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpiIn {
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.kpiOut {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+.gridRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cardLink {
+  color: rgba(255, 255, 255, 0.86);
+  text-decoration: none;
+  font-weight: 650;
+}
+
+.cardLink:hover {
+  text-decoration: underline;
+}
+
+.emptyState {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+  padding: 10px 0;
 }
 
 .chartBars {
@@ -57,14 +187,21 @@
 .chartBarRow {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
+}
+
+.chartMonth {
+  width: 34px;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
 }
 
 .chartBar {
   height: 10px;
   border-radius: 8px;
-  background: rgba(250, 51, 86, 0.18);
+  background: rgba(250, 51, 86, 0.14);
   overflow: hidden;
 }
 
@@ -75,26 +212,31 @@
 }
 
 .chartBarFillMuted {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .list,
-.alertsList,
-.eventsList,
-.messagesList {
+.alertsList {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .listItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 0.95rem;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.accountName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .alertItem {
@@ -108,61 +250,128 @@
 }
 
 .alertBadge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #fa3356;
 }
 
-.tasksCard {
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.inlineNote {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+  line-height: 1.35;
 }
 
-.tasksWidget {
-  font-family: inherit;
+.queue {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.eventRow {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 12px;
+.queueMetric {
+  font-size: 28px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+
+.primaryLink {
+  display: inline-flex;
   align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(250, 51, 86, 0.18);
+  border: 1px solid rgba(250, 51, 86, 0.35);
+  border-radius: 999px;
+  padding: 8px 12px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 650;
 }
 
-.eventDate {
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.75);
+.primaryLink:hover {
+  background: rgba(250, 51, 86, 0.24);
 }
 
-.eventName {
-  font-weight: 600;
+.inlineButton {
+  margin-left: 8px;
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.86);
+  text-decoration: underline;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
 }
 
-.eventLocation {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.messagesList li {
+.txnPreview {
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 
-.messageSender {
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.txnRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.messagePreview {
-  color: rgba(255, 255, 255, 0.68);
-  line-height: 1.4;
+.txnMain {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.txnVendor {
+  font-size: 13px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txnMeta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txnAmount {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.out {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+.in {
+  color: rgba(45, 212, 191, 0.95);
+}
+
+@media (max-width: 1199px) {
+  .kpiRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gridRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 599px) {
-  .cardsGrid {
+  .gridRow {
     grid-template-columns: 1fr;
   }
 }
+

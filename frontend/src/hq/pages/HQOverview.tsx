@@ -1,9 +1,23 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
+import { Link } from "react-router-dom";
 import HQLayout from "../components/HQLayout";
 import HQCard from "../components/HQCard";
-import TasksOverviewCard from "@/dashboard/home/components/TasksOverviewCard";
+import AddAccountModal from "@/hq/components/AddAccountModal";
+import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import { useUser } from "@/app/contexts/useUser";
+import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { useHqStore } from "@/hq/lib/hqStore";
+import {
+  computeCashOnHand,
+  computeMonthlyFlow,
+  computeTopCategories,
+  computeTrailingBurn,
+  getRange,
+  inRange,
+  type HqRangeId,
+} from "@/hq/lib/hqMetrics";
+import type { HqAlert } from "@/hq/types";
 import styles from "./HQOverview.module.css";
-import type { HQAlert } from "../types";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -22,252 +36,320 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-const quickFilters = [
+const quickFilters: Array<{ id: HqRangeId; label: string }> = [
   { id: "month", label: "This month" },
   { id: "quarter", label: "Quarter" },
   { id: "ytd", label: "Year-to-date" },
-  { id: "custom", label: "Custom" },
-] as const;
-
-const monthlyFlow = [
-  { month: "Jan", inflow: 42000, outflow: 36000 },
-  { month: "Feb", inflow: 38000, outflow: 41000 },
-  { month: "Mar", inflow: 45500, outflow: 39500 },
-  { month: "Apr", inflow: 47000, outflow: 42000 },
-  { month: "May", inflow: 51000, outflow: 46000 },
-  { month: "Jun", inflow: 48800, outflow: 43300 },
-];
-
-const categoryBreakdown = [
-  { category: "Payroll", amount: 124500 },
-  { category: "Production", amount: 88500 },
-  { category: "Software", amount: 31200 },
-  { category: "Travel", amount: 28600 },
-  { category: "Marketing", amount: 19200 },
-];
-
-const recurringVendors = [
-  { vendor: "Gusto", amount: 8200, cadence: "Bi-weekly payroll" },
-  { vendor: "Adobe", amount: 1260, cadence: "Monthly subscription" },
-  { vendor: "AWS", amount: 2175, cadence: "Monthly infrastructure" },
-  { vendor: "Notion", amount: 360, cadence: "Monthly workspace" },
-];
-
-const alerts: HQAlert[] = [
-  {
-    id: "low-balance",
-    severity: "warning",
-    message: "Operating account dipped below 2 months of runway this week.",
-  },
-  {
-    id: "unusual-spend",
-    severity: "info",
-    message: "Unusual spend detected: Travel was 46% higher than the trailing 3-month average.",
-  },
-];
-
-const upcomingEvents = [
-  { id: "event-studio", name: "Summer showcase load-in", date: "Jul 12", location: "Brooklyn Stage" },
-  { id: "event-offsite", name: "Crew offsite planning", date: "Jul 19", location: "HQ Loft" },
-  { id: "event-campaign", name: "Campaign kickoff with Spotify", date: "Jul 24", location: "Virtual" },
-];
-
-const messageDigest = [
-  { id: "msg-1", sender: "Taylor P.", preview: "Approved the venue hold — see updated contract." },
-  { id: "msg-2", sender: "Morgan A.", preview: "Need final numbers for the August pop-up." },
-  { id: "msg-3", sender: "Accounts", preview: "Invoice 2041 marked paid. Apply to AR report." },
 ];
 
 const HQOverview: React.FC = () => {
-  const [selectedRange, setSelectedRange] = useState<(typeof quickFilters)[number]["id"]>("ytd");
+  const { userId } = useUser();
+  const orgId = userId || "local";
 
-  const totals = useMemo(() => {
-    const cashOnHand = 214500;
-    const avgMonthlyBurn = 34500;
-    const runwayMonths = cashOnHand / avgMonthlyBurn;
-    const cashIn = monthlyFlow.reduce((acc, row) => acc + row.inflow, 0);
-    const cashOut = monthlyFlow.reduce((acc, row) => acc + row.outflow, 0);
-    const totalCategory = categoryBreakdown.reduce((acc, row) => acc + row.amount, 0);
-    return { cashOnHand, avgMonthlyBurn, runwayMonths, cashIn, cashOut, totalCategory };
-  }, []);
+  const [selectedRange, setSelectedRange] = React.useState<HqRangeId>("ytd");
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
+  const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
+
+  const accounts = useHqStore(orgId, (s) => s.accounts);
+  const transactions = useHqStore(orgId, (s) => s.transactions);
+  const importRuns = useHqStore(orgId, (s) => s.importRuns);
+
+  const { start, end } = getRange(selectedRange);
+
+  const totals = React.useMemo(() => {
+    const cashOnHand = computeCashOnHand(accounts, transactions);
+    const avgMonthlyBurn = computeTrailingBurn(transactions, 3);
+    const runwayMonths =
+      cashOnHand !== null && avgMonthlyBurn !== null && avgMonthlyBurn > 0
+        ? cashOnHand / avgMonthlyBurn
+        : null;
+
+    const rangeTxns = transactions.filter(
+      (t) => inRange(t.postedAt, start, end) && !t.isInternalTransfer
+    );
+    const cashIn = rangeTxns.filter((t) => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
+    const cashOut = rangeTxns.filter((t) => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
+    const net = cashIn - cashOut;
+    const uncategorizedCount = rangeTxns.filter((t) => !t.categoryId || t.categoryId === "OTHER").length;
+
+    return { cashOnHand, avgMonthlyBurn, runwayMonths, net, uncategorizedCount };
+  }, [accounts, end, start, transactions]);
 
   const actions = (
-    <div className={styles.filterRow} aria-label="Quick range filters">
-      {quickFilters.map((filter) => (
-        <button
-          key={filter.id}
-          type="button"
-          className={[styles.filterButton, selectedRange === filter.id ? styles.filterButtonActive : ""]
-            .filter(Boolean)
-            .join(" ")}
-          onClick={() => setSelectedRange(filter.id)}
-          aria-pressed={selectedRange === filter.id}
-        >
-          {filter.label}
-        </button>
-      ))}
+    <div className={styles.actions}>
+      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+        Import CSV
+      </button>
+      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
+        Add account
+      </button>
     </div>
   );
 
-  const maxFlow = Math.max(
-    ...monthlyFlow.flatMap((row) => [row.inflow, row.outflow])
-  );
+  const lastSyncedAt = importRuns[0]?.createdAt;
+  const rangeLabel = quickFilters.find((f) => f.id === selectedRange)?.label ?? "Year-to-date";
+  const monthlyFlow = React.useMemo(() => computeMonthlyFlow(transactions, start, end), [end, start, transactions]);
+  const maxFlow = Math.max(1, ...monthlyFlow.flatMap((row) => [row.inflow, row.outflow]));
+  const topCategories = React.useMemo(() => computeTopCategories(transactions, start, end), [end, start, transactions]);
+  const latestTransactions = React.useMemo(() => transactions.slice(0, 20), [transactions]);
+
+  const alerts: HqAlert[] = React.useMemo(() => {
+    const items: HqAlert[] = [];
+    if (totals.runwayMonths !== null && totals.runwayMonths < 2) {
+      items.push({
+        id: "low-runway",
+        severity: "warning",
+        message: "Runway is below 2 months. Consider tightening burn or replenishing cash.",
+      });
+    }
+    if (totals.uncategorizedCount > 0) {
+      items.push({
+        id: "uncategorized",
+        severity: "info",
+        message: `${totals.uncategorizedCount} transactions need categorization in this range.`,
+      });
+    }
+    if (accounts.length === 0) {
+      items.push({
+        id: "no-accounts",
+        severity: "critical",
+        message: "Add an account to start importing transactions.",
+      });
+    } else if (accounts.every((a) => !a.anchorDate || typeof a.anchorBalance !== "number")) {
+      items.push({
+        id: "no-anchor",
+        severity: "warning",
+        message: "Set a balance anchor to unlock Cash on Hand + accurate runway.",
+      });
+    }
+    return items.slice(0, 4);
+  }, [accounts, totals.runwayMonths, totals.uncategorizedCount]);
 
   return (
     <HQLayout
-      title="HQ"
-      description="Your company hub for cash, commitments, events, and conversations. Connect Plaid to keep balances and transactions in sync."
+      title="HQ · Financial"
+      description="Company-level finance: accounts, ledger, burn, runway, and anomalies — powered by your CSV imports."
       actions={actions}
     >
       <div className={styles.page}>
-        <div className={styles.cardsGrid}>
-          <HQCard
-            title="Cash on hand"
-            metric={currency.format(totals.cashOnHand)}
-            badge="4 accounts"
-            footer="Includes operating, savings, and reserve balances."
-            aria-label={`Cash on hand across accounts: ${currency.format(totals.cashOnHand)}.`}
-          />
+        <section className={styles.hero} aria-label="Financial HQ hero">
+          <div className={styles.heroTopRow}>
+            <div className={styles.heroTitleBlock}>
+              <div className={styles.heroTitle}>Financial HQ</div>
+              <div className={styles.heroSubtitle}>
+                Last synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "—"} ·{" "}
+                {accounts.length} accounts · {transactions.length} transactions
+              </div>
+            </div>
+            <div className={styles.heroFilters} aria-label="Quick range filters">
+              {quickFilters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={[styles.filterChip, selectedRange === filter.id ? styles.filterChipActive : ""]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => setSelectedRange(filter.id)}
+                  aria-pressed={selectedRange === filter.id}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <HQCard
-            title="Runway"
-            metric={`${runwayFormatter.format(totals.runwayMonths)} mo`}
-            subtitle="Cash on hand ÷ average burn (last 3 months)"
-            footer={`Average monthly burn: ${currency.format(totals.avgMonthlyBurn)}`}
-            aria-label={`Runway is ${runwayFormatter.format(
-              totals.runwayMonths
-            )} months based on average monthly burn of ${currency.format(totals.avgMonthlyBurn)}.`}
-          />
+          <div className={styles.kpiRow}>
+            <div className={styles.kpi}>
+              <div className={styles.kpiLabel}>Cash on hand</div>
+              <div className={styles.kpiValue}>
+                {totals.cashOnHand === null ? "—" : currency.format(totals.cashOnHand)}
+              </div>
+              <div className={styles.kpiHint}>
+                {accounts.some((a) => a.anchorDate && typeof a.anchorBalance === "number")
+                  ? "Anchored balances + net flow"
+                  : "Set an anchor to enable"}
+              </div>
+            </div>
+            <div className={styles.kpi}>
+              <div className={styles.kpiLabel}>Burn (avg / mo)</div>
+              <div className={styles.kpiValue}>
+                {totals.avgMonthlyBurn === null ? "—" : currency.format(totals.avgMonthlyBurn)}
+              </div>
+              <div className={styles.kpiHint}>Trailing 3 months, excludes transfers</div>
+            </div>
+            <div className={styles.kpi}>
+              <div className={styles.kpiLabel}>Runway</div>
+              <div className={styles.kpiValue}>
+                {totals.runwayMonths === null
+                  ? "—"
+                  : totals.avgMonthlyBurn === 0
+                    ? "Stable"
+                    : `${runwayFormatter.format(totals.runwayMonths)} mo`}
+              </div>
+              <div className={styles.kpiHint}>Cash / burn</div>
+            </div>
+            <div className={styles.kpi}>
+              <div className={styles.kpiLabel}>Net ({rangeLabel})</div>
+              <div className={[styles.kpiValue, totals.net < 0 ? styles.kpiOut : styles.kpiIn].join(" ")}>
+                {preciseCurrency.format(totals.net)}
+              </div>
+              <div className={styles.kpiHint}>Excludes internal transfers</div>
+            </div>
+          </div>
+        </section>
 
+        <div className={styles.gridRow}>
           <HQCard
             title="Cash in vs cash out"
-            subtitle={`Range: ${quickFilters.find((f) => f.id === selectedRange)?.label ?? "Year-to-date"}`}
-            badge="Bars show inflow vs outflow"
+            subtitle={`Range: ${rangeLabel}`}
+            badge={
+              <Link className={styles.cardLink} to="/dashboard/hq/transactions">
+                View all
+              </Link>
+            }
             aria-label="Monthly cash inflow versus outflow chart"
           >
-            <div className={styles.chartBars} role="img" aria-label="Monthly cash flow">
-              {monthlyFlow.map((row) => {
-                const inflowPercent = Math.round((row.inflow / maxFlow) * 100);
-                const outflowPercent = Math.round((row.outflow / maxFlow) * 100);
-                return (
-                  <div key={row.month} className={styles.chartBarRow}>
-                    <div className={styles.chartBar} aria-hidden>
-                      <div
-                        className={styles.chartBarFill}
-                        style={{ width: `${inflowPercent}%` }}
-                        title={`${row.month} inflow ${preciseCurrency.format(row.inflow)}`}
-                      />
+            {monthlyFlow.length === 0 ? (
+              <div className={styles.emptyState}>Import a CSV to see cashflow.</div>
+            ) : (
+              <div className={styles.chartBars} role="img" aria-label="Monthly cash flow">
+                {monthlyFlow.map((row) => {
+                  const inflowPercent = Math.round((row.inflow / maxFlow) * 100);
+                  const outflowPercent = Math.round((row.outflow / maxFlow) * 100);
+                  return (
+                    <div key={row.key} className={styles.chartBarRow}>
+                      <div className={styles.chartBar} aria-hidden>
+                        <div
+                          className={styles.chartBarFill}
+                          style={{ width: `${inflowPercent}%` }}
+                          title={`${row.month} inflow ${preciseCurrency.format(row.inflow)}`}
+                        />
+                      </div>
+                      <span className={styles.chartMonth}>{row.month}</span>
+                      <div className={styles.chartBar} aria-hidden>
+                        <div
+                          className={`${styles.chartBarFill} ${styles.chartBarFillMuted}`}
+                          style={{ width: `${outflowPercent}%` }}
+                          title={`${row.month} outflow ${preciseCurrency.format(row.outflow)}`}
+                        />
+                      </div>
                     </div>
-                    <span>{row.month}</span>
-                    <div className={styles.chartBar} aria-hidden>
-                      <div
-                        className={`${styles.chartBarFill} ${styles.chartBarFillMuted}`}
-                        style={{ width: `${outflowPercent}%` }}
-                        title={`${row.month} outflow ${preciseCurrency.format(row.outflow)}`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </HQCard>
 
-          <HQCard
-            title="Top categories"
-            subtitle="Year-to-date"
-            aria-label="Top spend categories year to date"
-          >
-            <ul className={styles.list}>
-              {categoryBreakdown.map((entry) => {
-                const pct = Math.round((entry.amount / totals.totalCategory) * 100);
-                return (
-                  <li key={entry.category} className={styles.listItem}>
-                    <span>{entry.category}</span>
-                    <span>{pct}%</span>
+          <HQCard title="Top categories" subtitle={rangeLabel} aria-label="Top spend categories">
+            {topCategories.length === 0 ? (
+              <div className={styles.emptyState}>No spend yet.</div>
+            ) : (
+              <ul className={styles.list}>
+                {topCategories.map((entry) => (
+                  <li key={entry.categoryId} className={styles.listItem}>
+                    <span>{HQ_CATEGORY_LABEL[entry.categoryId]}</span>
+                    <span>{currency.format(entry.amount)}</span>
                   </li>
-                );
-              })}
-            </ul>
+                ))}
+              </ul>
+            )}
           </HQCard>
 
-          <HQCard
-            title="Recurring vendors"
-            subtitle="Subscriptions & retainers"
-            aria-label="Recurring vendor commitments"
-          >
-            <ul className={styles.list}>
-              {recurringVendors.map((vendor) => (
-                <li key={vendor.vendor} className={styles.listItem}>
-                  <div>
-                    <div>{vendor.vendor}</div>
-                    <small>{vendor.cadence}</small>
-                  </div>
-                  <span>{preciseCurrency.format(vendor.amount)}</span>
-                </li>
-              ))}
-            </ul>
-          </HQCard>
-
-          <HQCard
-            title="AR vs AP"
-            subtitle="Outstanding invoices & bills"
-            aria-label="Accounts receivable versus accounts payable"
-          >
-            <div className={styles.listItem}>
-              <span>Accounts receivable</span>
-              <span>{currency.format(68500)}</span>
+          <HQCard title="Recurring commitments" subtitle="Candidates" aria-label="Recurring vendor commitments">
+            <div className={styles.inlineNote}>
+              v1 shows candidates after you’ve imported enough history.
             </div>
-            <div className={styles.listItem}>
-              <span>Accounts payable</span>
-              <span>{currency.format(45200)}</span>
-            </div>
-          </HQCard>
-
-          <HQCard title="Alerts" aria-label="HQ alerts">
-            <ul className={styles.alertsList}>
-              {alerts.map((alert) => (
-                <li key={alert.id} className={styles.alertItem}>
-                  <span className={styles.alertBadge}>{alert.severity}</span>
-                  <span>{alert.message}</span>
-                </li>
-              ))}
-            </ul>
-          </HQCard>
-
-          <HQCard title="Upcoming events" aria-label="Upcoming events">
-            <ul className={styles.eventsList}>
-              {upcomingEvents.map((event) => (
-                <li key={event.id}>
-                  <div className={styles.eventRow}>
-                    <span className={styles.eventDate}>{event.date}</span>
-                    <div>
-                      <div className={styles.eventName}>{event.name}</div>
-                      <small className={styles.eventLocation}>{event.location}</small>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </HQCard>
-
-          <HQCard title="Tasks" aria-label="HQ tasks overview">
-            <div className={styles.tasksCard}>
-              <TasksOverviewCard className={styles.tasksWidget} />
-            </div>
-          </HQCard>
-
-          <HQCard title="Message highlights" aria-label="Recent HQ messages">
-            <ul className={styles.messagesList}>
-              {messageDigest.map((message) => (
-                <li key={message.id}>
-                  <span className={styles.messageSender}>{message.sender}</span>
-                  <span className={styles.messagePreview}>{message.preview}</span>
-                </li>
-              ))}
-            </ul>
           </HQCard>
         </div>
+
+        <div className={styles.gridRow}>
+          <HQCard title="Alerts" aria-label="Financial alerts">
+            {alerts.length === 0 ? (
+              <div className={styles.emptyState}>All clear.</div>
+            ) : (
+              <ul className={styles.alertsList}>
+                {alerts.map((alert) => (
+                  <li key={alert.id} className={styles.alertItem}>
+                    <span className={styles.alertBadge}>{alert.severity}</span>
+                    <span>{alert.message}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HQCard>
+
+          <HQCard title="Uncategorized" subtitle={rangeLabel} aria-label="Uncategorized transactions">
+            {totals.uncategorizedCount === 0 ? (
+              <div className={styles.emptyState}>Nothing to triage.</div>
+            ) : (
+              <div className={styles.queue}>
+                <div className={styles.queueMetric}>{totals.uncategorizedCount}</div>
+                <Link className={styles.primaryLink} to="/dashboard/hq/transactions?filter=uncategorized">
+                  Review now
+                </Link>
+              </div>
+            )}
+          </HQCard>
+
+          <HQCard title="Accounts" aria-label="Accounts breakdown">
+            {accounts.length === 0 ? (
+              <div className={styles.emptyState}>
+                Add an account to start.{" "}
+                <button type="button" className={styles.inlineButton} onClick={() => setIsAddAccountOpen(true)}>
+                  Add account
+                </button>
+              </div>
+            ) : (
+              <ul className={styles.list}>
+                {accounts.slice(0, 5).map((acct) => (
+                  <li key={acct.accountId} className={styles.listItem}>
+                    <span className={styles.accountName}>{acct.accountName}</span>
+                    <Link className={styles.cardLink} to="/dashboard/hq/accounts">
+                      {acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HQCard>
+        </div>
+
+        <HQCard
+          title="Latest transactions"
+          subtitle="Preview"
+          badge={
+            <Link className={styles.cardLink} to="/dashboard/hq/transactions">
+              View all
+            </Link>
+          }
+          aria-label="Transactions preview"
+        >
+          {latestTransactions.length === 0 ? (
+            <div className={styles.emptyState}>Import a CSV to populate your ledger.</div>
+          ) : (
+            <div className={styles.txnPreview}>
+              {latestTransactions.map((txn) => (
+                <div key={txn.dedupeHash} className={styles.txnRow}>
+                  <div className={styles.txnMain}>
+                    <div className={styles.txnVendor}>{txn.vendor || txn.counterparty || txn.rawDescription}</div>
+                    <div className={styles.txnMeta}>
+                      <span>{txn.postedAt}</span>
+                      {txn.categoryId ? <span>· {HQ_CATEGORY_LABEL[txn.categoryId]}</span> : null}
+                    </div>
+                  </div>
+                  <div className={[styles.txnAmount, txn.direction === "out" ? styles.out : styles.in].join(" ")}>
+                    {txn.direction === "out" ? "-" : "+"}
+                    {preciseCurrency.format(Math.abs(txn.amount))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </HQCard>
       </div>
+
+      <ImportCsvModal orgId={orgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+      <AddAccountModal orgId={orgId} isOpen={isAddAccountOpen} onRequestClose={() => setIsAddAccountOpen(false)} />
     </HQLayout>
   );
 };

@@ -1,0 +1,75 @@
+.page {
+  padding: 12px 0 24px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 38px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.primaryButton {
+  background: #fa3356;
+  color: white;
+  border-color: rgba(250, 51, 86, 0.6);
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 18px;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  display: grid;
+  gap: 6px;
+}
+
+.metaRow {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+}
+
+.link {
+  color: rgba(255, 255, 255, 0.86);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+

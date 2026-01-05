@@ -1,6 +1,22 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
+import { useLocation } from "react-router-dom";
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  Circle,
+  CreditCard,
+  Landmark,
+  Minus,
+  Repeat,
+  Zap,
+} from "lucide-react";
 import HQLayout from "../components/HQLayout";
-import type { HQTxn } from "../types";
+import AddAccountModal from "@/hq/components/AddAccountModal";
+import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { setTransactionCategory, useHqStore } from "@/hq/lib/hqStore";
+import { useUser } from "@/app/contexts/useUser";
+import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -9,199 +25,235 @@ const currency = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
 });
 
-const MOCK_TXNS: HQTxn[] = [
-  {
-    id: "txn-1",
-    accountId: "acct-operating",
-    date: "2024-06-12",
-    amount: 1250,
-    isDebit: true,
-    name: "Adobe Creative Cloud",
-    merchant: "Adobe",
-    category: ["Software", "Design"],
-    tags: ["Subscription"],
-    note: "Annual renewal",
-  },
-  {
-    id: "txn-2",
-    accountId: "acct-operating",
-    date: "2024-06-10",
-    amount: 5850,
-    isDebit: true,
-    name: "RMC Logistics",
-    merchant: "RMC",
-    category: ["Production"],
-    tags: ["Event"],
-  },
-  {
-    id: "txn-3",
-    accountId: "acct-operating",
-    date: "2024-06-09",
-    amount: 19000,
-    isDebit: false,
-    name: "Invoice #2041",
-    merchant: "Spotify",
-    category: ["Income", "Client"],
-    tags: ["Accounts Receivable"],
-  },
-  {
-    id: "txn-4",
-    accountId: "acct-card",
-    date: "2024-06-07",
-    amount: 420,
-    isDebit: true,
-    name: "WeWork Downtown",
-    merchant: "WeWork",
-    category: ["Facilities"],
-    tags: ["Meeting"],
-  },
-];
+function typeIcon(type: HqTransactionType): React.ReactNode {
+  switch (type) {
+    case "card_purchase":
+      return <CreditCard size={16} />;
+    case "recurring":
+      return <Repeat size={16} />;
+    case "transfer":
+      return <ArrowLeftRight size={16} />;
+    case "zelle":
+      return <Zap size={16} />;
+    case "wire":
+      return <Landmark size={16} />;
+    case "deposit":
+      return <ArrowDownToLine size={16} />;
+    case "fee":
+      return <Minus size={16} />;
+    default:
+      return <Circle size={12} />;
+  }
+}
+
+function txnTitle(txn: HqTransaction) {
+  return txn.vendor || txn.counterparty || txn.rawDescription;
+}
 
 const TransactionsPage: React.FC = () => {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [searchTerm, setSearchTerm] = useState("");
+  const { userId } = useUser();
+  const orgId = userId || "local";
+  const location = useLocation();
 
-  const filteredTxns = useMemo(() => {
-    if (!searchTerm) return MOCK_TXNS;
-    const term = searchTerm.toLowerCase();
-    return MOCK_TXNS.filter((txn) =>
-      [txn.name, txn.merchant, ...(txn.tags ?? []), ...(txn.category ?? [])]
+  const accounts = useHqStore(orgId, (s) => s.accounts);
+  const transactions = useHqStore(orgId, (s) => s.transactions);
+
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [accountId, setAccountId] = React.useState<string>("all");
+  const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
+  const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
+  const [startDate, setStartDate] = React.useState<string>("");
+  const [endDate, setEndDate] = React.useState<string>("");
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
+  const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const filter = params.get("filter");
+    if (filter === "uncategorized") {
+      setCategoryId("UNCATEGORIZED");
+    }
+  }, [location.search]);
+
+  const accountsById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of accounts) map.set(a.accountId, a.accountName);
+    return map;
+  }, [accounts]);
+
+  const filtered = React.useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return transactions.filter((txn) => {
+      if (accountId !== "all" && txn.accountId !== accountId) return false;
+      if (startDate && txn.postedAt < startDate) return false;
+      if (endDate && txn.postedAt > endDate) return false;
+      if (direction === "in" && txn.amount < 0) return false;
+      if (direction === "out" && txn.amount >= 0) return false;
+
+      if (categoryId === "UNCATEGORIZED") {
+        if (txn.categoryId && txn.categoryId !== "OTHER") return false;
+      } else if (categoryId !== "all") {
+        if ((txn.categoryId || "OTHER") !== categoryId) return false;
+      }
+
+      if (!term) return true;
+      const haystack = [txnTitle(txn), txn.rawDescription, txn.normalizedDescription]
         .filter(Boolean)
-        .some((field) => field?.toLowerCase().includes(term))
-    );
-  }, [searchTerm]);
-
-  const toggleSelection = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
     });
-  };
+  }, [accountId, categoryId, direction, endDate, searchTerm, startDate, transactions]);
 
-  const allVisibleSelected = filteredTxns.every((txn) => selectedIds.has(txn.id));
-
-  const toggleSelectAll = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allVisibleSelected) {
-        filteredTxns.forEach((txn) => next.delete(txn.id));
-      } else {
-        filteredTxns.forEach((txn) => next.add(txn.id));
-      }
-      return next;
-    });
-  };
-
-  const selectionCount = selectedIds.size;
+  const actions = (
+    <div className={styles.actions}>
+      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+        Import CSV
+      </button>
+      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
+        Add account
+      </button>
+    </div>
+  );
 
   return (
     <HQLayout
       title="Transactions"
-      description="Review and classify every transaction. Use HQ rules to automate tags, notes, and categories."
+      description="Your ledger. Search, filter, and categorize — re-importing CSVs safely skips duplicates."
+      actions={actions}
     >
       <div className={styles.page}>
         <div className={styles.filters}>
           <input
             className={styles.filterField}
             type="search"
-            placeholder="Search by merchant or tag"
+            placeholder="Search vendor / memo"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             aria-label="Search transactions"
           />
-          <input className={styles.filterField} type="month" aria-label="Start month" />
-          <input className={styles.filterField} type="month" aria-label="End month" />
-          <select className={styles.filterField} aria-label="Filter by category">
-            <option>All categories</option>
-            <option>Software</option>
-            <option>Production</option>
-            <option>Facilities</option>
-            <option>Income</option>
+          <select
+            className={styles.filterField}
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            aria-label="Filter by account"
+          >
+            <option value="all">All accounts</option>
+            {accounts.map((a) => (
+              <option key={a.accountId} value={a.accountId}>
+                {a.accountName}
+              </option>
+            ))}
           </select>
+          <select
+            className={styles.filterField}
+            value={direction}
+            onChange={(e) => setDirection(e.target.value as "all" | "in" | "out")}
+            aria-label="Filter by direction"
+          >
+            <option value="all">In + Out</option>
+            <option value="out">Outflow</option>
+            <option value="in">Inflow</option>
+          </select>
+          <select
+            className={styles.filterField}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value as "all" | HqCategoryId | "UNCATEGORIZED")}
+            aria-label="Filter by category"
+          >
+            <option value="all">All categories</option>
+            <option value="UNCATEGORIZED">Uncategorized</option>
+            {HQ_CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <input
+            className={styles.filterField}
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            aria-label="Start date"
+          />
+          <input
+            className={styles.filterField}
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            aria-label="End date"
+          />
         </div>
 
-        {selectionCount > 0 ? (
-          <div className={styles.bulkBar} role="status" aria-live="polite">
-            <span>{selectionCount} selected</span>
-            <button type="button" className={styles.bulkButton}>
-              Create rule from selection
-            </button>
-            <button type="button" className={styles.bulkButton}>
-              Tag selected
-            </button>
-            <button type="button" className={styles.bulkButton}>
-              Export CSV
-            </button>
-          </div>
-        ) : null}
-
-        {filteredTxns.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className={styles.emptyState} role="status">
-            No transactions for this range. Try expanding the date filter.
+            No transactions for this filter. Import a CSV or adjust your search.
           </div>
         ) : (
-          <div className={styles.tableWrapper} role="region" aria-label="Transactions table">
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all visible transactions"
-                      checked={allVisibleSelected && filteredTxns.length > 0}
-                      onChange={toggleSelectAll}
-                    />
-                  </th>
-                  <th scope="col">Date</th>
-                  <th scope="col">Name</th>
-                  <th scope="col">Category</th>
-                  <th scope="col">Tags</th>
-                  <th scope="col">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTxns.map((txn) => (
-                  <tr key={txn.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select transaction ${txn.name}`}
-                        checked={selectedIds.has(txn.id)}
-                        onChange={() => toggleSelection(txn.id)}
-                      />
-                    </td>
-                    <td>{new Date(txn.date).toLocaleDateString()}</td>
-                    <td>{txn.name}</td>
-                    <td>
-                      {(txn.category ?? []).map((category) => (
-                        <span key={category} className={styles.tagPill}>
-                          {category}
-                        </span>
+          <div className={styles.table} role="region" aria-label="Transactions table">
+            <div className={styles.tableHeader}>
+              <div>Txn</div>
+              <div>Category</div>
+              <div className={styles.amountCol}>Amount</div>
+            </div>
+            {filtered.map((txn) => {
+              const accountLabel = accountsById.get(txn.accountId) || "Account";
+              const currentCategory = txn.categoryId || "OTHER";
+              const categoryValue = currentCategory === "OTHER" ? "" : currentCategory;
+              const directionClass = txn.amount < 0 ? styles.out : styles.in;
+              return (
+                <div key={txn.dedupeHash} className={styles.row}>
+                  <div className={styles.txnCell}>
+                    <div className={styles.icon} aria-hidden>
+                      {typeIcon(txn.type)}
+                    </div>
+                    <div className={styles.txnMain}>
+                      <div className={styles.txnTitle}>{txnTitle(txn)}</div>
+                      <div className={styles.txnMeta}>
+                        <span>{txn.postedAt}</span>
+                        <span>·</span>
+                        <span>{accountLabel}</span>
+                        {txn.cardLast4 ? (
+                          <>
+                            <span>·</span>
+                            <span>Card {txn.cardLast4}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.categoryCell}>
+                    <select
+                      className={styles.categorySelect}
+                      value={categoryValue}
+                      onChange={(e) =>
+                        setTransactionCategory(orgId, txn.dedupeHash, (e.target.value as HqCategoryId) || undefined)
+                      }
+                      aria-label={`Set category for ${txnTitle(txn)}`}
+                    >
+                      <option value="">{HQ_CATEGORY_LABEL.OTHER}</option>
+                      {HQ_CATEGORIES.filter((c) => c.id !== "OTHER").map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
                       ))}
-                    </td>
-                    <td>
-                      {(txn.tags ?? []).map((tag) => (
-                        <span key={tag} className={styles.tagPill}>
-                          {tag}
-                        </span>
-                      ))}
-                    </td>
-                    <td className={txn.isDebit ? styles.amountDebit : styles.amountCredit}>
-                      {txn.isDebit ? "-" : "+"}
-                      {currency.format(txn.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </select>
+                  </div>
+
+                  <div className={[styles.amountCol, directionClass].join(" ")}>
+                    {txn.amount < 0 ? "-" : "+"}
+                    {currency.format(Math.abs(txn.amount))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      <ImportCsvModal orgId={orgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+      <AddAccountModal orgId={orgId} isOpen={isAddAccountOpen} onRequestClose={() => setIsAddAccountOpen(false)} />
     </HQLayout>
   );
 };

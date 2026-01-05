@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
     }
     switch (path) {
       case "/dashboard":
-        return "Dashboard - HQ";
+        return "Dashboard - Financial HQ";
       case "/dashboard/new":
         return "Dashboard - Start something";
       case "/dashboard/projects":
@@ -75,18 +75,14 @@ const Dashboard: React.FC = () => {
         return "Dashboard - Collaborators";
       case "/dashboard/hq/accounts":
         return "Dashboard - Accounts";
+      case "/dashboard/hq/import":
+        return "Dashboard - Import";
       case "/dashboard/hq/transactions":
         return "Dashboard - Transactions";
       case "/dashboard/hq/reports":
         return "Dashboard - Reports";
       case "/dashboard/hq/invoices":
         return "Dashboard - Invoices";
-      case "/dashboard/hq/tasks":
-        return "Dashboard - Tasks";
-      case "/dashboard/hq/events":
-        return "Dashboard - Events";
-      case "/dashboard/hq/messages":
-        return "Dashboard - Messages";
       default:
         return "Dashboard";
     }

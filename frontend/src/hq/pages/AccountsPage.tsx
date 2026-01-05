@@ -1,101 +1,139 @@
 import React from "react";
 import HQLayout from "../components/HQLayout";
-import HQPlaidConnectButton from "../components/HQPlaidConnectButton";
-import type { HQAccount } from "../types";
+import AddAccountModal from "@/hq/components/AddAccountModal";
+import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import SetAnchorModal from "@/hq/components/SetAnchorModal";
+import { useUser } from "@/app/contexts/useUser";
+import { computeCashOnHand } from "@/hq/lib/hqMetrics";
+import { useHqStore } from "@/hq/lib/hqStore";
+import type { HqAccount } from "@/hq/types";
 import styles from "./AccountsPage.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
+  minimumFractionDigits: 2,
 });
 
-const MOCK_ACCOUNTS: HQAccount[] = [
-  {
-    id: "acct-operating",
-    institution: "First Republic",
-    name: "Operating Checking",
-    mask: "4321",
-    type: "depository",
-    subtype: "checking",
-    currency: "USD",
-    current: 86520.32,
-    available: 84520.32,
-    lastSyncAt: new Date().toISOString(),
-  },
-  {
-    id: "acct-savings",
-    institution: "First Republic",
-    name: "Reserve Savings",
-    mask: "2190",
-    type: "depository",
-    subtype: "savings",
-    currency: "USD",
-    current: 98500,
-    available: 98500,
-    lastSyncAt: new Date().toISOString(),
-  },
-  {
-    id: "acct-card",
-    institution: "Amex",
-    name: "Corporate Platinum",
-    mask: "0011",
-    type: "credit",
-    subtype: "credit card",
-    currency: "USD",
-    current: -5240.87,
-    available: undefined,
-    lastSyncAt: new Date().toISOString(),
-  },
-];
-
 const AccountsPage: React.FC = () => {
-  const hasAccounts = MOCK_ACCOUNTS.length > 0;
+  const { userId } = useUser();
+  const orgId = userId || "local";
+
+  const accounts = useHqStore(orgId, (s) => s.accounts);
+  const transactions = useHqStore(orgId, (s) => s.transactions);
+
+  const [isAddOpen, setIsAddOpen] = React.useState(false);
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
+  const [anchorAccount, setAnchorAccount] = React.useState<HqAccount | null>(null);
+
+  const cashOnHand = React.useMemo(() => computeCashOnHand(accounts, transactions), [accounts, transactions]);
+
+  const actions = (
+    <div className={styles.actions}>
+      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+        Import CSV
+      </button>
+      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddOpen(true)}>
+        Add account
+      </button>
+    </div>
+  );
 
   return (
     <HQLayout
       title="Accounts"
-      description="Link banking, credit, and investment accounts to bring balances and transactions into HQ."
-      actions={<HQPlaidConnectButton />}
+      description="Accounts live here. Set a balance anchor per account to unlock Cash on Hand + runway."
+      actions={actions}
     >
       <div className={styles.page}>
-        {hasAccounts ? (
-          <div className={styles.accountsGrid}>
-            {MOCK_ACCOUNTS.map((account) => (
-              <article key={account.id} className={styles.accountCard}>
-                <header className={styles.accountHeader}>
-                  <div>
-                    <div className={styles.accountName}>{account.name}</div>
-                    <div className={styles.accountInstitution}>{account.institution}</div>
-                  </div>
-                  <span className={styles.StatusBadge}>Synced</span>
-                </header>
-                <div className={styles.balance}>{currency.format(account.current)}</div>
-                <div className={styles.metaRow}>
-                  <span>{account.type}</span>
-                  {account.mask ? <span>•••{account.mask}</span> : null}
-                  <span>
-                    Updated {new Date(account.lastSyncAt).toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-              </article>
-            ))}
+        <div className={styles.summaryRow}>
+          <div className={styles.summaryCard}>
+            <div className={styles.summaryLabel}>Cash on hand</div>
+            <div className={styles.summaryValue}>
+              {cashOnHand === null ? "—" : currency.format(cashOnHand)}
+            </div>
+            <div className={styles.summaryHint}>
+              {accounts.some((a) => a.anchorDate && typeof a.anchorBalance === "number")
+                ? "Anchored balances + net flow since anchor"
+                : "Set anchors to enable"}
+            </div>
+          </div>
+          <div className={styles.summaryCard}>
+            <div className={styles.summaryLabel}>Accounts</div>
+            <div className={styles.summaryValue}>{accounts.length}</div>
+            <div className={styles.summaryHint}>Checking, savings, cards (CSV-driven)</div>
+          </div>
+        </div>
+
+        {accounts.length === 0 ? (
+          <div className={styles.emptyState} role="status">
+            <div className={styles.emptyTitle}>Add an account to get started</div>
+            <p className={styles.emptyDescription}>
+              Create a company account (e.g. “WF Checking”), then import your bank CSV to populate the ledger.
+            </p>
+            <div className={styles.actionsInline}>
+              <button type="button" className={styles.primaryButton} onClick={() => setIsAddOpen(true)}>
+                Add account
+              </button>
+              <button type="button" className={styles.secondaryButton} onClick={() => setIsImportOpen(true)}>
+                Import CSV
+              </button>
+            </div>
           </div>
         ) : (
-          <div className={styles.emptyState} role="status">
-            <div className={styles.emptyStateTitle}>Link an account to see balances</div>
-            <p className={styles.emptyStateDescription}>
-              Connect a checking, savings, or credit account with Plaid to get cash positions, runway, and transaction history
-              in minutes.
-            </p>
-            <HQPlaidConnectButton />
+          <div className={styles.accountsGrid}>
+            {accounts.map((account) => {
+              const isAnchored = account.anchorDate && typeof account.anchorBalance === "number";
+              return (
+                <article key={account.accountId} className={styles.accountCard}>
+                  <header className={styles.accountHeader}>
+                    <div>
+                      <div className={styles.accountName}>{account.accountName}</div>
+                      <div className={styles.accountInstitution}>{account.institution}</div>
+                    </div>
+                    <span className={[styles.statusBadge, isAnchored ? styles.statusGood : styles.statusWarn].join(" ")}>
+                      {isAnchored ? "Anchored" : "No anchor"}
+                    </span>
+                  </header>
+
+                  <div className={styles.balanceRow}>
+                    <div className={styles.balanceLabel}>Anchor</div>
+                    <div className={styles.balanceValue}>
+                      {isAnchored ? currency.format(account.anchorBalance as number) : "—"}
+                    </div>
+                  </div>
+
+                  <div className={styles.metaRow}>
+                    <span>{account.currency}</span>
+                    {account.accountMask ? <span>•••• {account.accountMask}</span> : null}
+                    {account.anchorDate ? <span>as-of {account.anchorDate}</span> : null}
+                  </div>
+
+                  <div className={styles.cardActions}>
+                    <button type="button" className={styles.secondaryButton} onClick={() => setAnchorAccount(account)}>
+                      {isAnchored ? "Update anchor" : "Set anchor"}
+                    </button>
+                    <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+                      Import
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
+
+      <AddAccountModal orgId={orgId} isOpen={isAddOpen} onRequestClose={() => setIsAddOpen(false)} />
+      <ImportCsvModal orgId={orgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+      {anchorAccount ? (
+        <SetAnchorModal
+          orgId={orgId}
+          isOpen={Boolean(anchorAccount)}
+          onRequestClose={() => setAnchorAccount(null)}
+          account={anchorAccount}
+        />
+      ) : null}
     </HQLayout>
   );
 };

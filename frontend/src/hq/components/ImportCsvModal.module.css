@@ -1,0 +1,355 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+  transition: opacity 150ms ease;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.modalContent {
+  width: min(980px, 96vw);
+  max-height: min(82vh, 860px);
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.96), rgba(12, 12, 14, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.modalContentAfterOpen {
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.modalContentBeforeClose {
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  margin-top: 4px;
+}
+
+.closeButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.stepper {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+}
+
+.step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.stepDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.stepActive {
+  border-color: rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.09);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.stepActive .stepDot {
+  background: #fa3356;
+}
+
+.stepDone {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stepDone .stepDot {
+  background: rgba(45, 212, 191, 0.8);
+}
+
+.body {
+  padding: 16px 18px;
+  overflow: auto;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fileDrop {
+  cursor: pointer;
+  border-radius: 16px;
+  padding: 22px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+
+.fileDrop:hover {
+  border-color: rgba(250, 51, 86, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.fileDropTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fileDropHint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fileName {
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  padding: 8px 10px;
+  border-radius: 12px;
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.select {
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 12px;
+  outline: none;
+}
+
+.select:focus {
+  border-color: rgba(250, 51, 86, 0.4);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.14);
+}
+
+.previewHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.previewTitle {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.previewTableWrap {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.previewTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.previewTable th,
+.previewTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.previewTable th {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.previewTable tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.amountCol {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.out {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+.in {
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.confirmCard {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 18px;
+}
+
+.confirmTitle {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.confirmMeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.6fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.metaLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.metaValue {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  margin-top: 4px;
+}
+
+.inlineNote {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  margin-top: 10px;
+}
+
+.inlineStrong {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.primaryButton {
+  background: #fa3356;
+  color: white;
+  border-color: rgba(250, 51, 86, 0.6);
+}
+
+.primaryButton:hover:enabled {
+  filter: brightness(1.05);
+}
+
+.primaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.secondaryButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+@media (max-width: 720px) {
+  .confirmMeta {
+    grid-template-columns: 1fr;
+  }
+}
+
