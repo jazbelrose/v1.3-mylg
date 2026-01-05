@@ -602,29 +602,34 @@ const patchOverlapStackTitles = async (e, C, { projectId }) => {
 
   if (!key) return json(400, C, { error: "key is required" });
 
-  const names = {
-    "#calendar": "calendarOverlapStackTitles",
-    "#updatedAt": "updatedAt",
-    "#k": key,
-  };
-  const values = {
-    ":now": nowISO(),
-    ":empty": {},
-  };
+  // Read-modify-write to avoid DynamoDB path overlap errors
+  const existing = await ddb.get({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    ProjectionExpression: "calendarOverlapStackTitles",
+  });
 
+  const current = existing.Item?.calendarOverlapStackTitles || {};
   const isRemove = !title;
-  const UpdateExpression = isRemove
-    ? "REMOVE #calendar.#k SET #updatedAt = :now"
-    : "SET #calendar = if_not_exists(#calendar, :empty), #calendar.#k = :title, #updatedAt = :now";
 
-  if (!isRemove) values[":title"] = title;
+  if (isRemove) {
+    delete current[key];
+  } else {
+    current[key] = title;
+  }
 
   const r = await ddb.update({
     TableName: PROJECTS_TABLE,
     Key: { projectId },
-    UpdateExpression,
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
+    UpdateExpression: "SET #calendar = :titles, #updatedAt = :now",
+    ExpressionAttributeNames: {
+      "#calendar": "calendarOverlapStackTitles",
+      "#updatedAt": "updatedAt",
+    },
+    ExpressionAttributeValues: {
+      ":titles": current,
+      ":now": nowISO(),
+    },
     ReturnValues: "ALL_NEW",
   });
 

@@ -72,6 +72,9 @@ export type WeekGridProps = {
   onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
+  // Multi-user overlap stack title persistence
+  overlapStackTitles?: Record<string, string>;
+  onRenameOverlapStackTitle?: (key: string, title: string) => void | Promise<void>;
 };
 
 type WeekDayEvents = {
@@ -280,6 +283,8 @@ function WeekGrid({
   onUngroupFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
+  overlapStackTitles,
+  onRenameOverlapStackTitle,
 }: WeekGridProps) {
   const start = useMemo(() => addDays(anchorDate, -anchorDate.getDay()), [anchorDate]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
@@ -359,38 +364,18 @@ function WeekGrid({
     avatars: TimelineAvatar[];
   } | null>(null);
 
-  const [overlapStackTitleOverrides, setOverlapStackTitleOverrides] = useState<Record<string, string>>({});
+  // Use prop-based overlap stack titles (fetched from backend by parent)
+  // Local state merges prop with any optimistic updates made during the session
+  const [localOverlapTitleOverrides, setLocalOverlapTitleOverrides] = useState<Record<string, string>>({});
 
-  const overlapTitleStorageKey = useMemo(() => {
-    const scope = (activeProjectId ?? "").trim() || "global";
-    return `calendar:overlapStackTitles:${scope}`;
-  }, [activeProjectId]);
+  const overlapStackTitleOverrides = useMemo(() => {
+    return { ...(overlapStackTitles ?? {}), ...localOverlapTitleOverrides };
+  }, [overlapStackTitles, localOverlapTitleOverrides]);
 
+  // Reset local overrides when prop changes (e.g., project switch)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(overlapTitleStorageKey);
-      if (!raw) {
-        setOverlapStackTitleOverrides({});
-        return;
-      }
-      const parsed = JSON.parse(raw) as unknown;
-      if (!parsed || typeof parsed !== "object") {
-        setOverlapStackTitleOverrides({});
-        return;
-      }
-      setOverlapStackTitleOverrides(parsed as Record<string, string>);
-    } catch {
-      setOverlapStackTitleOverrides({});
-    }
-  }, [overlapTitleStorageKey]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(overlapTitleStorageKey, JSON.stringify(overlapStackTitleOverrides));
-    } catch {
-      // ignore
-    }
-  }, [overlapStackTitleOverrides, overlapTitleStorageKey]);
+    setLocalOverlapTitleOverrides({});
+  }, [overlapStackTitles]);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -2770,7 +2755,16 @@ function WeekGrid({
                   if (!normalized) return;
                   const key = stackPopover.titleKey;
                   if (key) {
-                    setOverlapStackTitleOverrides((prev) => ({ ...prev, [key]: normalized }));
+                    // Optimistic local update
+                    setLocalOverlapTitleOverrides((prev) => ({ ...prev, [key]: normalized }));
+                    // Persist to backend via prop callback
+                    if (onRenameOverlapStackTitle) {
+                      try {
+                        await onRenameOverlapStackTitle(key, normalized);
+                      } catch (error) {
+                        console.error("Failed to persist overlap stack title:", error);
+                      }
+                    }
                   }
                   setStackPopover((prev) => (prev ? { ...prev, baseTitle: normalized } : prev));
                 }

@@ -23,6 +23,8 @@ import {
   updateTasksBulk,
   deleteTask,
   reviewTransitionTask,
+  fetchProjectOverlapStackTitles,
+  setProjectOverlapStackTitle,
   type Task as ApiTask,
   type TimelineEvent as ApiTimelineEvent,
 } from "@/shared/utils/api";
@@ -159,6 +161,48 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarCollapsed((prev) => !prev);
   }, []);
+
+  // Multi-user overlap stack titles (persisted to backend per project)
+  const [overlapStackTitles, setOverlapStackTitles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!activeProjectId) {
+      setOverlapStackTitles({});
+      return;
+    }
+    let cancelled = false;
+    fetchProjectOverlapStackTitles(activeProjectId)
+      .then((titles) => {
+        if (!cancelled) {
+          setOverlapStackTitles(titles);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch overlap stack titles:", error);
+        if (!cancelled) {
+          setOverlapStackTitles({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId]);
+
+  const handleRenameOverlapStackTitle = useCallback(
+    async (key: string, title: string) => {
+      if (!activeProjectId) return;
+      try {
+        const updated = await setProjectOverlapStackTitle(activeProjectId, key, title);
+        setOverlapStackTitles(updated);
+        notify("success", "Stack title updated");
+      } catch (error) {
+        console.error("Failed to save overlap stack title:", error);
+        notify("error", "Failed to save stack title");
+        throw error;
+      }
+    },
+    [activeProjectId],
+  );
 
   useEffect(() => {
     if (isMobile) {
@@ -1510,6 +1554,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onUngroupFocusBlock={handleUngroupFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
+                      overlapStackTitles={overlapStackTitles}
+                      onRenameOverlapStackTitle={handleRenameOverlapStackTitle}
                     />
                   </div>
                 )}
