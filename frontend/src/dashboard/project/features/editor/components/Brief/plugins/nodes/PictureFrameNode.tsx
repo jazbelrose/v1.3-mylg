@@ -14,6 +14,7 @@ import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 
 import { ProjectsContext } from "@/app/contexts/ProjectsContext";
 import { S3_PUBLIC_BASE, getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
+import { notify } from "@/shared/ui/ToastNotifications";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 import {
   applyModifierNodeSelection,
@@ -968,13 +969,14 @@ function PictureFrameComponent({
   );
 
   const resolveDroppedSrc = useCallback(
-    async (file: File): Promise<string> => {
+    async (file: File): Promise<{ src: string; isTemporary: boolean }> => {
       const projectId = activeProject?.projectId ?? null;
       if (projectId) {
         const uploaded = await uploadImageFileToS3PublicUrl(file, projectId);
-        if (uploaded) return uploaded;
+        if (uploaded) return { src: uploaded, isTemporary: false };
       }
-      return URL.createObjectURL(file);
+      // Fallback to blob URL - this is temporary and won't persist
+      return { src: URL.createObjectURL(file), isTemporary: true };
     },
     [activeProject?.projectId]
   );
@@ -989,7 +991,10 @@ function PictureFrameComponent({
       e.preventDefault();
       e.stopPropagation();
 
-      if (isSlideLocked) return;
+      if (isSlideLocked) {
+        notify("warning", "This element is locked. Unlock it to add images.");
+        return;
+      }
 
       // First, check for internal canvas image drag (from ResizableImageNode)
       const canvasImageData = e.dataTransfer?.getData("application/x-mylg-canvas-image");
@@ -1025,7 +1030,13 @@ function PictureFrameComponent({
       // Fall back to handling files (from computer or file manager)
       const files = Array.from(e.dataTransfer?.files || []);
       const file = files.find((f) => isImageFile(f));
-      if (!file) return;
+      if (!file) {
+        // Check if files were dropped but none were images
+        if (files.length > 0) {
+          notify("warning", "Please drop an image file (PNG, JPG, GIF, WebP, or SVG)");
+        }
+        return;
+      }
 
       // Show an immediate local preview to avoid a blank frame while S3/CDN propagates.
       const previewUrl = URL.createObjectURL(file);
@@ -1039,7 +1050,12 @@ function PictureFrameComponent({
       // Ensure slide editor keeps focus so Ctrl/Cmd+Z reliably routes to undo.
       editor.focus();
 
-      const src = await resolveDroppedSrc(file);
+      const { src, isTemporary } = await resolveDroppedSrc(file);
+      
+      if (isTemporary) {
+        notify("warning", "Image saved temporarily — save the project to a folder to persist it.");
+      }
+      
       editor.update(() => {
         const node = $getNodeByKey(nodeKey);
         if (node instanceof PictureFrameNode) {

@@ -280,6 +280,7 @@ interface SlideToolbarProps {
   onSetSlideBackgroundColor?: (color: string) => void;
   slideBackgroundColor?: string;
   onInsertImage?: () => void;
+  onInsertImageToPictureFrame?: () => void;
   onInsertSvg?: () => void;
   onInsertTextBox?: () => void;
   onInsertPictureFrame?: () => void;
@@ -352,6 +353,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onSetSlideBackgroundColor,
   slideBackgroundColor = "#101112",
   onInsertImage,
+  onInsertImageToPictureFrame,
   onInsertSvg,
   onInsertTextBox,
   onInsertPictureFrame,
@@ -1755,9 +1757,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                 <LayoutOutlined className="dropdown-icon" />
                 <span className="text">✨ Magic Layout Pro…</span>
               </button>
-              <button type="button" className="item" onClick={() => handleInsert(onInsertImage)}>
+              <button type="button" className="item" onClick={() => handleInsert(isPictureFrameContext && onInsertImageToPictureFrame ? onInsertImageToPictureFrame : onInsertImage)}>
                 <FileImageOutlined className="dropdown-icon" />
-                <span className="text">Image</span>
+                <span className="text">{isPictureFrameContext ? "Image to Frame" : "Image"}</span>
               </button>
               <button type="button" className="item" onClick={() => handleInsert(onInsertSvg)}>
                 <NodeIndexOutlined className="dropdown-icon" />

@@ -1546,6 +1546,11 @@
   overflow: visible;
 }
 
+.week-grid__timeline-entry-main--tile {
+  align-items: flex-start;
+  padding-right: 6px;
+}
+
 .week-grid__timeline-entry-content {
   display: flex;
   align-items: start;
@@ -1560,6 +1565,22 @@
   gap: 4px;
   flex: 1;
   min-width: 0;
+}
+
+.week-grid__timeline-entry-body--tile {
+  gap: 0;
+}
+
+.week-grid__tile-chip-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px; /* +2 on top of the tile padding (6px) => ~8px */
+  margin-right: 4px; /* +4 on right of the tile padding (6px) => ~10px */
+  min-height: 16px;
+}
+
+.week-grid__tile-title-row {
+  margin-top: 6px;
 }
 
 .week-grid__stack-list {
@@ -1642,6 +1663,14 @@
   pointer-events: none;
   z-index: 2;
   transform: translateY(-50%);
+}
+
+.week-grid__timeline-entry-avatars--inline {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  transform: none;
 }
 
 /* Stacks render additional body lines; keep avatar aligned top-right like normal blocks */
@@ -3739,6 +3768,65 @@
   top: 6px;
   bottom: auto;
   transform: none;
+}
+
+.week-grid__task-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.week-grid__task-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  color: rgba(245, 245, 245, 0.92);
+}
+
+.week-grid__task-preview-row.is-complete {
+  opacity: 0.72;
+}
+
+.week-grid__task-preview-row--more {
+  padding-left: 18px;
+  opacity: 0.8;
+}
+
+.week-grid__task-preview-checkbox {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.week-grid__task-preview-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.week-grid__task-preview-check {
+  width: 14px;
+  height: 14px;
+  opacity: 0.9;
+}
+
+.week-grid__task-preview-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 /* Focus Block children list (inline bullet points) */
 .week-grid__focus-children-list {

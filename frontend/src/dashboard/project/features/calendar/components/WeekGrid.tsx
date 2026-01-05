@@ -44,7 +44,6 @@ import {
   CalendarEntryType,
   formatTimeFromMinutes,
 } from "./calendarInteractions";
-import { fetchProjectOverlapStackTitles, setProjectOverlapStackTitle } from "@/shared/utils/api";
 
 export type WeekGridProps = {
   anchorDate: Date;
@@ -367,65 +366,31 @@ function WeekGrid({
     return `calendar:overlapStackTitles:${scope}`;
   }, [activeProjectId]);
 
-  const readOverlapTitleOverridesFromLocalStorage = useCallback((): Record<string, string> => {
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(overlapTitleStorageKey);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as unknown;
-      if (!parsed || typeof parsed !== "object") return {};
-      const record = parsed as Record<string, unknown>;
-      const next: Record<string, string> = {};
-      for (const [key, value] of Object.entries(record)) {
-        if (typeof key === "string" && typeof value === "string" && key.trim() && value.trim()) {
-          next[key] = value;
-        }
+      if (!raw) {
+        setOverlapStackTitleOverrides({});
+        return;
       }
-      return next;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") {
+        setOverlapStackTitleOverrides({});
+        return;
+      }
+      setOverlapStackTitleOverrides(parsed as Record<string, string>);
     } catch {
-      return {};
+      setOverlapStackTitleOverrides({});
     }
   }, [overlapTitleStorageKey]);
 
-  const writeOverlapTitleOverridesToLocalStorage = useCallback(
-    (next: Record<string, string>) => {
-      try {
-        localStorage.setItem(overlapTitleStorageKey, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-    },
-    [overlapTitleStorageKey],
-  );
-
   useEffect(() => {
-    let cancelled = false;
-
-    const hydrate = async () => {
-      // Start with local cache so UI feels instant.
-      const local = readOverlapTitleOverridesFromLocalStorage();
-      if (!cancelled) setOverlapStackTitleOverrides(local);
-
-      // Then attempt to hydrate from backend (project-scoped, multi-user).
-      const projectId = (activeProjectId ?? "").trim();
-      if (!projectId) return;
-
-      try {
-        const next = await fetchProjectOverlapStackTitles(projectId);
-
-        if (!cancelled) {
-          setOverlapStackTitleOverrides(next);
-          writeOverlapTitleOverridesToLocalStorage(next);
-        }
-      } catch {
-        // ignore and keep local cache
-      }
-    };
-
-    void hydrate();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeProjectId, readOverlapTitleOverridesFromLocalStorage, writeOverlapTitleOverridesToLocalStorage]);
+    try {
+      localStorage.setItem(overlapTitleStorageKey, JSON.stringify(overlapStackTitleOverrides));
+    } catch {
+      // ignore
+    }
+  }, [overlapStackTitleOverrides, overlapTitleStorageKey]);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -1867,6 +1832,16 @@ function WeekGrid({
           {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
+
+    const tileChipAvatars =
+      avatarsToRender.length > 0 ? (
+        <div
+          className="week-grid__timeline-entry-avatars week-grid__timeline-entry-avatars--inline"
+          aria-hidden="true"
+        >
+          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
+        </div>
+      ) : null;
     
     // Stacks are UI-computed aggregates; keep them aligned to the active project's color.
     const color = isStack ? projectColor : entry.projectColor || projectColor;
@@ -1945,6 +1920,66 @@ function WeekGrid({
     );
     const resolvedKey = entryKeyOverride ?? entry.id;
 
+    const renderChecklistPreviewList = (options: {
+      items: Array<{ key: string; title: string; done: boolean }>;
+      tileHeightPx: number;
+      mode: "fit" | "maxRows";
+      maxRows?: number;
+    }) => {
+      const { items, tileHeightPx, mode, maxRows } = options;
+      if (items.length === 0) return null;
+
+      const paddingYPx = 12;
+      const chipRowHeightPx = 16;
+      const chipToTitleGapPx = 6;
+      const titleRowHeightPx = 16;
+      const titleToListGapPx = 6;
+      const rowHeightPx = 14;
+
+      const available =
+        tileHeightPx -
+        (paddingYPx + chipRowHeightPx + chipToTitleGapPx + titleRowHeightPx + titleToListGapPx);
+
+      const computedMaxRows =
+        mode === "maxRows"
+          ? Math.max(0, maxRows ?? 0)
+          : Math.max(0, Math.floor(available / rowHeightPx));
+
+      if (computedMaxRows <= 0) return null;
+
+      const total = items.length;
+      const needsMore = total > computedMaxRows;
+      const displayCount = needsMore
+        ? Math.max(0, computedMaxRows - 1)
+        : Math.min(total, computedMaxRows);
+      const visible = items.slice(0, displayCount);
+
+      return (
+        <div className="week-grid__task-preview-list" aria-hidden>
+          {visible.map((item) => (
+            <div
+              key={item.key}
+              className={`week-grid__task-preview-row${item.done ? " is-complete" : ""}`}
+            >
+              <span className="week-grid__task-preview-checkbox" aria-hidden>
+                {item.done ? (
+                  <CheckSquare className="week-grid__task-preview-check" aria-hidden />
+                ) : (
+                  <span className="week-grid__task-preview-box" aria-hidden />
+                )}
+              </span>
+              <span className="week-grid__task-preview-text">{item.title}</span>
+            </div>
+          ))}
+          {needsMore && (
+            <div className="week-grid__task-preview-row week-grid__task-preview-row--more">
+              +{total - displayCount} more
+            </div>
+          )}
+        </div>
+      );
+    };
+
     const renderInlineStackList = () => {
       if (!isSingleUserStack) return null;
       if (!stackChildren.length) return null;
@@ -1987,7 +2022,6 @@ function WeekGrid({
       );
     };
 
-    // Render inline list of child tasks for Focus Blocks (legacy red style with children)
     const renderFocusBlockChildren = () => {
       if (!isFocusBlock) return null;
       const task = entry.payload as CalendarTask;
@@ -2001,48 +2035,43 @@ function WeekGrid({
 
       const durationMinutes = entry.endMinutes - entry.startMinutes;
       const tileHeightPx = Math.max(32, minutesToPxWeek(durationMinutes));
-      const headerHeightPx = 16;
-      const paddingYPx = 12;
-      const lineHeightPx = 14;
-      const available = tileHeightPx - headerHeightPx - paddingYPx;
-      const maxLines = Math.max(0, Math.floor(available / lineHeightPx));
-      if (maxLines <= 0) return null;
+      const items = children.map((child) => ({
+        key: `task:${child.id}`,
+        title: child.title,
+        done: child.status === "done" || Boolean(child.done),
+      }));
 
-      const total = children.length;
-      const needsMore = total > maxLines;
-      const displayCount = needsMore ? Math.max(0, maxLines - 1) : Math.min(total, maxLines);
-      const visible = children.slice(0, displayCount);
+      return renderChecklistPreviewList({ items, tileHeightPx, mode: "fit" });
+    };
 
-      return (
-        <div className="week-grid__stack-list" aria-hidden>
-          {visible.map((child) => {
-            const childKey = `task:${child.id}`;
-            const isComplete = child.status === "done";
-            const kind = (child.kind ?? "").toLowerCase();
-            const isEventLike = kind.includes("event");
-            return (
-              <div
-                key={childKey}
-                className={`week-grid__stack-line${isComplete ? " is-complete" : ""}`}
-              >
-                <span className="week-grid__focus-child-icon" aria-hidden>
-                  {isEventLike ? (
-                    <Clock className="week-grid__focus-child-icon-svg" aria-hidden />
-                  ) : (
-                    <CheckSquare className="week-grid__focus-child-icon-svg" aria-hidden />
-                  )}
-                </span>
-                <span className="week-grid__stack-text">{child.title}</span>
-              </div>
-            );
-          })}
-          {needsMore && (
-            <div className="week-grid__stack-line week-grid__stack-line--more">
-              +{total - displayCount} more
-            </div>
-          )}
-        </div>
-      );
+    const renderMultiUserOverlapChecklist = () => {
+      if (entry.type !== "overlapStack") return null;
+      if (isSingleUserStack) return null;
+      if (!stackChildren.length) return null;
+
+      const tasksOnly = stackChildren
+        .filter((child) => child.type === "task")
+        .map((child) => {
+          const task = child.payload as CalendarTask;
+          return {
+            key: `task:${task.id}`,
+            title: task.title,
+            done: task.status === "done" || Boolean(task.done),
+          };
+        });
+
+      if (tasksOnly.length === 0) return null;
+
+      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const tileHeightPx = Math.max(32, minutesToPxWeek(durationMinutes));
+      const maxRows = tileHeightPx < 80 ? 2 : 3;
+
+      return renderChecklistPreviewList({
+        items: tasksOnly,
+        tileHeightPx,
+        mode: "maxRows",
+        maxRows,
+      });
     };
 
     if (entry.type === "overlapStack") {
@@ -2077,12 +2106,16 @@ function WeekGrid({
       }
 
       const extra = Math.max(count - entry.avatars.length, 0);
-      const chips = entry.avatars.length ? (
-        <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
+      const tileChips = entry.avatars.length ? (
+        <div
+          className="week-grid__timeline-entry-avatars week-grid__timeline-entry-avatars--inline"
+          aria-hidden="true"
+        >
           {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "overlap")}
           {extra > 0 && <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>}
         </div>
       ) : null;
+
       return (
         <button
           key={resolvedKey}
@@ -2097,9 +2130,12 @@ function WeekGrid({
           onClick={(event) => handleEntryClick(event, entry)}
           onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
         >
-          <div className="week-grid__timeline-entry-main">
-            {content}
-            {chips}
+          <div className="week-grid__timeline-entry-main week-grid__timeline-entry-main--tile">
+            <div className="week-grid__timeline-entry-body week-grid__timeline-entry-body--tile">
+              <div className="week-grid__tile-chip-row">{tileChips}</div>
+              <div className="week-grid__tile-title-row">{content}</div>
+              {renderMultiUserOverlapChecklist()}
+            </div>
           </div>
         </button>
       );
@@ -2163,6 +2199,8 @@ function WeekGrid({
       );
     }
 
+    const useTileLayout = isFocusBlock;
+
     return (
       <button
         key={resolvedKey}
@@ -2181,12 +2219,21 @@ function WeekGrid({
         onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
         onMouseLeave={handleEntryMouseLeave}
       >
-        <div className="week-grid__timeline-entry-main">
-          <div className="week-grid__timeline-entry-body">
-            {content}
+        <div
+          className={`week-grid__timeline-entry-main${useTileLayout ? " week-grid__timeline-entry-main--tile" : ""}`}
+        >
+          <div
+            className={`week-grid__timeline-entry-body${useTileLayout ? " week-grid__timeline-entry-body--tile" : ""}`}
+          >
+            {useTileLayout && <div className="week-grid__tile-chip-row">{tileChipAvatars}</div>}
+            {useTileLayout ? (
+              <div className="week-grid__tile-title-row">{content}</div>
+            ) : (
+              content
+            )}
             {renderFocusBlockChildren()}
           </div>
-          {inlineAvatars}
+          {!useTileLayout && inlineAvatars}
         </div>
         {focusMeter}
       </button>
@@ -2719,21 +2766,7 @@ function WeekGrid({
                   if (!normalized) return;
                   const key = stackPopover.titleKey;
                   if (key) {
-                    const next = { ...overlapStackTitleOverrides, [key]: normalized };
-                    setOverlapStackTitleOverrides(next);
-                    writeOverlapTitleOverridesToLocalStorage(next);
-
-                    const projectId = (activeProjectId ?? "").trim();
-                    if (projectId) {
-                      try {
-                        const updated = await setProjectOverlapStackTitle(projectId, key, normalized);
-                        // Trust backend as source of truth (prevents accidental clobbering).
-                        setOverlapStackTitleOverrides(updated);
-                        writeOverlapTitleOverridesToLocalStorage(updated);
-                      } catch {
-                        // ignore (local cache still keeps behavior consistent for this user)
-                      }
-                    }
+                    setOverlapStackTitleOverrides((prev) => ({ ...prev, [key]: normalized }));
                   }
                   setStackPopover((prev) => (prev ? { ...prev, baseTitle: normalized } : prev));
                 }

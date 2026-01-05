@@ -83,7 +83,11 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
 
     setIsUploading(true);
     const uploads = fs.map(async (f) => {
-      const key = `projects/${activeProject.projectId}/lexical/${f.name}`;
+      // Use timestamp and random ID to prevent filename collisions (consistent with PictureFrame upload)
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).slice(2, 8);
+      const safeName = f.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
+      const key = `projects/${activeProject.projectId}/lexical/${timestamp}_${randomId}_${safeName}`;
       try {
         const { result } = await uploadData({
           key,
@@ -91,10 +95,12 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
           options: { accessLevel: "public" },
         });
         console.log("Upload completed:", result);
+        // Return the key (not URL) for consistency - rendering uses getFileUrl()
         const publicKey = key.startsWith("public/") ? key : `public/${key}`;
         return `${S3_PUBLIC_BASE}${encodeS3Key(publicKey)}`;
       } catch (error) {
         console.error("Error uploading file:", error);
+        notify("error", "Failed to upload image");
         return null;
       }
     });
