@@ -20,8 +20,9 @@ const currency = new Intl.NumberFormat("en-US", {
 const AccountsPage: React.FC = () => {
   useUser();
   const { activeOrgId, activeOrgRole } = useOrg();
-  const orgId = activeOrgId || "local";
-  const canAdmin = isOrgAdmin(activeOrgRole);
+  const hasOrg = Boolean(activeOrgId);
+  const orgId = activeOrgId ?? "__no_org__";
+  const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
 
   useHqBootstrap(activeOrgId);
 
@@ -34,14 +35,24 @@ const AccountsPage: React.FC = () => {
 
   const cashOnHand = React.useMemo(() => computeCashOnHand(accounts, transactions), [accounts, transactions]);
 
+  const openAdd = React.useCallback(() => {
+    if (!canAdmin) return;
+    setIsAddOpen(true);
+  }, [canAdmin]);
+
+  const openImport = React.useCallback(() => {
+    if (!canAdmin) return;
+    setIsImportOpen(true);
+  }, [canAdmin]);
+
   const actions = (
     <div className={styles.actions}>
       {canAdmin ? (
         <>
-          <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+          <button type="button" className={styles.primaryButton} onClick={openImport}>
             Import CSV
           </button>
-          <button type="button" className={styles.secondaryButton} onClick={() => setIsAddOpen(true)}>
+          <button type="button" className={styles.secondaryButton} onClick={openAdd}>
             Add account
           </button>
         </>
@@ -81,14 +92,16 @@ const AccountsPage: React.FC = () => {
             <p className={styles.emptyDescription}>
               Create a company account (e.g. “WF Checking”), then import your bank CSV to populate the ledger.
             </p>
-            <div className={styles.actionsInline}>
-              <button type="button" className={styles.primaryButton} onClick={() => setIsAddOpen(true)}>
-                Add account
-              </button>
-              <button type="button" className={styles.secondaryButton} onClick={() => setIsImportOpen(true)}>
-                Import CSV
-              </button>
-            </div>
+            {canAdmin ? (
+              <div className={styles.actionsInline}>
+                <button type="button" className={styles.primaryButton} onClick={openAdd}>
+                  Add account
+                </button>
+                <button type="button" className={styles.secondaryButton} onClick={openImport}>
+                  Import CSV
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className={styles.accountsGrid}>
@@ -120,12 +133,20 @@ const AccountsPage: React.FC = () => {
                   </div>
 
                   <div className={styles.cardActions}>
-                    <button type="button" className={styles.secondaryButton} onClick={() => setAnchorAccount(account)}>
-                      {isAnchored ? "Update anchor" : "Set anchor"}
-                    </button>
-                    <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
-                      Import
-                    </button>
+                    {canAdmin ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => setAnchorAccount(account)}
+                        >
+                          {isAnchored ? "Update anchor" : "Set anchor"}
+                        </button>
+                        <button type="button" className={styles.primaryButton} onClick={openImport}>
+                          Import
+                        </button>
+                      </>
+                    ) : null}
                   </div>
                 </article>
               );
@@ -134,11 +155,15 @@ const AccountsPage: React.FC = () => {
         )}
       </div>
 
-      <AddAccountModal orgId={orgId} isOpen={isAddOpen} onRequestClose={() => setIsAddOpen(false)} />
-      <ImportCsvModal orgId={orgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
-      {anchorAccount ? (
+      {activeOrgId ? (
+        <>
+          <AddAccountModal orgId={activeOrgId} isOpen={isAddOpen} onRequestClose={() => setIsAddOpen(false)} />
+          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+        </>
+      ) : null}
+      {activeOrgId && anchorAccount ? (
         <SetAnchorModal
-          orgId={orgId}
+          orgId={activeOrgId}
           isOpen={Boolean(anchorAccount)}
           onRequestClose={() => setAnchorAccount(null)}
           account={anchorAccount}

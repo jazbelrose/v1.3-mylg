@@ -55,8 +55,9 @@ function txnTitle(txn: HqTransaction) {
 const TransactionsPage: React.FC = () => {
   useUser();
   const { activeOrgId, activeOrgRole } = useOrg();
-  const orgId = activeOrgId || "local";
-  const canAdmin = isOrgAdmin(activeOrgRole);
+  const hasOrg = Boolean(activeOrgId);
+  const orgId = activeOrgId ?? "__no_org__";
+  const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
   useHqBootstrap(activeOrgId);
   const location = useLocation();
 
@@ -71,6 +72,16 @@ const TransactionsPage: React.FC = () => {
   const [endDate, setEndDate] = React.useState<string>("");
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
+
+  const openImport = React.useCallback(() => {
+    if (!canAdmin) return;
+    setIsImportOpen(true);
+  }, [canAdmin]);
+
+  const openAddAccount = React.useCallback(() => {
+    if (!canAdmin) return;
+    setIsAddAccountOpen(true);
+  }, [canAdmin]);
 
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -114,10 +125,10 @@ const TransactionsPage: React.FC = () => {
     <div className={styles.actions}>
       {canAdmin ? (
         <>
-          <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+          <button type="button" className={styles.primaryButton} onClick={openImport}>
             Import CSV
           </button>
-          <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
+          <button type="button" className={styles.secondaryButton} onClick={openAddAccount}>
             Add account
           </button>
         </>
@@ -262,8 +273,16 @@ const TransactionsPage: React.FC = () => {
         )}
       </div>
 
-      <ImportCsvModal orgId={orgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
-      <AddAccountModal orgId={orgId} isOpen={isAddAccountOpen} onRequestClose={() => setIsAddAccountOpen(false)} />
+      {activeOrgId ? (
+        <>
+          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+          <AddAccountModal
+            orgId={activeOrgId}
+            isOpen={isAddAccountOpen}
+            onRequestClose={() => setIsAddAccountOpen(false)}
+          />
+        </>
+      ) : null}
     </HQLayout>
   );
 };
