@@ -11,6 +11,7 @@ import type { QuickLinksRef } from "@/dashboard/project/components";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/SocketContext";
 import type { Project } from "@/app/contexts/DataProvider";
@@ -18,6 +19,7 @@ import { notify } from "@/shared/ui/ToastNotifications";
 import {
   createEvent,
   fetchEvents,
+  fetchUserProfilesBatch,
   fetchTasks,
   updateEvent,
   deleteEvent,
@@ -62,6 +64,20 @@ const CalendarPage: React.FC = () => {
   const quickLinksRef = useRef<QuickLinksRef | null>(null);
 
   const teamMembers = useTeamMembers(activeProject ?? null);
+  const [extraTeamMembers, setExtraTeamMembers] = useState<ProjectTeamMember[]>([]);
+  const fetchedAssigneeIdsRef = useRef(new Set<string>());
+
+  const effectiveTeamMembers = useMemo(() => {
+    const merged = new Map<string, ProjectTeamMember>();
+    (teamMembers ?? []).forEach((member) => {
+      if (member?.userId) merged.set(member.userId, member);
+    });
+    extraTeamMembers.forEach((member) => {
+      if (!member?.userId) return;
+      if (!merged.has(member.userId)) merged.set(member.userId, member);
+    });
+    return Array.from(merged.values());
+  }, [extraTeamMembers, teamMembers]);
 
   const [timelineEvents, setTimelineEvents] = useState<ApiTimelineEvent[]>([]);
   const [projectTasks, setProjectTasks] = useState<ApiTask[]>([]);
@@ -196,6 +212,78 @@ const CalendarPage: React.FC = () => {
       cancelled = true;
     };
   }, [projectId]);
+
+  useEffect(() => {
+    if (!projectTasks || projectTasks.length === 0) return;
+
+    const isViableUserId = (value: string): boolean => {
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+      if (trimmed.length > 128) return false;
+      if (trimmed.includes(",")) return false;
+      if (/\s/.test(trimmed)) return false;
+      return true;
+    };
+
+    const knownIds = new Set((teamMembers ?? []).map((m) => m.userId).filter(Boolean));
+    extraTeamMembers.forEach((m) => {
+      if (m?.userId) knownIds.add(m.userId);
+    });
+
+    const idsToFetch = new Set<string>();
+    const push = (candidate?: string | null) => {
+      if (!candidate || typeof candidate !== "string") return;
+      const trimmed = candidate.trim();
+      if (!trimmed) return;
+
+      const parts = trimmed.split("__");
+      const id = (parts.length > 1 ? parts[parts.length - 1] : trimmed).trim();
+      if (!isViableUserId(id)) return;
+      if (knownIds.has(id)) return;
+      if (fetchedAssigneeIdsRef.current.has(id)) return;
+      idsToFetch.add(id);
+    };
+
+    projectTasks.forEach((task) => {
+      push((task as { assigneeId?: string }).assigneeId);
+      (task.assigneeIds ?? []).forEach((id) => push(id));
+      (task.assigneeTokens ?? []).forEach((token) => push(token));
+    });
+
+    const ids = Array.from(idsToFetch);
+    if (ids.length === 0) return;
+
+    let cancelled = false;
+
+    fetchUserProfilesBatch(ids)
+      .then((profiles) => {
+        if (cancelled) return;
+        const members: ProjectTeamMember[] = (profiles ?? [])
+          .filter((p) => Boolean(p?.userId))
+          .map((p) => ({
+            userId: String(p.userId),
+            firstName: typeof p.firstName === "string" ? p.firstName : "",
+            lastName: typeof p.lastName === "string" ? p.lastName : "",
+            thumbnail: typeof p.thumbnail === "string" ? p.thumbnail : null,
+          }));
+
+        members.forEach((m) => fetchedAssigneeIdsRef.current.add(m.userId));
+        setExtraTeamMembers((prev) => {
+          const merged = new Map(prev.map((m) => [m.userId, m]));
+          members.forEach((m) => {
+            if (!merged.has(m.userId)) merged.set(m.userId, m);
+          });
+          return Array.from(merged.values());
+        });
+      })
+      .catch(() => {
+        // Ignore: calendar can still render initials for unknown users.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [extraTeamMembers, projectTasks, teamMembers]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -893,7 +981,7 @@ const CalendarPage: React.FC = () => {
         onUpdateEvent={handleUpdateEvent}
         onDeleteEvent={handleDeleteEvent}
         onToggleTask={handleToggleTask}
-        teamMembers={teamMembers}
+        teamMembers={effectiveTeamMembers}
         onRefreshTasks={refreshProjectTasks}
         taskProjects={quickCreateProjects}
         activeProjectId={activeProject?.projectId ?? null}

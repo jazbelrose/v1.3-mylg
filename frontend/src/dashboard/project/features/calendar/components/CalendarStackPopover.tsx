@@ -10,6 +10,8 @@ import { Pencil } from "lucide-react";
 import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
+import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
+import { fetchUserProfilesBatch } from "@/shared/utils/api";
 import {
   buildEventAvatars,
   buildTeamMemberLookup,
@@ -72,39 +74,128 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   const [draftTitle, setDraftTitle] = useState("");
   const [titleOverride, setTitleOverride] = useState<string | null>(null);
 
-  const memberLookup = useMemo(() => buildTeamMemberLookup(teamMembers), [teamMembers]);
+  const [extraMembers, setExtraMembers] = useState<ProjectTeamMember[]>([]);
+  const fetchedUserIdsRef = useRef(new Set<string>());
+  const fetchingUserIdsRef = useRef<Set<string> | null>(null);
 
-  const headerAvatars = useMemo(() => {
-    if (!avatars || avatars.length === 0) return null;
-    const visible = avatars.slice(0, 3);
-    const extra = Math.max(avatars.length - visible.length, 0);
+  const effectiveTeamMembers = useMemo(() => {
+    const merged = new Map<string, ProjectTeamMember>();
+    (teamMembers ?? []).forEach((member) => {
+      if (member?.userId) merged.set(member.userId, member);
+    });
+    extraMembers.forEach((member) => {
+      if (!member?.userId) return;
+      if (!merged.has(member.userId)) {
+        merged.set(member.userId, member);
+      }
+    });
+    return Array.from(merged.values());
+  }, [teamMembers, extraMembers]);
 
-    return (
-      <div className="calendar-stack-popover__header-avatars" aria-hidden>
-        <div className="calendar-entry-popover__avatars" aria-hidden>
-          {visible.map((avatar, index) => (
-            <span
-              key={avatar.key}
-              className="calendar-entry-popover__avatar-wrapper"
-              style={{
-                zIndex: visible.length - index,
-                marginLeft: index > 0 ? "-8px" : 0,
-              }}
-            >
-              <ProjectAvatar
-                className="calendar-entry-popover__avatar"
-                thumb={avatar.thumb ?? undefined}
-                name={avatar.name}
-                shape="circle"
-                radius={10}
-              />
-            </span>
-          ))}
-        </div>
-        {extra > 0 ? <span className="calendar-entry-popover__badge">+{extra}</span> : null}
-      </div>
+  const memberLookup = useMemo(
+    () => buildTeamMemberLookup(effectiveTeamMembers),
+    [effectiveTeamMembers],
+  );
+
+  const memberLookupByCompactName = useMemo(() => {
+    const map = new Map<string, ProjectTeamMember>();
+    effectiveTeamMembers.forEach((member) => {
+      const first = (member.firstName ?? "").trim();
+      const last = (member.lastName ?? "").trim();
+      const compact = `${first}${last}`.replace(/\s+/g, "").toLowerCase();
+      if (compact) {
+        map.set(compact, member);
+      }
+    });
+    return map;
+  }, [effectiveTeamMembers]);
+
+  useEffect(() => {
+    if (kind !== "overlapStack") return;
+
+    const isViableUserId = (value: string): boolean => {
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+      if (trimmed.length > 128) return false;
+      if (trimmed.includes(",")) return false;
+      if (/\s/.test(trimmed)) return false;
+      return true;
+    };
+
+    const baseKnownIds = new Set(
+      (teamMembers ?? []).map((m) => m.userId).filter(Boolean),
     );
-  }, [avatars]);
+
+    const idsToFetch = new Set<string>();
+    children.forEach((child) => {
+      const collect = (value?: string | null) => {
+        if (!value) return;
+        const id = parseAssigneeUserId(value);
+        if (!id) return;
+        const normalized = id.trim();
+        if (!isViableUserId(normalized)) return;
+        if (baseKnownIds.has(normalized)) return;
+        if (fetchedUserIdsRef.current.has(normalized)) return;
+        if (fetchingUserIdsRef.current?.has(normalized)) return;
+        idsToFetch.add(normalized);
+      };
+
+      if (child.entryType === "task") {
+        const task = child.entry as CalendarTask;
+        collect(task.assignedTo);
+        (task.assigneeIds ?? []).forEach((candidate) => collect(candidate));
+        return;
+      }
+      const event = child.entry as CalendarEvent;
+      (event.guests ?? []).forEach((candidate) => collect(candidate));
+    });
+
+    const ids = Array.from(idsToFetch);
+    if (ids.length === 0) return;
+
+    fetchingUserIdsRef.current = new Set(ids);
+    let cancelled = false;
+
+    fetchUserProfilesBatch(ids)
+      .then((profiles) => {
+        if (cancelled) return;
+
+        const members: ProjectTeamMember[] = (profiles ?? [])
+          .filter((profile) => Boolean(profile?.userId))
+          .map((profile) => ({
+            userId: String(profile.userId),
+            firstName: typeof profile.firstName === "string" ? profile.firstName : "",
+            lastName: typeof profile.lastName === "string" ? profile.lastName : "",
+            thumbnail: typeof profile.thumbnail === "string" ? profile.thumbnail : null,
+          }));
+
+        members.forEach((m) => fetchedUserIdsRef.current.add(m.userId));
+        setExtraMembers((prev) => {
+          const merged = new Map(prev.map((m) => [m.userId, m]));
+          members.forEach((m) => {
+            if (!merged.has(m.userId)) merged.set(m.userId, m);
+          });
+          return Array.from(merged.values());
+        });
+      })
+      .catch(() => {
+        // Ignore: calendar can still render initials for unknown users.
+      })
+      .finally(() => {
+        fetchingUserIdsRef.current = null;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [children, kind, teamMembers]);
+
+  const headerAvatarSource = useMemo(() => {
+    if (kind !== "overlapStack") return avatars ?? [];
+    // For overlap stacks, rebuild the header coin stack from resolved user groups,
+    // so thumbnails can appear even when the stack entry was computed before we fetched missing profiles.
+    return [] as TimelineAvatar[];
+  }, [avatars, kind]);
 
   const isSingleUser = Boolean((avatars?.length ?? 0) === 1);
   const showRowAvatars = kind === "overlapStack" && !isSingleUser;
@@ -267,30 +358,94 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     ): { groupKey: string; label: string; avatar: TimelineAvatar | null } => {
       if (child.entryType === "task") {
         const task = child.entry as CalendarTask;
-        const candidate = task.assignedTo ?? task.assigneeIds?.[0] ?? undefined;
-        const userId = parseAssigneeUserId(candidate);
-        const member = userId ? memberLookup.byId.get(userId) : undefined;
+
+        const candidates = [...(task.assigneeIds ?? [])
+          .map((id) => (typeof id === "string" ? id.trim() : ""))
+          .filter(Boolean)];
+        if (task.assignedTo) {
+          candidates.push(task.assignedTo);
+        }
+
+        const resolveMemberFromCandidate = (value: string): ProjectTeamMember | undefined => {
+          const userId = parseAssigneeUserId(value);
+          if (userId) {
+            const direct = memberLookup.byId.get(userId);
+            if (direct) return direct;
+          }
+          const display = (formatAssigneeDisplay(value) ?? value).trim().toLowerCase();
+          if (display) {
+            const byDisplay = memberLookup.byDisplayName.get(display);
+            if (byDisplay) return byDisplay;
+          }
+
+          const compact = (formatAssigneeDisplay(value) ?? value)
+            .replace(/\s+/g, "")
+            .trim()
+            .toLowerCase();
+          return compact ? memberLookupByCompactName.get(compact) : undefined;
+        };
+
+        const chosen = candidates.find((value) => Boolean(resolveMemberFromCandidate(value)))
+          ?? candidates[0]
+          ?? undefined;
+
+        const member = chosen ? resolveMemberFromCandidate(chosen) : undefined;
         const label = member
           ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.userId
-          : (candidate ? candidate.trim() : "Unassigned");
-        const avatar = candidate ? getAvatarForAssignee(candidate, memberLookup, `group-${task.id}`) : null;
+          : chosen
+          ? (formatAssigneeDisplay(chosen) ?? chosen.trim())
+          : "Unassigned";
+
+        const groupKey = member?.userId
+          ?? (chosen ? (parseAssigneeUserId(chosen) ?? label) : "unassigned");
+
+        const avatar = chosen ? getAvatarForAssignee(chosen, memberLookup, `group-${task.id}`) : null;
         return {
-          groupKey: userId ?? label,
+          groupKey,
           label,
           avatar,
         };
       }
 
       const event = child.entry as CalendarEvent;
-      const candidate = event.guests?.[0] ?? undefined;
-      const userId = parseAssigneeUserId(candidate);
-      const member = userId ? memberLookup.byId.get(userId) : undefined;
+      const candidates = (event.guests ?? []).map((guest) => guest?.trim()).filter(Boolean);
+
+      const resolveMemberFromCandidate = (value: string): ProjectTeamMember | undefined => {
+        const userId = parseAssigneeUserId(value);
+        if (userId) {
+          const direct = memberLookup.byId.get(userId);
+          if (direct) return direct;
+        }
+        const display = (formatAssigneeDisplay(value) ?? value).trim().toLowerCase();
+        if (display) {
+          const byDisplay = memberLookup.byDisplayName.get(display);
+          if (byDisplay) return byDisplay;
+        }
+
+        const compact = (formatAssigneeDisplay(value) ?? value)
+          .replace(/\s+/g, "")
+          .trim()
+          .toLowerCase();
+        return compact ? memberLookupByCompactName.get(compact) : undefined;
+      };
+
+      const chosen = candidates.find((value) => Boolean(resolveMemberFromCandidate(value)))
+        ?? candidates[0]
+        ?? undefined;
+
+      const member = chosen ? resolveMemberFromCandidate(chosen) : undefined;
       const label = member
         ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.userId
-        : (candidate ? candidate.trim() : "Guests");
-      const avatar = candidate ? getAvatarForGuest(candidate, memberLookup, `group-${event.id}`) : null;
+        : chosen
+        ? (formatAssigneeDisplay(chosen) ?? chosen.trim())
+        : "Guests";
+
+      const groupKey = member?.userId
+        ?? (chosen ? (parseAssigneeUserId(chosen) ?? label) : "guests");
+
+      const avatar = chosen ? getAvatarForGuest(chosen, memberLookup, `group-${event.id}`) : null;
       return {
-        groupKey: userId ?? label,
+        groupKey,
         label,
         avatar,
       };
@@ -338,6 +493,45 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       .map(([groupKey, group]) => ({ groupKey, ...group }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [kind, rows]);
+
+  const headerAvatars = useMemo(() => {
+    const derivedAvatars: TimelineAvatar[] =
+      kind === "overlapStack"
+        ? (userStacks ?? [])
+            .map((group) => group.avatar)
+            .filter((value): value is TimelineAvatar => Boolean(value))
+        : (headerAvatarSource ?? []);
+
+    if (!derivedAvatars || derivedAvatars.length === 0) return null;
+    const visible = derivedAvatars.slice(0, 3);
+    const extra = Math.max(derivedAvatars.length - visible.length, 0);
+
+    return (
+      <div className="calendar-stack-popover__header-avatars" aria-hidden>
+        <div className="calendar-entry-popover__avatars" aria-hidden>
+          {visible.map((avatar, index) => (
+            <span
+              key={avatar.key}
+              className="calendar-entry-popover__avatar-wrapper"
+              style={{
+                zIndex: visible.length - index,
+                marginLeft: index > 0 ? "-8px" : 0,
+              }}
+            >
+              <ProjectAvatar
+                className="calendar-entry-popover__avatar"
+                thumb={avatar.thumb ?? undefined}
+                name={avatar.name}
+                shape="circle"
+                radius={10}
+              />
+            </span>
+          ))}
+        </div>
+        {extra > 0 ? <span className="calendar-entry-popover__badge">+{extra}</span> : null}
+      </div>
+    );
+  }, [headerAvatarSource, kind, userStacks]);
 
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
