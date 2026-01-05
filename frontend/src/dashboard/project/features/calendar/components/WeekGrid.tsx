@@ -1832,16 +1832,6 @@ function WeekGrid({
           {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
-
-    const tileChipAvatars =
-      avatarsToRender.length > 0 ? (
-        <div
-          className="week-grid__timeline-entry-avatars week-grid__timeline-entry-avatars--inline"
-          aria-hidden="true"
-        >
-          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
-        </div>
-      ) : null;
     
     // Stacks are UI-computed aggregates; keep them aligned to the active project's color.
     const color = isStack ? projectColor : entry.projectColor || projectColor;
@@ -1923,27 +1913,19 @@ function WeekGrid({
     const renderChecklistPreviewList = (options: {
       items: Array<{ key: string; title: string; done: boolean }>;
       tileHeightPx: number;
-      mode: "fit" | "maxRows";
-      maxRows?: number;
+      maxRows: number;
     }) => {
-      const { items, tileHeightPx, mode, maxRows } = options;
+      const { items, tileHeightPx, maxRows } = options;
       if (items.length === 0) return null;
 
       const paddingYPx = 12;
-      const chipRowHeightPx = 16;
-      const chipToTitleGapPx = 6;
-      const titleRowHeightPx = 16;
-      const titleToListGapPx = 6;
+      const headerHeightPx = 16;
+      const headerToListGapPx = 6;
       const rowHeightPx = 14;
 
-      const available =
-        tileHeightPx -
-        (paddingYPx + chipRowHeightPx + chipToTitleGapPx + titleRowHeightPx + titleToListGapPx);
-
-      const computedMaxRows =
-        mode === "maxRows"
-          ? Math.max(0, maxRows ?? 0)
-          : Math.max(0, Math.floor(available / rowHeightPx));
+      const available = tileHeightPx - (paddingYPx + headerHeightPx + headerToListGapPx);
+      const fitRows = Math.max(0, Math.floor(available / rowHeightPx));
+      const computedMaxRows = Math.max(0, Math.min(maxRows, fitRows));
 
       if (computedMaxRows <= 0) return null;
 
@@ -1976,6 +1958,24 @@ function WeekGrid({
               +{total - displayCount} more
             </div>
           )}
+        </div>
+      );
+    };
+
+    const renderTileHeader = (options: {
+      icon: React.ReactNode;
+      title: string;
+      isComplete?: boolean;
+      chip: React.ReactNode | null;
+    }) => {
+      const { icon, title, isComplete, chip } = options;
+      return (
+        <div className="week-grid__tile-header" aria-hidden>
+          <div className="week-grid__tile-header-left">
+            <span className="week-grid__timeline-entry-icon">{icon}</span>
+            <div className={`week-grid__tile-title${isComplete ? " is-complete" : ""}`}>{title}</div>
+          </div>
+          <div className="week-grid__tile-chip">{chip}</div>
         </div>
       );
     };
@@ -2041,7 +2041,8 @@ function WeekGrid({
         done: child.status === "done" || Boolean(child.done),
       }));
 
-      return renderChecklistPreviewList({ items, tileHeightPx, mode: "fit" });
+      // Clamp to tile height.
+      return renderChecklistPreviewList({ items, tileHeightPx, maxRows: Number.POSITIVE_INFINITY });
     };
 
     const renderMultiUserOverlapChecklist = () => {
@@ -2064,14 +2065,8 @@ function WeekGrid({
 
       const durationMinutes = entry.endMinutes - entry.startMinutes;
       const tileHeightPx = Math.max(32, minutesToPxWeek(durationMinutes));
-      const maxRows = tileHeightPx < 80 ? 2 : 3;
-
-      return renderChecklistPreviewList({
-        items: tasksOnly,
-        tileHeightPx,
-        mode: "maxRows",
-        maxRows,
-      });
+      // Clamp to fit, but cap at ~3 rows.
+      return renderChecklistPreviewList({ items: tasksOnly, tileHeightPx, maxRows: 3 });
     };
 
     if (entry.type === "overlapStack") {
@@ -2106,13 +2101,12 @@ function WeekGrid({
       }
 
       const extra = Math.max(count - entry.avatars.length, 0);
-      const tileChips = entry.avatars.length ? (
-        <div
-          className="week-grid__timeline-entry-avatars week-grid__timeline-entry-avatars--inline"
-          aria-hidden="true"
-        >
+      const headerChip = entry.avatars.length ? (
+        <div className="week-grid__tile-chip-avatars" aria-hidden="true">
           {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "overlap")}
-          {extra > 0 && <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>}
+          {extra > 0 && (
+            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>
+          )}
         </div>
       ) : null;
 
@@ -2132,8 +2126,11 @@ function WeekGrid({
         >
           <div className="week-grid__timeline-entry-main week-grid__timeline-entry-main--tile">
             <div className="week-grid__timeline-entry-body week-grid__timeline-entry-body--tile">
-              <div className="week-grid__tile-chip-row">{tileChips}</div>
-              <div className="week-grid__tile-title-row">{content}</div>
+              {renderTileHeader({
+                icon: <Users className="week-grid__task-icon-svg" aria-hidden />,
+                title: previewTitle,
+                chip: headerChip,
+              })}
               {renderMultiUserOverlapChecklist()}
             </div>
           </div>
@@ -2225,12 +2222,19 @@ function WeekGrid({
           <div
             className={`week-grid__timeline-entry-body${useTileLayout ? " week-grid__timeline-entry-body--tile" : ""}`}
           >
-            {useTileLayout && <div className="week-grid__tile-chip-row">{tileChipAvatars}</div>}
-            {useTileLayout ? (
-              <div className="week-grid__tile-title-row">{content}</div>
-            ) : (
-              content
-            )}
+            {useTileLayout
+              ? renderTileHeader({
+                  icon: <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
+                  title: previewTitle,
+                  isComplete: entry.completed,
+                  chip:
+                    avatarsToRender.length > 0 ? (
+                      <div className="week-grid__tile-chip-avatars" aria-hidden="true">
+                        {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
+                      </div>
+                    ) : null,
+                })
+              : content}
             {renderFocusBlockChildren()}
           </div>
           {!useTileLayout && inlineAvatars}

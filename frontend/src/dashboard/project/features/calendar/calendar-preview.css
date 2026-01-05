@@ -1571,16 +1571,46 @@
   gap: 0;
 }
 
-.week-grid__tile-chip-row {
+.week-grid__tile-header {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 2px; /* +2 on top of the tile padding (6px) => ~8px */
-  margin-right: 4px; /* +4 on right of the tile padding (6px) => ~10px */
-  min-height: 16px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px; /* 6px tile padding + 2px = ~8px */
+  padding-right: 4px; /* 6px tile padding + 4px = ~10px */
+  min-width: 0;
 }
 
-.week-grid__tile-title-row {
-  margin-top: 6px;
+.week-grid__tile-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.week-grid__tile-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.week-grid__tile-title.is-complete {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.week-grid__tile-chip {
+  display: flex;
+  align-items: baseline;
+  flex-shrink: 0;
+}
+
+.week-grid__tile-chip-avatars {
+  display: flex;
+  gap: 0;
+  align-items: center;
 }
 
 .week-grid__stack-list {
@@ -3790,6 +3820,10 @@
 
 .week-grid__task-preview-row.is-complete {
   opacity: 0.72;
+}
+
+.week-grid__task-preview-row.is-complete .week-grid__task-preview-text {
+  text-decoration: line-through;
 }
 
 .week-grid__task-preview-row--more {
