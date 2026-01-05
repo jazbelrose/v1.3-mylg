@@ -38,6 +38,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { slugify } from "@/shared/utils/slug";
+import { parseBudget } from "@/shared/utils/budgetUtils";
 import {
   fetchBudgetHeaders,
   updateBudgetItem,
@@ -326,6 +327,23 @@ const BudgetPageContent = () => {
       .replace(/[^A-Z0-9]+/g, " ")
       .trim();
 
+  const toLineFinalCost = (quantity: unknown, unitCost: unknown, markup: unknown) => {
+    const qty = Number(quantity) || 0;
+    const cost = Number(unitCost) || 0;
+    const mark = Number(markup) || 0;
+    const total = qty * cost * (1 + mark);
+    return Math.round(total * 100) / 100;
+  };
+
+  const resolveBaseCostForExistingLine = (existing: Record<string, unknown>, fallbackUnitCost: unknown) => {
+    const reconciled = parseBudget(existing.itemReconciledCost as unknown as any);
+    if (reconciled) return reconciled;
+    const actual = parseBudget(existing.itemActualCost as unknown as any);
+    if (actual) return actual;
+    const budgeted = Number(fallbackUnitCost) || 0;
+    return budgeted;
+  };
+
   const tokenSet = (value: string) =>
     new Set(value.split(/\s+/g).filter((token) => token.length >= 3));
 
@@ -456,7 +474,7 @@ const BudgetPageContent = () => {
             unit: draft.unit,
             itemBudgetedCost: draft.itemBudgetedCost,
             itemMarkUp: draft.itemMarkUp,
-            itemFinalCost: "",
+            itemFinalCost: toLineFinalCost(draft.quantity, draft.itemBudgetedCost, draft.itemMarkUp),
             itemActualCost: "",
             itemReconciledCost: "",
             paymentStatus: "UNPAID",
@@ -483,7 +501,15 @@ const BudgetPageContent = () => {
 
         const updatedItems = await Promise.all(
           toUpdate.map(({ existing, draft }) =>
-            updateBudgetItem(projectId, String(existing.budgetItemId), { ...draft, revision }),
+            updateBudgetItem(projectId, String(existing.budgetItemId), {
+              ...draft,
+              itemFinalCost: toLineFinalCost(
+                draft.quantity,
+                resolveBaseCostForExistingLine(existing, draft.itemBudgetedCost),
+                draft.itemMarkUp,
+              ),
+              revision,
+            }),
           ),
         );
 
