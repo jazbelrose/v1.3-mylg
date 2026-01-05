@@ -2785,13 +2785,12 @@ function WeekGrid({
           onPrimaryAction={
             stackPopover.kind === "overlapStack"
               ? (child) => {
-                  const dayDate = safeDate(child.dayKey);
-                  if (!dayDate) return;
-                  const hours = Math.floor(child.startMinutes / MINUTES_IN_HOUR);
-                  const minutes = child.startMinutes % MINUTES_IN_HOUR;
-                  const startAt = new Date(dayDate);
-                  startAt.setHours(hours, minutes, 0, 0);
-                  triggerCreateTask(dayDate, startAt);
+                  // Open the clicked task/event for editing (not create a new one)
+                  if (child.entryType === "event") {
+                    onEditEvent(child.entry as CalendarEvent);
+                  } else {
+                    onEditTask(child.entry as CalendarTask);
+                  }
                   handleCloseStackPopover();
                 }
               : undefined
