@@ -906,7 +906,7 @@ function WeekGrid({
     const taskTilesByDay = new Map<string, WeekTimelineEntry[]>();
 
     // DISABLED: Auto-grouping of adjacent tasks into taskStacks
-    // Focus Blocks are now manual only via multi-select → right-click → Convert to Focus Block
+    // Focus Blocks are created via Spellbook or via multi-select → right-click → Convert to Focus Block
     // The buildTaskStacksForDay function is no longer called.
     // entriesByDay.forEach((dayEntries, dayKey) => {
     //   const { tiles, suppressedByTaskStack } = buildTaskStacksForDay(dayKey, dayEntries, overlapSuppressed);

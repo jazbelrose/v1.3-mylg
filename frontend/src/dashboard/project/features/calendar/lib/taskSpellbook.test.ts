@@ -16,10 +16,11 @@ describe("taskSpellbook", () => {
   it("builds variants with focus blocks", () => {
     const parsed = parseSpellbookInput(`Thumbnails:\n- cleanup\n- export\nCalendar:\n- week density pass`);
     const variants = buildSpellbookVariants(parsed);
-    // Focus blocks are manual-only; Spellbook should not auto-generate them.
-    expect(variants.length).toBe(1);
-    expect(variants[0].id).toBe("split");
-    expect(variants[0].focusBlocks.length).toBe(0);
+    expect(variants.length).toBe(4);
+    expect(variants[0].id).toBe("lean");
+    expect(variants[0].focusBlocks.length).toBe(1);
+    expect(variants[1].id).toBe("producer-standard");
+    expect(variants[1].focusBlocks.length).toBe(1);
   });
 });
 
@@ -39,4 +40,3 @@ describe("doablePlanner", () => {
     expect(balanced.placements[0].startMinutes).toBeGreaterThanOrEqual(10 * 60);
   });
 });
-

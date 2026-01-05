@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import Modal from "@/shared/ui/ModalWithStack";
 import { Sparkles, X } from "lucide-react";
+import styles from "./task-spellbook-modal.module.css";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import { fmtLocal, safeDate } from "../utils";
 import { parseTimeToMinutes } from "./timelineLayout";
@@ -13,8 +14,14 @@ import {
   type SpellbookVariantId,
 } from "../lib/taskSpellbook";
 
+if (typeof document !== "undefined") {
+  Modal.setAppElement("#root");
+}
+
 export type TaskSpellbookApplyRequest = {
   targetDate: string; // YYYY-MM-DD
+  inputSource: "paste" | "load-today";
+  existingTaskIds: string[];
   variantId: SpellbookVariantId;
   variant: SpellbookVariant;
   parseResult: SpellbookParseResult;
@@ -28,6 +35,8 @@ export type TaskSpellbookModalProps = {
   anchorDate: Date;
   events: CalendarEvent[];
   tasks: CalendarTask[];
+  activeProjectId?: string | null;
+  initialSource?: "paste" | "load-today";
   onClose: () => void;
   onApply: (request: TaskSpellbookApplyRequest) => Promise<void> | void;
   /** Active project accent color (hex format, e.g., "#FA3356") */
@@ -62,8 +71,56 @@ const buildBusyBlocksForDate = (dateIso: string, events: CalendarEvent[], tasks:
 
 const isMeaningfulText = (value: string) => value.trim().length >= 3;
 
-const railButtonClass = (active: boolean) =>
-  `task-spellbook__rail-btn ${active ? "task-spellbook__rail-btn--active" : ""}`;
+const formatEstHours = (totalMinutes: number) => {
+  const hours = Math.round((totalMinutes / 60) * 2) / 2;
+  if (!Number.isFinite(hours) || hours <= 0) return "0h";
+  return `${hours % 1 === 0 ? String(Math.round(hours)) : String(hours)}h`;
+};
+
+const formatDurationHint = (minutes: number | undefined) => {
+  const value = typeof minutes === "number" && Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
+  if (value <= 0) return "";
+  if (value < 60) return `${value}m`;
+  const hours = Math.floor(value / 60);
+  const rem = value % 60;
+  return rem ? `${hours}h ${rem}m` : `${hours}h`;
+};
+
+const resolveTaskIdentifier = (task: CalendarTask) => {
+  const source = task.source as unknown as { taskId?: string; id?: string };
+  return source.taskId ?? source.id ?? task.id ?? null;
+};
+
+const resolveProjectId = (task: CalendarTask) => {
+  const source = task.source as unknown as { projectId?: string };
+  return source.projectId ?? null;
+};
+
+const buildLoadTodayCandidates = (dateIso: string, tasks: CalendarTask[], activeProjectId?: string | null) => {
+  const cutoff = safeDate(dateIso);
+  if (!cutoff) return [];
+
+  return tasks
+    .filter((task) => {
+      if (activeProjectId && resolveProjectId(task) !== activeProjectId) return false;
+      const due = task.due ?? null;
+      if (!due) return false;
+      const dueDate = safeDate(due);
+      if (!dueDate) return false;
+      if (dueDate.getTime() > cutoff.getTime()) return false;
+
+      const isDone = task.done === true || task.status === "done" || task.status === "archived";
+      if (isDone) return false;
+
+      const kind = (task.kind ?? "").toLowerCase();
+      if (kind === "intent") return false;
+      if (kind === "focus_block") return false;
+      if (task.focusBlockId) return false;
+      if (task.start || task.end) return false;
+      return true;
+    })
+    .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "") || (a.title ?? "").localeCompare(b.title ?? ""));
+};
 
 const toDraftsFromVariant = (variant: SpellbookVariant): DoableDraft[] => {
   if (variant.focusBlocks.length > 0) {
@@ -84,7 +141,6 @@ const toDraftsFromVariant = (variant: SpellbookVariant): DoableDraft[] => {
     }));
 };
 
-// Helper to convert hex to RGB string
 function hexToRgb(hex: string): string {
   const cleaned = hex.replace("#", "");
   const bigint = parseInt(cleaned, 16);
@@ -99,18 +155,22 @@ export default function TaskSpellbookModal({
   anchorDate,
   events,
   tasks,
+  activeProjectId,
+  initialSource = "paste",
   onClose,
   onApply,
   accentColor,
 }: TaskSpellbookModalProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [inputSource, setInputSource] = useState<"paste" | "load-today">(initialSource);
+  const [pasteText, setPasteText] = useState("");
   const [text, setText] = useState("");
   const [targetDate, setTargetDate] = useState<string>(() => fmtLocal(anchorDate));
-  const [variantId, setVariantId] = useState<SpellbookVariantId>("split");
+  const [variantId, setVariantId] = useState<SpellbookVariantId>("producer-standard");
   const [autoPack, setAutoPack] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("balanced");
   const [isApplying, setIsApplying] = useState(false);
+  const [selectedLoadTodayTaskIds, setSelectedLoadTodayTaskIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!isOpen) return;
@@ -119,20 +179,71 @@ export default function TaskSpellbookModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const timeout = window.setTimeout(() => inputRef.current?.focus(), 50);
-    return () => window.clearTimeout(timeout);
-  }, [isOpen]);
+    setInputSource(initialSource);
+  }, [initialSource, isOpen]);
 
-  const parseResult = useMemo<SpellbookParseResult>(() => parseSpellbookInput(text), [text]);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (inputSource === "paste") {
+      setText(pasteText);
+      return;
+    }
+  }, [inputSource, isOpen, pasteText, targetDate, tasks]);
+
+  const loadTodayCandidates = useMemo(
+    () => buildLoadTodayCandidates(targetDate, tasks, activeProjectId),
+    [activeProjectId, targetDate, tasks],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (inputSource !== "load-today") return;
+    const ids = new Set<string>();
+    loadTodayCandidates.forEach((task) => {
+      const id = resolveTaskIdentifier(task);
+      if (id) ids.add(id);
+    });
+    setSelectedLoadTodayTaskIds(ids);
+  }, [inputSource, isOpen, loadTodayCandidates]);
+
+  const selectedLoadTodayTasks = useMemo(() => {
+    if (inputSource !== "load-today") return [];
+    const selected = selectedLoadTodayTaskIds;
+    return loadTodayCandidates.filter((task) => {
+      const id = resolveTaskIdentifier(task);
+      return id ? selected.has(id) : false;
+    });
+  }, [inputSource, loadTodayCandidates, selectedLoadTodayTaskIds]);
+
+  const parseResult = useMemo<SpellbookParseResult>(() => {
+    if (inputSource === "paste") return parseSpellbookInput(text);
+
+    const items = selectedLoadTodayTasks
+      .map((task) => {
+        const title = (task.title ?? "").trim();
+        if (!title) return null;
+        return {
+          kind: "task" as const,
+          raw: resolveTaskIdentifier(task) ?? title,
+          title,
+          cluster: (task.cluster ?? "").trim() || "General",
+          tags: (task.tags ?? []).filter((t) => typeof t === "string"),
+          durationMinutes: typeof task.durationMinutes === "number" && task.durationMinutes > 0 ? task.durationMinutes : 30,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    const clusters = [...new Set(items.map((item) => item.cluster || "General"))];
+    const totalMinutes = items.reduce((sum, item) => sum + (item.durationMinutes || 0), 0);
+    return { items, clusters, totalMinutes };
+  }, [inputSource, selectedLoadTodayTasks, text]);
+
   const variants = useMemo(() => buildSpellbookVariants(parseResult), [parseResult]);
   const selectedVariant = useMemo(
     () => variants.find((variant) => variant.id === variantId) ?? variants[0],
@@ -153,17 +264,10 @@ export default function TaskSpellbookModal({
     setSelectedPlanId(plans[0]?.id ?? "balanced");
   }, [autoPack, plans, selectedPlanId]);
 
-  const handleBackdropMouseDown = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
-      onClose();
-    },
-    [onClose],
-  );
-
   const handleApply = useCallback(async () => {
     if (!selectedVariant) return;
-    if (!isMeaningfulText(text)) return;
+    if (inputSource === "paste" && !isMeaningfulText(text)) return;
+    if (inputSource === "load-today" && selectedLoadTodayTasks.length === 0) return;
 
     const resolvedTarget = safeDate(targetDate) ? targetDate : fmtLocal(anchorDate);
     const plan = autoPack ? selectedPlan : null;
@@ -173,6 +277,13 @@ export default function TaskSpellbookModal({
       setIsApplying(true);
       await onApply({
         targetDate: resolvedTarget,
+        inputSource,
+        existingTaskIds:
+          inputSource === "load-today"
+            ? selectedLoadTodayTasks
+                .map((task) => resolveTaskIdentifier(task))
+                .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+            : [],
         variantId: selectedVariant.id,
         variant: selectedVariant,
         parseResult,
@@ -182,12 +293,25 @@ export default function TaskSpellbookModal({
       });
       onClose();
       setText("");
+      setPasteText("");
+      setInputSource("paste");
     } finally {
       setIsApplying(false);
     }
-  }, [anchorDate, autoPack, onApply, onClose, parseResult, selectedPlan, selectedVariant, targetDate, text]);
+  }, [
+    anchorDate,
+    autoPack,
+    inputSource,
+    onApply,
+    onClose,
+    parseResult,
+    selectedLoadTodayTasks,
+    selectedPlan,
+    selectedVariant,
+    targetDate,
+    text,
+  ]);
 
-  // Compute accent style for CSS variables (must be before early return)
   const accentStyle = useMemo<React.CSSProperties | undefined>(() => {
     if (!accentColor || typeof accentColor !== "string" || accentColor.trim() === "") {
       return undefined;
@@ -198,136 +322,235 @@ export default function TaskSpellbookModal({
     }
     const rgb = hexToRgb(trimmed);
     return {
-      "--spellbook-accent": trimmed,
+      "--color-accent": trimmed,
       "--spellbook-accent-rgb": rgb,
     } as React.CSSProperties;
   }, [accentColor]);
 
   if (!isOpen) return null;
 
-  const canApply = isMeaningfulText(text) && !isApplying;
+  const hasItems = parseResult.items.length > 0;
+  const canApply =
+    !isApplying &&
+    (inputSource === "paste" ? isMeaningfulText(text) : selectedLoadTodayTasks.length > 0);
 
-  const modal = (
-    <div className="task-spellbook__backdrop" onMouseDown={handleBackdropMouseDown} role="presentation">
-      <div className="task-spellbook" ref={dialogRef} role="dialog" aria-label="Task Spellbook" style={accentStyle}>
-        <div className="task-spellbook__header">
-          <div className="task-spellbook__title">
+  return (
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      shouldCloseOnOverlayClick
+      shouldCloseOnEsc
+      closeTimeoutMS={180}
+      className={{
+        base: styles.modal,
+        afterOpen: styles.modalAfterOpen,
+        beforeClose: styles.modalBeforeClose,
+      }}
+      overlayClassName={{
+        base: styles.overlay,
+        afterOpen: styles.overlayAfterOpen,
+        beforeClose: styles.overlayBeforeClose,
+      }}
+    >
+      <div className={styles.shell} style={accentStyle}>
+        <div className={styles.header}>
+          <div className={styles.title}>
             <Sparkles size={16} aria-hidden />
-            <span>Task Spellbook</span>
+            <span>Spellbook</span>
           </div>
-          <button type="button" className="task-spellbook__close" onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
             <X size={18} aria-hidden />
           </button>
         </div>
 
-        <div className="task-spellbook__body">
-          <div className="task-spellbook__input">
-            <textarea
-              ref={inputRef}
-              className="task-spellbook__textarea"
-              placeholder={`Paste anything: lists, meeting notes, PR descriptions...\n\nExample:\n- Calendar polish pass (45m)\n- Thumbnails: cleanup + export\nintent: touch base w/ Leah`}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              spellCheck={false}
-            />
-            <div className="task-spellbook__meta">
-              <label className="task-spellbook__meta-field">
-                <span>Date</span>
-                <input
-                  className="task-spellbook__date"
-                  type="date"
-                  value={targetDate}
-                  onChange={(event) => setTargetDate(event.target.value)}
-                />
-              </label>
-              <label className="task-spellbook__meta-field task-spellbook__meta-field--toggle">
-                <input
-                  type="checkbox"
-                  checked={autoPack}
-                  onChange={(event) => setAutoPack(event.target.checked)}
-                />
-                <span>Auto-pack into day</span>
-              </label>
-              <div className="task-spellbook__summary" aria-live="polite">
-                {parseResult.items.length > 0 ? (
+        <div className={styles.body}>
+          <div className={styles.leftPane}>
+            <div className={styles.sourceRow}>
+              <div className={styles.sourceToggle} role="tablist" aria-label="Input source">
+                <button
+                  type="button"
+                  className={`${styles.sourceButton} ${inputSource === "paste" ? styles.sourceButtonActive : ""}`}
+                  onClick={() => setInputSource("paste")}
+                  aria-selected={inputSource === "paste"}
+                  role="tab"
+                >
+                  Paste
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.sourceButton} ${inputSource === "load-today" ? styles.sourceButtonActive : ""}`}
+                  onClick={() => {
+                    if (inputSource === "paste") setPasteText(text);
+                    setInputSource("load-today");
+                  }}
+                  aria-selected={inputSource === "load-today"}
+                  role="tab"
+                >
+                  Load Today
+                </button>
+              </div>
+              {inputSource === "load-today" ? (
+                <div className={styles.loadTodayCount}>{selectedLoadTodayTasks.length} selected</div>
+              ) : null}
+            </div>
+
+            {inputSource === "paste" ? (
+              <textarea
+                ref={inputRef}
+                className={styles.textarea}
+                placeholder={`Paste anything: notes dump, PR bullets, checklists...\n\nExamples:\n- GitHub: review PR #421 + merge (45m)\n- Production checklist: comms, load-in, backups\n- @Leah: handoff notes + next steps\n- @Jaz: QA pass + screenshots`}
+                value={text}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setText(next);
+                  setPasteText(next);
+                }}
+                spellCheck={false}
+              />
+            ) : (
+              <div className={styles.loadList} role="list" aria-label="Tasks due today">
+                {loadTodayCandidates.length === 0 ? (
+                  <div className={styles.loadEmpty}>No due/overdue unscheduled tasks found.</div>
+                ) : (
+                  loadTodayCandidates.map((task) => {
+                    const id = resolveTaskIdentifier(task);
+                    if (!id) return null;
+                    const checked = selectedLoadTodayTaskIds.has(id);
+                    const dur = formatDurationHint(task.durationMinutes);
+                    const due = task.due ?? "";
+                    return (
+                      <label key={id} className={styles.loadRow} role="listitem">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) => {
+                            const next = new Set(selectedLoadTodayTaskIds);
+                            if (event.target.checked) next.add(id);
+                            else next.delete(id);
+                            setSelectedLoadTodayTaskIds(next);
+                          }}
+                        />
+                        <div className={styles.loadMain}>
+                          <div className={styles.loadTitle}>{task.title}</div>
+                          <div className={styles.loadMeta}>
+                            {due ? <span>Due {due}</span> : null}
+                            {task.cluster ? <span>• {task.cluster}</span> : null}
+                            {dur ? <span>• {dur}</span> : null}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            <div className={styles.quickMeta}>
+              <div className={styles.summary} aria-live="polite">
+                {hasItems ? (
                   <span>
-                    {parseResult.items.length} items · {Math.round(parseResult.totalMinutes / 5) * 5}m suggested
+                    Detected: {parseResult.items.length} items • {parseResult.clusters.length} clusters •{" "}
+                    {formatEstHours(parseResult.totalMinutes)} est.
                   </span>
                 ) : (
-                  <span>Paste anything to generate structure.</span>
+                  <span>Paste anything to detect items.</span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="task-spellbook__right">
-            <div className="task-spellbook__section">
-              <div className="task-spellbook__section-header">
-                <span className="task-spellbook__section-title">Outputs</span>
-                <span className="task-spellbook__section-hint">Pick a structure</span>
+          <div className={styles.rightPane}>
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionTitle}>Structures</div>
+                <div className={styles.sectionHint}>Pick a preset</div>
               </div>
-              <div className="task-spellbook__rail">
-                {variants.map((variant) => (
-                  <button
-                    key={variant.id}
-                    type="button"
-                    className={railButtonClass(variant.id === variantId)}
-                    onClick={() => setVariantId(variant.id)}
-                    disabled={!isMeaningfulText(text)}
-                  >
-                    <div className="task-spellbook__rail-title">{variant.label}</div>
-                    <div className="task-spellbook__rail-hint">{variant.hint}</div>
-                  </button>
-                ))}
+              <div className={styles.cardRail}>
+                {variants.map((variant) => {
+                  const taskCount = variant.items.filter((i) => i.kind === "task").length;
+                  const totalTaskMinutes = variant.items.reduce(
+                    (sum, item) => sum + (item.kind === "task" ? item.durationMinutes : 0),
+                    0,
+                  );
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      className={`${styles.card} ${variant.id === selectedVariant.id ? styles.cardActive : ""}`}
+                      onClick={() => setVariantId(variant.id)}
+                      disabled={!hasItems}
+                    >
+                      <div className={styles.cardTop}>
+                        <div className={styles.cardLabel}>{variant.label}</div>
+                        <div className={styles.cardMetric}>
+                          {taskCount} • {formatEstHours(totalTaskMinutes)}
+                        </div>
+                      </div>
+                      <div className={styles.cardHint}>{variant.hint}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="task-spellbook__section">
-              <div className="task-spellbook__section-header">
-                <span className="task-spellbook__section-title">Plans</span>
-                <span className="task-spellbook__section-hint">3 ways to make it doable</span>
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionTitle}>Plans</div>
+                <div className={styles.sectionHint}>Balanced / Early / Late</div>
               </div>
-              <div className="task-spellbook__rail">
+              <div className={styles.planRail}>
                 {plans.map((plan) => (
                   <button
                     key={plan.id}
                     type="button"
-                    className={railButtonClass(autoPack && plan.id === selectedPlanId)}
+                    className={`${styles.planButton} ${
+                      autoPack && plan.id === selectedPlanId ? styles.planButtonActive : ""
+                    }`}
                     onClick={() => setSelectedPlanId(plan.id)}
-                    disabled={!autoPack || !isMeaningfulText(text)}
+                    disabled={!hasItems || !autoPack}
                   >
-                    <div className="task-spellbook__rail-title">
-                      {plan.label}
-                      <span className="task-spellbook__rail-metric">
+                    <div className={styles.planTop}>
+                      <div className={styles.planLabel}>{plan.label}</div>
+                      <div className={styles.planMetric}>
                         {Math.round(plan.scheduledMinutes / 5) * 5}m
-                        {plan.overflow.length > 0 ? ` · +${plan.overflow.length} overflow` : ""}
-                      </span>
+                        {plan.overflow.length > 0 ? ` • +${plan.overflow.length} overflow` : ""}
+                      </div>
                     </div>
-                    <div className="task-spellbook__rail-hint">{plan.hint}</div>
+                    <div className={styles.planHint}>{plan.hint}</div>
                   </button>
                 ))}
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="task-spellbook__actions">
-              <button type="button" className="task-spellbook__btn task-spellbook__btn--ghost" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="task-spellbook__btn task-spellbook__btn--primary"
-                disabled={!canApply}
-                onClick={handleApply}
-              >
-                {isApplying ? "Applying..." : "Apply"}
-              </button>
-            </div>
+        <div className={styles.footer}>
+          <div className={styles.toggles}>
+            <label className={styles.field}>
+              <span>Date</span>
+              <input
+                className={styles.date}
+                type="date"
+                value={targetDate}
+                onChange={(event) => setTargetDate(event.target.value)}
+              />
+            </label>
+            <label className={`${styles.field} ${styles.checkboxField}`}>
+              <span>Auto-pack into day</span>
+              <input type="checkbox" checked={autoPack} onChange={(event) => setAutoPack(event.target.checked)} />
+            </label>
+          </div>
+
+          <div className={styles.actions}>
+            <button type="button" className={styles.cancel} onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className={styles.apply} disabled={!canApply} onClick={handleApply}>
+              {isApplying ? "Applying..." : "Apply"}
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
-
-  return createPortal(modal, document.body);
 }
-

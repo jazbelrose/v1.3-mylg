@@ -1,0 +1,505 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 14000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(18px, 4vh, 56px) 16px;
+  background: var(--overlay-color);
+  backdrop-filter: blur(10px);
+}
+
+.overlayAfterOpen {
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+.overlayBeforeClose {
+  opacity: 0;
+}
+
+.modal {
+  width: min(1180px, 100%);
+  max-height: calc(100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  background: color-mix(in srgb, var(--bg3) 92%, transparent);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+  color: var(--text);
+}
+
+.modalAfterOpen {
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.modalBeforeClose {
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+.shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg3) 90%, transparent),
+    color-mix(in srgb, var(--bg2) 78%, transparent)
+  );
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.close:hover {
+  background: color-mix(in srgb, var(--bg2) 84%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 90%, transparent);
+}
+
+.close:active {
+  transform: scale(0.98);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(360px, 1fr);
+  gap: 14px;
+  padding: 14px;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.leftPane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+}
+
+.sourceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.sourceToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+  background: color-mix(in srgb, var(--bg3) 75%, transparent);
+}
+
+.sourceButton {
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sourceButtonActive {
+  background: color-mix(in srgb, var(--color-accent, #6366f1) 22%, var(--bg2) 78%);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.refresh {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+  background: color-mix(in srgb, var(--bg3) 78%, transparent);
+  color: color-mix(in srgb, var(--text) 84%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.refresh:hover {
+  background: color-mix(in srgb, var(--bg3) 92%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 88%, transparent);
+}
+
+.refresh:active {
+  transform: translateY(1px);
+}
+
+.loadTodayCount {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 260px;
+  padding: 14px 14px 10px 14px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.textarea::placeholder {
+  color: color-mix(in srgb, var(--text) 52%, transparent);
+}
+
+.loadList {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loadEmpty {
+  padding: 8px 2px;
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.loadRow {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 10px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg3) 76%, transparent);
+  cursor: pointer;
+}
+
+.loadRow:hover {
+  background: color-mix(in srgb, var(--bg3) 88%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 84%, transparent);
+}
+
+.loadRow input[type="checkbox"] {
+  margin-top: 3px;
+}
+
+.loadMain {
+  min-width: 0;
+}
+
+.loadTitle {
+  font-size: 0.9rem;
+  font-weight: 620;
+  color: color-mix(in srgb, var(--text) 90%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loadMeta {
+  margin-top: 3px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 64%, transparent);
+}
+
+.quickMeta {
+  padding: 10px 14px 12px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  display: grid;
+  gap: 6px;
+}
+
+.notice {
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.summary {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+}
+
+.rightPane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 12px;
+}
+
+.section {
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+  padding: 12px;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sectionTitle {
+  font-weight: 650;
+  font-size: 0.92rem;
+}
+
+.sectionHint {
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.cardRail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.card {
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 76%, transparent);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.card:hover:enabled {
+  background: color-mix(in srgb, var(--bg3) 90%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 88%, transparent);
+  transform: translateY(-1px);
+}
+
+.card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cardActive {
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 70%, white 30%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent, #6366f1) 18%, var(--bg3) 82%),
+    color-mix(in srgb, var(--bg3) 92%, transparent)
+  );
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cardLabel {
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.cardMetric {
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.cardHint {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.planRail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planButton {
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 76%, transparent);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.planButton:hover:enabled {
+  background: color-mix(in srgb, var(--bg3) 90%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 88%, transparent);
+  transform: translateY(-1px);
+}
+
+.planButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.planButtonActive {
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 70%, white 30%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent, #6366f1) 16%, var(--bg3) 84%),
+    color-mix(in srgb, var(--bg3) 92%, transparent)
+  );
+}
+
+.planTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.planLabel {
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.planMetric {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.planHint {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 14px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 78%, transparent);
+}
+
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--text) 80%, transparent);
+}
+
+.date {
+  height: 34px;
+  border-radius: 12px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 72%, transparent);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.checkboxField input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.cancel {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  cursor: pointer;
+}
+
+.apply {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-accent, #6366f1) 70%, white 30%);
+  background: color-mix(in srgb, var(--color-accent, #6366f1) 22%, var(--bg3) 78%);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+  cursor: pointer;
+}
+
+.apply:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+  .cardRail {
+    grid-template-columns: 1fr;
+  }
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .actions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+}

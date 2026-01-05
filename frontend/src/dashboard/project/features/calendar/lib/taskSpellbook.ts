@@ -15,7 +15,7 @@ export type SpellbookParseResult = {
   totalMinutes: number;
 };
 
-export type SpellbookVariantId = "split";
+export type SpellbookVariantId = "lean" | "producer-standard" | "dispatch-ready" | "bugfix-sprint";
 
 export type SpellbookFocusBlockDraft = {
   title: string;
@@ -147,6 +147,62 @@ const expandCompoundTitle = (title: string): string[] => {
   return parts;
 };
 
+const hasExplicitDuration = (line: string) =>
+  /(?:\(|\b)(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes)(?:\)|\b)/i.test(line);
+
+const mostCommonCluster = (items: SpellbookDraftItem[]) => {
+  const counts = new Map<string, number>();
+  items.forEach((item) => {
+    if (item.kind !== "task") return;
+    const cluster = item.cluster?.trim() || "";
+    if (!cluster) return;
+    counts.set(cluster, (counts.get(cluster) ?? 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? DEFAULT_CLUSTER;
+};
+
+const buildSingleFocusBlock = (items: SpellbookDraftItem[]): SpellbookFocusBlockDraft[] => {
+  const taskIndexes = items
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => item.kind === "task")
+    .map(({ idx }) => idx);
+
+  const durationMinutes = items
+    .filter((item) => item.kind === "task")
+    .reduce((sum, item) => sum + (item.durationMinutes || 0), 0);
+
+  const cluster = mostCommonCluster(items);
+  const title = cluster && cluster !== DEFAULT_CLUSTER ? `${cluster}: Focus Block` : "Focus Block";
+
+  return [
+    {
+      title,
+      cluster,
+      itemIndexes: taskIndexes,
+      durationMinutes: Math.max(30, Math.round(durationMinutes)),
+    },
+  ];
+};
+
+const withCompoundSplitting = (items: SpellbookDraftItem[]): SpellbookDraftItem[] => {
+  const splitItems: SpellbookDraftItem[] = [];
+  items.forEach((item) => {
+    if (item.kind !== "task") {
+      splitItems.push(item);
+      return;
+    }
+    const expanded = expandCompoundTitle(item.title);
+    if (expanded.length <= 1) {
+      splitItems.push(item);
+      return;
+    }
+    expanded.forEach((title) => {
+      splitItems.push({ ...item, title });
+    });
+  });
+  return splitItems;
+};
+
 export function parseSpellbookInput(
   input: string,
   options: { maxItems?: number } = {},
@@ -202,30 +258,100 @@ export function parseSpellbookInput(
 
 export function buildSpellbookVariants(result: SpellbookParseResult): SpellbookVariant[] {
   const baseItems = result.items;
-  const splitItems: SpellbookDraftItem[] = [];
-  baseItems.forEach((item) => {
-    if (item.kind !== "task") {
-      splitItems.push(item);
-      return;
-    }
-    const expanded = expandCompoundTitle(item.title);
-    if (expanded.length <= 1) {
-      splitItems.push(item);
-      return;
-    }
-    expanded.forEach((title) => {
-      splitItems.push({ ...item, title });
-    });
+
+  const leanItems = baseItems.map((item) => {
+    if (item.kind !== "task") return item;
+    const explicit = hasExplicitDuration(item.raw);
+    return {
+      ...item,
+      durationMinutes: explicit ? item.durationMinutes : 30,
+      tags: [],
+    };
   });
+
+  const producerItems = withCompoundSplitting(baseItems);
+
+  const dispatchItems: SpellbookDraftItem[] = (() => {
+    const items = withCompoundSplitting(baseItems).map((item) => {
+      if (item.kind !== "task") return item;
+      return { ...item, durationMinutes: clampMinutes(item.durationMinutes + 10) };
+    });
+    const taskCount = items.filter((item) => item.kind === "task").length;
+    if (taskCount === 0) return items;
+    return [
+      ...items,
+      {
+        kind: "task",
+        raw: "buffer + handoff (30m)",
+        title: "Buffer + handoff",
+        cluster: "Handoff",
+        tags: ["Dispatch"],
+        durationMinutes: 30,
+      },
+    ];
+  })();
+
+  const bugfixItems: SpellbookDraftItem[] = (() => {
+    const tasks = withCompoundSplitting(baseItems);
+    const out: SpellbookDraftItem[] = [];
+    let taskCounter = 0;
+    tasks.forEach((item) => {
+      if (item.kind !== "task") {
+        out.push(item);
+        return;
+      }
+      const tightened = clampMinutes(Math.min(60, Math.max(15, item.durationMinutes - 10)));
+      out.push({ ...item, durationMinutes: tightened });
+      taskCounter += 1;
+      if (taskCounter % 2 === 0) {
+        out.push({
+          kind: "task",
+          raw: "break (10m)",
+          title: "Break",
+          cluster: "Break",
+          tags: [],
+          durationMinutes: 15,
+        });
+      }
+    });
+    // Avoid trailing break if it would be the only/last item after last task.
+    if (out.length > 0) {
+      const last = out[out.length - 1];
+      if (last.kind === "task" && last.title === "Break") {
+        out.pop();
+      }
+    }
+    return out;
+  })();
 
   return [
     {
-      id: "split",
-      label: `Split into ${splitItems.length}`,
-      hint: "Clean titles, durations, clusters",
-      items: splitItems,
-      focusBlocks: [],
+      id: "lean",
+      label: "Lean",
+      hint: "Just titles, quick durations",
+      items: leanItems,
+      focusBlocks: buildSingleFocusBlock(leanItems),
+    },
+    {
+      id: "producer-standard",
+      label: "Producer Standard",
+      hint: "Clean clusters + realistic durations",
+      items: producerItems,
+      focusBlocks: buildSingleFocusBlock(producerItems),
+    },
+    {
+      id: "dispatch-ready",
+      label: "Dispatch-ready",
+      hint: "Assignee hints + buffers + handoff",
+      items: dispatchItems,
+      focusBlocks: buildSingleFocusBlock(dispatchItems),
+    },
+    {
+      id: "bugfix-sprint",
+      label: "Bugfix sprint",
+      hint: "Short chunks, more breaks, tighter durations",
+      items: bugfixItems,
+      focusBlocks: buildSingleFocusBlock(bugfixItems),
     },
   ];
 }
-
