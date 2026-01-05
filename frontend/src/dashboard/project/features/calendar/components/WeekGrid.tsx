@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, ListTodo, Plus } from "lucide-react";
+import { CheckSquare, Clock, ListTodo, Plus, Users } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import {
   CalendarEntryContextMenu,
@@ -851,7 +851,8 @@ function WeekGrid({
       groups.forEach((group) => {
         group.keys.forEach((key) => overlapSuppressed.add(key));
         const hour = Math.min(23, Math.max(0, Math.floor(group.start / MINUTES_IN_HOUR)));
-        const title = `${formatRangeLabel(group.start, Math.min(group.end, MAX_MINUTES - 1))} · ${group.keys.length} items`;
+        const rangeLabel = formatRangeLabel(group.start, Math.min(group.end, MAX_MINUTES - 1));
+        const title = "Multi-user overlap";
         const tileId = `overlap-stack-${dayKey}-${group.start}-${group.end}-${group.keys.length}`;
         tiles.push({
           id: tileId,
@@ -869,6 +870,7 @@ function WeekGrid({
               .filter((id): id is string => Boolean(id)),
           },
           title,
+          timeLabel: `${rangeLabel} · ${group.keys.length} items`,
           startMinutes: group.start,
           endMinutes: group.end,
           avatars: group.avatars,
@@ -1549,7 +1551,9 @@ function WeekGrid({
           .map((key) => entryLookup.get(key)?.entry.title)
           .filter((t): t is string => Boolean(t && t.trim().length > 0))[0];
 
-        const baseTitle = `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
+        const baseTitle = entry.type === "overlapStack"
+          ? entry.title
+          : `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
         const count = payload.childEntryKeys.length;
         setPopover(null);
         setContextMenu(null);
@@ -1795,7 +1799,9 @@ function WeekGrid({
         <div className="week-grid__timeline-entry-header">
           {(entry.type === "task" || entry.type === "taskStack" || entry.type === "overlapStack") && (
             <span className="week-grid__timeline-entry-icon">
-              {entry.type === "task" && isFocusBlock ? (
+              {entry.type === "overlapStack" ? (
+                <Users className="week-grid__task-icon-svg" aria-hidden />
+              ) : entry.type === "task" && isFocusBlock ? (
                 <ListTodo className="week-grid__task-icon-svg" aria-hidden />
               ) : (
                 <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
@@ -2487,10 +2493,24 @@ function WeekGrid({
               const lookup = entryLookup.get(entryKey);
               if (!lookup) return null;
               if (lookup.entry.type === "task") {
-                return { entryKey, entryType: "task", entry: lookup.entry.payload as CalendarTask };
+                return {
+                  entryKey,
+                  entryType: "task",
+                  entry: lookup.entry.payload as CalendarTask,
+                  dayKey: lookup.dayKey,
+                  startMinutes: lookup.entry.startMinutes,
+                  endMinutes: lookup.entry.endMinutes,
+                };
               }
               if (lookup.entry.type === "event") {
-                return { entryKey, entryType: "event", entry: lookup.entry.payload as CalendarEvent };
+                return {
+                  entryKey,
+                  entryType: "event",
+                  entry: lookup.entry.payload as CalendarEvent,
+                  dayKey: lookup.dayKey,
+                  startMinutes: lookup.entry.startMinutes,
+                  endMinutes: lookup.entry.endMinutes,
+                };
               }
               return null;
             })
@@ -2578,6 +2598,20 @@ function WeekGrid({
                   if (!editTarget || editTarget.entryType !== "task" || !onRenameTaskTitle) return;
                   await onRenameTaskTitle(editTarget.entry as CalendarTask, nextTitle);
                   setStackPopover((prev) => (prev ? { ...prev, baseTitle: nextTitle } : prev));
+                }
+              : undefined
+          }
+          onPrimaryAction={
+            stackPopover.kind === "overlapStack"
+              ? (child) => {
+                  const dayDate = safeDate(child.dayKey);
+                  if (!dayDate) return;
+                  const hours = Math.floor(child.startMinutes / MINUTES_IN_HOUR);
+                  const minutes = child.startMinutes % MINUTES_IN_HOUR;
+                  const startAt = new Date(dayDate);
+                  startAt.setHours(hours, minutes, 0, 0);
+                  triggerCreateTask(dayDate, startAt);
+                  handleCloseStackPopover();
                 }
               : undefined
           }

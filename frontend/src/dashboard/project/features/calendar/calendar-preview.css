@@ -3033,6 +3033,12 @@
   flex-shrink: 0;
 }
 
+.calendar-stack-popover__header-avatars {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .calendar-stack-popover__header-avatar {
   width: 24px;
   height: 24px;
@@ -3064,6 +3070,48 @@
   font-size: 0.78rem;
   font-weight: 600;
   color: rgba(245, 245, 245, 0.9);
+}
+
+.calendar-stack-popover__user-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.calendar-stack-popover__user-stack-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-stack-popover__user-stack-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-stack-popover__user-stack-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: rgba(245, 245, 245, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+
+.calendar-stack-popover__user-stack-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .calendar-stack-popover__row {

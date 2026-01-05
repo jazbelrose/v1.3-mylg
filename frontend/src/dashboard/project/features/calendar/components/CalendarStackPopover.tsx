@@ -14,6 +14,9 @@ import {
   buildEventAvatars,
   buildTeamMemberLookup,
   buildTaskAvatars,
+  getAvatarForAssignee,
+  getAvatarForGuest,
+  parseAssigneeUserId,
   type TimelineAvatar,
 } from "./timelineLayout";
 
@@ -23,6 +26,9 @@ export type StackPopoverChild = {
   entryKey: string;
   entryType: "task" | "event";
   entry: CalendarTask | CalendarEvent;
+  dayKey: string;
+  startMinutes: number;
+  endMinutes: number;
 };
 
 export interface CalendarStackPopoverProps {
@@ -39,6 +45,7 @@ export interface CalendarStackPopoverProps {
   onEditTitle?: () => void;
   onRenameTitle?: (title: string) => void | Promise<void>;
   onOpenDetails: (child: StackPopoverChild, anchorElement: HTMLElement) => void;
+  onPrimaryAction?: (child: StackPopoverChild) => void;
   onOpenContextMenu: (child: StackPopoverChild, event: React.MouseEvent<HTMLElement>) => void;
 }
 
@@ -56,6 +63,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   onEditTitle,
   onRenameTitle,
   onOpenDetails,
+  onPrimaryAction,
   onOpenContextMenu,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -68,26 +76,32 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
   const headerAvatars = useMemo(() => {
     if (!avatars || avatars.length === 0) return null;
+    const visible = avatars.slice(0, 3);
+    const extra = Math.max(avatars.length - visible.length, 0);
+
     return (
-      <div className="calendar-entry-popover__avatars" aria-hidden>
-        {avatars.map((avatar, index) => (
-          <span
-            key={avatar.key}
-            className="calendar-entry-popover__avatar-wrapper"
-            style={{
-              zIndex: avatars.length - index,
-              marginLeft: index > 0 ? "-8px" : 0,
-            }}
-          >
-            <ProjectAvatar
-              className="calendar-entry-popover__avatar"
-              thumb={avatar.thumb ?? undefined}
-              name={avatar.name}
-              shape="circle"
-              radius={10}
-            />
-          </span>
-        ))}
+      <div className="calendar-stack-popover__header-avatars" aria-hidden>
+        <div className="calendar-entry-popover__avatars" aria-hidden>
+          {visible.map((avatar, index) => (
+            <span
+              key={avatar.key}
+              className="calendar-entry-popover__avatar-wrapper"
+              style={{
+                zIndex: visible.length - index,
+                marginLeft: index > 0 ? "-8px" : 0,
+              }}
+            >
+              <ProjectAvatar
+                className="calendar-entry-popover__avatar"
+                thumb={avatar.thumb ?? undefined}
+                name={avatar.name}
+                shape="circle"
+                radius={10}
+              />
+            </span>
+          ))}
+        </div>
+        {extra > 0 ? <span className="calendar-entry-popover__badge">+{extra}</span> : null}
       </div>
     );
   }, [avatars]);
@@ -97,7 +111,12 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
   const canInlineRename = Boolean(onRenameTitle);
   const displayTitle = titleOverride ?? title;
-  const displayTitleWithCount = typeof count === "number" ? `${displayTitle} (${count})` : displayTitle;
+  const displayTitleWithCount =
+    kind === "overlapStack"
+      ? displayTitle
+      : typeof count === "number"
+      ? `${displayTitle} (${count})`
+      : displayTitle;
 
   useEffect(() => {
     if (!isEditingTitle) return;
@@ -243,18 +262,82 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       return buildEventAvatars(event, memberLookup)[0] ?? null;
     };
 
+    const resolvePrimaryUser = (
+      child: StackPopoverChild,
+    ): { groupKey: string; label: string; avatar: TimelineAvatar | null } => {
+      if (child.entryType === "task") {
+        const task = child.entry as CalendarTask;
+        const candidate = task.assignedTo ?? task.assigneeIds?.[0] ?? undefined;
+        const userId = parseAssigneeUserId(candidate);
+        const member = userId ? memberLookup.byId.get(userId) : undefined;
+        const label = member
+          ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.userId
+          : (candidate ? candidate.trim() : "Unassigned");
+        const avatar = candidate ? getAvatarForAssignee(candidate, memberLookup, `group-${task.id}`) : null;
+        return {
+          groupKey: userId ?? label,
+          label,
+          avatar,
+        };
+      }
+
+      const event = child.entry as CalendarEvent;
+      const candidate = event.guests?.[0] ?? undefined;
+      const userId = parseAssigneeUserId(candidate);
+      const member = userId ? memberLookup.byId.get(userId) : undefined;
+      const label = member
+        ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.userId
+        : (candidate ? candidate.trim() : "Guests");
+      const avatar = candidate ? getAvatarForGuest(candidate, memberLookup, `group-${event.id}`) : null;
+      return {
+        groupKey: userId ?? label,
+        label,
+        avatar,
+      };
+    };
+
     return [...children]
       .map((child) => {
-        const title = child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
+        const title =
+          child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
+        const isDone =
+          child.entryType === "task"
+            ? ((child.entry as CalendarTask).status === "done" || (child.entry as CalendarTask).done === true)
+            : false;
+        const primaryUser = resolvePrimaryUser(child);
         return {
           child,
           title,
           time: buildTimeRange(child),
           avatar: buildRowAvatar(child),
+          isDone,
+          primaryUser,
         };
       })
       .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
   }, [children, memberLookup, showRowAvatars]);
+
+  const userStacks = useMemo(() => {
+    if (kind !== "overlapStack") return null;
+    const groups = new Map<
+      string,
+      { label: string; avatar: TimelineAvatar | null; rows: typeof rows }
+    >();
+
+    rows.forEach((row) => {
+      const key = row.primaryUser.groupKey;
+      const existing = groups.get(key);
+      if (!existing) {
+        groups.set(key, { label: row.primaryUser.label, avatar: row.primaryUser.avatar, rows: [row] });
+      } else {
+        existing.rows.push(row);
+      }
+    });
+
+    return [...groups.entries()]
+      .map(([groupKey, group]) => ({ groupKey, ...group }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [kind, rows]);
 
   const popoverContent = (
     <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
@@ -311,38 +394,105 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       </div>
 
       <div className="calendar-stack-popover__list">
-        {rows.map((row) => (
-          <div key={row.child.entryKey} className="calendar-stack-popover__row calendar-stack-popover__row--list">
-            <button
-              type="button"
-              className="calendar-stack-popover__item"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDetails(row.child, e.currentTarget);
-              }}
-              onContextMenu={(e) => {
-                e.stopPropagation();
-                onOpenContextMenu(row.child, e);
-              }}
-              title={row.title}
-            >
-              <span className="calendar-stack-popover__item-pill" style={{ background: projectColor }} aria-hidden />
-              <div className="calendar-stack-popover__item-title">{row.title}</div>
-              {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
-              {row.avatar ? (
-                <span className="calendar-stack-popover__row-avatar" aria-hidden>
+        {kind === "overlapStack" && userStacks ? (
+          userStacks.map((group) => (
+            <div key={group.groupKey} className="calendar-stack-popover__user-stack">
+              <div className="calendar-stack-popover__user-stack-header">
+                {group.avatar ? (
                   <ProjectAvatar
-                    className="calendar-stack-popover__row-avatar-img"
-                    thumb={row.avatar.thumb ?? undefined}
-                    name={row.avatar.name}
+                    className="calendar-stack-popover__group-avatar"
+                    thumb={group.avatar.thumb ?? undefined}
+                    name={group.avatar.name}
                     shape="circle"
                     radius={9}
                   />
+                ) : (
+                  <span
+                    className="calendar-stack-popover__group-avatar calendar-stack-popover__group-avatar--empty"
+                    aria-hidden
+                  />
+                )}
+                <span className="calendar-stack-popover__user-stack-name">{group.label}</span>
+                <span className="calendar-stack-popover__user-stack-count" aria-label={`${group.rows.length} items`}>
+                  {group.rows.length}
                 </span>
-              ) : null}
-            </button>
-          </div>
-        ))}
+              </div>
+
+              <div className="calendar-stack-popover__user-stack-items">
+                {group.rows
+                  .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title))
+                  .map((row) => (
+                    <button
+                      key={row.child.entryKey}
+                      type="button"
+                      className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onPrimaryAction) {
+                          onPrimaryAction(row.child);
+                          return;
+                        }
+                        onOpenDetails(row.child, e.currentTarget);
+                      }}
+                      onContextMenu={(e) => {
+                        e.stopPropagation();
+                        onOpenContextMenu(row.child, e);
+                      }}
+                      title={row.title}
+                    >
+                      <span
+                        className="calendar-stack-popover__item-pill"
+                        style={{ background: projectColor }}
+                        aria-hidden
+                      />
+                      <div className="calendar-stack-popover__item-title">{row.title}</div>
+                      {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          rows.map((row) => (
+            <div
+              key={row.child.entryKey}
+              className="calendar-stack-popover__row calendar-stack-popover__row--list"
+            >
+              <button
+                type="button"
+                className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetails(row.child, e.currentTarget);
+                }}
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                  onOpenContextMenu(row.child, e);
+                }}
+                title={row.title}
+              >
+                <span
+                  className="calendar-stack-popover__item-pill"
+                  style={{ background: projectColor }}
+                  aria-hidden
+                />
+                <div className="calendar-stack-popover__item-title">{row.title}</div>
+                {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
+                {row.avatar ? (
+                  <span className="calendar-stack-popover__row-avatar" aria-hidden>
+                    <ProjectAvatar
+                      className="calendar-stack-popover__row-avatar-img"
+                      thumb={row.avatar.thumb ?? undefined}
+                      name={row.avatar.name}
+                      shape="circle"
+                      radius={9}
+                    />
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
