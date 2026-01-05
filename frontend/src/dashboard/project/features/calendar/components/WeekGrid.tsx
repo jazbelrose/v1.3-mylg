@@ -353,10 +353,18 @@ function WeekGrid({
     anchorElement: HTMLElement;
     kind: StackPopoverKind;
     baseTitle: string;
+    titleKey?: string;
     count: number;
     childEntryKeys: string[];
     avatars: TimelineAvatar[];
   } | null>(null);
+
+  const [overlapStackTitleOverrides, setOverlapStackTitleOverrides] = useState<Record<string, string>>({});
+
+  const buildOverlapTitleKey = useCallback((childEntryKeys: string[]) => {
+    const sorted = [...childEntryKeys].sort();
+    return sorted.join("|");
+  }, []);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -1548,12 +1556,18 @@ function WeekGrid({
           })?.title;
 
         const firstChildTitle = payload.childEntryKeys
-          .map((key) => entryLookup.get(key)?.entry.title)
-          .filter((t): t is string => Boolean(t && t.trim().length > 0))[0];
+          .map((key) => entryLookup.get(key)?.entry)
+          .filter((child): child is WeekTimelineEntry => Boolean(child))
+          .sort((a, b) => a.startMinutes - b.startMinutes || a.title.localeCompare(b.title))[0]?.title;
 
-        const baseTitle = entry.type === "overlapStack"
-          ? entry.title
-          : `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
+        const overlapTitleKey =
+          entry.type === "overlapStack" ? buildOverlapTitleKey(payload.childEntryKeys) : undefined;
+
+        const defaultOverlapTitle = firstChildTitle ?? entry.title;
+        const baseTitle =
+          entry.type === "overlapStack"
+            ? overlapStackTitleOverrides[overlapTitleKey ?? ""] ?? defaultOverlapTitle
+            : `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
         const count = payload.childEntryKeys.length;
         setPopover(null);
         setContextMenu(null);
@@ -1561,6 +1575,7 @@ function WeekGrid({
           anchorElement: event.currentTarget,
           kind: entry.type,
           baseTitle,
+          titleKey: overlapTitleKey,
           count,
           childEntryKeys: payload.childEntryKeys,
           avatars: entry.avatars,
@@ -1617,7 +1632,15 @@ function WeekGrid({
         });
       }
     },
-    [onEditEvent, onEditTask, entryLookup, calendarTaskById],
+    [
+      buildOverlapTitleKey,
+      calendarTaskById,
+      entryLookup,
+      focusChildrenByFocusId,
+      onEditEvent,
+      onEditTask,
+      overlapStackTitleOverrides,
+    ],
   );
 
   // Handle keyboard events for selected entries
@@ -2593,13 +2616,23 @@ function WeekGrid({
             handleCloseStackPopover();
           }}
           onRenameTitle={
-            canInlineRename
+            stackPopover.kind === "overlapStack"
               ? async (nextTitle) => {
-                  if (!editTarget || editTarget.entryType !== "task" || !onRenameTaskTitle) return;
-                  await onRenameTaskTitle(editTarget.entry as CalendarTask, nextTitle);
-                  setStackPopover((prev) => (prev ? { ...prev, baseTitle: nextTitle } : prev));
+                  const normalized = nextTitle.trim();
+                  if (!normalized) return;
+                  const key = stackPopover.titleKey;
+                  if (key) {
+                    setOverlapStackTitleOverrides((prev) => ({ ...prev, [key]: normalized }));
+                  }
+                  setStackPopover((prev) => (prev ? { ...prev, baseTitle: normalized } : prev));
                 }
-              : undefined
+              : canInlineRename
+                ? async (nextTitle) => {
+                    if (!editTarget || editTarget.entryType !== "task" || !onRenameTaskTitle) return;
+                    await onRenameTaskTitle(editTarget.entry as CalendarTask, nextTitle);
+                    setStackPopover((prev) => (prev ? { ...prev, baseTitle: nextTitle } : prev));
+                  }
+                : undefined
           }
           onPrimaryAction={
             stackPopover.kind === "overlapStack"
