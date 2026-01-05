@@ -1728,11 +1728,21 @@ function WeekGrid({
           .filter((child): child is WeekTimelineEntry => Boolean(child))
           .sort((a, b) => a.startMinutes - b.startMinutes)
       : [];
+
+    const overlapStackTitle = (() => {
+      if (entry.type !== "overlapStack") return null;
+      const payload = entry.payload as OverlapStackPayload;
+      const key = buildOverlapTitleKey(payload.childEntryKeys);
+      const defaultTitle = stackChildren[0]?.title ?? entry.title;
+      return overlapStackTitleOverrides[key] ?? defaultTitle;
+    })();
+
     const isSingleUserStack = isStack && entry.avatars.length === 1;
     const previewTitle = isSingleUserStack
-      ? getWeekEntryPreview(stackChildren[0]?.title ?? entry.title)
-      : getWeekEntryPreview(entry.title);
-    const tooltipLabel = entry.timeLabel ? `${entry.title} · ${entry.timeLabel}` : entry.title;
+      ? getWeekEntryPreview(stackChildren[0]?.title ?? overlapStackTitle ?? entry.title)
+      : getWeekEntryPreview(overlapStackTitle ?? entry.title);
+    const tooltipBaseTitle = overlapStackTitle ?? entry.title;
+    const tooltipLabel = entry.timeLabel ? `${tooltipBaseTitle} · ${entry.timeLabel}` : tooltipBaseTitle;
     const isFocusBlock = (() => {
       if (entry.type !== "task") return false;
       const task = entry.payload as CalendarTask | undefined;
