@@ -1,7 +1,8 @@
 import React from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { toast } from "react-toastify";
-import { createAccount } from "@/hq/lib/hqStore";
+import { createHqAccount, fetchHqSummary } from "@/hq/lib/hqApi";
+import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import type { HqAccount } from "@/hq/types";
 import styles from "./AddAccountModal.module.css";
 
@@ -37,15 +38,21 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
   const canSave = accountName.trim().length > 1 && institution.trim().length > 1;
 
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     if (!canSave) return;
     try {
-      const account = createAccount(orgId, {
+      const account = await createHqAccount(orgId, {
         accountName: accountName.trim(),
         institution: institution.trim(),
         accountMask: accountMask.trim() || undefined,
         notes: notes.trim() || undefined,
       });
+
+      // Refresh summary to ensure local cache matches server.
+      const summary = await fetchHqSummary(orgId);
+      const prev = readHqState(orgId);
+      hydrateHqState(orgId, { ...prev, accounts: summary.accounts, importRuns: summary.importRuns });
+
       toast.success("Account added.");
       onCreated?.(account);
       onRequestClose();

@@ -3,7 +3,8 @@ import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
 import { parseWellsFargoNoHeaderTransactions } from "@/hq/lib/wellsFargoCsv";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
-import { importTransactions, useHqStore } from "@/hq/lib/hqStore";
+import { useHqStore, hydrateHqState, readHqState } from "@/hq/lib/hqStore";
+import { fetchHqSummary, fetchHqTransactions, importHqCsv } from "@/hq/lib/hqApi";
 import type { HqAccount, HqTransaction } from "@/hq/types";
 import styles from "./ImportCsvModal.module.css";
 
@@ -114,14 +115,24 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
 
     setIsWorking(true);
     try {
-      const result = importTransactions(orgId, {
+      const result = await importHqCsv(orgId, {
         accountId,
         filename: file.name,
         transactions: parsed,
       });
-      toast.success(
-        `${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`
-      );
+
+      // Refresh local cache from server so HQ pages stay consistent.
+      const summary = await fetchHqSummary(orgId);
+      const txns = await fetchHqTransactions({ orgId, limit: 500 });
+      const prev = readHqState(orgId);
+      hydrateHqState(orgId, {
+        ...prev,
+        accounts: summary.accounts,
+        importRuns: summary.importRuns,
+        transactions: txns.transactions,
+      });
+
+      toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
       onImported?.({ imported: result.imported, duplicates: result.duplicates });
       onRequestClose();
     } catch (err) {

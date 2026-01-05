@@ -5,25 +5,55 @@ import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
+import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
+import { deleteHqImportRun } from "@/hq/lib/hqApi";
+import { invalidateHqBootstrap, useHqBootstrap } from "@/hq/lib/useHqBootstrap";
+import { toast } from "react-toastify";
 import styles from "./ImportPage.module.css";
 
 const ImportPage: React.FC = () => {
-  const { userId } = useUser();
-  const orgId = userId || "local";
+  useUser();
+  const { activeOrgId, activeOrgRole } = useOrg();
+  const orgId = activeOrgId || "local";
+  const canAdmin = isOrgAdmin(activeOrgRole);
+  useHqBootstrap(activeOrgId);
+
   const accounts = useHqStore(orgId, (s) => s.accounts);
+  const importRuns = useHqStore(orgId, (s) => s.importRuns);
 
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
 
   const actions = (
     <div className={styles.actions}>
-      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
-        Import CSV
-      </button>
-      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
-        Add account
-      </button>
+      {canAdmin ? (
+        <>
+          <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+            Import CSV
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
+            Add account
+          </button>
+        </>
+      ) : null}
     </div>
+  );
+
+  const handleDeleteImportRun = React.useCallback(
+    async (importRunId: string) => {
+      if (!activeOrgId) return;
+      try {
+        await deleteHqImportRun(activeOrgId, importRunId);
+        toast.success("Import run deleted.");
+        invalidateHqBootstrap(activeOrgId);
+        // Reload latest state
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      } catch (err) {
+        console.error(err);
+        toast.error("Could not delete import run.");
+      }
+    },
+    [activeOrgId]
   );
 
   return (
@@ -51,6 +81,29 @@ const ImportPage: React.FC = () => {
             </Link>
           </div>
         </div>
+
+        {importRuns.length ? (
+          <div className={styles.card}>
+            <div className={styles.cardTitle}>Recent imports</div>
+            <ol className={styles.list}>
+              {importRuns.slice(0, 10).map((run) => (
+                <li key={run.importRunId}>
+                  {run.filename} · {new Date(run.createdAt).toLocaleString()} · {run.importedCount} imported
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      className={styles.link}
+                      onClick={() => handleDeleteImportRun(run.importRunId)}
+                      style={{ marginLeft: 12 }}
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </div>
 
       <ImportCsvModal orgId={orgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />

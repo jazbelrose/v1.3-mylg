@@ -5,8 +5,10 @@ import HQCard from "../components/HQCard";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import { useUser } from "@/app/contexts/useUser";
+import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore } from "@/hq/lib/hqStore";
+import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import {
   computeCashOnHand,
   computeMonthlyFlow,
@@ -43,8 +45,12 @@ const quickFilters: Array<{ id: HqRangeId; label: string }> = [
 ];
 
 const HQOverview: React.FC = () => {
-  const { userId } = useUser();
-  const orgId = userId || "local";
+  useUser();
+  const { activeOrgId, activeOrgRole } = useOrg();
+  const orgId = activeOrgId || "local";
+  const canAdmin = isOrgAdmin(activeOrgRole);
+
+  useHqBootstrap(activeOrgId);
 
   const [selectedRange, setSelectedRange] = React.useState<HqRangeId>("ytd");
   const [isImportOpen, setIsImportOpen] = React.useState(false);
@@ -77,12 +83,16 @@ const HQOverview: React.FC = () => {
 
   const actions = (
     <div className={styles.actions}>
-      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
-        Import CSV
-      </button>
-      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
-        Add account
-      </button>
+      {canAdmin ? (
+        <>
+          <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+            Import CSV
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
+            Add account
+          </button>
+        </>
+      ) : null}
     </div>
   );
 

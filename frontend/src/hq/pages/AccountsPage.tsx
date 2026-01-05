@@ -4,8 +4,10 @@ import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import SetAnchorModal from "@/hq/components/SetAnchorModal";
 import { useUser } from "@/app/contexts/useUser";
+import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { computeCashOnHand } from "@/hq/lib/hqMetrics";
 import { useHqStore } from "@/hq/lib/hqStore";
+import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import type { HqAccount } from "@/hq/types";
 import styles from "./AccountsPage.module.css";
 
@@ -16,8 +18,12 @@ const currency = new Intl.NumberFormat("en-US", {
 });
 
 const AccountsPage: React.FC = () => {
-  const { userId } = useUser();
-  const orgId = userId || "local";
+  useUser();
+  const { activeOrgId, activeOrgRole } = useOrg();
+  const orgId = activeOrgId || "local";
+  const canAdmin = isOrgAdmin(activeOrgRole);
+
+  useHqBootstrap(activeOrgId);
 
   const accounts = useHqStore(orgId, (s) => s.accounts);
   const transactions = useHqStore(orgId, (s) => s.transactions);
@@ -30,12 +36,16 @@ const AccountsPage: React.FC = () => {
 
   const actions = (
     <div className={styles.actions}>
-      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
-        Import CSV
-      </button>
-      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddOpen(true)}>
-        Add account
-      </button>
+      {canAdmin ? (
+        <>
+          <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+            Import CSV
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={() => setIsAddOpen(true)}>
+            Add account
+          </button>
+        </>
+      ) : null}
     </div>
   );
 

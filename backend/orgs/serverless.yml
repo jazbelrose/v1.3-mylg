@@ -1,0 +1,93 @@
+service: orgs
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  httpApi:
+    authorizers:
+      jwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_EmStQTtG1
+        audience:
+          - 6f5f1vsm5bejjaffihc3e0n95k
+  environment:
+    ${self:custom.env}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORGS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORG_MEMBERS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORG_MEMBERS_TABLE}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORG_INVITES_TABLE}
+
+functions:
+  orgsRouter:
+    handler: router.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - httpApi:
+          path: /orgs
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /orgs
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /orgs/{proxy+}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /orgs/{proxy+}
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /orgs/health
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      # CORS preflight (no auth)
+      - httpApi:
+          path: /orgs
+          method: OPTIONS
+      - httpApi:
+          path: /orgs/{proxy+}
+          method: OPTIONS
+      - httpApi:
+          path: /orgs/health
+          method: OPTIONS
+
+package:
+  patterns:
+    - '**/*'
+    - '!node_modules/.bin/**'
+    - '!**/*.map'

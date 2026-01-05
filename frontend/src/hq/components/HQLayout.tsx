@@ -10,6 +10,7 @@ import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import { useUser } from "@/app/contexts/useUser";
+import { useOrg } from "@/app/contexts/useOrg";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import styles from "./HQLayout.module.css";
@@ -42,6 +43,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   children,
 }) => {
   const { userName } = useUser();
+  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading } = useOrg();
   const [flags, setFlags] = useState<ViewportFlags>(() => getViewportFlags());
   const [isNavCollapsed, setIsNavCollapsed] = useNavCollapsed("dashboard");
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
@@ -86,7 +88,25 @@ const HQLayout: React.FC<HQLayoutProps> = ({
             <p className={styles.pageSubtitle}>{description}</p>
           ) : null}
         </div>
-        {actions ? <div className={styles.actionsRow}>{actions}</div> : null}
+        <div className={styles.actionsRow}>
+          <label className={styles.orgPicker} aria-label="Organization">
+            <span className={styles.orgPickerLabel}>Org</span>
+            <select
+              className={styles.orgPickerSelect}
+              value={activeOrgId ?? ""}
+              onChange={(e) => setActiveOrgId(e.target.value)}
+              disabled={orgsLoading || orgs.length === 0}
+            >
+              {orgs.length === 0 ? <option value="">No orgs</option> : null}
+              {orgs.map((org) => (
+                <option key={org.orgId} value={org.orgId}>
+                  {org.name || org.orgId}
+                </option>
+              ))}
+            </select>
+          </label>
+          {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
+        </div>
       </div>
     </header>
   );
@@ -99,7 +119,25 @@ const HQLayout: React.FC<HQLayoutProps> = ({
           <p className={styles.mobilePageSubtitle}>{description}</p>
         ) : null}
       </div>
-      {actions ? <div className={styles.mobileActionsRow}>{actions}</div> : null}
+      <div className={styles.mobileActionsRow}>
+        <label className={styles.orgPicker} aria-label="Organization">
+          <span className={styles.orgPickerLabel}>Org</span>
+          <select
+            className={styles.orgPickerSelect}
+            value={activeOrgId ?? ""}
+            onChange={(e) => setActiveOrgId(e.target.value)}
+            disabled={orgsLoading || orgs.length === 0}
+          >
+            {orgs.length === 0 ? <option value="">No orgs</option> : null}
+            {orgs.map((org) => (
+              <option key={org.orgId} value={org.orgId}>
+                {org.name || org.orgId}
+              </option>
+            ))}
+          </select>
+        </label>
+        {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
+      </div>
     </header>
   );
 

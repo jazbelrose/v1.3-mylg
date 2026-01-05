@@ -1,6 +1,7 @@
 // src/app/contexts/DataProvider.tsx
 import React, { PropsWithChildren } from "react";
 import { UserProvider } from "./UserProvider";
+import { OrgProvider } from "./OrgProvider";
 import { ProjectsProvider } from "./ProjectsProvider";
 import { MessagesProvider } from "./MessagesProvider";
 import type { SavedLocation } from "../../shared/utils/location";
@@ -132,11 +133,13 @@ export interface Thread {
 export const DataProvider: React.FC<PropsWithChildren> = ({ children }) => {
   return (
     <UserProvider>
-      <ProjectsProvider>
-        <MessagesProvider>
-          {children}
-        </MessagesProvider>
-      </ProjectsProvider>
+      <OrgProvider>
+        <ProjectsProvider>
+          <MessagesProvider>
+            {children}
+          </MessagesProvider>
+        </ProjectsProvider>
+      </OrgProvider>
     </UserProvider>
   );
 };

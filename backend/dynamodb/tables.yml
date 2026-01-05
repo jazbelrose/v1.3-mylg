@@ -388,6 +388,102 @@ Resources:
       SSESpecification:
         SSEEnabled: true
       DeletionProtectionEnabled: true
+
+  # ============================================================================
+  # ORGS (HQ isolation)
+  # ============================================================================
+
+  Orgs:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: Orgs
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+
+  OrgMembers:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: OrgMembers
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      GlobalSecondaryIndexes:
+        - IndexName: userId-orgId-index
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+
+  OrgInvites:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: OrgInvites
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
+
+  # ============================================================================
+  # HQ (org-scoped ledger)
+  # ============================================================================
+
+  HqLedger:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: HqLedger
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: orgId
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: orgId
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      SSESpecification:
+        SSEEnabled: true
+      DeletionProtectionEnabled: true
   
   # ============================================================================
   # ACTIVITY SYSTEM TABLES

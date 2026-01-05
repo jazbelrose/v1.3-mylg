@@ -3,6 +3,8 @@ frameworkVersion: '3'
 
 # Force redeploy for CORS updates - updated 2025-09-10
 
+# NOTE: This layer provides shared utilities under /opt/nodejs/utils/*.mjs
+
 provider:
   name: aws
   runtime: nodejs18.x

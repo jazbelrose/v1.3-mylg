@@ -1,7 +1,8 @@
 import React from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { toast } from "react-toastify";
-import { updateAccount } from "@/hq/lib/hqStore";
+import { patchHqAccount, fetchHqSummary } from "@/hq/lib/hqApi";
+import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import type { HqAccount } from "@/hq/types";
 import styles from "./SetAnchorModal.module.css";
 
@@ -43,13 +44,20 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
 
   const canSave = Boolean(anchorDate) && typeof parsedBalance === "number";
 
-  const handleSave = React.useCallback(() => {
-    if (!canSave || typeof parsedBalance !== "number") return;
+  const handleSave = React.useCallback(async () => {
+    if (!canSave) return;
+    const parsedBalanceValue = typeof parsedBalance !== "number" ? null : parsedBalance;
+
     try {
-      updateAccount(orgId, account.accountId, {
+      await patchHqAccount(orgId, account.accountId, {
         anchorDate,
-        anchorBalance: parsedBalance,
+        anchorBalance: parsedBalanceValue,
       });
+
+      const summary = await fetchHqSummary(orgId);
+      const prev = readHqState(orgId);
+      hydrateHqState(orgId, { ...prev, accounts: summary.accounts, importRuns: summary.importRuns });
+
       toast.success("Balance anchor saved.");
       onRequestClose();
     } catch (err) {

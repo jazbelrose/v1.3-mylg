@@ -17,6 +17,15 @@ env:
   INVITES_BY_SENDER_INDEX: senderId-index
   INVITES_BY_RECIPIENT_INDEX: recipientId-index
 
+  # ---- Orgs (HQ isolation)
+  ORGS_TABLE: Orgs
+  ORG_MEMBERS_TABLE: OrgMembers
+  ORG_MEMBERS_USER_INDEX: userId-orgId-index
+  ORG_INVITES_TABLE: OrgInvites
+
+  # ---- HQ (org-scoped financial)
+  HQ_TABLE: HqLedger
+
   # ---- Messaging & notifications (v1.1 compat)
   INBOX_TABLE: Inbox                    # PK userId, SK conversationId
   MESSAGES_TABLE: Messages

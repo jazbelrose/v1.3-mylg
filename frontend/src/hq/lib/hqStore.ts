@@ -14,7 +14,7 @@ const HQ_STORE_EVENT = "mylg:hq-store-changed";
 
 function storageKey(orgId: string) {
   const normalized = (orgId || "local").trim() || "local";
-  return `mylg.hq.v${HQ_STORE_VERSION}.${normalized}`;
+  return `mylg.hq.cache.v${HQ_STORE_VERSION}.${normalized}`;
 }
 
 type CachedSnapshot = {
@@ -81,6 +81,10 @@ function writeHqState(orgId: string, state: HqStoreStateV1) {
   localStorage.setItem(key, raw);
   snapshotCache.set(key, { raw, state });
   window.dispatchEvent(new Event(HQ_STORE_EVENT));
+}
+
+export function hydrateHqState(orgId: string, state: HqStoreStateV1) {
+  writeHqState(orgId, state);
 }
 
 function updateState(orgId: string, updater: (prev: HqStoreStateV1) => HqStoreStateV1) {

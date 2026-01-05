@@ -16,6 +16,8 @@ import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { setTransactionCategory, useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
+import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
+import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
 
@@ -51,8 +53,11 @@ function txnTitle(txn: HqTransaction) {
 }
 
 const TransactionsPage: React.FC = () => {
-  const { userId } = useUser();
-  const orgId = userId || "local";
+  useUser();
+  const { activeOrgId, activeOrgRole } = useOrg();
+  const orgId = activeOrgId || "local";
+  const canAdmin = isOrgAdmin(activeOrgRole);
+  useHqBootstrap(activeOrgId);
   const location = useLocation();
 
   const accounts = useHqStore(orgId, (s) => s.accounts);
@@ -107,12 +112,16 @@ const TransactionsPage: React.FC = () => {
 
   const actions = (
     <div className={styles.actions}>
-      <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
-        Import CSV
-      </button>
-      <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
-        Add account
-      </button>
+      {canAdmin ? (
+        <>
+          <button type="button" className={styles.primaryButton} onClick={() => setIsImportOpen(true)}>
+            Import CSV
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={() => setIsAddAccountOpen(true)}>
+            Add account
+          </button>
+        </>
+      ) : null}
     </div>
   );
 
@@ -227,6 +236,7 @@ const TransactionsPage: React.FC = () => {
                     <select
                       className={styles.categorySelect}
                       value={categoryValue}
+                      disabled={!canAdmin}
                       onChange={(e) =>
                         setTransactionCategory(orgId, txn.dedupeHash, (e.target.value as HqCategoryId) || undefined)
                       }
