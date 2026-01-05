@@ -44,6 +44,7 @@ import {
   CalendarEntryType,
   formatTimeFromMinutes,
 } from "./calendarInteractions";
+import { fetchProjectOverlapStackTitles, setProjectOverlapStackTitle } from "@/shared/utils/api";
 
 export type WeekGridProps = {
   anchorDate: Date;
@@ -366,31 +367,65 @@ function WeekGrid({
     return `calendar:overlapStackTitles:${scope}`;
   }, [activeProjectId]);
 
-  useEffect(() => {
+  const readOverlapTitleOverridesFromLocalStorage = useCallback((): Record<string, string> => {
     try {
       const raw = localStorage.getItem(overlapTitleStorageKey);
-      if (!raw) {
-        setOverlapStackTitleOverrides({});
-        return;
-      }
+      if (!raw) return {};
       const parsed = JSON.parse(raw) as unknown;
-      if (!parsed || typeof parsed !== "object") {
-        setOverlapStackTitleOverrides({});
-        return;
+      if (!parsed || typeof parsed !== "object") return {};
+      const record = parsed as Record<string, unknown>;
+      const next: Record<string, string> = {};
+      for (const [key, value] of Object.entries(record)) {
+        if (typeof key === "string" && typeof value === "string" && key.trim() && value.trim()) {
+          next[key] = value;
+        }
       }
-      setOverlapStackTitleOverrides(parsed as Record<string, string>);
+      return next;
     } catch {
-      setOverlapStackTitleOverrides({});
+      return {};
     }
   }, [overlapTitleStorageKey]);
 
+  const writeOverlapTitleOverridesToLocalStorage = useCallback(
+    (next: Record<string, string>) => {
+      try {
+        localStorage.setItem(overlapTitleStorageKey, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+    },
+    [overlapTitleStorageKey],
+  );
+
   useEffect(() => {
-    try {
-      localStorage.setItem(overlapTitleStorageKey, JSON.stringify(overlapStackTitleOverrides));
-    } catch {
-      // ignore
-    }
-  }, [overlapStackTitleOverrides, overlapTitleStorageKey]);
+    let cancelled = false;
+
+    const hydrate = async () => {
+      // Start with local cache so UI feels instant.
+      const local = readOverlapTitleOverridesFromLocalStorage();
+      if (!cancelled) setOverlapStackTitleOverrides(local);
+
+      // Then attempt to hydrate from backend (project-scoped, multi-user).
+      const projectId = (activeProjectId ?? "").trim();
+      if (!projectId) return;
+
+      try {
+        const next = await fetchProjectOverlapStackTitles(projectId);
+
+        if (!cancelled) {
+          setOverlapStackTitleOverrides(next);
+          writeOverlapTitleOverridesToLocalStorage(next);
+        }
+      } catch {
+        // ignore and keep local cache
+      }
+    };
+
+    void hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId, readOverlapTitleOverridesFromLocalStorage, writeOverlapTitleOverridesToLocalStorage]);
 
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
@@ -2684,7 +2719,21 @@ function WeekGrid({
                   if (!normalized) return;
                   const key = stackPopover.titleKey;
                   if (key) {
-                    setOverlapStackTitleOverrides((prev) => ({ ...prev, [key]: normalized }));
+                    const next = { ...overlapStackTitleOverrides, [key]: normalized };
+                    setOverlapStackTitleOverrides(next);
+                    writeOverlapTitleOverridesToLocalStorage(next);
+
+                    const projectId = (activeProjectId ?? "").trim();
+                    if (projectId) {
+                      try {
+                        const updated = await setProjectOverlapStackTitle(projectId, key, normalized);
+                        // Trust backend as source of truth (prevents accidental clobbering).
+                        setOverlapStackTitleOverrides(updated);
+                        writeOverlapTitleOverridesToLocalStorage(updated);
+                      } catch {
+                        // ignore (local cache still keeps behavior consistent for this user)
+                      }
+                    }
                   }
                   setStackPopover((prev) => (prev ? { ...prev, baseTitle: normalized } : prev));
                 }

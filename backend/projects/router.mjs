@@ -581,6 +581,59 @@ const patchProject = async (e, C, { projectId }) => {
   return json(200, C, r.Attributes);
 };
 
+// Calendar: Overlap Stack Titles (project-wide)
+const getOverlapStackTitles = async (_e, C, { projectId }) => {
+  const r = await ddb.get({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    ProjectionExpression: "projectId, calendarOverlapStackTitles",
+  });
+  return json(200, C, {
+    projectId,
+    calendarOverlapStackTitles: r.Item?.calendarOverlapStackTitles || {},
+  });
+};
+
+const patchOverlapStackTitles = async (e, C, { projectId }) => {
+  const b = B(e);
+  const key = typeof b?.key === "string" ? b.key.trim() : "";
+  const titleRaw = typeof b?.title === "string" ? b.title : "";
+  const title = titleRaw.trim();
+
+  if (!key) return json(400, C, { error: "key is required" });
+
+  const names = {
+    "#calendar": "calendarOverlapStackTitles",
+    "#updatedAt": "updatedAt",
+    "#k": key,
+  };
+  const values = {
+    ":now": nowISO(),
+    ":empty": {},
+  };
+
+  const isRemove = !title;
+  const UpdateExpression = isRemove
+    ? "REMOVE #calendar.#k SET #updatedAt = :now"
+    : "SET #calendar = if_not_exists(#calendar, :empty), #calendar.#k = :title, #updatedAt = :now";
+
+  if (!isRemove) values[":title"] = title;
+
+  const r = await ddb.update({
+    TableName: PROJECTS_TABLE,
+    Key: { projectId },
+    UpdateExpression,
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+    ReturnValues: "ALL_NEW",
+  });
+
+  return json(200, C, {
+    projectId,
+    calendarOverlapStackTitles: r.Attributes?.calendarOverlapStackTitles || {},
+  });
+};
+
 const deleteProject = async (_e, C, { projectId }) => {
   await ddb.delete({ TableName: PROJECTS_TABLE, Key: { projectId } });
   return json(204, C, "");
@@ -2741,6 +2794,8 @@ const routes = [
   { m: "GET",    r: /^\/projects$/i,                                                            h: listProjects },
   { m: "POST",   r: /^\/projects$/i,                                                            h: createProject },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: getProject },
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/calendar\/overlap-stack-titles$/i,      h: getOverlapStackTitles },
+  { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/calendar\/overlap-stack-titles$/i,      h: patchOverlapStackTitles },
   { m: "PUT",    r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: patchProject },
   { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: patchProject },
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)$/i,                                       h: deleteProject },

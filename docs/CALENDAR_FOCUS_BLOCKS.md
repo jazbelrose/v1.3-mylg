@@ -44,6 +44,8 @@ It can show:
 - **multiple avatars** (multi-user overlap)
 - **one avatar** (single-user overlap)
 
+Overlap stack titles can be renamed and are persisted **project-wide** (stored on the project record as `calendarOverlapStackTitles`), so other users on the same project will see the rename. `localStorage` is used only as a cache/fallback.
+
 This is often what looks like a “multi-user focus block” vs a “single-user multitask focus block”.
 Those are typically the *same stack type*, just with different participant counts.
 

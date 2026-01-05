@@ -71,6 +71,8 @@ export interface Project {
   clientEmail?: string;
   previewUrl?: string;
   quickLinks?: QuickLink[];
+  /** Calendar UI preference: project-wide override titles for multi-user overlap stacks. */
+  calendarOverlapStackTitles?: Record<string, string>;
   [key: string]: unknown;
 }
 
@@ -873,6 +875,46 @@ export async function updateProjectFields(projectId: string, fields: Partial<Pro
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
   });
+}
+
+export async function fetchProjectOverlapStackTitles(projectId: string): Promise<Record<string, string>> {
+  if (!projectId) return {};
+  const url = `${PROJECTS_SERVICE_URL}/projects/${encodeURIComponent(projectId)}/calendar/overlap-stack-titles`;
+  const res = await apiFetch<{ calendarOverlapStackTitles?: unknown }>(url);
+  const raw = res?.calendarOverlapStackTitles;
+  if (!raw || typeof raw !== 'object') return {};
+  const record = raw as Record<string, unknown>;
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof key === 'string' && typeof value === 'string' && key.trim() && value.trim()) {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+export async function setProjectOverlapStackTitle(
+  projectId: string,
+  key: string,
+  title: string,
+): Promise<Record<string, string>> {
+  if (!projectId) throw new Error('projectId is required for setProjectOverlapStackTitle');
+  const url = `${PROJECTS_SERVICE_URL}/projects/${encodeURIComponent(projectId)}/calendar/overlap-stack-titles`;
+  const res = await apiFetch<{ calendarOverlapStackTitles?: unknown }>(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, title }),
+  });
+  const raw = res?.calendarOverlapStackTitles;
+  if (!raw || typeof raw !== 'object') return {};
+  const record = raw as Record<string, unknown>;
+  const next: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record)) {
+    if (typeof k === 'string' && typeof v === 'string' && k.trim() && v.trim()) {
+      next[k] = v;
+    }
+  }
+  return next;
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
