@@ -22,6 +22,7 @@ import {
   fetchUserProfilesBatch,
   updateUserRole,
   POST_PROJECT_TO_USER_URL,
+  PROJECTS_SERVICE_URL,
   apiFetch,
 } from "@/shared/utils/api";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
@@ -338,9 +339,28 @@ interface EditValues {
               body: JSON.stringify({ projectId }),
             })
           ),
+          ...toAdd.map((projectId) =>
+            apiFetch(
+              `${PROJECTS_SERVICE_URL}/projects/${encodeURIComponent(projectId)}/team`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+              }
+            )
+          ),
           ...toRemove.map((projectId) =>
             apiFetch(
               `${POST_PROJECT_TO_USER_URL}?userId=${userId}&projectId=${projectId}`,
+              {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+              }
+            )
+          ),
+          ...toRemove.map((projectId) =>
+            apiFetch(
+              `${PROJECTS_SERVICE_URL}/projects/${encodeURIComponent(projectId)}/team/${encodeURIComponent(userId)}`,
               {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
