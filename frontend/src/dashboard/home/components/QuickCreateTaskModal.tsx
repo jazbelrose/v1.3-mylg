@@ -11,6 +11,8 @@ import {
   updateTask,
   uploadFile,
   getFileUrl,
+  apiFetch,
+  PROJECTS_SERVICE_URL,
   requestTaskReview,
   fetchTask,
   approveTask,
@@ -90,6 +92,17 @@ function toTokenArray(value?: string | string[] | null): string[] {
 function parseAssigneeTokensInput(value?: string | string[] | null): string[] {
   const tokens = toTokenArray(value);
   return Array.from(new Set(tokens.map((token) => token.trim()).filter(Boolean)));
+}
+
+function extractAssigneeUserId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("__")) {
+    const [, extracted] = trimmed.split("__");
+    const candidate = extracted?.trim();
+    return candidate ? candidate : null;
+  }
+  return trimmed;
 }
 
 function generateAttachmentId(): string {
@@ -422,7 +435,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   embedMode = false,
 }) => {
   const { userData, allUsers, userId, isAdmin, updateUserProfile, refreshUser } = useUser();
-  const { activeProject } = useData();
+  const { activeProject, projects: detailedProjects, fetchProjectDetails } = useData();
   useModalStack(open);
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
@@ -514,6 +527,26 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const projectOptions = useMemo(() => projects ?? [], [projects]);
   const hasProjects = projectOptions.length > 0;
   const isEditing = Boolean(taskId);
+  const assigneeScopeProjectId = useMemo(() => {
+    if (isEditing) {
+      if (projectId) {
+        return projectId;
+      }
+      if (initialTaskRef.current?.projectId) {
+        return initialTaskRef.current.projectId;
+      }
+    }
+
+    if (scopedProjectId) {
+      return scopedProjectId;
+    }
+
+    if (projectId && projectOptions.some((project) => project.id === projectId)) {
+      return projectId;
+    }
+
+    return projectOptions[0]?.id ?? initialTaskRef.current?.projectId ?? "";
+  }, [isEditing, projectId, projectOptions, scopedProjectId]);
   const resolvedActiveProjectName = useMemo(() => {
     if (activeProjectName && activeProjectName.trim()) {
       return activeProjectName.trim();
@@ -524,28 +557,44 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     const found = projectOptions.find((project) => project.id === targetId);
     return found?.name ?? "";
   }, [activeProjectId, activeProjectName, projectId, projectOptions, scopedProjectId]);
-  const collaboratorIds = useMemo(() => {
-    const baseIds = Array.isArray(userData?.collaborators)
-      ? userData.collaborators.filter(
-          (id): id is string => typeof id === "string" && id.trim().length > 0
-        )
-      : [];
 
-    const rawUserId = typeof userData?.userId === "string" ? userData.userId.trim() : "";
-    if (!rawUserId) {
-      return baseIds;
+  const selectedProjectRecord = useMemo(() => {
+    if (!assigneeScopeProjectId) return null;
+    if (activeProject?.projectId === assigneeScopeProjectId) {
+      return activeProject;
     }
+    return detailedProjects.find((project) => project.projectId === assigneeScopeProjectId) ?? null;
+  }, [activeProject, assigneeScopeProjectId, detailedProjects]);
 
-    const alreadyIncludesSelf = baseIds.some((entry) => {
-      const trimmed = entry.trim();
-      if (!trimmed) return false;
-      const [, extractedId] = trimmed.includes("__") ? trimmed.split("__") : [null, null];
-      const normalizedEntryId = extractedId?.trim() || trimmed;
-      return normalizedEntryId === rawUserId;
+  useEffect(() => {
+    if (!open) return;
+    if (!assigneeScopeProjectId) return;
+    if (selectedProjectRecord && Array.isArray((selectedProjectRecord as { team?: unknown }).team)) {
+      return;
+    }
+    fetchProjectDetails(assigneeScopeProjectId).catch(() => {
+      // ignore; assignee picker will degrade to showing only already-selected assignees
     });
+  }, [assigneeScopeProjectId, fetchProjectDetails, open, selectedProjectRecord]);
 
-    return alreadyIncludesSelf ? baseIds : [...baseIds, rawUserId];
-  }, [userData?.collaborators, userData?.userId]);
+  const projectTeamUserIds = useMemo(() => {
+    const record = selectedProjectRecord as { team?: Array<{ userId?: string }> } | null;
+    if (!record || !Array.isArray(record.team)) {
+      return [] as string[];
+    }
+    return record.team
+      .map((member) => member?.userId?.trim())
+      .filter((id): id is string => Boolean(id));
+  }, [selectedProjectRecord]);
+
+  const projectTeamUserIdSet = useMemo(() => new Set(projectTeamUserIds), [projectTeamUserIds]);
+  const collaboratorIds = useMemo(() => {
+    const extraFromExistingAssignees = assigneeTokens
+      .map((token) => extractAssigneeUserId(token))
+      .filter((id): id is string => Boolean(id));
+
+    return Array.from(new Set([...projectTeamUserIds, ...extraFromExistingAssignees]));
+  }, [assigneeTokens, projectTeamUserIds]);
 
   const collaboratorOptions = useMemo(() => {
     if (!collaboratorIds.length) {
@@ -623,6 +672,38 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       }
     });
 
+    // Admins can add people to the project directly from this modal:
+    // only surface non-team users when searching.
+    const normalizedQuery = assigneeSearch.trim().toLowerCase();
+    if (isAdmin && normalizedQuery) {
+      const candidates = allUsers
+        .filter((user) => {
+          const uid = user.userId?.trim();
+          if (!uid) return false;
+          if (projectTeamUserIdSet.has(uid)) return false;
+          const first = user.firstName?.trim() ?? "";
+          const last = user.lastName?.trim() ?? "";
+          const fullName = `${first} ${last}`.trim();
+          const username = user.username?.trim() ?? "";
+          const email = user.email?.trim() ?? "";
+          return [fullName, username, email, uid].some((field) =>
+            field.toLowerCase().includes(normalizedQuery),
+          );
+        })
+        .slice(0, 25);
+
+      candidates.forEach((user) => {
+        const fallbackId = user.userId?.trim() || "";
+        if (!fallbackId) return;
+        const value = formatValue(user, fallbackId);
+        const label = formatLabel(user, fallbackId);
+        const avatar = formatAvatar(user);
+        if (!dedupeMap.has(value)) {
+          dedupeMap.set(value, { value, label, avatar: avatar as string | undefined });
+        }
+      });
+    }
+
     assigneeTokens.forEach((token) => {
       const trimmed = token.trim();
       if (!trimmed || dedupeMap.has(trimmed)) return;
@@ -634,7 +715,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return Array.from(dedupeMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
-  }, [allUsers, assigneeTokens, collaboratorIds]);
+  }, [allUsers, assigneeSearch, collaboratorIds, assigneeTokens, isAdmin, projectTeamUserIdSet]);
 
   // Filtered options based on search
   const filteredAssigneeOptions = useMemo(() => {
@@ -704,26 +785,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const canAssignToSelf = Boolean(currentUserAssigneeValue && !isCurrentUserAssigned);
 
   const hasCollaborators = collaboratorOptions.length > 0;
-  const effectiveProjectId = useMemo(() => {
-    if (isEditing) {
-      if (projectId) {
-        return projectId;
-      }
-      if (initialTaskRef.current?.projectId) {
-        return initialTaskRef.current.projectId;
-      }
-    }
-
-    if (scopedProjectId) {
-      return scopedProjectId;
-    }
-
-    if (projectId && projectOptions.some((project) => project.id === projectId)) {
-      return projectId;
-    }
-
-    return projectOptions[0]?.id ?? initialTaskRef.current?.projectId ?? "";
-  }, [isEditing, projectId, projectOptions, scopedProjectId]);
+  const effectiveProjectId = useMemo(() => assigneeScopeProjectId, [assigneeScopeProjectId]);
   const trimmedTitle = title.trim();
   const formattedTitle = trimmedTitle ? formatTaskName(trimmedTitle) : "";
   const titleRemaining = 120 - title.length;
@@ -2251,6 +2313,29 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       const trimmedAssigneeTokens = assigneeTokens.map((token) => token.trim()).filter(Boolean);
 
       if (trimmedAssigneeTokens.length) {
+        const assigneeUserIds = Array.from(
+          new Set(
+            trimmedAssigneeTokens
+              .map((token) => extractAssigneeUserId(token))
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        const missingUserIds = assigneeUserIds.filter((id) => !projectTeamUserIdSet.has(id));
+        if (missingUserIds.length && resolvedProjectId) {
+          await Promise.all(
+            missingUserIds.map((uid) =>
+              apiFetch(
+                `${PROJECTS_SERVICE_URL}/projects/${encodeURIComponent(resolvedProjectId)}/team`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ userId: uid }),
+                },
+              ),
+            ),
+          );
+        }
+
         payload.assigneeTokens = trimmedAssigneeTokens;
         payload.assigneeIds = trimmedAssigneeTokens;
         payload.assigneeId = trimmedAssigneeTokens[0];
