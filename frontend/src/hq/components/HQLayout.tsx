@@ -11,6 +11,7 @@ import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import { useUser } from "@/app/contexts/useUser";
 import { useOrg } from "@/app/contexts/useOrg";
+import { toast } from "react-toastify";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import styles from "./HQLayout.module.css";
@@ -43,7 +44,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   children,
 }) => {
   const { userName } = useUser();
-  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading } = useOrg();
+  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading, createOrg } = useOrg();
   const [flags, setFlags] = useState<ViewportFlags>(() => getViewportFlags());
   const [isNavCollapsed, setIsNavCollapsed] = useNavCollapsed("dashboard");
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
@@ -79,6 +80,18 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     void view;
   }, []);
 
+  const handleCreateOrg = useCallback(async () => {
+    const name = window.prompt("Organization name?");
+    if (!name) return;
+    try {
+      await createOrg(name);
+      toast.success("Organization created.");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Could not create organization.");
+    }
+  }, [createOrg]);
+
   const pageHeader = (
     <header className={styles.pageHeader}>
       <div className={styles.pageHeading}>
@@ -105,6 +118,11 @@ const HQLayout: React.FC<HQLayoutProps> = ({
               ))}
             </select>
           </label>
+          {!orgsLoading && orgs.length === 0 ? (
+            <button type="button" className={styles.orgCreateButton} onClick={handleCreateOrg}>
+              Create org
+            </button>
+          ) : null}
           {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
         </div>
       </div>
@@ -136,6 +154,11 @@ const HQLayout: React.FC<HQLayoutProps> = ({
             ))}
           </select>
         </label>
+        {!orgsLoading && orgs.length === 0 ? (
+          <button type="button" className={styles.orgCreateButton} onClick={handleCreateOrg}>
+            Create org
+          </button>
+        ) : null}
         {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
       </div>
     </header>
