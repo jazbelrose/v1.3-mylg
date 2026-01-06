@@ -75,6 +75,35 @@ const normalizeVendorKey = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const HQ_TIME_ZONE = "America/Los_Angeles";
+
+const todayIsoInTimeZone = (timeZone = HQ_TIME_ZONE) => {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+};
+
+const isoToDate = (iso) => new Date(`${String(iso).slice(0, 10)}T00:00:00Z`);
+const dateToIso = (d) => new Date(d.getTime()).toISOString().slice(0, 10);
+const addDaysIso = (iso, deltaDays) => {
+  const d = isoToDate(iso);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return dateToIso(d);
+};
+
+const minIso = (a, b) => {
+  if (!a) return b;
+  if (!b) return a;
+  return a <= b ? a : b;
+};
+
 const isLikelyInternalTransfer = (txn) => {
   const d = String(txn?.normalizedDescription || txn?.rawDescription || "").toUpperCase();
   if (txn?.type === "transfer" && d.startsWith("ONLINE TRANSFER")) return true;
@@ -192,6 +221,219 @@ const pickCategorization = (txn, rules) => {
 
 /* ------------ Handlers ------------ */
 const health = async (_e, C) => json(200, C, { ok: true, domain: "hq" });
+
+// GET /hq/chart-series?orgId=...&scope=aggregate|account&accountId=...&range=1W|1M|3M|1Y|ALL
+const getChartSeries = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const scopeRaw = String(q.scope || "aggregate").trim().toLowerCase();
+  const scope = scopeRaw === "account" ? "account" : "aggregate";
+  const rangeRaw = String(q.range || "1M").trim().toUpperCase();
+  const range = ["1W", "1M", "3M", "1Y", "ALL"].includes(rangeRaw) ? rangeRaw : "1M";
+
+  const today = todayIsoInTimeZone();
+  const accountIdParam = typeof q.accountId === "string" ? q.accountId.trim() : "";
+
+  // Load accounts and anchors.
+  const accountsRes = await ddb.query({
+    TableName: HQ_TABLE,
+    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+    ExpressionAttributeValues: { ":o": orgId, ":p": "ACCOUNT#" },
+  });
+
+  const allAccounts = accountsRes.Items || [];
+
+  let includedAccounts = [];
+  if (scope === "account") {
+    if (!accountIdParam) return json(400, C, { error: "accountId required for scope=account" });
+    includedAccounts = allAccounts.filter((a) => a.accountId === accountIdParam);
+    if (!includedAccounts.length) throw httpError(404, "Not found");
+  } else {
+    includedAccounts = allAccounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false);
+  }
+
+  const anchored = includedAccounts
+    .filter((a) => typeof a.anchorBalance === "number" && typeof a.anchorDate === "string" && a.anchorDate)
+    .map((a) => ({
+      accountId: a.accountId,
+      anchorDate: String(a.anchorDate).slice(0, 10),
+      anchorBalance: Number(a.anchorBalance),
+    }));
+
+  if (!anchored.length) {
+    return json(400, C, { error: "No anchored accounts available for chart series" });
+  }
+
+  const anchorDate = today;
+
+  const fixedRangeDays =
+    range === "1W" ? 7 : range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : null;
+
+  let startDate = fixedRangeDays ? addDaysIso(today, -(fixedRangeDays - 1)) : null;
+
+  // For computing today's anchor balance we must include net since each account's anchorDate.
+  const minAnchorDate = anchored.reduce((min, a) => minIso(min, a.anchorDate), null);
+
+  const anchoredSet = new Set(anchored.map((a) => a.accountId));
+  const anchorByAccountId = new Map(anchored.map((a) => [a.accountId, a]));
+
+  const netSinceAnchor = {};
+  for (const a of anchored) netSinceAnchor[a.accountId] = 0;
+
+  const inflowByDate = {};
+  const outflowByDate = {};
+  let earliestSeen = null;
+
+  const shouldIncludeTxn = (t) => {
+    if (!t || !t.accountId || !anchoredSet.has(t.accountId)) return false;
+    if (t.isInternalTransfer) return false;
+    return true;
+  };
+
+  const considerForDaily = (postedAt) => {
+    if (!postedAt) return false;
+    if (!startDate) return true; // ALL: collect everything and trim later
+    return postedAt >= startDate && postedAt <= today;
+  };
+
+  const queryTxnsBetween = async (fromIso, toIso) => {
+    let lastKey;
+    do {
+      const page = await ddb.query({
+        TableName: HQ_TABLE,
+        KeyConditionExpression: "orgId = :o AND sk BETWEEN :from AND :to",
+        ExpressionAttributeValues: {
+          ":o": orgId,
+          ":from": `TXN#${fromIso}`,
+          ":to": `TXN#${toIso}#~`,
+        },
+        ExclusiveStartKey: lastKey,
+      });
+
+      for (const t of page.Items || []) {
+        if (!shouldIncludeTxn(t)) continue;
+        const postedAt = String(t.postedAt || "").slice(0, 10);
+        if (!postedAt) continue;
+
+        if (range === "ALL") {
+          if (!earliestSeen || postedAt < earliestSeen) earliestSeen = postedAt;
+        }
+
+        const anchor = anchorByAccountId.get(t.accountId);
+        if (anchor && postedAt > anchor.anchorDate) {
+          const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
+          if (Number.isFinite(amt)) netSinceAnchor[t.accountId] += amt;
+        }
+
+        if (!considerForDaily(postedAt)) continue;
+
+        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
+        if (!Number.isFinite(amt)) continue;
+        if (amt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + amt;
+        else if (amt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(amt);
+      }
+
+      lastKey = page.LastEvaluatedKey;
+    } while (lastKey);
+  };
+
+  if (range === "ALL") {
+    // Scan all TXN# items.
+    let lastKey;
+    do {
+      const page = await ddb.query({
+        TableName: HQ_TABLE,
+        KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+        ExclusiveStartKey: lastKey,
+      });
+
+      for (const t of page.Items || []) {
+        if (!shouldIncludeTxn(t)) continue;
+        const postedAt = String(t.postedAt || "").slice(0, 10);
+        if (!postedAt) continue;
+        if (!earliestSeen || postedAt < earliestSeen) earliestSeen = postedAt;
+
+        const anchor = anchorByAccountId.get(t.accountId);
+        if (anchor && postedAt > anchor.anchorDate) {
+          const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
+          if (Number.isFinite(amt)) netSinceAnchor[t.accountId] += amt;
+        }
+
+        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
+        if (!Number.isFinite(amt)) continue;
+        if (amt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + amt;
+        else if (amt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(amt);
+      }
+
+      lastKey = page.LastEvaluatedKey;
+    } while (lastKey);
+
+    startDate = earliestSeen || today;
+  } else {
+    const fromIso = minIso(minAnchorDate, startDate) || startDate;
+    await queryTxnsBetween(fromIso, today);
+  }
+
+  // Compute today's anchorBalance (ending balance today): sum(anchorBalance at anchorDate + net since anchor).
+  let anchorBalance = 0;
+  for (const a of anchored) {
+    anchorBalance += a.anchorBalance + (netSinceAnchor[a.accountId] || 0);
+  }
+  anchorBalance = Math.round(anchorBalance * 100) / 100;
+
+  // Build point list oldest -> newest.
+  const points = [];
+  let d = startDate;
+  while (d <= today) {
+    const inflow = Math.round(((inflowByDate[d] || 0) * 100)) / 100;
+    const outflow = Math.round(((outflowByDate[d] || 0) * 100)) / 100;
+    points.push({ date: d, inflow, outflow, balance: 0 });
+    d = addDaysIso(d, 1);
+  }
+
+  // Walk backwards from today.
+  if (points.length) {
+    points[points.length - 1].balance = anchorBalance;
+    for (let i = points.length - 2; i >= 0; i -= 1) {
+      const next = points[i + 1];
+      const netNext = (next.inflow || 0) - (next.outflow || 0);
+      points[i].balance = Math.round((next.balance - netNext) * 100) / 100;
+    }
+  }
+
+  const totals = points.reduce(
+    (acc, p) => {
+      acc.inflow += p.inflow;
+      acc.outflow += p.outflow;
+      return acc;
+    },
+    { inflow: 0, outflow: 0 }
+  );
+  totals.inflow = Math.round(totals.inflow * 100) / 100;
+  totals.outflow = Math.round(totals.outflow * 100) / 100;
+  const net = Math.round((totals.inflow - totals.outflow) * 100) / 100;
+
+  return json(200, C, {
+    scope,
+    accountId: scope === "account" ? accountIdParam : undefined,
+    range,
+    currency: "USD",
+    anchorDate,
+    anchorBalance,
+    points,
+    totals: {
+      inflow: totals.inflow,
+      outflow: totals.outflow,
+      net,
+    },
+  });
+};
 
 // GET /hq/summary?orgId=...
 const getSummary = async (e, C) => {
@@ -1087,6 +1329,7 @@ const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
 
   { m: "GET", r: /^\/hq\/summary\/?$/i, h: getSummary },
+  { m: "GET", r: /^\/hq\/chart-series\/?$/i, h: getChartSeries },
   { m: "GET", r: /^\/hq\/transactions\/?$/i, h: listTransactions },
 
   { m: "GET", r: /^\/hq\/category-rules\/?$/i, h: getCategoryRules },

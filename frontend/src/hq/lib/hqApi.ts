@@ -18,6 +18,28 @@ export type HqTransactionsResponse = {
   cursor: string | null;
 };
 
+export type HqChartSeriesRange = "1W" | "1M" | "3M" | "1Y" | "ALL";
+
+export type HqChartSeriesResponse = {
+  scope: "aggregate" | "account";
+  accountId?: string;
+  range: HqChartSeriesRange;
+  currency: "USD";
+  anchorDate: string; // YYYY-MM-DD
+  anchorBalance: number;
+  points: Array<{
+    date: string; // YYYY-MM-DD
+    balance: number;
+    inflow: number;
+    outflow: number;
+  }>;
+  totals: {
+    inflow: number;
+    outflow: number;
+    net: number;
+  };
+};
+
 function getHqServiceBaseUrl(): string {
   const raw = (import.meta.env as Record<string, string | undefined>).VITE_HQ_SERVICE_URL;
   return raw?.trim() || API_BASE_URL;
@@ -48,6 +70,26 @@ export async function fetchHqTransactions(input: {
   if (input.limit) params.set("limit", String(input.limit));
 
   return apiFetch<HqTransactionsResponse>(`${base}/hq/transactions?${params.toString()}`, {
+    method: "GET",
+    suppressErrorLog: true,
+  });
+}
+
+export async function fetchHqChartSeries(input: {
+  orgId: string;
+  scope: "aggregate" | "account";
+  accountId?: string;
+  range: HqChartSeriesRange;
+}): Promise<HqChartSeriesResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({
+    orgId: input.orgId,
+    scope: input.scope,
+    range: input.range,
+  });
+  if (input.scope === "account" && input.accountId) params.set("accountId", input.accountId);
+
+  return apiFetch<HqChartSeriesResponse>(`${base}/hq/chart-series?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
   });
