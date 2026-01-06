@@ -93,7 +93,7 @@ const TransactionsPage: React.FC = () => {
 
   const accountsById = React.useMemo(() => {
     const map = new Map<string, string>();
-    for (const a of accounts) map.set(a.accountId, a.accountName);
+    for (const a of accounts) map.set(a.accountId, a.name ?? a.accountName ?? "Account");
     return map;
   }, [accounts]);
 
@@ -161,7 +161,7 @@ const TransactionsPage: React.FC = () => {
             <option value="all">All accounts</option>
             {accounts.map((a) => (
               <option key={a.accountId} value={a.accountId}>
-                {a.accountName}
+                {a.name ?? a.accountName}
               </option>
             ))}
           </select>

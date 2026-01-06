@@ -3,6 +3,7 @@ import Modal from "@/shared/ui/ModalWithStack";
 import { toast } from "react-toastify";
 import { patchHqAccount, fetchHqSummary } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
+import { HQ_DEFAULT_TIME_ZONE, todayIsoDateInTimeZone } from "@/hq/lib/hqDate";
 import type { HqAccount } from "@/hq/types";
 import styles from "./SetAnchorModal.module.css";
 
@@ -23,16 +24,16 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
   onRequestClose,
   account,
 }) => {
-  const [anchorDate, setAnchorDate] = React.useState(account.anchorDate || "");
+  const [anchorDate, setAnchorDate] = React.useState("");
   const [anchorBalance, setAnchorBalance] = React.useState(
     typeof account.anchorBalance === "number" ? String(account.anchorBalance) : ""
   );
 
   React.useEffect(() => {
     if (!isOpen) return;
-    setAnchorDate(account.anchorDate || "");
+    setAnchorDate(todayIsoDateInTimeZone(new Date(), HQ_DEFAULT_TIME_ZONE));
     setAnchorBalance(typeof account.anchorBalance === "number" ? String(account.anchorBalance) : "");
-  }, [account.anchorBalance, account.anchorDate, isOpen]);
+  }, [account.anchorBalance, isOpen]);
 
   const parsedBalance = React.useMemo(() => {
     const cleaned = anchorBalance.replace(/[$,]/g, "").trim();
@@ -87,7 +88,7 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
         <div>
           <div className={styles.title}>Balance anchor</div>
           <div className={styles.subtitle}>
-            Sets a known as-of balance so HQ can compute cash-on-hand + runway from transactions.
+            Enter the ending balance today so HQ can compute a daily balance curve from your imported transactions.
           </div>
         </div>
         <button type="button" className={styles.closeButton} onClick={onRequestClose} aria-label="Close">
@@ -97,14 +98,14 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
 
       <div className={styles.body}>
         <div className={styles.accountPill}>
-          {account.accountName} · {account.institution}
+          {account.name ?? account.accountName} · {account.institution}
         </div>
         <label className={styles.field}>
-          <span>Anchor date</span>
-          <input type="date" value={anchorDate} onChange={(e) => setAnchorDate(e.target.value)} />
+          <span>Anchor date (America/Los_Angeles)</span>
+          <input type="text" value={anchorDate} readOnly />
         </label>
         <label className={styles.field}>
-          <span>Anchor balance</span>
+          <span>Ending balance today</span>
           <input value={anchorBalance} onChange={(e) => setAnchorBalance(e.target.value)} placeholder="12345.67" />
         </label>
       </div>

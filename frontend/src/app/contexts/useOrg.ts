@@ -1,10 +1,28 @@
 import React from "react";
-import { OrgContext } from "@/app/contexts/orgContext";
+import { OrgContext, type OrgContextValue } from "@/app/contexts/orgContext";
+
+const fallbackOrgContext: OrgContextValue = {
+  isLoading: true,
+  orgs: [],
+  activeOrgId: null,
+  activeOrgRole: null,
+  setActiveOrgId: () => {
+    // no-op when provider is missing
+  },
+  refreshOrgs: async () => {
+    // no-op when provider is missing
+  },
+  createOrg: async () => {
+    throw new Error("OrgProvider is not mounted");
+  },
+  deleteOrg: async () => {
+    throw new Error("OrgProvider is not mounted");
+  },
+};
 
 export function useOrg() {
   const ctx = React.useContext(OrgContext);
-  if (!ctx) throw new Error("useOrg must be used within <OrgProvider>");
-  return ctx;
+  return ctx ?? fallbackOrgContext;
 }
 
 export function isOrgAdmin(role: string | null | undefined): boolean {

@@ -89,6 +89,7 @@ const getSummary = async (e, C) => {
   const accounts = (accountsRes.Items || []).map((a) => ({
     orgId,
     accountId: a.accountId,
+    name: a.name || a.accountName,
     accountName: a.accountName,
     institution: a.institution,
     currency: a.currency || "USD",
@@ -97,6 +98,7 @@ const getSummary = async (e, C) => {
     anchorDate: a.anchorDate,
     anchorBalance: a.anchorBalance,
     createdAt: a.createdAt,
+    updatedAt: a.updatedAt || a.createdAt,
   }));
 
   const importRuns = (importRunsRes.Items || []).map((r) => ({
@@ -188,21 +190,24 @@ const createAccount = async (e, C) => {
   await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
   const body = B(e);
-  const accountName = typeof body.accountName === "string" ? body.accountName.trim() : "";
+  const name = typeof body.name === "string" ? body.name.trim() : (typeof body.accountName === "string" ? body.accountName.trim() : "");
+  const accountName = name;
   const institution = typeof body.institution === "string" ? body.institution.trim() : "";
 
   if (accountName.length < 2 || institution.length < 2) {
-    return json(400, C, { error: "accountName and institution required" });
+    return json(400, C, { error: "name and institution required" });
   }
 
   const accountId = uuidv4();
   const createdAt = nowISO();
+  const updatedAt = createdAt;
 
   const item = {
     orgId,
     sk: skAccount(accountId),
     entityType: "account",
     accountId,
+    name,
     accountName,
     institution,
     currency: "USD",
@@ -211,6 +216,7 @@ const createAccount = async (e, C) => {
     anchorDate: typeof body.anchorDate === "string" ? body.anchorDate.trim() || undefined : undefined,
     anchorBalance: typeof body.anchorBalance === "number" ? body.anchorBalance : undefined,
     createdAt,
+    updatedAt,
   };
 
   await ddb.put({ TableName: HQ_TABLE, Item: item });
@@ -240,12 +246,24 @@ const patchAccount = async (e, C, { accountId }) => {
     sets.push(`${nameKey} = ${valueKey}`);
   };
 
-  if (typeof body.accountName === "string") setField("accountName", body.accountName.trim());
+  if (typeof body.name === "string") {
+    const nextName = body.name.trim();
+    setField("name", nextName);
+    setField("accountName", nextName);
+  }
+  if (typeof body.accountName === "string") {
+    const nextName = body.accountName.trim();
+    setField("name", nextName);
+    setField("accountName", nextName);
+  }
   if (typeof body.institution === "string") setField("institution", body.institution.trim());
   if (typeof body.accountMask === "string") setField("accountMask", body.accountMask.trim() || null);
   if (typeof body.notes === "string") setField("notes", body.notes.trim() || null);
   if (typeof body.anchorDate === "string") setField("anchorDate", body.anchorDate.trim() || null);
   if (typeof body.anchorBalance === "number" || body.anchorBalance === null) setField("anchorBalance", body.anchorBalance);
+
+  // Always bump updatedAt for any accepted patch.
+  if (sets.length) setField("updatedAt", nowISO());
 
   if (!sets.length) return json(400, C, { error: "No fields to update" });
 

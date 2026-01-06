@@ -50,16 +50,23 @@ export async function fetchHqTransactions(input: {
 }
 
 export async function createHqAccount(orgId: string, input: {
-  accountName: string;
+  name: string;
+  /** @deprecated legacy field name; accepted for backward compatibility */
+  accountName?: string;
   institution: string;
   accountMask?: string;
   notes?: string;
 }): Promise<HqAccount> {
   const base = getHqServiceBaseUrl();
+  const payload = {
+    ...input,
+    // If older UI passes accountName, normalize into name.
+    name: (input.name || input.accountName || "").trim(),
+  };
   const res = await apiFetch<{ account: HqAccount }>(`${base}/hq/accounts?orgId=${encodeURIComponent(orgId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify(payload),
   });
   return res.account;
 }

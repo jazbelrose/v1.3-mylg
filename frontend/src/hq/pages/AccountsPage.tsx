@@ -111,7 +111,7 @@ const AccountsPage: React.FC = () => {
                 <article key={account.accountId} className={styles.accountCard}>
                   <header className={styles.accountHeader}>
                     <div>
-                      <div className={styles.accountName}>{account.accountName}</div>
+                      <div className={styles.accountName}>{account.name ?? account.accountName}</div>
                       <div className={styles.accountInstitution}>{account.institution}</div>
                     </div>
                     <span className={[styles.statusBadge, isAnchored ? styles.statusGood : styles.statusWarn].join(" ")}>

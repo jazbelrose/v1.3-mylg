@@ -306,6 +306,48 @@
   padding: 0;
 }
 
+.sparklineWrap {
+  display: grid;
+  gap: 10px;
+}
+
+.sparklineMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sparklineValue {
+  font-size: 18px;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.94);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparklineHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sparklineSvg {
+  width: 100%;
+  height: 70px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.sparklineLine {
+  stroke: rgba(45, 212, 191, 0.95);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .txnPreview {
   display: grid;
   gap: 10px;

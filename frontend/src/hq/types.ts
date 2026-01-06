@@ -24,16 +24,19 @@ export type HqTransactionType =
 export type HqAccount = {
   orgId: string;
   accountId: string;
-  accountName: string;
+  name: string;
+  /** @deprecated legacy field name; kept for backward compatibility */
+  accountName?: string;
   institution: string;
   currency: "USD";
   accountMask?: string;
   notes?: string;
 
-  anchorDate?: string; // YYYY-MM-DD
-  anchorBalance?: number;
+  anchorDate?: string | null; // YYYY-MM-DD
+  anchorBalance?: number | null;
 
   createdAt: string; // ISO
+  updatedAt: string; // ISO
 };
 
 export type HqImportRunStatus = "processing" | "completed" | "failed";

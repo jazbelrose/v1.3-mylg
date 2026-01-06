@@ -114,7 +114,7 @@ export function useHqStore<T>(orgId: string, selector: (state: HqStoreStateV1) =
 
 export function createAccount(
   orgId: string,
-  input: Omit<HqAccount, "orgId" | "accountId" | "createdAt" | "currency"> & {
+  input: Omit<HqAccount, "orgId" | "accountId" | "createdAt" | "updatedAt" | "currency"> & {
     currency?: "USD";
   }
 ): HqAccount {
@@ -122,7 +122,8 @@ export function createAccount(
   const account: HqAccount = {
     orgId,
     accountId: uuidv4(),
-    accountName: input.accountName,
+    name: (input.name || input.accountName || "").trim(),
+    accountName: (input.accountName || input.name || "").trim() || undefined,
     institution: input.institution,
     currency: "USD",
     accountMask: input.accountMask?.trim() || undefined,
@@ -130,6 +131,7 @@ export function createAccount(
     anchorDate: input.anchorDate,
     anchorBalance: input.anchorBalance,
     createdAt: now,
+    updatedAt: now,
   };
 
   updateState(orgId, (prev) => ({ ...prev, accounts: [account, ...prev.accounts] }));
@@ -139,7 +141,7 @@ export function createAccount(
 export function updateAccount(
   orgId: string,
   accountId: string,
-  patch: Partial<Pick<HqAccount, "accountName" | "institution" | "accountMask" | "notes" | "anchorDate" | "anchorBalance">>
+  patch: Partial<Pick<HqAccount, "name" | "accountName" | "institution" | "accountMask" | "notes" | "anchorDate" | "anchorBalance" | "updatedAt">>
 ) {
   updateState(orgId, (prev) => {
     const accounts = prev.accounts.map((acct) =>
@@ -147,6 +149,18 @@ export function updateAccount(
         ? {
             ...acct,
             ...patch,
+            name:
+              patch.name !== undefined
+                ? (patch.name || "").trim()
+                : patch.accountName !== undefined
+                  ? (patch.accountName || "").trim()
+                  : acct.name,
+            accountName:
+              patch.accountName !== undefined
+                ? (patch.accountName || "").trim() || undefined
+                : patch.name !== undefined
+                  ? (patch.name || "").trim() || undefined
+                  : acct.accountName,
             accountMask: patch.accountMask === undefined ? acct.accountMask : patch.accountMask?.trim() || undefined,
             notes: patch.notes === undefined ? acct.notes : patch.notes?.trim() || undefined,
           }

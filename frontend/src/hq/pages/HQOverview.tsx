@@ -18,6 +18,7 @@ import {
   inRange,
   type HqRangeId,
 } from "@/hq/lib/hqMetrics";
+import { computeTotalBalanceCurveLast365Days } from "@/hq/lib/hqBalanceCurve";
 import type { HqAlert } from "@/hq/types";
 import styles from "./HQOverview.module.css";
 
@@ -113,6 +114,32 @@ const HQOverview: React.FC = () => {
   const maxFlow = Math.max(1, ...monthlyFlow.flatMap((row) => [row.inflow, row.outflow]));
   const topCategories = React.useMemo(() => computeTopCategories(transactions, start, end), [end, start, transactions]);
   const latestTransactions = React.useMemo(() => transactions.slice(0, 20), [transactions]);
+
+  const balanceCurve = React.useMemo(() => computeTotalBalanceCurveLast365Days(accounts, transactions), [accounts, transactions]);
+
+  const sparkline = React.useMemo(() => {
+    if (!balanceCurve.length) return null;
+
+    const values = balanceCurve.map((p) => p.balance);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = Math.max(1e-9, max - min);
+
+    const w = 100;
+    const h = 32;
+    const padY = 2;
+
+    const points = balanceCurve
+      .map((p, idx) => {
+        const x = (idx / Math.max(1, balanceCurve.length - 1)) * w;
+        const yNorm = (p.balance - min) / range;
+        const y = padY + (1 - yNorm) * (h - padY * 2);
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+
+    return { points, min, max };
+  }, [balanceCurve]);
 
   const alerts: HqAlert[] = React.useMemo(() => {
     const items: HqAlert[] = [];
@@ -276,10 +303,26 @@ const HQOverview: React.FC = () => {
             )}
           </HQCard>
 
-          <HQCard title="Recurring commitments" subtitle="Candidates" aria-label="Recurring vendor commitments">
-            <div className={styles.inlineNote}>
-              v1 shows candidates after you’ve imported enough history.
-            </div>
+          <HQCard title="Cash balance curve" subtitle="Last 12 months" aria-label="Cash balance curve">
+            {sparkline && totals.cashOnHand !== null ? (
+              <div className={styles.sparklineWrap}>
+                <div className={styles.sparklineMeta}>
+                  <div className={styles.sparklineValue}>{currency.format(totals.cashOnHand)}</div>
+                  <div className={styles.sparklineHint}>Ending balance today (anchored)</div>
+                </div>
+                <svg
+                  className={styles.sparklineSvg}
+                  viewBox="0 0 100 32"
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-label="Cash balance sparkline"
+                >
+                  <polyline className={styles.sparklineLine} fill="none" points={sparkline.points} />
+                </svg>
+              </div>
+            ) : (
+              <div className={styles.emptyState}>Set ending balance today on your accounts to see the curve.</div>
+            )}
           </HQCard>
         </div>
 
@@ -326,7 +369,7 @@ const HQOverview: React.FC = () => {
               <ul className={styles.list}>
                 {accounts.slice(0, 5).map((acct) => (
                   <li key={acct.accountId} className={styles.listItem}>
-                    <span className={styles.accountName}>{acct.accountName}</span>
+                    <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
                     <Link className={styles.cardLink} to="/dashboard/hq/accounts">
                       {acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}
                     </Link>

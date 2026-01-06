@@ -222,7 +222,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
               </option>
               {accounts.map((a) => (
                 <option key={a.accountId} value={a.accountId}>
-                  {a.accountName} · {a.institution}
+                  {a.name ?? a.accountName} · {a.institution}
                 </option>
               ))}
             </select>
@@ -241,7 +241,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
                 <div className={styles.previewTitle}>Preview</div>
                 <div className={styles.inlineNote}>
                   Showing {Math.min(20, parsed?.length ?? 0)} of {parsed?.length ?? 0} rows for{" "}
-                  <span className={styles.inlineStrong}>{selectedAccount?.accountName ?? "Account"}</span>.
+                  <span className={styles.inlineStrong}>{selectedAccount?.name ?? selectedAccount?.accountName ?? "Account"}</span>.
                 </div>
               </div>
               <button type="button" className={styles.secondaryButton} onClick={() => setStep(1)}>
@@ -289,7 +289,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
                 </div>
                 <div>
                   <div className={styles.metaLabel}>Account</div>
-                  <div className={styles.metaValue}>{selectedAccount?.accountName || "—"}</div>
+                  <div className={styles.metaValue}>{selectedAccount?.name ?? selectedAccount?.accountName ?? "—"}</div>
                 </div>
                 <div>
                   <div className={styles.metaLabel}>Rows</div>

@@ -42,7 +42,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
     if (!canSave) return;
     try {
       const account = await createHqAccount(orgId, {
-        accountName: accountName.trim(),
+        name: accountName.trim(),
         institution: institution.trim(),
         accountMask: accountMask.trim() || undefined,
         notes: notes.trim() || undefined,
