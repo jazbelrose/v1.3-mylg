@@ -46,9 +46,9 @@ export function monthLabel(yyyyMm: string): string {
 
 export function computeCashOnHand(accounts: HqAccount[], transactions: HqTransaction[]): number | null {
   if (accounts.length === 0) return null;
-  const accountsWithAnchors = accounts.filter(
-    (a) => typeof a.anchorBalance === "number" && a.anchorDate
-  );
+  const accountsWithAnchors = accounts
+    .filter((a) => !a.archivedAt && a.includeInCashOnHand !== false)
+    .filter((a) => typeof a.anchorBalance === "number" && a.anchorDate);
   if (accountsWithAnchors.length === 0) return null;
 
   let total = 0;

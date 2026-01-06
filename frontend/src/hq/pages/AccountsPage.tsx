@@ -5,8 +5,10 @@ import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import SetAnchorModal from "@/hq/components/SetAnchorModal";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
+import { toast } from "react-toastify";
+import { deleteHqAccount, patchHqAccount } from "@/hq/lib/hqApi";
 import { computeCashOnHand } from "@/hq/lib/hqMetrics";
-import { useHqStore } from "@/hq/lib/hqStore";
+import { updateAccount as updateAccountLocal, useHqStore } from "@/hq/lib/hqStore";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import type { HqAccount } from "@/hq/types";
 import styles from "./AccountsPage.module.css";
@@ -28,12 +30,29 @@ const AccountsPage: React.FC = () => {
 
   const accounts = useHqStore(orgId, (s) => s.accounts);
   const transactions = useHqStore(orgId, (s) => s.transactions);
+  const cashOnHandAggregate = useHqStore(orgId, (s) => s.cashOnHandAggregate ?? null);
+  const missingAnchorAccountIds = useHqStore(orgId, (s) => s.missingAnchorAccountIds ?? []);
 
   const [isAddOpen, setIsAddOpen] = React.useState(false);
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [anchorAccount, setAnchorAccount] = React.useState<HqAccount | null>(null);
 
-  const cashOnHand = React.useMemo(() => computeCashOnHand(accounts, transactions), [accounts, transactions]);
+  const cashOnHand = React.useMemo(() => {
+    if (typeof cashOnHandAggregate === "number") return cashOnHandAggregate;
+    return computeCashOnHand(accounts, transactions);
+  }, [accounts, cashOnHandAggregate, transactions]);
+
+  const includedAccounts = React.useMemo(
+    () => accounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false),
+    [accounts]
+  );
+
+  const derivedMissingAnchors = React.useMemo(() => {
+    if (missingAnchorAccountIds.length) return missingAnchorAccountIds;
+    return includedAccounts
+      .filter((a) => !(a.anchorDate && typeof a.anchorBalance === "number"))
+      .map((a) => a.accountId);
+  }, [includedAccounts, missingAnchorAccountIds]);
 
   const openAdd = React.useCallback(() => {
     if (!canAdmin) return;
@@ -44,6 +63,44 @@ const AccountsPage: React.FC = () => {
     if (!canAdmin) return;
     setIsImportOpen(true);
   }, [canAdmin]);
+
+  const handleToggleInclude = React.useCallback(
+    async (account: HqAccount, next: boolean) => {
+      if (!activeOrgId || !canAdmin) return;
+
+      updateAccountLocal(orgId, account.accountId, { includeInCashOnHand: next, updatedAt: new Date().toISOString() });
+
+      try {
+        await patchHqAccount(activeOrgId, account.accountId, { includeInCashOnHand: next });
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      } catch (err) {
+        console.error(err);
+        toast.error(err instanceof Error ? err.message : "Could not update account.");
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      }
+    },
+    [activeOrgId, canAdmin, orgId]
+  );
+
+  const handleDeleteAccount = React.useCallback(
+    async (account: HqAccount) => {
+      if (!activeOrgId || !canAdmin) return;
+      const confirmText = window.prompt(
+        `Type DELETE to permanently delete account "${account.name ?? account.accountName}" and all its HQ data.`
+      );
+      if (confirmText !== "DELETE") return;
+
+      try {
+        await deleteHqAccount(activeOrgId, account.accountId);
+        toast.success("Account deleted.");
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      } catch (err) {
+        console.error(err);
+        toast.error(err instanceof Error ? err.message : "Could not delete account.");
+      }
+    },
+    [activeOrgId, canAdmin]
+  );
 
   const actions = (
     <div className={styles.actions}>
@@ -74,9 +131,11 @@ const AccountsPage: React.FC = () => {
               {cashOnHand === null ? "—" : currency.format(cashOnHand)}
             </div>
             <div className={styles.summaryHint}>
-              {accounts.some((a) => a.anchorDate && typeof a.anchorBalance === "number")
-                ? "Anchored balances + net flow since anchor"
-                : "Set anchors to enable"}
+              {includedAccounts.length === 0
+                ? "No accounts included"
+                : derivedMissingAnchors.length > 0
+                  ? `${derivedMissingAnchors.length} included account(s) missing anchors`
+                  : "Anchored balances + net flow since anchor"}
             </div>
           </div>
           <div className={styles.summaryCard}>
@@ -107,6 +166,7 @@ const AccountsPage: React.FC = () => {
           <div className={styles.accountsGrid}>
             {accounts.map((account) => {
               const isAnchored = account.anchorDate && typeof account.anchorBalance === "number";
+              const isIncluded = !account.archivedAt && account.includeInCashOnHand !== false;
               return (
                 <article key={account.accountId} className={styles.accountCard}>
                   <header className={styles.accountHeader}>
@@ -130,6 +190,15 @@ const AccountsPage: React.FC = () => {
                     <span>{account.currency}</span>
                     {account.accountMask ? <span>•••• {account.accountMask}</span> : null}
                     {account.anchorDate ? <span>as-of {account.anchorDate}</span> : null}
+                    <label className={styles.includeToggle}>
+                      <input
+                        type="checkbox"
+                        checked={isIncluded}
+                        disabled={!canAdmin}
+                        onChange={(e) => handleToggleInclude(account, e.target.checked)}
+                      />
+                      Include in Cash on Hand
+                    </label>
                   </div>
 
                   <div className={styles.cardActions}>
@@ -144,6 +213,13 @@ const AccountsPage: React.FC = () => {
                         </button>
                         <button type="button" className={styles.primaryButton} onClick={openImport}>
                           Import
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          onClick={() => void handleDeleteAccount(account)}
+                        >
+                          Delete
                         </button>
                       </>
                     ) : null}

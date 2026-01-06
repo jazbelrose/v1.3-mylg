@@ -31,6 +31,13 @@ export function useHqBootstrap(orgId: string | null) {
           importRuns: Array.isArray(summary.importRuns) ? summary.importRuns : [],
           transactions: Array.isArray(txnsRes.transactions) ? txnsRes.transactions : [],
           categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
+          cashOnHandAggregate:
+            typeof (summary as { cashOnHandAggregate?: unknown }).cashOnHandAggregate === "number"
+              ? ((summary as { cashOnHandAggregate: number }).cashOnHandAggregate as number)
+              : null,
+          missingAnchorAccountIds: Array.isArray((summary as { missingAnchorAccountIds?: unknown }).missingAnchorAccountIds)
+            ? ((summary as { missingAnchorAccountIds: string[] }).missingAnchorAccountIds as string[])
+            : [],
         };
 
         hydrateHqState(orgId, next);

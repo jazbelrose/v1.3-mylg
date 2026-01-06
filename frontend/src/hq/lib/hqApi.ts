@@ -8,6 +8,8 @@ export type HqSummaryResponse = {
   importRuns: HqImportRun[];
   importWarnings?: string[];
   categoryRules?: HqCategoryRule[];
+  cashOnHandAggregate?: number | null;
+  missingAnchorAccountIds?: string[];
 };
 
 export type HqTransactionsResponse = {
@@ -153,6 +155,24 @@ export async function applyHqCategoryRules(
 export async function deleteHqImportRun(orgId: string, importRunId: string): Promise<{ ok: boolean } & Record<string, unknown>> {
   const base = getHqServiceBaseUrl();
   return apiFetch(`${base}/hq/import-runs/${encodeURIComponent(importRunId)}?orgId=${encodeURIComponent(orgId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteHqAccount(orgId: string, accountId: string): Promise<{ ok: boolean } & Record<string, unknown>> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch(`${base}/hq/accounts/${encodeURIComponent(accountId)}?orgId=${encodeURIComponent(orgId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function resetHqData(
+  orgId: string,
+  mode: "all" | "keepRules" = "all"
+): Promise<{ ok: boolean } & Record<string, unknown>> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId, mode });
+  return apiFetch(`${base}/hq/reset?${params.toString()}`, {
     method: "DELETE",
   });
 }

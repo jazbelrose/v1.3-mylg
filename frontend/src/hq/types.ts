@@ -32,6 +32,9 @@ export type HqAccount = {
   accountMask?: string;
   notes?: string;
 
+  includeInCashOnHand?: boolean;
+  archivedAt?: string | null;
+
   anchorDate?: string | null; // YYYY-MM-DD
   anchorBalance?: number | null;
 
@@ -114,4 +117,7 @@ export type HqStoreStateV1 = {
   importRuns: HqImportRun[];
   transactions: HqTransaction[];
   categoryRules: HqCategoryRule[];
+
+  cashOnHandAggregate?: number | null;
+  missingAnchorAccountIds?: string[];
 };

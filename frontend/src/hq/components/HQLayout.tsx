@@ -10,8 +10,9 @@ import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import { useUser } from "@/app/contexts/useUser";
-import { useOrg } from "@/app/contexts/useOrg";
+import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { toast } from "react-toastify";
+import { resetHqData } from "@/hq/lib/hqApi";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import styles from "./HQLayout.module.css";
@@ -44,7 +45,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   children,
 }) => {
   const { userName, isAdmin } = useUser();
-  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading, createOrg, deleteOrg } = useOrg();
+  const { orgs, activeOrgId, activeOrgRole, setActiveOrgId, isLoading: orgsLoading, createOrg, deleteOrg } = useOrg();
   const [flags, setFlags] = useState<ViewportFlags>(() => getViewportFlags());
   const [isNavCollapsed, setIsNavCollapsed] = useNavCollapsed("dashboard");
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
@@ -111,6 +112,27 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     }
   }, [activeOrgId, activeOrgName, deleteOrg]);
 
+  const canOrgAdmin = Boolean(activeOrgId) && isOrgAdmin(activeOrgRole);
+
+  const handleResetHq = useCallback(async () => {
+    if (!activeOrgId) return;
+    if (!canOrgAdmin) return;
+
+    const confirmText = window.prompt(
+      `Type RESET to delete all HQ accounts/imports/transactions for "${activeOrgName || activeOrgId}". (Rules will be kept.)`
+    );
+    if (confirmText !== "RESET") return;
+
+    try {
+      await resetHqData(activeOrgId, "keepRules");
+      toast.success("HQ data reset.");
+      window.dispatchEvent(new Event("mylg:hq-refresh"));
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Could not reset HQ data.");
+    }
+  }, [activeOrgId, activeOrgName, canOrgAdmin]);
+
   const pageHeader = (
     <header className={styles.pageHeader}>
       <div className={styles.pageHeading}>
@@ -145,6 +167,11 @@ const HQLayout: React.FC<HQLayoutProps> = ({
           {isAdmin && activeOrgId ? (
             <button type="button" className={styles.orgCreateButton} onClick={handleDeleteOrg}>
               Delete org
+            </button>
+          ) : null}
+          {canOrgAdmin && activeOrgId ? (
+            <button type="button" className={styles.orgCreateButton} onClick={handleResetHq}>
+              Reset HQ Data
             </button>
           ) : null}
           {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
@@ -186,6 +213,11 @@ const HQLayout: React.FC<HQLayoutProps> = ({
         {isAdmin && activeOrgId ? (
           <button type="button" className={styles.orgCreateButton} onClick={handleDeleteOrg}>
             Delete org
+          </button>
+        ) : null}
+        {canOrgAdmin && activeOrgId ? (
+          <button type="button" className={styles.orgCreateButton} onClick={handleResetHq}>
+            Reset HQ Data
           </button>
         ) : null}
         {actions ? <div className={styles.actionSlot}>{actions}</div> : null}

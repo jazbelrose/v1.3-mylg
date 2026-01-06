@@ -41,6 +41,8 @@ function defaultState(orgId: string): HqStoreStateV1 {
     importRuns: [],
     transactions: [],
     categoryRules: [],
+    cashOnHandAggregate: null,
+    missingAnchorAccountIds: [],
   };
 }
 
@@ -74,6 +76,8 @@ export function readHqState(orgId: string): HqStoreStateV1 {
             accountName: (acct as { accountName?: string }).accountName ?? name,
             anchorDate: (acct as { anchorDate?: string | null }).anchorDate ?? null,
             anchorBalance: (acct as { anchorBalance?: number | null }).anchorBalance ?? null,
+            includeInCashOnHand: (acct as { includeInCashOnHand?: boolean }).includeInCashOnHand ?? true,
+            archivedAt: (acct as { archivedAt?: string | null }).archivedAt ?? null,
             createdAt,
             updatedAt: (acct as { updatedAt?: string }).updatedAt ?? createdAt,
           };
@@ -144,6 +148,8 @@ export function createAccount(
     notes: input.notes?.trim() || undefined,
     anchorDate: input.anchorDate,
     anchorBalance: input.anchorBalance,
+    includeInCashOnHand: input.includeInCashOnHand !== false,
+    archivedAt: input.archivedAt ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -155,7 +161,7 @@ export function createAccount(
 export function updateAccount(
   orgId: string,
   accountId: string,
-  patch: Partial<Pick<HqAccount, "name" | "accountName" | "institution" | "accountMask" | "notes" | "anchorDate" | "anchorBalance" | "updatedAt">>
+  patch: Partial<Pick<HqAccount, "name" | "accountName" | "institution" | "accountMask" | "notes" | "anchorDate" | "anchorBalance" | "includeInCashOnHand" | "archivedAt" | "updatedAt">>
 ) {
   updateState(orgId, (prev) => {
     const accounts = prev.accounts.map((acct) =>

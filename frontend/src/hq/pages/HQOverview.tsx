@@ -73,11 +73,14 @@ const HQOverview: React.FC = () => {
   const accounts = useHqStore(orgId, (s) => s.accounts);
   const transactions = useHqStore(orgId, (s) => s.transactions);
   const importRuns = useHqStore(orgId, (s) => s.importRuns);
+  const cashOnHandAggregate = useHqStore(orgId, (s) => s.cashOnHandAggregate ?? null);
+  const missingAnchorAccountIds = useHqStore(orgId, (s) => s.missingAnchorAccountIds ?? []);
 
   const { start, end } = getRange(selectedRange);
 
   const totals = React.useMemo(() => {
-    const cashOnHand = computeCashOnHand(accounts, transactions);
+    const cashOnHand =
+      typeof cashOnHandAggregate === "number" ? cashOnHandAggregate : computeCashOnHand(accounts, transactions);
     const burnOutflow = computeTrailingBurn(transactions, 3);
     const runwayMonths =
       cashOnHand !== null && burnOutflow !== null && burnOutflow > 0
@@ -93,7 +96,19 @@ const HQOverview: React.FC = () => {
     const uncategorizedCount = rangeTxns.filter((t) => !t.categoryId || t.categoryId === "OTHER").length;
 
     return { cashOnHand, burnOutflow, runwayMonths, net, inflow, outflow, uncategorizedCount };
-  }, [accounts, end, start, transactions]);
+  }, [accounts, cashOnHandAggregate, end, start, transactions]);
+
+  const includedAccounts = React.useMemo(
+    () => accounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false),
+    [accounts]
+  );
+
+  const derivedMissingAnchors = React.useMemo(() => {
+    if (missingAnchorAccountIds.length) return missingAnchorAccountIds;
+    return includedAccounts
+      .filter((a) => !(a.anchorDate && typeof a.anchorBalance === "number"))
+      .map((a) => a.accountId);
+  }, [includedAccounts, missingAnchorAccountIds]);
 
   const actions = (
     <div className={styles.actions}>
@@ -252,9 +267,11 @@ const HQOverview: React.FC = () => {
                 {totals.cashOnHand === null ? "—" : currency.format(totals.cashOnHand)}
               </div>
               <div className={styles.kpiHint}>
-                {accounts.some((a) => a.anchorDate && typeof a.anchorBalance === "number")
-                  ? "Anchored balances + net flow"
-                  : "Set an anchor to enable"}
+                {includedAccounts.length === 0
+                  ? "No accounts included"
+                  : derivedMissingAnchors.length > 0
+                    ? `${includedAccounts.length} included · ${derivedMissingAnchors.length} missing anchors`
+                    : `${includedAccounts.length} included · anchored balances + net flow`}
               </div>
             </div>
             <div className={styles.kpi}>
@@ -269,7 +286,7 @@ const HQOverview: React.FC = () => {
               <div className={styles.kpiValue}>
                 {totals.runwayMonths === null
                   ? "—"
-                  : totals.avgMonthlyBurn === 0
+                  : totals.burnOutflow === 0
                     ? "Stable"
                     : `${runwayFormatter.format(totals.runwayMonths)} mo`}
               </div>

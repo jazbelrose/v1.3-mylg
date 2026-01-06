@@ -227,6 +227,8 @@ const getSummary = async (e, C) => {
     notes: a.notes,
     anchorDate: a.anchorDate,
     anchorBalance: a.anchorBalance,
+    includeInCashOnHand: a.includeInCashOnHand !== false,
+    archivedAt: a.archivedAt || null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt || a.createdAt,
   }));
@@ -254,6 +256,55 @@ const getSummary = async (e, C) => {
 
   const categoryRules = await ensureSeedRulepack(orgId);
 
+  // Cash-on-hand aggregation (server-side), using ALL transactions, not just the client cache.
+  // Included accounts default to true unless explicitly disabled.
+  const includedAccounts = accounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false);
+  const missingAnchorAccountIds = includedAccounts
+    .filter((a) => !(a.anchorDate && typeof a.anchorBalance === "number"))
+    .map((a) => a.accountId);
+
+  const anchoredAccounts = includedAccounts.filter((a) => a.anchorDate && typeof a.anchorBalance === "number");
+  let cashOnHandAggregate = null;
+
+  if (anchoredAccounts.length) {
+    const anchors = new Map();
+    for (const a of anchoredAccounts) {
+      anchors.set(a.accountId, { anchorDate: a.anchorDate, anchorBalance: a.anchorBalance });
+    }
+
+    const netByAccount = {};
+    for (const a of anchoredAccounts) netByAccount[a.accountId] = 0;
+
+    let lastKey;
+    do {
+      const page = await ddb.query({
+        TableName: HQ_TABLE,
+        KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+        ExclusiveStartKey: lastKey,
+      });
+
+      for (const t of page.Items || []) {
+        const anchor = anchors.get(t.accountId);
+        if (!anchor) continue;
+        if (t.isInternalTransfer) continue;
+        if (typeof t.postedAt !== "string" || !t.postedAt) continue;
+        if (t.postedAt <= anchor.anchorDate) continue;
+        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
+        if (!Number.isFinite(amt)) continue;
+        netByAccount[t.accountId] += amt;
+      }
+
+      lastKey = page.LastEvaluatedKey;
+    } while (lastKey);
+
+    let total = 0;
+    for (const a of anchoredAccounts) {
+      total += (a.anchorBalance || 0) + (netByAccount[a.accountId] || 0);
+    }
+    cashOnHandAggregate = Math.round(total * 100) / 100;
+  }
+
   return json(200, C, {
     orgId,
     orgRole: membership.role,
@@ -261,6 +312,8 @@ const getSummary = async (e, C) => {
     importRuns,
     importWarnings,
     categoryRules,
+    cashOnHandAggregate,
+    missingAnchorAccountIds,
   });
 };
 
@@ -621,6 +674,8 @@ const createAccount = async (e, C) => {
     notes: typeof body.notes === "string" ? body.notes.trim() || undefined : undefined,
     anchorDate: typeof body.anchorDate === "string" ? body.anchorDate.trim() || undefined : undefined,
     anchorBalance: typeof body.anchorBalance === "number" ? body.anchorBalance : undefined,
+    includeInCashOnHand: body.includeInCashOnHand === false ? false : true,
+    archivedAt: null,
     createdAt,
     updatedAt,
   };
@@ -667,6 +722,9 @@ const patchAccount = async (e, C, { accountId }) => {
   if (typeof body.notes === "string") setField("notes", body.notes.trim() || null);
   if (typeof body.anchorDate === "string") setField("anchorDate", body.anchorDate.trim() || null);
   if (typeof body.anchorBalance === "number" || body.anchorBalance === null) setField("anchorBalance", body.anchorBalance);
+  if (typeof body.includeInCashOnHand === "boolean") setField("includeInCashOnHand", body.includeInCashOnHand);
+  if (typeof body.archivedAt === "string") setField("archivedAt", body.archivedAt.trim() || null);
+  if (body.archivedAt === null) setField("archivedAt", null);
 
   // Always bump updatedAt for any accepted patch.
   if (sets.length) setField("updatedAt", nowISO());
@@ -683,6 +741,128 @@ const patchAccount = async (e, C, { accountId }) => {
   });
 
   return json(200, C, { account: res.Attributes || null });
+};
+
+// DELETE /hq/accounts/:accountId?orgId=...
+const deleteAccount = async (e, C, { accountId }) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const existing = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skAccount(accountId) } });
+  if (!existing?.Item) throw httpError(404, "Not found");
+
+  let deletedTransactions = 0;
+  let deletedImportRuns = 0;
+
+  // Delete transactions for this account.
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    const deletes = (page.Items || [])
+      .filter((t) => t.accountId === accountId)
+      .map((t) => ({ DeleteRequest: { Key: { orgId, sk: t.sk } } }));
+
+    for (const batch of chunk(deletes, 25)) {
+      await ddb.batchWrite({ RequestItems: { [HQ_TABLE]: batch } });
+      deletedTransactions += batch.length;
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Delete import runs for this account.
+  lastKey = undefined;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "IMPORT#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    const deletes = (page.Items || [])
+      .filter((r) => r.accountId === accountId)
+      .map((r) => ({ DeleteRequest: { Key: { orgId, sk: r.sk } } }));
+
+    for (const batch of chunk(deletes, 25)) {
+      await ddb.batchWrite({ RequestItems: { [HQ_TABLE]: batch } });
+      deletedImportRuns += batch.length;
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  await ddb.delete({ TableName: HQ_TABLE, Key: { orgId, sk: skAccount(accountId) } });
+
+  return json(200, C, { ok: true, accountId, deletedTransactions, deletedImportRuns });
+};
+
+// DELETE /hq/reset?orgId=...&mode=all|keepRules
+const resetHq = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const mode = String(q.mode || "all").trim();
+  const keepRules = mode.toLowerCase() === "keeprules";
+
+  let deletedAccounts = 0;
+  let deletedTransactions = 0;
+  let deletedImportRuns = 0;
+  let deletedRules = 0;
+  let deletedOther = 0;
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o",
+      ExpressionAttributeValues: { ":o": orgId },
+      ExclusiveStartKey: lastKey,
+    });
+
+    const deletes = [];
+    for (const item of page.Items || []) {
+      const sk = String(item.sk || "");
+      if (keepRules && sk.startsWith("RULE#")) continue;
+      deletes.push({ DeleteRequest: { Key: { orgId, sk } } });
+
+      if (sk.startsWith("ACCOUNT#")) deletedAccounts += 1;
+      else if (sk.startsWith("TXN#")) deletedTransactions += 1;
+      else if (sk.startsWith("IMPORT#")) deletedImportRuns += 1;
+      else if (sk.startsWith("RULE#")) deletedRules += 1;
+      else deletedOther += 1;
+    }
+
+    for (const batch of chunk(deletes, 25)) {
+      await ddb.batchWrite({ RequestItems: { [HQ_TABLE]: batch } });
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return json(200, C, {
+    ok: true,
+    orgId,
+    mode: keepRules ? "keepRules" : "all",
+    deletedAccounts,
+    deletedTransactions,
+    deletedImportRuns,
+    deletedRules,
+    deletedOther,
+  });
 };
 
 // POST /hq/import-csv?orgId=...
@@ -922,6 +1102,9 @@ const routes = [
 
   { m: "POST", r: /^\/hq\/accounts\/?$/i, h: createAccount },
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },
+  { m: "DELETE", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: deleteAccount },
+
+  { m: "DELETE", r: /^\/hq\/reset\/?$/i, h: resetHq },
 ];
 
 export async function handler(event) {
