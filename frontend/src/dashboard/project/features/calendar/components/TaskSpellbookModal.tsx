@@ -398,7 +398,7 @@ export default function TaskSpellbookModal({
               <textarea
                 ref={inputRef}
                 className={styles.textarea}
-                placeholder={`Paste anything: notes dump, PR bullets, checklists...\n\nExamples:\n- GitHub: review PR #421 + merge (45m)\n- Production checklist: comms, load-in, backups\n- @Leah: handoff notes + next steps\n- @Jaz: QA pass + screenshots`}
+                placeholder={`Paste anything: notes dump, PR bullets, checklists...\n\nExamples:\n- Site walk → measurements + photos (45m)\n- Drape plot v3 → elevations + softgoods (1h)\n- Step & repeat → proof review + approve (35m)\n- Vendor RFQs → scenic + print + labor (1h)\n- C4D/Redshift → hero render pass (2h)\n- Invoice draft + send (30m)`}
                 value={text}
                 onChange={(event) => {
                   const next = event.target.value;

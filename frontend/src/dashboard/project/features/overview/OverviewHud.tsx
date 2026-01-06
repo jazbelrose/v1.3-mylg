@@ -268,6 +268,8 @@ export function OverviewHud({
         overdueCount={overdueCount}
         completedPercent={completedPercent}
         hasBudget={hasBudget}
+        showConjurePlan={!clientMode}
+        onConjurePlan={handleConjurePlan}
       />
 
       {/* Health Strip - 4 tiles */}
@@ -315,13 +317,6 @@ export function OverviewHud({
         </div>
       </div>
 
-      {!clientMode && (
-        <div className={styles.conjurePlanFabWrap}>
-          <button type="button" className={styles.conjurePlanFab} onClick={handleConjurePlan}>
-            Conjure Plan
-          </button>
-        </div>
-      )}
     </div>
   );
 }

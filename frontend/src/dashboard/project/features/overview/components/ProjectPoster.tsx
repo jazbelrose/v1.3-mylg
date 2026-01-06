@@ -17,6 +17,7 @@ import {
   Calendar,
   Layers,
   ListTodo,
+  Sparkles,
   ChevronRight,
 } from 'lucide-react';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
@@ -59,6 +60,8 @@ interface ProjectPosterProps {
   overdueCount?: number;
   completedPercent?: number;
   hasBudget?: boolean;
+  showConjurePlan?: boolean;
+  onConjurePlan?: () => void;
 }
 
 // ============================================================================
@@ -162,6 +165,8 @@ export function ProjectPoster({
   overdueCount = 0,
   completedPercent,
   hasBudget = true,
+  showConjurePlan = false,
+  onConjurePlan,
 }: ProjectPosterProps) {
   const navigate = useNavigate();
 
@@ -230,6 +235,21 @@ export function ProjectPoster({
 
   return (
     <div className={styles.heroBanner}>
+      {showConjurePlan && onConjurePlan ? (
+        <div className={styles.conjurePlanBannerSlot}>
+          <button
+            type="button"
+            className={styles.conjurePlanBannerButton}
+            onClick={onConjurePlan}
+            aria-label="Conjure plan"
+          >
+            <span className={styles.conjurePlanBannerIcon} aria-hidden="true">
+              <Sparkles size={16} />
+            </span>
+            <span className={styles.conjurePlanBannerLabel}>Conjure Plan</span>
+          </button>
+        </div>
+      ) : null}
       {/* Left: Project Info Stack */}
       <div 
         className={styles.heroInfoColumn}
