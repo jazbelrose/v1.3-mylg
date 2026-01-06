@@ -14,6 +14,13 @@ import {
   type BudgetSpellbookVariant,
   type BudgetSpellbookVariantId,
 } from "../lib/budgetSpellbook";
+import {
+  buildPlanDraft,
+  defaultPlanDraftAssumptions,
+  type PlanDraft,
+  type PlanDraftAssumptions,
+  type PlanDraftOutputs,
+} from "../lib/planDraft";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -25,6 +32,8 @@ export type BudgetSpellbookApplyRequest = {
   variant: BudgetSpellbookVariant;
   parseResult: BudgetSpellbookParseResult;
   options: BudgetSpellbookGeneratorOptions;
+  outputs: PlanDraftOutputs;
+  planAssumptions: PlanDraftAssumptions;
 };
 
 export type BudgetSpellbookModalProps = {
@@ -34,6 +43,9 @@ export type BudgetSpellbookModalProps = {
   onApply: (request: BudgetSpellbookApplyRequest) => Promise<void> | void;
   canApply?: boolean;
   applyDisabledReason?: string;
+  entryPoint?: "budget" | "overview";
+  initialTab?: "budget" | "plan" | "assumptions";
+  initialOutputs?: Partial<PlanDraftOutputs>;
 };
 
 const isMeaningfulText = (value: string) => value.trim().length >= 3;
@@ -50,6 +62,9 @@ export default function BudgetSpellbookModal({
   onApply,
   canApply = true,
   applyDisabledReason,
+  entryPoint = "budget",
+  initialTab = "budget",
+  initialOutputs,
 }: BudgetSpellbookModalProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState("");
@@ -66,6 +81,27 @@ export default function BudgetSpellbookModal({
 
   const [applyMode, setApplyMode] = useState<BudgetSpellbookApplyMode>("add");
   const [isApplying, setIsApplying] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"budget" | "plan" | "assumptions">(initialTab);
+
+  const [outputs, setOutputs] = useState<PlanDraftOutputs>(() => {
+    const base: PlanDraftOutputs =
+      entryPoint === "overview"
+        ? { budget: true, calendarPlan: true, links: true }
+        : { budget: true, calendarPlan: false, links: false };
+    return {
+      budget: initialOutputs?.budget ?? base.budget,
+      calendarPlan: initialOutputs?.calendarPlan ?? base.calendarPlan,
+      links: initialOutputs?.links ?? base.links,
+    };
+  });
+
+  const [{ assumptions: defaultAssumptions, confidence: defaultConfidence }] = useState(() =>
+    defaultPlanDraftAssumptions({ eventDate: null, installDays: null }),
+  );
+
+  const [planAssumptions, setPlanAssumptions] = useState<PlanDraftAssumptions>(defaultAssumptions);
+  const [assumptionConfidence, setAssumptionConfidence] = useState(defaultConfidence);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -109,6 +145,17 @@ export default function BudgetSpellbookModal({
   );
 
   const parseResult = useMemo(() => parseBudgetSpellbookInput(text), [text]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const inferredDays = parseResult.inferred.installDays;
+    if (typeof inferredDays !== "number" || !Number.isFinite(inferredDays)) return;
+    setPlanAssumptions((prev) => ({
+      ...prev,
+      loadInHours: Math.max(2, Math.min(48, Math.round(inferredDays * 6))),
+    }));
+    setAssumptionConfidence((prev) => ({ ...prev, loadInHours: 0.7 }));
+  }, [isOpen, parseResult.inferred.installDays]);
   const variants = useMemo(() => buildBudgetSpellbookVariants(parseResult, options), [options, parseResult]);
   const selectedVariant = useMemo(
     () => variants.find((variant) => variant.id === variantId) ?? variants[0],
@@ -123,6 +170,27 @@ export default function BudgetSpellbookModal({
 
   const totals = useMemo(() => computeBudgetSpellbookTotals(selectedVariant.lines), [selectedVariant.lines]);
 
+  const planDraft: PlanDraft = useMemo(() => {
+    return buildPlanDraft({
+      budgetLines: selectedVariant.lines,
+      assumptions: planAssumptions,
+      confidence: assumptionConfidence,
+    });
+  }, [assumptionConfidence, planAssumptions, selectedVariant.lines]);
+
+  const [conjurePhase, setConjurePhase] = useState<0 | 1 | 2>(0);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (activeTab !== "plan") return;
+    setConjurePhase(0);
+    const t1 = window.setTimeout(() => setConjurePhase(1), 160);
+    const t2 = window.setTimeout(() => setConjurePhase(2), 360);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [activeTab, isOpen, planDraft.calendarBlocks.length, planDraft.tasks.length, selectedVariant.id]);
+
   const categoryBars = useMemo(() => {
     const rows = Object.entries(totals.byCategory)
       .map(([category, value]) => ({ category, value }))
@@ -132,8 +200,16 @@ export default function BudgetSpellbookModal({
     return rows.map((row) => ({ ...row, pct: max > 0 ? row.value / max : 0 }));
   }, [totals.byCategory]);
 
-  const canSubmit = isMeaningfulText(text) && canApply && !isApplying;
-  const applyTooltip = !canApply ? applyDisabledReason : undefined;
+  const requiresEventDate = outputs.calendarPlan || outputs.links;
+  const hasEventDate = Boolean(planAssumptions.eventDate && planAssumptions.eventDate.trim().length > 0);
+  const isBlockedByEventDate = requiresEventDate && !hasEventDate;
+
+  const canSubmit = isMeaningfulText(text) && canApply && !isApplying && !isBlockedByEventDate;
+  const applyTooltip = !canApply
+    ? applyDisabledReason
+    : isBlockedByEventDate
+      ? "Add an event date to generate the calendar plan."
+      : undefined;
 
   const handleApply = useCallback(async () => {
     if (!canSubmit) return;
@@ -145,13 +221,15 @@ export default function BudgetSpellbookModal({
         variant: selectedVariant,
         parseResult,
         options,
+        outputs,
+        planAssumptions,
       });
       onRequestClose();
       setText("");
     } finally {
       setIsApplying(false);
     }
-  }, [applyMode, canSubmit, onApply, onRequestClose, options, parseResult, selectedVariant]);
+  }, [applyMode, canSubmit, onApply, onRequestClose, options, outputs, parseResult, planAssumptions, selectedVariant]);
 
   if (!isOpen) return null;
 
@@ -208,6 +286,69 @@ export default function BudgetSpellbookModal({
         </div>
 
         <div className={styles.rightPane}>
+          <div className={styles.outputsRow} aria-label="Outputs">
+            <button
+              type="button"
+              className={`${styles.outputToggle} ${outputs.budget ? styles.outputToggleOn : ""}`}
+              onClick={() => setOutputs((prev) => ({ ...prev, budget: !prev.budget }))}
+            >
+              <span className={styles.outputToggleCheck} aria-hidden>
+                {outputs.budget ? "✓" : ""}
+              </span>
+              <span>Budget</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.outputToggle} ${outputs.calendarPlan ? styles.outputToggleOn : ""}`}
+              onClick={() => setOutputs((prev) => ({ ...prev, calendarPlan: !prev.calendarPlan }))}
+            >
+              <span className={styles.outputToggleCheck} aria-hidden>
+                {outputs.calendarPlan ? "✓" : ""}
+              </span>
+              <span>Calendar Plan</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.outputToggle} ${outputs.links ? styles.outputToggleOn : ""}`}
+              onClick={() => setOutputs((prev) => ({ ...prev, links: !prev.links }))}
+            >
+              <span className={styles.outputToggleCheck} aria-hidden>
+                {outputs.links ? "✓" : ""}
+              </span>
+              <span>Links</span>
+            </button>
+          </div>
+
+          <div className={styles.tabs} role="tablist" aria-label="Preview">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "budget"}
+              className={`${styles.tab} ${activeTab === "budget" ? styles.tabActive : ""}`}
+              onClick={() => setActiveTab("budget")}
+            >
+              Budget
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "plan"}
+              className={`${styles.tab} ${activeTab === "plan" ? styles.tabActive : ""}`}
+              onClick={() => setActiveTab("plan")}
+            >
+              Plan
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "assumptions"}
+              className={`${styles.tab} ${activeTab === "assumptions" ? styles.tabActive : ""}`}
+              onClick={() => setActiveTab("assumptions")}
+            >
+              Assumptions
+            </button>
+          </div>
+
           <div className={styles.rail}>
             {variants.map((variant) => (
               <button
@@ -223,75 +364,269 @@ export default function BudgetSpellbookModal({
           </div>
 
           <div className={styles.preview}>
-            <div className={styles.totals}>
-              <div className={styles.totalCard}>
-                <div className={styles.totalLabel}>Budgeted</div>
-                <div className={styles.totalValue}>{formatMoney(totals.budgeted)}</div>
-              </div>
-              <div className={styles.totalCard}>
-                <div className={styles.totalLabel}>Final</div>
-                <div className={styles.totalValue}>{formatMoney(totals.final)}</div>
-              </div>
-              <div className={styles.totalCard}>
-                <div className={styles.totalLabel}>Effective markup</div>
-                <div className={styles.totalValue}>{percentLabel(totals.effectiveMarkup)}</div>
-              </div>
-            </div>
-
-            <div className={styles.breakdown}>
-              <div className={styles.breakdownTitle}>Category breakdown</div>
-              <div className={styles.breakdownRows}>
-                {categoryBars.length ? (
-                  categoryBars.map((row) => (
-                    <div key={row.category} className={styles.breakdownRow}>
-                      <div className={styles.breakdownLabel}>{row.category}</div>
-                      <div className={styles.breakdownBar}>
-                        <div className={styles.breakdownFill} style={{ width: `${Math.round(row.pct * 100)}%` }} />
-                      </div>
-                      <div className={styles.breakdownValue}>{formatMoney(row.value)}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className={styles.breakdownEmpty}>Generate a structure to preview totals.</div>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.lines}>
-              <div className={styles.linesHeader}>
-                <div>Line items</div>
-                <div className={styles.linesCount}>{selectedVariant.lines.length}</div>
-              </div>
-              <div className={styles.linesTable} role="table" aria-label="Spellbook preview line items">
-                {selectedVariant.lines.map((line) => (
-                  <div key={line.id} className={styles.lineRow} role="row">
-                    <div className={styles.lineMeta} role="cell">
-                      <div className={styles.lineCategory}>{line.category}</div>
-                      <div className={styles.lineDesc}>{line.description}</div>
-                      <div className={styles.lineGroups}>
-                        <span>{line.areaGroup}</span>
-                        <span>•</span>
-                        <span>{line.invoiceGroup}</span>
-                        {line.packageLabel ? (
-                          <>
-                            <span>•</span>
-                            <span>{line.packageLabel}</span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className={styles.lineQty} role="cell">
-                      <div className={styles.lineQtyTop}>
-                        {line.quantity} {line.unit}
-                      </div>
-                      <div className={styles.lineQtyBottom}>
-                        {formatMoney(line.itemBudgetedCost)} • {percentLabel(line.itemMarkUp)}
-                      </div>
-                    </div>
+            {activeTab === "budget" ? (
+              <>
+                <div className={styles.totals}>
+                  <div className={styles.totalCard}>
+                    <div className={styles.totalLabel}>Budgeted</div>
+                    <div className={styles.totalValue}>{formatMoney(totals.budgeted)}</div>
                   </div>
-                ))}
+                  <div className={styles.totalCard}>
+                    <div className={styles.totalLabel}>Final</div>
+                    <div className={styles.totalValue}>{formatMoney(totals.final)}</div>
+                  </div>
+                  <div className={styles.totalCard}>
+                    <div className={styles.totalLabel}>Effective markup</div>
+                    <div className={styles.totalValue}>{percentLabel(totals.effectiveMarkup)}</div>
+                  </div>
+                </div>
+
+                <div className={styles.breakdown}>
+                  <div className={styles.breakdownTitle}>Category breakdown</div>
+                  <div className={styles.breakdownRows}>
+                    {categoryBars.length ? (
+                      categoryBars.map((row) => (
+                        <div key={row.category} className={styles.breakdownRow}>
+                          <div className={styles.breakdownLabel}>{row.category}</div>
+                          <div className={styles.breakdownBar}>
+                            <div className={styles.breakdownFill} style={{ width: `${Math.round(row.pct * 100)}%` }} />
+                          </div>
+                          <div className={styles.breakdownValue}>{formatMoney(row.value)}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className={styles.breakdownEmpty}>Generate a structure to preview totals.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.lines}>
+                  <div className={styles.linesHeader}>
+                    <div>Line items</div>
+                    <div className={styles.linesCount}>{selectedVariant.lines.length}</div>
+                  </div>
+                  <div className={styles.linesTable} role="table" aria-label="Spellbook preview line items">
+                    {selectedVariant.lines.map((line) => (
+                      <div key={line.id} className={styles.lineRow} role="row">
+                        <div className={styles.lineMeta} role="cell">
+                          <div className={styles.lineCategory}>{line.category}</div>
+                          <div className={styles.lineDesc}>{line.description}</div>
+                          <div className={styles.lineGroups}>
+                            <span>{line.areaGroup}</span>
+                            <span>•</span>
+                            <span>{line.invoiceGroup}</span>
+                            {line.packageLabel ? (
+                              <>
+                                <span>•</span>
+                                <span>{line.packageLabel}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className={styles.lineQty} role="cell">
+                          <div className={styles.lineQtyTop}>
+                            {line.quantity} {line.unit}
+                          </div>
+                          <div className={styles.lineQtyBottom}>
+                            {formatMoney(line.itemBudgetedCost)} • {percentLabel(line.itemMarkUp)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {activeTab === "plan" ? (
+              <div className={styles.planTab}>
+                <div className={styles.planChips}>
+                  <label className={styles.chip}>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.eventDate }} aria-hidden />
+                    <span className={styles.chipLabel}>Event date</span>
+                    <input
+                      className={styles.chipInput}
+                      type="date"
+                      value={planAssumptions.eventDate ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setPlanAssumptions((prev) => ({ ...prev, eventDate: v || null }));
+                        setAssumptionConfidence((prev) => ({ ...prev, eventDate: v ? 0.85 : 0.3 }));
+                      }}
+                    />
+                  </label>
+
+                  <label className={styles.chip}>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.loadInHours }} aria-hidden />
+                    <span className={styles.chipLabel}>Load-in</span>
+                    <input
+                      className={styles.chipInput}
+                      type="number"
+                      min={0}
+                      max={72}
+                      value={String(planAssumptions.loadInHours)}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setPlanAssumptions((prev) => ({ ...prev, loadInHours: Number.isFinite(next) ? next : prev.loadInHours }));
+                        setAssumptionConfidence((prev) => ({ ...prev, loadInHours: 0.95 }));
+                      }}
+                    />
+                    <span className={styles.chipSuffix}>h</span>
+                  </label>
+
+                  <label className={styles.chip}>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.strikeHours }} aria-hidden />
+                    <span className={styles.chipLabel}>Strike</span>
+                    <input
+                      className={styles.chipInput}
+                      type="number"
+                      min={0}
+                      max={72}
+                      value={String(planAssumptions.strikeHours)}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setPlanAssumptions((prev) => ({ ...prev, strikeHours: Number.isFinite(next) ? next : prev.strikeHours }));
+                        setAssumptionConfidence((prev) => ({ ...prev, strikeHours: 0.95 }));
+                      }}
+                    />
+                    <span className={styles.chipSuffix}>h</span>
+                  </label>
+
+                  <label className={styles.chip}>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.crewCallTime }} aria-hidden />
+                    <span className={styles.chipLabel}>Crew call</span>
+                    <input
+                      className={styles.chipInput}
+                      type="time"
+                      value={planAssumptions.crewCallTime}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setPlanAssumptions((prev) => ({ ...prev, crewCallTime: v || prev.crewCallTime }));
+                        setAssumptionConfidence((prev) => ({ ...prev, crewCallTime: 0.95 }));
+                      }}
+                    />
+                  </label>
+
+                  <label className={styles.chip}>
+                    <span
+                      className={styles.chipDot}
+                      style={{ opacity: Math.min(assumptionConfidence.venueStartTime, assumptionConfidence.venueEndTime) }}
+                      aria-hidden
+                    />
+                    <span className={styles.chipLabel}>Venue</span>
+                    <input
+                      className={styles.chipInput}
+                      type="time"
+                      value={planAssumptions.venueStartTime}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setPlanAssumptions((prev) => ({ ...prev, venueStartTime: v || prev.venueStartTime }));
+                        setAssumptionConfidence((prev) => ({ ...prev, venueStartTime: 0.9 }));
+                      }}
+                    />
+                    <span className={styles.chipRangeDash}>–</span>
+                    <input
+                      className={styles.chipInput}
+                      type="time"
+                      value={planAssumptions.venueEndTime}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setPlanAssumptions((prev) => ({ ...prev, venueEndTime: v || prev.venueEndTime }));
+                        setAssumptionConfidence((prev) => ({ ...prev, venueEndTime: 0.9 }));
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {planDraft.warnings.length > 0 ? (
+                  <div className={styles.planWarnings} role="status">
+                    {planDraft.warnings.map((w) => (
+                      <div key={w.code} className={styles.planWarning}>
+                        {w.message}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className={`${styles.planSection} ${conjurePhase >= 0 ? styles.planSectionOn : ""}`}>
+                  <div className={styles.planSectionTitle}>Budget lines</div>
+                  <div className={styles.planMiniList}>
+                    {selectedVariant.lines.slice(0, 8).map((line) => (
+                      <div key={line.id} className={styles.planMiniRow}>
+                        <span className={styles.planMiniStrong}>{line.description}</span>
+                        <span className={styles.planMiniMeta}>{formatMoney(line.itemBudgetedCost)}</span>
+                      </div>
+                    ))}
+                    {selectedVariant.lines.length > 8 ? (
+                      <div className={styles.planMiniMore}>+{selectedVariant.lines.length - 8} more</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className={`${styles.planSection} ${conjurePhase >= 1 ? styles.planSectionOn : ""}`}>
+                  <div className={styles.planSectionTitle}>Timeline blocks</div>
+                  <div className={styles.planBlocks}>
+                    {planDraft.calendarBlocks.length === 0 ? (
+                      <div className={styles.planEmpty}>Add an event date to preview blocks.</div>
+                    ) : (
+                      planDraft.calendarBlocks.map((b) => (
+                        <div key={b.key} className={styles.planBlockRow}>
+                          <div className={styles.planBlockTitle}>{b.title}</div>
+                          <div className={styles.planBlockMeta}>
+                            {b.dateIso} • {b.startTime}–{b.endTime}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className={`${styles.planSection} ${conjurePhase >= 2 ? styles.planSectionOn : ""}`}>
+                  <div className={styles.planSectionTitle}>Tasks + links</div>
+                  <div className={styles.planTasks}>
+                    {planDraft.tasks.length === 0 ? (
+                      <div className={styles.planEmpty}>No tasks generated for these line items.</div>
+                    ) : (
+                      planDraft.tasks.slice(0, 16).map((t) => (
+                        <div key={t.id} className={styles.planTaskRow}>
+                          <div className={styles.planTaskTitle}>{t.title}</div>
+                          <div className={styles.planTaskMeta}>
+                            {t.dateIso} • {t.linkType.toUpperCase()}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    {planDraft.tasks.length > 16 ? (
+                      <div className={styles.planMiniMore}>+{planDraft.tasks.length - 16} more</div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {activeTab === "assumptions" ? (
+              <div className={styles.assumptionsTab}>
+                <div className={styles.assumptionsHeader}>Assumptions</div>
+                <div className={styles.assumptionsList}>
+                  {planDraft.assumptions.map((chip) => (
+                    <div key={chip.key} className={styles.assumptionRow}>
+                      <span className={styles.assumptionDot} style={{ opacity: chip.confidence }} aria-hidden />
+                      <span className={styles.assumptionLabel}>{chip.label}</span>
+                      <span className={styles.assumptionValue}>{chip.value}</span>
+                    </div>
+                  ))}
+                </div>
+                {planDraft.warnings.length > 0 ? (
+                  <div className={styles.assumptionsWarnings}>
+                    {planDraft.warnings.map((w) => (
+                      <div key={w.code} className={styles.planWarning}>
+                        {w.message}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

@@ -47,9 +47,20 @@ import {
   createBudgetItem,
   deleteBudgetItem,
   fetchTasks,
+  createTask,
+  createTasksBulk,
+  updateTask,
   type Task,
 } from "@/shared/utils/api";
-import { getPrimaryBudgetLineItemId, getSecondaryBudgetLinks } from "@/shared/utils/budgetTaskLinks";
+import {
+  BUDGET_TASK_LINK_TYPES,
+  getPrimaryBudgetLineItemId,
+  getSecondaryBudgetLinks,
+  getTaskLinkTypeForBudgetItem,
+  inferBudgetTaskLinkTypeFromTitle,
+  type BudgetTaskLinkType,
+} from "@/shared/utils/budgetTaskLinks";
+import { buildPlanDraft, type PlanDraftAssumptions, type PlanDraftOutputs } from "../lib/planDraft";
 import { v4 as uuid } from "uuid";
 import type { InvoiceDetailsPayload } from "@/dashboard/project/features/budget/components/invoicePreviewTypes";
 import { notify } from "@/shared/ui/ToastNotifications";
@@ -90,6 +101,14 @@ const BudgetPageContent = () => {
   const [saving] = useState(false);
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
   const [workPanelItem, setWorkPanelItem] = useState<WorkPanelLineItem | null>(null);
+  const [workPanelInitialFocusGroup, setWorkPanelInitialFocusGroup] = useState<BudgetTaskLinkType | null>(null);
+  const openSpellbookModalRef = useRef<(() => void) | null>(null);
+
+  const [spellbookContext, setSpellbookContext] = useState<{
+    entryPoint: "budget" | "overview";
+    initialTab: "budget" | "plan" | "assumptions";
+    initialOutputs?: Partial<PlanDraftOutputs>;
+  }>({ entryPoint: "budget", initialTab: "budget" });
   
   // Budget data from context
   const {
@@ -211,6 +230,30 @@ const BudgetPageContent = () => {
     navigate,
   ]);
 
+  useEffect(() => {
+    const state = location.state as
+      | {
+          conjurePlan?: boolean;
+        }
+      | undefined;
+
+    if (!state?.conjurePlan) return;
+
+    // Open the spellbook in Project Plan mode, then clear state to avoid re-opening.
+    setSpellbookContext({
+      entryPoint: "overview",
+      initialTab: "plan",
+      initialOutputs: { budget: true, calendarPlan: true, links: true },
+    });
+
+    // Defer until after BudgetStateManager mounts.
+    setTimeout(() => openSpellbookModalRef.current?.(), 0);
+
+    // BudgetStateManager owns the open flag; we use a small polling tick to ensure it exists.
+    // The actual open occurs where the modal is rendered (see below).
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate]);
+
   const handleBack = () => {
     if (!projectId) {
       navigate("/dashboard/projects/allprojects");
@@ -265,6 +308,7 @@ const BudgetPageContent = () => {
   const handleOpenWorkPanel = useCallback((record: Record<string, unknown>) => {
     const budgetItemId = typeof record.budgetItemId === "string" ? record.budgetItemId : "";
     if (!budgetItemId) return;
+    setWorkPanelInitialFocusGroup(null);
     setWorkPanelItem({
       budgetItemId,
       elementKey: typeof record.elementKey === "string" ? record.elementKey : undefined,
@@ -272,6 +316,115 @@ const BudgetPageContent = () => {
       description: typeof record.description === "string" ? record.description : undefined,
     });
   }, []);
+
+  const buildCoverageMap = useMemo(() => {
+    const out: Record<string, Partial<Record<BudgetTaskLinkType, "missing" | "pending" | "done">>> = {};
+
+    const lineIds = budgetItems
+      .filter((it) => typeof (it as any)?.budgetItemId === "string" && String((it as any).budgetItemId).startsWith("LINE-"))
+      .map((it) => String((it as any).budgetItemId));
+
+    lineIds.forEach((id) => {
+      out[id] = {};
+      BUDGET_TASK_LINK_TYPES.forEach((t) => {
+        out[id]![t.id] = "missing";
+      });
+    });
+
+    projectTasks.forEach((task) => {
+      const linkedIds = new Set<string>();
+      const primary = getPrimaryBudgetLineItemId(task);
+      if (primary) linkedIds.add(primary);
+      getSecondaryBudgetLinks(task).forEach((l) => {
+        if (l.budgetLineItemId) linkedIds.add(l.budgetLineItemId);
+      });
+
+      const isDone = task.status === "done" || task.status === "archived";
+
+      linkedIds.forEach((budgetItemId) => {
+        if (!out[budgetItemId]) return;
+        const linkType =
+          getTaskLinkTypeForBudgetItem(task as any, budgetItemId) ??
+          inferBudgetTaskLinkTypeFromTitle(task.title ?? "");
+
+        const prev = out[budgetItemId]![linkType];
+        if (prev === "done") return;
+        out[budgetItemId]![linkType] = isDone ? "done" : "pending";
+      });
+    });
+
+    return out;
+  }, [budgetItems, projectTasks]);
+
+  const riskAndReadiness = useMemo(() => {
+    const lineItems = budgetItems
+      .filter((it) => typeof (it as any)?.budgetItemId === "string" && String((it as any).budgetItemId).startsWith("LINE-"))
+      .map((it) => it as any);
+
+    const atRisk: string[] = [];
+    const ready: string[] = [];
+
+    lineItems.forEach((line) => {
+      const id = String(line.budgetItemId);
+      const coverage = buildCoverageMap[id];
+      if (!coverage) return;
+
+      const category = String(line.category ?? "").toUpperCase();
+      const requiresQuote = category === "RENTALS" || category === "AUDIO-VISUAL" || category === "LIGHTING" || category === "GRAPHICS";
+      if (requiresQuote) {
+        if (coverage.quote !== "done") atRisk.push(id);
+      }
+
+      if (coverage.install === "done" && coverage.invoice !== "done") {
+        ready.push(id);
+      }
+    });
+
+    return { atRiskQuoteIds: atRisk, readyToInvoiceIds: ready };
+  }, [budgetItems, buildCoverageMap]);
+
+  const openWorkPanelForLine = useCallback(
+    (budgetItemId: string, focusGroup: BudgetTaskLinkType | null) => {
+      const line = budgetItems.find((it: any) => String(it?.budgetItemId ?? "") === budgetItemId) as any;
+      if (!line) return;
+      setWorkPanelInitialFocusGroup(focusGroup);
+      setWorkPanelItem({
+        budgetItemId,
+        elementKey: typeof line.elementKey === "string" ? line.elementKey : undefined,
+        elementId: typeof line.elementId === "string" ? line.elementId : undefined,
+        description: typeof line.description === "string" ? line.description : undefined,
+      });
+    },
+    [budgetItems],
+  );
+
+  const handleCreateMissingWorkStage = useCallback(
+    async (record: Record<string, unknown>, stage: BudgetTaskLinkType) => {
+      const projectId = activeProject?.projectId;
+      if (!projectId) return;
+      const budgetItemId = typeof record.budgetItemId === "string" ? record.budgetItemId : "";
+      if (!budgetItemId) return;
+
+      const desc = typeof record.description === "string" ? record.description.trim() : "";
+      const title = `${stage.toUpperCase()}: ${desc || "Budget item"}`;
+
+      try {
+        const created = await createTask({
+          projectId,
+          title,
+          status: "todo",
+          primaryBudgetLineItemId: budgetItemId,
+          budgetLinkType: stage,
+        });
+        setProjectTasks((prev) => [created, ...prev]);
+        notify("success", "Task created.");
+      } catch (err) {
+        console.error("Failed to create task", err);
+        notify("error", "Failed to create task.");
+      }
+    },
+    [activeProject?.projectId],
+  );
 
   const isCreatingHeaderRef = useRef(false);
 
@@ -471,11 +624,21 @@ const BudgetPageContent = () => {
   const handleApplyBudgetSpellbook = useCallback(
     async (request: BudgetSpellbookApplyRequest, stateManager: Record<string, unknown>) => {
       if (!activeProject?.projectId) return;
-      if (!budgetHeader?.budgetId) return;
-
       const projectId = activeProject.projectId;
-      const budgetId = String(budgetHeader.budgetId);
-      const revision = Number(budgetHeader.revision ?? 1);
+
+      // Conjure Plan can be invoked before a budget header exists.
+      let effectiveHeader = budgetHeader as any;
+      if (!effectiveHeader?.budgetId) {
+        const createdHeader = await handleCreateInitialBudget(0);
+        if (!createdHeader) {
+          notify("error", "Create a budget before conjuring a plan.");
+          return;
+        }
+        effectiveHeader = createdHeader as any;
+      }
+
+      const budgetId = String(effectiveHeader.budgetId);
+      const revision = Number(effectiveHeader.revision ?? 1);
 
       const linesOnly = budgetItems.filter(
         (it) => typeof it?.budgetItemId === "string" && String(it.budgetItemId).startsWith("LINE-"),
@@ -489,8 +652,8 @@ const BudgetPageContent = () => {
         }
 
         const remaining = request.applyMode === "replace" ? [] : [...linesOnly];
-        const toUpdate: Array<{ existing: Record<string, unknown>; draft: Record<string, unknown> }> = [];
-        const toCreate: Array<Record<string, unknown>> = [];
+        const toUpdate: Array<{ existing: Record<string, unknown>; draft: Record<string, unknown>; draftId: string }> = [];
+        const toCreate: Array<{ draftId: string; payload: Record<string, unknown> }> = [];
 
         const normalizedExisting = remaining.map((item) => ({
           item,
@@ -520,6 +683,7 @@ const BudgetPageContent = () => {
               const matched = normalizedExisting.splice(bestIdx, 1)[0];
               toUpdate.push({
                 existing: matched.item as unknown as Record<string, unknown>,
+                draftId: draft.id,
                 draft: {
                   category: draft.category,
                   description: normalizedDraftDesc,
@@ -536,29 +700,34 @@ const BudgetPageContent = () => {
           }
 
           toCreate.push({
-            category: draft.category,
-            description: normalizedDraftDesc,
-            quantity: draft.quantity,
-            unit: draft.unit,
-            itemBudgetedCost: draft.itemBudgetedCost,
-            itemMarkUp: draft.itemMarkUp,
-            itemFinalCost: toLineFinalCost(draft.quantity, draft.itemBudgetedCost, draft.itemMarkUp),
-            itemActualCost: "",
-            itemReconciledCost: "",
-            paymentStatus: "UNPAID",
-            paymentTerms: "NET 30",
-            areaGroup: String(draft.areaGroup).trim().toUpperCase(),
-            invoiceGroup: String(draft.invoiceGroup).trim().toUpperCase(),
+            draftId: draft.id,
+            payload: {
+              category: draft.category,
+              description: normalizedDraftDesc,
+              quantity: draft.quantity,
+              unit: draft.unit,
+              itemBudgetedCost: draft.itemBudgetedCost,
+              itemMarkUp: draft.itemMarkUp,
+              itemFinalCost: toLineFinalCost(draft.quantity, draft.itemBudgetedCost, draft.itemMarkUp),
+              itemActualCost: "",
+              itemReconciledCost: "",
+              paymentStatus: "UNPAID",
+              paymentTerms: "NET 30",
+              areaGroup: String(draft.areaGroup).trim().toUpperCase(),
+              invoiceGroup: String(draft.invoiceGroup).trim().toUpperCase(),
+            },
           });
         });
 
         const elementKeys = allocateElementKeySequence(toCreate.length);
-        const elementIds = allocateElementIds(toCreate.map((d) => String(d.category)));
+        const elementIds = allocateElementIds(toCreate.map((d) => String(d.payload.category)));
+
+        const draftIdToBudgetItemId = new Map<string, string>();
 
         const createdItems = await Promise.all(
-          toCreate.map((draft, idx) =>
+          toCreate.map((entry, idx) =>
             createBudgetItem(projectId, budgetId, {
-              ...draft,
+              ...entry.payload,
               elementKey: elementKeys[idx],
               elementId: elementIds[idx],
               budgetItemId: `LINE-${uuid()}`,
@@ -567,9 +736,17 @@ const BudgetPageContent = () => {
           ),
         );
 
+        createdItems.forEach((item, idx) => {
+          const draftId = toCreate[idx]?.draftId;
+          const budgetItemId = String((item as any)?.budgetItemId ?? "");
+          if (draftId && budgetItemId) draftIdToBudgetItemId.set(draftId, budgetItemId);
+        });
+
         const updatedItems = await Promise.all(
-          toUpdate.map(({ existing, draft }) =>
-            updateBudgetItem(projectId, String(existing.budgetItemId), {
+          toUpdate.map(({ existing, draft, draftId }) => {
+            const existingId = String((existing as any)?.budgetItemId ?? "");
+            if (draftId && existingId) draftIdToBudgetItemId.set(draftId, existingId);
+            return updateBudgetItem(projectId, String(existing.budgetItemId), {
               ...draft,
               itemFinalCost: toLineFinalCost(
                 draft.quantity,
@@ -577,8 +754,8 @@ const BudgetPageContent = () => {
                 draft.itemMarkUp,
               ),
               revision,
-            }),
-          ),
+            });
+          }),
         );
 
         const nextLines = (() => {
@@ -594,6 +771,91 @@ const BudgetPageContent = () => {
         computeGroupsAndClients(nextLines as any, budgetHeader as any);
         await (stateManager as { syncHeaderTotals?: (items: unknown[]) => Promise<void> }).syncHeaderTotals?.(nextLines);
         emitBudgetUpdate();
+
+        // Calendar Plan + Links (PlanDraft apply)
+        if (request.outputs?.calendarPlan) {
+          const plan = buildPlanDraft({
+            budgetLines: request.variant.lines,
+            assumptions: request.planAssumptions as PlanDraftAssumptions,
+          });
+
+          const buildIsoLocal = (dateIso: string, timeHHMM: string) => `${dateIso}T${timeHHMM}:00`;
+
+          const blocksByKey = new Map<string, { taskId: string; dateIso: string }>();
+
+          for (const block of plan.calendarBlocks) {
+            const focus = await createTask({
+              projectId,
+              title: block.title,
+              status: "todo",
+              kind: "focus_block",
+              cluster: "Plan",
+              durationMinutes: block.durationMinutes,
+              startAt: buildIsoLocal(block.dateIso, block.startTime),
+              endAt: buildIsoLocal(block.dateIso, block.endTime),
+              dueDate: block.dateIso,
+              dueAt: block.dateIso,
+              focusChildTaskIds: [],
+              focusChecklist: [],
+            });
+
+            if (focus.taskId) {
+              blocksByKey.set(block.key, { taskId: focus.taskId, dateIso: block.dateIso });
+            }
+          }
+
+          // Create tasks; attach to focus blocks when dates align.
+          const childPayloadsByFocusId = new Map<string, Task[]>();
+          const standalonePayloads: Task[] = [];
+
+          plan.tasks.forEach((t) => {
+            const budgetItemId = draftIdToBudgetItemId.get(t.budgetLineDraftId) ?? null;
+            const shouldLink = Boolean(request.outputs?.links) && Boolean(budgetItemId);
+
+            const base: Task = {
+              projectId,
+              title: t.title,
+              status: "todo",
+              kind: "task",
+              dueDate: t.dateIso,
+              dueAt: t.dateIso,
+              ...(shouldLink ? { primaryBudgetLineItemId: budgetItemId, budgetLinkType: t.linkType } : {}),
+            };
+
+            const focus = blocksByKey.get(t.blockKey);
+            if (focus && focus.dateIso === t.dateIso) {
+              const list = childPayloadsByFocusId.get(focus.taskId) ?? [];
+              list.push({ ...base, focusBlockId: focus.taskId });
+              childPayloadsByFocusId.set(focus.taskId, list);
+            } else {
+              standalonePayloads.push(base);
+            }
+          });
+
+          for (const [focusId, children] of childPayloadsByFocusId.entries()) {
+            const createdChildren = children.length > 0 ? await createTasksBulk(projectId, children) : [];
+            const childIds = createdChildren
+              .map((task) => task.taskId)
+              .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+            await updateTask({
+              projectId,
+              taskId: focusId,
+              focusChildTaskIds: childIds,
+              focusChecklist: createdChildren
+                .filter((child) => typeof child.taskId === "string" && child.taskId.trim().length > 0)
+                .map((child) => ({ taskId: child.taskId as string, title: child.title })),
+            } as any);
+          }
+
+          if (standalonePayloads.length > 0) {
+            await createTasksBulk(projectId, standalonePayloads);
+          }
+
+          const refreshed = await fetchTasks(projectId);
+          setProjectTasks(refreshed);
+        }
+
         notify("success", `Spellbook applied (${createdItems.length} added${updatedItems.length ? `, ${updatedItems.length} updated` : ""}).`);
       } catch (err) {
         console.error("Failed to apply budget spellbook", err);
@@ -608,7 +870,9 @@ const BudgetPageContent = () => {
       budgetItems,
       computeGroupsAndClients,
       emitBudgetUpdate,
+      handleCreateInitialBudget,
       setBudgetItems,
+      setProjectTasks,
     ],
   );
 
@@ -1030,26 +1294,28 @@ const BudgetPageContent = () => {
 
               {/* Use the new component structure */}
               <BudgetStateManager activeProject={activeProject}>
-                {(stateManager) => (
-                  <BudgetEventManager
-                    activeProject={activeProject}
-                    eventsByLineItem={eventsByLineItem}
-                    userId={userId}
-                    user={user}
-                    stateManager={stateManager}
-                  >
-                    {(eventHandlers) => (
-                        <BudgetTableLogic
-                          groupBy={stateManager.groupBy}
-                          sortField={stateManager.sortField}
-                          sortOrder={stateManager.sortOrder}
-                          filterQuery={stateManager.filterQuery as string}
-                          selectedRowKeys={stateManager.selectedRowKeys}
-                          eventsByLineItem={eventsByLineItem}
-                          setSelectedRowKeys={stateManager.setSelectedRowKeys}
-                          openEventModal={eventHandlers.openEventModal}
-                          openDeleteModal={eventHandlers.openDeleteModal}
-                        openDuplicateModal={eventHandlers.openDuplicateModal}
+                {(stateManager) => {
+                  openSpellbookModalRef.current = () => stateManager.setSpellbookModalOpen(true);
+                  return (
+                    <BudgetEventManager
+                      activeProject={activeProject}
+                      eventsByLineItem={eventsByLineItem}
+                      userId={userId}
+                      user={user}
+                      stateManager={stateManager}
+                    >
+                      {(eventHandlers) => (
+                          <BudgetTableLogic
+                            groupBy={stateManager.groupBy}
+                            sortField={stateManager.sortField}
+                            sortOrder={stateManager.sortOrder}
+                            filterQuery={stateManager.filterQuery as string}
+                            selectedRowKeys={stateManager.selectedRowKeys}
+                            eventsByLineItem={eventsByLineItem}
+                            setSelectedRowKeys={stateManager.setSelectedRowKeys}
+                            openEventModal={eventHandlers.openEventModal}
+                            openDeleteModal={eventHandlers.openDeleteModal}
+                          openDuplicateModal={eventHandlers.openDuplicateModal}
                       >
                         {(tableConfig) => (
                           <>
@@ -1127,11 +1393,40 @@ const BudgetPageContent = () => {
                                             handleDuplicateSelected={eventHandlers.handleDuplicateSelected}
                                             openDeleteModal={eventHandlers.openDeleteModal}
                                             openCreateModal={eventHandlers.openCreateModal}
-                                            openSpellbookModal={() => stateManager.setSpellbookModalOpen(true)}
+                                            openSpellbookModal={() => {
+                                              setSpellbookContext({ entryPoint: "budget", initialTab: "budget" });
+                                              stateManager.setSpellbookModalOpen(true);
+                                            }}
                                             canCreateLineItems={hasBudgetHeader}
                                             createDisabledReason={createDisabledReason}
-                                            canUseSpellbook={hasBudgetHeader}
-                                            spellbookDisabledReason={createDisabledReason}
+                                            canUseSpellbook={canEdit}
+                                            spellbookDisabledReason={canEdit ? undefined : "Read-only"}
+                                            riskBadge={
+                                              riskAndReadiness.atRiskQuoteIds.length
+                                                ? {
+                                                    label: "Quotes at risk",
+                                                    count: riskAndReadiness.atRiskQuoteIds.length,
+                                                    onClick: () =>
+                                                      openWorkPanelForLine(
+                                                        riskAndReadiness.atRiskQuoteIds[0],
+                                                        "quote",
+                                                      ),
+                                                  }
+                                                : undefined
+                                            }
+                                            readinessBadge={
+                                              riskAndReadiness.readyToInvoiceIds.length
+                                                ? {
+                                                    label: "Ready to invoice",
+                                                    count: riskAndReadiness.readyToInvoiceIds.length,
+                                                    onClick: () =>
+                                                      openWorkPanelForLine(
+                                                        riskAndReadiness.readyToInvoiceIds[0],
+                                                        "invoice",
+                                                      ),
+                                                  }
+                                                : undefined
+                                            }
                                             filterQuery={stateManager.filterQuery as string}
                                             onFilterQueryChange={
                                               stateManager.setFilterQuery as (query: string) => void
@@ -1183,6 +1478,8 @@ const BudgetPageContent = () => {
                                             openEventModal={eventHandlers.openEventModal}
                                             openWorkModal={handleOpenWorkPanel}
                                             workCountByLineItemId={workCountByLineItemId}
+                                            workCoverageByLineItemId={buildCoverageMap}
+                                            onCreateMissingWorkStage={handleCreateMissingWorkStage}
                                             eventsByLineItem={eventsByLineItem}
                                             tableRef={tableRef}
                                             tableHeight={tableHeight}
@@ -1222,8 +1519,11 @@ const BudgetPageContent = () => {
                               isOpen={stateManager.isSpellbookModalOpen}
                               onRequestClose={() => stateManager.setSpellbookModalOpen(false)}
                               revisionLabel={`REV.${Number((budgetHeader as Record<string, unknown>)?.revision ?? 1)}`}
-                              canApply={hasBudgetHeader}
-                              applyDisabledReason={createDisabledReason}
+                              canApply={canEdit}
+                              applyDisabledReason={canEdit ? undefined : "Read-only"}
+                              entryPoint={spellbookContext.entryPoint}
+                              initialTab={spellbookContext.initialTab}
+                              initialOutputs={spellbookContext.initialOutputs}
                               onApply={(request) => handleApplyBudgetSpellbook(request, stateManager as any)}
                             />
                             <CreateLineItemModal
@@ -1262,6 +1562,7 @@ const BudgetPageContent = () => {
                               lineItem={workPanelItem}
                               tasks={projectTasks}
                               onTasksChange={setProjectTasks}
+                              initialFocusGroup={workPanelInitialFocusGroup}
                             />
                             <ConfirmModal
                               isOpen={stateManager.isConfirmingDelete}
@@ -1282,9 +1583,10 @@ const BudgetPageContent = () => {
                           </>
                         )}
                       </BudgetTableLogic>
-                    )}
-                  </BudgetEventManager>
-                )}
+                      )}
+                    </BudgetEventManager>
+                  );
+                }}
               </BudgetStateManager>
             </div>
           </motion.div>

@@ -172,13 +172,29 @@ export async function fetchHqUncategorizedVendors(orgId: string, input?: { impor
 
 export async function createHqCategoryRule(
   orgId: string,
-  input: { matchType: "vendor" | "regex"; pattern: string; categoryId: string; priority?: number; enabled?: boolean }
+  input: {
+    matchType: "vendor" | "regex";
+    pattern: string;
+    categoryId: string;
+    priority?: number;
+    enabled?: boolean;
+    scope?: "org" | "account" | "card";
+    accountId?: string;
+    cardLast4?: string;
+  }
 ): Promise<{ orgId: string; rule: HqCategoryRule }> {
   const base = getHqServiceBaseUrl();
   return apiFetch<{ orgId: string; rule: HqCategoryRule }>(`${base}/hq/category-rules?orgId=${encodeURIComponent(orgId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+  });
+}
+
+export async function deleteHqCategoryRule(orgId: string, ruleId: string): Promise<{ ok: boolean } & Record<string, unknown>> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch(`${base}/hq/category-rules/${encodeURIComponent(ruleId)}?orgId=${encodeURIComponent(orgId)}`, {
+    method: "DELETE",
   });
 }
 

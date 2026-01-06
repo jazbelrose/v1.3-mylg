@@ -594,6 +594,65 @@
   transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
+.workCoverage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workCoverageLabel {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.workCoverageStage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.workCoverageStage:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.workCoverageStage:disabled {
+  cursor: default;
+  opacity: 0.7;
+  transform: none;
+}
+
+.workCoverageStageLabel {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workCoverageStageIcon {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.workCoverageStageDone {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.workCoverageStagePending {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.workCoverageStageMissing {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
 .workChipButton:hover,
 .workChipButton:focus-visible {
   border-color: var(--color-primary, #4b6bff);

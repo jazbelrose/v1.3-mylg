@@ -80,6 +80,38 @@
 }
 
 /* ============================================================================
+   CONJURE PLAN CTA
+   ============================================================================ */
+
+.conjurePlanFabWrap {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+}
+
+.conjurePlanFab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text-primary, #fff);
+  background: var(--button-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.conjurePlanFab:hover {
+  background: var(--button-hover-bg, rgba(255, 255, 255, 0.1));
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.16));
+}
+
+/* ============================================================================
    HEALTH TILE (shared across all 4 tiles)
    ============================================================================ */
 

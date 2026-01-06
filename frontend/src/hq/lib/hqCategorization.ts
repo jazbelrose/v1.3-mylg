@@ -22,7 +22,7 @@ function normalizeForMatching(value?: string) {
 }
 
 export function suggestCategoryFromUserRules(
-  txn: Pick<HqTransaction, "vendor" | "normalizedDescription">,
+  txn: Pick<HqTransaction, "vendor" | "normalizedDescription" | "accountId" | "cardLast4">,
   rules: HqCategoryRule[]
 ): CategoryGuess | null {
   const vendor = normalizeForMatching(txn.vendor);
@@ -34,6 +34,13 @@ export function suggestCategoryFromUserRules(
     .sort((a, b) => b.priority - a.priority);
 
   for (const rule of enabledRules) {
+    const scope = (rule as { scope?: string }).scope || "org";
+    const ruleAccountId = (rule as { accountId?: string }).accountId;
+    const ruleCardLast4 = (rule as { cardLast4?: string }).cardLast4;
+
+    if (scope === "account" && ruleAccountId && txn.accountId !== ruleAccountId) continue;
+    if (scope === "card" && ruleCardLast4 && txn.cardLast4 !== ruleCardLast4) continue;
+
     if (rule.matchType === "vendor") {
       if (vendor && vendor.toLowerCase() === rule.pattern.trim().toLowerCase()) {
         return { categoryId: rule.categoryId, confidence: 0.99, reason: "user-vendor" };

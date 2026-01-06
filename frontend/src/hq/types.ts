@@ -59,6 +59,8 @@ export type HqImportRun = {
 
 export type HqCategoryRuleMatchType = "vendor" | "regex";
 
+export type HqCategoryRuleScope = "org" | "account" | "card";
+
 export type HqCategoryRule = {
   orgId: string;
   ruleId: string;
@@ -67,6 +69,9 @@ export type HqCategoryRule = {
   pattern: string;
   categoryId: HqCategoryId;
   projectId?: string;
+  scope?: HqCategoryRuleScope;
+  accountId?: string;
+  cardLast4?: string;
   enabled: boolean;
   createdAt: string; // ISO
 };

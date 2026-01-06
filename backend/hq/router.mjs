@@ -138,6 +138,9 @@ const listCategoryRules = async (orgId) => {
     pattern: r.pattern,
     categoryId: r.categoryId,
     projectId: r.projectId,
+    scope: r.scope || "org",
+    accountId: r.accountId,
+    cardLast4: r.cardLast4,
     enabled: r.enabled !== false,
     createdAt: r.createdAt,
   }));
@@ -161,6 +164,7 @@ const ensureSeedRulepack = async (orgId) => {
           matchType: "regex",
           pattern: seed.pattern,
           categoryId: seed.categoryId,
+          scope: "org",
           enabled: true,
           createdAt,
         },
@@ -194,6 +198,10 @@ const pickCategorization = (txn, rules) => {
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
   for (const rule of enabledRules) {
+    const scope = rule.scope || "org";
+    if (scope === "account" && rule.accountId && txn.accountId !== rule.accountId) continue;
+    if (scope === "card" && rule.cardLast4 && txn.cardLast4 !== rule.cardLast4) continue;
+
     if (rule.matchType === "vendor") {
       const patternKey = normalizeVendorKey(rule.pattern);
       if (vendorKey && patternKey && vendorKey === patternKey) {
@@ -584,8 +592,15 @@ const createCategoryRule = async (e, C) => {
   const enabled = body.enabled !== false;
   const priority = Number.isFinite(Number(body.priority)) ? Number(body.priority) : 200;
 
+  const scopeRaw = typeof body.scope === "string" ? body.scope.trim().toLowerCase() : "org";
+  const scope = scopeRaw === "account" ? "account" : scopeRaw === "card" ? "card" : "org";
+  const accountId = typeof body.accountId === "string" ? body.accountId.trim() : "";
+  const cardLast4 = typeof body.cardLast4 === "string" ? body.cardLast4.trim() : "";
+
   if (!pattern) return json(400, C, { error: "pattern required" });
   if (!categoryId) return json(400, C, { error: "categoryId required" });
+  if (scope === "account" && !accountId) return json(400, C, { error: "accountId required for scope=account" });
+  if (scope === "card" && !/^\d{4}$/.test(cardLast4)) return json(400, C, { error: "cardLast4 required for scope=card" });
   if (matchType === "regex") {
     if (pattern.length > 300) return json(400, C, { error: "pattern too long" });
     try {
@@ -608,12 +623,29 @@ const createCategoryRule = async (e, C) => {
     pattern,
     categoryId,
     projectId: typeof body.projectId === "string" ? body.projectId.trim() || undefined : undefined,
+    scope,
+    accountId: scope === "account" ? accountId : undefined,
+    cardLast4: scope === "card" ? cardLast4 : undefined,
     enabled,
     createdAt,
   };
 
   await ddb.put({ TableName: HQ_TABLE, Item: item });
   return json(200, C, { orgId, rule: item });
+};
+
+// DELETE /hq/category-rules/:ruleId?orgId=...
+const deleteCategoryRule = async (e, C, { ruleId }) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  ruleId = String(ruleId || "").trim();
+  if (!ruleId) return json(400, C, { error: "ruleId required" });
+
+  await ddb.delete({ TableName: HQ_TABLE, Key: { orgId, sk: skRule(ruleId) } });
+  return json(200, C, { ok: true });
 };
 
 // POST /hq/category-rules/apply?orgId=...
@@ -654,6 +686,8 @@ const applyCategoryRules = async (e, C) => {
           vendor: t.vendor,
           type: t.type,
           isInternalTransfer: currentIsTransfer,
+          accountId: t.accountId,
+          cardLast4: t.cardLast4,
         },
         rules
       );
@@ -749,6 +783,8 @@ const listUncategorized = async (e, C) => {
             vendor: t.vendor,
             type: t.type,
             isInternalTransfer: false,
+            accountId: t.accountId,
+            cardLast4: t.cardLast4,
           },
           rules
         );
@@ -1213,6 +1249,8 @@ const importCsv = async (e, C) => {
         vendor: normalizedVendor,
         type: t.type,
         isInternalTransfer: internalTransfer,
+        accountId,
+        cardLast4: t.cardLast4,
       },
       categoryRules
     );
@@ -1334,6 +1372,7 @@ const routes = [
 
   { m: "GET", r: /^\/hq\/category-rules\/?$/i, h: getCategoryRules },
   { m: "POST", r: /^\/hq\/category-rules\/?$/i, h: createCategoryRule },
+  { m: "DELETE", r: /^\/hq\/category-rules\/(?<ruleId>[^/]+)\/?$/i, h: deleteCategoryRule },
   { m: "POST", r: /^\/hq\/category-rules\/apply\/?$/i, h: applyCategoryRules },
   { m: "GET", r: /^\/hq\/uncategorized\/?$/i, h: listUncategorized },
 

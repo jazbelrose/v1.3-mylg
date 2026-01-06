@@ -5,7 +5,6 @@ import { parseWellsFargoNoHeaderTransactions } from "@/hq/lib/wellsFargoCsv";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore, hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import { fetchHqSummary, fetchHqTransactions, importHqCsv } from "@/hq/lib/hqApi";
-import CategorizationSpellbookModal from "@/hq/components/CategorizationSpellbookModal";
 import type { HqAccount, HqTransaction } from "@/hq/types";
 import styles from "./ImportCsvModal.module.css";
 
@@ -19,6 +18,7 @@ type ImportCsvModalProps = {
   onRequestClose: () => void;
   defaultAccountId?: string;
   onImported?: (result: { imported: number; duplicates: number }) => void;
+  onOpenCategorization?: (input: { importRunId: string }) => void;
 };
 
 type ImportStep = 1 | 2 | 3 | 4;
@@ -48,6 +48,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   onRequestClose,
   defaultAccountId,
   onImported,
+  onOpenCategorization,
 }) => {
   const accounts = useHqStore(orgId, (s) => s.accounts);
   const categoryRules = useHqStore(orgId, (s) => s.categoryRules);
@@ -58,8 +59,6 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   const [accountId, setAccountId] = React.useState<string>(defaultAccountId || "");
   const [parsed, setParsed] = React.useState<HqTransaction[] | null>(null);
   const [isWorking, setIsWorking] = React.useState(false);
-  const [spellbookImportRunId, setSpellbookImportRunId] = React.useState<string | null>(null);
-  const [isSpellbookOpen, setIsSpellbookOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (isOpen) return;
@@ -68,8 +67,6 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     setCsvText("");
     setParsed(null);
     setIsWorking(false);
-    setSpellbookImportRunId(null);
-    setIsSpellbookOpen(false);
   }, [isOpen]);
 
   React.useEffect(() => {
@@ -142,12 +139,11 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
       onImported?.({ imported: result.imported, duplicates: result.duplicates });
 
-      // Open spellbook review for the imported run.
-      if (result.importRun?.importRunId) {
-        setSpellbookImportRunId(result.importRun.importRunId);
-        setIsSpellbookOpen(true);
-      } else {
-        onRequestClose();
+      const importRunId = result.importRun?.importRunId;
+      onRequestClose();
+      if (importRunId && onOpenCategorization) {
+        // Let the modal close before opening the sheet (prevents stacked overlays).
+        window.setTimeout(() => onOpenCategorization({ importRunId }), 220);
       }
     } catch (err) {
       console.error(err);
@@ -155,7 +151,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     } finally {
       setIsWorking(false);
     }
-  }, [accountId, file, onImported, onRequestClose, orgId, parsed]);
+  }, [accountId, file, onImported, onOpenCategorization, onRequestClose, orgId, parsed]);
 
   const previewRows = (parsed || []).slice(0, 20);
 
@@ -369,18 +365,6 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         ) : null}
       </div>
       </Modal>
-
-      {spellbookImportRunId ? (
-        <CategorizationSpellbookModal
-          orgId={orgId}
-          importRunId={spellbookImportRunId}
-          isOpen={isSpellbookOpen}
-          onRequestClose={() => {
-            setIsSpellbookOpen(false);
-            onRequestClose();
-          }}
-        />
-      ) : null}
     </>
   );
 };

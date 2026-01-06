@@ -18,6 +18,7 @@ import type { TimelineTask } from './components/CommandPanel';
 import { ActivityPanel } from './components/ActivityPanel';
 import { ProjectPoster } from './components/ProjectPoster';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
+import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 
 import styles from './OverviewHud.module.css';
 
@@ -199,6 +200,12 @@ export function OverviewHud({
     });
   }, [onOpenMap, navigate, projectId, routeLocation.pathname]);
 
+  const handleConjurePlan = useCallback(() => {
+    navigate(getProjectDashboardPath(projectId, projectTitle, '/budget'), {
+      state: { conjurePlan: true, from: routeLocation.pathname, fromContext: 'overview' },
+    });
+  }, [navigate, projectId, projectTitle, routeLocation.pathname]);
+
   // Compute status metrics for poster
   const risksCount = visibleTasks.filter(t => {
     const status = t.status?.toLowerCase() || '';
@@ -307,6 +314,14 @@ export function OverviewHud({
           />
         </div>
       </div>
+
+      {!clientMode && (
+        <div className={styles.conjurePlanFabWrap}>
+          <button type="button" className={styles.conjurePlanFab} onClick={handleConjurePlan}>
+            Conjure Plan
+          </button>
+        </div>
+      )}
     </div>
   );
 }

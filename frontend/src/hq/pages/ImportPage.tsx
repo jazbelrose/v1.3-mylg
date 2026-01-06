@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import HQLayout from "../components/HQLayout";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import CategorizationSpellbookSheet from "@/hq/components/CategorizationSpellbookSheet";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
@@ -24,16 +25,25 @@ const ImportPage: React.FC = () => {
 
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
+  const [spellbook, setSpellbook] = React.useState<{ isOpen: boolean; importRunId?: string }>({ isOpen: false });
 
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
+    setSpellbook({ isOpen: false });
     setIsImportOpen(true);
   }, [canAdmin]);
 
   const openAddAccount = React.useCallback(() => {
     if (!canAdmin) return;
+    setSpellbook({ isOpen: false });
     setIsAddAccountOpen(true);
   }, [canAdmin]);
+
+  const openSpellbook = React.useCallback((input: { importRunId?: string }) => {
+    setIsImportOpen(false);
+    setIsAddAccountOpen(false);
+    setSpellbook({ isOpen: true, importRunId: input.importRunId });
+  }, []);
 
   const actions = (
     <div className={styles.actions}>
@@ -119,7 +129,18 @@ const ImportPage: React.FC = () => {
 
       {activeOrgId ? (
         <>
-          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+          <ImportCsvModal
+            orgId={activeOrgId}
+            isOpen={isImportOpen}
+            onRequestClose={() => setIsImportOpen(false)}
+            onOpenCategorization={({ importRunId }) => openSpellbook({ importRunId })}
+          />
+          <CategorizationSpellbookSheet
+            orgId={activeOrgId}
+            importRunId={spellbook.importRunId}
+            isOpen={spellbook.isOpen}
+            onRequestClose={() => setSpellbook({ isOpen: false })}
+          />
           <AddAccountModal
             orgId={activeOrgId}
             isOpen={isAddAccountOpen}

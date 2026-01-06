@@ -171,7 +171,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
           ) : null}
           {canOrgAdmin && activeOrgId ? (
             <button type="button" className={styles.orgCreateButton} onClick={handleResetHq}>
-              Reset HQ Data
+              Shred HQ Data
             </button>
           ) : null}
           {actions ? <div className={styles.actionSlot}>{actions}</div> : null}

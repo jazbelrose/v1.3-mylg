@@ -140,6 +140,315 @@
   gap: 12px;
 }
 
+.outputsRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.outputToggle {
+  flex: 1 1 160px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 72%, transparent);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.outputToggle:hover {
+  background: color-mix(in srgb, var(--bg2) 86%, transparent);
+  border-color: color-mix(in srgb, var(--border-color) 88%, transparent);
+  transform: translateY(-1px);
+}
+
+.outputToggleOn {
+  border-color: color-mix(in srgb, var(--color-accent) 70%, white 30%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent) 14%, var(--bg2) 86%),
+    color-mix(in srgb, var(--bg2) 92%, transparent)
+  );
+}
+
+.outputToggleCheck {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 80%, transparent);
+  color: color-mix(in srgb, var(--text) 90%, transparent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  padding: 4px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+}
+
+.tab {
+  flex: 1 1 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  cursor: pointer;
+  font-weight: 650;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.tab:hover {
+  background: color-mix(in srgb, var(--bg3) 78%, transparent);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.tabActive {
+  border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 86%, transparent);
+  color: color-mix(in srgb, var(--text) 96%, transparent);
+}
+
+.planTab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.planChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 78%, transparent);
+  color: color-mix(in srgb, var(--text) 90%, transparent);
+}
+
+.chipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 65%, var(--text) 35%);
+}
+
+.chipLabel {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: color-mix(in srgb, var(--text) 76%, transparent);
+}
+
+.chipInput {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.82rem;
+  min-width: 86px;
+}
+
+.chipSuffix {
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.chipRangeDash {
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.planWarnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planWarning {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 76%, transparent);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
+  font-size: 0.84rem;
+}
+
+.planSection {
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg2) 70%, transparent);
+  padding: 12px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.planSectionOn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.planSectionTitle {
+  font-weight: 650;
+  font-size: 0.88rem;
+  margin-bottom: 10px;
+}
+
+.planMiniList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planMiniRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.84rem;
+}
+
+.planMiniStrong {
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planMiniMeta {
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+  white-space: nowrap;
+}
+
+.planMiniMore {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.planBlocks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.planBlockRow {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg3) 82%, transparent);
+  padding: 10px 12px;
+}
+
+.planBlockTitle {
+  font-weight: 650;
+}
+
+.planBlockMeta {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.planTasks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.planTaskRow {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg3) 82%, transparent);
+  padding: 10px 12px;
+}
+
+.planTaskTitle {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.planTaskMeta {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.planEmpty {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--text) 68%, transparent);
+}
+
+.assumptionsTab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.assumptionsHeader {
+  font-weight: 650;
+}
+
+.assumptionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assumptionRow {
+  display: grid;
+  grid-template-columns: 12px 140px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  background: color-mix(in srgb, var(--bg3) 82%, transparent);
+}
+
+.assumptionDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 65%, var(--text) 35%);
+}
+
+.assumptionLabel {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--text) 76%, transparent);
+  font-weight: 650;
+}
+
+.assumptionValue {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+}
+
+.assumptionsWarnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .rail {
   display: flex;
   gap: 10px;

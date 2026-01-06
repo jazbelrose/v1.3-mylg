@@ -16,6 +16,7 @@ import {
 import AttachmentPreviewModal, { type AttachmentPreviewItem } from "@/shared/ui/AttachmentPreviewModal";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 import { formatUSD } from "@/shared/utils/budgetUtils";
+import { BUDGET_TASK_LINK_TYPES, type BudgetTaskLinkType } from "@/shared/utils/budgetTaskLinks";
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -77,6 +78,8 @@ interface BudgetItemsTableProps {
   openEventModal: (record: BudgetItem) => void;
   openWorkModal?: (record: BudgetItem) => void;
   workCountByLineItemId?: Record<string, number>;
+  workCoverageByLineItemId?: Record<string, Partial<Record<BudgetTaskLinkType, "missing" | "pending" | "done">>>;
+  onCreateMissingWorkStage?: (record: BudgetItem, stage: BudgetTaskLinkType) => void;
   eventsByLineItem: Record<string, Record<string, unknown>[]>;
   tableRef: React.RefObject<HTMLDivElement>;
   tableHeight: number;
@@ -98,6 +101,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     openEventModal,
     openWorkModal,
     workCountByLineItemId,
+    workCoverageByLineItemId,
+    onCreateMissingWorkStage,
     eventsByLineItem,
     tableRef,
     tableHeight,
@@ -470,6 +475,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                  const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
                  const attachmentCount = attachmentsForRecord.length;
                  const workCount = workCountByLineItemId?.[record.budgetItemId] ?? 0;
+                 const coverage = workCoverageByLineItemId?.[record.budgetItemId] ?? null;
                  const isAttachmentMenuOpen = attachmentMenuState?.id === record.budgetItemId;
                  const menuAttachments = isAttachmentMenuOpen ? attachmentMenuState?.items ?? attachmentsForRecord : attachmentsForRecord;
 
@@ -548,6 +554,47 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                   <span className={styles.workChipCount}>{workCount}</span>
                                 </button>
                               )}
+
+                              {coverage ? (
+                                <div className={styles.workCoverage} aria-label="Work coverage">
+                                  <span className={styles.workCoverageLabel}>Coverage:</span>
+                                  {BUDGET_TASK_LINK_TYPES.map((t) => {
+                                    const state = coverage[t.id] ?? "missing";
+                                    const isMissing = state === "missing";
+                                    const isDone = state === "done";
+                                    const label = t.label;
+
+                                    return (
+                                      <button
+                                        key={t.id}
+                                        type="button"
+                                        className={`${styles.workCoverageStage} ${
+                                          isDone ? styles.workCoverageStageDone : state === "pending" ? styles.workCoverageStagePending : styles.workCoverageStageMissing
+                                        }`}
+                                        disabled={!isMissing || !onCreateMissingWorkStage || isLocked || isSelectMode}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          if (!isMissing) return;
+                                          if (!onCreateMissingWorkStage) return;
+                                          onCreateMissingWorkStage(record, t.id);
+                                        }}
+                                        title={
+                                          isMissing
+                                            ? "Create task"
+                                            : state === "pending"
+                                              ? "Task exists"
+                                              : "Done"
+                                        }
+                                      >
+                                        <span className={styles.workCoverageStageLabel}>{label}</span>
+                                        <span className={styles.workCoverageStageIcon} aria-hidden>
+                                          {isDone ? "✓" : state === "pending" ? "⏳" : "+"}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
 
                               {attachmentCount > 0 && (
                                 <div className={styles.attachmentIconWrapper}>

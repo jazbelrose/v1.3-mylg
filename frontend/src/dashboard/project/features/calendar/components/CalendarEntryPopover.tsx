@@ -40,6 +40,7 @@ import {
 import {
   BUDGET_TASK_LINK_TYPES,
   inferBudgetTaskLinkTypeFromTitle,
+  getPrimaryBudgetLineItemId,
   normalizeBudgetTaskLinkType,
   type BudgetTaskLinkType,
 } from "@/shared/utils/budgetTaskLinks";
@@ -311,10 +312,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
 
   useEffect(() => {
     if (!isTask || !task || !sourceTask) return;
-    const primary = typeof sourceTask.budgetItemId === "string" && sourceTask.budgetItemId.trim()
-      ? sourceTask.budgetItemId.trim()
-      : null;
-    setAttachedBudgetItemId(primary);
+    setAttachedBudgetItemId(getPrimaryBudgetLineItemId(sourceTask));
 
     const inferred = inferBudgetTaskLinkTypeFromTitle(task.title || sourceTask.title || "");
     const existing = normalizeBudgetTaskLinkType(sourceTask.budgetLinkType);
@@ -403,7 +401,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           projectId: sourceProjectId,
           taskId: sourceTaskId,
           title: sourceTask?.title ?? task?.title ?? "",
-          budgetItemId,
+          primaryBudgetLineItemId: budgetItemId,
           budgetLinkType,
         });
         setAttachedBudgetItemId(budgetItemId);
@@ -423,7 +421,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         projectId: sourceProjectId,
         taskId: sourceTaskId,
         title: sourceTask?.title ?? task?.title ?? "",
-        budgetItemId: null,
+        primaryBudgetLineItemId: null,
         budgetLinkType: null,
       });
       setAttachedBudgetItemId(null);

@@ -38,6 +38,9 @@ interface BudgetToolbarProps {
   currentPage: number;
   pageSize: number;
   onPaginationChange: (page: number, pageSize: number) => void;
+
+  riskBadge?: { label: string; count: number; onClick: () => void } | null;
+  readinessBadge?: { label: string; count: number; onClick: () => void } | null;
 }
 
 const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
@@ -67,6 +70,8 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
   currentPage,
   pageSize,
   onPaginationChange,
+  riskBadge = null,
+  readinessBadge = null,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isSelectMenuOpen, setIsSelectMenuOpen] = useState(false);
@@ -349,6 +354,21 @@ const BudgetToolbar: React.FC<BudgetToolbarProps> = ({
             )}
           </>
         )}
+
+        {riskBadge && riskBadge.count > 0 ? (
+          <button type="button" className={styles.insightBadge} onClick={riskBadge.onClick}>
+            <span className={styles.insightBadgeLabel}>{riskBadge.label}</span>
+            <span className={styles.insightBadgeCount}>{riskBadge.count}</span>
+          </button>
+        ) : null}
+
+        {readinessBadge && readinessBadge.count > 0 ? (
+          <button type="button" className={styles.insightBadge} onClick={readinessBadge.onClick}>
+            <span className={styles.insightBadgeLabel}>{readinessBadge.label}</span>
+            <span className={styles.insightBadgeCount}>{readinessBadge.count}</span>
+          </button>
+        ) : null}
+
         {openCreateModal && (
           <>
             {createDisabledReason && !canCreateLineItems ? (

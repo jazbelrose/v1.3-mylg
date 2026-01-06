@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { X } from "lucide-react";
 import styles from "./budget-work-panel-modal.module.css";
@@ -33,6 +33,7 @@ export type BudgetWorkPanelModalProps = {
   lineItem: BudgetLineLike | null;
   tasks: Task[];
   onTasksChange: (nextTasks: Task[]) => void;
+  initialFocusGroup?: BudgetTaskLinkType | null;
 };
 
 const normalizeOwnerLabel = (task: Task): string => {
@@ -61,6 +62,7 @@ export default function BudgetWorkPanelModal({
   lineItem,
   tasks,
   onTasksChange,
+  initialFocusGroup = null,
 }: BudgetWorkPanelModalProps) {
   const budgetItemId = lineItem?.budgetItemId ?? "";
 
@@ -94,6 +96,18 @@ export default function BudgetWorkPanelModal({
 
     return out;
   }, [budgetItemId, linkedTasks]);
+
+  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!initialFocusGroup) return;
+    const el = groupRefs.current[initialFocusGroup] ?? null;
+    if (!el) return;
+    const t = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [initialFocusGroup, isOpen, budgetItemId]);
 
   const availableToLink = useMemo(() => {
     if (!budgetItemId) return [];
@@ -352,7 +366,13 @@ export default function BudgetWorkPanelModal({
           <div className={styles.sectionHeader}>Linked tasks</div>
           <div className={styles.groups}>
             {BUDGET_TASK_LINK_TYPES.map((group) => (
-              <div key={group.id} className={styles.group}>
+              <div
+                key={group.id}
+                className={styles.group}
+                ref={(node) => {
+                  groupRefs.current[group.id] = node;
+                }}
+              >
                 <div className={styles.groupTitle}>{group.label}</div>
                 <div className={styles.groupList}>
                   {(grouped[group.id] ?? []).length === 0 ? (
