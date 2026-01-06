@@ -235,21 +235,6 @@ export function ProjectPoster({
 
   return (
     <div className={styles.heroBanner}>
-      {showConjurePlan && onConjurePlan ? (
-        <div className={styles.conjurePlanBannerSlot}>
-          <button
-            type="button"
-            className={styles.conjurePlanBannerButton}
-            onClick={onConjurePlan}
-            aria-label="Conjure plan"
-          >
-            <span className={styles.conjurePlanBannerIcon} aria-hidden="true">
-              <Sparkles size={16} />
-            </span>
-            <span className={styles.conjurePlanBannerLabel}>Conjure Plan</span>
-          </button>
-        </div>
-      ) : null}
       {/* Left: Project Info Stack */}
       <div 
         className={styles.heroInfoColumn}
@@ -306,6 +291,24 @@ export function ProjectPoster({
                 <ChevronRight size={14} />
               </button>
             )}
+
+            {showConjurePlan && onConjurePlan ? (
+              <button
+                type="button"
+                className={styles.heroSecondaryCTA}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onConjurePlan();
+                }}
+                title="Conjure plan (Budget + Calendar + Links)"
+                aria-label="Conjure plan"
+              >
+                <span className={styles.heroSecondaryCTAIcon} aria-hidden="true">
+                  <Sparkles size={16} />
+                </span>
+                <span className={styles.heroSecondaryCTALabel}>Conjure Plan</span>
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
