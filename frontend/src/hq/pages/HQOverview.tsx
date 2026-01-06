@@ -19,8 +19,9 @@ import {
   type HqRangeId,
 } from "@/hq/lib/hqMetrics";
 import { fetchHqChartSeries, type HqChartSeriesRange, type HqChartSeriesResponse } from "@/hq/lib/hqApi";
-import type { HqAlert } from "@/hq/types";
+import type { HqAccount, HqAlert, HqTransaction } from "@/hq/types";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
+import HeroCashChart, { type DailyPoint, type VisibleHeroCashSeries } from "@/hq/components/HeroCashChart";
 import styles from "./HQOverview.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -40,7 +41,14 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-const monthTickFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: HqChartSeriesRange): HqChartSeriesResponse["points"] {
+  if (range === "ALL") return points;
+  const fixedDays = range === "1W" ? 7 : range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : null;
+  if (!fixedDays) return points;
+  const anchor = points.length ? points[points.length - 1].date : todayPacificIsoDate();
+  const start = addDaysIso(anchor, -(fixedDays - 1));
+  return points.filter((p) => p.date >= start);
+}
 
 const quickFilters: Array<{ id: HqRangeId; label: string }> = [
   { id: "month", label: "This month" },
@@ -65,15 +73,15 @@ function addDaysIso(isoDate: string, days: number): string {
 function buildLocalChartSeries(input: {
   range: HqChartSeriesRange;
   anchorBalance: number;
-  accounts: typeof Array.prototype;
-  transactions: typeof Array.prototype;
+  accounts: HqAccount[];
+  transactions: HqTransaction[];
 }): HqChartSeriesResponse {
   const today = todayPacificIsoDate();
   const fixedDays =
     input.range === "1W" ? 7 : input.range === "1M" ? 30 : input.range === "3M" ? 90 : input.range === "1Y" ? 365 : null;
 
   const includedAccountIds = new Set(
-    (input.accounts as any[])
+    input.accounts
       .filter((a) => !a.archivedAt && a.includeInCashOnHand !== false)
       .map((a) => a.accountId)
   );
@@ -81,7 +89,7 @@ function buildLocalChartSeries(input: {
   let start = fixedDays ? addDaysIso(today, -(fixedDays - 1)) : today;
   if (!fixedDays) {
     // ALL: best-effort using whatever the client cache has.
-    const dates = (input.transactions as any[])
+    const dates = input.transactions
       .filter((t) => includedAccountIds.has(t.accountId) && !t.isInternalTransfer)
       .map((t) => String(t.postedAt || "").slice(0, 10))
       .filter(Boolean);
@@ -92,7 +100,7 @@ function buildLocalChartSeries(input: {
   const inflowByDate = new Map<string, number>();
   const outflowByDate = new Map<string, number>();
 
-  for (const t of input.transactions as any[]) {
+  for (const t of input.transactions) {
     if (!includedAccountIds.has(t.accountId)) continue;
     if (t.isInternalTransfer) continue;
     const date = String(t.postedAt || "").slice(0, 10);
@@ -198,7 +206,8 @@ const HQOverview: React.FC = () => {
     setChartLoading(true);
     setChartError(null);
 
-    fetchHqChartSeries({ orgId: activeOrgId, scope: "aggregate", range: chartRange })
+    const fetchRange: HqChartSeriesRange = "ALL";
+    fetchHqChartSeries({ orgId: activeOrgId, scope: "aggregate", range: fetchRange })
       .then((res) => {
         if (cancelled) return;
         setChart(res);
@@ -212,7 +221,7 @@ const HQOverview: React.FC = () => {
         if (String(msg).includes("404") && anchorBalanceForChart !== null) {
           setChart(
             buildLocalChartSeries({
-              range: chartRange,
+              range: fetchRange,
               anchorBalance: anchorBalanceForChart,
               accounts,
               transactions,
@@ -233,7 +242,37 @@ const HQOverview: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, accounts, anchorBalanceForChart, chartRange, transactions]);
+  }, [activeOrgId, accounts, anchorBalanceForChart, transactions]);
+
+  const chartPointsInRange = React.useMemo(() => {
+    if (!chart) return null;
+    return filterIsoDatesForRange(chart.points, chartRange);
+  }, [chart, chartRange]);
+
+  const heroCashSeries = React.useMemo(() => {
+    if (!chartPointsInRange) return null;
+
+    const balance: DailyPoint[] = chartPointsInRange.map((p) => ({ time: p.date, value: p.balance }));
+    const inflow: DailyPoint[] = chartPointsInRange.map((p) => ({ time: p.date, value: p.inflow }));
+    const outflow: DailyPoint[] = chartPointsInRange.map((p) => ({ time: p.date, value: p.outflow }));
+    return { balance, inflow, outflow };
+  }, [chartPointsInRange]);
+
+  const heroCashTotals = React.useMemo(() => {
+    if (!chartPointsInRange) return null;
+    const totals = chartPointsInRange.reduce(
+      (acc, p) => {
+        acc.inflow += p.inflow;
+        acc.outflow += p.outflow;
+        return acc;
+      },
+      { inflow: 0, outflow: 0 }
+    );
+    totals.inflow = Math.round(totals.inflow * 100) / 100;
+    totals.outflow = Math.round(totals.outflow * 100) / 100;
+    const net = Math.round((totals.inflow - totals.outflow) * 100) / 100;
+    return { inflow: totals.inflow, outflow: totals.outflow, net };
+  }, [chartPointsInRange]);
 
   const { start, end } = getRange(selectedRange);
 
@@ -263,20 +302,63 @@ const HQOverview: React.FC = () => {
   );
 
   const derivedMissingAnchors = React.useMemo(() => {
-    if (missingAnchorAccountIds.length) return missingAnchorAccountIds;
+    const included = includedAccounts.map((a) => a.accountId);
+    const provided = missingAnchorAccountIds.filter((id) => included.includes(id));
+    if (provided.length > 0) return provided;
+
     return includedAccounts
-      .filter((a) => !(a.anchorDate && typeof a.anchorBalance === "number"))
+      .filter((a) => !a.anchorDate || typeof a.anchorBalance !== "number")
       .map((a) => a.accountId);
   }, [includedAccounts, missingAnchorAccountIds]);
+
+  const lastSyncedAt = React.useMemo(() => {
+    if (!importRuns.length) return null;
+    const latest = importRuns
+      .map((r) => r.createdAt)
+      .filter((d): d is string => typeof d === "string" && Boolean(d))
+      .sort()
+      .at(-1);
+    return latest ?? null;
+  }, [importRuns]);
+
+  const rangeShortLabel = React.useMemo(() => {
+    return selectedRange === "month" ? "This month" : selectedRange === "quarter" ? "Quarter" : "YTD";
+  }, [selectedRange]);
+
+  const rangeLabel = React.useMemo(() => {
+    return `${start} – ${end}`;
+  }, [end, start]);
+
+  const monthlyFlow = React.useMemo(() => {
+    return computeMonthlyFlow(transactions, start, end);
+  }, [end, start, transactions]);
+
+  const maxFlow = React.useMemo(() => {
+    return Math.max(
+      1,
+      ...monthlyFlow.flatMap((r) => [r.inflow, r.outflow])
+    );
+  }, [monthlyFlow]);
+
+  const topCategories = React.useMemo(() => {
+    return computeTopCategories(transactions, start, end);
+  }, [end, start, transactions]);
+
+  const latestTransactions = React.useMemo(() => {
+    return [...transactions]
+      .filter((t) => !t.isInternalTransfer)
+      .sort((a, b) => b.postedAt.localeCompare(a.postedAt))
+      .slice(0, 8);
+  }, [transactions]);
 
   const actions = (
     <div className={styles.actions}>
       {canAdmin ? (
         <>
-          <button type="button" className={styles.primaryButton} onClick={openImport}>
+          <button type="button" className={styles.secondaryButton} onClick={openImport}>
             Import CSV
           </button>
-          <button type="button" className={styles.secondaryButton} onClick={openAddAccount}>
+          <button type="button" className={styles.primaryButton} onClick={openAddAccount}>
             Add account
           </button>
         </>
@@ -284,69 +366,10 @@ const HQOverview: React.FC = () => {
     </div>
   );
 
-  const lastSyncedAt = importRuns[0]?.createdAt;
-  const rangeLabel = quickFilters.find((f) => f.id === selectedRange)?.label ?? "Year-to-date";
-  const rangeShortLabel = selectedRange === "ytd" ? "YTD" : rangeLabel;
-  const monthlyFlow = React.useMemo(() => computeMonthlyFlow(transactions, start, end), [end, start, transactions]);
-  const maxFlow = Math.max(1, ...monthlyFlow.flatMap((row) => [row.inflow, row.outflow]));
-  const topCategories = React.useMemo(() => computeTopCategories(transactions, start, end), [end, start, transactions]);
-  const latestTransactions = React.useMemo(() => transactions.slice(0, 20), [transactions]);
-
-  const chartView = React.useMemo(() => {
-    if (!chart || !chart.points.length) return null;
-    const points = chart.points;
-    const w = 900;
-    const h = 220;
-    const padX = 10;
-    const padY = 14;
-
-    const balanceValues = points.map((p) => p.balance);
-    const min = Math.min(...balanceValues);
-    const max = Math.max(...balanceValues);
-    const range = Math.max(1e-9, max - min);
-
-    const xy = points.map((p, idx) => {
-      const x = padX + (idx / Math.max(1, points.length - 1)) * (w - padX * 2);
-      const yNorm = (p.balance - min) / range;
-      const y = padY + (1 - yNorm) * (h - padY * 2);
-      return { x, y, p };
-    });
-
-    const line = xy.map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`).join(" ");
-    const area = `${line} L ${xy[xy.length - 1].x.toFixed(2)} ${(h - padY).toFixed(2)} L ${xy[0].x.toFixed(2)} ${(h - padY).toFixed(2)} Z`;
-
-    const maxFlow = Math.max(1e-9, ...points.map((p) => Math.max(p.inflow, p.outflow)));
-
-    const monthTickIndexes: Array<{ idx: number; label: string }> = [];
-    for (let i = 0; i < points.length; i += 1) {
-      const d = points[i].date;
-      if (d.endsWith("-01")) {
-        const label = monthTickFormatter.format(new Date(d));
-        monthTickIndexes.push({ idx: i, label });
-      }
-    }
-
-    return { w, h, padX, padY, xy, min, max, line, area, maxFlow, monthTickIndexes };
-  }, [chart]);
-
-  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
-  const chartRef = React.useRef<HTMLDivElement | null>(null);
-
-  const onChartMove = React.useCallback(
-    (evt: React.MouseEvent) => {
-      if (!chartView || !chart) return;
-      const el = chartRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const x = evt.clientX - rect.left;
-      const t = Math.min(1, Math.max(0, x / rect.width));
-      const idx = Math.round(t * (chart.points.length - 1));
-      setHoverIdx(idx);
-    },
-    [chart, chartView]
+  const heroVisibleSeries: VisibleHeroCashSeries = React.useMemo(
+    () => ({ balance: showBalance, inflow: showInflow, outflow: showOutflow }),
+    [showBalance, showInflow, showOutflow]
   );
-
-  const onChartLeave = React.useCallback(() => setHoverIdx(null), []);
 
   const toggleBalance = React.useCallback(() => {
     setShowBalance((prev) => {
@@ -487,125 +510,34 @@ const HQOverview: React.FC = () => {
               </div>
             </div>
 
-            {chartCollapsed ? null : chartView && chart ? (
+            {chartCollapsed ? null : heroCashSeries && chart ? (
               <div className={styles.heroChartStageWrap}>
-                <div
-                  ref={chartRef}
-                  className={styles.balanceChartStage}
-                  onMouseMove={onChartMove}
-                  onMouseLeave={onChartLeave}
-                  role="img"
-                  aria-label="Trading-style cash chart"
-                >
-                  <svg
-                    className={styles.heroChartSvg}
-                    viewBox={`0 0 ${chartView.w} ${chartView.h}`}
-                    preserveAspectRatio="none"
-                  >
-                    {showInflow || showOutflow ? (
-                      <g>
-                        {chart.points.map((p, idx) => {
-                          const x = chartView.padX + (idx / Math.max(1, chart.points.length - 1)) * (chartView.w - chartView.padX * 2);
-                          const barW = (chartView.w - chartView.padX * 2) / Math.max(1, chart.points.length);
-                          const baseY = chartView.h - chartView.padY;
-                          const maxFlow = chartView.maxFlow;
-                          const inflowH = showInflow ? ((p.inflow || 0) / maxFlow) * (chartView.h * 0.28) : 0;
-                          const outflowH = showOutflow ? ((p.outflow || 0) / maxFlow) * (chartView.h * 0.28) : 0;
-                          return (
-                            <g key={p.date}>
-                              {showOutflow && outflowH > 0 ? (
-                                <rect
-                                  className={styles.heroChartOutflowBar}
-                                  x={x - barW / 2}
-                                  y={baseY - outflowH}
-                                  width={barW}
-                                  height={outflowH}
-                                />
-                              ) : null}
-                              {showInflow && inflowH > 0 ? (
-                                <rect
-                                  className={styles.heroChartInflowBar}
-                                  x={x - barW / 2}
-                                  y={baseY - inflowH}
-                                  width={barW}
-                                  height={inflowH}
-                                />
-                              ) : null}
-                            </g>
-                          );
-                        })}
-                      </g>
-                    ) : null}
-
-                    {showBalance ? (
-                      <g>
-                        <path className={styles.balanceArea} d={chartView.area} />
-                        <path className={styles.balanceLine} d={chartView.line} />
-                      </g>
-                    ) : null}
-
-                    {hoverIdx !== null ? (() => {
-                      const pt = chartView.xy[hoverIdx];
-                      return (
-                        <g>
-                          <line
-                            className={styles.balanceHoverLine}
-                            x1={pt.x}
-                            x2={pt.x}
-                            y1={chartView.padY}
-                            y2={chartView.h - chartView.padY}
-                          />
-                          {showBalance ? <circle className={styles.balanceHoverDot} cx={pt.x} cy={pt.y} r={4} /> : null}
-                        </g>
-                      );
-                    })() : null}
-
-                    {chartView.monthTickIndexes.map((t) => {
-                      const pt = chartView.xy[t.idx];
-                      return (
-                        <text
-                          key={`${t.label}-${t.idx}`}
-                          className={styles.balanceTick}
-                          x={pt.x}
-                          y={chartView.h - 4}
-                          textAnchor="middle"
-                        >
-                          {t.label}
-                        </text>
-                      );
-                    })}
-                  </svg>
-
-                  {hoverIdx !== null ? (
-                    <div className={styles.balanceTooltip}>
-                      <div className={styles.balanceTooltipTitle}>{chart.points[hoverIdx].date}</div>
-                      <div className={styles.balanceTooltipRow}>Balance: {preciseCurrency.format(chart.points[hoverIdx].balance)}</div>
-                      <div className={styles.balanceTooltipRow}>
-                        In: {preciseCurrency.format(chart.points[hoverIdx].inflow)} · Out: {preciseCurrency.format(chart.points[hoverIdx].outflow)}
-                      </div>
-                      <div className={styles.balanceTooltipRow}>
-                        Net: {preciseCurrency.format(chart.points[hoverIdx].inflow - chart.points[hoverIdx].outflow)}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                <HeroCashChart
+                  balance={heroCashSeries.balance}
+                  inflow={heroCashSeries.inflow}
+                  outflow={heroCashSeries.outflow}
+                  range={chartRange}
+                  visibleSeries={heroVisibleSeries}
+                />
 
                 <div className={styles.heroChartFooter}>
                   <div className={styles.heroChartFooterStat}>
                     <span>Range</span>
-                    <span>{chart.range}</span>
+                    <span>{chartRange}</span>
                   </div>
                   <div className={styles.heroChartFooterStat}>
                     <span className={styles.kpiIn}>In</span>
-                    <span>{currency.format(chart.totals.inflow)}</span>
+                    <span>{currency.format(heroCashTotals?.inflow ?? chart.totals.inflow)}</span>
                   </div>
                   <div className={styles.heroChartFooterStat}>
                     <span className={styles.kpiOut}>Out</span>
-                    <span>{currency.format(chart.totals.outflow)}</span>
+                    <span>{currency.format(heroCashTotals?.outflow ?? chart.totals.outflow)}</span>
                   </div>
                   <div className={styles.heroChartFooterStat}>
                     <span>Net</span>
-                    <span className={chart.totals.net < 0 ? styles.kpiOut : styles.kpiIn}>{currency.format(chart.totals.net)}</span>
+                    <span className={(heroCashTotals?.net ?? chart.totals.net) < 0 ? styles.kpiOut : styles.kpiIn}>
+                      {currency.format(heroCashTotals?.net ?? chart.totals.net)}
+                    </span>
                   </div>
                 </div>
               </div>
