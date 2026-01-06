@@ -8,6 +8,8 @@ import {
   BUDGET_TASK_LINK_TYPES,
   countTasksLinkedToBudgetItem,
   getTaskLinkTypeForBudgetItem,
+  getPrimaryBudgetLineItemId,
+  getSecondaryBudgetLinks,
   inferBudgetTaskLinkTypeFromTitle,
   taskHasBudgetLink,
   type BudgetTaskLinkType,
@@ -51,9 +53,6 @@ const normalizeDueLabel = (task: Task): string => {
   if (!due) return "—";
   return due.slice(0, 10);
 };
-
-const makeBudgetLinks = (value: unknown): Array<{ budgetItemId: string; linkType?: string | null }> =>
-  Array.isArray(value) ? (value as Array<{ budgetItemId: string; linkType?: string | null }>) : [];
 
 export default function BudgetWorkPanelModal({
   isOpen,
@@ -126,7 +125,7 @@ export default function BudgetWorkPanelModal({
         projectId,
         title,
         status: "todo",
-        budgetItemId,
+        primaryBudgetLineItemId: budgetItemId,
         budgetLinkType: createLinkType,
       });
       onTasksChange([created, ...tasks]);
@@ -141,9 +140,9 @@ export default function BudgetWorkPanelModal({
     async (task: Task) => {
       if (!projectId || !budgetItemId || !task.taskId) return;
 
-      const primaryId = typeof task.budgetItemId === "string" && task.budgetItemId.trim() ? task.budgetItemId.trim() : null;
-      const existingLinks = makeBudgetLinks(task.budgetLinks);
-      const hasSecondary = existingLinks.some((l) => l && l.budgetItemId === budgetItemId);
+      const primaryId = getPrimaryBudgetLineItemId(task);
+      const existingSecondary = getSecondaryBudgetLinks(task);
+      const hasSecondary = existingSecondary.some((l) => l.budgetLineItemId === budgetItemId);
 
       setIsSaving(true);
       try {
@@ -152,7 +151,7 @@ export default function BudgetWorkPanelModal({
             projectId,
             taskId: task.taskId,
             title: task.title ?? "",
-            budgetItemId,
+            primaryBudgetLineItemId: budgetItemId,
             budgetLinkType: linkType,
           });
           applyTaskUpdateInMemory(updated);
@@ -173,11 +172,12 @@ export default function BudgetWorkPanelModal({
         }
 
         if (hasSecondary) return;
+        const now = new Date().toISOString();
         const updated = await updateTask({
           projectId,
           taskId: task.taskId,
           title: task.title ?? "",
-          budgetLinks: [...existingLinks, { budgetItemId, linkType }],
+          budgetLinks: [...existingSecondary, { budgetLineItemId: budgetItemId, linkType, createdAt: now }],
         });
         applyTaskUpdateInMemory(updated);
       } finally {
@@ -191,17 +191,17 @@ export default function BudgetWorkPanelModal({
     async (task: Task) => {
       if (!projectId || !budgetItemId || !task.taskId) return;
 
-      const primaryId = typeof task.budgetItemId === "string" && task.budgetItemId.trim() ? task.budgetItemId.trim() : null;
-      const existingLinks = makeBudgetLinks(task.budgetLinks);
-      const nextLinks = existingLinks.filter((l) => l && l.budgetItemId !== budgetItemId);
+      const primaryId = getPrimaryBudgetLineItemId(task);
+      const existingSecondary = getSecondaryBudgetLinks(task);
+      const nextSecondary = existingSecondary.filter((l) => l && l.budgetLineItemId !== budgetItemId);
 
       const updates: Partial<Task> = {};
       if (primaryId === budgetItemId) {
-        updates.budgetItemId = null;
+        updates.primaryBudgetLineItemId = null;
         updates.budgetLinkType = null;
       }
-      if (existingLinks.length !== nextLinks.length) {
-        updates.budgetLinks = nextLinks;
+      if (existingSecondary.length !== nextSecondary.length) {
+        updates.budgetLinks = nextSecondary;
       }
 
       if (Object.keys(updates).length === 0) return;

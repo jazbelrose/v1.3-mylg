@@ -49,6 +49,7 @@ import {
   fetchTasks,
   type Task,
 } from "@/shared/utils/api";
+import { getPrimaryBudgetLineItemId, getSecondaryBudgetLinks } from "@/shared/utils/budgetTaskLinks";
 import { v4 as uuid } from "uuid";
 import type { InvoiceDetailsPayload } from "@/dashboard/project/features/budget/components/invoicePreviewTypes";
 import { notify } from "@/shared/ui/ToastNotifications";
@@ -245,15 +246,14 @@ const BudgetPageContent = () => {
 
     projectTasks.forEach((task) => {
       const ids = new Set<string>();
-      if (typeof task.budgetItemId === "string" && task.budgetItemId.trim()) {
-        ids.add(task.budgetItemId.trim());
-      }
-      if (Array.isArray(task.budgetLinks)) {
-        task.budgetLinks.forEach((link) => {
-          const id = typeof link?.budgetItemId === "string" ? link.budgetItemId.trim() : "";
-          if (id) ids.add(id);
-        });
-      }
+
+      const primaryId = getPrimaryBudgetLineItemId(task);
+      if (primaryId) ids.add(primaryId);
+
+      getSecondaryBudgetLinks(task).forEach((link) => {
+        if (link.budgetLineItemId) ids.add(link.budgetLineItemId);
+      });
+
       ids.forEach((id) => {
         counts[id] = (counts[id] ?? 0) + 1;
       });

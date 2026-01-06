@@ -29,11 +29,76 @@ export function inferBudgetTaskLinkTypeFromTitle(title: string): BudgetTaskLinkT
   return "build";
 }
 
+type RawBudgetTaskLink = {
+  budgetLineItemId?: unknown;
+  budgetItemId?: unknown;
+  linkType?: unknown;
+  createdAt?: unknown;
+  createdBy?: unknown;
+  isPrimary?: unknown;
+};
+
+export type SecondaryBudgetTaskLink = {
+  budgetLineItemId: string;
+  linkType: BudgetTaskLinkType | null;
+  createdAt?: string;
+  createdBy?: string;
+};
+
+export function getPrimaryBudgetLineItemId(task: Task | null | undefined): string | null {
+  if (!task) return null;
+  const raw =
+    (task as { primaryBudgetLineItemId?: unknown }).primaryBudgetLineItemId ??
+    (task as { budgetItemId?: unknown }).budgetItemId;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function getSecondaryBudgetLinks(task: Task | null | undefined): SecondaryBudgetTaskLink[] {
+  if (!task) return [];
+
+  const primaryId = getPrimaryBudgetLineItemId(task);
+  const rawLinks = Array.isArray(task.budgetLinks) ? (task.budgetLinks as unknown[]) : [];
+  const out: SecondaryBudgetTaskLink[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of rawLinks) {
+    if (!raw || typeof raw !== "object") continue;
+    const link = raw as RawBudgetTaskLink;
+    const rawId =
+      typeof link.budgetLineItemId === "string"
+        ? link.budgetLineItemId
+        : typeof link.budgetItemId === "string"
+          ? link.budgetItemId
+          : "";
+    const budgetLineItemId = rawId.trim();
+    if (!budgetLineItemId) continue;
+
+    // Enforce invariant: secondary links never include primary.
+    if (primaryId && budgetLineItemId === primaryId) continue;
+    // If older data encoded primary in the list, skip it.
+    if (link.isPrimary === true) continue;
+
+    if (seen.has(budgetLineItemId)) continue;
+    seen.add(budgetLineItemId);
+
+    const linkType = normalizeBudgetTaskLinkType(link.linkType);
+    const createdAt = typeof link.createdAt === "string" && link.createdAt.trim() ? link.createdAt.trim() : undefined;
+    const createdBy = typeof link.createdBy === "string" && link.createdBy.trim() ? link.createdBy.trim() : undefined;
+
+    out.push({ budgetLineItemId, linkType, createdAt, createdBy });
+  }
+
+  return out;
+}
+
 export function taskHasBudgetLink(task: Task | null | undefined, budgetItemId: string): boolean {
   if (!task || !budgetItemId) return false;
-  if (task.budgetItemId && task.budgetItemId === budgetItemId) return true;
-  const links = Array.isArray(task.budgetLinks) ? task.budgetLinks : [];
-  return links.some((l) => l && typeof l === "object" && (l as { budgetItemId?: unknown }).budgetItemId === budgetItemId);
+  const target = budgetItemId.trim();
+  if (!target) return false;
+  if (getPrimaryBudgetLineItemId(task) === target) return true;
+  return getSecondaryBudgetLinks(task).some((l) => l.budgetLineItemId === target);
 }
 
 export function countTasksLinkedToBudgetItem(tasks: Task[], budgetItemId: string): number {
@@ -42,12 +107,16 @@ export function countTasksLinkedToBudgetItem(tasks: Task[], budgetItemId: string
 }
 
 export function getTaskLinkTypeForBudgetItem(task: Task, budgetItemId: string): BudgetTaskLinkType | null {
-  if (task.budgetItemId && task.budgetItemId === budgetItemId) {
+  const target = (budgetItemId || "").trim();
+  if (!target) return null;
+
+  if (getPrimaryBudgetLineItemId(task) === target) {
     return normalizeBudgetTaskLinkType(task.budgetLinkType);
   }
-  const links = Array.isArray(task.budgetLinks) ? task.budgetLinks : [];
-  const link = links.find((l) => l && typeof l === "object" && (l as { budgetItemId?: unknown }).budgetItemId === budgetItemId);
+
+  const secondary = getSecondaryBudgetLinks(task);
+  const link = secondary.find((l) => l.budgetLineItemId === target);
   if (!link) return null;
-  return normalizeBudgetTaskLinkType((link as { linkType?: unknown }).linkType);
+  return link.linkType;
 }
 

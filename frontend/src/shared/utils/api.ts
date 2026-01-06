@@ -98,16 +98,32 @@ export interface Task extends JsonRecord {
   projectId: string;
   title: string;
   description?: string;
+  /**
+   * App-layer name for the primary budget line item link.
+   * Storage/back-end still uses `budgetItemId`.
+   */
+  primaryBudgetLineItemId?: string | null;
+  /**
+   * Legacy storage field for the primary budget line item link.
+   * Prefer `primaryBudgetLineItemId` in UI/feature code.
+   */
   budgetItemId?: string | null;
   /** Primary budget link type for `budgetItemId` (MYLG extension). */
   budgetLinkType?: string | null;
   /**
-   * Secondary (and optional primary) budget links for a task.
-   * Primary is still represented by `budgetItemId` for backwards compatibility.
+   * Secondary budget links for a task.
+   * Invariant (app-layer): primary lives on Task (`primaryBudgetLineItemId` / legacy `budgetItemId`),
+   * and `budgetLinks[]` contains secondary links only.
    */
   budgetLinks?: Array<{
-    budgetItemId: string;
+    /** Canonical id field (secondary link). */
+    budgetLineItemId?: string;
+    /** Legacy id field (accepted for backwards compatibility). */
+    budgetItemId?: string;
     linkType?: string | null;
+    createdAt?: string;
+    createdBy?: string;
+    isPrimary?: boolean;
   }>;
   status?: 'todo' | 'in_progress' | 'in_review' | 'needs_changes' | 'done' | 'archived';
   assigneeId?: string;
@@ -947,6 +963,18 @@ export async function fetchTasks(projectId?: string): Promise<Task[]> {
 export async function createTask(task: Task): Promise<Task> {
   const { projectId, ...payload } = task;
   if (!projectId) throw new Error('projectId is required for createTask');
+
+  // App-layer alias: primaryBudgetLineItemId -> legacy budgetItemId
+  if (
+    'primaryBudgetLineItemId' in payload &&
+    payload.primaryBudgetLineItemId !== undefined &&
+    payload.budgetItemId === undefined
+  ) {
+    payload.budgetItemId = payload.primaryBudgetLineItemId as unknown as string | null;
+  }
+  // Never send the alias field over the wire.
+  if ('primaryBudgetLineItemId' in payload) delete (payload as { primaryBudgetLineItemId?: unknown }).primaryBudgetLineItemId;
+
   if (payload.budgetItemId === '' || payload.budgetItemId == null) delete payload.budgetItemId;
   const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks`;
   const res = await apiFetch<{ projectId?: string; task?: Task } | Task>(url, {
@@ -985,7 +1013,20 @@ export async function createTasksBulk(projectId: string, tasks: Task[]): Promise
 export async function updateTask(task: Task): Promise<Task> {
   const { projectId, taskId, ...payload } = task;
   if (!projectId || !taskId) throw new Error('projectId and taskId are required for updateTask');
-  if (payload.budgetItemId === '' || payload.budgetItemId == null) delete payload.budgetItemId;
+
+  // App-layer alias: primaryBudgetLineItemId -> legacy budgetItemId
+  if (
+    'primaryBudgetLineItemId' in payload &&
+    payload.primaryBudgetLineItemId !== undefined &&
+    payload.budgetItemId === undefined
+  ) {
+    payload.budgetItemId = payload.primaryBudgetLineItemId as unknown as string | null;
+  }
+  // Never send the alias field over the wire.
+  if ('primaryBudgetLineItemId' in payload) delete (payload as { primaryBudgetLineItemId?: unknown }).primaryBudgetLineItemId;
+
+  // Allow null to be sent to clear the field; only strip empty strings.
+  if (payload.budgetItemId === '') delete payload.budgetItemId;
   const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`;
   return apiFetch<Task>(url, {
     method: 'PATCH',
