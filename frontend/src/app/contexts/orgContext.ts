@@ -17,6 +17,7 @@ export type OrgContextValue = {
   setActiveOrgId: (orgId: string) => void;
   refreshOrgs: () => Promise<void>;
   createOrg: (name: string) => Promise<string>;
+  deleteOrg: (orgId: string) => Promise<void>;
 };
 
 export const OrgContext = React.createContext<OrgContextValue | null>(null);

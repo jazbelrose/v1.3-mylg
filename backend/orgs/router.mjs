@@ -1,6 +1,6 @@
 // backend/orgs/router.mjs
 import { corsHeadersFromEvent, preflightFromEvent, json } from "/opt/nodejs/utils/cors.mjs";
-import { getCallerFromEvent, requireCallerUserId, httpError } from "/opt/nodejs/utils/auth.mjs";
+import { getCallerFromEvent, requireCallerUserId, requireCallerAdmin, httpError } from "/opt/nodejs/utils/auth.mjs";
 import { requireOrgMember, requireOrgAdmin, isOrgAdminRole } from "/opt/nodejs/utils/orgAuth.mjs";
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -51,6 +51,18 @@ const parseOrgId = (raw) => {
 const fromOrgPk = (pk) => String(pk || "").replace(/^ORG#/, "");
 const fromOrgSk = (sk) => String(sk || "").replace(/^ORG#/, "");
 
+const isActiveStatus = (status) => {
+  const s = String(status || "active").toLowerCase();
+  return s === "active";
+};
+
+const requireActiveOrg = async (orgId) => {
+  const res = await ddb.get({ TableName: ORGS_TABLE, Key: { PK: `ORG#${orgId}` } });
+  const org = res?.Item;
+  if (!org || !isActiveStatus(org.status)) throw httpError(404, "Not found");
+  return org;
+};
+
 /* ------------ Handlers ------------ */
 const health = async (_e, C) => json(200, C, { ok: true, domain: "orgs" });
 
@@ -82,6 +94,7 @@ const listMyOrgs = async (e, C) => {
 // POST /orgs { name }
 const createOrg = async (e, C) => {
   const userId = requireCallerUserId(e);
+  requireCallerAdmin(e);
   const body = B(e);
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (name.length < 2) return json(400, C, { error: "name required" });
@@ -117,6 +130,78 @@ const createOrg = async (e, C) => {
   return json(200, C, { org: { orgId, name, role: "owner" } });
 };
 
+// DELETE /orgs/:orgId (platform admin)
+const deleteOrg = async (e, C, { orgId }) => {
+  const userId = requireCallerUserId(e);
+  requireCallerAdmin(e);
+  orgId = parseOrgId(orgId);
+
+  const res = await ddb.get({ TableName: ORGS_TABLE, Key: { PK: `ORG#${orgId}` } });
+  const org = res?.Item;
+  if (!org) return json(404, C, { error: "Not found" });
+
+  const deletedAt = nowISO();
+  if (isActiveStatus(org.status)) {
+    await ddb.update({
+      TableName: ORGS_TABLE,
+      Key: { PK: `ORG#${orgId}` },
+      UpdateExpression: "SET #s = :s, deletedAt = :d, deletedBy = :u",
+      ExpressionAttributeNames: { "#s": "status" },
+      ExpressionAttributeValues: { ":s": "deleted", ":d": deletedAt, ":u": userId },
+    });
+  }
+
+  // Deactivate org memberships
+  let membersKey = undefined;
+  do {
+    const page = await ddb.query({
+      TableName: ORG_MEMBERS_TABLE,
+      KeyConditionExpression: "PK = :pk",
+      ExpressionAttributeValues: { ":pk": `ORG#${orgId}` },
+      ExclusiveStartKey: membersKey,
+    });
+
+    for (const item of page.Items || []) {
+      if (!isActiveStatus(item.status)) continue;
+      await ddb.update({
+        TableName: ORG_MEMBERS_TABLE,
+        Key: { PK: item.PK, SK: item.SK },
+        UpdateExpression: "SET #s = :s, leftAt = :d, leftBy = :u",
+        ExpressionAttributeNames: { "#s": "status" },
+        ExpressionAttributeValues: { ":s": "deleted", ":d": deletedAt, ":u": userId },
+      });
+    }
+
+    membersKey = page.LastEvaluatedKey;
+  } while (membersKey);
+
+  // Revoke pending invites (no orgId index; scan is OK for admin ops)
+  let invitesKey = undefined;
+  do {
+    const page = await ddb.scan({
+      TableName: ORG_INVITES_TABLE,
+      FilterExpression: "orgId = :o AND (#s = :pending)",
+      ExpressionAttributeNames: { "#s": "status" },
+      ExpressionAttributeValues: { ":o": orgId, ":pending": "pending" },
+      ExclusiveStartKey: invitesKey,
+    });
+
+    for (const item of page.Items || []) {
+      await ddb.update({
+        TableName: ORG_INVITES_TABLE,
+        Key: { PK: item.PK },
+        UpdateExpression: "SET #s = :s, revokedAt = :d, revokedBy = :u",
+        ExpressionAttributeNames: { "#s": "status" },
+        ExpressionAttributeValues: { ":s": "revoked", ":d": deletedAt, ":u": userId },
+      });
+    }
+
+    invitesKey = page.LastEvaluatedKey;
+  } while (invitesKey);
+
+  return json(200, C, { ok: true, orgId });
+};
+
 // GET /orgs/:orgId (404 if not member)
 const getOrg = async (e, C, { orgId }) => {
   const userId = requireCallerUserId(e);
@@ -137,6 +222,8 @@ const getOrg = async (e, C, { orgId }) => {
 const createInvite = async (e, C, { orgId }) => {
   const userId = requireCallerUserId(e);
   orgId = parseOrgId(orgId);
+
+  await requireActiveOrg(orgId);
 
   const membership = await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
@@ -210,6 +297,7 @@ const acceptInvite = async (e, C) => {
   if (tokenHash !== invite.tokenHash) return json(404, C, { error: "Not found" });
 
   const orgId = invite.orgId;
+  await requireActiveOrg(orgId);
   const joinedAt = nowISO();
 
   // Write membership (idempotent-ish)
@@ -247,6 +335,7 @@ const routes = [
   { m: "POST", r: /^\/orgs\/?$/i, h: createOrg },
 
   { m: "GET", r: /^\/orgs\/(?<orgId>[^/]+)\/?$/i, h: getOrg },
+  { m: "DELETE", r: /^\/orgs\/(?<orgId>[^/]+)\/?$/i, h: deleteOrg },
   { m: "POST", r: /^\/orgs\/(?<orgId>[^/]+)\/invites\/?$/i, h: createInvite },
 
   { m: "POST", r: /^\/orgs\/invites\/accept\/?$/i, h: acceptInvite },

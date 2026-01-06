@@ -43,8 +43,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   actions,
   children,
 }) => {
-  const { userName } = useUser();
-  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading, createOrg } = useOrg();
+  const { userName, isAdmin } = useUser();
+  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading, createOrg, deleteOrg } = useOrg();
   const [flags, setFlags] = useState<ViewportFlags>(() => getViewportFlags());
   const [isNavCollapsed, setIsNavCollapsed] = useNavCollapsed("dashboard");
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
@@ -92,6 +92,25 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     }
   }, [createOrg]);
 
+  const activeOrgName = useMemo(() => {
+    const match = orgs.find((org) => org.orgId === activeOrgId);
+    return match?.name || match?.orgId || null;
+  }, [activeOrgId, orgs]);
+
+  const handleDeleteOrg = useCallback(async () => {
+    if (!activeOrgId) return;
+    const label = activeOrgName ? `"${activeOrgName}"` : activeOrgId;
+    const ok = window.confirm(`Delete org ${label}? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      await deleteOrg(activeOrgId);
+      toast.success("Organization deleted.");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Could not delete organization.");
+    }
+  }, [activeOrgId, activeOrgName, deleteOrg]);
+
   const pageHeader = (
     <header className={styles.pageHeader}>
       <div className={styles.pageHeading}>
@@ -118,9 +137,14 @@ const HQLayout: React.FC<HQLayoutProps> = ({
               ))}
             </select>
           </label>
-          {!orgsLoading && orgs.length === 0 ? (
+          {isAdmin ? (
             <button type="button" className={styles.orgCreateButton} onClick={handleCreateOrg}>
               Create org
+            </button>
+          ) : null}
+          {isAdmin && activeOrgId ? (
+            <button type="button" className={styles.orgCreateButton} onClick={handleDeleteOrg}>
+              Delete org
             </button>
           ) : null}
           {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
@@ -154,9 +178,14 @@ const HQLayout: React.FC<HQLayoutProps> = ({
             ))}
           </select>
         </label>
-        {!orgsLoading && orgs.length === 0 ? (
+        {isAdmin ? (
           <button type="button" className={styles.orgCreateButton} onClick={handleCreateOrg}>
             Create org
+          </button>
+        ) : null}
+        {isAdmin && activeOrgId ? (
+          <button type="button" className={styles.orgCreateButton} onClick={handleDeleteOrg}>
+            Delete org
           </button>
         ) : null}
         {actions ? <div className={styles.actionSlot}>{actions}</div> : null}

@@ -58,6 +58,26 @@ export const OrgProvider: React.FC<React.PropsWithChildren> = ({ children }) => 
     });
   }, []);
 
+  const deleteOrg = React.useCallback(
+    async (orgId: string) => {
+      const trimmed = String(orgId || "").trim();
+      if (!trimmed) throw new Error("Organization id required");
+
+      const base = getOrgsServiceBaseUrl();
+      await apiFetch<{ ok: boolean }>(`${base}/orgs/${encodeURIComponent(trimmed)}`, {
+        method: "DELETE",
+      });
+
+      if (typeof window !== "undefined") {
+        const last = window.localStorage.getItem(LAST_ORG_KEY);
+        if (last === trimmed) window.localStorage.removeItem(LAST_ORG_KEY);
+      }
+
+      await refreshOrgs();
+    },
+    [refreshOrgs]
+  );
+
   React.useEffect(() => {
     let mounted = true;
     setIsLoading(true);
@@ -98,8 +118,9 @@ export const OrgProvider: React.FC<React.PropsWithChildren> = ({ children }) => 
       setActiveOrgId,
       refreshOrgs,
       createOrg,
+      deleteOrg,
     }),
-    [activeOrgId, activeOrgRole, createOrg, isLoading, orgs, refreshOrgs, setActiveOrgId]
+    [activeOrgId, activeOrgRole, createOrg, deleteOrg, isLoading, orgs, refreshOrgs, setActiveOrgId]
   );
 
   return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>;

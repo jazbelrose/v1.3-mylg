@@ -36,6 +36,20 @@ export function requireCallerUserId(event) {
   return caller.userId;
 }
 
+export function isCallerAdmin(event) {
+  const caller = getCallerFromEvent(event);
+  if (caller.groups?.includes("admin")) return true;
+
+  const role = String(caller.claims?.role || caller.claims?.["custom:role"] || "").toLowerCase();
+  return role === "admin";
+}
+
+export function requireCallerAdmin(event) {
+  if (!isCallerAdmin(event)) {
+    throw httpError(403, "Forbidden");
+  }
+}
+
 export function httpError(statusCode, message) {
   const err = new Error(message || "Error");
   err.statusCode = statusCode;

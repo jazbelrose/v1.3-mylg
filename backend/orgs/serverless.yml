@@ -71,6 +71,11 @@ functions:
           authorizer:
             name: jwtAuthorizer
       - httpApi:
+          path: /orgs/{proxy+}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
           path: /orgs/health
           method: GET
           authorizer:
