@@ -114,6 +114,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [coverageMenuOpenForId, setCoverageMenuOpenForId] = useState<string | null>(null);
+  const coverageDropdownRef = useRef<HTMLDivElement | null>(null);
   const [attachmentMenuState, setAttachmentMenuState] = useState<{
     id: string;
     items: AttachmentPreviewItem[];
@@ -142,6 +144,19 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       mediaQuery.addListener(listener);
     return () => mediaQuery.removeListener(listener);
   }, []);
+
+  useEffect(() => {
+    if (!coverageMenuOpenForId) return undefined;
+
+    const onPointerDown = (event: MouseEvent | PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && coverageDropdownRef.current?.contains(target)) return;
+      setCoverageMenuOpenForId(null);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [coverageMenuOpenForId]);
 
   const openAttachmentPreview = useCallback((items: AttachmentPreviewItem[], index: number) => {
     if (!items.length) return;
@@ -557,42 +572,80 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
 
                               {coverage ? (
                                 <div className={styles.workCoverage} aria-label="Work coverage">
-                                  <span className={styles.workCoverageLabel}>Coverage:</span>
-                                  {BUDGET_TASK_LINK_TYPES.map((t) => {
+                              <div className={styles.coverageAddWrapper}>
+                                {(() => {
+                                  const existingCount = BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
                                     const state = coverage[t.id] ?? "missing";
-                                    const isMissing = state === "missing";
-                                    const isDone = state === "done";
-                                    const label = t.label;
+                                    return sum + (state === "missing" ? 0 : 1);
+                                  }, 0);
 
-                                    return (
-                                      <button
-                                        key={t.id}
-                                        type="button"
-                                        className={`${styles.workCoverageStage} ${
-                                          isDone ? styles.workCoverageStageDone : state === "pending" ? styles.workCoverageStagePending : styles.workCoverageStageMissing
-                                        }`}
-                                        disabled={!isMissing || !onCreateMissingWorkStage || isLocked || isSelectMode}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          if (!isMissing) return;
-                                          if (!onCreateMissingWorkStage) return;
-                                          onCreateMissingWorkStage(record, t.id);
-                                        }}
-                                        title={
-                                          isMissing
-                                            ? "Create task"
-                                            : state === "pending"
-                                              ? "Task exists"
-                                              : "Done"
-                                        }
-                                      >
-                                        <span className={styles.workCoverageStageLabel}>{label}</span>
-                                        <span className={styles.workCoverageStageIcon} aria-hidden>
-                                          {isDone ? "✓" : state === "pending" ? "⏳" : "+"}
-                                        </span>
-                                      </button>
-                                    );
-                                  })}
+                                  return (
+                                    <button
+                                      type="button"
+                                      className={styles.coverageAddButton}
+                                      aria-haspopup="menu"
+                                      aria-expanded={coverageMenuOpenForId === record.budgetItemId}
+                                      disabled={isLocked || isSelectMode || !onCreateMissingWorkStage}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        if (isLocked || isSelectMode || !onCreateMissingWorkStage) return;
+                                        setCoverageMenuOpenForId((prev) => (prev === record.budgetItemId ? null : record.budgetItemId));
+                                      }}
+                                      title="Coverage"
+                                    >
+                                      <span>Coverage</span>
+                                      <span aria-hidden>·</span>
+                                      <span>{existingCount}</span>
+                                    </button>
+                                  );
+                                })()}
+
+                                    {coverageMenuOpenForId === record.budgetItemId ? (
+                                      <div className={styles.coverageDropdown} ref={coverageDropdownRef} role="menu" aria-label="Add coverage">
+                                        {(
+                                          [
+                                            { id: "quote" as const, label: "Add Quote" },
+                                            { id: "procure" as const, label: "Add Procure" },
+                                            { id: "build" as const, label: "Add Build" },
+                                            { id: "install" as const, label: "Add Install" },
+                                            { id: "strike" as const, label: "Add Strike" },
+                                            { id: "invoice" as const, label: "Add Invoice" },
+                                          ]
+                                        ).map((item) => {
+                                          const state = coverage[item.id] ?? "missing";
+                                          const isMissing = state === "missing";
+                                          const disabled = !isMissing || isLocked || isSelectMode || !onCreateMissingWorkStage;
+
+                                          return (
+                                            <button
+                                              key={item.id}
+                                              type="button"
+                                              className={styles.coverageDropdownItem}
+                                              role="menuitem"
+                                              disabled={disabled}
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                if (disabled) return;
+                                                onCreateMissingWorkStage?.(record, item.id);
+                                                setCoverageMenuOpenForId(null);
+                                              }}
+                                              title={
+                                                disabled
+                                                  ? state === "done"
+                                                    ? "Already done"
+                                                    : state === "pending"
+                                                      ? "Task exists"
+                                                      : "Unavailable"
+                                                  : "Create task"
+                                              }
+                                            >
+                                              {item.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 </div>
                               ) : null}
 

@@ -606,6 +606,72 @@
   opacity: 0.8;
 }
 
+.coverageAddWrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.coverageAddButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--sheet-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.coverageAddButton:hover,
+.coverageAddButton:focus-visible {
+  border-color: var(--color-primary, #4b6bff);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.coverageAddButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.coverageDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 180px;
+  background: rgba(20, 20, 20, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 50;
+}
+
+.coverageDropdownItem {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 10px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.coverageDropdownItem:hover,
+.coverageDropdownItem:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.coverageDropdownItem:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .workCoverageStage {
   display: inline-flex;
   align-items: center;
@@ -615,19 +681,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.12s ease;
-}
-
-.workCoverageStage:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.workCoverageStage:disabled {
   cursor: default;
-  opacity: 0.7;
-  transform: none;
 }
 
 .workCoverageStageLabel {
