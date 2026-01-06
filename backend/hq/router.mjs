@@ -291,12 +291,25 @@ const importCsv = async (e, C) => {
     }))
     .filter((k) => k.postedAt && k.dedupeHash);
 
-  let duplicates = 0;
+  // De-dupe within the incoming CSV payload itself (BatchWrite rejects duplicate keys).
+  // Strategy: first occurrence wins; later duplicates are counted as duplicates.
+  const uniqueBySk = new Map();
+  let payloadDuplicates = 0;
+  for (const k of txKeys) {
+    if (uniqueBySk.has(k.sk)) {
+      payloadDuplicates += 1;
+      continue;
+    }
+    uniqueBySk.set(k.sk, k);
+  }
+  const uniqueTxKeys = Array.from(uniqueBySk.values());
+
+  let duplicates = payloadDuplicates;
   let imported = 0;
 
   // BatchGet in chunks of 100 keys.
   const existing = new Set();
-  for (const batch of chunk(txKeys, 100)) {
+  for (const batch of chunk(uniqueTxKeys, 100)) {
     const keys = batch.map((k) => ({ orgId: k.orgId, sk: k.sk }));
     const res = await ddb.batchGet({
       RequestItems: {
@@ -310,7 +323,7 @@ const importCsv = async (e, C) => {
   }
 
   const toWrite = [];
-  for (const k of txKeys) {
+  for (const k of uniqueTxKeys) {
     if (existing.has(k.sk)) {
       duplicates += 1;
       continue;
