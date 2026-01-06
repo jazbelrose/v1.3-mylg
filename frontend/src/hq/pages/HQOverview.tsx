@@ -39,6 +39,8 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
+const monthTickFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+
 const quickFilters: Array<{ id: HqRangeId; label: string }> = [
   { id: "month", label: "This month" },
   { id: "quarter", label: "Quarter" },
@@ -76,21 +78,21 @@ const HQOverview: React.FC = () => {
 
   const totals = React.useMemo(() => {
     const cashOnHand = computeCashOnHand(accounts, transactions);
-    const avgMonthlyBurn = computeTrailingBurn(transactions, 3);
+    const burnOutflow = computeTrailingBurn(transactions, 3);
     const runwayMonths =
-      cashOnHand !== null && avgMonthlyBurn !== null && avgMonthlyBurn > 0
-        ? cashOnHand / avgMonthlyBurn
+      cashOnHand !== null && burnOutflow !== null && burnOutflow > 0
+        ? cashOnHand / burnOutflow
         : null;
 
     const rangeTxns = transactions.filter(
       (t) => inRange(t.postedAt, start, end) && !t.isInternalTransfer
     );
-    const cashIn = rangeTxns.filter((t) => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
-    const cashOut = rangeTxns.filter((t) => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
-    const net = cashIn - cashOut;
+    const inflow = rangeTxns.filter((t) => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
+    const outflow = rangeTxns.filter((t) => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
+    const net = inflow - outflow;
     const uncategorizedCount = rangeTxns.filter((t) => !t.categoryId || t.categoryId === "OTHER").length;
 
-    return { cashOnHand, avgMonthlyBurn, runwayMonths, net, uncategorizedCount };
+    return { cashOnHand, burnOutflow, runwayMonths, net, inflow, outflow, uncategorizedCount };
   }, [accounts, end, start, transactions]);
 
   const actions = (
@@ -110,14 +112,18 @@ const HQOverview: React.FC = () => {
 
   const lastSyncedAt = importRuns[0]?.createdAt;
   const rangeLabel = quickFilters.find((f) => f.id === selectedRange)?.label ?? "Year-to-date";
+  const rangeShortLabel = selectedRange === "ytd" ? "YTD" : rangeLabel;
   const monthlyFlow = React.useMemo(() => computeMonthlyFlow(transactions, start, end), [end, start, transactions]);
   const maxFlow = Math.max(1, ...monthlyFlow.flatMap((row) => [row.inflow, row.outflow]));
   const topCategories = React.useMemo(() => computeTopCategories(transactions, start, end), [end, start, transactions]);
   const latestTransactions = React.useMemo(() => transactions.slice(0, 20), [transactions]);
 
-  const balanceCurve = React.useMemo(() => computeTotalBalanceCurveLast365Days(accounts, transactions), [accounts, transactions]);
+  const balanceCurve = React.useMemo(
+    () => computeTotalBalanceCurveLast365Days(accounts, transactions),
+    [accounts, transactions]
+  );
 
-  const sparkline = React.useMemo(() => {
+  const balanceChart = React.useMemo(() => {
     if (!balanceCurve.length) return null;
 
     const values = balanceCurve.map((p) => p.balance);
@@ -125,21 +131,54 @@ const HQOverview: React.FC = () => {
     const max = Math.max(...values);
     const range = Math.max(1e-9, max - min);
 
-    const w = 100;
-    const h = 32;
-    const padY = 2;
+    const w = 700;
+    const h = 180;
+    const padX = 8;
+    const padY = 14;
 
-    const points = balanceCurve
-      .map((p, idx) => {
-        const x = (idx / Math.max(1, balanceCurve.length - 1)) * w;
-        const yNorm = (p.balance - min) / range;
-        const y = padY + (1 - yNorm) * (h - padY * 2);
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      })
+    const xy = balanceCurve.map((p, idx) => {
+      const x = padX + (idx / Math.max(1, balanceCurve.length - 1)) * (w - padX * 2);
+      const yNorm = (p.balance - min) / range;
+      const y = padY + (1 - yNorm) * (h - padY * 2);
+      return { x, y, p };
+    });
+
+    const line = xy
+      .map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`)
       .join(" ");
 
-    return { points, min, max };
+    const area = `${line} L ${xy[xy.length - 1].x.toFixed(2)} ${(h - padY).toFixed(2)} L ${xy[0].x.toFixed(2)} ${(h - padY).toFixed(2)} Z`;
+
+    const monthTickIndexes: Array<{ idx: number; label: string }> = [];
+    for (let i = 0; i < balanceCurve.length; i += 1) {
+      const d = balanceCurve[i].date;
+      if (d.endsWith("-01")) {
+        const label = monthTickFormatter.format(new Date(d));
+        monthTickIndexes.push({ idx: i, label });
+      }
+    }
+
+    return { w, h, padX, padY, xy, min, max, line, area, monthTickIndexes };
   }, [balanceCurve]);
+
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const chartRef = React.useRef<HTMLDivElement | null>(null);
+
+  const onChartMove = React.useCallback(
+    (evt: React.MouseEvent) => {
+      if (!balanceChart) return;
+      const el = chartRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = evt.clientX - rect.left;
+      const t = Math.min(1, Math.max(0, x / rect.width));
+      const idx = Math.round(t * (balanceCurve.length - 1));
+      setHoverIdx(idx);
+    },
+    [balanceChart, balanceCurve.length]
+  );
+
+  const onChartLeave = React.useCallback(() => setHoverIdx(null), []);
 
   const alerts: HqAlert[] = React.useMemo(() => {
     const items: HqAlert[] = [];
@@ -221,9 +260,9 @@ const HQOverview: React.FC = () => {
             <div className={styles.kpi}>
               <div className={styles.kpiLabel}>Burn (avg / mo)</div>
               <div className={styles.kpiValue}>
-                {totals.avgMonthlyBurn === null ? "—" : currency.format(totals.avgMonthlyBurn)}
+                {totals.burnOutflow === null ? "—" : currency.format(totals.burnOutflow)}
               </div>
-              <div className={styles.kpiHint}>Trailing 3 months, excludes transfers</div>
+              <div className={styles.kpiHint}>Trailing 3 full months, outflow only</div>
             </div>
             <div className={styles.kpi}>
               <div className={styles.kpiLabel}>Runway</div>
@@ -237,11 +276,13 @@ const HQOverview: React.FC = () => {
               <div className={styles.kpiHint}>Cash / burn</div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kpiLabel}>Net ({rangeLabel})</div>
+              <div className={styles.kpiLabel}>Net cash flow ({rangeShortLabel})</div>
               <div className={[styles.kpiValue, totals.net < 0 ? styles.kpiOut : styles.kpiIn].join(" ")}>
                 {preciseCurrency.format(totals.net)}
               </div>
-              <div className={styles.kpiHint}>Excludes internal transfers</div>
+              <div className={styles.kpiHint}>
+                In {preciseCurrency.format(totals.inflow)} · Out {preciseCurrency.format(totals.outflow)}
+              </div>
             </div>
           </div>
         </section>
@@ -304,21 +345,77 @@ const HQOverview: React.FC = () => {
           </HQCard>
 
           <HQCard title="Cash balance curve" subtitle="Last 12 months" aria-label="Cash balance curve">
-            {sparkline && totals.cashOnHand !== null ? (
-              <div className={styles.sparklineWrap}>
-                <div className={styles.sparklineMeta}>
-                  <div className={styles.sparklineValue}>{currency.format(totals.cashOnHand)}</div>
-                  <div className={styles.sparklineHint}>Ending balance today (anchored)</div>
+            {balanceChart && totals.cashOnHand !== null ? (
+              <div className={styles.balanceChartWrap}>
+                <div className={styles.balanceChartHeader}>
+                  <div className={styles.balanceChartValue}>{currency.format(totals.cashOnHand)}</div>
+                  <div className={styles.balanceChartHint}>Ending balance today (anchored)</div>
                 </div>
-                <svg
-                  className={styles.sparklineSvg}
-                  viewBox="0 0 100 32"
-                  preserveAspectRatio="none"
+
+                <div
+                  ref={chartRef}
+                  className={styles.balanceChartStage}
+                  onMouseMove={onChartMove}
+                  onMouseLeave={onChartLeave}
                   role="img"
-                  aria-label="Cash balance sparkline"
+                  aria-label="Daily cash balance line chart"
                 >
-                  <polyline className={styles.sparklineLine} fill="none" points={sparkline.points} />
-                </svg>
+                  <svg className={styles.balanceChartSvg} viewBox={`0 0 ${balanceChart.w} ${balanceChart.h}`} preserveAspectRatio="none">
+                    <path className={styles.balanceArea} d={balanceChart.area} />
+                    <path className={styles.balanceLine} d={balanceChart.line} />
+
+                    {hoverIdx !== null ? (() => {
+                      const pt = balanceChart.xy[hoverIdx];
+                      return (
+                        <g>
+                          <line
+                            className={styles.balanceHoverLine}
+                            x1={pt.x}
+                            x2={pt.x}
+                            y1={balanceChart.padY}
+                            y2={balanceChart.h - balanceChart.padY}
+                          />
+                          <circle className={styles.balanceHoverDot} cx={pt.x} cy={pt.y} r={4} />
+                        </g>
+                      );
+                    })() : null}
+
+                    {balanceChart.monthTickIndexes.map((t) => {
+                      const pt = balanceChart.xy[t.idx];
+                      return (
+                        <text
+                          key={`${t.label}-${t.idx}`}
+                          className={styles.balanceTick}
+                          x={pt.x}
+                          y={balanceChart.h - 4}
+                          textAnchor="middle"
+                        >
+                          {t.label}
+                        </text>
+                      );
+                    })}
+                  </svg>
+
+                  <div className={styles.balanceEdgeLabels}>
+                    <div className={styles.balanceEdgeLabel}>
+                      Start {currency.format(balanceCurve[0]?.balance ?? 0)}
+                    </div>
+                    <div className={styles.balanceEdgeLabel}>
+                      End {currency.format(balanceCurve[balanceCurve.length - 1]?.balance ?? 0)}
+                    </div>
+                  </div>
+
+                  {hoverIdx !== null ? (
+                    <div className={styles.balanceTooltip}>
+                      <div className={styles.balanceTooltipTitle}>{balanceCurve[hoverIdx].date}</div>
+                      <div className={styles.balanceTooltipRow}>Balance: {preciseCurrency.format(balanceCurve[hoverIdx].balance)}</div>
+                      <div className={styles.balanceTooltipRow}>Net: {preciseCurrency.format(balanceCurve[hoverIdx].net)}</div>
+                      <div className={styles.balanceTooltipRow}>
+                        In: {preciseCurrency.format(balanceCurve[hoverIdx].inflow)} · Out: {preciseCurrency.format(balanceCurve[hoverIdx].outflow)}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className={styles.emptyState}>Set ending balance today on your accounts to see the curve.</div>

@@ -110,14 +110,24 @@ const getSummary = async (e, C) => {
     importedCount: r.importedCount,
     duplicateCount: r.duplicateCount,
     status: r.status,
+    warnings: Array.isArray(r.warnings) ? r.warnings : undefined,
     createdAt: r.createdAt,
   }));
+
+  const importWarnings = Array.from(
+    new Set(
+      importRuns
+        .flatMap((r) => (Array.isArray(r.warnings) ? r.warnings : []))
+        .filter(Boolean)
+    )
+  );
 
   return json(200, C, {
     orgId,
     orgRole: membership.role,
     accounts,
     importRuns,
+    importWarnings,
   });
 };
 
@@ -297,6 +307,30 @@ const importCsv = async (e, C) => {
   const importRunId = uuidv4();
   const createdAt = nowISO();
 
+  // Sanity check: sign inversion detection.
+  // If we see almost no negative amounts in a typical checking export, it's likely the sign is flipped.
+  let inflowCount = 0;
+  let outflowCount = 0;
+  let numericCount = 0;
+  for (const t of transactions) {
+    const amount = typeof t.amount === "number" ? t.amount : Number(t.amount);
+    if (!Number.isFinite(amount)) continue;
+    numericCount += 1;
+    if (amount > 0) inflowCount += 1;
+    if (amount < 0) outflowCount += 1;
+  }
+
+  const warnings = [];
+  if (numericCount >= 20 && inflowCount >= 5) {
+    const outflowRatio = outflowCount / Math.max(1, numericCount);
+    if (outflowCount <= 1 || outflowRatio < 0.05) {
+      warnings.push("POSSIBLE_SIGN_INVERSION");
+      console.warn(
+        `[hq.importCsv] POSSIBLE_SIGN_INVERSION orgId=${orgId} accountId=${accountId} numeric=${numericCount} in=${inflowCount} out=${outflowCount}`
+      );
+    }
+  }
+
   // De-dupe by existing TXN keys within the org.
   const txKeys = transactions
     .map((t) => ({
@@ -397,6 +431,7 @@ const importCsv = async (e, C) => {
     importedCount: imported,
     duplicateCount: duplicates,
     status: "completed",
+    warnings: warnings.length ? warnings : undefined,
     createdAt,
   };
 

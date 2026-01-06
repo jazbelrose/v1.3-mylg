@@ -4,6 +4,9 @@ import { HQ_DEFAULT_TIME_ZONE, todayIsoDateInTimeZone } from "@/hq/lib/hqDate";
 export type BalancePoint = {
   date: string; // YYYY-MM-DD
   balance: number;
+  net: number;
+  inflow: number;
+  outflow: number;
 };
 
 function parseIsoDateToUtcMs(isoDate: string): number {
@@ -38,14 +41,21 @@ function roundCents(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function netByDateForAccount(accountId: string, transactions: HqTransaction[]): Map<string, number> {
+function flowByDateForAccount(accountId: string, transactions: HqTransaction[]) {
   const net = new Map<string, number>();
+  const inflow = new Map<string, number>();
+  const outflow = new Map<string, number>();
+
   for (const t of transactions) {
     if (t.accountId !== accountId) continue;
+    if (t.isInternalTransfer) continue;
     const key = t.postedAt;
     net.set(key, (net.get(key) ?? 0) + t.amount);
+    if (t.amount > 0) inflow.set(key, (inflow.get(key) ?? 0) + t.amount);
+    if (t.amount < 0) outflow.set(key, (outflow.get(key) ?? 0) + Math.abs(t.amount));
   }
-  return net;
+
+  return { net, inflow, outflow };
 }
 
 export function computeTotalBalanceCurveLast365Days(
@@ -57,7 +67,10 @@ export function computeTotalBalanceCurveLast365Days(
   const endDate = opts?.endDate ?? todayIsoDateInTimeZone(timeZone);
   const dates = buildDateWindow(endDate, 365);
 
-  const totals = new Array<number>(dates.length).fill(0);
+  const totalsBalance = new Array<number>(dates.length).fill(0);
+  const totalsNet = new Array<number>(dates.length).fill(0);
+  const totalsIn = new Array<number>(dates.length).fill(0);
+  const totalsOut = new Array<number>(dates.length).fill(0);
 
   const anchoredAccounts = accounts.filter(
     (a) => a.anchorDate && typeof a.anchorBalance === "number"
@@ -70,23 +83,36 @@ export function computeTotalBalanceCurveLast365Days(
     // If the stored anchor date isn’t “today” for the curve window, skip it.
     if (anchorDate !== endDate) continue;
 
-    const netByDate = netByDateForAccount(account.accountId, transactions);
+    const { net, inflow, outflow } = flowByDateForAccount(account.accountId, transactions);
 
     // Work backwards from anchorDate (endDate), where anchorBalance is end-of-day.
     let current = anchorBalance;
     for (let i = dates.length - 1; i >= 0; i -= 1) {
       const date = dates[i];
-      totals[i] += current;
+      totalsBalance[i] += current;
+
+      const dayNet = net.get(date) ?? 0;
+      const dayIn = inflow.get(date) ?? 0;
+      const dayOut = outflow.get(date) ?? 0;
+      totalsNet[i] += dayNet;
+      totalsIn[i] += dayIn;
+      totalsOut[i] += dayOut;
 
       // Move to previous day’s end-of-day balance.
       const nextDate = date;
       const prevDate = i > 0 ? dates[i - 1] : null;
       if (!prevDate) break;
 
-      const netNextDay = netByDate.get(nextDate) ?? 0;
+      const netNextDay = net.get(nextDate) ?? 0;
       current = current - netNextDay;
     }
   }
 
-  return dates.map((date, idx) => ({ date, balance: roundCents(totals[idx]) }));
+  return dates.map((date, idx) => ({
+    date,
+    balance: roundCents(totalsBalance[idx]),
+    net: roundCents(totalsNet[idx]),
+    inflow: roundCents(totalsIn[idx]),
+    outflow: roundCents(totalsOut[idx]),
+  }));
 }

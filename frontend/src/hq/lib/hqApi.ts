@@ -6,6 +6,7 @@ export type HqSummaryResponse = {
   orgRole: string;
   accounts: HqAccount[];
   importRuns: HqImportRun[];
+  importWarnings?: string[];
 };
 
 export type HqTransactionsResponse = {

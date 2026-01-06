@@ -1,31 +1,31 @@
 import type { HqAccount, HqCategoryId, HqTransaction } from "@/hq/types";
+import { HQ_DEFAULT_TIME_ZONE, todayIsoDateInTimeZone } from "@/hq/lib/hqDate";
 
 export type HqRangeId = "month" | "quarter" | "ytd";
 
 export function todayIsoDate(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return todayIsoDateInTimeZone(HQ_DEFAULT_TIME_ZONE);
 }
 
 export function getRange(range: HqRangeId): { start: string; end: string } {
-  const now = new Date();
   const end = todayIsoDate();
+  const [yyyy, mm] = end.split("-");
+  const year = Number(yyyy);
+  const monthIndex = Number(mm) - 1;
 
   if (range === "month") {
-    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const start = `${yyyy}-${mm}-01`;
     return { start, end };
   }
 
   if (range === "quarter") {
-    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-    const start = `${now.getFullYear()}-${String(quarterStartMonth + 1).padStart(2, "0")}-01`;
+    const quarterStartMonthIndex = Math.floor(monthIndex / 3) * 3;
+    const startMm = String(quarterStartMonthIndex + 1).padStart(2, "0");
+    const start = `${yyyy}-${startMm}-01`;
     return { start, end };
   }
 
-  const start = `${now.getFullYear()}-01-01`;
+  const start = `${String(year)}-01-01`;
   return { start, end };
 }
 
@@ -56,11 +56,26 @@ export function computeCashOnHand(accounts: HqAccount[], transactions: HqTransac
     const anchorBalance = account.anchorBalance as number;
     const anchorDate = account.anchorDate as string;
     const netSinceAnchor = transactions
-      .filter((t) => t.accountId === account.accountId && t.postedAt >= anchorDate)
+      // Anchor balance is treated as end-of-day for anchorDate.
+      // To reach today's cash-on-hand, include only txns AFTER the anchor date.
+      .filter((t) => t.accountId === account.accountId && t.postedAt > anchorDate && !t.isInternalTransfer)
       .reduce((acc, t) => acc + t.amount, 0);
     total += anchorBalance + netSinceAnchor;
   }
   return Math.round(total * 100) / 100;
+}
+
+function parseYyyyMm(yyyyMm: string): { year: number; monthIndex: number } {
+  const [y, m] = yyyyMm.split("-");
+  return { year: Number(y), monthIndex: Number(m) - 1 };
+}
+
+function addMonths(yyyyMm: string, deltaMonths: number): string {
+  const { year, monthIndex } = parseYyyyMm(yyyyMm);
+  const total = year * 12 + monthIndex + deltaMonths;
+  const nextYear = Math.floor(total / 12);
+  const nextMonthIndex = total % 12;
+  return `${String(nextYear)}-${String(nextMonthIndex + 1).padStart(2, "0")}`;
 }
 
 export function computeTrailingBurn(
@@ -68,11 +83,13 @@ export function computeTrailingBurn(
   months: number
 ): number | null {
   if (months <= 0) return null;
-  const now = new Date();
+  // Trailing N FULL months (not partial): months prior to the current month.
+  // Example: if today is 2026-01-05, the 3 full months are 2025-10, 2025-11, 2025-12.
+  const today = todayIsoDate();
+  const currentMonthKey = monthKey(today);
   const keys: string[] = [];
-  for (let i = 0; i < months; i += 1) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  for (let i = 1; i <= months; i += 1) {
+    keys.push(addMonths(currentMonthKey, -i));
   }
 
   const outflowsByMonth: Record<string, number> = {};

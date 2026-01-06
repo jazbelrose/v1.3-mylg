@@ -50,6 +50,7 @@ export type HqImportRun = {
   importedCount: number;
   duplicateCount: number;
   status: HqImportRunStatus;
+  warnings?: string[];
   createdAt: string; // ISO
 };
 
