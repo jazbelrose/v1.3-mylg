@@ -104,6 +104,7 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
         background: { type: ColorType.Solid, color: bg },
         textColor: "rgba(255, 255, 255, 0.65)",
         fontFamily: "var(--font-family-helvetica-special, 'Helvetica Special', sans-serif)",
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: "rgba(255, 255, 255, 0.06)" },
