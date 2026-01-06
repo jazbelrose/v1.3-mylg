@@ -53,11 +53,141 @@ const pkForOrg = (orgId) => String(orgId || "").trim();
 const skAccount = (accountId) => `ACCOUNT#${accountId}`;
 const skImport = (createdAt, importRunId) => `IMPORT#${createdAt}#${importRunId}`;
 const skTxn = (postedAt, dedupeHash) => `TXN#${postedAt}#${dedupeHash}`;
+const skRule = (ruleId) => `RULE#${ruleId}`;
 
 const chunk = (arr, n = 25) => {
   const out = [];
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
+};
+
+const normalizeForMatching = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[\u2013\u2014]/g, "-");
+
+const normalizeVendorKey = (value) =>
+  normalizeForMatching(value)
+    .toLowerCase()
+    .replace(/\b(inc|llc|ltd|corp|co)\b\.?/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isLikelyInternalTransfer = (txn) => {
+  const d = String(txn?.normalizedDescription || txn?.rawDescription || "").toUpperCase();
+  if (txn?.type === "transfer" && d.startsWith("ONLINE TRANSFER")) return true;
+  if (d.startsWith("ONLINE TRANSFER")) return true;
+  return false;
+};
+
+const DEFAULT_RULEPACK = [
+  { pattern: "\\bADOBE\\b", categoryId: "SOFTWARE", priority: 180 },
+  { pattern: "\\bAMAZON WEB SERVICE\\b|\\bAWS\\b", categoryId: "SOFTWARE", priority: 175 },
+  { pattern: "\\bNOTION\\b", categoryId: "SOFTWARE", priority: 170 },
+  { pattern: "\\bGOOGLE\\b|\\bG SUITE\\b|\\bWORKSPACE\\b", categoryId: "SOFTWARE", priority: 165 },
+  { pattern: "\\bUBER\\b|\\bLYFT\\b", categoryId: "TRAVEL", priority: 160 },
+  { pattern: "\\bDELTA\\b|\\bUNITED\\b|\\bAMERICAN AIRLINES\\b|\\bJETBLUE\\b", categoryId: "TRAVEL", priority: 155 },
+  { pattern: "\\bWEWORK\\b", categoryId: "RENT_STORAGE", priority: 150 },
+  { pattern: "\\bSQUARE\\b|\\bSTRIPE\\b", categoryId: "INCOME", priority: 145 },
+];
+
+const listCategoryRules = async (orgId) => {
+  const res = await ddb.query({
+    TableName: HQ_TABLE,
+    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+    ExpressionAttributeValues: { ":o": orgId, ":p": "RULE#" },
+    ScanIndexForward: false,
+  });
+
+  return (res.Items || []).map((r) => ({
+    orgId,
+    ruleId: r.ruleId,
+    priority: r.priority,
+    matchType: r.matchType,
+    pattern: r.pattern,
+    categoryId: r.categoryId,
+    projectId: r.projectId,
+    enabled: r.enabled !== false,
+    createdAt: r.createdAt,
+  }));
+};
+
+const ensureSeedRulepack = async (orgId) => {
+  const existing = await listCategoryRules(orgId);
+  if (existing.length) return existing;
+
+  const createdAt = nowISO();
+  const writes = DEFAULT_RULEPACK.map((seed) => {
+    const ruleId = uuidv4();
+    return {
+      PutRequest: {
+        Item: {
+          orgId,
+          sk: skRule(ruleId),
+          entityType: "categoryRule",
+          ruleId,
+          priority: seed.priority,
+          matchType: "regex",
+          pattern: seed.pattern,
+          categoryId: seed.categoryId,
+          enabled: true,
+          createdAt,
+        },
+      },
+    };
+  });
+
+  for (const batch of chunk(writes, 25)) {
+    await ddb.batchWrite({ RequestItems: { [HQ_TABLE]: batch } });
+  }
+
+  return listCategoryRules(orgId);
+};
+
+const pickCategorization = (txn, rules) => {
+  const normalizedDescription = normalizeForMatching(txn.normalizedDescription);
+  const vendorKey = normalizeVendorKey(txn.vendor);
+  const isInternalTransfer = Boolean(txn.isInternalTransfer) || isLikelyInternalTransfer(txn);
+
+  if (isInternalTransfer) {
+    return {
+      isInternalTransfer: true,
+      categoryId: "TRANSFERS",
+      categoryConfidence: 0.95,
+    };
+  }
+
+  const enabledRules = (Array.isArray(rules) ? rules : [])
+    .filter((r) => r && r.enabled !== false)
+    .slice()
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+  for (const rule of enabledRules) {
+    if (rule.matchType === "vendor") {
+      const patternKey = normalizeVendorKey(rule.pattern);
+      if (vendorKey && patternKey && vendorKey === patternKey) {
+        return { categoryId: rule.categoryId, categoryConfidence: 0.99, isInternalTransfer: false };
+      }
+      continue;
+    }
+
+    if (rule.matchType === "regex") {
+      const pat = String(rule.pattern || "").trim();
+      if (!pat || pat.length > 300) continue;
+      try {
+        const re = new RegExp(pat, "i");
+        if (re.test(normalizedDescription) || (txn.vendor && re.test(txn.vendor))) {
+          return { categoryId: rule.categoryId, categoryConfidence: 0.95, isInternalTransfer: false };
+        }
+      } catch {
+        // ignore invalid regex
+      }
+    }
+  }
+
+  return null;
 };
 
 /* ------------ Handlers ------------ */
@@ -122,13 +252,279 @@ const getSummary = async (e, C) => {
     )
   );
 
+  const categoryRules = await ensureSeedRulepack(orgId);
+
   return json(200, C, {
     orgId,
     orgRole: membership.role,
     accounts,
     importRuns,
     importWarnings,
+    categoryRules,
   });
+};
+
+// GET /hq/category-rules?orgId=...
+const getCategoryRules = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const rules = await ensureSeedRulepack(orgId);
+  return json(200, C, { orgId, categoryRules: rules });
+};
+
+// POST /hq/category-rules?orgId=...
+const createCategoryRule = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const body = B(e);
+  const matchType = body.matchType === "regex" ? "regex" : "vendor";
+  const pattern = normalizeForMatching(body.pattern);
+  const categoryId = normalizeForMatching(body.categoryId);
+  const enabled = body.enabled !== false;
+  const priority = Number.isFinite(Number(body.priority)) ? Number(body.priority) : 200;
+
+  if (!pattern) return json(400, C, { error: "pattern required" });
+  if (!categoryId) return json(400, C, { error: "categoryId required" });
+  if (matchType === "regex") {
+    if (pattern.length > 300) return json(400, C, { error: "pattern too long" });
+    try {
+      // eslint-disable-next-line no-new
+      new RegExp(pattern, "i");
+    } catch {
+      return json(400, C, { error: "invalid regex" });
+    }
+  }
+
+  const ruleId = uuidv4();
+  const createdAt = nowISO();
+  const item = {
+    orgId,
+    sk: skRule(ruleId),
+    entityType: "categoryRule",
+    ruleId,
+    priority,
+    matchType,
+    pattern,
+    categoryId,
+    projectId: typeof body.projectId === "string" ? body.projectId.trim() || undefined : undefined,
+    enabled,
+    createdAt,
+  };
+
+  await ddb.put({ TableName: HQ_TABLE, Item: item });
+  return json(200, C, { orgId, rule: item });
+};
+
+// POST /hq/category-rules/apply?orgId=...
+const applyCategoryRules = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const body = B(e);
+  const importRunId = typeof body.importRunId === "string" ? body.importRunId.trim() : "";
+  const ruleIds = Array.isArray(body.ruleIds)
+    ? body.ruleIds.map((x) => String(x || "").trim()).filter(Boolean)
+    : null;
+
+  const allRules = await ensureSeedRulepack(orgId);
+  const rules = ruleIds ? allRules.filter((r) => ruleIds.includes(r.ruleId)) : allRules;
+
+  let updated = 0;
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      if (importRunId && t.importRunId !== importRunId) continue;
+
+      const currentCategory = t.categoryId || "OTHER";
+      const currentIsTransfer = Boolean(t.isInternalTransfer);
+      const pick = pickCategorization(
+        {
+          rawDescription: t.rawDescription,
+          normalizedDescription: t.normalizedDescription,
+          vendor: t.vendor,
+          type: t.type,
+          isInternalTransfer: currentIsTransfer,
+        },
+        rules
+      );
+      if (!pick) continue;
+
+      const nextCategory = pick.categoryId;
+      const nextConfidence = pick.categoryConfidence;
+      const nextTransfer = Boolean(pick.isInternalTransfer);
+
+      if (
+        currentCategory === nextCategory &&
+        Number(t.categoryConfidence || 0) >= Number(nextConfidence || 0) &&
+        currentIsTransfer === nextTransfer
+      ) {
+        continue;
+      }
+
+      await ddb.update({
+        TableName: HQ_TABLE,
+        Key: { orgId, sk: t.sk },
+        UpdateExpression: "SET categoryId = :c, categoryConfidence = :k, isInternalTransfer = :it",
+        ExpressionAttributeValues: {
+          ":c": nextCategory,
+          ":k": nextConfidence,
+          ":it": nextTransfer,
+        },
+      });
+      updated += 1;
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return json(200, C, { orgId, updated });
+};
+
+// GET /hq/uncategorized?orgId=...&importRunId=...
+const listUncategorized = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const importRunId = q.importRunId ? String(q.importRunId).trim() : "";
+  const rules = await ensureSeedRulepack(orgId);
+
+  const groups = new Map();
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      if (importRunId && t.importRunId !== importRunId) continue;
+      if (t.isInternalTransfer) continue;
+      const categoryId = t.categoryId || "OTHER";
+      if (categoryId && categoryId !== "OTHER") continue;
+
+      const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
+      const key = normalizeVendorKey(vendor || t.rawDescription || "");
+      if (!key) continue;
+
+      const existing = groups.get(key) || {
+        vendor: vendor || "Unknown",
+        vendorKey: key,
+        count: 0,
+        example: null,
+        suggestedCategoryId: null,
+      };
+
+      existing.count += 1;
+      if (!existing.example) {
+        existing.example = {
+          postedAt: t.postedAt,
+          amount: t.amount,
+          rawDescription: t.rawDescription,
+          normalizedDescription: t.normalizedDescription,
+          vendor: t.vendor,
+          type: t.type,
+        };
+      }
+
+      if (!existing.suggestedCategoryId) {
+        const pick = pickCategorization(
+          {
+            rawDescription: t.rawDescription,
+            normalizedDescription: t.normalizedDescription,
+            vendor: t.vendor,
+            type: t.type,
+            isInternalTransfer: false,
+          },
+          rules
+        );
+        if (pick && pick.categoryId && pick.categoryId !== "OTHER" && pick.categoryId !== "TRANSFERS") {
+          existing.suggestedCategoryId = pick.categoryId;
+        }
+      }
+
+      groups.set(key, existing);
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const vendors = Array.from(groups.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50);
+
+  return json(200, C, { orgId, vendors });
+};
+
+// PATCH /hq/transactions/:dedupeHash?orgId=...
+const patchTransaction = async (e, C, { dedupeHash }) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  dedupeHash = String(dedupeHash || "").trim();
+  if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
+
+  const body = B(e);
+  const nextCategoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
+  const nextIsTransfer = typeof body.isInternalTransfer === "boolean" ? body.isInternalTransfer : undefined;
+
+  let found = null;
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+      ProjectionExpression: "sk, dedupeHash",
+    });
+    found = (page.Items || []).find((t) => t.dedupeHash === dedupeHash) || null;
+    lastKey = found ? null : page.LastEvaluatedKey;
+  } while (lastKey);
+
+  if (!found) return json(404, C, { error: "Not found" });
+
+  const sets = [];
+  const values = {};
+  if (nextCategoryId !== undefined) {
+    sets.push("categoryId = :c");
+    values[":c"] = nextCategoryId || "OTHER";
+  }
+  if (nextIsTransfer !== undefined) {
+    sets.push("isInternalTransfer = :t");
+    values[":t"] = nextIsTransfer;
+  }
+  if (!sets.length) return json(400, C, { error: "No fields to update" });
+
+  await ddb.update({
+    TableName: HQ_TABLE,
+    Key: { orgId, sk: found.sk },
+    UpdateExpression: `SET ${sets.join(", ")}`,
+    ExpressionAttributeValues: values,
+  });
+
+  return json(200, C, { ok: true });
 };
 
 // GET /hq/transactions?orgId=...&accountId=...&from=...&to=...&cursor=...
@@ -307,6 +703,8 @@ const importCsv = async (e, C) => {
   const importRunId = uuidv4();
   const createdAt = nowISO();
 
+  const categoryRules = await ensureSeedRulepack(orgId);
+
   // Sanity check: sign inversion detection.
   // If we see almost no negative amounts in a typical checking export, it's likely the sign is flipped.
   let inflowCount = 0;
@@ -382,6 +780,21 @@ const importCsv = async (e, C) => {
     }
     imported += 1;
     const t = k.raw || {};
+
+    const normalizedVendor =
+      normalizeForMatching(t.vendor || t.counterparty || t.rawDescription || t.normalizedDescription || "").slice(0, 80) || undefined;
+    const internalTransfer = Boolean(t.isInternalTransfer) || isLikelyInternalTransfer(t);
+    const picked = pickCategorization(
+      {
+        rawDescription: t.rawDescription,
+        normalizedDescription: t.normalizedDescription,
+        vendor: normalizedVendor,
+        type: t.type,
+        isInternalTransfer: internalTransfer,
+      },
+      categoryRules
+    );
+
     toWrite.push({
       PutRequest: {
         Item: {
@@ -397,15 +810,15 @@ const importCsv = async (e, C) => {
           normalizedDescription: t.normalizedDescription,
           type: t.type,
           direction: t.direction,
-          vendor: t.vendor,
+          vendor: normalizedVendor,
           counterparty: t.counterparty,
           locationCity: t.locationCity,
           locationState: t.locationState,
           cardLast4: t.cardLast4,
           referenceId: t.referenceId,
-          categoryId: t.categoryId,
-          categoryConfidence: t.categoryConfidence,
-          isInternalTransfer: t.isInternalTransfer,
+          categoryId: picked?.categoryId ?? t.categoryId,
+          categoryConfidence: picked?.categoryConfidence ?? t.categoryConfidence,
+          isInternalTransfer: picked?.isInternalTransfer ?? internalTransfer,
           projectId: t.projectId,
           importRunId,
           dedupeHash: k.dedupeHash,
@@ -496,9 +909,16 @@ const routes = [
   { m: "GET", r: /^\/hq\/summary\/?$/i, h: getSummary },
   { m: "GET", r: /^\/hq\/transactions\/?$/i, h: listTransactions },
 
+  { m: "GET", r: /^\/hq\/category-rules\/?$/i, h: getCategoryRules },
+  { m: "POST", r: /^\/hq\/category-rules\/?$/i, h: createCategoryRule },
+  { m: "POST", r: /^\/hq\/category-rules\/apply\/?$/i, h: applyCategoryRules },
+  { m: "GET", r: /^\/hq\/uncategorized\/?$/i, h: listUncategorized },
+
   { m: "POST", r: /^\/hq\/import-csv\/?$/i, h: importCsv },
 
   { m: "DELETE", r: /^\/hq\/import-runs\/(?<importRunId>[^/]+)\/?$/i, h: deleteImportRun },
+
+  { m: "PATCH", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/?$/i, h: patchTransaction },
 
   { m: "POST", r: /^\/hq\/accounts\/?$/i, h: createAccount },
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },

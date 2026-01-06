@@ -1,5 +1,5 @@
 import { apiFetch, API_BASE_URL } from "@/shared/utils/api";
-import type { HqAccount, HqImportRun, HqTransaction } from "@/hq/types";
+import type { HqAccount, HqCategoryRule, HqImportRun, HqTransaction } from "@/hq/types";
 
 export type HqSummaryResponse = {
   orgId: string;
@@ -7,6 +7,7 @@ export type HqSummaryResponse = {
   accounts: HqAccount[];
   importRuns: HqImportRun[];
   importWarnings?: string[];
+  categoryRules?: HqCategoryRule[];
 };
 
 export type HqTransactionsResponse = {
@@ -92,6 +93,57 @@ export async function importHqCsv(orgId: string, input: {
 }): Promise<{ importRun: HqImportRun; imported: number; duplicates: number }> {
   const base = getHqServiceBaseUrl();
   return apiFetch(`${base}/hq/import-csv?orgId=${encodeURIComponent(orgId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export type HqUncategorizedVendorsResponse = {
+  orgId: string;
+  vendors: Array<{
+    vendor: string;
+    vendorKey: string;
+    count: number;
+    example: {
+      postedAt: string;
+      amount: number;
+      rawDescription: string;
+      normalizedDescription: string;
+      vendor?: string;
+      type: string;
+    } | null;
+    suggestedCategoryId: string | null;
+  }>;
+};
+
+export async function fetchHqUncategorizedVendors(orgId: string, input?: { importRunId?: string }): Promise<HqUncategorizedVendorsResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId });
+  if (input?.importRunId) params.set("importRunId", input.importRunId);
+  return apiFetch<HqUncategorizedVendorsResponse>(`${base}/hq/uncategorized?${params.toString()}`, {
+    method: "GET",
+  });
+}
+
+export async function createHqCategoryRule(
+  orgId: string,
+  input: { matchType: "vendor" | "regex"; pattern: string; categoryId: string; priority?: number; enabled?: boolean }
+): Promise<{ orgId: string; rule: HqCategoryRule }> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<{ orgId: string; rule: HqCategoryRule }>(`${base}/hq/category-rules?orgId=${encodeURIComponent(orgId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function applyHqCategoryRules(
+  orgId: string,
+  input: { importRunId?: string; ruleIds?: string[] }
+): Promise<{ orgId: string; updated: number }> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<{ orgId: string; updated: number }>(`${base}/hq/category-rules/apply?orgId=${encodeURIComponent(orgId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

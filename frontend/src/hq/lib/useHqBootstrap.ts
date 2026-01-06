@@ -30,6 +30,7 @@ export function useHqBootstrap(orgId: string | null) {
           accounts: Array.isArray(summary.accounts) ? summary.accounts : [],
           importRuns: Array.isArray(summary.importRuns) ? summary.importRuns : [],
           transactions: Array.isArray(txnsRes.transactions) ? txnsRes.transactions : [],
+          categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
         };
 
         hydrateHqState(orgId, next);

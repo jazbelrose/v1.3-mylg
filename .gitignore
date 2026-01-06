@@ -36,6 +36,9 @@ Thumbs.db
 logs/
 *.log
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Scripts (migration and utility scripts)
 backend/scripts/
 

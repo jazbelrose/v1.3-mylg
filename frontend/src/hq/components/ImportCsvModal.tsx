@@ -5,6 +5,7 @@ import { parseWellsFargoNoHeaderTransactions } from "@/hq/lib/wellsFargoCsv";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore, hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import { fetchHqSummary, fetchHqTransactions, importHqCsv } from "@/hq/lib/hqApi";
+import CategorizationSpellbookModal from "@/hq/components/CategorizationSpellbookModal";
 import type { HqAccount, HqTransaction } from "@/hq/types";
 import styles from "./ImportCsvModal.module.css";
 
@@ -49,6 +50,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   onImported,
 }) => {
   const accounts = useHqStore(orgId, (s) => s.accounts);
+  const categoryRules = useHqStore(orgId, (s) => s.categoryRules);
 
   const [step, setStep] = React.useState<ImportStep>(1);
   const [file, setFile] = React.useState<File | null>(null);
@@ -56,6 +58,8 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   const [accountId, setAccountId] = React.useState<string>(defaultAccountId || "");
   const [parsed, setParsed] = React.useState<HqTransaction[] | null>(null);
   const [isWorking, setIsWorking] = React.useState(false);
+  const [spellbookImportRunId, setSpellbookImportRunId] = React.useState<string | null>(null);
+  const [isSpellbookOpen, setIsSpellbookOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (isOpen) return;
@@ -64,6 +68,8 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     setCsvText("");
     setParsed(null);
     setIsWorking(false);
+    setSpellbookImportRunId(null);
+    setIsSpellbookOpen(false);
   }, [isOpen]);
 
   React.useEffect(() => {
@@ -99,7 +105,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     if (!accountId) return;
     setIsWorking(true);
     try {
-      const txns = await parseWellsFargoNoHeaderTransactions({ orgId, accountId, csvText });
+      const txns = await parseWellsFargoNoHeaderTransactions({ orgId, accountId, csvText, categoryRules });
       setParsed(txns);
       setStep(3);
     } catch (err) {
@@ -130,11 +136,19 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         accounts: summary.accounts,
         importRuns: summary.importRuns,
         transactions: txns.transactions,
+        categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
       });
 
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
       onImported?.({ imported: result.imported, duplicates: result.duplicates });
-      onRequestClose();
+
+      // Open spellbook review for the imported run.
+      if (result.importRun?.importRunId) {
+        setSpellbookImportRunId(result.importRun.importRunId);
+        setIsSpellbookOpen(true);
+      } else {
+        onRequestClose();
+      }
     } catch (err) {
       console.error(err);
       toast.error("Import failed.");
@@ -146,9 +160,10 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   const previewRows = (parsed || []).slice(0, 20);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onRequestClose={onRequestClose}
+    <>
+      <Modal
+        isOpen={isOpen}
+        onRequestClose={onRequestClose}
       contentLabel="Import CSV"
       closeTimeoutMS={200}
       className={{
@@ -353,7 +368,20 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
           </button>
         ) : null}
       </div>
-    </Modal>
+      </Modal>
+
+      {spellbookImportRunId ? (
+        <CategorizationSpellbookModal
+          orgId={orgId}
+          importRunId={spellbookImportRunId}
+          isOpen={isSpellbookOpen}
+          onRequestClose={() => {
+            setIsSpellbookOpen(false);
+            onRequestClose();
+          }}
+        />
+      ) : null}
+    </>
   );
 };
 

@@ -1,5 +1,6 @@
 import type { HqTransaction, HqTransactionType } from "@/hq/types";
-import { suggestCategory } from "@/hq/lib/hqCategorization";
+import { suggestCategory, suggestCategoryFromUserRules } from "@/hq/lib/hqCategorization";
+import type { HqCategoryRule } from "@/hq/types";
 
 const US_STATES = new Set([
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
@@ -298,6 +299,7 @@ export async function parseWellsFargoNoHeaderTransactions(input: {
   orgId: string;
   accountId: string;
   csvText: string;
+  categoryRules?: HqCategoryRule[];
 }): Promise<HqTransaction[]> {
   const rows = parseWellsFargoNoHeaderRows(input.csvText);
   const createdAt = new Date().toISOString();
@@ -341,7 +343,13 @@ export async function parseWellsFargoNoHeaderTransactions(input: {
         ...enriched,
       } as HqTransaction;
 
-      const guess = suggestCategory(merged);
+      // Heuristic: ONLINE TRANSFER is usually an internal bank transfer.
+      if (merged.type === "transfer" && merged.normalizedDescription.toUpperCase().startsWith("ONLINE TRANSFER")) {
+        merged.isInternalTransfer = true;
+      }
+
+      const userGuess = input.categoryRules?.length ? suggestCategoryFromUserRules(merged, input.categoryRules) : null;
+      const guess = userGuess || suggestCategory(merged);
       merged.categoryId = guess.categoryId;
       merged.categoryConfidence = guess.confidence;
 

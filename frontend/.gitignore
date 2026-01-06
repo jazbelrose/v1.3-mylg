@@ -48,3 +48,6 @@ backend/lambdas/CollabInvites/package.json
 backend/lambdas/**/package-lock.json
 backend/lambdas/**/*.zip
 scripts/migrate-project-descriptions-to-yjs.js
+
+# TypeScript incremental build info
+*.tsbuildinfo
