@@ -99,6 +99,16 @@ export interface Task extends JsonRecord {
   title: string;
   description?: string;
   budgetItemId?: string | null;
+  /** Primary budget link type for `budgetItemId` (MYLG extension). */
+  budgetLinkType?: string | null;
+  /**
+   * Secondary (and optional primary) budget links for a task.
+   * Primary is still represented by `budgetItemId` for backwards compatibility.
+   */
+  budgetLinks?: Array<{
+    budgetItemId: string;
+    linkType?: string | null;
+  }>;
   status?: 'todo' | 'in_progress' | 'in_review' | 'needs_changes' | 'done' | 'archived';
   assigneeId?: string;
   assigneeIds?: string[];

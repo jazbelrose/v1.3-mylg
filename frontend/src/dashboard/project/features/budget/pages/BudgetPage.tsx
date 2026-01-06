@@ -30,6 +30,7 @@ import BudgetTableLogic from "@/dashboard/project/features/budget/components/Bud
 import BudgetSpellbookModal, {
   type BudgetSpellbookApplyRequest,
 } from "@/dashboard/project/features/budget/components/BudgetSpellbookModal";
+import BudgetWorkPanelModal from "@/dashboard/project/features/budget/components/BudgetWorkPanelModal";
 import { BudgetProvider} from "@/dashboard/project/features/budget/context/BudgetProvider";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import { useData } from "@/app/contexts/useData";
@@ -45,6 +46,8 @@ import {
   fetchBudgetItems,
   createBudgetItem,
   deleteBudgetItem,
+  fetchTasks,
+  type Task,
 } from "@/shared/utils/api";
 import { v4 as uuid } from "uuid";
 import type { InvoiceDetailsPayload } from "@/dashboard/project/features/budget/components/invoicePreviewTypes";
@@ -52,6 +55,13 @@ import { notify } from "@/shared/ui/ToastNotifications";
 
 
 const TABLE_BOTTOM_MARGIN = 20;
+
+type WorkPanelLineItem = {
+  budgetItemId: string;
+  elementKey?: string;
+  elementId?: string;
+  description?: string;
+};
 
 // Inner component that uses the budget context
 const BudgetPageContent = () => {
@@ -77,6 +87,8 @@ const BudgetPageContent = () => {
   const tableRef = useRef(null);
   const [tableHeight, setTableHeight] = useState(0);
   const [saving] = useState(false);
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [workPanelItem, setWorkPanelItem] = useState<WorkPanelLineItem | null>(null);
   
   // Budget data from context
   const {
@@ -143,6 +155,29 @@ const BudgetPageContent = () => {
   }, [initialActiveProject]);
 
   useEffect(() => {
+    const resolvedProjectId = activeProject?.projectId;
+    if (!resolvedProjectId) {
+      setProjectTasks([]);
+      return;
+    }
+
+    let canceled = false;
+    fetchTasks(resolvedProjectId)
+      .then((tasks) => {
+        if (canceled) return;
+        setProjectTasks(tasks);
+      })
+      .catch(() => {
+        if (canceled) return;
+        setProjectTasks([]);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeProject?.projectId]);
+
+  useEffect(() => {
     if (!projectId) return;
     if (!initialActiveProject || initialActiveProject.projectId !== projectId) {
       fetchProjectDetails(projectId);
@@ -204,6 +239,39 @@ const BudgetPageContent = () => {
     setSelectedProjects((prev) => prev.filter((id) => id !== deletedProjectId));
     navigate("/dashboard/projects/allprojects");
   };
+
+  const workCountByLineItemId = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    projectTasks.forEach((task) => {
+      const ids = new Set<string>();
+      if (typeof task.budgetItemId === "string" && task.budgetItemId.trim()) {
+        ids.add(task.budgetItemId.trim());
+      }
+      if (Array.isArray(task.budgetLinks)) {
+        task.budgetLinks.forEach((link) => {
+          const id = typeof link?.budgetItemId === "string" ? link.budgetItemId.trim() : "";
+          if (id) ids.add(id);
+        });
+      }
+      ids.forEach((id) => {
+        counts[id] = (counts[id] ?? 0) + 1;
+      });
+    });
+
+    return counts;
+  }, [projectTasks]);
+
+  const handleOpenWorkPanel = useCallback((record: Record<string, unknown>) => {
+    const budgetItemId = typeof record.budgetItemId === "string" ? record.budgetItemId : "";
+    if (!budgetItemId) return;
+    setWorkPanelItem({
+      budgetItemId,
+      elementKey: typeof record.elementKey === "string" ? record.elementKey : undefined,
+      elementId: typeof record.elementId === "string" ? record.elementId : undefined,
+      description: typeof record.description === "string" ? record.description : undefined,
+    });
+  }, []);
 
   const isCreatingHeaderRef = useRef(false);
 
@@ -1113,6 +1181,8 @@ const BudgetPageContent = () => {
                                             openDuplicateModal={eventHandlers.openDuplicateModal}
                                             openDeleteModal={eventHandlers.openDeleteModal}
                                             openEventModal={eventHandlers.openEventModal}
+                                            openWorkModal={handleOpenWorkPanel}
+                                            workCountByLineItemId={workCountByLineItemId}
                                             eventsByLineItem={eventsByLineItem}
                                             tableRef={tableRef}
                                             tableHeight={tableHeight}
@@ -1184,6 +1254,14 @@ const BudgetPageContent = () => {
                               defaultDate={String((budgetHeader as Record<string, unknown>)?.startDate || '')}
                               defaultDescription={String((stateManager.eventItem as Record<string, unknown>)?.description || '')}
                               descOptions={eventDescOptions}
+                            />
+                            <BudgetWorkPanelModal
+                              isOpen={Boolean(workPanelItem)}
+                              onRequestClose={() => setWorkPanelItem(null)}
+                              projectId={activeProject?.projectId || ""}
+                              lineItem={workPanelItem}
+                              tasks={projectTasks}
+                              onTasksChange={setProjectTasks}
                             />
                             <ConfirmModal
                               isOpen={stateManager.isConfirmingDelete}

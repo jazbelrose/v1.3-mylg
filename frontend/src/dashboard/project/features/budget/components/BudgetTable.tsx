@@ -75,6 +75,8 @@ interface BudgetItemsTableProps {
   openDuplicateModal: (record: BudgetItem) => void;
   openDeleteModal: (ids: string[]) => void;
   openEventModal: (record: BudgetItem) => void;
+  openWorkModal?: (record: BudgetItem) => void;
+  workCountByLineItemId?: Record<string, number>;
   eventsByLineItem: Record<string, Record<string, unknown>[]>;
   tableRef: React.RefObject<HTMLDivElement>;
   tableHeight: number;
@@ -94,6 +96,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     openDuplicateModal,
     openDeleteModal,
     openEventModal,
+    openWorkModal,
+    workCountByLineItemId,
     eventsByLineItem,
     tableRef,
     tableHeight,
@@ -462,13 +466,14 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                 const isSelected = selectedRowKeys.includes(record.budgetItemId);
                 const isLocked = lockedLines.includes(record.budgetItemId);
                 const events = eventsByLineItem[record.budgetItemId] || [];
-                const eventCount = events.length;
-                const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
-                const attachmentCount = attachmentsForRecord.length;
-                const isAttachmentMenuOpen = attachmentMenuState?.id === record.budgetItemId;
-                const menuAttachments = isAttachmentMenuOpen ? attachmentMenuState?.items ?? attachmentsForRecord : attachmentsForRecord;
+                 const eventCount = events.length;
+                 const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
+                 const attachmentCount = attachmentsForRecord.length;
+                 const workCount = workCountByLineItemId?.[record.budgetItemId] ?? 0;
+                 const isAttachmentMenuOpen = attachmentMenuState?.id === record.budgetItemId;
+                 const menuAttachments = isAttachmentMenuOpen ? attachmentMenuState?.items ?? attachmentsForRecord : attachmentsForRecord;
 
-                return (
+                 return (
                   <article
                     key={record.key}
                     className={`${styles.card}${
@@ -521,71 +526,87 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                               </span>
                             )}
                           </div>
-                            <div className={styles.cardDescription}>
-                              {record.description
-                                ? String(record.description)
-                                : "No description"}
-                            </div>
-                            {attachmentCount > 0 && (
-                              <div
-                                className={styles.attachmentIconWrapper}
-                              >
+                             <div className={styles.cardDescription}>
+                               {record.description
+                                 ? String(record.description)
+                                 : "No description"}
+                             </div>
+                            <div className={styles.cardMetaChipsRow}>
+                              {openWorkModal && (
                                 <button
                                   type="button"
-                                  className={styles.attachmentIconButton}
-                                  role="button"
-                                  aria-haspopup="menu"
-                                  aria-expanded={isAttachmentMenuOpen}
-                                  onClick={(event) =>
-                                    toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord)
-                                  }
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                      event.preventDefault();
-                                      toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord);
-                                    }
+                                  className={styles.workChipButton}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (isLocked || isSelectMode) return;
+                                    openWorkModal(record);
                                   }}
+                                  disabled={isLocked || isSelectMode}
+                                  title="Work (tasks)"
                                 >
-                                  <FontAwesomeIcon icon={faPaperclip} />
-                                  <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
+                                  <span>Work •</span>
+                                  <span className={styles.workChipCount}>{workCount}</span>
                                 </button>
-                                {isAttachmentMenuOpen && (
-                                  <div
-                                    className={styles.attachmentDropdown}
-                                    ref={attachmentDropdownRef}
+                              )}
+
+                              {attachmentCount > 0 && (
+                                <div className={styles.attachmentIconWrapper}>
+                                  <button
+                                    type="button"
+                                    className={styles.attachmentIconButton}
+                                    role="button"
+                                    aria-haspopup="menu"
+                                    aria-expanded={isAttachmentMenuOpen}
+                                    onClick={(event) =>
+                                      toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord)
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord);
+                                      }
+                                    }}
                                   >
-                                    {menuAttachments.map((attachment, index) => (
-                                      <button
-                                        key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
-                                        type="button"
-                                        className={styles.attachmentDropdownItem}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          openAttachmentPreview(menuAttachments, index);
-                                          setAttachmentMenuState(null);
-                                        }}
-                                      >
-                                        <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
-                                          {attachment.mimeType?.startsWith("image") ? (
-                                            <img src={attachment.url} alt="" />
-                                          ) : (
-                                            <FontAwesomeIcon icon={faPaperclip} />
-                                          )}
-                                        </span>
-                                        <span className={styles.attachmentDropdownLabel}>
-                                          <span className={styles.attachmentDropdownFileName}>{attachment.fileName}</span>
-                                          <span className={styles.attachmentDropdownMeta}>
-                                            {attachment.mimeType || "File"}
+                                    <FontAwesomeIcon icon={faPaperclip} />
+                                    <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
+                                  </button>
+                                  {isAttachmentMenuOpen && (
+                                    <div className={styles.attachmentDropdown} ref={attachmentDropdownRef}>
+                                      {menuAttachments.map((attachment, index) => (
+                                        <button
+                                          key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
+                                          type="button"
+                                          className={styles.attachmentDropdownItem}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            openAttachmentPreview(menuAttachments, index);
+                                            setAttachmentMenuState(null);
+                                          }}
+                                        >
+                                          <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
+                                            {attachment.mimeType?.startsWith("image") ? (
+                                              <img src={attachment.url} alt="" />
+                                            ) : (
+                                              <FontAwesomeIcon icon={faPaperclip} />
+                                            )}
                                           </span>
-                                        </span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                        </div>
-                      </div>
+                                          <span className={styles.attachmentDropdownLabel}>
+                                            <span className={styles.attachmentDropdownFileName}>
+                                              {attachment.fileName}
+                                            </span>
+                                            <span className={styles.attachmentDropdownMeta}>
+                                              {attachment.mimeType || "File"}
+                                            </span>
+                                          </span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                         </div>
+                       </div>
 
                       <div className={styles.cardMetrics}>
                         <div className={styles.cardMetricRow}>

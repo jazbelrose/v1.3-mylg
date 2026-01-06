@@ -572,6 +572,45 @@
   font-weight: 600;
 }
 
+.cardMetaChipsRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.workChipButton {
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--sheet-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.workChipButton:hover,
+.workChipButton:focus-visible {
+  border-color: var(--color-primary, #4b6bff);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.workChipButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.workChipCount {
+  font-weight: 650;
+}
+
 .attachmentIconWrapper {
   position: relative;
   display: inline-flex;

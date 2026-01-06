@@ -2926,6 +2926,184 @@
   color: rgba(245, 245, 245, 0.7);
 }
 
+.calendar-entry-popover__detail-row--cost {
+  gap: 10px;
+}
+
+.calendar-entry-popover__cost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 245, 0.85);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.calendar-entry-popover__cost-btn:hover,
+.calendar-entry-popover__cost-btn:focus-visible {
+  border-color: rgba(59, 130, 246, 0.55);
+  color: rgba(245, 245, 245, 0.95);
+}
+
+.calendar-entry-popover__cost-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.calendar-entry-popover__cost-label {
+  color: rgba(245, 245, 245, 0.6);
+}
+
+.calendar-entry-popover__cost-value {
+  color: rgba(245, 245, 245, 0.9);
+  font-weight: 550;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-entry-popover__cost-clear {
+  border: none;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.55);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.calendar-entry-popover__cost-clear:hover,
+.calendar-entry-popover__cost-clear:focus-visible {
+  color: rgba(245, 245, 245, 0.85);
+}
+
+.calendar-entry-popover__cost-panel {
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.calendar-entry-popover__cost-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calendar-entry-popover__cost-panel-label {
+  font-size: 0.72rem;
+  color: rgba(245, 245, 245, 0.55);
+}
+
+.calendar-entry-popover__cost-panel-select {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 245, 0.85);
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+}
+
+.calendar-entry-popover__cost-panel-input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 245, 0.85);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.calendar-entry-popover__cost-panel-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.calendar-entry-popover__cost-panel-result {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(245, 245, 245, 0.85);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.calendar-entry-popover__cost-panel-result:hover,
+.calendar-entry-popover__cost-panel-result:focus-visible {
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
+.calendar-entry-popover__cost-panel-result-title {
+  font-size: 0.78rem;
+  font-weight: 550;
+  color: rgba(245, 245, 245, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-entry-popover__cost-panel-result-meta {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: rgba(245, 245, 245, 0.5);
+}
+
+.calendar-entry-popover__cost-panel-toggle {
+  border: none;
+  background: transparent;
+  color: rgba(59, 130, 246, 0.85);
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-align: left;
+  padding: 2px 2px;
+}
+
+.calendar-entry-popover__cost-panel-toggle:hover,
+.calendar-entry-popover__cost-panel-toggle:focus-visible {
+  color: rgba(96, 165, 250, 0.95);
+}
+
+.calendar-entry-popover__cost-panel-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendar-entry-popover__cost-panel-primary {
+  border: 1px solid rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.18);
+  color: rgba(245, 245, 245, 0.9);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.calendar-entry-popover__cost-panel-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.calendar-entry-popover__cost-panel-muted {
+  font-size: 0.75rem;
+  color: rgba(245, 245, 245, 0.55);
+}
+
 .calendar-entry-popover__detail-icon {
   width: 14px;
   height: 14px;

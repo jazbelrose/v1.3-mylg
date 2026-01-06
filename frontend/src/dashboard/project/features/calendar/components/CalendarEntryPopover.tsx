@@ -15,6 +15,7 @@ import {
   Pencil,
   Clock,
   Calendar,
+  DollarSign,
 } from "lucide-react";
 import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
@@ -28,6 +29,20 @@ import {
   type TimelineAvatar,
 } from "./timelineLayout";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
+import {
+  createBudgetItem,
+  fetchBudgetHeader,
+  fetchBudgetItems,
+  updateTask,
+  type BudgetHeader,
+  type BudgetLine,
+} from "@/shared/utils/api";
+import {
+  BUDGET_TASK_LINK_TYPES,
+  inferBudgetTaskLinkTypeFromTitle,
+  normalizeBudgetTaskLinkType,
+  type BudgetTaskLinkType,
+} from "@/shared/utils/budgetTaskLinks";
 
 import type { ContextMenuEntry } from "./CalendarEntryContextMenu";
 
@@ -153,6 +168,9 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const isTask = entryType === "task";
   const task = isTask ? (entry as CalendarTask) : null;
   const event = !isTask ? (entry as CalendarEvent) : null;
+  const sourceTask = task?.source ?? null;
+  const sourceProjectId = typeof sourceTask?.projectId === "string" ? sourceTask.projectId : "";
+  const sourceTaskId = typeof sourceTask?.taskId === "string" ? sourceTask.taskId : "";
 
   // Helper to detect Focus Blocks (by kind OR by having child task references for legacy support)
   const isFocusBlock = useMemo(() => {
@@ -276,6 +294,187 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   }, [isTask, task, memberLookup]);
 
   const canInlineRenameFocusBlock = Boolean(isTask && task && isFocusBlock && onRenameTaskTitle);
+
+  const [attachedBudgetItemId, setAttachedBudgetItemId] = useState<string | null>(null);
+  const [budgetLinkType, setBudgetLinkType] = useState<BudgetTaskLinkType>("build");
+  const [isCostPanelOpen, setIsCostPanelOpen] = useState(false);
+  const [budgetHeader, setBudgetHeader] = useState<BudgetHeader | null>(null);
+  const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetLoadError, setBudgetLoadError] = useState<string | null>(null);
+  const [costQuery, setCostQuery] = useState("");
+  const [isCostSaving, setIsCostSaving] = useState(false);
+  const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
+  const [newLineKey, setNewLineKey] = useState("");
+  const [newLineDesc, setNewLineDesc] = useState("");
+  const [newLineCost, setNewLineCost] = useState("");
+
+  useEffect(() => {
+    if (!isTask || !task || !sourceTask) return;
+    const primary = typeof sourceTask.budgetItemId === "string" && sourceTask.budgetItemId.trim()
+      ? sourceTask.budgetItemId.trim()
+      : null;
+    setAttachedBudgetItemId(primary);
+
+    const inferred = inferBudgetTaskLinkTypeFromTitle(task.title || sourceTask.title || "");
+    const existing = normalizeBudgetTaskLinkType(sourceTask.budgetLinkType);
+    setBudgetLinkType(existing ?? inferred);
+
+    setIsCostPanelOpen(false);
+    setIsCreatingLineItem(false);
+    setCostQuery("");
+    setNewLineKey("");
+    setNewLineDesc("");
+    setNewLineCost("");
+  }, [isTask, sourceTaskId, task, sourceTask]);
+
+  const loadBudget = useCallback(async () => {
+    if (!sourceProjectId) return;
+    setBudgetLoading(true);
+    setBudgetLoadError(null);
+    try {
+      const header = await fetchBudgetHeader(sourceProjectId);
+      setBudgetHeader(header);
+      if (!header?.budgetId) {
+        setBudgetLines([]);
+        return;
+      }
+      const lines = await fetchBudgetItems(header.budgetId, header.revision);
+      setBudgetLines(lines);
+    } catch (err) {
+      console.error("Failed to load budget for cost attach", err);
+      setBudgetLines([]);
+      setBudgetHeader(null);
+      setBudgetLoadError("Failed to load budget.");
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [sourceProjectId]);
+
+  useEffect(() => {
+    if (!isTask) return;
+    if (!sourceProjectId) return;
+    if (!isCostPanelOpen && !attachedBudgetItemId) return;
+    void loadBudget();
+  }, [attachedBudgetItemId, isCostPanelOpen, isTask, loadBudget, sourceProjectId]);
+
+  const budgetLineById = useMemo(() => {
+    const map = new Map<string, BudgetLine>();
+    budgetLines.forEach((line) => {
+      if (typeof line?.budgetItemId === "string" && line.budgetItemId.trim()) {
+        map.set(line.budgetItemId.trim(), line);
+      }
+    });
+    return map;
+  }, [budgetLines]);
+
+  const attachedBudgetLine = useMemo(() => {
+    if (!attachedBudgetItemId) return null;
+    return budgetLineById.get(attachedBudgetItemId) ?? null;
+  }, [attachedBudgetItemId, budgetLineById]);
+
+  const attachedBudgetLabel = useMemo(() => {
+    if (!attachedBudgetItemId) return "";
+    if (!attachedBudgetLine) return attachedBudgetItemId;
+    const key = typeof attachedBudgetLine.elementKey === "string" ? attachedBudgetLine.elementKey.trim() : "";
+    const desc = typeof attachedBudgetLine.description === "string" ? attachedBudgetLine.description.trim() : "";
+    return [key, desc].filter(Boolean).join(" ") || attachedBudgetItemId;
+  }, [attachedBudgetItemId, attachedBudgetLine]);
+
+  const filteredBudgetLines = useMemo(() => {
+    const q = costQuery.trim().toLowerCase();
+    if (!q) return budgetLines.slice(0, 20);
+    return budgetLines
+      .filter((line) => {
+        const key = typeof line.elementKey === "string" ? line.elementKey.toLowerCase() : "";
+        const desc = typeof line.description === "string" ? line.description.toLowerCase() : "";
+        return key.includes(q) || desc.includes(q) || (line.budgetItemId || "").toLowerCase().includes(q);
+      })
+      .slice(0, 20);
+  }, [budgetLines, costQuery]);
+
+  const handleAttachCost = useCallback(
+    async (budgetItemId: string) => {
+      if (!sourceProjectId || !sourceTaskId) return;
+      if (!budgetItemId) return;
+      setIsCostSaving(true);
+      try {
+        await updateTask({
+          projectId: sourceProjectId,
+          taskId: sourceTaskId,
+          title: sourceTask?.title ?? task?.title ?? "",
+          budgetItemId,
+          budgetLinkType,
+        });
+        setAttachedBudgetItemId(budgetItemId);
+        setIsCostPanelOpen(false);
+      } finally {
+        setIsCostSaving(false);
+      }
+    },
+    [budgetLinkType, sourceProjectId, sourceTask, sourceTaskId, task?.title],
+  );
+
+  const handleDetachCost = useCallback(async () => {
+    if (!sourceProjectId || !sourceTaskId) return;
+    setIsCostSaving(true);
+    try {
+      await updateTask({
+        projectId: sourceProjectId,
+        taskId: sourceTaskId,
+        title: sourceTask?.title ?? task?.title ?? "",
+        budgetItemId: null,
+        budgetLinkType: null,
+      });
+      setAttachedBudgetItemId(null);
+      setIsCostPanelOpen(false);
+    } finally {
+      setIsCostSaving(false);
+    }
+  }, [sourceProjectId, sourceTask, sourceTaskId, task?.title]);
+
+  const handleCreateLineItemAndAttach = useCallback(async () => {
+    if (!sourceProjectId || !sourceTaskId) return;
+    if (!budgetHeader?.budgetId) return;
+
+    const elementKey = newLineKey.trim();
+    const description = newLineDesc.trim();
+    if (!elementKey || !description) return;
+
+    const parsedCost = Number(String(newLineCost).replace(/[$,]/g, ""));
+    const itemBudgetedCost = Number.isFinite(parsedCost) ? parsedCost : 0;
+
+    setIsCostSaving(true);
+    try {
+      const created = await createBudgetItem(sourceProjectId, budgetHeader.budgetId, {
+        revision: budgetHeader.revision ?? 1,
+        category: "CONTINGENCY-MISC",
+        elementKey,
+        description,
+        quantity: 1,
+        unit: "EA",
+        itemBudgetedCost,
+      });
+
+      if (created && typeof created === "object" && typeof (created as BudgetLine).budgetItemId === "string") {
+        const createdLine = created as BudgetLine;
+        setBudgetLines((prev) => [createdLine, ...prev]);
+        await handleAttachCost(createdLine.budgetItemId);
+        setIsCreatingLineItem(false);
+      }
+    } finally {
+      setIsCostSaving(false);
+    }
+  }, [
+    budgetHeader?.budgetId,
+    budgetHeader?.revision,
+    handleAttachCost,
+    newLineCost,
+    newLineDesc,
+    newLineKey,
+    sourceProjectId,
+    sourceTaskId,
+  ]);
 
   useEffect(() => {
     if (!isEditingTitle) return;
@@ -465,6 +664,156 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           <div className="calendar-entry-popover__detail-row">
             <Calendar className="calendar-entry-popover__detail-icon" />
             <span>{task.due}</span>
+          </div>
+        )}
+        {isTask && !isFocusBlock && (
+          <div className="calendar-entry-popover__detail-row calendar-entry-popover__detail-row--cost">
+            <DollarSign className="calendar-entry-popover__detail-icon" />
+            {attachedBudgetItemId ? (
+              <>
+                <button
+                  type="button"
+                  className="calendar-entry-popover__cost-btn"
+                  onClick={() => setIsCostPanelOpen((prev) => !prev)}
+                  disabled={isCostSaving}
+                  title="Change attached cost"
+                >
+                  <span className="calendar-entry-popover__cost-label">Cost:</span>
+                  <span className="calendar-entry-popover__cost-value">{attachedBudgetLabel}</span>
+                </button>
+                <button
+                  type="button"
+                  className="calendar-entry-popover__cost-clear"
+                  onClick={() => void handleDetachCost()}
+                  disabled={isCostSaving}
+                  title="Detach cost"
+                >
+                  Remove
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="calendar-entry-popover__cost-btn"
+                onClick={() => setIsCostPanelOpen(true)}
+                disabled={isCostSaving}
+              >
+                + Attach cost
+              </button>
+            )}
+          </div>
+        )}
+        {isTask && !isFocusBlock && isCostPanelOpen && (
+          <div className="calendar-entry-popover__cost-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="calendar-entry-popover__cost-panel-row">
+              <label className="calendar-entry-popover__cost-panel-label">Link type</label>
+              <select
+                className="calendar-entry-popover__cost-panel-select"
+                value={budgetLinkType}
+                onChange={(e) => setBudgetLinkType(e.target.value as BudgetTaskLinkType)}
+                disabled={isCostSaving}
+              >
+                {BUDGET_TASK_LINK_TYPES.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {budgetLoading ? (
+              <div className="calendar-entry-popover__cost-panel-muted">Loading budget…</div>
+            ) : budgetLoadError ? (
+              <div className="calendar-entry-popover__cost-panel-muted">{budgetLoadError}</div>
+            ) : !budgetHeader?.budgetId ? (
+              <div className="calendar-entry-popover__cost-panel-muted">No budget found for this project.</div>
+            ) : (
+              <>
+                <input
+                  className="calendar-entry-popover__cost-panel-input"
+                  value={costQuery}
+                  onChange={(e) => setCostQuery(e.target.value)}
+                  placeholder="Search line items…"
+                  disabled={isCostSaving}
+                />
+
+                <div className="calendar-entry-popover__cost-panel-results">
+                  {filteredBudgetLines.length === 0 ? (
+                    <div className="calendar-entry-popover__cost-panel-muted">No matches.</div>
+                  ) : (
+                    filteredBudgetLines.map((line) => {
+                      const id = String(line.budgetItemId || "");
+                      const key = typeof line.elementKey === "string" ? line.elementKey : "";
+                      const desc = typeof line.description === "string" ? line.description : "";
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className="calendar-entry-popover__cost-panel-result"
+                          onClick={() => void handleAttachCost(id)}
+                          disabled={isCostSaving}
+                          title="Attach this line item"
+                        >
+                          <div className="calendar-entry-popover__cost-panel-result-title">
+                            {key ? `${key} ` : ""}
+                            {desc || id}
+                          </div>
+                          <div className="calendar-entry-popover__cost-panel-result-meta">{id}</div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="calendar-entry-popover__cost-panel-toggle"
+                  onClick={() => setIsCreatingLineItem((prev) => !prev)}
+                  disabled={isCostSaving}
+                >
+                  {isCreatingLineItem ? "Cancel new line item" : "Create new line item"}
+                </button>
+
+                {isCreatingLineItem && (
+                  <div className="calendar-entry-popover__cost-panel-create">
+                    <input
+                      className="calendar-entry-popover__cost-panel-input"
+                      value={newLineKey}
+                      onChange={(e) => setNewLineKey(e.target.value)}
+                      placeholder="Element key (e.g. NIKE-0023)"
+                      disabled={isCostSaving}
+                    />
+                    <input
+                      className="calendar-entry-popover__cost-panel-input"
+                      value={newLineDesc}
+                      onChange={(e) => setNewLineDesc(e.target.value)}
+                      placeholder="Description"
+                      disabled={isCostSaving}
+                    />
+                    <input
+                      className="calendar-entry-popover__cost-panel-input"
+                      value={newLineCost}
+                      onChange={(e) => setNewLineCost(e.target.value)}
+                      placeholder="Budgeted cost (optional)"
+                      disabled={isCostSaving}
+                    />
+                    <button
+                      type="button"
+                      className="calendar-entry-popover__cost-panel-primary"
+                      onClick={() => void handleCreateLineItemAndAttach()}
+                      disabled={
+                        isCostSaving ||
+                        !budgetHeader?.budgetId ||
+                        newLineKey.trim().length === 0 ||
+                        newLineDesc.trim().length === 0
+                      }
+                    >
+                      Create + attach
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
         {/* Show formatted assignee names, not IDs */}
