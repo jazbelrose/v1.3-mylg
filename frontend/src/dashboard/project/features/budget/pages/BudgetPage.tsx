@@ -426,6 +426,46 @@ const BudgetPageContent = () => {
     [activeProject?.projectId],
   );
 
+  const handleUnlinkWorkTask = useCallback(
+    async (budgetItemId: string, task: Task) => {
+      const projectId = activeProject?.projectId;
+      if (!projectId) return;
+      if (!budgetItemId || !task?.taskId) return;
+
+      const primaryId = getPrimaryBudgetLineItemId(task);
+      const existingSecondary = getSecondaryBudgetLinks(task);
+      const nextSecondary = existingSecondary.filter((l) => l && l.budgetLineItemId !== budgetItemId);
+
+      const updates: Partial<Task> = {};
+      if (primaryId === budgetItemId) {
+        updates.primaryBudgetLineItemId = null;
+        updates.budgetLinkType = null;
+      }
+      if (existingSecondary.length !== nextSecondary.length) {
+        updates.budgetLinks = nextSecondary as any;
+      }
+
+      if (Object.keys(updates).length === 0) return;
+
+      try {
+        const updated = await updateTask({
+          projectId,
+          taskId: task.taskId,
+          title: task.title ?? "",
+          ...updates,
+        });
+
+        setProjectTasks((prev) =>
+          prev.map((t) => (t.taskId && updated.taskId && t.taskId === updated.taskId ? { ...t, ...updated } : t)),
+        );
+      } catch (err) {
+        console.error("Failed to unlink task", err);
+        notify("error", "Failed to unlink task.");
+      }
+    },
+    [activeProject?.projectId],
+  );
+
   const isCreatingHeaderRef = useRef(false);
 
   const handleBallparkChange = async (val: number) => {
@@ -1477,9 +1517,11 @@ const BudgetPageContent = () => {
                                             openDeleteModal={eventHandlers.openDeleteModal}
                                             openEventModal={eventHandlers.openEventModal}
                                             openWorkModal={handleOpenWorkPanel}
+                                            tasks={projectTasks}
                                             workCountByLineItemId={workCountByLineItemId}
                                             workCoverageByLineItemId={buildCoverageMap}
                                             onCreateMissingWorkStage={handleCreateMissingWorkStage}
+                                            onUnlinkWorkTask={handleUnlinkWorkTask}
                                             eventsByLineItem={eventsByLineItem}
                                             tableRef={tableRef}
                                             tableHeight={tableHeight}

@@ -254,7 +254,7 @@ export default function BudgetWorkPanelModal({
     >
       <div className={styles.header}>
         <div className={styles.titleBlock}>
-          <div className={styles.title}>Work (Tasks)</div>
+          <div className={styles.title}>Tasks</div>
           <div className={styles.subtitle}>
             {lineLabel ? (
               <>

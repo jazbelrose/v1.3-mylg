@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import { resetHqData } from "@/hq/lib/hqApi";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
+import HqSelect from "@/hq/components/HqSelect";
 import styles from "./HQLayout.module.css";
 
 type HQLayoutProps = {
@@ -145,19 +146,19 @@ const HQLayout: React.FC<HQLayoutProps> = ({
         <div className={styles.actionsRow}>
           <label className={styles.orgPicker} aria-label="Organization">
             <span className={styles.orgPickerLabel}>Org</span>
-            <select
-              className={styles.orgPickerSelect}
-              value={activeOrgId ?? ""}
-              onChange={(e) => setActiveOrgId(e.target.value)}
-              disabled={orgsLoading || orgs.length === 0}
-            >
-              {orgs.length === 0 ? <option value="">No orgs</option> : null}
-              {orgs.map((org) => (
-                <option key={org.orgId} value={org.orgId}>
-                  {org.name || org.orgId}
-                </option>
-              ))}
-            </select>
+            <div className={styles.orgPickerSelect}>
+              <HqSelect
+                value={activeOrgId ?? ""}
+                onValueChange={(v) => setActiveOrgId(v)}
+                disabled={orgsLoading || orgs.length === 0}
+                ariaLabel="Organization"
+                options={
+                  orgs.length
+                    ? orgs.map((org) => ({ value: org.orgId, label: org.name || org.orgId }))
+                    : [{ value: "", label: "No orgs", disabled: true }]
+                }
+              />
+            </div>
           </label>
           {isAdmin ? (
             <button type="button" className={styles.orgCreateButton} onClick={handleCreateOrg}>
@@ -191,19 +192,19 @@ const HQLayout: React.FC<HQLayoutProps> = ({
       <div className={styles.mobileActionsRow}>
         <label className={styles.orgPicker} aria-label="Organization">
           <span className={styles.orgPickerLabel}>Org</span>
-          <select
-            className={styles.orgPickerSelect}
-            value={activeOrgId ?? ""}
-            onChange={(e) => setActiveOrgId(e.target.value)}
-            disabled={orgsLoading || orgs.length === 0}
-          >
-            {orgs.length === 0 ? <option value="">No orgs</option> : null}
-            {orgs.map((org) => (
-              <option key={org.orgId} value={org.orgId}>
-                {org.name || org.orgId}
-              </option>
-            ))}
-          </select>
+          <div className={styles.orgPickerSelect}>
+            <HqSelect
+              value={activeOrgId ?? ""}
+              onValueChange={(v) => setActiveOrgId(v)}
+              disabled={orgsLoading || orgs.length === 0}
+              ariaLabel="Organization"
+              options={
+                orgs.length
+                  ? orgs.map((org) => ({ value: org.orgId, label: org.name || org.orgId }))
+                  : [{ value: "", label: "No orgs", disabled: true }]
+              }
+            />
+          </div>
         </label>
         {isAdmin ? (
           <button type="button" className={styles.orgCreateButton} onClick={handleCreateOrg}>

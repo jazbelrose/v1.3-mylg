@@ -642,7 +642,7 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  min-width: 180px;
+  min-width: 420px;
   background: rgba(20, 20, 20, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
@@ -650,24 +650,103 @@
   z-index: 50;
 }
 
-.coverageDropdownItem {
-  width: 100%;
-  text-align: left;
+
+.coverageRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coverageRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 10px;
+}
+
+.coverageRow:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.coverageRowLabel {
+  width: 72px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.coverageRowChips {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.coverageRowEmpty {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.coverageTaskChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.coverageTaskChipText {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.coverageTaskChipRemove {
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.9);
-  padding: 10px 10px;
-  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
 }
 
-.coverageDropdownItem:hover,
-.coverageDropdownItem:focus-visible {
+.coverageTaskChipRemove:hover,
+.coverageTaskChipRemove:focus-visible {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.coverageTaskChipRemove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.coverageRowAction {
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
 }
 
-.coverageDropdownItem:disabled {
+.coverageRowAction:hover,
+.coverageRowAction:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.coverageRowAction:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

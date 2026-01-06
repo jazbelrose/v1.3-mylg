@@ -16,7 +16,14 @@ import {
 import AttachmentPreviewModal, { type AttachmentPreviewItem } from "@/shared/ui/AttachmentPreviewModal";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 import { formatUSD } from "@/shared/utils/budgetUtils";
-import { BUDGET_TASK_LINK_TYPES, type BudgetTaskLinkType } from "@/shared/utils/budgetTaskLinks";
+import type { Task } from "@/shared/utils/api";
+import {
+  BUDGET_TASK_LINK_TYPES,
+  getTaskLinkTypeForBudgetItem,
+  inferBudgetTaskLinkTypeFromTitle,
+  taskHasBudgetLink,
+  type BudgetTaskLinkType,
+} from "@/shared/utils/budgetTaskLinks";
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -77,9 +84,11 @@ interface BudgetItemsTableProps {
   openDeleteModal: (ids: string[]) => void;
   openEventModal: (record: BudgetItem) => void;
   openWorkModal?: (record: BudgetItem) => void;
+  tasks?: Task[];
   workCountByLineItemId?: Record<string, number>;
   workCoverageByLineItemId?: Record<string, Partial<Record<BudgetTaskLinkType, "missing" | "pending" | "done">>>;
   onCreateMissingWorkStage?: (record: BudgetItem, stage: BudgetTaskLinkType) => void;
+  onUnlinkWorkTask?: (budgetItemId: string, task: Task) => Promise<void> | void;
   eventsByLineItem: Record<string, Record<string, unknown>[]>;
   tableRef: React.RefObject<HTMLDivElement>;
   tableHeight: number;
@@ -100,9 +109,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     openDeleteModal,
     openEventModal,
     openWorkModal,
+    tasks,
     workCountByLineItemId,
     workCoverageByLineItemId,
     onCreateMissingWorkStage,
+    onUnlinkWorkTask,
     eventsByLineItem,
     tableRef,
     tableHeight,
@@ -563,15 +574,15 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                     openWorkModal(record);
                                   }}
                                   disabled={isLocked || isSelectMode}
-                                  title="Work (tasks)"
+                                  title="Tasks"
                                 >
-                                  <span>Work •</span>
+                                  <span>Tasks •</span>
                                   <span className={styles.workChipCount}>{workCount}</span>
                                 </button>
                               )}
 
                               {coverage ? (
-                                <div className={styles.workCoverage} aria-label="Work coverage">
+                                <div className={styles.workCoverage} aria-label="Coverage">
                               <div className={styles.coverageAddWrapper}>
                                 {(() => {
                                   const existingCount = BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
@@ -602,47 +613,85 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
 
                                     {coverageMenuOpenForId === record.budgetItemId ? (
                                       <div className={styles.coverageDropdown} ref={coverageDropdownRef} role="menu" aria-label="Add coverage">
-                                        {(
-                                          [
-                                            { id: "quote" as const, label: "Add Quote" },
-                                            { id: "procure" as const, label: "Add Procure" },
-                                            { id: "build" as const, label: "Add Build" },
-                                            { id: "install" as const, label: "Add Install" },
-                                            { id: "strike" as const, label: "Add Strike" },
-                                            { id: "invoice" as const, label: "Add Invoice" },
-                                          ]
-                                        ).map((item) => {
-                                          const state = coverage[item.id] ?? "missing";
-                                          const isMissing = state === "missing";
-                                          const disabled = !isMissing || isLocked || isSelectMode || !onCreateMissingWorkStage;
+                                    {(() => {
+                                      const budgetItemId = record.budgetItemId;
+                                      const linked = (tasks ?? []).filter((t) => taskHasBudgetLink(t, budgetItemId));
 
-                                          return (
-                                            <button
-                                              key={item.id}
-                                              type="button"
-                                              className={styles.coverageDropdownItem}
-                                              role="menuitem"
-                                              disabled={disabled}
-                                              onClick={(event) => {
-                                                event.stopPropagation();
-                                                if (disabled) return;
-                                                onCreateMissingWorkStage?.(record, item.id);
-                                                setCoverageMenuOpenForId(null);
-                                              }}
-                                              title={
-                                                disabled
-                                                  ? state === "done"
-                                                    ? "Already done"
-                                                    : state === "pending"
-                                                      ? "Task exists"
-                                                      : "Unavailable"
-                                                  : "Create task"
-                                              }
-                                            >
-                                              {item.label}
-                                            </button>
-                                          );
-                                        })}
+                                      const grouped: Record<BudgetTaskLinkType, Task[]> = {
+                                        quote: [],
+                                        procure: [],
+                                        build: [],
+                                        install: [],
+                                        strike: [],
+                                        invoice: [],
+                                      };
+
+                                      linked.forEach((t) => {
+                                        const linkType =
+                                          getTaskLinkTypeForBudgetItem(t, budgetItemId) ??
+                                          inferBudgetTaskLinkTypeFromTitle(t.title ?? "");
+                                        grouped[linkType].push(t);
+                                      });
+
+                                      return (
+                                        <div className={styles.coverageRows}>
+                                          {BUDGET_TASK_LINK_TYPES.map((step) => {
+                                            const stepTasks = grouped[step.id] ?? [];
+                                            const canMutate = !isLocked && !isSelectMode;
+                                            const canAdd = canMutate && Boolean(onCreateMissingWorkStage);
+                                            const canUnlink = canMutate && Boolean(onUnlinkWorkTask);
+
+                                            return (
+                                              <div key={step.id} className={styles.coverageRow} role="none">
+                                                <div className={styles.coverageRowLabel}>{step.label}</div>
+                                                <div className={styles.coverageRowChips}>
+                                                  {stepTasks.length === 0 ? (
+                                                    <span className={styles.coverageRowEmpty}>—</span>
+                                                  ) : (
+                                                    stepTasks.map((t) => {
+                                                      const title = (t.title || "Untitled task").trim() || "Untitled task";
+                                                      const taskId = t.taskId ?? title;
+
+                                                      return (
+                                                        <span key={taskId} className={styles.coverageTaskChip} title={title}>
+                                                          <span className={styles.coverageTaskChipText}>{title}</span>
+                                                          <button
+                                                            type="button"
+                                                            className={styles.coverageTaskChipRemove}
+                                                            aria-label={`Unlink ${step.label} task`}
+                                                            disabled={!canUnlink}
+                                                            onClick={(event) => {
+                                                              event.stopPropagation();
+                                                              if (!canUnlink) return;
+                                                              void onUnlinkWorkTask?.(budgetItemId, t);
+                                                            }}
+                                                          >
+                                                            ×
+                                                          </button>
+                                                        </span>
+                                                      );
+                                                    })
+                                                  )}
+                                                </div>
+
+                                                <button
+                                                  type="button"
+                                                  className={styles.coverageRowAction}
+                                                  disabled={!canAdd}
+                                                  onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    if (!canAdd) return;
+                                                    onCreateMissingWorkStage?.(record, step.id);
+                                                  }}
+                                                >
+                                                  Add
+                                                </button>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
                                       </div>
                                     ) : null}
                                   </div>

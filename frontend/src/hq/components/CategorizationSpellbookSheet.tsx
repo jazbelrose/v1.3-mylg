@@ -18,9 +18,14 @@ import { getVendorKeyForTxn } from "@/hq/lib/vendorNormalization";
 
 import type { HqCategoryId, HqTransaction } from "@/hq/types";
 import styles from "./CategorizationSpellbookSheet.module.css";
+import HqSelect from "@/hq/components/HqSelect";
 
 type MatchType = "contains" | "startsWith" | "exact" | "regex";
 type RuleScope = "org" | "account" | "card";
+
+type DirectionGuard = "any" | "out" | "in";
+type MethodGuard = "any" | "ach" | "card" | "wire" | "check" | "transfer";
+type ApplyMode = "uncategorized" | "overwrite";
 
 type VendorCluster = {
   vendorKey: string;
@@ -45,6 +50,12 @@ type PendingRule = {
   accountId?: string;
   cardLast4?: string;
   regexPattern?: string;
+  direction?: DirectionGuard;
+  method?: MethodGuard;
+  applyMode?: ApplyMode;
+  amountMin?: number;
+  amountMax?: number;
+  frequencyHint?: "weekly" | "biweekly" | "monthly" | "other";
 };
 
 type Props = {
@@ -401,6 +412,11 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       });
   }, [baseTxns, categoryRules, filterLowConfidence, filterRecurring, filterUncategorizedOnly, pendingRules, query]);
 
+  const categoryOptions = React.useMemo(
+    () => HQ_CATEGORIES.filter((c) => c.id !== "TRANSFERS").map((c) => ({ value: c.id, label: c.label })),
+    []
+  );
+
   const selectedCluster = React.useMemo(() => {
     if (!selectedVendorKey) return null;
     return clusters.find((c) => c.vendorKey === selectedVendorKey) || null;
@@ -591,19 +607,13 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 ].join(" ")}
                 title={`Suggested: ${HQ_CATEGORY_LABEL[cluster.suggestedCategoryId]} (${confidencePct}%) — ${reasonText}`}
               />
-              <select
-                className={styles.categorySelect}
+              <HqSelect
                 value={currentCategory}
-                onChange={(e) => handleQueueRuleFromRow(cluster, e.target.value as HqCategoryId)}
-                aria-label={`Set category for ${cluster.vendorLabel}`}
+                onValueChange={(v) => handleQueueRuleFromRow(cluster, v as HqCategoryId)}
+                ariaLabel={`Set category for ${cluster.vendorLabel}`}
                 disabled={isApplying}
-              >
-                {HQ_CATEGORIES.filter((c) => c.id !== "TRANSFERS").map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                options={categoryOptions}
+              />
             </div>
             <div className={styles.categoryHint}>
               Suggested: {HQ_CATEGORY_LABEL[cluster.suggestedCategoryId]} ({confidencePct}%)
@@ -740,11 +750,17 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             </div>
 
             <div className={styles.range}>
-              <select className={styles.rangeSelect} value={rangeMode} onChange={(e) => setRangeMode(e.target.value as any)}>
-                <option value="YTD">YTD</option>
-                <option value="12MO">12mo</option>
-                <option value="CUSTOM">Custom</option>
-              </select>
+              <HqSelect
+                className={styles.rangeSelect}
+                value={rangeMode}
+                onValueChange={(v) => setRangeMode(v as any)}
+                ariaLabel="Range"
+                options={[
+                  { value: "YTD", label: "YTD" },
+                  { value: "12MO", label: "12mo" },
+                  { value: "CUSTOM", label: "Custom" },
+                ]}
+              />
               {rangeMode === "CUSTOM" ? (
                 <div className={styles.customRange}>
                   <input className={styles.dateInput} type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
@@ -842,12 +858,17 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 <div className={styles.drawerBody}>
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Match</span>
-                    <select className={styles.select} value={builderMatchType} onChange={(e) => setBuilderMatchType(e.target.value as MatchType)}>
-                      <option value="contains">contains</option>
-                      <option value="startsWith">starts with</option>
-                      <option value="exact">exact</option>
-                      <option value="regex">regex</option>
-                    </select>
+                    <HqSelect
+                      value={builderMatchType}
+                      onValueChange={(v) => setBuilderMatchType(v as MatchType)}
+                      ariaLabel="Match type"
+                      options={[
+                        { value: "contains", label: "contains" },
+                        { value: "startsWith", label: "starts with" },
+                        { value: "exact", label: "exact" },
+                        { value: "regex", label: "regex" },
+                      ]}
+                    />
                   </label>
 
                   {builderMatchType === "regex" ? (
@@ -859,24 +880,33 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Scope</span>
-                    <select className={styles.select} value={builderScope} onChange={(e) => setBuilderScope(e.target.value as RuleScope)}>
-                      <option value="org">org-wide</option>
-                      <option value="account">this account</option>
-                      <option value="card">this card</option>
-                    </select>
+                    <HqSelect
+                      value={builderScope}
+                      onValueChange={(v) => setBuilderScope(v as RuleScope)}
+                      ariaLabel="Scope"
+                      options={[
+                        { value: "org", label: "org-wide" },
+                        { value: "account", label: "this account" },
+                        { value: "card", label: "this card" },
+                      ]}
+                    />
                   </label>
 
                   {builderScope === "account" ? (
                     <label className={styles.field}>
                       <span className={styles.fieldLabel}>Account</span>
-                      <select className={styles.select} value={builderAccountId} onChange={(e) => setBuilderAccountId(e.target.value)}>
-                        <option value="">Select…</option>
-                        {accounts.map((a) => (
-                          <option key={a.accountId} value={a.accountId}>
-                            {a.name ?? a.accountName} · {a.institution}
-                          </option>
-                        ))}
-                      </select>
+                      <HqSelect
+                        value={builderAccountId}
+                        onValueChange={setBuilderAccountId}
+                        ariaLabel="Account"
+                        options={[
+                          { value: "", label: "Select…", disabled: true },
+                          ...accounts.map((a) => ({
+                            value: a.accountId,
+                            label: `${a.name ?? a.accountName} · ${a.institution}`,
+                          })),
+                        ]}
+                      />
                     </label>
                   ) : null}
 
@@ -894,13 +924,12 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Category</span>
-                    <select className={styles.select} value={builderCategoryId} onChange={(e) => setBuilderCategoryId(e.target.value as HqCategoryId)}>
-                      {HQ_CATEGORIES.filter((c) => c.id !== "TRANSFERS").map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                    <HqSelect
+                      value={builderCategoryId}
+                      onValueChange={(v) => setBuilderCategoryId(v as HqCategoryId)}
+                      ariaLabel="Category"
+                      options={categoryOptions}
+                    />
                   </label>
 
                   <div className={styles.previewExamples}>
@@ -946,12 +975,17 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Match</span>
-                <select className={styles.select} value={builderMatchType} onChange={(e) => setBuilderMatchType(e.target.value as MatchType)}>
-                  <option value="contains">contains</option>
-                  <option value="startsWith">starts with</option>
-                  <option value="exact">exact</option>
-                  <option value="regex">regex</option>
-                </select>
+                <HqSelect
+                  value={builderMatchType}
+                  onValueChange={(v) => setBuilderMatchType(v as MatchType)}
+                  ariaLabel="Match type"
+                  options={[
+                    { value: "contains", label: "contains" },
+                    { value: "startsWith", label: "starts with" },
+                    { value: "exact", label: "exact" },
+                    { value: "regex", label: "regex" },
+                  ]}
+                />
               </label>
 
               {builderMatchType === "regex" ? (
@@ -963,24 +997,33 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Scope</span>
-                <select className={styles.select} value={builderScope} onChange={(e) => setBuilderScope(e.target.value as RuleScope)}>
-                  <option value="org">org-wide</option>
-                  <option value="account">this account</option>
-                  <option value="card">this card</option>
-                </select>
+                <HqSelect
+                  value={builderScope}
+                  onValueChange={(v) => setBuilderScope(v as RuleScope)}
+                  ariaLabel="Scope"
+                  options={[
+                    { value: "org", label: "org-wide" },
+                    { value: "account", label: "this account" },
+                    { value: "card", label: "this card" },
+                  ]}
+                />
               </label>
 
               {builderScope === "account" ? (
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>Account</span>
-                  <select className={styles.select} value={builderAccountId} onChange={(e) => setBuilderAccountId(e.target.value)}>
-                    <option value="">Select…</option>
-                    {accounts.map((a) => (
-                      <option key={a.accountId} value={a.accountId}>
-                        {a.name ?? a.accountName} · {a.institution}
-                      </option>
-                    ))}
-                  </select>
+                  <HqSelect
+                    value={builderAccountId}
+                    onValueChange={setBuilderAccountId}
+                    ariaLabel="Account"
+                    options={[
+                      { value: "", label: "Select…", disabled: true },
+                      ...accounts.map((a) => ({
+                        value: a.accountId,
+                        label: `${a.name ?? a.accountName} · ${a.institution}`,
+                      })),
+                    ]}
+                  />
                 </label>
               ) : null}
 
@@ -998,13 +1041,12 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Category</span>
-                <select className={styles.select} value={builderCategoryId} onChange={(e) => setBuilderCategoryId(e.target.value as HqCategoryId)}>
-                  {HQ_CATEGORIES.filter((c) => c.id !== "TRANSFERS").map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                <HqSelect
+                  value={builderCategoryId}
+                  onValueChange={(v) => setBuilderCategoryId(v as HqCategoryId)}
+                  ariaLabel="Category"
+                  options={categoryOptions}
+                />
               </label>
 
               <div className={styles.previewExamples}>
