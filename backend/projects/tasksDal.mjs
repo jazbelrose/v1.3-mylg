@@ -441,6 +441,14 @@ export async function updateTaskFields({
   const dueAt = fields.dueAt !== undefined ? fields.dueAt : task.dueAt;
   const statusSortKey = buildStatusSortKey(normalizedStatus, dueAt, taskId);
 
+  const removes = [];
+
+  // IMPORTANT: budgetItemId is a GSI key (budgetItemId-index). DynamoDB cannot
+  // store NULL for index keys; it must be removed instead.
+  if (fields && Object.prototype.hasOwnProperty.call(fields, "budgetItemId") && fields.budgetItemId === null) {
+    removes.push("budgetItemId");
+  }
+
   const sets = {
     ...fields,
     statusSortKey,
@@ -448,7 +456,11 @@ export async function updateTaskFields({
     updatedAt: now || new Date().toISOString(),
   };
 
-  const expression = buildUpdateExpression({ sets });
+  if (removes.includes("budgetItemId")) {
+    delete sets.budgetItemId;
+  }
+
+  const expression = buildUpdateExpression({ sets, removes });
   if (!expression) {
     return task;
   }

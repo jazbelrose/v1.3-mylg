@@ -7,14 +7,16 @@ type CategoryGuess = {
 };
 
 const DEFAULT_VENDOR_RULES: Array<{ match: RegExp; categoryId: HqCategoryId; confidence: number }> = [
-  { match: /\bADOBE\b/i, categoryId: "SOFTWARE", confidence: 0.9 },
-  { match: /\bAMAZON WEB SERVICE\b|\bAWS\b/i, categoryId: "SOFTWARE", confidence: 0.85 },
-  { match: /\bNOTION\b/i, categoryId: "SOFTWARE", confidence: 0.8 },
-  { match: /\bGOOGLE\b|\bG SUITE\b|\bWORKSPACE\b/i, categoryId: "SOFTWARE", confidence: 0.7 },
+  { match: /\bADOBE\b/i, categoryId: "SOFTWARE_SAAS", confidence: 0.9 },
+  { match: /\bAMAZON WEB SERVICE\b|\bAWS\b/i, categoryId: "SOFTWARE_SAAS", confidence: 0.85 },
+  { match: /\bNOTION\b/i, categoryId: "SOFTWARE_SAAS", confidence: 0.8 },
+  { match: /\bGOOGLE\b|\bG SUITE\b|\bWORKSPACE\b/i, categoryId: "SOFTWARE_SAAS", confidence: 0.7 },
   { match: /\bUBER\b|\bLYFT\b/i, categoryId: "TRAVEL", confidence: 0.75 },
   { match: /\bDELTA\b|\bUNITED\b|\bAMERICAN AIRLINES\b|\bJETBLUE\b/i, categoryId: "TRAVEL", confidence: 0.7 },
-  { match: /\bWEWORK\b/i, categoryId: "RENT_STORAGE", confidence: 0.7 },
+  { match: /\bWEWORK\b/i, categoryId: "RENT_LEASE", confidence: 0.7 },
   { match: /\bSQUARE\b|\bSTRIPE\b/i, categoryId: "INCOME", confidence: 0.6 },
+  { match: /\bGUSTO\b|\bADP\b|\bPAYCHEX\b|\bPAYROLL\b/i, categoryId: "PAYROLL_W2", confidence: 0.8 },
+  { match: /\bIRS\b|\bFRANCHISE\b\s+TAX\b|\bTAX\s+PAYMENT\b/i, categoryId: "ESTIMATED_TAXES", confidence: 0.65 },
 ];
 
 function normalizeForMatching(value?: string) {
@@ -63,10 +65,10 @@ export function suggestCategoryFromUserRules(
 
 export function suggestCategory(txn: Pick<HqTransaction, "type" | "isInternalTransfer" | "vendor" | "normalizedDescription">): CategoryGuess {
   if (txn.isInternalTransfer) {
-    return { categoryId: "TRANSFERS", confidence: 0.9, reason: "internal-transfer" };
+    return { categoryId: "TRANSFER_INTERNAL", confidence: 0.9, reason: "internal-transfer" };
   }
 
-  if (txn.type === "fee") return { categoryId: "FEES", confidence: 0.9, reason: "type-fee" };
+  if (txn.type === "fee") return { categoryId: "BANK_FEES", confidence: 0.9, reason: "type-fee" };
   if (txn.type === "deposit") return { categoryId: "INCOME", confidence: 0.85, reason: "type-deposit" };
 
   const vendor = normalizeForMatching(txn.vendor);

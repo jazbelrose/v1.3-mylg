@@ -152,11 +152,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
                 onValueChange={(v) => setActiveOrgId(v)}
                 disabled={orgsLoading || orgs.length === 0}
                 ariaLabel="Organization"
-                options={
-                  orgs.length
-                    ? orgs.map((org) => ({ value: org.orgId, label: org.name || org.orgId }))
-                    : [{ value: "", label: "No orgs", disabled: true }]
-                }
+                placeholder={orgs.length ? "Select…" : "No orgs"}
+                options={orgs.map((org) => ({ value: org.orgId, label: org.name || org.orgId }))}
               />
             </div>
           </label>
@@ -198,11 +195,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
               onValueChange={(v) => setActiveOrgId(v)}
               disabled={orgsLoading || orgs.length === 0}
               ariaLabel="Organization"
-              options={
-                orgs.length
-                  ? orgs.map((org) => ({ value: org.orgId, label: org.name || org.orgId }))
-                  : [{ value: "", label: "No orgs", disabled: true }]
-              }
+              placeholder={orgs.length ? "Select…" : "No orgs"}
+              options={orgs.map((org) => ({ value: org.orgId, label: org.name || org.orgId }))}
             />
           </div>
         </label>

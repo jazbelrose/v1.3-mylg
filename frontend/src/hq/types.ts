@@ -1,15 +1,49 @@
 export type HqCategoryId =
+  // People
+  | "PAYROLL_W2"
+  | "PAYROLL_TAXES"
+  | "CONTRACTORS_1099"
+  | "REIMBURSEMENTS"
+  // Owner
+  | "OWNER_DRAW"
+  | "OWNER_CONTRIBUTION"
+  // Operations
+  | "MATERIALS_SUPPLIES"
+  | "SOFTWARE_SAAS"
+  | "INSURANCE"
+  | "RENT_LEASE"
+  | "UTILITIES"
+  | "PHONE_INTERNET"
+  | "SHIPPING"
+  // Travel & Vehicles
+  | "GAS"
+  | "CHARGING"
+  | "PARKING_TOLLS"
+  | "TRAVEL"
+  // Finance
+  | "BANK_FEES"
+  | "INTEREST"
+  | "CARD_PAYMENT"
+  | "LOAN_PAYMENT"
+  // Government
+  | "SALES_TAX"
+  | "ESTIMATED_TAXES"
+  | "PERMITS_LICENSES"
+  // Movement
+  | "TRANSFER_INTERNAL"
+  | "REFUND_CHARGEBACK"
+  // Income / fallback
+  | "INCOME"
+  | "OTHER"
+  // Legacy IDs (keep for backwards compatibility with stored data)
   | "PAYROLL"
   | "PRODUCTION"
   | "SOFTWARE"
-  | "TRAVEL"
   | "MARKETING"
   | "RENT_STORAGE"
   | "FEES"
   | "TAXES"
-  | "TRANSFERS"
-  | "INCOME"
-  | "OTHER";
+  | "TRANSFERS";
 
 export type HqTransactionType =
   | "card_purchase"
@@ -72,6 +106,12 @@ export type HqCategoryRule = {
   scope?: HqCategoryRuleScope;
   accountId?: string;
   cardLast4?: string;
+  direction?: "in" | "out";
+  method?: "ach" | "card" | "wire" | "check" | "transfer";
+  applyMode?: "uncategorized" | "overwrite";
+  amountMin?: number;
+  amountMax?: number;
+  frequencyHint?: "weekly" | "biweekly" | "monthly" | "other";
   enabled: boolean;
   createdAt: string; // ISO
 };

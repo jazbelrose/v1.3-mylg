@@ -181,6 +181,12 @@ export async function createHqCategoryRule(
     scope?: "org" | "account" | "card";
     accountId?: string;
     cardLast4?: string;
+    direction?: "in" | "out";
+    method?: "ach" | "card" | "wire" | "check" | "transfer";
+    applyMode?: "uncategorized" | "overwrite";
+    amountMin?: number;
+    amountMax?: number;
+    frequencyHint?: "weekly" | "biweekly" | "monthly" | "other";
   }
 ): Promise<{ orgId: string; rule: HqCategoryRule }> {
   const base = getHqServiceBaseUrl();
@@ -226,7 +232,7 @@ export async function deleteHqAccount(orgId: string, accountId: string): Promise
 
 export async function resetHqData(
   orgId: string,
-  mode: "all" | "keepRules" = "all"
+  mode: "all" | "keepRules" | "keepAccountsAndRules" | "keepData" = "all"
 ): Promise<{ ok: boolean } & Record<string, unknown>> {
   const base = getHqServiceBaseUrl();
   const params = new URLSearchParams({ orgId, mode });

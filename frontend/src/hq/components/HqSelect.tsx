@@ -28,18 +28,15 @@ const HqSelect: React.FC<Props> = ({
   ariaLabel,
   className,
 }) => {
-  const selectedLabel = React.useMemo(() => {
-    const hit = options.find((o) => o.value === value);
-    return hit?.label ?? "";
-  }, [options, value]);
+  const normalizedValue = value === "" ? undefined : value;
 
   return (
-    <Select.Root value={value} onValueChange={onValueChange} disabled={disabled}>
+    <Select.Root value={normalizedValue} onValueChange={onValueChange} disabled={disabled}>
       <Select.Trigger
         className={[styles.trigger, className].filter(Boolean).join(" ")}
         aria-label={ariaLabel}
       >
-        <Select.Value placeholder={placeholder}>{selectedLabel}</Select.Value>
+        <Select.Value placeholder={placeholder} />
         <Select.Icon className={styles.icon} aria-hidden>
           ▾
         </Select.Icon>

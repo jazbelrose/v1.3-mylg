@@ -112,13 +112,13 @@ const isLikelyInternalTransfer = (txn) => {
 };
 
 const DEFAULT_RULEPACK = [
-  { pattern: "\\bADOBE\\b", categoryId: "SOFTWARE", priority: 180 },
-  { pattern: "\\bAMAZON WEB SERVICE\\b|\\bAWS\\b", categoryId: "SOFTWARE", priority: 175 },
-  { pattern: "\\bNOTION\\b", categoryId: "SOFTWARE", priority: 170 },
-  { pattern: "\\bGOOGLE\\b|\\bG SUITE\\b|\\bWORKSPACE\\b", categoryId: "SOFTWARE", priority: 165 },
+  { pattern: "\\bADOBE\\b", categoryId: "SOFTWARE_SAAS", priority: 180 },
+  { pattern: "\\bAMAZON WEB SERVICE\\b|\\bAWS\\b", categoryId: "SOFTWARE_SAAS", priority: 175 },
+  { pattern: "\\bNOTION\\b", categoryId: "SOFTWARE_SAAS", priority: 170 },
+  { pattern: "\\bGOOGLE\\b|\\bG SUITE\\b|\\bWORKSPACE\\b", categoryId: "SOFTWARE_SAAS", priority: 165 },
   { pattern: "\\bUBER\\b|\\bLYFT\\b", categoryId: "TRAVEL", priority: 160 },
   { pattern: "\\bDELTA\\b|\\bUNITED\\b|\\bAMERICAN AIRLINES\\b|\\bJETBLUE\\b", categoryId: "TRAVEL", priority: 155 },
-  { pattern: "\\bWEWORK\\b", categoryId: "RENT_STORAGE", priority: 150 },
+  { pattern: "\\bWEWORK\\b", categoryId: "RENT_LEASE", priority: 150 },
   { pattern: "\\bSQUARE\\b|\\bSTRIPE\\b", categoryId: "INCOME", priority: 145 },
 ];
 
@@ -141,9 +141,32 @@ const listCategoryRules = async (orgId) => {
     scope: r.scope || "org",
     accountId: r.accountId,
     cardLast4: r.cardLast4,
+    direction: r.direction,
+    method: r.method,
+    applyMode: r.applyMode,
+    amountMin: r.amountMin,
+    amountMax: r.amountMax,
+    frequencyHint: r.frequencyHint,
     enabled: r.enabled !== false,
     createdAt: r.createdAt,
   }));
+};
+
+const inferMethod = (txn) => {
+  const type = String(txn?.type || "").toLowerCase();
+  const hasCard = Boolean(txn?.cardLast4) || type === "card_purchase";
+  if (hasCard) return "card";
+  if (type === "wire") return "wire";
+  if (Boolean(txn?.isInternalTransfer)) return "transfer";
+  if (type === "transfer" || type === "zelle") return "transfer";
+
+  const d = String(txn?.normalizedDescription || txn?.rawDescription || "").toUpperCase();
+  if (d.includes("CHECK")) return "check";
+
+  if (type === "recurring") return "ach";
+  if (type === "deposit") return "ach";
+
+  return "ach";
 };
 
 const ensureSeedRulepack = async (orgId) => {
@@ -184,10 +207,14 @@ const pickCategorization = (txn, rules) => {
   const vendorKey = normalizeVendorKey(txn.vendor);
   const isInternalTransfer = Boolean(txn.isInternalTransfer) || isLikelyInternalTransfer(txn);
 
+  const currentCategory = normalizeForMatching(txn.currentCategory || txn.categoryId || "OTHER") || "OTHER";
+  const amountAbs = Math.abs(typeof txn.amount === "number" ? txn.amount : Number(txn.amount || 0));
+  const method = inferMethod(txn);
+
   if (isInternalTransfer) {
     return {
       isInternalTransfer: true,
-      categoryId: "TRANSFERS",
+      categoryId: "TRANSFER_INTERNAL",
       categoryConfidence: 0.95,
     };
   }
@@ -198,6 +225,25 @@ const pickCategorization = (txn, rules) => {
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
   for (const rule of enabledRules) {
+    const applyMode = String(rule.applyMode || "uncategorized").toLowerCase();
+    if (applyMode !== "overwrite" && currentCategory && currentCategory !== "OTHER") continue;
+
+    const dirGuard = typeof rule.direction === "string" ? rule.direction.trim().toLowerCase() : "";
+    if (dirGuard === "in" || dirGuard === "out") {
+      const tdir = String(txn.direction || "").toLowerCase();
+      if (tdir !== dirGuard) continue;
+    }
+
+    const methodGuard = typeof rule.method === "string" ? rule.method.trim().toLowerCase() : "";
+    if (methodGuard) {
+      if (method !== methodGuard) continue;
+    }
+
+    const minAmt = Number.isFinite(Number(rule.amountMin)) ? Number(rule.amountMin) : null;
+    const maxAmt = Number.isFinite(Number(rule.amountMax)) ? Number(rule.amountMax) : null;
+    if (minAmt !== null && amountAbs < minAmt) continue;
+    if (maxAmt !== null && amountAbs > maxAmt) continue;
+
     const scope = rule.scope || "org";
     if (scope === "account" && rule.accountId && txn.accountId !== rule.accountId) continue;
     if (scope === "card" && rule.cardLast4 && txn.cardLast4 !== rule.cardLast4) continue;
@@ -594,6 +640,32 @@ const createCategoryRule = async (e, C) => {
 
   const scopeRaw = typeof body.scope === "string" ? body.scope.trim().toLowerCase() : "org";
   const scope = scopeRaw === "account" ? "account" : scopeRaw === "card" ? "card" : "org";
+    const directionRaw = typeof body.direction === "string" ? body.direction.trim().toLowerCase() : "";
+    const direction = directionRaw === "in" ? "in" : directionRaw === "out" ? "out" : undefined;
+
+    const methodRaw = typeof body.method === "string" ? body.method.trim().toLowerCase() : "";
+    const method =
+      methodRaw === "ach" || methodRaw === "card" || methodRaw === "wire" || methodRaw === "check" || methodRaw === "transfer"
+        ? methodRaw
+        : undefined;
+
+    const applyModeRaw = typeof body.applyMode === "string" ? body.applyMode.trim().toLowerCase() : "uncategorized";
+    const applyMode = applyModeRaw === "overwrite" ? "overwrite" : "uncategorized";
+
+    const amountMin = Number.isFinite(Number(body.amountMin)) ? Number(body.amountMin) : undefined;
+    const amountMax = Number.isFinite(Number(body.amountMax)) ? Number(body.amountMax) : undefined;
+    if (amountMin !== undefined && amountMin < 0) return json(400, C, { error: "amountMin must be >= 0" });
+    if (amountMax !== undefined && amountMax < 0) return json(400, C, { error: "amountMax must be >= 0" });
+    if (amountMin !== undefined && amountMax !== undefined && amountMin > amountMax) {
+      return json(400, C, { error: "amountMin must be <= amountMax" });
+    }
+
+    const frequencyHintRaw = typeof body.frequencyHint === "string" ? body.frequencyHint.trim().toLowerCase() : "";
+    const frequencyHint =
+      frequencyHintRaw === "weekly" || frequencyHintRaw === "biweekly" || frequencyHintRaw === "monthly" || frequencyHintRaw === "other"
+        ? frequencyHintRaw
+        : undefined;
+
   const accountId = typeof body.accountId === "string" ? body.accountId.trim() : "";
   const cardLast4 = typeof body.cardLast4 === "string" ? body.cardLast4.trim() : "";
 
@@ -626,6 +698,12 @@ const createCategoryRule = async (e, C) => {
     scope,
     accountId: scope === "account" ? accountId : undefined,
     cardLast4: scope === "card" ? cardLast4 : undefined,
+    direction,
+    method,
+    applyMode,
+    amountMin,
+    amountMax,
+    frequencyHint,
     enabled,
     createdAt,
   };
@@ -685,9 +763,12 @@ const applyCategoryRules = async (e, C) => {
           normalizedDescription: t.normalizedDescription,
           vendor: t.vendor,
           type: t.type,
+          direction: t.direction,
+          amount: t.amount,
           isInternalTransfer: currentIsTransfer,
           accountId: t.accountId,
           cardLast4: t.cardLast4,
+          currentCategory,
         },
         rules
       );
@@ -1084,7 +1165,7 @@ const deleteAccount = async (e, C, { accountId }) => {
   return json(200, C, { ok: true, accountId, deletedTransactions, deletedImportRuns });
 };
 
-// DELETE /hq/reset?orgId=...&mode=all|keepRules
+// DELETE /hq/reset?orgId=...&mode=all|keepRules|keepAccountsAndRules|keepData
 const resetHq = async (e, C) => {
   const userId = requireCallerUserId(e);
   const q = Q(e);
@@ -1093,8 +1174,10 @@ const resetHq = async (e, C) => {
 
   await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
-  const mode = String(q.mode || "all").trim();
-  const keepRules = mode.toLowerCase() === "keeprules";
+  const mode = String(q.mode || "all").trim().toLowerCase();
+  const keepRules = mode === "keeprules";
+  const keepAccountsAndRules = mode === "keepaccountsandrules";
+  const keepData = mode === "keepdata";
 
   let deletedAccounts = 0;
   let deletedTransactions = 0;
@@ -1115,6 +1198,8 @@ const resetHq = async (e, C) => {
     for (const item of page.Items || []) {
       const sk = String(item.sk || "");
       if (keepRules && sk.startsWith("RULE#")) continue;
+      if (keepAccountsAndRules && (sk.startsWith("RULE#") || sk.startsWith("ACCOUNT#"))) continue;
+      if (keepData && !sk.startsWith("RULE#")) continue;
       deletes.push({ DeleteRequest: { Key: { orgId, sk } } });
 
       if (sk.startsWith("ACCOUNT#")) deletedAccounts += 1;
@@ -1134,7 +1219,7 @@ const resetHq = async (e, C) => {
   return json(200, C, {
     ok: true,
     orgId,
-    mode: keepRules ? "keepRules" : "all",
+    mode: keepRules ? "keepRules" : keepAccountsAndRules ? "keepAccountsAndRules" : keepData ? "keepData" : "all",
     deletedAccounts,
     deletedTransactions,
     deletedImportRuns,

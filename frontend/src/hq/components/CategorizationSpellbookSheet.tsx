@@ -11,10 +11,12 @@ import {
   deleteHqCategoryRule,
   fetchHqSummary,
   fetchHqTransactions,
+  deleteHqImportRun,
+  resetHqData,
 } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
 import { suggestCategory, suggestCategoryFromUserRules } from "@/hq/lib/hqCategorization";
-import { getVendorKeyForTxn } from "@/hq/lib/vendorNormalization";
+import { cleanVendorLabel, getVendorKeyForTxn } from "@/hq/lib/vendorNormalization";
 
 import type { HqCategoryId, HqTransaction } from "@/hq/types";
 import styles from "./CategorizationSpellbookSheet.module.css";
@@ -30,8 +32,11 @@ type ApplyMode = "uncategorized" | "overwrite";
 type VendorCluster = {
   vendorKey: string;
   vendorLabel: string;
+  clusterType: "Vendor" | "Person" | "Payroll" | "Contractor" | "Owner" | "Transfer" | "Bank Fee" | "Tax" | "Unknown";
   count: number;
-  totalSpend: number;
+  totalAbs: number;
+  totalOutflow: number;
+  totalInflow: number;
   lastSeen: string;
   examples: HqTransaction[];
   suggestedCategoryId: HqCategoryId;
@@ -44,6 +49,7 @@ type VendorCluster = {
 type PendingRule = {
   vendorKey: string;
   vendorLabel: string;
+  patternText: string;
   categoryId: HqCategoryId;
   matchType: MatchType;
   scope: RuleScope;
@@ -89,18 +95,18 @@ function escapeRegExp(value: string): string {
 
 function buildRulePattern(input: {
   matchType: MatchType;
-  vendorLabel: string;
+  patternText: string;
   regexPattern?: string;
 }): { apiMatchType: "vendor" | "regex"; pattern: string } {
   if (input.matchType === "exact") {
-    return { apiMatchType: "vendor", pattern: input.vendorLabel };
+    return { apiMatchType: "vendor", pattern: input.patternText };
   }
 
   if (input.matchType === "regex") {
     return { apiMatchType: "regex", pattern: String(input.regexPattern || "").trim() };
   }
 
-  const escaped = escapeRegExp(input.vendorLabel);
+  const escaped = escapeRegExp(input.patternText);
   if (input.matchType === "startsWith") {
     return { apiMatchType: "regex", pattern: `^${escaped}` };
   }
@@ -163,6 +169,39 @@ function isUncategorized(txn: HqTransaction): boolean {
   return !txn.categoryId || txn.categoryId === "OTHER";
 }
 
+function inferClusterType(label: string, txns: HqTransaction[]): VendorCluster["clusterType"] {
+  const upper = String(label || "").toUpperCase();
+  const anyInternal = txns.some((t) => Boolean(t.isInternalTransfer));
+  if (anyInternal) return "Transfer";
+
+  if (txns.some((t) => t.type === "fee")) return "Bank Fee";
+
+  if (/\b(IRS|TAX|FRANCHISE\s+TAX|SALES\s+TAX)\b/i.test(upper)) return "Tax";
+  if (/\b(GUSTO|ADP|PAYCHEX|PAYROLL)\b/i.test(upper)) return "Payroll";
+  if (/\b(CONTRACTOR|1099|UPWORK|FIVERR)\b/i.test(upper)) return "Contractor";
+  if (/\b(OWNER\s*DRAW|DRAW|DISTRIBUTION|OWNER)\b/i.test(upper)) return "Owner";
+
+  // Light person heuristic: "Name (Contractor)" etc, or single-token capitalized name.
+  if (/\(.+\)/.test(label) && /\b(CONTRACTOR|1099)\b/i.test(label)) return "Contractor";
+  if (/^[A-Z][a-z]+(\s+[A-Z][a-z]+)?$/.test(label)) return "Person";
+
+  if (!label || label === "Unknown") return "Unknown";
+  return "Vendor";
+}
+
+function inferMethodForTxn(txn: Pick<HqTransaction, "type" | "cardLast4" | "isInternalTransfer" | "normalizedDescription" | "rawDescription">): Exclude<MethodGuard, "any"> {
+  const type = String(txn.type || "unknown").toLowerCase();
+  if (txn.cardLast4 || type === "card_purchase") return "card";
+  if (type === "wire") return "wire";
+  if (txn.isInternalTransfer || type === "transfer" || type === "zelle") return "transfer";
+
+  const upper = String(txn.normalizedDescription || txn.rawDescription || "").toUpperCase();
+  if (upper.includes("CHECK")) return "check";
+
+  if (type === "recurring" || type === "deposit") return "ach";
+  return "ach";
+}
+
 function inferRecurringCandidate(txns: HqTransaction[]): boolean {
   if (txns.length < 3) return false;
   const dates = [...txns]
@@ -188,16 +227,21 @@ function inferRecurringCandidate(txns: HqTransaction[]): boolean {
 
 function computeAffectsCount(input: {
   txns: HqTransaction[];
-  vendorLabel: string;
+  patternText: string;
   matchType: MatchType;
   scope: RuleScope;
   accountId?: string;
   cardLast4?: string;
   regexPattern?: string;
+  direction?: DirectionGuard;
+  method?: MethodGuard;
+  applyMode?: ApplyMode;
+  amountMin?: number;
+  amountMax?: number;
 }): number {
   const { apiMatchType, pattern } = buildRulePattern({
     matchType: input.matchType,
-    vendorLabel: input.vendorLabel,
+    patternText: input.patternText,
     regexPattern: input.regexPattern,
   });
 
@@ -214,11 +258,24 @@ function computeAffectsCount(input: {
     if (input.scope === "account" && input.accountId && t.accountId !== input.accountId) return false;
     if (input.scope === "card" && input.cardLast4 && t.cardLast4 !== input.cardLast4) return false;
 
-    if (apiMatchType === "vendor") {
-      return (t.vendor || "").trim().toLowerCase() === input.vendorLabel.trim().toLowerCase();
+    if (input.direction && input.direction !== "any" && t.direction !== input.direction) return false;
+
+    if (input.method && input.method !== "any") {
+      if (inferMethodForTxn(t) !== input.method) return false;
     }
 
-    const haystack = `${t.vendor || ""} ${t.normalizedDescription || ""}`;
+    const abs = Math.abs(t.amount || 0);
+    if (Number.isFinite(Number(input.amountMin)) && input.amountMin !== undefined && abs < input.amountMin) return false;
+    if (Number.isFinite(Number(input.amountMax)) && input.amountMax !== undefined && abs > input.amountMax) return false;
+
+    if (input.applyMode === "uncategorized" && !isUncategorized(t)) return false;
+
+    if (apiMatchType === "vendor") {
+      const label = cleanVendorLabel({ vendor: t.vendor, counterparty: t.counterparty, rawDescription: t.rawDescription });
+      return label.trim().toLowerCase() === input.patternText.trim().toLowerCase();
+    }
+
+    const haystack = `${cleanVendorLabel({ vendor: t.vendor, counterparty: t.counterparty, rawDescription: t.rawDescription })} ${t.normalizedDescription || ""}`;
     return Boolean(re?.test(haystack));
   }).length;
 }
@@ -235,6 +292,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   const [filterUncategorizedOnly, setFilterUncategorizedOnly] = React.useState(true);
   const [filterLowConfidence, setFilterLowConfidence] = React.useState(false);
   const [filterRecurring, setFilterRecurring] = React.useState(false);
+  const [filterType, setFilterType] = React.useState<"all" | VendorCluster["clusterType"]>("all");
 
   const [rangeMode, setRangeMode] = React.useState<"YTD" | "12MO" | "CUSTOM">("YTD");
   const [customFrom, setCustomFrom] = React.useState<string>("");
@@ -334,7 +392,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   const baseTxns = React.useMemo(() => {
     const filterTxn = (t: HqTransaction) => {
       if (importRunId && t.importRunId !== importRunId) return false;
-      if (t.isInternalTransfer) return false;
       if (fromIso && t.postedAt < fromIso) return false;
       if (toIso && t.postedAt > toIso) return false;
       return true;
@@ -368,9 +425,13 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       const txnsSorted = [...g.txns].sort((a, b) => b.postedAt.localeCompare(a.postedAt));
       const examples = txnsSorted.slice(0, 5);
       const count = g.txns.length;
-      const totalSpend = g.txns
+      const totalOutflow = g.txns
         .filter((t) => t.direction === "out")
         .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+      const totalInflow = g.txns
+        .filter((t) => t.direction === "in")
+        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+      const totalAbs = g.txns.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
       const lastSeen = txnsSorted[0]?.postedAt || "";
 
       const hasAnyUncategorized = g.txns.some((t) => isUncategorized(t));
@@ -378,11 +439,16 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
       const suggestion = guessSuggestedCategory(g.txns.slice(0, 20), categoryRules);
 
+      const clusterType = inferClusterType(g.vendorLabel, g.txns);
+
       out.push({
         vendorKey,
         vendorLabel: g.vendorLabel,
+        clusterType,
         count,
-        totalSpend,
+        totalAbs,
+        totalOutflow,
+        totalInflow,
         lastSeen,
         examples,
         suggestedCategoryId: (suggestion.categoryId || "OTHER") as HqCategoryId,
@@ -400,6 +466,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         if (filterUncategorizedOnly && !c.hasAnyUncategorized) return false;
         if (filterLowConfidence && c.suggestedConfidence >= 0.6) return false;
         if (filterRecurring && !c.isRecurringCandidate) return false;
+        if (filterType !== "all" && c.clusterType !== filterType) return false;
         if (q && !c.vendorLabel.toLowerCase().includes(q)) return false;
         return true;
       })
@@ -408,9 +475,9 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         const bp = pendingRules[b.vendorKey];
         if (ap && !bp) return -1;
         if (!ap && bp) return 1;
-        return b.totalSpend - a.totalSpend;
+        return b.totalAbs - a.totalAbs;
       });
-  }, [baseTxns, categoryRules, filterLowConfidence, filterRecurring, filterUncategorizedOnly, pendingRules, query]);
+  }, [baseTxns, categoryRules, filterLowConfidence, filterRecurring, filterType, filterUncategorizedOnly, pendingRules, query]);
 
   const categoryOptions = React.useMemo(
     () => HQ_CATEGORIES.filter((c) => c.id !== "TRANSFERS").map((c) => ({ value: c.id, label: c.label })),
@@ -431,9 +498,13 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         [cluster.vendorKey]: {
           vendorKey: cluster.vendorKey,
           vendorLabel: cluster.vendorLabel,
+          patternText: cluster.vendorLabel,
           categoryId,
           matchType: "contains",
           scope: "org",
+          direction: "any",
+          method: "any",
+          applyMode: "uncategorized",
         },
       }));
     },
@@ -459,7 +530,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       for (const rule of Object.values(pendingRules)) {
         const { apiMatchType, pattern } = buildRulePattern({
           matchType: rule.matchType,
-          vendorLabel: rule.vendorLabel,
+          patternText: rule.patternText || rule.vendorLabel,
           regexPattern: rule.regexPattern,
         });
 
@@ -472,6 +543,12 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           scope: rule.scope,
           accountId: rule.accountId,
           cardLast4: rule.cardLast4,
+          direction: rule.direction && rule.direction !== "any" ? rule.direction : undefined,
+          method: rule.method && rule.method !== "any" ? rule.method : undefined,
+          applyMode: rule.applyMode,
+          amountMin: rule.amountMin,
+          amountMax: rule.amountMax,
+          frequencyHint: rule.frequencyHint,
         });
 
         createdRuleIds.push(created.rule.ruleId);
@@ -573,6 +650,9 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               <span className={styles.vendorName} title={cluster.vendorLabel}>
                 {cluster.vendorLabel}
               </span>
+              <span className={styles.typeChip} data-type={cluster.clusterType}>
+                {cluster.clusterType}
+              </span>
             </div>
             <div className={styles.vendorHint} title={cluster.examples[0]?.rawDescription || ""}>
               {exampleLine}
@@ -590,7 +670,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
           <div className={styles.metricsCell}>
             <div className={styles.metricStrong}>{cluster.count} tx</div>
-            <div className={styles.metricMuted}>{currencyCompact.format(cluster.totalSpend)}</div>
+            <div className={styles.metricMuted}>{currencyCompact.format(cluster.totalAbs)}</div>
             <div className={styles.metricMuted}>Last {formatShortDate(cluster.lastSeen)}</div>
           </div>
 
@@ -640,7 +720,88 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   const [builderAccountId, setBuilderAccountId] = React.useState<string>("");
   const [builderCardLast4, setBuilderCardLast4] = React.useState<string>("");
   const [builderCategoryId, setBuilderCategoryId] = React.useState<HqCategoryId>("OTHER");
+  const [builderPatternText, setBuilderPatternText] = React.useState<string>("");
   const [builderRegex, setBuilderRegex] = React.useState<string>("");
+  const [builderDirection, setBuilderDirection] = React.useState<DirectionGuard>("any");
+  const [builderMethod, setBuilderMethod] = React.useState<MethodGuard>("any");
+  const [builderApplyMode, setBuilderApplyMode] = React.useState<ApplyMode>("uncategorized");
+  const [builderAmountMin, setBuilderAmountMin] = React.useState<string>("");
+  const [builderAmountMax, setBuilderAmountMax] = React.useState<string>("");
+  const [builderFrequency, setBuilderFrequency] = React.useState<PendingRule["frequencyHint"] | "">("");
+
+  type TemplateId = "owner-draw" | "payroll" | "contractor" | "internal-transfer" | "bank-fee" | "tax-payment";
+
+  const applyTemplate = React.useCallback(
+    (template: TemplateId) => {
+      if (!selectedCluster) return;
+
+      setBuilderScope("org");
+      setBuilderAccountId("");
+      setBuilderCardLast4("");
+      setBuilderMatchType("contains");
+      setBuilderPatternText(selectedCluster.vendorLabel);
+      setBuilderRegex("");
+      setBuilderAmountMin("");
+      setBuilderAmountMax("");
+      setBuilderFrequency("");
+      setBuilderApplyMode("uncategorized");
+      setBuilderDirection("any");
+      setBuilderMethod("any");
+
+      if (template === "payroll") {
+        setBuilderCategoryId("PAYROLL_W2");
+        setBuilderDirection("out");
+        setBuilderMethod("ach");
+        setBuilderFrequency("biweekly");
+        return;
+      }
+
+      if (template === "contractor") {
+        setBuilderCategoryId("CONTRACTORS_1099");
+        setBuilderDirection("out");
+        setBuilderMethod("ach");
+        return;
+      }
+
+      if (template === "owner-draw") {
+        setBuilderCategoryId("OWNER_DRAW");
+        setBuilderDirection("out");
+        setBuilderMethod("transfer");
+        return;
+      }
+
+      if (template === "internal-transfer") {
+        setBuilderCategoryId("TRANSFER_INTERNAL");
+        setBuilderMethod("transfer");
+        setBuilderApplyMode("overwrite");
+        return;
+      }
+
+      if (template === "bank-fee") {
+        setBuilderCategoryId("BANK_FEES");
+        setBuilderDirection("out");
+        return;
+      }
+
+      if (template === "tax-payment") {
+        setBuilderCategoryId("ESTIMATED_TAXES");
+        setBuilderDirection("out");
+        return;
+      }
+    },
+    [selectedCluster]
+  );
+
+  React.useEffect(() => {
+    if (!selectedCluster) return;
+    const pending = pendingRules[selectedCluster.vendorKey];
+    if (pending) return;
+
+    // “Magic” auto-template: payroll/owner/transfer snap-in.
+    if (selectedCluster.clusterType === "Payroll") applyTemplate("payroll");
+    else if (selectedCluster.clusterType === "Owner") applyTemplate("owner-draw");
+    else if (selectedCluster.clusterType === "Transfer") applyTemplate("internal-transfer");
+  }, [applyTemplate, pendingRules, selectedCluster]);
 
   React.useEffect(() => {
     if (!selectedCluster) return;
@@ -650,21 +811,96 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     setBuilderAccountId(pending?.accountId || "");
     setBuilderCardLast4(pending?.cardLast4 || "");
     setBuilderCategoryId(pending?.categoryId || selectedCluster.suggestedCategoryId || "OTHER");
+    setBuilderPatternText(pending?.patternText || selectedCluster.vendorLabel);
     setBuilderRegex(pending?.regexPattern || "");
+    setBuilderDirection(pending?.direction || "any");
+    setBuilderMethod(pending?.method || "any");
+    setBuilderApplyMode(pending?.applyMode || "uncategorized");
+    setBuilderAmountMin(pending?.amountMin !== undefined ? String(pending.amountMin) : "");
+    setBuilderAmountMax(pending?.amountMax !== undefined ? String(pending.amountMax) : "");
+    setBuilderFrequency(pending?.frequencyHint || "");
   }, [pendingRules, selectedCluster]);
 
-  const builderAffectsCount = React.useMemo(() => {
-    if (!selectedCluster) return 0;
-    return computeAffectsCount({
-      txns: baseTxns,
-      vendorLabel: selectedCluster.vendorLabel,
-      matchType: builderMatchType,
-      scope: builderScope,
-      accountId: builderScope === "account" ? builderAccountId || undefined : undefined,
-      cardLast4: builderScope === "card" ? builderCardLast4 || undefined : undefined,
-      regexPattern: builderMatchType === "regex" ? builderRegex : undefined,
-    });
-  }, [baseTxns, builderAccountId, builderCardLast4, builderMatchType, builderRegex, builderScope, selectedCluster]);
+  const builderMatchPreview = React.useMemo(() => {
+    if (!selectedCluster) {
+      return { matches: [] as HqTransaction[], matchesTotal: 0, affectsCount: 0, conflictCount: 0, hasInvalidRegex: false };
+    }
+
+    const patternText = (builderPatternText || selectedCluster.vendorLabel).trim();
+    const regexPattern = builderMatchType === "regex" ? String(builderRegex || "").trim() : "";
+
+    let re: RegExp | null = null;
+    if (builderMatchType === "regex") {
+      try {
+        re = new RegExp(regexPattern, "i");
+      } catch {
+        return { matches: [], matchesTotal: 0, affectsCount: 0, conflictCount: 0, hasInvalidRegex: true };
+      }
+    } else {
+      const { apiMatchType, pattern } = buildRulePattern({
+        matchType: builderMatchType,
+        patternText,
+      });
+      if (apiMatchType === "regex") {
+        try {
+          re = new RegExp(pattern, "i");
+        } catch {
+          return { matches: [], matchesTotal: 0, affectsCount: 0, conflictCount: 0, hasInvalidRegex: true };
+        }
+      }
+    }
+
+    const minAmt = builderAmountMin.trim() ? Number(builderAmountMin) : undefined;
+    const maxAmt = builderAmountMax.trim() ? Number(builderAmountMax) : undefined;
+
+    const all = baseTxns
+      .filter((t) => {
+        if (builderScope === "account" && builderAccountId && t.accountId !== builderAccountId) return false;
+        if (builderScope === "card" && builderCardLast4 && t.cardLast4 !== builderCardLast4) return false;
+
+        if (builderDirection !== "any" && t.direction !== builderDirection) return false;
+        if (builderMethod !== "any" && inferMethodForTxn(t) !== builderMethod) return false;
+
+        const abs = Math.abs(t.amount || 0);
+        if (minAmt !== undefined && Number.isFinite(minAmt) && abs < minAmt) return false;
+        if (maxAmt !== undefined && Number.isFinite(maxAmt) && abs > maxAmt) return false;
+
+        if (builderMatchType === "exact") {
+          const label = cleanVendorLabel({ vendor: t.vendor, counterparty: t.counterparty, rawDescription: t.rawDescription });
+          return label.trim().toLowerCase() === patternText.toLowerCase();
+        }
+
+        const haystack = `${cleanVendorLabel({ vendor: t.vendor, counterparty: t.counterparty, rawDescription: t.rawDescription })} ${t.normalizedDescription || ""}`;
+        return Boolean(re?.test(haystack));
+      })
+      .sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+
+    const conflictCount = all.filter((t) => !isUncategorized(t)).length;
+    const affectsCount =
+      builderApplyMode === "overwrite" ? all.length : all.filter((t) => isUncategorized(t)).length;
+
+    return {
+      matches: all.slice(0, 8),
+      matchesTotal: all.length,
+      affectsCount,
+      conflictCount,
+      hasInvalidRegex: false,
+    };
+  }, [
+    baseTxns,
+    builderAccountId,
+    builderApplyMode,
+    builderAmountMax,
+    builderAmountMin,
+    builderCardLast4,
+    builderDirection,
+    builderMatchType,
+    builderMethod,
+    builderPatternText,
+    builderRegex,
+    builderScope,
+    selectedCluster,
+  ]);
 
   const handleSaveBuilder = React.useCallback(() => {
     if (!selectedCluster) return;
@@ -674,17 +910,39 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       [selectedCluster.vendorKey]: {
         vendorKey: selectedCluster.vendorKey,
         vendorLabel: selectedCluster.vendorLabel,
+        patternText: builderPatternText || selectedCluster.vendorLabel,
         categoryId: builderCategoryId,
         matchType: builderMatchType,
         scope: builderScope,
         accountId: builderScope === "account" ? builderAccountId || undefined : undefined,
         cardLast4: builderScope === "card" ? builderCardLast4 || undefined : undefined,
         regexPattern: builderMatchType === "regex" ? builderRegex : undefined,
+        direction: builderDirection,
+        method: builderMethod,
+        applyMode: builderApplyMode,
+        amountMin: builderAmountMin.trim() ? Number(builderAmountMin) : undefined,
+        amountMax: builderAmountMax.trim() ? Number(builderAmountMax) : undefined,
+        frequencyHint: builderFrequency || undefined,
       },
     }));
 
     toast.success("Queued rule.");
-  }, [builderAccountId, builderCardLast4, builderCategoryId, builderMatchType, builderRegex, builderScope, selectedCluster]);
+  }, [
+    builderAccountId,
+    builderApplyMode,
+    builderCardLast4,
+    builderCategoryId,
+    builderDirection,
+    builderFrequency,
+    builderMatchType,
+    builderMethod,
+    builderPatternText,
+    builderRegex,
+    builderScope,
+    builderAmountMin,
+    builderAmountMax,
+    selectedCluster,
+  ]);
 
   if (!isOpen) return null;
 
@@ -711,7 +969,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           <div className={styles.controlsRow}>
             <input
               className={styles.search}
-              placeholder="Search vendors"
+              placeholder="Search payees"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -747,6 +1005,20 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               >
                 Recurring
               </button>
+            </div>
+
+            <div className={styles.filters}>
+              {(["Owner", "Payroll", "Transfer", "Vendor"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={[styles.filterChip, filterType === t ? styles.filterChipActive : ""].filter(Boolean).join(" ")}
+                  onClick={() => setFilterType((prev) => (prev === t ? "all" : t))}
+                  aria-pressed={filterType === t}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
 
             <div className={styles.range}>
@@ -813,13 +1085,13 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         <div className={styles.content}>
           <div className={styles.listPane}>
             <div className={styles.tableHeader}>
-              <div>Vendor</div>
+              <div>Payees & Movement</div>
               <div>Stats</div>
               <div>Category</div>
               <div />
             </div>
 
-            <div className={styles.list} role="region" aria-label="Vendor clusters">
+            <div className={styles.list} role="region" aria-label="Payees & movement clusters">
               {isLoading ? <div className={styles.loading}>Loading…</div> : null}
               {!isLoading && clusters.length === 0 ? (
                 <div className={styles.empty}>No clusters match your filters.</div>
@@ -847,7 +1119,16 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                   <div>
                     <div className={styles.drawerTitle}>{selectedCluster.vendorLabel}</div>
                     <div className={styles.drawerHint}>
-                      Preview: will affect <span className={styles.inlineStrong}>{builderAffectsCount}</span> transactions
+                      {builderMatchPreview.hasInvalidRegex ? (
+                        <span className={styles.inlineStrong}>Invalid regex</span>
+                      ) : (
+                        <>
+                          Will affect <span className={styles.inlineStrong}>{builderMatchPreview.affectsCount}</span> tx
+                          {builderApplyMode === "overwrite" ? (
+                            <> · Conflicts <span className={styles.inlineStrong}>{builderMatchPreview.conflictCount}</span></>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   </div>
                   <button type="button" className={styles.drawerClose} onClick={() => setSelectedVendorKey(null)} aria-label="Close">
@@ -856,6 +1137,39 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 </div>
 
                 <div className={styles.drawerBody}>
+                  <div className={styles.templateBar}>
+                    {selectedCluster.clusterType === "Owner" ? (
+                      <button type="button" className={styles.templateButton} onClick={() => applyTemplate("owner-draw")}>
+                        Owner draw
+                      </button>
+                    ) : null}
+                    {selectedCluster.clusterType === "Payroll" ? (
+                      <button type="button" className={styles.templateButton} onClick={() => applyTemplate("payroll")}>
+                        Payroll
+                      </button>
+                    ) : null}
+                    {selectedCluster.clusterType === "Contractor" ? (
+                      <button type="button" className={styles.templateButton} onClick={() => applyTemplate("contractor")}>
+                        Contractor
+                      </button>
+                    ) : null}
+                    {selectedCluster.clusterType === "Transfer" ? (
+                      <button type="button" className={styles.templateButton} onClick={() => applyTemplate("internal-transfer")}>
+                        Internal transfer
+                      </button>
+                    ) : null}
+                    {selectedCluster.clusterType === "Bank Fee" ? (
+                      <button type="button" className={styles.templateButton} onClick={() => applyTemplate("bank-fee")}>
+                        Bank fee
+                      </button>
+                    ) : null}
+                    {selectedCluster.clusterType === "Tax" ? (
+                      <button type="button" className={styles.templateButton} onClick={() => applyTemplate("tax-payment")}>
+                        Tax payment
+                      </button>
+                    ) : null}
+                  </div>
+
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Match</span>
                     <HqSelect
@@ -871,12 +1185,17 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                     />
                   </label>
 
-                  {builderMatchType === "regex" ? (
-                    <label className={styles.field}>
-                      <span className={styles.fieldLabel}>Regex</span>
-                      <input className={styles.input} value={builderRegex} onChange={(e) => setBuilderRegex(e.target.value)} placeholder="e.g. \\b(UBER|LYFT)\\b" />
-                    </label>
-                  ) : null}
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Pattern</span>
+                    <input
+                      className={styles.input}
+                      value={builderMatchType === "regex" ? builderRegex : builderPatternText}
+                      onChange={(e) =>
+                        builderMatchType === "regex" ? setBuilderRegex(e.target.value) : setBuilderPatternText(e.target.value)
+                      }
+                      placeholder={builderMatchType === "regex" ? "e.g. \\b(UBER|LYFT)\\b" : "e.g. Amazon"}
+                    />
+                  </label>
 
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Scope</span>
@@ -899,13 +1218,11 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                         value={builderAccountId}
                         onValueChange={setBuilderAccountId}
                         ariaLabel="Account"
-                        options={[
-                          { value: "", label: "Select…", disabled: true },
-                          ...accounts.map((a) => ({
-                            value: a.accountId,
-                            label: `${a.name ?? a.accountName} · ${a.institution}`,
-                          })),
-                        ]}
+                        placeholder="Select…"
+                        options={accounts.map((a) => ({
+                          value: a.accountId,
+                          label: `${a.name ?? a.accountName} · ${a.institution}`,
+                        }))}
                       />
                     </label>
                   ) : null}
@@ -922,6 +1239,91 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                     </label>
                   ) : null}
 
+                  <div className={styles.guardGrid}>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Direction</span>
+                      <HqSelect
+                        value={builderDirection}
+                        onValueChange={(v) => setBuilderDirection(v as DirectionGuard)}
+                        ariaLabel="Direction"
+                        options={[
+                          { value: "any", label: "Any" },
+                          { value: "out", label: "Outflow" },
+                          { value: "in", label: "Inflow" },
+                        ]}
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Method</span>
+                      <HqSelect
+                        value={builderMethod}
+                        onValueChange={(v) => setBuilderMethod(v as MethodGuard)}
+                        ariaLabel="Method"
+                        options={[
+                          { value: "any", label: "Any" },
+                          { value: "ach", label: "ACH" },
+                          { value: "card", label: "Card" },
+                          { value: "wire", label: "Wire" },
+                          { value: "check", label: "Check" },
+                          { value: "transfer", label: "Transfer" },
+                        ]}
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Apply to</span>
+                      <HqSelect
+                        value={builderApplyMode}
+                        onValueChange={(v) => setBuilderApplyMode(v as ApplyMode)}
+                        ariaLabel="Apply mode"
+                        options={[
+                          { value: "uncategorized", label: "Uncategorized only" },
+                          { value: "overwrite", label: "Overwrite existing" },
+                        ]}
+                      />
+                    </label>
+
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Frequency</span>
+                      <HqSelect
+                        value={builderFrequency || ""}
+                        onValueChange={(v) => setBuilderFrequency(v as any)}
+                        ariaLabel="Frequency"
+                        placeholder="(optional)"
+                        options={[
+                          { value: "weekly", label: "Weekly" },
+                          { value: "biweekly", label: "Biweekly" },
+                          { value: "monthly", label: "Monthly" },
+                          { value: "other", label: "Other" },
+                        ]}
+                      />
+                    </label>
+                  </div>
+
+                  <div className={styles.amountRow}>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Amount min</span>
+                      <input
+                        className={styles.input}
+                        inputMode="decimal"
+                        value={builderAmountMin}
+                        onChange={(e) => setBuilderAmountMin(e.target.value.replace(/[^0-9.]/g, ""))}
+                        placeholder="(optional)"
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Amount max</span>
+                      <input
+                        className={styles.input}
+                        inputMode="decimal"
+                        value={builderAmountMax}
+                        onChange={(e) => setBuilderAmountMax(e.target.value.replace(/[^0-9.]/g, ""))}
+                        placeholder="(optional)"
+                      />
+                    </label>
+                  </div>
+
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Category</span>
                     <HqSelect
@@ -933,22 +1335,22 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                   </label>
 
                   <div className={styles.previewExamples}>
-                    <div className={styles.previewTitle}>Examples</div>
-                    {selectedCluster.examples.length ? (
-                      selectedCluster.examples.map((t) => (
+                    <div className={styles.previewTitle}>Preview</div>
+                    {builderMatchPreview.matches.length ? (
+                      builderMatchPreview.matches.map((t) => (
                         <div key={`${t.postedAt}-${t.dedupeHash}`} className={styles.exampleLine}>
-                          {t.type.replace(/_/g, " ")} — {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))}
+                          {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))} — {t.normalizedDescription || t.rawDescription}
                         </div>
                       ))
                     ) : (
-                      <div className={styles.drawerHint}>No examples available.</div>
+                      <div className={styles.drawerHint}>No matches yet.</div>
                     )}
                   </div>
                 </div>
 
                 <div className={styles.drawerFooter}>
                   <button type="button" className={styles.primaryButton} onClick={handleSaveBuilder} disabled={isApplying}>
-                    Save to pending
+                    Queue rule
                   </button>
                 </div>
               </div>
@@ -970,7 +1372,49 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
             <div className={styles.mobileDrawerBody}>
               <div className={styles.drawerHint}>
-                Preview: will affect <span className={styles.inlineStrong}>{builderAffectsCount}</span> transactions
+                {builderMatchPreview.hasInvalidRegex ? (
+                  <span className={styles.inlineStrong}>Invalid regex</span>
+                ) : (
+                  <>
+                    Will affect <span className={styles.inlineStrong}>{builderMatchPreview.affectsCount}</span> tx
+                    {builderApplyMode === "overwrite" ? (
+                      <> · Conflicts <span className={styles.inlineStrong}>{builderMatchPreview.conflictCount}</span></>
+                    ) : null}
+                  </>
+                )}
+              </div>
+
+              <div className={styles.templateBar}>
+                {selectedCluster.clusterType === "Owner" ? (
+                  <button type="button" className={styles.templateButton} onClick={() => applyTemplate("owner-draw")}>
+                    Owner draw
+                  </button>
+                ) : null}
+                {selectedCluster.clusterType === "Payroll" ? (
+                  <button type="button" className={styles.templateButton} onClick={() => applyTemplate("payroll")}>
+                    Payroll
+                  </button>
+                ) : null}
+                {selectedCluster.clusterType === "Contractor" ? (
+                  <button type="button" className={styles.templateButton} onClick={() => applyTemplate("contractor")}>
+                    Contractor
+                  </button>
+                ) : null}
+                {selectedCluster.clusterType === "Transfer" ? (
+                  <button type="button" className={styles.templateButton} onClick={() => applyTemplate("internal-transfer")}>
+                    Internal transfer
+                  </button>
+                ) : null}
+                {selectedCluster.clusterType === "Bank Fee" ? (
+                  <button type="button" className={styles.templateButton} onClick={() => applyTemplate("bank-fee")}>
+                    Bank fee
+                  </button>
+                ) : null}
+                {selectedCluster.clusterType === "Tax" ? (
+                  <button type="button" className={styles.templateButton} onClick={() => applyTemplate("tax-payment")}>
+                    Tax payment
+                  </button>
+                ) : null}
               </div>
 
               <label className={styles.field}>
@@ -988,12 +1432,14 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 />
               </label>
 
-              {builderMatchType === "regex" ? (
-                <label className={styles.field}>
-                  <span className={styles.fieldLabel}>Regex</span>
-                  <input className={styles.input} value={builderRegex} onChange={(e) => setBuilderRegex(e.target.value)} />
-                </label>
-              ) : null}
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Pattern</span>
+                <input
+                  className={styles.input}
+                  value={builderMatchType === "regex" ? builderRegex : builderPatternText}
+                  onChange={(e) => (builderMatchType === "regex" ? setBuilderRegex(e.target.value) : setBuilderPatternText(e.target.value))}
+                />
+              </label>
 
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Scope</span>
@@ -1016,13 +1462,11 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                     value={builderAccountId}
                     onValueChange={setBuilderAccountId}
                     ariaLabel="Account"
-                    options={[
-                      { value: "", label: "Select…", disabled: true },
-                      ...accounts.map((a) => ({
-                        value: a.accountId,
-                        label: `${a.name ?? a.accountName} · ${a.institution}`,
-                      })),
-                    ]}
+                    placeholder="Select…"
+                    options={accounts.map((a) => ({
+                      value: a.accountId,
+                      label: `${a.name ?? a.accountName} · ${a.institution}`,
+                    }))}
                   />
                 </label>
               ) : null}
@@ -1039,6 +1483,91 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 </label>
               ) : null}
 
+              <div className={styles.guardGrid}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Direction</span>
+                  <HqSelect
+                    value={builderDirection}
+                    onValueChange={(v) => setBuilderDirection(v as DirectionGuard)}
+                    ariaLabel="Direction"
+                    options={[
+                      { value: "any", label: "Any" },
+                      { value: "out", label: "Outflow" },
+                      { value: "in", label: "Inflow" },
+                    ]}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Method</span>
+                  <HqSelect
+                    value={builderMethod}
+                    onValueChange={(v) => setBuilderMethod(v as MethodGuard)}
+                    ariaLabel="Method"
+                    options={[
+                      { value: "any", label: "Any" },
+                      { value: "ach", label: "ACH" },
+                      { value: "card", label: "Card" },
+                      { value: "wire", label: "Wire" },
+                      { value: "check", label: "Check" },
+                      { value: "transfer", label: "Transfer" },
+                    ]}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Apply to</span>
+                  <HqSelect
+                    value={builderApplyMode}
+                    onValueChange={(v) => setBuilderApplyMode(v as ApplyMode)}
+                    ariaLabel="Apply mode"
+                    options={[
+                      { value: "uncategorized", label: "Uncategorized only" },
+                      { value: "overwrite", label: "Overwrite" },
+                    ]}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Frequency</span>
+                  <HqSelect
+                    value={builderFrequency || ""}
+                    onValueChange={(v) => setBuilderFrequency(v as any)}
+                    ariaLabel="Frequency"
+                    placeholder="(optional)"
+                    options={[
+                      { value: "weekly", label: "Weekly" },
+                      { value: "biweekly", label: "Biweekly" },
+                      { value: "monthly", label: "Monthly" },
+                      { value: "other", label: "Other" },
+                    ]}
+                  />
+                </label>
+              </div>
+
+              <div className={styles.amountRow}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Amount min</span>
+                  <input
+                    className={styles.input}
+                    inputMode="decimal"
+                    value={builderAmountMin}
+                    onChange={(e) => setBuilderAmountMin(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="(optional)"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Amount max</span>
+                  <input
+                    className={styles.input}
+                    inputMode="decimal"
+                    value={builderAmountMax}
+                    onChange={(e) => setBuilderAmountMax(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="(optional)"
+                  />
+                </label>
+              </div>
+
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Category</span>
                 <HqSelect
@@ -1050,18 +1579,22 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               </label>
 
               <div className={styles.previewExamples}>
-                <div className={styles.previewTitle}>Examples</div>
-                {selectedCluster.examples.slice(0, 5).map((t) => (
-                  <div key={`${t.postedAt}-${t.dedupeHash}`} className={styles.exampleLine}>
-                    {t.type.replace(/_/g, " ")} — {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))}
-                  </div>
-                ))}
+                <div className={styles.previewTitle}>Preview</div>
+                {builderMatchPreview.matches.length ? (
+                  builderMatchPreview.matches.map((t) => (
+                    <div key={`${t.postedAt}-${t.dedupeHash}`} className={styles.exampleLine}>
+                      {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))} — {t.normalizedDescription || t.rawDescription}
+                    </div>
+                  ))
+                ) : (
+                  <div className={styles.drawerHint}>No matches yet.</div>
+                )}
               </div>
             </div>
 
             <div className={styles.mobileDrawerFooter}>
               <button type="button" className={styles.primaryButton} onClick={handleSaveBuilder} disabled={isApplying}>
-                Save to pending
+                Queue rule
               </button>
             </div>
           </div>
