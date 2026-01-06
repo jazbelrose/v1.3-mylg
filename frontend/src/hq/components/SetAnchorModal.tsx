@@ -31,7 +31,7 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
 
   React.useEffect(() => {
     if (!isOpen) return;
-    setAnchorDate(todayIsoDateInTimeZone(new Date(), HQ_DEFAULT_TIME_ZONE));
+    setAnchorDate(todayIsoDateInTimeZone(HQ_DEFAULT_TIME_ZONE));
     setAnchorBalance(typeof account.anchorBalance === "number" ? String(account.anchorBalance) : "");
   }, [account.anchorBalance, isOpen]);
 

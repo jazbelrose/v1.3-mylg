@@ -64,7 +64,21 @@ export function readHqState(orgId: string): HqStoreStateV1 {
   const state: HqStoreStateV1 = {
     ...defaultState(orgId),
     ...parsed,
-    accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+    accounts: Array.isArray(parsed.accounts)
+      ? parsed.accounts.map((acct) => {
+          const createdAt = typeof acct.createdAt === "string" && acct.createdAt ? acct.createdAt : new Date(0).toISOString();
+          const name = (acct as { name?: string; accountName?: string }).name ?? (acct as { accountName?: string }).accountName ?? "";
+          return {
+            ...acct,
+            name,
+            accountName: (acct as { accountName?: string }).accountName ?? name,
+            anchorDate: (acct as { anchorDate?: string | null }).anchorDate ?? null,
+            anchorBalance: (acct as { anchorBalance?: number | null }).anchorBalance ?? null,
+            createdAt,
+            updatedAt: (acct as { updatedAt?: string }).updatedAt ?? createdAt,
+          };
+        })
+      : [],
     importRuns: Array.isArray(parsed.importRuns) ? parsed.importRuns : [],
     transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
     categoryRules: Array.isArray(parsed.categoryRules) ? parsed.categoryRules : [],
