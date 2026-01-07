@@ -2,40 +2,68 @@
   width: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 8px;
-  height: var(--hq-control-h, auto);
-  padding: 0 16px;
-  border-radius: 9999px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
   font-size: 13px;
-  line-height: 1;
+  font-weight: 500;
+  line-height: 1.3;
   outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.trigger:focus-visible {
+  border-color: rgba(250, 51, 86, 0.5);
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.15);
 }
 
 .trigger:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .icon {
-  opacity: 0.7;
-  font-size: 12px;
+  opacity: 0.6;
+  font-size: 10px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .content {
   z-index: 20050;
   min-width: var(--radix-select-trigger-width);
+  max-width: 320px;
   max-height: min(360px, var(--radix-select-content-available-height));
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(16, 16, 18, 0.98);
   color: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(16px);
+  animation: selectFadeIn 0.15s ease-out;
+}
+
+@keyframes selectFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .viewport {
@@ -43,18 +71,25 @@
 }
 
 .item {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 450;
   cursor: pointer;
   outline: none;
+  transition: background 0.1s ease;
 }
 
 .item[data-highlighted] {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.item[data-state="checked"] {
+  background: rgba(250, 51, 86, 0.12);
+  color: rgba(255, 255, 255, 1);
+}
+
 .item[data-disabled] {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }

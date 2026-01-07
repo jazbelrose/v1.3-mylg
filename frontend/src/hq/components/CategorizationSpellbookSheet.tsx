@@ -25,6 +25,7 @@ import HqSelect from "@/hq/components/HqSelect";
 
 type MatchType = "contains" | "startsWith" | "exact" | "regex";
 type RuleScope = "org" | "account" | "card";
+type TimeScope = "range" | "all-historical" | "future-only";
 
 type DirectionGuard = "any" | "out" | "in";
 type MethodGuard = "any" | "ach" | "card" | "wire" | "check" | "transfer";
@@ -320,6 +321,14 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       }
   >(null);
 
+  // "Apply to similar?" prompt state
+  const [applyToSimilarPrompt, setApplyToSimilarPrompt] = React.useState<{
+    cluster: VendorCluster;
+    categoryId: HqCategoryId;
+    matchCount: number;
+  } | null
+  >(null);
+
   useModalStack(isOpen);
 
   React.useEffect(() => {
@@ -351,6 +360,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     setExpanded(new Set());
     setIsShredMenuOpen(false);
     setConfirmShredAction(null);
+    setApplyToSimilarPrompt(null);
   }, [isOpen, importRunId]);
 
   const handleShredAction = React.useCallback(
@@ -566,25 +576,59 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
   const queuedCount = Object.keys(pendingRules).length;
 
-  const handleQueueRuleFromRow = React.useCallback(
-    (cluster: VendorCluster, categoryId: HqCategoryId) => {
-      setPendingRules((prev) => ({
-        ...prev,
-        [cluster.vendorKey]: {
-          vendorKey: cluster.vendorKey,
-          vendorLabel: cluster.vendorLabel,
-          patternText: cluster.vendorLabel,
-          categoryId,
-          matchType: "contains",
-          scope: "org",
-          direction: "any",
-          method: "any",
-          applyMode: "uncategorized",
-        },
-      }));
+  // Calculate match count for a cluster with a given category
+  const getMatchCountForCluster = React.useCallback(
+    (cluster: VendorCluster): number => {
+      return computeAffectsCount({
+        txns: baseTxns,
+        patternText: cluster.vendorLabel,
+        matchType: "contains",
+        scope: "org",
+        direction: "any",
+        method: "any",
+        applyMode: "uncategorized",
+      });
     },
-    []
+    [baseTxns]
   );
+
+  // Show the "Apply to similar?" prompt when user changes category inline
+  const handleCategoryChangeFromRow = React.useCallback(
+    (cluster: VendorCluster, categoryId: HqCategoryId) => {
+      const matchCount = getMatchCountForCluster(cluster);
+      setApplyToSimilarPrompt({ cluster, categoryId, matchCount });
+    },
+    [getMatchCountForCluster]
+  );
+
+  // Confirm and queue rule from prompt
+  const handleConfirmApplyToSimilar = React.useCallback(() => {
+    if (!applyToSimilarPrompt) return;
+    const { cluster, categoryId } = applyToSimilarPrompt;
+    setPendingRules((prev) => ({
+      ...prev,
+      [cluster.vendorKey]: {
+        vendorKey: cluster.vendorKey,
+        vendorLabel: cluster.vendorLabel,
+        patternText: cluster.vendorLabel,
+        categoryId,
+        matchType: "contains",
+        scope: "org",
+        direction: "any",
+        method: "any",
+        applyMode: "uncategorized",
+      },
+    }));
+    setApplyToSimilarPrompt(null);
+    toast.success(`Queued rule for "${cluster.vendorLabel}" → ${HQ_CATEGORY_LABEL[categoryId]}`);
+  }, [applyToSimilarPrompt]);
+
+  // Review matches from prompt → open the drawer
+  const handleReviewFromPrompt = React.useCallback(() => {
+    if (!applyToSimilarPrompt) return;
+    setSelectedVendorKey(applyToSimilarPrompt.cluster.vendorKey);
+    setApplyToSimilarPrompt(null);
+  }, [applyToSimilarPrompt]);
 
   const handleToggleExpanded = React.useCallback((vendorKey: string) => {
     setExpanded((prev) => {
@@ -700,6 +744,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       void index;
       const isExpanded = expanded.has(cluster.vendorKey);
       const pending = pendingRules[cluster.vendorKey];
+      const isSelected = selectedVendorKey === cluster.vendorKey;
 
       const currentCategory = pending?.categoryId || cluster.suggestedCategoryId || "OTHER";
 
@@ -712,8 +757,14 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           )}`
         : "—";
 
+      const rowClasses = [
+        styles.row,
+        pending ? styles.rowPending : "",
+        isSelected ? styles.rowSelected : "",
+      ].filter(Boolean).join(" ");
+
       return (
-        <div className={[styles.row, pending ? styles.rowPending : ""].filter(Boolean).join(" ")}>
+        <div className={rowClasses}>
           <button
             type="button"
             className={styles.vendorCell}
@@ -764,7 +815,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               />
               <HqSelect
                 value={currentCategory}
-                onValueChange={(v) => handleQueueRuleFromRow(cluster, v as HqCategoryId)}
+                onValueChange={(v) => handleCategoryChangeFromRow(cluster, v as HqCategoryId)}
                 ariaLabel={`Set category for ${cluster.vendorLabel}`}
                 disabled={isApplying}
                 options={categoryOptions}
@@ -778,20 +829,21 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           <div className={styles.actionCell}>
             <button
               type="button"
-              className={styles.reviewButton}
+              className={styles.previewButton}
               onClick={() => setSelectedVendorKey(cluster.vendorKey)}
             >
-              Review
+              Preview matches
             </button>
           </div>
         </div>
       );
     },
-    [expanded, handleQueueRuleFromRow, handleToggleExpanded, isApplying, pendingRules]
+    [categoryOptions, expanded, handleCategoryChangeFromRow, handleToggleExpanded, isApplying, pendingRules, selectedVendorKey]
   );
 
   const [builderMatchType, setBuilderMatchType] = React.useState<MatchType>("contains");
   const [builderScope, setBuilderScope] = React.useState<RuleScope>("org");
+  const [builderTimeScope, setBuilderTimeScope] = React.useState<TimeScope>("range");
   const [builderAccountId, setBuilderAccountId] = React.useState<string>("");
   const [builderCardLast4, setBuilderCardLast4] = React.useState<string>("");
   const [builderCategoryId, setBuilderCategoryId] = React.useState<HqCategoryId>("OTHER");
@@ -1203,26 +1255,28 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               ) : null}
             </div>
 
-            <div className={styles.pendingBar}>
-              <div className={styles.pendingMeta}>
-                Pending rules: <span className={styles.pendingCount}>{queuedCount}</span>
+            <div className={[styles.pendingBar, queuedCount > 0 ? styles.pendingBarActive : ""].filter(Boolean).join(" ")}>
+              <div className={queuedCount > 0 ? styles.pendingMeta : styles.pendingMetaQuiet}>
+                Pending rules: <span className={queuedCount > 0 ? styles.pendingCount : styles.pendingCountQuiet}>{queuedCount}</span>
               </div>
               <button
                 type="button"
-                className={styles.primaryButton}
+                className={queuedCount > 0 ? styles.primaryButton : styles.secondaryButton}
                 disabled={queuedCount === 0 || isApplying}
                 onClick={() => void handleApply()}
               >
-                Apply rules
+                {queuedCount > 0 ? `Apply ${queuedCount} rule${queuedCount > 1 ? "s" : ""}` : "Apply rules"}
               </button>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                disabled={queuedCount === 0 || isApplying}
-                onClick={() => setPendingRules({})}
-              >
-                Reset
-              </button>
+              {queuedCount > 0 && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={isApplying}
+                  onClick={() => setPendingRules({})}
+                >
+                  Reset
+                </button>
+              )}
             </div>
           </div>
 
@@ -1239,6 +1293,41 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               >
                 Revert run
               </button>
+            </div>
+          ) : null}
+
+          {/* Apply to Similar? Prompt */}
+          {applyToSimilarPrompt ? (
+            <div className={styles.applyToSimilarPrompt}>
+              <div className={styles.promptContent}>
+                <span className={styles.promptText}>
+                  Apply <strong>"{HQ_CATEGORY_LABEL[applyToSimilarPrompt.categoryId]}"</strong> to all{" "}
+                  <strong>"{applyToSimilarPrompt.cluster.vendorLabel}"</strong> transactions?
+                </span>
+                <div className={styles.promptActions}>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={handleConfirmApplyToSimilar}
+                  >
+                    Apply to {applyToSimilarPrompt.matchCount} matches
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={handleReviewFromPrompt}
+                  >
+                    Review matches
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.promptCancel}
+                    onClick={() => setApplyToSimilarPrompt(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           ) : null}
         </div>
@@ -1272,21 +1361,24 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             {!selectedCluster ? (
               <div className={styles.drawerEmpty}>
                 <div className={styles.drawerTitle}>Rule Builder</div>
-                <div className={styles.drawerHint}>Select a vendor cluster → Review.</div>
+                <div className={styles.drawerHint}>Select a payee cluster → Preview matches to build a rule.</div>
               </div>
             ) : (
               <div className={styles.drawer}>
                 <div className={styles.drawerHeader}>
                   <div>
                     <div className={styles.drawerTitle}>{selectedCluster.vendorLabel}</div>
+                    <div className={styles.drawerSubtitle}>
+                      {selectedCluster.count} transactions · {currencyCompact.format(selectedCluster.totalAbs)}
+                    </div>
                     <div className={styles.drawerHint}>
                       {builderMatchPreview.hasInvalidRegex ? (
                         <span className={styles.inlineStrong}>Invalid regex</span>
                       ) : (
                         <>
-                          Will affect <span className={styles.inlineStrong}>{builderMatchPreview.affectsCount}</span> tx
-                          {builderApplyMode === "overwrite" ? (
-                            <> · Conflicts <span className={styles.inlineStrong}>{builderMatchPreview.conflictCount}</span></>
+                          Rule will affect <span className={styles.inlineStrong}>{builderMatchPreview.affectsCount}</span> transactions
+                          {builderApplyMode === "overwrite" && builderMatchPreview.conflictCount > 0 ? (
+                            <> · <span className={styles.conflictWarning}>{builderMatchPreview.conflictCount} already categorized</span></>
                           ) : null}
                         </>
                       )}
@@ -1365,9 +1457,23 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                       onValueChange={(v) => setBuilderScope(v as RuleScope)}
                       ariaLabel="Scope"
                       options={[
-                        { value: "org", label: "org-wide" },
-                        { value: "account", label: "this account" },
-                        { value: "card", label: "this card" },
+                        { value: "org", label: "All accounts" },
+                        { value: "account", label: "This account only" },
+                        { value: "card", label: "This card only" },
+                      ]}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Time</span>
+                    <HqSelect
+                      value={builderTimeScope}
+                      onValueChange={(v) => setBuilderTimeScope(v as TimeScope)}
+                      ariaLabel="Time scope"
+                      options={[
+                        { value: "range", label: "Current range + future" },
+                        { value: "all-historical", label: "All historical + future" },
+                        { value: "future-only", label: "Future only" },
                       ]}
                     />
                   </label>
@@ -1609,9 +1715,23 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                   onValueChange={(v) => setBuilderScope(v as RuleScope)}
                   ariaLabel="Scope"
                   options={[
-                    { value: "org", label: "org-wide" },
-                    { value: "account", label: "this account" },
-                    { value: "card", label: "this card" },
+                    { value: "org", label: "All accounts" },
+                    { value: "account", label: "This account only" },
+                    { value: "card", label: "This card only" },
+                  ]}
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Time</span>
+                <HqSelect
+                  value={builderTimeScope}
+                  onValueChange={(v) => setBuilderTimeScope(v as TimeScope)}
+                  ariaLabel="Time scope"
+                  options={[
+                    { value: "range", label: "Current range + future" },
+                    { value: "all-historical", label: "All historical + future" },
+                    { value: "future-only", label: "Future only" },
                   ]}
                 />
               </label>

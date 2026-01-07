@@ -413,11 +413,15 @@
 
 .tableHeader {
   display: grid;
-  grid-template-columns: 1fr 80px 220px 96px;
-  gap: 0;
-  padding: 10px 18px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  grid-template-columns: 1fr 90px 200px 110px;
+  gap: 8px;
+  padding: 12px 18px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .list {
@@ -434,10 +438,11 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1fr 80px 220px 96px;
-  gap: 0;
-  padding: 12px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  grid-template-columns: 1fr 90px 200px 110px;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.1s ease;
   align-items: start;
 }
 
@@ -612,23 +617,40 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .drawerTitle {
+  font-size: 15px;
   font-weight: 650;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.drawerSubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
 }
 
 .drawerHint {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
-  margin-top: 4px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
 }
 
 .inlineStrong {
   font-weight: 650;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.conflictWarning {
+  color: rgba(250, 206, 80, 0.9);
+  font-weight: 550;
 }
 
 .drawerClose {
@@ -706,15 +728,155 @@
 
 .previewExamples {
   margin-top: 18px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .previewTitle {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
-  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 10px;
 }
 
 .drawerFooter {
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  gap: 10px;
+}
+
+.drawerFooter .primaryButton {
+  flex: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NEW: Apply to Similar? Prompt
+   ───────────────────────────────────────────────────────────── */
+
+.applyToSimilarPrompt {
+  background: linear-gradient(180deg, rgba(250, 51, 86, 0.12), rgba(250, 51, 86, 0.06));
+  border-bottom: 1px solid rgba(250, 51, 86, 0.25);
+  padding: 12px 18px;
+  animation: slideDownPrompt 0.2s ease-out;
+}
+
+@keyframes slideDownPrompt {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.promptContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.promptText {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.promptText strong {
+  font-weight: 650;
+  color: rgba(255, 255, 255, 1);
+}
+
+.promptActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.promptCancel {
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.promptCancel:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NEW: Pending bar improvements
+   ───────────────────────────────────────────────────────────── */
+
+.pendingBarActive {
+  background: rgba(250, 51, 86, 0.06);
+  border-radius: 12px;
+  padding: 6px 12px;
+  margin: -6px 0;
+}
+
+.pendingMetaQuiet {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pendingCountQuiet {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NEW: Preview button (replacing Review button)
+   ───────────────────────────────────────────────────────────── */
+
+.previewButton {
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.previewButton:hover {
+  border-color: rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.09);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Row selection improvements (selected state)
+   ───────────────────────────────────────────────────────────── */
+
+.rowSelected {
+  background: rgba(250, 51, 86, 0.08);
+  border-left: 3px solid rgba(250, 51, 86, 0.75);
+}
+
+.rowSelected .vendorName {
+  color: rgba(255, 255, 255, 1);
+}
+
+/* Better row hover */
+.row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rowPending:hover,
+.rowSelected:hover {
+  background: rgba(250, 51, 86, 0.1);
 }
