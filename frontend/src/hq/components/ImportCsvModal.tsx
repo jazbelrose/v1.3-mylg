@@ -101,18 +101,47 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   const handleParse = React.useCallback(async () => {
     if (!csvText) return;
     if (!accountId) return;
+
     setIsWorking(true);
-                <HqSelect
-                  className={styles.select}
-                  value={accountId || undefined}
-                  onValueChange={setAccountId}
-                  ariaLabel="Select account"
-                  placeholder="Select an account"
-                  options={accounts.map((a) => ({
-                    value: a.accountId,
-                    label: `${a.name ?? a.accountName} · ${a.institution}`,
-                  }))}
-                />
+    try {
+      const txns = await parseWellsFargoNoHeaderTransactions({
+        orgId,
+        accountId,
+        csvText,
+        categoryRules,
+      });
+
+      if (!txns.length) {
+        setParsed([]);
+        toast.error("No transactions found in that CSV.");
+        return;
+      }
+
+      setParsed(txns);
+      setStep(3);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not parse that CSV.");
+    } finally {
+      setIsWorking(false);
+    }
+  }, [accountId, categoryRules, csvText, orgId]);
+
+  const handleImport = React.useCallback(async () => {
+    if (!file) {
+      toast.error("Pick a CSV file first.");
+      return;
+    }
+    if (!accountId) {
+      toast.error("Select an account.");
+      return;
+    }
+    if (!parsed || parsed.length === 0) {
+      toast.error("No transactions to import.");
+      return;
+    }
+    if (isWorking) return;
+
     setIsWorking(true);
     try {
       const result = await importHqCsv(orgId, {
@@ -148,7 +177,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     } finally {
       setIsWorking(false);
     }
-  }, [accountId, file, onImported, onOpenCategorization, onRequestClose, orgId, parsed]);
+  }, [accountId, file, isWorking, onImported, onOpenCategorization, onRequestClose, orgId, parsed]);
 
   const previewRows = (parsed || []).slice(0, 20);
 
