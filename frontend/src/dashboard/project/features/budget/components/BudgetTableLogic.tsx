@@ -1,7 +1,6 @@
 import React, { useMemo, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash, faClone, faClock } from "@fortawesome/free-solid-svg-icons";
-import { Tooltip as AntTooltip } from "antd";
+import { faTrash, faClone } from "@fortawesome/free-solid-svg-icons";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import { formatUSD } from "@/shared/utils/budgetUtils";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
@@ -15,11 +14,9 @@ interface BudgetTableLogicProps {
   sortOrder: string | null;
   filterQuery: string;
   selectedRowKeys: string[];
-  eventsByLineItem: Record<string, Record<string, unknown>[]>;
   setSelectedRowKeys: (keys: string[] | ((prev: string[]) => string[])) => void;
   openDeleteModal: (ids: string[]) => void;
   openDuplicateModal: (item: Record<string, unknown>) => void;
-  openEventModal: (item: Record<string, unknown>) => void;
   children: (tableConfig: BudgetTableConfig) => React.ReactNode;
 }
 
@@ -51,11 +48,9 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
   sortOrder,
   filterQuery,
   selectedRowKeys,
-  eventsByLineItem,
   setSelectedRowKeys,
   openDeleteModal,
   openDuplicateModal,
-  openEventModal,
   children,
 }) => {
   const { getRows } = useBudget();
@@ -286,43 +281,6 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
 
     cols.push({
       title: "",
-      key: "events",
-      align: "center",
-      render: (_v: unknown, record: TableData) => {
-        const events = eventsByLineItem[String(record.budgetItemId)] || [];
-        const count = events.length;
-        const tooltipContent = events.length
-          ? (
-              <div>
-                {events.map((ev, i) => (
-                  <div key={i}>
-                    {new Date(String(ev.date)).toLocaleDateString()} - {String(ev.hours)} hrs
-                    {ev.description ? ` - ${String(ev.description)}` : ""}
-                  </div>
-                ))}
-              </div>
-            )
-          : "No events";
-        return (
-          <AntTooltip title={tooltipContent} placement="top">
-            <button
-              className={styles.calendarButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                openEventModal(record);
-              }}
-              aria-label="Manage events"
-            >
-              <FontAwesomeIcon icon={faClock} />
-              {count > 0 && <span className={styles.eventBadge}>{count}</span>}
-            </button>
-          </AntTooltip>
-        );
-      },
-      width: 40,
-    });
-    cols.push({
-      title: "",
       key: "actions",
       align: "center",
       render: (_value: unknown, record: TableData) => (
@@ -359,11 +317,9 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     sortField,
     sortOrder,
     selectedRowKeys,
-    eventsByLineItem,
     setSelectedRowKeys,
     isDefined,
     getActiveCostKey,
-    openEventModal,
     openDuplicateModal,
     openDeleteModal,
     columnHeaderMap,

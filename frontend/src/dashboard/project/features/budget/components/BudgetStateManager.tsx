@@ -27,7 +27,6 @@ interface BudgetStateManagerState extends Record<string, unknown> {
   isBudgetModalOpen: boolean;
   isRevisionModalOpen: boolean;
   isCreateModalOpen: boolean;
-  isEventModalOpen: boolean;
   isSpellbookModalOpen: boolean;
   isConfirmingDelete: boolean;
   
@@ -35,7 +34,6 @@ interface BudgetStateManagerState extends Record<string, unknown> {
   setBudgetModalOpen: (open: boolean) => void;
   setRevisionModalOpen: (open: boolean) => void;
   setCreateModalOpen: (open: boolean) => void;
-  setEventModalOpen: (open: boolean) => void;
   setSpellbookModalOpen: (open: boolean) => void;
   setIsConfirmingDelete: (open: boolean) => void;
   
@@ -64,12 +62,6 @@ interface BudgetStateManagerState extends Record<string, unknown> {
   // Delete state
   deleteTargets: string[];
   setDeleteTargets: (targets: string[]) => void;
-  
-  // Event editing
-  eventItem: BudgetItem | null;
-  eventList: BudgetItem[];
-  setEventItem: (item: BudgetItem | null) => void;
-  setEventList: (events: BudgetItem[]) => void;
   
   // Pagination
   pageSize: number;
@@ -103,7 +95,6 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
   const [isBudgetModalOpen, setBudgetModalOpen] = useState(false);
   const [isRevisionModalOpen, setRevisionModalOpen] = useState(false);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
-  const [isEventModalOpen, setEventModalOpen] = useState(false);
   const [isSpellbookModalOpen, setSpellbookModalOpen] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   
@@ -122,10 +113,6 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
   
   // Delete state
   const [deleteTargets, setDeleteTargets] = useState<string[]>([]);
-  
-  // Event editing
-  const [eventItem, setEventItem] = useState<BudgetItem | null>(null);
-  const [eventList, setEventList] = useState<BudgetItem[]>([]);
   
   // Pagination
   const [pageSize, setPageSize] = useState(10);
@@ -342,7 +329,6 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     isBudgetModalOpen,
     isRevisionModalOpen,
     isCreateModalOpen,
-    isEventModalOpen,
     isSpellbookModalOpen,
     isConfirmingDelete,
     
@@ -350,7 +336,6 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     setBudgetModalOpen,
     setRevisionModalOpen,
     setCreateModalOpen,
-    setEventModalOpen,
     setSpellbookModalOpen,
     setIsConfirmingDelete,
     
@@ -380,12 +365,6 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     deleteTargets,
     setDeleteTargets,
     
-    // Event editing
-    eventItem,
-    eventList,
-    setEventItem,
-    setEventList,
-    
     // Pagination
     pageSize,
     currentPage,
@@ -404,11 +383,10 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     calculateHeaderTotals,
   }), [
     undoStack, redoStack, pushHistory, handleUndo, handleRedo,
-    isBudgetModalOpen, isRevisionModalOpen, isCreateModalOpen, isEventModalOpen, isSpellbookModalOpen, isConfirmingDelete,
+    isBudgetModalOpen, isRevisionModalOpen, isCreateModalOpen, isSpellbookModalOpen, isConfirmingDelete,
     groupBy, sortField, sortOrder, filterQuery, selectedRowKeys, isSelectMode,
     editItem, prefillItem, nextElementKey,
     deleteTargets,
-    eventItem, eventList,
     pageSize, currentPage,
     lockedLines, editingLineId,
     computeGroupsAndClients, syncHeaderTotals, calculateHeaderTotals

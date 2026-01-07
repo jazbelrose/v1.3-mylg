@@ -7,9 +7,7 @@ import React, {
 } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faChevronDown,
   faClone,
-  faClock,
   faPaperclip,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
@@ -82,14 +80,12 @@ interface BudgetItemsTableProps {
   openEditModal: (record: BudgetItem) => void;
   openDuplicateModal: (record: BudgetItem) => void;
   openDeleteModal: (ids: string[]) => void;
-  openEventModal: (record: BudgetItem) => void;
   openWorkModal?: (record: BudgetItem) => void;
   tasks?: Task[];
   workCountByLineItemId?: Record<string, number>;
   workCoverageByLineItemId?: Record<string, Partial<Record<BudgetTaskLinkType, "missing" | "pending" | "done">>>;
   onCreateMissingWorkStage?: (record: BudgetItem, stage: BudgetTaskLinkType) => void;
   onUnlinkWorkTask?: (budgetItemId: string, task: Task) => Promise<void> | void;
-  eventsByLineItem: Record<string, Record<string, unknown>[]>;
   tableRef: React.RefObject<HTMLDivElement>;
   tableHeight: number;
   pageSize: number;
@@ -107,14 +103,12 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     openEditModal,
     openDuplicateModal,
     openDeleteModal,
-    openEventModal,
     openWorkModal,
     tasks,
     workCountByLineItemId,
     workCoverageByLineItemId,
     onCreateMissingWorkStage,
     onUnlinkWorkTask,
-    eventsByLineItem,
     tableRef,
     tableHeight,
     pageSize,
@@ -536,8 +530,6 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
               {paginatedData.map((record) => {
                 const isSelected = selectedRowKeys.includes(record.budgetItemId);
                 const isLocked = lockedLines.includes(record.budgetItemId);
-                const events = eventsByLineItem[record.budgetItemId] || [];
-                 const eventCount = events.length;
                  const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
                  const attachmentCount = attachmentsForRecord.length;
                  const workCount = workCountByLineItemId?.[record.budgetItemId] ?? 0;
@@ -578,381 +570,383 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                     }}
                   >
                     <div className={styles.cardRow}>
-                      <div className={styles.cardPrimary}>
-                        {isSelectMode && (
-                          <label className={styles.cardCheckbox}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={isLocked}
-                              onChange={(event) => {
-                                event.stopPropagation();
-                                toggleSelection(record, event.target.checked);
-                              }}
-                              onClick={(event) => event.stopPropagation()}
-                              aria-label="Select budget line item"
-                            />
-                          </label>
-                        )}
-                        <div className={styles.cardSummary}>
+                      {isSelectMode && (
+                        <label className={styles.cardCheckbox}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isLocked}
+                            onChange={(event) => {
+                              event.stopPropagation();
+                              toggleSelection(record, event.target.checked);
+                            }}
+                            onClick={(event) => event.stopPropagation()}
+                            aria-label="Select budget line item"
+                          />
+                        </label>
+                      )}
+
+                      <div className={styles.cardHeaderGrid}>
+                        <div className={styles.cardHeaderMeta}>
                           <div className={styles.cardIdentifiers}>
-                            <span className={styles.cardKey}>
-                              {String(record.elementKey ?? "—")}
-                            </span>
+                            <span className={styles.cardKey}>{String(record.elementKey ?? "—")}</span>
                             {record.elementId && (
-                              <span className={styles.cardId}>
-                                {String(record.elementId)}
-                              </span>
+                              <span className={styles.cardId}>{String(record.elementId)}</span>
                             )}
                           </div>
-                             <div className={styles.cardDescription}>
-                               {record.description
-                                 ? String(record.description)
-                                 : "No description"}
-                             </div>
-                            <div className={styles.cardMetaChipsRow}>
-                              {openWorkModal && (
-                                <button
-                                  type="button"
-                                  className={styles.workChipButton}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    if (isLocked || isSelectMode) return;
-                                    openWorkModal(record);
-                                  }}
-                                  disabled={isLocked || isSelectMode}
-                                  title="Tasks"
-                                >
-                                  <span>Tasks •</span>
-                                  <span className={styles.workChipCount}>{workCount}</span>
-                                </button>
-                              )}
-
-                              {coverage ? (
-                                <div className={styles.workCoverage} aria-label="Coverage">
-                              <div className={styles.coverageAddWrapper}>
-                                {(() => {
-                                  const existingCount = BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
-                                    const state = coverage[t.id] ?? "missing";
-                                    return sum + (state === "missing" ? 0 : 1);
-                                  }, 0);
-
-                                  return (
-                                    <button
-                                      type="button"
-                                      className={styles.coverageAddButton}
-                                      aria-haspopup="menu"
-                                      aria-expanded={coverageMenuOpenForId === record.budgetItemId}
-                                      disabled={isLocked || isSelectMode || !onCreateMissingWorkStage}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        if (isLocked || isSelectMode || !onCreateMissingWorkStage) return;
-                                        setCoverageMenuOpenForId((prev) => (prev === record.budgetItemId ? null : record.budgetItemId));
-                                      }}
-                                      title="Coverage"
-                                    >
-                                      <span>Coverage</span>
-                                      <span aria-hidden>·</span>
-                                      <span>{existingCount}</span>
-                                    </button>
-                                  );
-                                })()}
-
-                                    {coverageMenuOpenForId === record.budgetItemId ? (
-                                      <div
-                                        className={styles.coverageDropdown}
-                                        ref={coverageDropdownRef}
-                                        role="menu"
-                                        aria-label="Add coverage"
-                                        onMouseEnter={() => setIsCoveragePopoverHovered(true)}
-                                        onMouseLeave={() => setIsCoveragePopoverHovered(false)}
-                                      >
-                                    {(() => {
-                                      const budgetItemId = record.budgetItemId;
-                                      const removedForLine = optimisticUnlinkedByLineId[budgetItemId] ?? {};
-                                      const linked = (tasks ?? [])
-                                        .filter((t) => taskHasBudgetLink(t, budgetItemId))
-                                        .filter((t) => (t.taskId ? !removedForLine[t.taskId] : true));
-
-                                      const grouped: Record<BudgetTaskLinkType, Task[]> = {
-                                        quote: [],
-                                        procure: [],
-                                        build: [],
-                                        install: [],
-                                        strike: [],
-                                        invoice: [],
-                                      };
-
-                                      linked.forEach((t) => {
-                                        const linkType =
-                                          getTaskLinkTypeForBudgetItem(t, budgetItemId) ??
-                                          inferBudgetTaskLinkTypeFromTitle(t.title ?? "");
-                                        grouped[linkType].push(t);
-                                      });
-
-                                      return (
-                                        <div className={styles.coverageRows}>
-                                          {BUDGET_TASK_LINK_TYPES.map((step) => {
-                                            const stepTasks = grouped[step.id] ?? [];
-                                            const canMutate = !isLocked && !isSelectMode;
-                                            const canAdd = canMutate && Boolean(onCreateMissingWorkStage);
-                                            const canUnlink = canMutate && Boolean(onUnlinkWorkTask);
-
-                                            return (
-                                              <div key={step.id} className={styles.coverageRow} role="none">
-                                                <div className={styles.coverageRowLabel}>{step.label}</div>
-                                                <div className={styles.coverageRowChips}>
-                                                  {stepTasks.length === 0 ? (
-                                                    <span className={styles.coverageRowEmpty}>—</span>
-                                                  ) : (
-                                                    stepTasks.map((t) => {
-                                                      const title = (t.title || "Untitled task").trim() || "Untitled task";
-                                                      const taskId = t.taskId ?? title;
-                                                      const hasRealTaskId = Boolean(t.taskId);
-                                                      const canUnlinkThis = canUnlink && hasRealTaskId;
-
-                                                      return (
-                                                        <span key={taskId} className={styles.coverageTaskChip} title={title}>
-                                                          <span className={styles.coverageTaskChipText}>{title}</span>
-                                                          <button
-                                                            type="button"
-                                                            className={styles.coverageTaskChipRemove}
-                                                            aria-label={`Unlink ${step.label} task`}
-                                                            disabled={!canUnlinkThis}
-                                                            onClick={(event) => {
-                                                              event.stopPropagation();
-                                                              if (!canUnlinkThis) return;
-
-                                                              setOptimisticUnlinkedByLineId((prev) => ({
-                                                                ...prev,
-                                                                [budgetItemId]: {
-                                                                  ...(prev[budgetItemId] ?? {}),
-                                                                  [t.taskId as string]: true,
-                                                                },
-                                                              }));
-
-                                                              Promise.resolve(onUnlinkWorkTask?.(budgetItemId, t)).catch(() => {
-                                                                setOptimisticUnlinkedByLineId((prev) => {
-                                                                  const existing = prev[budgetItemId];
-                                                                  if (!existing || !existing[t.taskId as string]) return prev;
-                                                                  const nextLine = { ...existing };
-                                                                  delete nextLine[t.taskId as string];
-                                                                  const next = { ...prev };
-                                                                  if (Object.keys(nextLine).length === 0) {
-                                                                    delete next[budgetItemId];
-                                                                  } else {
-                                                                    next[budgetItemId] = nextLine;
-                                                                  }
-                                                                  return next;
-                                                                });
-                                                              });
-                                                            }}
-                                                          >
-                                                            ×
-                                                          </button>
-                                                        </span>
-                                                      );
-                                                    })
-                                                  )}
-                                                </div>
-
-                                                <button
-                                                  type="button"
-                                                  className={styles.coverageRowAction}
-                                                  disabled={!canAdd}
-                                                  onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    if (!canAdd) return;
-                                                    onCreateMissingWorkStage?.(record, step.id);
-                                                  }}
-                                                >
-                                                  Add
-                                                </button>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      );
-                                    })()}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ) : null}
-
-                              {attachmentCount > 0 && (
-                                <div className={styles.attachmentIconWrapper}>
-                                  <button
-                                    type="button"
-                                    className={styles.attachmentIconButton}
-                                    role="button"
-                                    aria-haspopup="menu"
-                                    aria-expanded={isAttachmentMenuOpen}
-                                    onClick={(event) =>
-                                      toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord)
-                                    }
-                                    onKeyDown={(event) => {
-                                      if (event.key === "Enter" || event.key === " ") {
-                                        event.preventDefault();
-                                        toggleAttachmentMenuForRecord(event, record.budgetItemId, attachmentsForRecord);
-                                      }
-                                    }}
-                                  >
-                                    <FontAwesomeIcon icon={faPaperclip} />
-                                    <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
-                                  </button>
-                                  {isAttachmentMenuOpen && (
-                                    <div className={styles.attachmentDropdown} ref={attachmentDropdownRef}>
-                                      {menuAttachments.map((attachment, index) => (
-                                        <button
-                                          key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
-                                          type="button"
-                                          className={styles.attachmentDropdownItem}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            openAttachmentPreview(menuAttachments, index);
-                                            setAttachmentMenuState(null);
-                                          }}
-                                        >
-                                          <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
-                                            {attachment.mimeType?.startsWith("image") ? (
-                                              <img src={attachment.url} alt="" />
-                                            ) : (
-                                              <FontAwesomeIcon icon={faPaperclip} />
-                                            )}
-                                          </span>
-                                          <span className={styles.attachmentDropdownLabel}>
-                                            <span className={styles.attachmentDropdownFileName}>
-                                              {attachment.fileName}
-                                            </span>
-                                            <span className={styles.attachmentDropdownMeta}>
-                                              {attachment.mimeType || "File"}
-                                            </span>
-                                          </span>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                         </div>
-                       </div>
-
-                      <div className={styles.cardMetrics}>
-                        <div className={styles.cardMetricRow}>
-                          {primaryMetrics.map((metric) => (
-                            <div key={metric.key} className={styles.cardMetric}>
-                              <span className={styles.cardMetricLabel}>{metric.label}</span>
-                              <span className={styles.cardMetricValue}>
-                                {formatMetricValue(record, metric.key)}
-                              </span>
-                            </div>
-                          ))}
                         </div>
+
+                        <div className={styles.cardHeaderMetricsTop}>
+                          <div className={`${styles.cardMetricRow} ${styles.cardMetricRowTop}`}
+                            aria-label="Quantity, unit, and costs"
+                          >
+                            {primaryMetrics.map((metric) => (
+                              <div key={metric.key} className={styles.cardMetric}>
+                                <span className={styles.cardMetricLabel}>{metric.label}</span>
+                                <span className={styles.cardMetricValue}>
+                                  {formatMetricValue(record, metric.key)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className={styles.cardHeaderTitle}>
+                          <div className={styles.cardTitle}>
+                            {record.description ? String(record.description) : "No description"}
+                          </div>
+                        </div>
+
+                        <div className={styles.cardHeaderMetricsBottom}>
+                          <div className={`${styles.cardMetricRow} ${styles.cardMetricRowSummary}`}
+                            aria-label="Markup and final cost"
+                          >
+                            {summaryMetrics.map((metric) => (
+                              <div
+                                key={metric.key}
+                                className={`${styles.cardMetric} ${styles.cardMetricSummary}`}
+                              >
+                                <span className={styles.cardMetricLabel}>{metric.label}</span>
+                                <span className={styles.cardMetricValue}>
+                                  {formatMetricValue(record, metric.key)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                         <div
-                          className={`${styles.cardMetricRow} ${styles.cardMetricRowSummary}`}
+                          className={styles.cardHeaderActions}
+                          ref={(node) => registerMenuContainer(record.budgetItemId, node)}
                         >
-                          {summaryMetrics.map((metric) => (
+                          <button
+                            className={`${styles.cardMenuTrigger}${
+                              openMenuId === record.budgetItemId
+                                ? ` ${styles.cardMenuTriggerActive}`
+                                : ""
+                            }`}
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenMenuId((prev) =>
+                                prev === record.budgetItemId ? null : record.budgetItemId
+                              );
+                            }}
+                            aria-label="Line item options"
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuId === record.budgetItemId}
+                            aria-controls={
+                              openMenuId === record.budgetItemId
+                                ? `budget-card-menu-${record.key}`
+                                : undefined
+                            }
+                          >
+                            <span aria-hidden className={styles.cardMenuEllipsis}>
+                              ⋯
+                            </span>
+                          </button>
+                          {openMenuId === record.budgetItemId && (
                             <div
-                              key={metric.key}
-                              className={`${styles.cardMetric} ${styles.cardMetricSummary}`}
+                              id={`budget-card-menu-${record.key}`}
+                              role="menu"
+                              className={styles.cardMenu}
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              <span className={styles.cardMetricLabel}>{metric.label}</span>
-                              <span className={styles.cardMetricValue}>
-                                {formatMetricValue(record, metric.key)}
-                              </span>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={styles.cardMenuItem}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuId(null);
+                                  openDuplicateModal(record);
+                                }}
+                              >
+                                <span className={styles.cardMenuItemIcon}>
+                                  <FontAwesomeIcon icon={faClone} />
+                                </span>
+                                <span>Duplicate</span>
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={`${styles.cardMenuItem} ${styles.cardMenuItemDanger}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuId(null);
+                                  openDeleteModal([record.budgetItemId]);
+                                }}
+                              >
+                                <span className={styles.cardMenuItemIcon}>
+                                  <FontAwesomeIcon icon={faTrash} />
+                                </span>
+                                <span>Delete</span>
+                              </button>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
-                      <div
-                        className={styles.cardControls}
-                        ref={(node) => registerMenuContainer(record.budgetItemId, node)}
-                      >
-                        <button
-                          className={`${styles.cardMenuTrigger}${
-                            openMenuId === record.budgetItemId
-                              ? ` ${styles.cardMenuTriggerActive}`
-                              : ""
-                          }`}
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setOpenMenuId((prev) =>
-                              prev === record.budgetItemId ? null : record.budgetItemId
-                            );
-                          }}
-                          aria-label={
-                            eventCount > 0
-                              ? `View options for ${eventCount} scheduled events`
-                              : "View budget line item options"
-                          }
-                          aria-haspopup="menu"
-                          aria-expanded={openMenuId === record.budgetItemId}
-                          aria-controls={
-                            openMenuId === record.budgetItemId
-                              ? `budget-card-menu-${record.key}`
-                              : undefined
-                          }
-                        >
-                          <FontAwesomeIcon icon={faChevronDown} />
-                          {eventCount > 0 && (
-                            <span className={styles.cardEventBadge}>{eventCount}</span>
-                          )}
-                        </button>
-                        {openMenuId === record.budgetItemId && (
-                          <div
-                            id={`budget-card-menu-${record.key}`}
-                            role="menu"
-                            className={styles.cardMenu}
-                            onClick={(event) => event.stopPropagation()}
+
+                      <div className={styles.cardMetaChipsRow}>
+                        {openWorkModal && (
+                          <button
+                            type="button"
+                            className={styles.workChipButton}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (isLocked || isSelectMode) return;
+                              openWorkModal(record);
+                            }}
+                            disabled={isLocked || isSelectMode}
+                            title="Tasks"
                           >
+                            <span>Tasks •</span>
+                            <span className={styles.workChipCount}>{workCount}</span>
+                          </button>
+                        )}
+
+                        {coverage ? (
+                          <div className={styles.workCoverage} aria-label="Coverage">
+                            <div className={styles.coverageAddWrapper}>
+                              {(() => {
+                                const existingCount = BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
+                                  const state = coverage[t.id] ?? "missing";
+                                  return sum + (state === "missing" ? 0 : 1);
+                                }, 0);
+
+                                return (
+                                  <button
+                                    type="button"
+                                    className={styles.coverageAddButton}
+                                    aria-haspopup="menu"
+                                    aria-expanded={coverageMenuOpenForId === record.budgetItemId}
+                                    disabled={isLocked || isSelectMode || !onCreateMissingWorkStage}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      if (isLocked || isSelectMode || !onCreateMissingWorkStage) return;
+                                      setCoverageMenuOpenForId((prev) =>
+                                        prev === record.budgetItemId ? null : record.budgetItemId
+                                      );
+                                    }}
+                                    title="Coverage"
+                                  >
+                                    <span>Coverage</span>
+                                    <span aria-hidden>·</span>
+                                    <span>{existingCount}</span>
+                                  </button>
+                                );
+                              })()}
+
+                              {coverageMenuOpenForId === record.budgetItemId ? (
+                                <div
+                                  className={styles.coverageDropdown}
+                                  ref={coverageDropdownRef}
+                                  role="menu"
+                                  aria-label="Add coverage"
+                                  onMouseEnter={() => setIsCoveragePopoverHovered(true)}
+                                  onMouseLeave={() => setIsCoveragePopoverHovered(false)}
+                                >
+                                  {(() => {
+                                    const budgetItemId = record.budgetItemId;
+                                    const removedForLine = optimisticUnlinkedByLineId[budgetItemId] ?? {};
+                                    const linked = (tasks ?? [])
+                                      .filter((t) => taskHasBudgetLink(t, budgetItemId))
+                                      .filter((t) => (t.taskId ? !removedForLine[t.taskId] : true));
+
+                                    const grouped: Record<BudgetTaskLinkType, Task[]> = {
+                                      quote: [],
+                                      procure: [],
+                                      build: [],
+                                      install: [],
+                                      strike: [],
+                                      invoice: [],
+                                    };
+
+                                    linked.forEach((t) => {
+                                      const linkType =
+                                        getTaskLinkTypeForBudgetItem(t, budgetItemId) ??
+                                        inferBudgetTaskLinkTypeFromTitle(t.title ?? "");
+                                      grouped[linkType].push(t);
+                                    });
+
+                                    return (
+                                      <div className={styles.coverageRows}>
+                                        {BUDGET_TASK_LINK_TYPES.map((step) => {
+                                          const stepTasks = grouped[step.id] ?? [];
+                                          const canMutate = !isLocked && !isSelectMode;
+                                          const canAdd = canMutate && Boolean(onCreateMissingWorkStage);
+                                          const canUnlink = canMutate && Boolean(onUnlinkWorkTask);
+
+                                          return (
+                                            <div key={step.id} className={styles.coverageRow} role="none">
+                                              <div className={styles.coverageRowLabel}>{step.label}</div>
+                                              <div className={styles.coverageRowChips}>
+                                                {stepTasks.length === 0 ? (
+                                                  <span className={styles.coverageRowEmpty}>—</span>
+                                                ) : (
+                                                  stepTasks.map((t) => {
+                                                    const title =
+                                                      (t.title || "Untitled task").trim() || "Untitled task";
+                                                    const taskId = t.taskId ?? title;
+                                                    const hasRealTaskId = Boolean(t.taskId);
+                                                    const canUnlinkThis = canUnlink && hasRealTaskId;
+
+                                                    return (
+                                                      <span
+                                                        key={taskId}
+                                                        className={styles.coverageTaskChip}
+                                                        title={title}
+                                                      >
+                                                        <span className={styles.coverageTaskChipText}>{title}</span>
+                                                        <button
+                                                          type="button"
+                                                          className={styles.coverageTaskChipRemove}
+                                                          aria-label={`Unlink ${step.label} task`}
+                                                          disabled={!canUnlinkThis}
+                                                          onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            if (!canUnlinkThis) return;
+
+                                                            setOptimisticUnlinkedByLineId((prev) => ({
+                                                              ...prev,
+                                                              [budgetItemId]: {
+                                                                ...(prev[budgetItemId] ?? {}),
+                                                                [t.taskId as string]: true,
+                                                              },
+                                                            }));
+
+                                                            Promise.resolve(
+                                                              onUnlinkWorkTask?.(budgetItemId, t)
+                                                            ).catch(() => {
+                                                              setOptimisticUnlinkedByLineId((prev) => {
+                                                                const existing = prev[budgetItemId];
+                                                                if (!existing || !existing[t.taskId as string]) return prev;
+                                                                const nextLine = { ...existing };
+                                                                delete nextLine[t.taskId as string];
+                                                                const next = { ...prev };
+                                                                if (Object.keys(nextLine).length === 0) {
+                                                                  delete next[budgetItemId];
+                                                                } else {
+                                                                  next[budgetItemId] = nextLine;
+                                                                }
+                                                                return next;
+                                                              });
+                                                            });
+                                                          }}
+                                                        >
+                                                          ×
+                                                        </button>
+                                                      </span>
+                                                    );
+                                                  })
+                                                )}
+                                              </div>
+
+                                              <button
+                                                type="button"
+                                                className={styles.coverageRowAction}
+                                                disabled={!canAdd}
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  if (!canAdd) return;
+                                                  onCreateMissingWorkStage?.(record, step.id);
+                                                }}
+                                              >
+                                                Add
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {attachmentCount > 0 && (
+                          <div className={styles.attachmentIconWrapper}>
                             <button
                               type="button"
-                              role="menuitem"
-                              className={styles.cardMenuItem}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setOpenMenuId(null);
-                                openEventModal(record);
+                              className={styles.attachmentIconButton}
+                              role="button"
+                              aria-haspopup="menu"
+                              aria-expanded={isAttachmentMenuOpen}
+                              onClick={(event) =>
+                                toggleAttachmentMenuForRecord(
+                                  event,
+                                  record.budgetItemId,
+                                  attachmentsForRecord,
+                                )
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  toggleAttachmentMenuForRecord(
+                                    event,
+                                    record.budgetItemId,
+                                    attachmentsForRecord,
+                                  );
+                                }
                               }}
                             >
-                              <span className={styles.cardMenuItemIcon}>
-                                <FontAwesomeIcon icon={faClock} />
-                              </span>
-                              <span>Manage events</span>
+                              <FontAwesomeIcon icon={faPaperclip} />
+                              <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
                             </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className={styles.cardMenuItem}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setOpenMenuId(null);
-                                openDuplicateModal(record);
-                              }}
-                            >
-                              <span className={styles.cardMenuItemIcon}>
-                                <FontAwesomeIcon icon={faClone} />
-                              </span>
-                              <span>Duplicate line item</span>
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className={`${styles.cardMenuItem} ${styles.cardMenuItemDanger}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setOpenMenuId(null);
-                                openDeleteModal([record.budgetItemId]);
-                              }}
-                            >
-                              <span className={styles.cardMenuItemIcon}>
-                                <FontAwesomeIcon icon={faTrash} />
-                              </span>
-                              <span>Delete line item</span>
-                            </button>
+                            {isAttachmentMenuOpen && (
+                              <div className={styles.attachmentDropdown} ref={attachmentDropdownRef}>
+                                {menuAttachments.map((attachment, index) => (
+                                  <button
+                                    key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
+                                    type="button"
+                                    className={styles.attachmentDropdownItem}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      openAttachmentPreview(menuAttachments, index);
+                                      setAttachmentMenuState(null);
+                                    }}
+                                  >
+                                    <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
+                                      {attachment.mimeType?.startsWith("image") ? (
+                                        <img src={attachment.url} alt="" />
+                                      ) : (
+                                        <FontAwesomeIcon icon={faPaperclip} />
+                                      )}
+                                    </span>
+                                    <span className={styles.attachmentDropdownLabel}>
+                                      <span className={styles.attachmentDropdownFileName}>
+                                        {attachment.fileName}
+                                      </span>
+                                      <span className={styles.attachmentDropdownMeta}>
+                                        {attachment.mimeType || "File"}
+                                      </span>
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

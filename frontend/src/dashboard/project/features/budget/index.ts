@@ -14,7 +14,6 @@ export { default as BudgetTableLogic } from "./components/BudgetTableLogic";
 export { default as BudgetToolbar } from "./components/BudgetToolbar";
 export { default as CreateLineItemModal } from "./components/CreateLineItemModal";
 export { default as EditBallparkModal } from "./components/EditBallparkModal";
-export { default as EventEditModal } from "./components/EventEditModal";
 export { default as HeaderStats } from "./components/HeaderStats";
 export { default as InvoicePreviewModal } from "./components/InvoicePreviewModal";
 export { default as RevisionModal } from "./components/RevisionModal";

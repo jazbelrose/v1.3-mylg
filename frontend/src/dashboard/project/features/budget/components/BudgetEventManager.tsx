@@ -7,15 +7,12 @@ import {
   updateBudgetItem,
   deleteBudgetItem,
 } from "@/shared/utils/api";
-import type { BudgetLine, Project, UserProfile, TimelineEvent, BudgetItem } from "@/shared/utils/api";
+import type { BudgetLine, Project, UserProfile, BudgetItem } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
-
-// Frontend no longer persists events directly; backend handles persistence
 
 
 interface BudgetEventManagerProps {
   activeProject: Project;
-  eventsByLineItem: Record<string, TimelineEvent[]>;
   userId: string;
   user: UserProfile;
   stateManager: Record<string, unknown> & {
@@ -24,9 +21,6 @@ interface BudgetEventManagerProps {
     setPrefillItem: (item: unknown) => void;
     setCreateModalOpen: (open: boolean) => void;
     setEditingLineId: (id: string) => void;
-    setEventItem: (item: unknown) => void;
-    setEventList: (events: unknown[]) => void;
-    setEventModalOpen: (open: boolean) => void;
     setDeleteTargets: (targets: string[]) => void;
     setIsConfirmingDelete: (confirming: boolean) => void;
     setSelectedRowKeys: (keys: string[] | ((prev: string[]) => string[])) => void;
@@ -34,7 +28,6 @@ interface BudgetEventManagerProps {
     pushHistory: () => void;
     syncHeaderTotals: (list: unknown[]) => Promise<void>;
     editingLineId: string;
-    eventItem: unknown;
     deleteTargets: string[];
     selectedRowKeys: string[];
     editItem: unknown;
@@ -52,14 +45,9 @@ interface BudgetEventHandlers {
   // Modal operations
   openCreateModal: () => void;
   openEditModal: (item: Record<string, unknown>) => void;
-  openEventModal: (item: Record<string, unknown>) => void;
   openDuplicateModal: (item: Record<string, unknown>) => void;
   openDeleteModal: (ids: string[]) => void;
   closeCreateModal: () => void;
-  closeEventModal: () => void;
-  
-  // Event operations
-  handleSaveEvents: (events: TimelineEvent[]) => Promise<void>;
   
   // Helper functions
   getNextElementKey: () => string;
@@ -92,7 +80,6 @@ const sanitizeMutableBudgetFields = (payload: Record<string, unknown>): Record<s
 
 const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
   activeProject,
-  eventsByLineItem,
   userId,
   stateManager,
   children,
@@ -100,7 +87,7 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
   const { budgetHeader, budgetItems, setBudgetItems, getLocks, wsOps } = useBudget();
   
   // Get WebSocket operations from context
-  const { emitBudgetUpdate, emitLineLock, emitLineUnlock, emitTimelineUpdate } = wsOps;
+  const { emitBudgetUpdate, emitLineLock, emitLineUnlock } = wsOps;
 
   const getNextElementKey = useCallback(() => {
     const slug = slugify((activeProject?.title as string) || '');
@@ -209,16 +196,6 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
     stateManager.setCreateModalOpen(true);
   }, [stateManager, emitLineLock, getLocks]);
 
-  const openEventModal = useCallback((item: Record<string, unknown>) => {
-    const lockedLines = getLocks();
-    const budgetItemId = String(item.budgetItemId);
-    if (lockedLines.includes(budgetItemId)) return;
-    const evs = eventsByLineItem[budgetItemId] || [];
-    stateManager.setEventItem(item);
-    stateManager.setEventList(evs.map((ev) => ({ ...ev })));
-    stateManager.setEventModalOpen(true);
-  }, [stateManager, eventsByLineItem, getLocks]);
-
   const openDuplicateModal = useCallback((item: Record<string, unknown>) => {
     const nextKey = getNextElementKey();
     const nextId = getNextElementId(String(item.category));
@@ -246,45 +223,6 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
     stateManager.setPrefillItem(null);
   }, [stateManager, emitLineUnlock]);
 
-  const closeEventModal = useCallback(() => {
-    stateManager.setEventModalOpen(false);
-    stateManager.setEventItem(null);
-    stateManager.setEventList([]);
-  }, [stateManager]);
-
-  const handleSaveEvents = useCallback(async (events: TimelineEvent[]) => {
-    if (!activeProject?.projectId || !stateManager.eventItem) {
-      closeEventModal();
-      return;
-    }
-    const eventItem = stateManager.eventItem as Record<string, unknown>;
-    const others = Array.isArray(activeProject?.timelineEvents)
-      ? activeProject.timelineEvents.filter((ev) => ev.budgetItemId !== String(eventItem.budgetItemId))
-      : [];
-    const nowIso = new Date().toISOString();
-    const withIds = events.map((ev) => {
-      const id = ev.id || uuid();
-      return {
-        id,
-        eventId: id,
-        date: ev.date,
-        hours: ev.hours,
-        description: ev.description || '',
-        budgetItemId: String(eventItem.budgetItemId),
-        createdAt: ev.createdAt || nowIso,
-        ...(ev.payload !== undefined ? { payload: ev.payload } : {}),
-      } as TimelineEvent;
-    });
-    const updated = [...others, ...withIds];
-    try {
-      // Emit only; backend persists and then broadcasts
-      emitTimelineUpdate(updated);
-    } catch (err) {
-      console.error('Error saving events', err);
-    }
-    closeEventModal();
-  }, [activeProject, stateManager.eventItem, closeEventModal, emitTimelineUpdate]);
-
   const confirmDelete = useCallback(async () => {
     if (!activeProject?.projectId || stateManager.deleteTargets.length === 0) {
       stateManager.setIsConfirmingDelete(false);
@@ -306,24 +244,6 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
       if (stateManager.deleteTargets.includes((stateManager.editItem as { budgetItemId: string })?.budgetItemId)) {
         closeCreateModal();
       }
-      if (Array.isArray(activeProject?.timelineEvents)) {
-        const remainingEvents = activeProject.timelineEvents.filter(
-          (ev) => !stateManager.deleteTargets.includes(ev.budgetItemId)
-        );
-        if (remainingEvents.length !== activeProject.timelineEvents.length) {
-          // Emit only; backend persists and then broadcasts
-          const normalized = remainingEvents.map((ev) => {
-            const id = ev.id || uuid();
-            return {
-              ...ev,
-              id,
-              eventId: ev.eventId || id,
-              createdAt: ev.createdAt || new Date().toISOString(),
-            } as TimelineEvent;
-          });
-          emitTimelineUpdate(normalized);
-        }
-      }
       await stateManager.syncHeaderTotals(updatedList);
       emitBudgetUpdate();
       // Update locks using context (locks are now managed internally by the context)
@@ -333,7 +253,7 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
       stateManager.setIsConfirmingDelete(false);
       stateManager.setDeleteTargets([]);
     }
-  }, [activeProject, stateManager, budgetItems, setBudgetItems, closeCreateModal, emitTimelineUpdate, emitBudgetUpdate]);
+  }, [activeProject, stateManager, budgetItems, setBudgetItems, closeCreateModal, emitBudgetUpdate]);
 
   const handleDuplicateSelected = useCallback(async () => {
     if (!activeProject?.projectId || !budgetHeader || stateManager.selectedRowKeys.length === 0)
@@ -552,23 +472,17 @@ const BudgetEventManager: React.FC<BudgetEventManagerProps> = ({
     // Modal operations
     openCreateModal,
     openEditModal,
-    openEventModal,
     openDuplicateModal,
     openDeleteModal,
     closeCreateModal,
-    closeEventModal,
-    
-    // Event operations
-    handleSaveEvents,
     
     // Helper functions
     getNextElementKey,
     getNextElementId,
   }), [
     handleCreateLineItem, handleEditLineItem, confirmDelete, handleDuplicateSelected,
-    openCreateModal, openEditModal, openEventModal, openDuplicateModal, openDeleteModal,
-    closeCreateModal, closeEventModal,
-    handleSaveEvents,
+    openCreateModal, openEditModal, openDuplicateModal, openDeleteModal,
+    closeCreateModal,
     getNextElementKey, getNextElementId
   ]);
 

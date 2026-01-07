@@ -19,7 +19,6 @@ import FileManagerComponent from "@/dashboard/project/components/FileManager/Fil
 import BudgetHeader from "@/dashboard/project/features/budget/components/HeaderStats";
 import BudgetFileModal from "@/dashboard/project/features/budget/components/BudgetFileModal";
 import CreateLineItemModal from "@/dashboard/project/features/budget/components/CreateLineItemModal";
-import EventEditModal from "@/dashboard/project/features/budget/components/EventEditModal";
 import RevisionModal from "@/dashboard/project/features/budget/components/RevisionModal";
 // import BudgetChart from "@/dashboard/project/features/budget/components/BudgetChart";
 import BudgetToolbar from "@/dashboard/project/features/budget/components/BudgetToolbar";
@@ -34,7 +33,7 @@ import BudgetWorkPanelModal from "@/dashboard/project/features/budget/components
 import { BudgetProvider} from "@/dashboard/project/features/budget/context/BudgetProvider";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
 import { useData } from "@/app/contexts/useData";
-import type { Project, TimelineEvent } from "@/app/contexts/DataProvider";
+import type { Project } from "@/app/contexts/DataProvider";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
@@ -537,32 +536,6 @@ const BudgetPageContent = () => {
       console.error('Error creating initial budget header', err);
     }
   };
-
-  const eventsByLineItem = useMemo(() => {
-    const map: Record<string, TimelineEvent[]> = {};
-    const events = (activeProject as Project)?.timelineEvents;
-    if (Array.isArray(events)) {
-      events.forEach((ev: TimelineEvent) => {
-        const id = String((ev as Record<string, unknown>)?.budgetItemId || "");
-        if (!id) return;
-        if (!map[id]) map[id] = [];
-        map[id].push(ev);
-      });
-    }
-    return map;
-  }, [activeProject]);
-
-  const eventDescOptions = useMemo(() => {
-    const set = new Set<string>();
-    const events = (activeProject as Project)?.timelineEvents;
-    if (Array.isArray(events)) {
-      events.forEach((ev: TimelineEvent) => {
-        const desc = String((ev as Record<string, unknown>)?.description || '').trim().toUpperCase();
-        if (desc) set.add(desc);
-      });
-    }
-    return Array.from(set);
-  }, [activeProject]);
 
   const computeGroupsAndClients = useCallback(
     (items, header) => {
@@ -1339,7 +1312,6 @@ const BudgetPageContent = () => {
                   return (
                     <BudgetEventManager
                       activeProject={activeProject}
-                      eventsByLineItem={eventsByLineItem}
                       userId={userId}
                       user={user}
                       stateManager={stateManager}
@@ -1351,9 +1323,7 @@ const BudgetPageContent = () => {
                             sortOrder={stateManager.sortOrder}
                             filterQuery={stateManager.filterQuery as string}
                             selectedRowKeys={stateManager.selectedRowKeys}
-                            eventsByLineItem={eventsByLineItem}
                             setSelectedRowKeys={stateManager.setSelectedRowKeys}
-                            openEventModal={eventHandlers.openEventModal}
                             openDeleteModal={eventHandlers.openDeleteModal}
                           openDuplicateModal={eventHandlers.openDuplicateModal}
                       >
@@ -1515,14 +1485,12 @@ const BudgetPageContent = () => {
                                             openEditModal={eventHandlers.openEditModal}
                                             openDuplicateModal={eventHandlers.openDuplicateModal}
                                             openDeleteModal={eventHandlers.openDeleteModal}
-                                            openEventModal={eventHandlers.openEventModal}
                                             openWorkModal={handleOpenWorkPanel}
                                             tasks={projectTasks}
                                             workCountByLineItemId={workCountByLineItemId}
                                             workCoverageByLineItemId={buildCoverageMap}
                                             onCreateMissingWorkStage={handleCreateMissingWorkStage}
                                             onUnlinkWorkTask={handleUnlinkWorkTask}
-                                            eventsByLineItem={eventsByLineItem}
                                             tableRef={tableRef}
                                             tableHeight={tableHeight}
                                             pageSize={stateManager.pageSize}
@@ -1586,16 +1554,6 @@ const BudgetPageContent = () => {
                               initialData={stateManager.prefillItem || stateManager.editItem}
                               title={stateManager.editItem ? 'Edit Item' : 'Create Line Item'}
                               revision={Number((budgetHeader as Record<string, unknown>)?.revision ?? 1)}
-                            />
-                            <EventEditModal
-                              isOpen={stateManager.isEventModalOpen}
-                              onRequestClose={eventHandlers.closeEventModal}
-                              projectId={activeProject?.projectId || ''}
-                              budgetItemId={String((stateManager.eventItem as Record<string, unknown>)?.budgetItemId || '')}
-                              events={stateManager.eventList}
-                              defaultDate={String((budgetHeader as Record<string, unknown>)?.startDate || '')}
-                              defaultDescription={String((stateManager.eventItem as Record<string, unknown>)?.description || '')}
-                              descOptions={eventDescOptions}
                             />
                             <BudgetWorkPanelModal
                               isOpen={Boolean(workPanelItem)}
