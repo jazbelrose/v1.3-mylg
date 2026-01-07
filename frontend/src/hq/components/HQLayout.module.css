@@ -65,29 +65,55 @@
   gap: 12px;
   align-self: flex-start;
   justify-content: flex-end;
+
+  /* Single source of truth for top-bar control height */
+  --hq-control-h: 36px;
+}
+
+.mobileActionsRow {
+  /* Keep mobile header controls identical in sizing */
+  --hq-control-h: 36px;
+}
+
+/* Normalize every control in the HQ top bar */
+.actionsRow button,
+.mobileActionsRow button {
+  height: var(--hq-control-h);
+  padding: 0 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .orgPicker {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
+  height: var(--hq-control-h);
 }
 
 .orgPickerLabel {
-  font-size: 0.85rem;
+  height: var(--hq-control-h);
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .orgPickerSelect {
-  background: transparent;
-  color: #ffffff;
-  border: none;
-  outline: none;
-  font-size: 0.95rem;
+  height: var(--hq-control-h);
+  display: inline-flex;
+  align-items: center;
 }
 
 .orgPickerSelect:disabled {
@@ -95,12 +121,9 @@
 }
 
 .orgCreateButton {
-  padding: 10px 12px;
-  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
-  font-size: 0.95rem;
   cursor: pointer;
 }
 

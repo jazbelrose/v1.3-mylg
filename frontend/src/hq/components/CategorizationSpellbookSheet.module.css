@@ -17,6 +17,7 @@
 .sheet {
   position: relative;
   width: min(1280px, calc(100vw - 48px));
+  height: 80vh;
   max-height: 80vh;
   background: linear-gradient(180deg, rgba(20, 20, 24, 0.98), rgba(12, 12, 14, 0.98));
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -31,6 +32,7 @@
 @media (max-width: 768px) {
   .sheet {
     width: 100vw;
+    height: 100vh;
     max-height: 100vh;
     border-radius: 0;
     border: none;
@@ -371,6 +373,7 @@
 
 .listPane {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -387,6 +390,7 @@
 
 .list {
   min-height: 0;
+  overflow: hidden;
 }
 
 .loading,

@@ -6,6 +6,7 @@ import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore, hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import { fetchHqSummary, fetchHqTransactions, importHqCsv } from "@/hq/lib/hqApi";
 import type { HqAccount, HqTransaction } from "@/hq/types";
+import HqSelect from "@/hq/components/HqSelect";
 import styles from "./ImportCsvModal.module.css";
 
 if (typeof document !== "undefined") {
@@ -101,21 +102,17 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     if (!csvText) return;
     if (!accountId) return;
     setIsWorking(true);
-    try {
-      const txns = await parseWellsFargoNoHeaderTransactions({ orgId, accountId, csvText, categoryRules });
-      setParsed(txns);
-      setStep(3);
-    } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : "Could not parse CSV.");
-    } finally {
-      setIsWorking(false);
-    }
-  }, [accountId, csvText, orgId]);
-
-  const handleImport = React.useCallback(async () => {
-    if (!file || !accountId || !parsed) return;
-
+                <HqSelect
+                  className={styles.select}
+                  value={accountId || undefined}
+                  onValueChange={setAccountId}
+                  ariaLabel="Select account"
+                  placeholder="Select an account"
+                  options={accounts.map((a) => ({
+                    value: a.accountId,
+                    label: `${a.name ?? a.accountName} · ${a.institution}`,
+                  }))}
+                />
     setIsWorking(true);
     try {
       const result = await importHqCsv(orgId, {

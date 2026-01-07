@@ -1411,19 +1411,6 @@ const BudgetPageContent = () => {
                                             createDisabledReason={createDisabledReason}
                                             canUseSpellbook={canEdit}
                                             spellbookDisabledReason={canEdit ? undefined : "Read-only"}
-                                            riskBadge={
-                                              riskAndReadiness.atRiskQuoteIds.length
-                                                ? {
-                                                    label: "Quotes at risk",
-                                                    count: riskAndReadiness.atRiskQuoteIds.length,
-                                                    onClick: () =>
-                                                      openWorkPanelForLine(
-                                                        riskAndReadiness.atRiskQuoteIds[0],
-                                                        "quote",
-                                                      ),
-                                                  }
-                                                : undefined
-                                            }
                                             readinessBadge={
                                               riskAndReadiness.readyToInvoiceIds.length
                                                 ? {

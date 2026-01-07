@@ -534,6 +534,12 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                  const attachmentCount = attachmentsForRecord.length;
                  const workCount = workCountByLineItemId?.[record.budgetItemId] ?? 0;
                  const coverage = workCoverageByLineItemId?.[record.budgetItemId] ?? null;
+                 const coverageCount = coverage
+                   ? BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
+                       const state = coverage[t.id] ?? "missing";
+                       return sum + (state === "missing" ? 0 : 1);
+                     }, 0)
+                   : 0;
                  const isAttachmentMenuOpen = attachmentMenuState?.id === record.budgetItemId;
                  const menuAttachments = isAttachmentMenuOpen ? attachmentMenuState?.items ?? attachmentsForRecord : attachmentsForRecord;
 
@@ -561,7 +567,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                     onKeyDown={(event) =>
                       handleCardKeyDown(event, record, isLocked, isSelectMode, isSelected)
                     }
-                    onMouseEnter={() => {
+                    onPointerEnter={() => {
                       if (!coverageMenuOpenForId) return;
                       if (isCoveragePopoverHovered) return;
                       if (coverageMenuOpenForId !== record.budgetItemId) {
@@ -634,128 +640,48 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                             ))}
                           </div>
                         </div>
-
-                        <div
-                          className={styles.cardHeaderActions}
-                          ref={(node) => registerMenuContainer(record.budgetItemId, node)}
-                        >
-                          <button
-                            className={`${styles.cardMenuTrigger}${
-                              openMenuId === record.budgetItemId
-                                ? ` ${styles.cardMenuTriggerActive}`
-                                : ""
-                            }`}
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenMenuId((prev) =>
-                                prev === record.budgetItemId ? null : record.budgetItemId
-                              );
-                            }}
-                            aria-label="Line item options"
-                            aria-haspopup="menu"
-                            aria-expanded={openMenuId === record.budgetItemId}
-                            aria-controls={
-                              openMenuId === record.budgetItemId
-                                ? `budget-card-menu-${record.key}`
-                                : undefined
-                            }
-                          >
-                            <span aria-hidden className={styles.cardMenuEllipsis}>
-                              ⋯
-                            </span>
-                          </button>
-                          {openMenuId === record.budgetItemId && (
-                            <div
-                              id={`budget-card-menu-${record.key}`}
-                              role="menu"
-                              className={styles.cardMenu}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className={styles.cardMenuItem}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenMenuId(null);
-                                  openDuplicateModal(record);
-                                }}
-                              >
-                                <span className={styles.cardMenuItemIcon}>
-                                  <FontAwesomeIcon icon={faClone} />
-                                </span>
-                                <span>Duplicate</span>
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className={`${styles.cardMenuItem} ${styles.cardMenuItemDanger}`}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenMenuId(null);
-                                  openDeleteModal([record.budgetItemId]);
-                                }}
-                              >
-                                <span className={styles.cardMenuItemIcon}>
-                                  <FontAwesomeIcon icon={faTrash} />
-                                </span>
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
                       </div>
 
-                      <div className={styles.cardMetaChipsRow}>
-                        {openWorkModal && (
-                          <button
-                            type="button"
-                            className={styles.workChipButton}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (isLocked || isSelectMode) return;
-                              openWorkModal(record);
-                            }}
-                            disabled={isLocked || isSelectMode}
-                            title="Tasks"
-                          >
-                            <span>Tasks •</span>
-                            <span className={styles.workChipCount}>{workCount}</span>
-                          </button>
-                        )}
+                      <div className={styles.cardFooterRow}>
+                        <div className={styles.cardFooterLeft}>
+                          {openWorkModal && (
+                            <button
+                              type="button"
+                              className={styles.workChipButton}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (isLocked || isSelectMode) return;
+                                openWorkModal(record);
+                              }}
+                              disabled={isLocked || isSelectMode}
+                              title="Tasks"
+                            >
+                              <span>Tasks •</span>
+                              <span className={styles.workChipCount}>{workCount}</span>
+                            </button>
+                          )}
 
-                        {coverage ? (
-                          <div className={styles.workCoverage} aria-label="Coverage">
+                          {coverage ? (
                             <div className={styles.coverageAddWrapper}>
-                              {(() => {
-                                const existingCount = BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
-                                  const state = coverage[t.id] ?? "missing";
-                                  return sum + (state === "missing" ? 0 : 1);
-                                }, 0);
-
-                                return (
-                                  <button
-                                    type="button"
-                                    className={styles.coverageAddButton}
-                                    aria-haspopup="menu"
-                                    aria-expanded={coverageMenuOpenForId === record.budgetItemId}
-                                    disabled={isLocked || isSelectMode || !onCreateMissingWorkStage}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (isLocked || isSelectMode || !onCreateMissingWorkStage) return;
-                                      setCoverageMenuOpenForId((prev) =>
-                                        prev === record.budgetItemId ? null : record.budgetItemId
-                                      );
-                                    }}
-                                    title="Coverage"
-                                  >
-                                    <span>Coverage</span>
-                                    <span aria-hidden>·</span>
-                                    <span>{existingCount}</span>
-                                  </button>
-                                );
-                              })()}
+                              <button
+                                type="button"
+                                className={styles.coverageAddButton}
+                                aria-haspopup="menu"
+                                aria-expanded={coverageMenuOpenForId === record.budgetItemId}
+                                disabled={isLocked || isSelectMode || !onCreateMissingWorkStage}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (isLocked || isSelectMode || !onCreateMissingWorkStage) return;
+                                  setCoverageMenuOpenForId((prev) =>
+                                    prev === record.budgetItemId ? null : record.budgetItemId
+                                  );
+                                }}
+                                title="Coverage"
+                              >
+                                <span>Coverage</span>
+                                <span aria-hidden>·</span>
+                                <span>{coverageCount}</span>
+                              </button>
 
                               {coverageMenuOpenForId === record.budgetItemId ? (
                                 <div
@@ -763,8 +689,10 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                   ref={coverageDropdownRef}
                                   role="menu"
                                   aria-label="Add coverage"
-                                  onMouseEnter={() => setIsCoveragePopoverHovered(true)}
-                                  onMouseLeave={() => setIsCoveragePopoverHovered(false)}
+                                  onPointerEnter={() => setIsCoveragePopoverHovered(true)}
+                                  onPointerLeave={() => setIsCoveragePopoverHovered(false)}
+                                  onPointerDown={(event) => event.stopPropagation()}
+                                  onClick={(event) => event.stopPropagation()}
                                 >
                                   {(() => {
                                     const budgetItemId = record.budgetItemId;
@@ -883,72 +811,143 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                 </div>
                               ) : null}
                             </div>
-                          </div>
-                        ) : null}
+                          ) : null}
 
-                        {attachmentCount > 0 && (
-                          <div className={styles.attachmentIconWrapper}>
-                            <button
-                              type="button"
-                              className={styles.attachmentIconButton}
-                              role="button"
-                              aria-haspopup="menu"
-                              aria-expanded={isAttachmentMenuOpen}
-                              onClick={(event) =>
-                                toggleAttachmentMenuForRecord(
-                                  event,
-                                  record.budgetItemId,
-                                  attachmentsForRecord,
-                                )
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
+                          {attachmentCount > 0 && (
+                            <div className={styles.attachmentIconWrapper}>
+                              <button
+                                type="button"
+                                className={styles.attachmentIconButton}
+                                role="button"
+                                aria-haspopup="menu"
+                                aria-expanded={isAttachmentMenuOpen}
+                                onClick={(event) =>
                                   toggleAttachmentMenuForRecord(
                                     event,
                                     record.budgetItemId,
                                     attachmentsForRecord,
-                                  );
+                                  )
                                 }
-                              }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    toggleAttachmentMenuForRecord(
+                                      event,
+                                      record.budgetItemId,
+                                      attachmentsForRecord,
+                                    );
+                                  }
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faPaperclip} />
+                                <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
+                              </button>
+                              {isAttachmentMenuOpen && (
+                                <div className={styles.attachmentDropdown} ref={attachmentDropdownRef}>
+                                  {menuAttachments.map((attachment, index) => (
+                                    <button
+                                      key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
+                                      type="button"
+                                      className={styles.attachmentDropdownItem}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        openAttachmentPreview(menuAttachments, index);
+                                        setAttachmentMenuState(null);
+                                      }}
+                                    >
+                                      <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
+                                        {attachment.mimeType?.startsWith("image") ? (
+                                          <img src={attachment.url} alt="" />
+                                        ) : (
+                                          <FontAwesomeIcon icon={faPaperclip} />
+                                        )}
+                                      </span>
+                                      <span className={styles.attachmentDropdownLabel}>
+                                        <span className={styles.attachmentDropdownFileName}>
+                                          {attachment.fileName}
+                                        </span>
+                                        <span className={styles.attachmentDropdownMeta}>
+                                          {attachment.mimeType || "File"}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div
+                          className={styles.cardFooterActions}
+                          ref={(node) => registerMenuContainer(record.budgetItemId, node)}
+                        >
+                          <button
+                            className={`${styles.cardMenuTrigger}${
+                              openMenuId === record.budgetItemId
+                                ? ` ${styles.cardMenuTriggerActive}`
+                                : ""
+                            }`}
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenMenuId((prev) =>
+                                prev === record.budgetItemId ? null : record.budgetItemId
+                              );
+                            }}
+                            aria-label="Line item options"
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuId === record.budgetItemId}
+                            aria-controls={
+                              openMenuId === record.budgetItemId
+                                ? `budget-card-menu-${record.key}`
+                                : undefined
+                            }
+                          >
+                            <span aria-hidden className={styles.cardMenuEllipsis}>
+                              ⋯
+                            </span>
+                          </button>
+                          {openMenuId === record.budgetItemId && (
+                            <div
+                              id={`budget-card-menu-${record.key}`}
+                              role="menu"
+                              className={styles.cardMenu}
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              <FontAwesomeIcon icon={faPaperclip} />
-                              <span className={styles.cardAttachmentCount}>{attachmentCount}</span>
-                            </button>
-                            {isAttachmentMenuOpen && (
-                              <div className={styles.attachmentDropdown} ref={attachmentDropdownRef}>
-                                {menuAttachments.map((attachment, index) => (
-                                  <button
-                                    key={`${record.budgetItemId}-attachment-${attachment.id ?? index}`}
-                                    type="button"
-                                    className={styles.attachmentDropdownItem}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      openAttachmentPreview(menuAttachments, index);
-                                      setAttachmentMenuState(null);
-                                    }}
-                                  >
-                                    <span className={styles.attachmentDropdownThumbnail} aria-hidden="true">
-                                      {attachment.mimeType?.startsWith("image") ? (
-                                        <img src={attachment.url} alt="" />
-                                      ) : (
-                                        <FontAwesomeIcon icon={faPaperclip} />
-                                      )}
-                                    </span>
-                                    <span className={styles.attachmentDropdownLabel}>
-                                      <span className={styles.attachmentDropdownFileName}>
-                                        {attachment.fileName}
-                                      </span>
-                                      <span className={styles.attachmentDropdownMeta}>
-                                        {attachment.mimeType || "File"}
-                                      </span>
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={styles.cardMenuItem}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuId(null);
+                                  openDuplicateModal(record);
+                                }}
+                              >
+                                <span className={styles.cardMenuItemIcon}>
+                                  <FontAwesomeIcon icon={faClone} />
+                                </span>
+                                <span>Duplicate</span>
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={`${styles.cardMenuItem} ${styles.cardMenuItemDanger}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuId(null);
+                                  openDeleteModal([record.budgetItemId]);
+                                }}
+                              >
+                                <span className={styles.cardMenuItemIcon}>
+                                  <FontAwesomeIcon icon={faTrash} />
+                                </span>
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </article>

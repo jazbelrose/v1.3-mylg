@@ -20,6 +20,7 @@ import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
+import HqSelect from "@/hq/components/HqSelect";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -152,43 +153,43 @@ const TransactionsPage: React.FC = () => {
             onChange={(event) => setSearchTerm(event.target.value)}
             aria-label="Search transactions"
           />
-          <select
+          <HqSelect
             className={styles.filterField}
             value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            aria-label="Filter by account"
-          >
-            <option value="all">All accounts</option>
-            {accounts.map((a) => (
-              <option key={a.accountId} value={a.accountId}>
-                {a.name ?? a.accountName}
-              </option>
-            ))}
-          </select>
-          <select
+            onValueChange={setAccountId}
+            ariaLabel="Filter by account"
+            options={[
+              { value: "all", label: "All accounts" },
+              ...accounts.map((a) => ({
+                value: a.accountId,
+                label: String(a.name ?? a.accountName ?? a.accountId),
+              })),
+            ]}
+          />
+
+          <HqSelect
             className={styles.filterField}
             value={direction}
-            onChange={(e) => setDirection(e.target.value as "all" | "in" | "out")}
-            aria-label="Filter by direction"
-          >
-            <option value="all">In + Out</option>
-            <option value="out">Outflow</option>
-            <option value="in">Inflow</option>
-          </select>
-          <select
+            onValueChange={(v) => setDirection(v as "all" | "in" | "out")}
+            ariaLabel="Filter by direction"
+            options={[
+              { value: "all", label: "In + Out" },
+              { value: "out", label: "Outflow" },
+              { value: "in", label: "Inflow" },
+            ]}
+          />
+
+          <HqSelect
             className={styles.filterField}
             value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value as "all" | HqCategoryId | "UNCATEGORIZED")}
-            aria-label="Filter by category"
-          >
-            <option value="all">All categories</option>
-            <option value="UNCATEGORIZED">Uncategorized</option>
-            {HQ_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={(v) => setCategoryId(v as "all" | HqCategoryId | "UNCATEGORIZED")}
+            ariaLabel="Filter by category"
+            options={[
+              { value: "all", label: "All categories" },
+              { value: "UNCATEGORIZED", label: "Uncategorized" },
+              ...HQ_CATEGORIES.map((c) => ({ value: c.id, label: c.label })),
+            ]}
+          />
           <input
             className={styles.filterField}
             type="date"
