@@ -75,6 +75,70 @@
   background: rgba(255, 255, 255, 0.09);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.moreButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.moreButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.menuOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10070;
+}
+
+.menu {
+  position: fixed;
+  width: 260px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 18, 20, 0.98);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+.menuItem {
+  width: 100%;
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItemDanger {
+  color: rgba(250, 51, 86, 0.92);
+}
+
+.menuItem:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .stickyControls {
   position: sticky;
   top: 0;
@@ -286,6 +350,23 @@
 .mobileDrawerFooter {
   padding: 14px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mobileFooterMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mobileFooterButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.mobileFooterButtons > button {
+  flex: 1 1 0;
 }
 
 .listPane {

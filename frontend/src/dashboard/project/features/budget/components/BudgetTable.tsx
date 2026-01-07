@@ -127,6 +127,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
   const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [coverageMenuOpenForId, setCoverageMenuOpenForId] = useState<string | null>(null);
   const coverageDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [isCoveragePopoverHovered, setIsCoveragePopoverHovered] = useState(false);
+  const [optimisticUnlinkedByLineId, setOptimisticUnlinkedByLineId] = useState<Record<string, Record<string, true>>>({});
   const [attachmentMenuState, setAttachmentMenuState] = useState<{
     id: string;
     items: AttachmentPreviewItem[];
@@ -168,6 +170,44 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [coverageMenuOpenForId]);
+
+  useEffect(() => {
+    if (coverageMenuOpenForId) return;
+    setIsCoveragePopoverHovered(false);
+  }, [coverageMenuOpenForId]);
+
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+    setOptimisticUnlinkedByLineId((prev) => {
+      let changed = false;
+      const next: Record<string, Record<string, true>> = { ...prev };
+
+      for (const [lineId, removedMap] of Object.entries(prev)) {
+        if (!removedMap) continue;
+        const kept: Record<string, true> = { ...removedMap };
+
+        for (const taskId of Object.keys(removedMap)) {
+          const task = tasks.find((t) => t.taskId === taskId);
+          const stillLinked = task ? taskHasBudgetLink(task, lineId) : false;
+          if (!stillLinked) {
+            delete kept[taskId];
+            changed = true;
+          }
+        }
+
+        if (Object.keys(kept).length === 0) {
+          if (next[lineId]) {
+            delete next[lineId];
+            changed = true;
+          }
+        } else {
+          next[lineId] = kept;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [tasks]);
 
   const openAttachmentPreview = useCallback((items: AttachmentPreviewItem[], index: number) => {
     if (!items.length) return;
@@ -529,6 +569,13 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                     onKeyDown={(event) =>
                       handleCardKeyDown(event, record, isLocked, isSelectMode, isSelected)
                     }
+                    onMouseEnter={() => {
+                      if (!coverageMenuOpenForId) return;
+                      if (isCoveragePopoverHovered) return;
+                      if (coverageMenuOpenForId !== record.budgetItemId) {
+                        setCoverageMenuOpenForId(null);
+                      }
+                    }}
                   >
                     <div className={styles.cardRow}>
                       <div className={styles.cardPrimary}>
@@ -612,10 +659,20 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                 })()}
 
                                     {coverageMenuOpenForId === record.budgetItemId ? (
-                                      <div className={styles.coverageDropdown} ref={coverageDropdownRef} role="menu" aria-label="Add coverage">
+                                      <div
+                                        className={styles.coverageDropdown}
+                                        ref={coverageDropdownRef}
+                                        role="menu"
+                                        aria-label="Add coverage"
+                                        onMouseEnter={() => setIsCoveragePopoverHovered(true)}
+                                        onMouseLeave={() => setIsCoveragePopoverHovered(false)}
+                                      >
                                     {(() => {
                                       const budgetItemId = record.budgetItemId;
-                                      const linked = (tasks ?? []).filter((t) => taskHasBudgetLink(t, budgetItemId));
+                                      const removedForLine = optimisticUnlinkedByLineId[budgetItemId] ?? {};
+                                      const linked = (tasks ?? [])
+                                        .filter((t) => taskHasBudgetLink(t, budgetItemId))
+                                        .filter((t) => (t.taskId ? !removedForLine[t.taskId] : true));
 
                                       const grouped: Record<BudgetTaskLinkType, Task[]> = {
                                         quote: [],
@@ -651,6 +708,8 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                                     stepTasks.map((t) => {
                                                       const title = (t.title || "Untitled task").trim() || "Untitled task";
                                                       const taskId = t.taskId ?? title;
+                                                      const hasRealTaskId = Boolean(t.taskId);
+                                                      const canUnlinkThis = canUnlink && hasRealTaskId;
 
                                                       return (
                                                         <span key={taskId} className={styles.coverageTaskChip} title={title}>
@@ -659,11 +718,34 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                                             type="button"
                                                             className={styles.coverageTaskChipRemove}
                                                             aria-label={`Unlink ${step.label} task`}
-                                                            disabled={!canUnlink}
+                                                            disabled={!canUnlinkThis}
                                                             onClick={(event) => {
                                                               event.stopPropagation();
-                                                              if (!canUnlink) return;
-                                                              void onUnlinkWorkTask?.(budgetItemId, t);
+                                                              if (!canUnlinkThis) return;
+
+                                                              setOptimisticUnlinkedByLineId((prev) => ({
+                                                                ...prev,
+                                                                [budgetItemId]: {
+                                                                  ...(prev[budgetItemId] ?? {}),
+                                                                  [t.taskId as string]: true,
+                                                                },
+                                                              }));
+
+                                                              Promise.resolve(onUnlinkWorkTask?.(budgetItemId, t)).catch(() => {
+                                                                setOptimisticUnlinkedByLineId((prev) => {
+                                                                  const existing = prev[budgetItemId];
+                                                                  if (!existing || !existing[t.taskId as string]) return prev;
+                                                                  const nextLine = { ...existing };
+                                                                  delete nextLine[t.taskId as string];
+                                                                  const next = { ...prev };
+                                                                  if (Object.keys(nextLine).length === 0) {
+                                                                    delete next[budgetItemId];
+                                                                  } else {
+                                                                    next[budgetItemId] = nextLine;
+                                                                  }
+                                                                  return next;
+                                                                });
+                                                              });
                                                             }}
                                                           >
                                                             ×

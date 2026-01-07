@@ -304,6 +304,11 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
   const [isMobile, setIsMobile] = React.useState(false);
 
+  const [isShredMenuOpen, setIsShredMenuOpen] = React.useState(false);
+  const [shredMenuRect, setShredMenuRect] = React.useState<DOMRect | null>(null);
+  const [isShredding, setIsShredding] = React.useState(false);
+  const moreButtonRef = React.useRef<HTMLButtonElement | null>(null);
+
   const [isApplying, setIsApplying] = React.useState(false);
   const [lastApply, setLastApply] = React.useState<
     | null
@@ -337,12 +342,119 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   }, [isOpen, onRequestClose]);
 
   React.useEffect(() => {
+    if (!isShredMenuOpen) return;
+    const close = () => setIsShredMenuOpen(false);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [isShredMenuOpen]);
+
+  React.useEffect(() => {
     if (!isOpen) return;
     setPendingRules({});
     setSelectedVendorKey(null);
     setLastApply(null);
     setExpanded(new Set());
+    setIsShredMenuOpen(false);
+    setShredMenuRect(null);
   }, [isOpen, importRunId]);
+
+  const openShredMenu = React.useCallback(() => {
+    const rect = moreButtonRef.current?.getBoundingClientRect() ?? null;
+    setShredMenuRect(rect);
+    setIsShredMenuOpen(true);
+  }, []);
+
+  const handleShredAction = React.useCallback(
+    async (
+      action: "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-rules-keep-data" | "delete-everything"
+    ) => {
+      if (isShredding) return;
+
+      if (action === "delete-import-run") {
+        if (!importRunId) return;
+        const ok = window.confirm(
+          "Remove this CSV dataset? This deletes the import run and its imported transactions. This cannot be undone."
+        );
+        if (!ok) return;
+      }
+
+      if (action === "delete-txns-keep-accounts-rules") {
+        const typed = window.prompt(
+          "Remove bank-synced transactions? This will delete all HQ transactions + import runs but keep accounts and rules.\n\nType DELETE to confirm."
+        );
+        if (typed !== "DELETE") return;
+      }
+
+      if (action === "delete-rules-keep-data") {
+        const ok = window.confirm("Remove all rules? This will keep your transactions/accounts but delete categorization rules.");
+        if (!ok) return;
+      }
+
+      if (action === "delete-everything") {
+        const typed = window.prompt(
+          "Remove everything? This will delete all HQ data (accounts, transactions, import runs, and rules).\n\nType DELETE to confirm."
+        );
+        if (typed !== "DELETE") return;
+      }
+
+      setIsShredding(true);
+      setIsShredMenuOpen(false);
+      setShredMenuRect(null);
+
+      try {
+        if (action === "delete-import-run") {
+          await deleteHqImportRun(orgId, importRunId as string);
+          toast.success("Removed CSV dataset.");
+          window.dispatchEvent(new Event("mylg:hq-refresh"));
+          onRequestClose();
+          return;
+        }
+
+        if (action === "delete-txns-keep-accounts-rules") {
+          await resetHqData(orgId, "keepAccountsAndRules");
+          toast.success("Removed transactions/imports. Kept accounts + rules.");
+        }
+
+        if (action === "delete-rules-keep-data") {
+          await resetHqData(orgId, "keepData");
+          toast.success("Removed rules.");
+        }
+
+        if (action === "delete-everything") {
+          await resetHqData(orgId, "all");
+          toast.success("Removed everything.");
+        }
+
+        setPendingRules({});
+        setSelectedVendorKey(null);
+        setLastApply(null);
+        setExpanded(new Set());
+
+        const summary = await fetchHqSummary(orgId);
+        const tx = await fetchHqTransactions({ orgId, limit: 2000 });
+        const prev = readHqState(orgId);
+        hydrateHqState(orgId, {
+          ...prev,
+          accounts: summary.accounts,
+          importRuns: summary.importRuns,
+          transactions: tx.transactions,
+          categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
+        });
+
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      } catch (err) {
+        console.error(err);
+        toast.error(err instanceof Error ? err.message : "Could not remove data.");
+      } finally {
+        setIsShredding(false);
+      }
+    },
+    [importRunId, isShredding, orgId, onRequestClose]
+  );
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -960,9 +1072,22 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
               Cast rules — don’t edit rows. {importRunId ? "(Import run scoped)" : ""}
             </div>
           </div>
-          <button type="button" className={styles.closeButton} onClick={onRequestClose} aria-label="Close">
-            ×
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              ref={moreButtonRef}
+              type="button"
+              className={styles.moreButton}
+              onClick={() => (isShredMenuOpen ? setIsShredMenuOpen(false) : openShredMenu())}
+              aria-label="More"
+              aria-haspopup="menu"
+              aria-expanded={isShredMenuOpen}
+            >
+              ⋯
+            </button>
+            <button type="button" className={styles.closeButton} onClick={onRequestClose} aria-label="Close">
+              ×
+            </button>
+          </div>
         </div>
 
         <div className={styles.stickyControls}>
@@ -1593,13 +1718,93 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             </div>
 
             <div className={styles.mobileDrawerFooter}>
-              <button type="button" className={styles.primaryButton} onClick={handleSaveBuilder} disabled={isApplying}>
-                Queue rule
-              </button>
+              <div className={styles.mobileFooterMeta}>
+                <div className={styles.pendingMeta}>
+                  Pending rules: <span className={styles.pendingCount}>{queuedCount}</span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  disabled={queuedCount === 0 || isApplying}
+                  onClick={() => setPendingRules({})}
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div className={styles.mobileFooterButtons}>
+                <button type="button" className={styles.secondaryButton} onClick={handleSaveBuilder} disabled={isApplying}>
+                  Queue rule
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  disabled={queuedCount === 0 || isApplying}
+                  onClick={() => void handleApply()}
+                >
+                  Apply rules
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
       </div>
+
+      {isShredMenuOpen && shredMenuRect ? (
+        <div className={styles.menuOverlay} onClick={() => setIsShredMenuOpen(false)}>
+          <div
+            className={styles.menu}
+            role="menu"
+            style={{
+              top: Math.min(window.innerHeight - 8, shredMenuRect.bottom + 8),
+              left: Math.min(window.innerWidth - 268, Math.max(8, shredMenuRect.right - 260)),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {importRunId ? (
+              <button
+                type="button"
+                className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+                role="menuitem"
+                onClick={() => void handleShredAction("delete-import-run")}
+                disabled={isShredding}
+              >
+                Remove CSV dataset
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+              role="menuitem"
+              onClick={() => void handleShredAction("delete-txns-keep-accounts-rules")}
+              disabled={isShredding}
+            >
+              Remove bank-synced transactions
+            </button>
+
+            <button
+              type="button"
+              className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+              role="menuitem"
+              onClick={() => void handleShredAction("delete-rules-keep-data")}
+              disabled={isShredding}
+            >
+              Remove rules
+            </button>
+
+            <button
+              type="button"
+              className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+              role="menuitem"
+              onClick={() => void handleShredAction("delete-everything")}
+              disabled={isShredding}
+            >
+              Remove everything
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>,
     root
   );
