@@ -21,6 +21,7 @@ import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
+import { Kebab } from "@/shared/icons/Kebab";
 import {
   buildTeamMemberLookup,
   buildTaskAvatars,
@@ -45,7 +46,11 @@ import {
   type BudgetTaskLinkType,
 } from "@/shared/utils/budgetTaskLinks";
 
-import type { ContextMenuEntry } from "./CalendarEntryContextMenu";
+import {
+  CalendarEntryContextMenu,
+  type ChildMenuState,
+  type ContextMenuEntry,
+} from "./CalendarEntryContextMenu";
 
 export interface CalendarEntryPopoverProps {
   anchorElement: HTMLElement;
@@ -54,6 +59,9 @@ export interface CalendarEntryPopoverProps {
   selectedCount: number;
   teamMembers?: ProjectTeamMember[];
   focusChildren?: CalendarTask[];
+  parentId?: string;
+  childMenu?: ChildMenuState;
+  setChildMenu?: React.Dispatch<React.SetStateAction<ChildMenuState>>;
   onClose: () => void;
   onEdit: () => void;
   onRenameTaskTitle?: (task: CalendarTask, title: string) => void | Promise<void>;
@@ -72,6 +80,9 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   selectedCount,
   teamMembers,
   focusChildren,
+  parentId,
+  childMenu,
+  setChildMenu,
   onClose,
   onEdit,
   onRenameTaskTitle,
@@ -124,17 +135,30 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     popover.style.top = `${top}px`;
   }, [anchorElement]);
 
+  const closeChildMenuIfOwned = useCallback(() => {
+    if (!setChildMenu) return;
+    if (!childMenu) return;
+    if (!parentId) return;
+    if (childMenu.parentId !== parentId) return;
+    setChildMenu(null);
+  }, [childMenu, parentId, setChildMenu]);
+
   // Close on Escape
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (childMenu && parentId && childMenu.parentId === parentId && setChildMenu) {
+          event.preventDefault();
+          setChildMenu(null);
+          return;
+        }
         onClose();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [childMenu, onClose, parentId, setChildMenu]);
 
   // Close on click outside
   useEffect(() => {
@@ -570,6 +594,15 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       className="calendar-entry-popover"
       role="dialog"
       aria-label="Entry details"
+      onMouseDownCapture={(e) => {
+        if (!childMenu || !parentId) return;
+        if (childMenu.parentId !== parentId) return;
+        const target = e.target as HTMLElement;
+        if (target?.closest(".calendar-entry-context-menu")) return;
+        closeChildMenuIfOwned();
+      }}
+      onWheelCapture={() => closeChildMenuIfOwned()}
+      onScrollCapture={() => closeChildMenuIfOwned()}
       onMouseDown={(e) => {
         // This popover is rendered via a React portal; without stopping propagation,
         // parent calendar click handlers can interpret clicks inside the popover as
@@ -649,6 +682,33 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
               {focusMeter.done}/{focusMeter.total}
             </span>
           )}
+
+          {parentId && setChildMenu ? (
+            <button
+              type="button"
+              className="calendar-entry-popover__menu-btn"
+              aria-label="Actions"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const ownerId = `${entryType}:${entry.id}`;
+                setChildMenu((prev) => {
+                  const isSame = prev && prev.parentId === parentId && prev.ownerId === ownerId;
+                  if (isSame) return null;
+                  return {
+                    kind: "entry_actions",
+                    parentId,
+                    ownerId,
+                    anchorEl: e.currentTarget,
+                    entryType,
+                    entry,
+                  };
+                });
+              }}
+            >
+              <Kebab className="calendar-entry-popover__menu-icon" />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -881,6 +941,33 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                       </div>
                     )}
                   </button>
+
+                  {parentId && setChildMenu ? (
+                    <button
+                      type="button"
+                      className="calendar-entry-popover__child-actions"
+                      aria-label="Actions"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const ownerId = `task:${child.id}`;
+                        setChildMenu((prev) => {
+                          const isSame = prev && prev.parentId === parentId && prev.ownerId === ownerId;
+                          if (isSame) return null;
+                          return {
+                            kind: "focus_child_actions",
+                            parentId,
+                            ownerId,
+                            anchorEl: e.currentTarget,
+                            entryType: "task",
+                            entry: child,
+                          };
+                        });
+                      }}
+                    >
+                      <Kebab className="calendar-entry-popover__child-actions-icon" />
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
@@ -935,6 +1022,64 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           </button>
         )}
       </div>
+
+      {childMenu && parentId && childMenu.parentId === parentId ? (
+        (() => {
+          const rect = childMenu.anchorEl.getBoundingClientRect();
+          const position = { x: rect.left, y: rect.bottom + 6 };
+          const isFocusChild = childMenu.kind === "focus_child_actions";
+          const focusChildTask = isFocusChild && childMenu.entryType === "task"
+            ? (childMenu.entry as CalendarTask)
+            : null;
+          return (
+            <CalendarEntryContextMenu
+              portal={false}
+              dismissOnOutsideClick={false}
+              dismissOnEscape={false}
+              position={position}
+              entryType={childMenu.entryType}
+              entry={childMenu.entry}
+              onClose={() => setChildMenu?.(null)}
+              onEdit={
+                isFocusChild
+                  ? focusChildTask
+                    ? () => {
+                        onEditFocusChild?.(focusChildTask);
+                        setChildMenu?.(null);
+                        onClose();
+                      }
+                    : undefined
+                  : () => {
+                      onEdit();
+                      setChildMenu?.(null);
+                    }
+              }
+              onDuplicate={
+                isFocusChild
+                  ? onDuplicate
+                    ? (entries) => {
+                        onDuplicate(entries);
+                        setChildMenu?.(null);
+                        onClose();
+                      }
+                    : undefined
+                  : onDuplicate
+              }
+              onDelete={
+                isFocusChild
+                  ? onDelete
+                    ? (entries) => {
+                        onDelete(entries);
+                        setChildMenu?.(null);
+                        onClose();
+                      }
+                    : undefined
+                  : onDelete
+              }
+            />
+          );
+        })()
+      ) : null}
     </div>
   );
 

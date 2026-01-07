@@ -2,6 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Virtuoso } from "react-virtuoso";
 import { toast } from "react-toastify";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import useModalStack from "@/shared/utils/useModalStack";
 import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
@@ -305,9 +306,10 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   const [isMobile, setIsMobile] = React.useState(false);
 
   const [isShredMenuOpen, setIsShredMenuOpen] = React.useState(false);
-  const [shredMenuRect, setShredMenuRect] = React.useState<DOMRect | null>(null);
+  const [confirmShredAction, setConfirmShredAction] = React.useState<
+    null | "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-everything"
+  >(null);
   const [isShredding, setIsShredding] = React.useState(false);
-  const moreButtonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const [isApplying, setIsApplying] = React.useState(false);
   const [lastApply, setLastApply] = React.useState<
@@ -342,68 +344,22 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   }, [isOpen, onRequestClose]);
 
   React.useEffect(() => {
-    if (!isShredMenuOpen) return;
-    const close = () => setIsShredMenuOpen(false);
-    window.addEventListener("resize", close);
-    window.addEventListener("scroll", close, true);
-    return () => {
-      window.removeEventListener("resize", close);
-      window.removeEventListener("scroll", close, true);
-    };
-  }, [isShredMenuOpen]);
-
-  React.useEffect(() => {
     if (!isOpen) return;
     setPendingRules({});
     setSelectedVendorKey(null);
     setLastApply(null);
     setExpanded(new Set());
     setIsShredMenuOpen(false);
-    setShredMenuRect(null);
+    setConfirmShredAction(null);
   }, [isOpen, importRunId]);
 
-  const openShredMenu = React.useCallback(() => {
-    const rect = moreButtonRef.current?.getBoundingClientRect() ?? null;
-    setShredMenuRect(rect);
-    setIsShredMenuOpen(true);
-  }, []);
-
   const handleShredAction = React.useCallback(
-    async (
-      action: "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-rules-keep-data" | "delete-everything"
-    ) => {
+    async (action: "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-everything") => {
       if (isShredding) return;
-
-      if (action === "delete-import-run") {
-        if (!importRunId) return;
-        const ok = window.confirm(
-          "Remove this CSV dataset? This deletes the import run and its imported transactions. This cannot be undone."
-        );
-        if (!ok) return;
-      }
-
-      if (action === "delete-txns-keep-accounts-rules") {
-        const typed = window.prompt(
-          "Remove bank-synced transactions? This will delete all HQ transactions + import runs but keep accounts and rules.\n\nType DELETE to confirm."
-        );
-        if (typed !== "DELETE") return;
-      }
-
-      if (action === "delete-rules-keep-data") {
-        const ok = window.confirm("Remove all rules? This will keep your transactions/accounts but delete categorization rules.");
-        if (!ok) return;
-      }
-
-      if (action === "delete-everything") {
-        const typed = window.prompt(
-          "Remove everything? This will delete all HQ data (accounts, transactions, import runs, and rules).\n\nType DELETE to confirm."
-        );
-        if (typed !== "DELETE") return;
-      }
 
       setIsShredding(true);
       setIsShredMenuOpen(false);
-      setShredMenuRect(null);
+      setConfirmShredAction(null);
 
       try {
         if (action === "delete-import-run") {
@@ -417,11 +373,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         if (action === "delete-txns-keep-accounts-rules") {
           await resetHqData(orgId, "keepAccountsAndRules");
           toast.success("Removed transactions/imports. Kept accounts + rules.");
-        }
-
-        if (action === "delete-rules-keep-data") {
-          await resetHqData(orgId, "keepData");
-          toast.success("Removed rules.");
         }
 
         if (action === "delete-everything") {
@@ -454,6 +405,18 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       }
     },
     [importRunId, isShredding, orgId, onRequestClose]
+  );
+
+  const requestConfirmOrRun = React.useCallback(
+    (action: "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-everything") => {
+      if (isShredding) return;
+      if (confirmShredAction !== action) {
+        setConfirmShredAction(action);
+        return;
+      }
+      void handleShredAction(action);
+    },
+    [confirmShredAction, handleShredAction, isShredding]
   );
 
   React.useEffect(() => {
@@ -1073,17 +1036,92 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             </div>
           </div>
           <div className={styles.headerActions}>
-            <button
-              ref={moreButtonRef}
-              type="button"
-              className={styles.moreButton}
-              onClick={() => (isShredMenuOpen ? setIsShredMenuOpen(false) : openShredMenu())}
-              aria-label="More"
-              aria-haspopup="menu"
-              aria-expanded={isShredMenuOpen}
+            <DropdownMenu.Root
+              open={isShredMenuOpen}
+              onOpenChange={(open) => {
+                setIsShredMenuOpen(open);
+                if (!open) setConfirmShredAction(null);
+              }}
             >
-              ⋯
-            </button>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  className={styles.moreButton}
+                  aria-label="Data layers"
+                  aria-haspopup="menu"
+                  aria-expanded={isShredMenuOpen}
+                >
+                  ⋯
+                </button>
+              </DropdownMenu.Trigger>
+
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className={styles.menu}
+                  sideOffset={8}
+                  align="end"
+                  collisionPadding={12}
+                >
+                  <DropdownMenu.Label className={styles.menuLabel}>Data layers</DropdownMenu.Label>
+                  <div className={styles.menuHint}>
+                    Bank connection (account stays) · Imported CSV datasets · Categorization rules
+                  </div>
+                  <DropdownMenu.Separator className={styles.menuSeparator} />
+
+                  {importRunId ? (
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+                        onClick={() => requestConfirmOrRun("delete-import-run")}
+                        disabled={isShredding}
+                      >
+                        <span className={styles.menuItemTitle}>
+                          {confirmShredAction === "delete-import-run" ? "Confirm: Remove CSV dataset" : "Remove CSV dataset"}
+                        </span>
+                        <span className={styles.menuItemDesc}>Deletes this imported dataset. Keeps account + bank sync + rules.</span>
+                      </button>
+                    </DropdownMenu.Item>
+                  ) : null}
+
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+                      onClick={() => requestConfirmOrRun("delete-txns-keep-accounts-rules")}
+                      disabled={isShredding}
+                    >
+                      <span className={styles.menuItemTitle}>
+                        {confirmShredAction === "delete-txns-keep-accounts-rules"
+                          ? "Confirm: Remove bank-synced transactions"
+                          : "Remove bank-synced transactions"}
+                      </span>
+                      <span className={styles.menuItemDesc}>Clears transactions/imports. Keeps the account shell + rules.</span>
+                    </button>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Separator className={styles.menuSeparator} />
+
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+                      onClick={() => requestConfirmOrRun("delete-everything")}
+                      disabled={isShredding}
+                    >
+                      <span className={styles.menuItemTitle}>
+                        {confirmShredAction === "delete-everything" ? "Confirm: Remove everything" : "Remove everything"}
+                      </span>
+                      <span className={styles.menuItemDesc}>Deletes account + all data + rules (rare).</span>
+                    </button>
+                  </DropdownMenu.Item>
+
+                  {confirmShredAction ? (
+                    <div className={styles.menuHintStrong}>Click the same action again to confirm.</div>
+                  ) : null}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
             <button type="button" className={styles.closeButton} onClick={onRequestClose} aria-label="Close">
               ×
             </button>
@@ -1750,61 +1788,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         ) : null}
       </div>
 
-      {isShredMenuOpen && shredMenuRect ? (
-        <div className={styles.menuOverlay} onClick={() => setIsShredMenuOpen(false)}>
-          <div
-            className={styles.menu}
-            role="menu"
-            style={{
-              top: Math.min(window.innerHeight - 8, shredMenuRect.bottom + 8),
-              left: Math.min(window.innerWidth - 268, Math.max(8, shredMenuRect.right - 260)),
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {importRunId ? (
-              <button
-                type="button"
-                className={[styles.menuItem, styles.menuItemDanger].join(" ")}
-                role="menuitem"
-                onClick={() => void handleShredAction("delete-import-run")}
-                disabled={isShredding}
-              >
-                Remove CSV dataset
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              className={[styles.menuItem, styles.menuItemDanger].join(" ")}
-              role="menuitem"
-              onClick={() => void handleShredAction("delete-txns-keep-accounts-rules")}
-              disabled={isShredding}
-            >
-              Remove bank-synced transactions
-            </button>
-
-            <button
-              type="button"
-              className={[styles.menuItem, styles.menuItemDanger].join(" ")}
-              role="menuitem"
-              onClick={() => void handleShredAction("delete-rules-keep-data")}
-              disabled={isShredding}
-            >
-              Remove rules
-            </button>
-
-            <button
-              type="button"
-              className={[styles.menuItem, styles.menuItemDanger].join(" ")}
-              role="menuitem"
-              onClick={() => void handleShredAction("delete-everything")}
-              disabled={isShredding}
-            >
-              Remove everything
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>,
     root
   );

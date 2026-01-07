@@ -6,6 +6,7 @@ import {
   CalendarEntryContextMenu,
   type ContextMenuPosition,
   type ContextMenuEntry,
+  type ChildMenuState,
 } from "./CalendarEntryContextMenu";
 import { CalendarEntryPopover } from "./CalendarEntryPopover";
 import {
@@ -157,6 +158,15 @@ const ENTRY_MIN_HEIGHT_PX = 24;
 const ENTRY_RADIUS_PX = 12;
 
 const clampMinutes = (value: number) => Math.max(0, Math.min(MAX_MINUTES, value));
+
+const buildEntryParentId = (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => {
+  return `entry:${entryType}:${String(entry.id)}`;
+};
+
+const buildStackParentId = (kind: StackPopoverKind, childEntryKeys: string[], titleKey?: string) => {
+  const base = titleKey?.trim() || childEntryKeys.slice().sort().join("|") || "stack";
+  return `stack:${kind}:${base}`;
+};
 
 const snapToInterval = (value: number) =>
   Math.round(value / SNAP_INTERVAL_MINUTES) * SNAP_INTERVAL_MINUTES;
@@ -346,6 +356,9 @@ function WeekGrid({
     allowConvertToFocusBlock: boolean;
   } | null>(null);
 
+  // Child action menu (opened from inside a parent popover)
+  const [childMenu, setChildMenu] = useState<ChildMenuState>(null);
+
   // Popover state for single-click inspector
   const [popover, setPopover] = useState<{
     anchorElement: HTMLElement;
@@ -357,6 +370,7 @@ function WeekGrid({
   const [stackPopover, setStackPopover] = useState<{
     anchorElement: HTMLElement;
     kind: StackPopoverKind;
+    parentId: string;
     baseTitle: string;
     titleKey?: string;
     count: number;
@@ -408,6 +422,14 @@ function WeekGrid({
     // Use setTimeout to ensure DOM is fully rendered
     const timer = setTimeout(scrollToNoon, 0);
     return () => clearTimeout(timer);
+  }, [anchorDate]);
+
+  // Avoid orphan overlays when navigating weeks.
+  useEffect(() => {
+    setChildMenu(null);
+    setPopover(null);
+    setStackPopover(null);
+    setContextMenu(null);
   }, [anchorDate]);
 
   const eventsByDay = useMemo(() => {
@@ -1407,6 +1429,7 @@ function WeekGrid({
       event.stopPropagation();
       setPopover(null); // Close popover when context menu opens
       setStackPopover(null);
+      setChildMenu(null);
 
       const eligibleSelectedTasksCount = (() => {
         if (selectedEntryKeys.size < 2) return 0;
@@ -1439,16 +1462,19 @@ function WeekGrid({
   }, []);
 
   const handleClosePopover = useCallback(() => {
+    setChildMenu(null);
     setPopover(null);
   }, []);
 
   const handleCloseStackPopover = useCallback(() => {
+    setChildMenu(null);
     setStackPopover(null);
   }, []);
 
   const handleOpenDetailsFromStackPopover = useCallback(
     (child: StackPopoverChild, anchor: HTMLElement) => {
       setContextMenu(null);
+      setChildMenu(null);
 
       onEntrySelect?.(
         child.entryType === "event" ? "event" : "task",
@@ -1608,9 +1634,11 @@ function WeekGrid({
         const count = payload.childEntryKeys.length;
         setPopover(null);
         setContextMenu(null);
+        setChildMenu(null);
         setStackPopover({
           anchorElement: event.currentTarget,
           kind: entry.type,
+          parentId: buildStackParentId(entry.type, payload.childEntryKeys, overlapTitleKey),
           baseTitle,
           titleKey: overlapTitleKey,
           count,
@@ -1632,6 +1660,7 @@ function WeekGrid({
         // Double click → open edit modal
         setPopover(null);
         setStackPopover(null);
+        setChildMenu(null);
         if (entry.type === "event") {
           onEditEvent(entry.payload as CalendarEvent);
         } else {
@@ -1640,6 +1669,7 @@ function WeekGrid({
       } else {
         // Single click → show popover
         setStackPopover(null);
+        setChildMenu(null);
         const focusChildren = (() => {
           if (entry.type !== "task") return undefined;
           const task = entry.payload as CalendarTask;
@@ -1705,6 +1735,7 @@ function WeekGrid({
         // Escape → close popover and clear selection
         setPopover(null);
         setStackPopover(null);
+        setChildMenu(null);
         onClearSelection?.();
       } else if (keyboardEvent.key === "Delete" || keyboardEvent.key === "Backspace") {
         // Delete key → delete when popover is open
@@ -1743,6 +1774,7 @@ function WeekGrid({
       }
       setPopover(null);
       setStackPopover(null);
+      setChildMenu(null);
       onClearSelection?.();
     },
     [onClearSelection],

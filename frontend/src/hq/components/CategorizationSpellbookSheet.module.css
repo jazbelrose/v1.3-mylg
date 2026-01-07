@@ -100,20 +100,40 @@
   background: rgba(255, 255, 255, 0.09);
 }
 
-.menuOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10070;
-}
-
 .menu {
-  position: fixed;
+  z-index: 20060;
   width: 260px;
   padding: 6px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(18, 18, 20, 0.98);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  outline: none;
+}
+
+.menuLabel {
+  padding: 8px 10px 4px;
+  font-size: 12px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.menuHint {
+  padding: 0 10px 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.menuHintStrong {
+  padding: 10px 10px 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.menuSeparator {
+  height: 1px;
+  margin: 6px 6px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .menuItem {
@@ -126,6 +146,9 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .menuItem:hover {
@@ -134,6 +157,15 @@
 
 .menuItemDanger {
   color: rgba(250, 51, 86, 0.92);
+}
+
+.menuItemTitle {
+  font-weight: 650;
+}
+
+.menuItemDesc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .menuItem:disabled {

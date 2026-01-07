@@ -29,6 +29,15 @@ export interface CalendarEntryContextMenuProps {
   entry: CalendarTask | CalendarEvent;
   /** All selected entries for bulk actions */
   selectedEntries?: ContextMenuEntry[];
+  /**
+   * Render inline instead of portaling to document.body.
+   * Useful for child menus that should be treated as "inside" a parent popover.
+   */
+  portal?: boolean;
+  /** If false, parent overlay will handle outside-click dismissal. */
+  dismissOnOutsideClick?: boolean;
+  /** If false, parent overlay will handle Escape dismissal. */
+  dismissOnEscape?: boolean;
   onClose: () => void;
   onEdit?: (entry: CalendarTask | CalendarEvent) => void;
   onSubmitForReview?: (entries: CalendarTask[]) => void;
@@ -39,11 +48,25 @@ export interface CalendarEntryContextMenuProps {
   onDelete?: (entries: ContextMenuEntry[]) => void;
 }
 
+export type ChildMenuState =
+  | null
+  | {
+      kind: "entry_actions" | "stack_row_actions" | "focus_child_actions";
+      anchorEl: HTMLElement;
+      ownerId: string;
+      parentId: string;
+      entryType: CalendarEntryType;
+      entry: CalendarTask | CalendarEvent;
+    };
+
 export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> = ({
   position,
   entryType,
   entry,
   selectedEntries = [],
+  portal = true,
+  dismissOnOutsideClick = true,
+  dismissOnEscape = true,
   onClose,
   onEdit,
   onSubmitForReview,
@@ -106,13 +129,17 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
 
   // Close on click outside
   useEffect(() => {
+    if (!dismissOnOutsideClick && !dismissOnEscape) return;
+
     const handleClickOutside = (event: MouseEvent) => {
+      if (!dismissOnOutsideClick) return;
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         onClose();
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!dismissOnEscape) return;
       if (event.key === "Escape") {
         onClose();
       }
@@ -322,7 +349,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     </div>
   );
 
-  return createPortal(menuContent, document.body);
+  return portal ? createPortal(menuContent, document.body) : menuContent;
 };
 
 export default CalendarEntryContextMenu;

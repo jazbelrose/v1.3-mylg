@@ -8,10 +8,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { Pencil } from "lucide-react";
 import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils";
+import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 import { fetchUserProfilesBatch } from "@/shared/utils/api";
+import { Kebab } from "@/shared/icons/Kebab";
+import {
+  CalendarEntryContextMenu,
+  type ChildMenuState,
+  type ContextMenuEntry,
+} from "./CalendarEntryContextMenu";
 import {
   buildEventAvatars,
   buildTeamMemberLookup,
@@ -36,6 +43,7 @@ export type StackPopoverChild = {
 export interface CalendarStackPopoverProps {
   anchorElement: HTMLElement;
   kind: StackPopoverKind;
+  parentId: string;
   title: string;
   count?: number;
   avatars?: TimelineAvatar[];
@@ -43,17 +51,23 @@ export interface CalendarStackPopoverProps {
   projectColor: string;
   children: StackPopoverChild[];
   teamMembers?: ProjectTeamMember[];
+  childMenu?: ChildMenuState;
+  setChildMenu?: React.Dispatch<React.SetStateAction<ChildMenuState>>;
   onClose: () => void;
   onEditTitle?: () => void;
   onRenameTitle?: (title: string) => void | Promise<void>;
   onOpenDetails: (child: StackPopoverChild, anchorElement: HTMLElement) => void;
   onPrimaryAction?: (child: StackPopoverChild) => void;
   onOpenContextMenu: (child: StackPopoverChild, event: React.MouseEvent<HTMLElement>) => void;
+  onEditEntry?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
+  onDuplicateEntry?: (entries: ContextMenuEntry[]) => void;
+  onDeleteEntry?: (entries: ContextMenuEntry[]) => void;
 }
 
 export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   anchorElement,
   kind,
+  parentId,
   title,
   count,
   avatars,
@@ -61,12 +75,17 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   projectColor,
   children,
   teamMembers,
+  childMenu,
+  setChildMenu,
   onClose,
   onEditTitle,
   onRenameTitle,
   onOpenDetails,
   onPrimaryAction,
   onOpenContextMenu,
+  onEditEntry,
+  onDuplicateEntry,
+  onDeleteEntry,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -285,6 +304,11 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (childMenu && childMenu.parentId === parentId && setChildMenu) {
+          event.preventDefault();
+          setChildMenu(null);
+          return;
+        }
         onClose();
       }
     };
@@ -292,6 +316,13 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  const closeChildMenuIfOwned = useCallback(() => {
+    if (!setChildMenu) return;
+    if (!childMenu) return;
+    if (childMenu.parentId !== parentId) return;
+    setChildMenu(null);
+  }, [childMenu, parentId, setChildMenu]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -534,7 +565,20 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   }, [headerAvatarSource, kind, userStacks]);
 
   const popoverContent = (
-    <div ref={popoverRef} className="calendar-entry-popover" role="dialog" aria-label="Stack details">
+    <div
+      ref={popoverRef}
+      className="calendar-entry-popover"
+      role="dialog"
+      aria-label="Stack details"
+      onMouseDownCapture={(e) => {
+        if (!childMenu || childMenu.parentId !== parentId) return;
+        const target = e.target as HTMLElement;
+        if (target?.closest(".calendar-entry-context-menu")) return;
+        closeChildMenuIfOwned();
+      }}
+      onWheelCapture={() => closeChildMenuIfOwned()}
+      onScrollCapture={() => closeChildMenuIfOwned()}
+    >
       <div className="calendar-entry-popover__header calendar-stack-popover__header">
         {(canInlineRename || onEditTitle) ? (
           canInlineRename && isEditingTitle ? (
@@ -616,32 +660,60 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                 {group.rows
                   .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title))
                   .map((row) => (
-                    <button
-                      key={row.child.entryKey}
-                      type="button"
-                      className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onPrimaryAction) {
-                          onPrimaryAction(row.child);
-                          return;
-                        }
-                        onOpenDetails(row.child, e.currentTarget);
-                      }}
-                      onContextMenu={(e) => {
-                        e.stopPropagation();
-                        onOpenContextMenu(row.child, e);
-                      }}
-                      title={row.title}
-                    >
-                      <span
-                        className="calendar-stack-popover__item-pill"
-                        style={{ background: projectColor }}
-                        aria-hidden
-                      />
-                      <div className="calendar-stack-popover__item-title">{row.title}</div>
-                      {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
-                    </button>
+                    <div key={row.child.entryKey} className="calendar-stack-popover__row">
+                      <button
+                        type="button"
+                        className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onPrimaryAction) {
+                            onPrimaryAction(row.child);
+                            return;
+                          }
+                          onOpenDetails(row.child, e.currentTarget);
+                        }}
+                        onContextMenu={(e) => {
+                          e.stopPropagation();
+                          onOpenContextMenu(row.child, e);
+                        }}
+                        title={row.title}
+                      >
+                        <span
+                          className="calendar-stack-popover__item-pill"
+                          style={{ background: projectColor }}
+                          aria-hidden
+                        />
+                        <div className="calendar-stack-popover__item-title">{row.title}</div>
+                        {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="calendar-stack-popover__row-actions"
+                        aria-label="Actions"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!setChildMenu) return;
+                          const ownerId = `${row.child.entryType}:${row.child.entry.id}`;
+                          setChildMenu((prev) => {
+                            const isSame =
+                              prev && prev.parentId === parentId && prev.ownerId === ownerId;
+                            if (isSame) return null;
+                            return {
+                              kind: "stack_row_actions",
+                              parentId,
+                              ownerId,
+                              anchorEl: e.currentTarget,
+                              entryType: row.child.entryType,
+                              entry: row.child.entry,
+                            };
+                          });
+                        }}
+                      >
+                        <Kebab className="calendar-stack-popover__row-actions-icon" />
+                      </button>
+                    </div>
                   ))}
               </div>
             </div>
@@ -684,10 +756,60 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                   </span>
                 ) : null}
               </button>
+
+              <button
+                type="button"
+                className="calendar-stack-popover__row-actions"
+                aria-label="Actions"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!setChildMenu) return;
+                  const ownerId = `${row.child.entryType}:${row.child.entry.id}`;
+                  setChildMenu((prev) => {
+                    const isSame = prev && prev.parentId === parentId && prev.ownerId === ownerId;
+                    if (isSame) return null;
+                    return {
+                      kind: "stack_row_actions",
+                      parentId,
+                      ownerId,
+                      anchorEl: e.currentTarget,
+                      entryType: row.child.entryType,
+                      entry: row.child.entry,
+                    };
+                  });
+                }}
+              >
+                <Kebab className="calendar-stack-popover__row-actions-icon" />
+              </button>
             </div>
           ))
         )}
       </div>
+
+      {childMenu && childMenu.parentId === parentId ? (
+        (() => {
+          const rect = childMenu.anchorEl.getBoundingClientRect();
+          const position = { x: rect.left, y: rect.bottom + 6 };
+          return (
+            <CalendarEntryContextMenu
+              portal={false}
+              dismissOnOutsideClick={false}
+              dismissOnEscape={false}
+              position={position}
+              entryType={childMenu.entryType}
+              entry={childMenu.entry}
+              onClose={() => setChildMenu?.(null)}
+              onEdit={(e) => {
+                onEditEntry?.(childMenu.entryType, e);
+                setChildMenu?.(null);
+              }}
+              onDuplicate={onDuplicateEntry}
+              onDelete={onDeleteEntry}
+            />
+          );
+        })()
+      ) : null}
     </div>
   );
 
