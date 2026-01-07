@@ -106,10 +106,10 @@ const AccountsPage: React.FC = () => {
     <div className={styles.actions}>
       {canAdmin ? (
         <>
-          <button type="button" className={styles.primaryButton} onClick={openImport}>
+          <button type="button" className={styles.secondaryButton} onClick={openImport}>
             Import CSV
           </button>
-          <button type="button" className={styles.secondaryButton} onClick={openAdd}>
+          <button type="button" className={styles.primaryButton} onClick={openAdd}>
             Add account
           </button>
         </>

@@ -25,28 +25,16 @@
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  padding-bottom: 10px;
+  padding-top: 8px;
+  padding-bottom: 16px;
 }
 
 .pageHeading {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: start;
+  align-items: baseline;
   column-gap: 24px;
   row-gap: 10px;
-}
-
-.headerRightStack {
-  display: grid;
-  justify-items: end;
-  row-gap: 8px;
-}
-
-.pageGreeting {
-  white-space: nowrap;
-  font-size: 12px;
-  line-height: 1.1;
-  opacity: 0.7;
 }
 
 .headingCopy {
@@ -161,12 +149,13 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-.orgDropdownTrigger {
-  padding: 0 14px;
+.orgCreateButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
 }
 
-.orgDropdownPrefix {
-  color: rgba(255, 255, 255, 0.75);
+.orgDropdownTrigger {
+  padding: 0 12px;
 }
 
 .orgDropdownValue {
@@ -180,13 +169,16 @@
 .kebabButton {
   width: var(--hq-control-h);
   padding: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .orgMenu {
   z-index: 9999;
   min-width: 280px;
   max-width: min(420px, calc(100vw - 24px));
-  padding: 12px;
+  padding: 8px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(18, 19, 20, 0.98);
@@ -195,20 +187,20 @@
 }
 
 .orgMenuLabel {
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  padding: 2px 4px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px 8px;
 }
 
 .orgMenuSeparator {
   height: 1px;
-  margin: 10px 0;
+  margin: 8px 0;
   background: rgba(255, 255, 255, 0.08);
 }
 
 .orgMenuHint {
-  padding: 6px 4px;
+  padding: 6px 8px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.65);
 }
@@ -219,17 +211,22 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  height: 40px;
+  padding: 0 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  background: transparent;
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   user-select: none;
 }
 
 .orgMenuRadioItem:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.orgMenuRadioItem[data-state="checked"] {
+  background: rgba(255, 255, 255, 0.10);
 }
 
 .orgMenuRadioItem:focus-visible {
@@ -238,28 +235,37 @@
 }
 
 .orgMenuRadioLabel {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .orgMenuRadioIndicator {
   color: rgba(255, 255, 255, 0.85);
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .orgMenuItem {
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
+  height: 40px;
+  padding: 0 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  background: transparent;
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .orgMenuItem:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .orgMenuItem:focus-visible {
@@ -268,7 +274,16 @@
 }
 
 .orgMenuItemDanger {
-  border-color: rgba(250, 51, 86, 0.25);
+  color: rgba(250, 51, 86, 0.92);
+}
+
+.orgMenuItemDanger:hover,
+.orgMenuItemDanger:focus-visible {
+  background: rgba(250, 51, 86, 0.10);
+}
+
+.orgMenuItemIcon {
+  font-size: 13px;
 }
 
 .dataLayersMenu {
