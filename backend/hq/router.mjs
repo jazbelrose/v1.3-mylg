@@ -276,6 +276,41 @@ const pickCategorization = (txn, rules) => {
 /* ------------ Handlers ------------ */
 const health = async (_e, C) => json(200, C, { ok: true, domain: "hq" });
 
+const inferTxnDirection = (t) => {
+  const type = typeof t?.type === "string" ? t.type.trim().toLowerCase() : "";
+  const normalized = typeof t?.normalizedDescription === "string" ? t.normalizedDescription : "";
+
+  if (type === "deposit") return "in";
+  if (type === "card_purchase" || type === "recurring" || type === "fee") return "out";
+
+  if (type === "transfer") {
+    const m = /^ONLINE\s+TRANSFER\s+(TO|FROM)\b/i.exec(normalized);
+    if (m?.[1]) return m[1].toUpperCase() === "TO" ? "out" : "in";
+  }
+
+  if (type === "zelle") {
+    const m = /^ZELLE\s+(TO|FROM)\b/i.exec(normalized);
+    if (m?.[1]) return m[1].toUpperCase() === "TO" ? "out" : "in";
+  }
+
+  const directionRaw = typeof t?.direction === "string" ? t.direction.trim().toLowerCase() : "";
+  if (directionRaw === "in" || directionRaw === "out") return directionRaw;
+
+  const amt = typeof t?.amount === "number" ? t.amount : Number(t?.amount);
+  if (Number.isFinite(amt)) return amt >= 0 ? "in" : "out";
+  return undefined;
+};
+
+const canonicalSignedAmount = (t) => {
+  const amt = typeof t?.amount === "number" ? t.amount : Number(t?.amount);
+  if (!Number.isFinite(amt)) return null;
+
+  const dir = inferTxnDirection(t);
+  if (dir === "in") return Math.abs(amt);
+  if (dir === "out") return -Math.abs(amt);
+  return amt;
+};
+
 // GET /hq/chart-series?orgId=...&scope=aggregate|account&accountId=...&range=1W|1M|3M|1Y|ALL
 const getChartSeries = async (e, C) => {
   const userId = requireCallerUserId(e);
@@ -378,18 +413,17 @@ const getChartSeries = async (e, C) => {
           if (!earliestSeen || postedAt < earliestSeen) earliestSeen = postedAt;
         }
 
+        const signedAmt = canonicalSignedAmount(t);
         const anchor = anchorByAccountId.get(t.accountId);
-        if (anchor && postedAt > anchor.anchorDate) {
-          const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
-          if (Number.isFinite(amt)) netSinceAnchor[t.accountId] += amt;
+        if (anchor && postedAt > anchor.anchorDate && typeof signedAmt === "number") {
+          netSinceAnchor[t.accountId] += signedAmt;
         }
 
         if (!considerForDaily(postedAt)) continue;
 
-        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
-        if (!Number.isFinite(amt)) continue;
-        if (amt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + amt;
-        else if (amt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(amt);
+        if (typeof signedAmt !== "number") continue;
+        if (signedAmt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + signedAmt;
+        else if (signedAmt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(signedAmt);
       }
 
       lastKey = page.LastEvaluatedKey;
@@ -413,16 +447,15 @@ const getChartSeries = async (e, C) => {
         if (!postedAt) continue;
         if (!earliestSeen || postedAt < earliestSeen) earliestSeen = postedAt;
 
+        const signedAmt = canonicalSignedAmount(t);
         const anchor = anchorByAccountId.get(t.accountId);
-        if (anchor && postedAt > anchor.anchorDate) {
-          const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
-          if (Number.isFinite(amt)) netSinceAnchor[t.accountId] += amt;
+        if (anchor && postedAt > anchor.anchorDate && typeof signedAmt === "number") {
+          netSinceAnchor[t.accountId] += signedAmt;
         }
 
-        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
-        if (!Number.isFinite(amt)) continue;
-        if (amt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + amt;
-        else if (amt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(amt);
+        if (typeof signedAmt !== "number") continue;
+        if (signedAmt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + signedAmt;
+        else if (signedAmt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(signedAmt);
       }
 
       lastKey = page.LastEvaluatedKey;
@@ -565,7 +598,10 @@ const getSummary = async (e, C) => {
   if (anchoredAccounts.length) {
     const anchors = new Map();
     for (const a of anchoredAccounts) {
-      anchors.set(a.accountId, { anchorDate: a.anchorDate, anchorBalance: a.anchorBalance });
+      anchors.set(a.accountId, {
+        anchorDate: String(a.anchorDate || "").slice(0, 10),
+        anchorBalance: a.anchorBalance,
+      });
     }
 
     const netByAccount = {};
@@ -584,11 +620,13 @@ const getSummary = async (e, C) => {
         const anchor = anchors.get(t.accountId);
         if (!anchor) continue;
         if (t.isInternalTransfer) continue;
-        if (typeof t.postedAt !== "string" || !t.postedAt) continue;
-        if (t.postedAt <= anchor.anchorDate) continue;
-        const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
-        if (!Number.isFinite(amt)) continue;
-        netByAccount[t.accountId] += amt;
+        const postedAt = String(t.postedAt || "").slice(0, 10);
+        if (!postedAt) continue;
+        if (!anchor.anchorDate) continue;
+        if (postedAt <= anchor.anchorDate) continue;
+        const signedAmt = canonicalSignedAmount(t);
+        if (typeof signedAmt !== "number") continue;
+        netByAccount[t.accountId] += signedAmt;
       }
 
       lastKey = page.LastEvaluatedKey;

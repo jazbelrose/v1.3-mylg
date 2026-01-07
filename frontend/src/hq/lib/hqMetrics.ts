@@ -54,11 +54,17 @@ export function computeCashOnHand(accounts: HqAccount[], transactions: HqTransac
   let total = 0;
   for (const account of accountsWithAnchors) {
     const anchorBalance = account.anchorBalance as number;
-    const anchorDate = account.anchorDate as string;
+    const anchorDate = String(account.anchorDate || "").slice(0, 10);
     const netSinceAnchor = transactions
       // Anchor balance is treated as end-of-day for anchorDate.
       // To reach today's cash-on-hand, include only txns AFTER the anchor date.
-      .filter((t) => t.accountId === account.accountId && t.postedAt > anchorDate && !t.isInternalTransfer)
+      .filter((t) => {
+        if (t.accountId !== account.accountId) return false;
+        if (t.isInternalTransfer) return false;
+        const postedAt = String(t.postedAt || "").slice(0, 10);
+        if (!postedAt || !anchorDate) return false;
+        return postedAt > anchorDate;
+      })
       .reduce((acc, t) => acc + t.amount, 0);
     total += anchorBalance + netSinceAnchor;
   }

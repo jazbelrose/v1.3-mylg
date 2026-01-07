@@ -57,7 +57,19 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
 
       const summary = await fetchHqSummary(orgId);
       const prev = readHqState(orgId);
-      hydrateHqState(orgId, { ...prev, accounts: summary.accounts, importRuns: summary.importRuns });
+      hydrateHqState(orgId, {
+        ...prev,
+        accounts: Array.isArray(summary.accounts) ? summary.accounts : [],
+        importRuns: Array.isArray(summary.importRuns) ? summary.importRuns : [],
+        categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
+        cashOnHandAggregate: typeof summary.cashOnHandAggregate === "number" ? summary.cashOnHandAggregate : null,
+        missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
+      });
+
+      // Ensure other HQ views (and transactions cache) refresh after anchor updates.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      }
 
       toast.success("Balance anchor saved.");
       onRequestClose();
