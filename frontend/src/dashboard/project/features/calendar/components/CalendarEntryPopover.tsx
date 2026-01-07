@@ -1043,13 +1043,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
               onEdit={
                 isFocusChild
                   ? focusChildTask
-                    ? () => {
+                    ? (_e) => {
                         onEditFocusChild?.(focusChildTask);
                         setChildMenu?.(null);
                         onClose();
                       }
                     : undefined
-                  : () => {
+                  : (_e) => {
                       onEdit();
                       setChildMenu?.(null);
                     }

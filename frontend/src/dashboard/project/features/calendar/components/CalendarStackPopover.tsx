@@ -315,7 +315,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [childMenu, onClose, parentId, setChildMenu]);
 
   const closeChildMenuIfOwned = useCallback(() => {
     if (!setChildMenu) return;
@@ -722,7 +722,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
           rows.map((row) => (
             <div
               key={row.child.entryKey}
-              className="calendar-stack-popover__row calendar-stack-popover__row--list"
+              className="calendar-stack-popover__row"
             >
               <button
                 type="button"

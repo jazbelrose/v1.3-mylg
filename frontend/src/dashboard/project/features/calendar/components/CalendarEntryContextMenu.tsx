@@ -152,7 +152,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [dismissOnEscape, dismissOnOutsideClick, onClose]);
 
   // Adjust position to stay within viewport
   useEffect(() => {

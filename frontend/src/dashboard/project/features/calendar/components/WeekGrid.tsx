@@ -2763,6 +2763,7 @@ function WeekGrid({
         <CalendarStackPopover
           anchorElement={stackPopover.anchorElement}
           kind={stackPopover.kind}
+          parentId={stackPopover.parentId}
           title={stackPopover.baseTitle}
           count={stackPopover.count}
           avatars={stackPopover.avatars}
@@ -2770,6 +2771,8 @@ function WeekGrid({
           projectColor={projectColor}
           children={stackChildren}
           teamMembers={teamMembers}
+          childMenu={childMenu}
+          setChildMenu={setChildMenu}
           onClose={handleCloseStackPopover}
           onEditTitle={() => {
             if (!editTarget) return;
@@ -2823,6 +2826,15 @@ function WeekGrid({
           }
           onOpenDetails={handleOpenDetailsFromStackPopover}
           onOpenContextMenu={handleOpenContextMenuFromStackPopover}
+          onEditEntry={(entryType, entry) => {
+            if (entryType === "event") {
+              onEditEvent(entry as CalendarEvent);
+            } else {
+              onEditTask(entry as CalendarTask);
+            }
+          }}
+          onDuplicateEntry={onDuplicateEntries}
+          onDeleteEntry={onDeleteEntries}
         />
           );
         })()
@@ -2866,6 +2878,9 @@ function WeekGrid({
           selectedCount={selectedEntryKeys.size}
           teamMembers={teamMembers}
           focusChildren={resolvedFocusChildren}
+          parentId={buildEntryParentId(popover.entryType, resolvedEntry)}
+          childMenu={childMenu}
+          setChildMenu={setChildMenu}
           onClose={handleClosePopover}
           onEdit={() => {
             if (popover.entryType === "event") {
