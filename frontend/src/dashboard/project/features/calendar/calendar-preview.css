@@ -1118,6 +1118,14 @@
   position: relative;
 }
 
+/* Disable native text selection only during marquee drag interactions. */
+body.isMarqueeSelecting,
+body.isMarqueeSelecting * {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+}
+
 .calendar-marquee {
   position: absolute;
   pointer-events: none;

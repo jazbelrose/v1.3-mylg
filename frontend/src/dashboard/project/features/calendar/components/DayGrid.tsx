@@ -1062,10 +1062,20 @@ function DayGrid({
     }
   }, []);
 
+  const setMarqueeSelecting = useCallback((isOn: boolean) => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("isMarqueeSelecting", isOn);
+  }, []);
+
+  useEffect(() => {
+    return () => setMarqueeSelecting(false);
+  }, [setMarqueeSelecting]);
+
   const handleGridPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+      if (target.closest("input, textarea, [contenteditable='true']")) return;
       if (
         target.closest("[data-entry-key]") ||
         target.closest(".week-grid__quick-add-container") ||
@@ -1087,6 +1097,12 @@ function DayGrid({
 
       setCreateMenu(null);
       setContextMenu(null);
+
+      try {
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      } catch {
+        // Ignore (e.g., if capture is not allowed in this state).
+      }
 
       const mode: "replace" | "add" | "subtract" = event.shiftKey
         ? "add"
@@ -1132,6 +1148,7 @@ function DayGrid({
         if (!state.didDrag) {
           state.didDrag = true;
           suppressClickRef.current = true;
+          setMarqueeSelecting(true);
         }
         clearLongPressTimer();
       }
@@ -1142,7 +1159,7 @@ function DayGrid({
         updateMarquee(event.clientX, event.clientY);
       });
     },
-    [clearLongPressTimer, updateMarquee],
+    [clearLongPressTimer, setMarqueeSelecting, updateMarquee],
   );
 
   const handleGridPointerUp = useCallback(
@@ -1158,6 +1175,8 @@ function DayGrid({
         marqueeRafRef.current = null;
       }
 
+      setMarqueeSelecting(false);
+
       if (!state.didDrag) {
         setPopover(null);
         setContextMenu(null);
@@ -1167,7 +1186,7 @@ function DayGrid({
 
       setMarqueeRect(null);
     },
-    [clearLongPressTimer, onClearSelection],
+    [clearLongPressTimer, onClearSelection, setMarqueeSelecting],
   );
 
   const headerLabel = useMemo(
@@ -1659,6 +1678,8 @@ function DayGrid({
       onPointerMove={handleGridPointerMove}
       onPointerUp={handleGridPointerUp}
       onPointerCancel={handleGridPointerUp}
+      draggable={false}
+      onDragStart={(event) => event.preventDefault()}
     >
       <div className="day-grid__spacer" aria-hidden />
       <div className="day-grid__header">

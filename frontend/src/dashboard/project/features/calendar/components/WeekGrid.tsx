@@ -1949,10 +1949,20 @@ function WeekGrid({
     }
   }, []);
 
+  const setMarqueeSelecting = useCallback((isOn: boolean) => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("isMarqueeSelecting", isOn);
+  }, []);
+
+  useEffect(() => {
+    return () => setMarqueeSelecting(false);
+  }, [setMarqueeSelecting]);
+
   const handleGridPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+      if (target.closest("input, textarea, [contenteditable='true']")) return;
       if (
         target.closest("[data-entry-key]") ||
         target.closest(".week-grid__quick-add-container") ||
@@ -1976,6 +1986,12 @@ function WeekGrid({
 
       setCreateMenu(null);
       setContextMenu(null);
+
+      try {
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      } catch {
+        // Ignore (e.g., if capture is not allowed in this state).
+      }
 
       const mode: "replace" | "add" | "subtract" = event.shiftKey
         ? "add"
@@ -2023,6 +2039,7 @@ function WeekGrid({
         if (!state.didDrag) {
           state.didDrag = true;
           suppressClickRef.current = true;
+          setMarqueeSelecting(true);
         }
         clearLongPressTimer();
       }
@@ -2033,7 +2050,7 @@ function WeekGrid({
         updateMarquee(event.clientX, event.clientY);
       });
     },
-    [clearLongPressTimer, updateMarquee],
+    [clearLongPressTimer, setMarqueeSelecting, updateMarquee],
   );
 
   const handleGridPointerUp = useCallback(
@@ -2049,6 +2066,8 @@ function WeekGrid({
         marqueeRafRef.current = null;
       }
 
+      setMarqueeSelecting(false);
+
       if (!state.didDrag) {
         // Single click on empty space: clear selection (and do nothing else).
         setPopover(null);
@@ -2061,7 +2080,7 @@ function WeekGrid({
 
       setMarqueeRect(null);
     },
-    [clearLongPressTimer, onClearSelection],
+    [clearLongPressTimer, onClearSelection, setMarqueeSelecting],
   );
 
   const renderWeekTimelineEntry = (
@@ -2619,6 +2638,8 @@ function WeekGrid({
       onPointerMove={handleGridPointerMove}
       onPointerUp={handleGridPointerUp}
       onPointerCancel={handleGridPointerUp}
+      draggable={false}
+      onDragStart={(event) => event.preventDefault()}
     >
       <div className="week-grid__spacer" aria-hidden />
       {days.map((day, index) => {
