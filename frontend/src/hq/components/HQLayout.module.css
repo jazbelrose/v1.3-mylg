@@ -3,8 +3,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px clamp(20px, 4vw, 40px) 32px;
+  gap: 16px;
+  padding: 18px clamp(20px, 4vw, 40px) 28px;
   width: 100%;
   color: #f4f5f7;
  background: var(--bg2, #111213);
@@ -18,14 +18,14 @@
 .headerContainer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .pageHeader {
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  padding-bottom: 14px;
+  padding-bottom: 10px;
 }
 
 .pageHeading {
@@ -39,24 +39,24 @@
 .headerRightStack {
   display: grid;
   justify-items: end;
-  row-gap: 10px;
+  row-gap: 8px;
 }
 
 .pageGreeting {
   white-space: nowrap;
-  font-size: 13px;
-  line-height: 1.2;
+  font-size: 12px;
+  line-height: 1.1;
   opacity: 0.7;
 }
 
 .headingCopy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .pageTitle {
   margin: 0;
-  font-size: clamp(1.85rem, 1.45rem + 1vw, 2.45rem);
+  font-size: clamp(1.55rem, 1.25rem + 1vw, 2.05rem);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #ffffff;
@@ -64,23 +64,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .pageSubtitle {
   margin: 0;
-  max-width: 640px;
+  max-width: 520px;
   color: rgba(255, 255, 255, 0.7);
-  line-height: 1.45;
-  font-size: 0.95rem;
+  line-height: 1.35;
+  font-size: 0.85rem;
   font-weight: 400;
 }
 
 .actionsRow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 12px;
+  align-items: center;
 
   /* Single source of truth for top-bar control height */
   --hq-control-h: 36px;
@@ -96,13 +97,26 @@
 .mobileActionsRow button {
   height: var(--hq-control-h);
   padding: 0 16px;
-  border-radius: 9999px;
+  border-radius: 12px;
   font-size: 13px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.actionsGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.actionsDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .orgPicker {
@@ -157,6 +171,15 @@
 
 .orgDropdownValue {
   color: rgba(255, 255, 255, 0.95);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kebabButton {
+  width: var(--hq-control-h);
+  padding: 0;
 }
 
 .orgMenu {

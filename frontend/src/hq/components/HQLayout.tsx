@@ -15,6 +15,7 @@ import { toast } from "react-toastify";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { deleteHqImportRun, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
+import { Kebab } from "@/shared/icons/Kebab";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import Modal from "@/shared/ui/ModalWithStack";
@@ -259,184 +260,198 @@ const HQLayout: React.FC<HQLayoutProps> = ({
             </div>
           ) : null}
 
-          <div className={styles.actionsRow}>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  type="button"
-                  className={[styles.orgCreateButton, styles.orgDropdownTrigger].join(" ")}
-                  aria-haspopup="menu"
-                  disabled={orgsLoading}
-                >
-                  <span className={styles.orgDropdownPrefix}>Org:</span>
-                  <span className={styles.orgDropdownValue}>{activeOrgName ?? (orgs.length ? "Select…" : "No orgs")}</span>
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  className={styles.orgMenu}
-                  sideOffset={8}
-                  align="end"
-                  collisionPadding={12}
-                >
-                  <DropdownMenu.Label className={styles.orgMenuLabel}>Org</DropdownMenu.Label>
-                  <DropdownMenu.Separator className={styles.orgMenuSeparator} />
-
-                  {orgs.length ? (
-                    <DropdownMenu.RadioGroup
-                      value={activeOrgId ?? ""}
-                      onValueChange={(v) => setActiveOrgId(v)}
-                    >
-                      {orgs.map((org) => (
-                        <DropdownMenu.RadioItem
-                          key={org.orgId}
-                          value={org.orgId}
-                          className={styles.orgMenuRadioItem}
-                        >
-                          <span className={styles.orgMenuRadioLabel}>{org.name || org.orgId}</span>
-                          <DropdownMenu.ItemIndicator className={styles.orgMenuRadioIndicator}>
-                            ✓
-                          </DropdownMenu.ItemIndicator>
-                        </DropdownMenu.RadioItem>
-                      ))}
-                    </DropdownMenu.RadioGroup>
-                  ) : (
-                    <div className={styles.orgMenuHint}>No orgs yet.</div>
-                  )}
-
-                  {isAdmin ? (
-                    <>
-                      <DropdownMenu.Separator className={styles.orgMenuSeparator} />
-                      <DropdownMenu.Item asChild>
-                        <button type="button" className={styles.orgMenuItem} onClick={handleCreateOrg}>
-                          Create org…
-                        </button>
-                      </DropdownMenu.Item>
-                      {activeOrgId ? (
-                        <>
-                          <DropdownMenu.Separator className={styles.orgMenuSeparator} />
-                          <DropdownMenu.Item asChild>
-                            <button
-                              type="button"
-                              className={[styles.orgMenuItem, styles.orgMenuItemDanger].join(" ")}
-                              onClick={handleDeleteOrg}
-                            >
-                              Delete org…
-                            </button>
-                          </DropdownMenu.Item>
-                        </>
-                      ) : null}
-                    </>
-                  ) : null}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-
-            {canOrgAdmin && activeOrgId ? (
-              <DropdownMenu.Root
-                open={isShredMenuOpen}
-                onOpenChange={(open) => {
-                  setIsShredMenuOpen(open);
-                }}
-              >
+          <div className={styles.actionsRow} aria-label="HQ command bar">
+            <div className={styles.actionsGroup} aria-label="Context">
+              <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <button
                     type="button"
-                    className={styles.orgCreateButton}
+                    className={[styles.orgCreateButton, styles.orgDropdownTrigger].join(" ")}
                     aria-haspopup="menu"
-                    aria-expanded={isShredMenuOpen}
-                    disabled={isShredding}
+                    disabled={orgsLoading}
                   >
-                    Shred data
+                    <span className={styles.orgDropdownPrefix}>Org:</span>
+                    <span className={styles.orgDropdownValue}>
+                      {activeOrgName ?? (orgs.length ? "Select…" : "No orgs")}
+                    </span>
                   </button>
                 </DropdownMenu.Trigger>
-
                 <DropdownMenu.Portal>
                   <DropdownMenu.Content
-                    className={styles.dataLayersMenu}
+                    className={styles.orgMenu}
                     sideOffset={8}
                     align="end"
                     collisionPadding={12}
                   >
-                    <DropdownMenu.Label className={styles.dataLayersMenuLabel}>Shred data</DropdownMenu.Label>
-                    <div className={styles.dataLayersMenuHint}>Choose what to delete. Accounts stay unless you pick the full reset.</div>
-                    <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+                    <DropdownMenu.Label className={styles.orgMenuLabel}>Org</DropdownMenu.Label>
+                    <DropdownMenu.Separator className={styles.orgMenuSeparator} />
 
-                    <div className={styles.dataLayersMenuItems}>
-                      <DropdownMenu.Item asChild>
-                        <button
-                          type="button"
-                          className={styles.dataLayersMenuItem}
-                          onClick={() => {
-                            setIsShredMenuOpen(false);
-                            setConfirmAction("remove-csv");
-                          }}
-                          disabled={isShredding}
-                        >
-                          <span className={styles.dataLayersMenuItemTitle}>Shred CSV imports</span>
-                          <span className={styles.dataLayersMenuItemDesc}>
-                            Deletes imported CSV rows. Keeps accounts + bank sync + rules.
-                          </span>
-                        </button>
-                      </DropdownMenu.Item>
-
-                      <DropdownMenu.Item asChild>
-                        <button
-                          type="button"
-                          className={styles.dataLayersMenuItem}
-                          onClick={() => {
-                            setIsShredMenuOpen(false);
-                            setConfirmAction("remove-bank");
-                          }}
-                          disabled={isShredding}
-                        >
-                          <span className={styles.dataLayersMenuItemTitle}>Shred bank transactions</span>
-                          <span className={styles.dataLayersMenuItemDesc}>
-                            Deletes bank-synced rows. Keeps accounts + rules + CSV imports.
-                          </span>
-                        </button>
-                      </DropdownMenu.Item>
-                    </div>
-
-                    <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
-                    <div className={styles.dataLayersDangerZoneLabel}>Danger zone</div>
-                    <div className={styles.dataLayersDangerZoneSpacer} />
-
-                    <DropdownMenu.Item asChild>
-                      <button
-                        type="button"
-                        className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
-                        onClick={() => {
-                          setIsShredMenuOpen(false);
-                          setConfirmAction("remove-everything");
-                        }}
-                        disabled={isShredding}
+                    {orgs.length ? (
+                      <DropdownMenu.RadioGroup
+                        value={activeOrgId ?? ""}
+                        onValueChange={(v) => setActiveOrgId(v)}
                       >
-                        <span className={styles.dataLayersMenuItemTitle}>
-                          <span className={styles.dataLayersDangerTitleRow}>
-                            <FaExclamationTriangle className={styles.dataLayersDangerIcon} aria-hidden="true" />
-                            Shred everything
-                          </span>
-                        </span>
-                        <span className={styles.dataLayersMenuItemDesc}>Deletes accounts + all transactions + rules. Irreversible.</span>
-                      </button>
-                    </DropdownMenu.Item>
+                        {orgs.map((org) => (
+                          <DropdownMenu.RadioItem
+                            key={org.orgId}
+                            value={org.orgId}
+                            className={styles.orgMenuRadioItem}
+                          >
+                            <span className={styles.orgMenuRadioLabel}>{org.name || org.orgId}</span>
+                            <DropdownMenu.ItemIndicator className={styles.orgMenuRadioIndicator}>
+                              ✓
+                            </DropdownMenu.ItemIndicator>
+                          </DropdownMenu.RadioItem>
+                        ))}
+                      </DropdownMenu.RadioGroup>
+                    ) : (
+                      <div className={styles.orgMenuHint}>No orgs yet.</div>
+                    )}
 
-                    <button
-                      type="button"
-                      className={styles.dataLayersFooterLink}
-                      onClick={() => {
-                        setIsShredMenuOpen(false);
-                        setIsWhatStaysOpen(true);
-                      }}
-                    >
-                      Learn what stays
-                    </button>
+                    {isAdmin ? (
+                      <>
+                        <DropdownMenu.Separator className={styles.orgMenuSeparator} />
+                        <DropdownMenu.Item asChild>
+                          <button type="button" className={styles.orgMenuItem} onClick={handleCreateOrg}>
+                            Create org…
+                          </button>
+                        </DropdownMenu.Item>
+                        {activeOrgId ? (
+                          <>
+                            <DropdownMenu.Separator className={styles.orgMenuSeparator} />
+                            <DropdownMenu.Item asChild>
+                              <button
+                                type="button"
+                                className={[styles.orgMenuItem, styles.orgMenuItemDanger].join(" ")}
+                                onClick={handleDeleteOrg}
+                              >
+                                Delete org…
+                              </button>
+                            </DropdownMenu.Item>
+                          </>
+                        ) : null}
+                      </>
+                    ) : null}
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
-            ) : null}
-            {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
+            </div>
+
+            <span className={styles.actionsDivider} aria-hidden="true" />
+
+            <div className={styles.actionsGroup} aria-label="Actions">
+              {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
+
+              {canOrgAdmin && activeOrgId ? (
+                <DropdownMenu.Root
+                  open={isShredMenuOpen}
+                  onOpenChange={(open) => {
+                    setIsShredMenuOpen(open);
+                  }}
+                >
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      type="button"
+                      className={[styles.orgCreateButton, styles.kebabButton].join(" ")}
+                      aria-haspopup="menu"
+                      aria-expanded={isShredMenuOpen}
+                      aria-label="More"
+                      disabled={isShredding}
+                    >
+                      <Kebab size={18} aria-hidden="true" />
+                    </button>
+                  </DropdownMenu.Trigger>
+
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      className={styles.dataLayersMenu}
+                      sideOffset={8}
+                      align="end"
+                      collisionPadding={12}
+                    >
+                      <DropdownMenu.Label className={styles.dataLayersMenuLabel}>Data layers</DropdownMenu.Label>
+                      <div className={styles.dataLayersMenuHint}>
+                        Choose what to delete. Accounts stay unless you pick the full reset.
+                      </div>
+                      <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+
+                      <div className={styles.dataLayersMenuItems}>
+                        <DropdownMenu.Item asChild>
+                          <button
+                            type="button"
+                            className={styles.dataLayersMenuItem}
+                            onClick={() => {
+                              setIsShredMenuOpen(false);
+                              setConfirmAction("remove-csv");
+                            }}
+                            disabled={isShredding}
+                          >
+                            <span className={styles.dataLayersMenuItemTitle}>Shred CSV imports</span>
+                            <span className={styles.dataLayersMenuItemDesc}>
+                              Deletes imported CSV rows. Keeps accounts + bank sync + rules.
+                            </span>
+                          </button>
+                        </DropdownMenu.Item>
+
+                        <DropdownMenu.Item asChild>
+                          <button
+                            type="button"
+                            className={styles.dataLayersMenuItem}
+                            onClick={() => {
+                              setIsShredMenuOpen(false);
+                              setConfirmAction("remove-bank");
+                            }}
+                            disabled={isShredding}
+                          >
+                            <span className={styles.dataLayersMenuItemTitle}>Shred bank transactions</span>
+                            <span className={styles.dataLayersMenuItemDesc}>
+                              Deletes bank-synced rows. Keeps accounts + rules + CSV imports.
+                            </span>
+                          </button>
+                        </DropdownMenu.Item>
+                      </div>
+
+                      <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+                      <div className={styles.dataLayersDangerZoneLabel}>Danger zone</div>
+                      <div className={styles.dataLayersDangerZoneSpacer} />
+
+                      <DropdownMenu.Item asChild>
+                        <button
+                          type="button"
+                          className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                          onClick={() => {
+                            setIsShredMenuOpen(false);
+                            setConfirmAction("remove-everything");
+                          }}
+                          disabled={isShredding}
+                        >
+                          <span className={styles.dataLayersMenuItemTitle}>
+                            <span className={styles.dataLayersDangerTitleRow}>
+                              <FaExclamationTriangle className={styles.dataLayersDangerIcon} aria-hidden="true" />
+                              Shred everything
+                            </span>
+                          </span>
+                          <span className={styles.dataLayersMenuItemDesc}>
+                            Deletes accounts + all transactions + rules. Irreversible.
+                          </span>
+                        </button>
+                      </DropdownMenu.Item>
+
+                      <button
+                        type="button"
+                        className={styles.dataLayersFooterLink}
+                        onClick={() => {
+                          setIsShredMenuOpen(false);
+                          setIsWhatStaysOpen(true);
+                        }}
+                      >
+                        Learn what stays
+                      </button>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

@@ -8,6 +8,7 @@ export type HQCardProps = {
   badge?: ReactNode;
   footer?: ReactNode;
   children?: ReactNode;
+  className?: string;
   "aria-label"?: string;
 };
 
@@ -18,10 +19,11 @@ export function HQCard({
   badge,
   footer,
   children,
+  className,
   "aria-label": ariaLabel,
 }: HQCardProps) {
   return (
-    <section className={styles.card} aria-label={ariaLabel}>
+    <section className={[styles.card, className].filter(Boolean).join(" ")} aria-label={ariaLabel}>
       <header className={styles.cardHeader}>
         <div>
           <h3 className={styles.cardTitle}>{title}</h3>

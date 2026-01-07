@@ -676,7 +676,12 @@ const HQOverview: React.FC = () => {
             )}
           </HQCard>
 
-          <HQCard title="Top categories" subtitle={rangeLabel} aria-label="Top spend categories">
+          <HQCard
+            title="Top categories"
+            subtitle={rangeLabel}
+            aria-label="Top spend categories"
+            className={styles.gridSpan2IfLast}
+          >
             {topCategories.length === 0 ? (
               <div className={styles.emptyState}>No spend yet.</div>
             ) : (
