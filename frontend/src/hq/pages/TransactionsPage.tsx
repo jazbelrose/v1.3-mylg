@@ -219,8 +219,7 @@ const TransactionsPage: React.FC = () => {
             </div>
             {filtered.map((txn) => {
               const accountLabel = accountsById.get(txn.accountId) || "Account";
-              const currentCategory = txn.categoryId || "OTHER";
-              const categoryValue = currentCategory === "OTHER" ? "" : currentCategory;
+              const currentCategory = txn.categoryId && txn.categoryId !== "OTHER" ? txn.categoryId : "__uncategorized__";
               const directionClass = txn.amount < 0 ? styles.out : styles.in;
               return (
                 <div key={txn.dedupeHash} className={styles.row}>
@@ -245,22 +244,23 @@ const TransactionsPage: React.FC = () => {
                   </div>
 
                   <div className={styles.categoryCell}>
-                    <select
+                    <HqSelect
                       className={styles.categorySelect}
-                      value={categoryValue}
+                      value={currentCategory}
                       disabled={!canAdmin}
-                      onChange={(e) =>
-                        setTransactionCategory(orgId, txn.dedupeHash, (e.target.value as HqCategoryId) || undefined)
+                      onValueChange={(v) =>
+                        setTransactionCategory(
+                          orgId,
+                          txn.dedupeHash,
+                          v === "__uncategorized__" ? undefined : (v as HqCategoryId)
+                        )
                       }
-                      aria-label={`Set category for ${txnTitle(txn)}`}
-                    >
-                      <option value="">{HQ_CATEGORY_LABEL.OTHER}</option>
-                      {HQ_CATEGORIES.filter((c) => c.id !== "OTHER").map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                      ariaLabel={`Set category for ${txnTitle(txn)}`}
+                      options={[
+                        { value: "__uncategorized__", label: HQ_CATEGORY_LABEL.OTHER },
+                        ...HQ_CATEGORIES.filter((c) => c.id !== "OTHER").map((c) => ({ value: c.id, label: c.label })),
+                      ]}
+                    />
                   </div>
 
                   <div className={[styles.amountCol, directionClass].join(" ")}>

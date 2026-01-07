@@ -219,21 +219,17 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         {step === 2 ? (
           <div className={styles.panel}>
             <div className={styles.fieldLabel}>Target account</div>
-            <select
+            <HqSelect
               className={styles.select}
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              aria-label="Select account"
-            >
-              <option value="" disabled>
-                Select an account
-              </option>
-              {accounts.map((a) => (
-                <option key={a.accountId} value={a.accountId}>
-                  {a.name ?? a.accountName} · {a.institution}
-                </option>
-              ))}
-            </select>
+              value={accountId || undefined}
+              onValueChange={setAccountId}
+              ariaLabel="Select account"
+              placeholder="Select an account"
+              options={accounts.map((a) => ({
+                value: a.accountId,
+                label: `${a.name ?? a.accountName} · ${a.institution}`,
+              }))}
+            />
             {accounts.length === 0 ? (
               <div className={styles.inlineNote}>
                 No accounts yet. Add one in Accounts, then come back here.

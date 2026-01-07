@@ -2,6 +2,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
 import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import HqSelect from "@/hq/components/HqSelect";
 import { applyHqCategoryRules, createHqCategoryRule, fetchHqUncategorizedVendors } from "@/hq/lib/hqApi";
 import styles from "./CategorizationSpellbookModal.module.css";
 
@@ -154,25 +155,23 @@ const CategorizationSpellbookModal: React.FC<Props> = ({ orgId, importRunId, isO
                   <div className={styles.count}>{v.count}</div>
 
                   <div>
-                    <select
+                    <HqSelect
                       className={styles.select}
-                      value={current}
+                      value={current || undefined}
                       disabled={isWorking}
-                      onChange={(e) =>
+                      onValueChange={(value) =>
                         setSelection((prev) => ({
                           ...prev,
-                          [v.vendorKey]: e.target.value,
+                          [v.vendorKey]: value,
                         }))
                       }
-                      aria-label={`Set category for ${v.vendor}`}
-                    >
-                      <option value="">{HQ_CATEGORY_LABEL.OTHER}</option>
-                      {HQ_CATEGORIES.filter((c) => c.id !== "OTHER" && c.id !== "TRANSFERS").map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
+                      ariaLabel={`Set category for ${v.vendor}`}
+                      placeholder={HQ_CATEGORY_LABEL.OTHER}
+                      options={HQ_CATEGORIES.filter((c) => c.id !== "OTHER" && c.id !== "TRANSFERS").map((c) => ({
+                        value: c.id,
+                        label: c.label,
+                      }))}
+                    />
                   </div>
 
                   <div className={styles.actions}>
