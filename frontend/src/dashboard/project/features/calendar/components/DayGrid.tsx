@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckSquare, Clock, ListTodo, Plus } from "lucide-react";
+import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
   CalendarEntryContextMenu,
   type ContextMenuPosition,
@@ -48,7 +49,6 @@ export type DayGridProps = {
   onRenameTaskTitle?: (task: CalendarTask, title: string) => void | Promise<void>;
   onCreateEvent: (date: Date, options?: { triggeredFromCalendar?: boolean }) => void;
   onCreateTask: (date: Date, startAt?: Date) => void;
-  onCreateIntent?: (date: Date) => void;
   canCreateTasks: boolean;
   teamMembers?: ProjectTeamMember[];
   activeProjectId?: string | null;
@@ -56,6 +56,7 @@ export type DayGridProps = {
   selectedEntryKeys: Set<string>;
   onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
   onClearSelection?: () => void;
+  onReplaceSelection?: (next: Set<string>) => void;
   onRescheduleEntries?: (changes: CalendarEntryChanges[]) => void;
   // Context menu / popover actions
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
@@ -119,10 +120,8 @@ const ENTRY_HORIZONTAL_PADDING_PX = 4;
 const ENTRY_MIN_HEIGHT_PX = 24;
 const ENTRY_RADIUS_PX = 12;
 const COLUMN_GAP_PX = 4;
-const QUICK_ADD_POPOVER_WIDTH = 200;
-const QUICK_ADD_POPOVER_HEIGHT = 176;
-const QUICK_ADD_POPOVER_OFFSET = 12;
-const QUICK_ADD_POPOVER_MARGIN = 8;
+const LONG_PRESS_MS = 320;
+const DRAG_THRESHOLD_PX = 6;
 
 type InteractionMode = "drag" | "resizeTop" | "resizeBottom";
 
@@ -179,7 +178,6 @@ function DayGrid({
   onRenameTaskTitle,
   onCreateEvent,
   onCreateTask,
-  onCreateIntent,
   canCreateTasks,
   teamMembers,
   activeProjectId,
@@ -187,6 +185,7 @@ function DayGrid({
   selectedEntryKeys,
   onEntrySelect,
   onClearSelection,
+  onReplaceSelection,
   onRescheduleEntries,
   onSubmitForReview,
   onMarkAsDone,
@@ -209,11 +208,25 @@ function DayGrid({
   
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
-  const [pointerQuickAdd, setPointerQuickAdd] = useState<{
-    date: Date;
-    clientX: number;
-    clientY: number;
-  } | null>(null);
+  const [createMenu, setCreateMenu] = useState<null | { position: { x: number; y: number }; date: Date }>(
+    null,
+  );
+  const [marqueeRect, setMarqueeRect] = useState<
+    null | { left: number; top: number; width: number; height: number }
+  >(null);
+  const marqueeStateRef = useRef<
+    | null
+    | {
+        pointerId: number;
+        startX: number;
+        startY: number;
+        mode: "replace" | "add" | "subtract";
+        initialSelection: Set<string>;
+        didDrag: boolean;
+      }
+  >(null);
+  const marqueeRafRef = useRef<number | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoveredEntry, setHoveredEntry] = useState<{
     id: string;
     anchorElement: HTMLElement;
@@ -891,20 +904,270 @@ function DayGrid({
   // Click on empty grid: clear selection and close popover
   const handleGridClick = useCallback(
     (clickEvent: React.MouseEvent<HTMLDivElement>) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
       const target = clickEvent.target as HTMLElement;
       // Only clear if clicking directly on the grid background, not on entries
       if (
         target.closest("[data-entry-key]") ||
-        target.closest(".day-grid__quick-add-container") ||
-        target.closest(".day-grid__action-popover")
+        target.closest(".week-grid__quick-add-container")
       ) {
         return;
       }
       setPopover(null);
       setContextMenu(null);
+      setCreateMenu(null);
       onClearSelection?.();
     },
     [onClearSelection],
+  );
+
+  const applySelection = useCallback(
+    (next: Set<string>) => {
+      if (onReplaceSelection) {
+        onReplaceSelection(next);
+        return;
+      }
+      onClearSelection?.();
+      if (!onEntrySelect) return;
+      next.forEach((key) => {
+        const [type, id] = key.split(":");
+        if (type !== "event" && type !== "task") return;
+        onEntrySelect(type as CalendarEntryType, id, true);
+      });
+    },
+    [onClearSelection, onEntrySelect, onReplaceSelection],
+  );
+
+  const getSlotDateFromCell = useCallback(
+    (cell: HTMLElement, clientY: number): Date | null => {
+      const hourStr = cell.dataset.hour;
+      if (!hourStr) return null;
+      const hour = Number(hourStr);
+      if (Number.isNaN(hour)) return null;
+
+      const rect = cell.getBoundingClientRect();
+      const ratio = Math.min(Math.max((clientY - rect.top) / rect.height, 0), 1);
+      const minutes = Math.min(
+        Math.max(Math.round(ratio * MINUTES_IN_HOUR), 0),
+        MINUTES_IN_HOUR - 1,
+      );
+      return setTime(date, hour, minutes);
+    },
+    [date],
+  );
+
+  const openCreateMenuAtEvent = useCallback(
+    (event: React.MouseEvent<HTMLDivElement> | React.PointerEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest("[data-entry-key]") ||
+        target.closest(".week-grid__quick-add-container") ||
+        target.closest(".week-grid__action-popover")
+      ) {
+        return;
+      }
+      const cell = target.closest(".day-grid__cell") as HTMLElement | null;
+      if (!cell) return;
+      const slotDate = getSlotDateFromCell(cell, event.clientY);
+      if (!slotDate) return;
+
+      setPopover(null);
+      setContextMenu(null);
+      setCreateMenu({ position: { x: event.clientX, y: event.clientY }, date: slotDate });
+    },
+    [getSlotDateFromCell],
+  );
+
+  const handleGridContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if ((event.target as HTMLElement | null)?.closest("[data-entry-key]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openCreateMenuAtEvent(event);
+    },
+    [openCreateMenuAtEvent],
+  );
+
+  const getIntersectingEntryKeys = useCallback(
+    (rect: { left: number; right: number; top: number; bottom: number }): Set<string> => {
+      const grid = gridRef.current;
+      const keys = new Set<string>();
+      if (!grid) return keys;
+      const nodes = grid.querySelectorAll<HTMLElement>("[data-entry-key][data-entry-type]");
+      nodes.forEach((node) => {
+        const entryType = node.dataset.entryType;
+        if (entryType !== "event" && entryType !== "task") return;
+        const entryKey = node.dataset.entryKey;
+        if (!entryKey) return;
+        const b = node.getBoundingClientRect();
+        const intersects = !(
+          b.right < rect.left ||
+          b.left > rect.right ||
+          b.bottom < rect.top ||
+          b.top > rect.bottom
+        );
+        if (intersects) keys.add(entryKey);
+      });
+      return keys;
+    },
+    [],
+  );
+
+  const updateMarquee = useCallback(
+    (clientX: number, clientY: number) => {
+      const state = marqueeStateRef.current;
+      const grid = gridRef.current;
+      if (!state || !grid) return;
+      const gridRect = grid.getBoundingClientRect();
+
+      const left = Math.min(state.startX, clientX);
+      const top = Math.min(state.startY, clientY);
+      const right = Math.max(state.startX, clientX);
+      const bottom = Math.max(state.startY, clientY);
+
+      const relLeft = left - gridRect.left;
+      const relTop = top - gridRect.top;
+      const width = Math.max(0, right - left);
+      const height = Math.max(0, bottom - top);
+      setMarqueeRect({ left: relLeft, top: relTop, width, height });
+
+      const intersect = getIntersectingEntryKeys({ left, right, top, bottom });
+      const next = (() => {
+        if (state.mode === "add") {
+          const merged = new Set(state.initialSelection);
+          intersect.forEach((k) => merged.add(k));
+          return merged;
+        }
+        if (state.mode === "subtract") {
+          const remaining = new Set(state.initialSelection);
+          intersect.forEach((k) => remaining.delete(k));
+          return remaining;
+        }
+        return intersect;
+      })();
+
+      applySelection(next);
+    },
+    [applySelection, getIntersectingEntryKeys],
+  );
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleGridPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest("[data-entry-key]") ||
+        target.closest(".week-grid__quick-add-container") ||
+        target.closest(".week-grid__action-popover")
+      ) {
+        return;
+      }
+      const cell = target.closest(".day-grid__cell") as HTMLElement | null;
+      if (!cell) return;
+
+      if (event.button === 0 && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        openCreateMenuAtEvent(event);
+        return;
+      }
+
+      if (event.button !== 0) return;
+
+      setCreateMenu(null);
+      setContextMenu(null);
+
+      const mode: "replace" | "add" | "subtract" = event.shiftKey
+        ? "add"
+        : event.altKey
+        ? "subtract"
+        : "replace";
+
+      marqueeStateRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        mode,
+        initialSelection: new Set(selectedEntryKeys),
+        didDrag: false,
+      };
+
+      clearLongPressTimer();
+      if (event.pointerType === "touch") {
+        longPressTimerRef.current = setTimeout(() => {
+          const state = marqueeStateRef.current;
+          if (!state || state.didDrag) return;
+          openCreateMenuAtEvent({
+            target: event.target,
+            clientX: state.startX,
+            clientY: state.startY,
+          } as unknown as React.PointerEvent<HTMLDivElement>);
+        }, LONG_PRESS_MS);
+      }
+    },
+    [clearLongPressTimer, openCreateMenuAtEvent, selectedEntryKeys],
+  );
+
+  const handleGridPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const state = marqueeStateRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+
+      const dx = event.clientX - state.startX;
+      const dy = event.clientY - state.startY;
+      const dist = Math.hypot(dx, dy);
+      if (dist >= DRAG_THRESHOLD_PX) {
+        if (!state.didDrag) {
+          state.didDrag = true;
+          suppressClickRef.current = true;
+        }
+        clearLongPressTimer();
+      }
+
+      if (!state.didDrag) return;
+      if (marqueeRafRef.current) cancelAnimationFrame(marqueeRafRef.current);
+      marqueeRafRef.current = requestAnimationFrame(() => {
+        updateMarquee(event.clientX, event.clientY);
+      });
+    },
+    [clearLongPressTimer, updateMarquee],
+  );
+
+  const handleGridPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const state = marqueeStateRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+
+      clearLongPressTimer();
+      marqueeStateRef.current = null;
+      if (marqueeRafRef.current) {
+        cancelAnimationFrame(marqueeRafRef.current);
+        marqueeRafRef.current = null;
+      }
+
+      if (!state.didDrag) {
+        setPopover(null);
+        setContextMenu(null);
+        setCreateMenu(null);
+        onClearSelection?.();
+      }
+
+      setMarqueeRect(null);
+    },
+    [clearLongPressTimer, onClearSelection],
   );
 
   const headerLabel = useMemo(
@@ -961,7 +1224,7 @@ function DayGrid({
     (slotDate: Date, options?: { triggeredFromCalendar?: boolean }) => {
       onCreateEvent(slotDate, options);
       setQuickAddOpen(false);
-      setPointerQuickAdd(null);
+      setCreateMenu(null);
     },
     [onCreateEvent],
   );
@@ -972,19 +1235,9 @@ function DayGrid({
       const normalizedStartAt = startAt ? snapDateToHalfHour(startAt) : undefined;
       onCreateTask(slotDate, normalizedStartAt);
       setQuickAddOpen(false);
-      setPointerQuickAdd(null);
+      setCreateMenu(null);
     },
     [canCreateTasks, onCreateTask],
-  );
-
-  const triggerCreateIntent = useCallback(
-    (slotDate: Date) => {
-      if (!canCreateTasks) return;
-      onCreateIntent?.(slotDate);
-      setQuickAddOpen(false);
-      setPointerQuickAdd(null);
-    },
-    [canCreateTasks, onCreateIntent],
   );
 
   const handleCreateEvent = useCallback(
@@ -999,88 +1252,15 @@ function DayGrid({
     triggerCreateTask(new Date(date));
   }, [date, triggerCreateTask]);
 
-  const openPointerQuickAdd = useCallback(
-    (hourValue: number, mouseEvent: React.MouseEvent<HTMLDivElement>) => {
-      const cell = mouseEvent.currentTarget;
-      const rect = cell.getBoundingClientRect();
-      const ratio = Math.min(
-        Math.max((mouseEvent.clientY - rect.top) / rect.height, 0),
-        1,
-      );
-      const minutes = Math.min(
-        Math.max(Math.round(ratio * MINUTES_IN_HOUR), 0),
-        MINUTES_IN_HOUR - 1,
-      );
-      const slotDate = setTime(date, hourValue, minutes);
-      setPointerQuickAdd({
-        date: slotDate,
-        clientX: mouseEvent.clientX,
-        clientY: mouseEvent.clientY,
-      });
-    },
-    [date],
-  );
-
-  useEffect(() => {
-    if (!pointerQuickAdd) return undefined;
-    if (typeof document === "undefined") return undefined;
-
-    const handleDocumentClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest(".day-grid__action-popover")) {
-        return;
-      }
-      setPointerQuickAdd(null);
-    };
-
-    document.addEventListener("mousedown", handleDocumentClick);
-    return () => {
-      document.removeEventListener("mousedown", handleDocumentClick);
-    };
-  }, [pointerQuickAdd]);
-
-  const quickAddPopoverStyle = useMemo(() => {
-    if (!pointerQuickAdd) return undefined;
-    const grid = gridRef.current;
-    const width = QUICK_ADD_POPOVER_WIDTH;
-    const height = QUICK_ADD_POPOVER_HEIGHT;
-    const gridRect = grid?.getBoundingClientRect();
-    const relativeTop = pointerQuickAdd.clientY - (gridRect?.top ?? 0);
-    const relativeLeft = pointerQuickAdd.clientX - (gridRect?.left ?? 0) - width / 2;
-    const gridHeight = grid?.clientHeight ?? window.innerHeight;
-    const gridWidth = grid?.clientWidth ?? window.innerWidth;
-    const maxTop =
-      gridHeight - height - QUICK_ADD_POPOVER_MARGIN;
-    const maxLeft =
-      gridWidth - width - QUICK_ADD_POPOVER_MARGIN;
-    return {
-      position: "absolute" as const,
-      top: Math.min(
-        Math.max(relativeTop + QUICK_ADD_POPOVER_OFFSET, QUICK_ADD_POPOVER_MARGIN),
-        Math.max(maxTop, QUICK_ADD_POPOVER_MARGIN),
-      ),
-      left: Math.min(
-        Math.max(relativeLeft, QUICK_ADD_POPOVER_MARGIN),
-        Math.max(maxLeft, QUICK_ADD_POPOVER_MARGIN),
-      ),
-    } as React.CSSProperties;
-  }, [pointerQuickAdd]);
-
-  const snappedPointerDate = useMemo(
-    () => (pointerQuickAdd ? snapDateToHalfHour(pointerQuickAdd.date) : null),
-    [pointerQuickAdd],
-  );
-
-
-  const quickAddTimeLabel = useMemo(
+  const createMenuTimeLabel = useMemo(
     () =>
-      snappedPointerDate
-        ? snappedPointerDate.toLocaleTimeString(undefined, {
+      createMenu
+        ? snapDateToHalfHour(createMenu.date).toLocaleTimeString(undefined, {
             hour: "numeric",
             minute: "2-digit",
           })
         : "",
-    [snappedPointerDate],
+    [createMenu],
   );
 
   const handleEntryMouseEnter = useCallback(
@@ -1088,7 +1268,6 @@ function DayGrid({
       event: React.MouseEvent<HTMLElement>,
       entry: TimelineHourEntry<CalendarEvent | CalendarTask>,
     ) => {
-      setPointerQuickAdd(null);
       // Mark anchor as hovered
       isAnchorHoverRef.current = true;
 
@@ -1140,7 +1319,7 @@ function DayGrid({
       }
     }, 150);
     event.currentTarget.style.cursor = "";
-  }, [setPointerQuickAdd]);
+  }, []);
 
   const handleContextMenu = useCallback(
     (
@@ -1471,7 +1650,16 @@ function DayGrid({
   };
 
   return (
-    <div className="day-grid" ref={gridRef} onClick={handleGridClick}>
+    <div
+      className="day-grid"
+      ref={gridRef}
+      onClick={handleGridClick}
+      onContextMenu={handleGridContextMenu}
+      onPointerDown={handleGridPointerDown}
+      onPointerMove={handleGridPointerMove}
+      onPointerUp={handleGridPointerUp}
+      onPointerCancel={handleGridPointerUp}
+    >
       <div className="day-grid__spacer" aria-hidden />
       <div className="day-grid__header">
         <div className="day-grid__header-row">
@@ -1535,20 +1723,7 @@ function DayGrid({
             <div
               className="week-grid__cell day-grid__cell"
               role="presentation"
-              onClick={(mouseEvent) => {
-                const target = mouseEvent.target as HTMLElement | null;
-                if (!target) return;
-                if (
-                  target.closest(".week-grid__timeline-entry") ||
-                  target.closest(".week-grid__all-day") ||
-                  target.closest(".day-grid__all-day") ||
-                  target.closest(".week-grid__quick-add-container") ||
-                  target.closest(".week-grid__overflow-pill")
-                ) {
-                  return;
-                }
-                openPointerQuickAdd(hour, mouseEvent);
-              }}
+              data-hour={hour}
             >
               {hourIndex === 0 &&
                 (dayAllDayEvents.length > 0 || dayFloatingTasks.length > 0 || dayIntents.length > 0 || doneCount > 0) && (
@@ -1680,42 +1855,27 @@ function DayGrid({
           </React.Fragment>
         );
       })}
-      {pointerQuickAdd && (
+      {marqueeRect && (
         <div
-          className="day-grid__action-popover"
-          role="dialog"
-          aria-label="Quick add calendar entry"
-          style={quickAddPopoverStyle}
-        >
-          <div className="week-grid__action-popover-time" aria-hidden>
-            {quickAddTimeLabel}
-          </div>
-          <button
-            type="button"
-            className="week-grid__action-popover-option"
-            onClick={() =>
-              triggerCreateEvent(pointerQuickAdd.date, { triggeredFromCalendar: true })
-            }
-          >
-            Event
-          </button>
-          <button
-            type="button"
-            className="week-grid__action-popover-option week-grid__action-popover-option--task"
-            onClick={() => triggerCreateTask(pointerQuickAdd.date, pointerQuickAdd.date)}
-            disabled={!canCreateTasks}
-          >
-            Task
-          </button>
-          <button
-            type="button"
-            className="week-grid__action-popover-option week-grid__action-popover-option--intent"
-            onClick={() => triggerCreateIntent(pointerQuickAdd.date)}
-            disabled={!canCreateTasks || !onCreateIntent}
-          >
-            Intent
-          </button>
-        </div>
+          className="calendar-marquee"
+          aria-hidden
+          style={{
+            left: marqueeRect.left,
+            top: marqueeRect.top,
+            width: marqueeRect.width,
+            height: marqueeRect.height,
+          }}
+        />
+      )}
+      {createMenu && (
+        <CalendarGridCreateMenu
+          position={createMenu.position}
+          timeLabel={createMenuTimeLabel}
+          canCreateTasks={canCreateTasks}
+          onCreateEvent={() => triggerCreateEvent(createMenu.date, { triggeredFromCalendar: true })}
+          onCreateTask={() => triggerCreateTask(createMenu.date, createMenu.date)}
+          onClose={() => setCreateMenu(null)}
+        />
       )}
       {contextMenu && (
         <CalendarEntryContextMenu

@@ -155,6 +155,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [buildSelectionKey],
   );
 
+  const handleReplaceSelection = useCallback((next: Set<string>) => {
+    setSelectedEntries(new Set(next));
+  }, []);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarCollapsed((prev) => !prev);
@@ -1750,7 +1754,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onRenameTaskTitle={handleRenameTaskTitle}
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
-                      onCreateIntent={handleOpenQuickIntentModal}
                       canCreateTasks={canCreateTasks}
                       teamMembers={teamMembers}
                       activeProjectId={activeProjectId}
@@ -1758,6 +1761,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       selectedEntryKeys={selectedEntries}
                       onEntrySelect={handleEntrySelect}
                       onClearSelection={handleClearSelection}
+                      onReplaceSelection={handleReplaceSelection}
                       onRescheduleEntries={handleRescheduleEntries}
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}
@@ -1783,7 +1787,6 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onRenameTaskTitle={handleRenameTaskTitle}
                       onCreateEvent={handleOpenCreate}
                       onCreateTask={handleOpenQuickTaskModal}
-                      onCreateIntent={handleOpenQuickIntentModal}
                       canCreateTasks={canCreateTasks}
                       teamMembers={teamMembers}
                       activeProjectId={activeProjectId}
@@ -1791,6 +1794,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       selectedEntryKeys={selectedEntries}
                       onEntrySelect={handleEntrySelect}
                       onClearSelection={handleClearSelection}
+                      onReplaceSelection={handleReplaceSelection}
                       onRescheduleEntries={handleRescheduleEntries}
                       onSubmitForReview={handleSubmitForReview}
                       onMarkAsDone={handleMarkAsDone}

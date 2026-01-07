@@ -1118,6 +1118,16 @@
   position: relative;
 }
 
+.calendar-marquee {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.65);
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18) inset;
+}
+
 .week-grid__spacer {
   position: sticky;
   top: 0;
