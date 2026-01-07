@@ -24,29 +24,29 @@
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  padding-bottom: 14px;
 }
 
 .pageHeading {
   display: grid;
-  gap: 12px;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  column-gap: 24px;
+  row-gap: 10px;
 }
 
-.pageHeadingTopRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
+.headerRightStack {
+  display: grid;
+  justify-items: end;
+  row-gap: 10px;
 }
 
 .pageGreeting {
   white-space: nowrap;
-  font-size: 0.95rem;
-  font-weight: 600;
-  opacity: 0.9;
+  font-size: 13px;
+  line-height: 1.2;
+  opacity: 0.7;
 }
 
 .headingCopy {
@@ -64,11 +64,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
 .pageSubtitle {
   margin: 0;
-  max-width: 720px;
+  max-width: 640px;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.45;
   font-size: 0.95rem;
@@ -77,11 +78,9 @@
 
 .actionsRow {
   display: flex;
-  flex: 1 1 100%;
   flex-wrap: wrap;
-  gap: 12px;
-  align-self: flex-start;
   justify-content: flex-end;
+  gap: 12px;
 
   /* Single source of truth for top-bar control height */
   --hq-control-h: 36px;
