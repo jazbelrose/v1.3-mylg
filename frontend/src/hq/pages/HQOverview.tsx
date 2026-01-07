@@ -173,6 +173,7 @@ const HQOverview: React.FC = () => {
   const [chart, setChart] = React.useState<HqChartSeriesResponse | null>(null);
   const [chartError, setChartError] = React.useState<string | null>(null);
   const [chartLoading, setChartLoading] = React.useState(false);
+  const [chartNeedsImport, setChartNeedsImport] = React.useState(false);
 
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
@@ -212,12 +213,14 @@ const HQOverview: React.FC = () => {
       setChart(null);
       setChartError(null);
       setChartLoading(false);
+      setChartNeedsImport(false);
       return;
     }
 
     let cancelled = false;
     setChartLoading(true);
     setChartError(null);
+    setChartNeedsImport(false);
 
     const fetchRange: HqChartSeriesRange = "ALL";
     fetchHqChartSeries({ orgId: activeOrgId, scope: "aggregate", range: fetchRange })
@@ -228,6 +231,17 @@ const HQOverview: React.FC = () => {
       .catch((err) => {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : "Could not load chart.";
+
+        // Friendly empty-state: org has no anchored accounts / no data yet.
+        if (
+          String(msg).toLowerCase().includes("no anchored accounts available for chart series") ||
+          String(msg).includes('No anchored accounts available for chart series')
+        ) {
+          setChart(null);
+          setChartError(null);
+          setChartNeedsImport(true);
+          return;
+        }
 
         // Common during dev: backend not redeployed yet -> endpoint returns 404.
         // Fall back to local cache so HQ stays usable.
@@ -555,7 +569,24 @@ const HQOverview: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className={styles.emptyState}>Set ending balance today on your accounts to see the chart.</div>
+              <div className={styles.emptyState}>
+                {chartLoading
+                  ? "Loading chart…"
+                  : chartNeedsImport
+                    ? canAdmin
+                      ? (
+                        <div>
+                          <div style={{ marginBottom: 10 }}>No data yet. Import a CSV to generate your cash series.</div>
+                          <button type="button" className={styles.secondaryButton} onClick={openImport}>
+                            Import CSV
+                          </button>
+                        </div>
+                      )
+                      : "No data yet. Ask an admin to import a CSV."
+                    : chartError
+                      ? "Could not load chart."
+                      : "Set ending balance today on your accounts to see the chart."}
+              </div>
             )}
           </div>
 

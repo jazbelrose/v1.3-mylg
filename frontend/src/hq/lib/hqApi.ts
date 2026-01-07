@@ -232,7 +232,7 @@ export async function deleteHqAccount(orgId: string, accountId: string): Promise
 
 export async function resetHqData(
   orgId: string,
-  mode: "all" | "keepRules" | "keepAccountsAndRules" | "keepData" = "all"
+  mode: "all" | "keepRules" | "keepAccountsAndRules" | "keepAccountsRulesAndImports" | "keepData" = "all"
 ): Promise<{ ok: boolean } & Record<string, unknown>> {
   const base = getHqServiceBaseUrl();
   const params = new URLSearchParams({ orgId, mode });

@@ -12,7 +12,8 @@ import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { toast } from "react-toastify";
-import { resetHqData } from "@/hq/lib/hqApi";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { deleteHqImportRun, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import HqSelect from "@/hq/components/HqSelect";
@@ -115,24 +116,95 @@ const HQLayout: React.FC<HQLayoutProps> = ({
 
   const canOrgAdmin = Boolean(activeOrgId) && isOrgAdmin(activeOrgRole);
 
-  const handleResetHq = useCallback(async () => {
+  const [isDataLayersOpen, setIsDataLayersOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<null | "remove-csv" | "remove-bank" | "remove-everything">(null);
+  const [isShredding, setIsShredding] = useState(false);
+
+  const requestConfirmOrRun = useCallback(
+    (action: "remove-csv" | "remove-bank" | "remove-everything", run: () => Promise<void>) => {
+      if (isShredding) return;
+      if (confirmAction !== action) {
+        setConfirmAction(action);
+        return;
+      }
+      void run();
+    },
+    [confirmAction, isShredding]
+  );
+
+  const handleRemoveCsvDatasets = useCallback(async () => {
     if (!activeOrgId) return;
     if (!canOrgAdmin) return;
+    if (isShredding) return;
 
-    const confirmText = window.prompt(
-      `Type RESET to delete all HQ accounts/imports/transactions for "${activeOrgName || activeOrgId}". (Rules will be kept.)`
-    );
-    if (confirmText !== "RESET") return;
+    setIsShredding(true);
+    setIsDataLayersOpen(false);
+    setConfirmAction(null);
 
     try {
-      await resetHqData(activeOrgId, "keepRules");
-      toast.success("HQ data reset.");
+      const summary = await fetchHqSummary(activeOrgId);
+      const runs = Array.isArray(summary.importRuns) ? summary.importRuns : [];
+      if (!runs.length) {
+        toast.info("No CSV datasets to remove.");
+        return;
+      }
+
+      for (const r of runs) {
+        if (!r?.importRunId) continue;
+        await deleteHqImportRun(activeOrgId, r.importRunId);
+      }
+
+      toast.success("Removed CSV datasets.");
       window.dispatchEvent(new Event("mylg:hq-refresh"));
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Could not reset HQ data.");
+      toast.error(err instanceof Error ? err.message : "Could not remove CSV datasets.");
+    } finally {
+      setIsShredding(false);
     }
-  }, [activeOrgId, activeOrgName, canOrgAdmin]);
+  }, [activeOrgId, canOrgAdmin, isShredding]);
+
+  const handleRemoveBankTransactions = useCallback(async () => {
+    if (!activeOrgId) return;
+    if (!canOrgAdmin) return;
+    if (isShredding) return;
+
+    setIsShredding(true);
+    setIsDataLayersOpen(false);
+    setConfirmAction(null);
+
+    try {
+      await resetHqData(activeOrgId, "keepAccountsRulesAndImports");
+      toast.success("Removed bank-synced transactions.");
+      window.dispatchEvent(new Event("mylg:hq-refresh"));
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Could not remove bank-synced transactions.");
+    } finally {
+      setIsShredding(false);
+    }
+  }, [activeOrgId, canOrgAdmin, isShredding]);
+
+  const handleRemoveEverything = useCallback(async () => {
+    if (!activeOrgId) return;
+    if (!canOrgAdmin) return;
+    if (isShredding) return;
+
+    setIsShredding(true);
+    setIsDataLayersOpen(false);
+    setConfirmAction(null);
+
+    try {
+      await resetHqData(activeOrgId, "all");
+      toast.success("Removed everything.");
+      window.dispatchEvent(new Event("mylg:hq-refresh"));
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Could not remove everything.");
+    } finally {
+      setIsShredding(false);
+    }
+  }, [activeOrgId, canOrgAdmin, isShredding]);
 
   const pageHeader = (
     <header className={styles.pageHeader}>
@@ -167,10 +239,108 @@ const HQLayout: React.FC<HQLayoutProps> = ({
               Delete org
             </button>
           ) : null}
+
           {canOrgAdmin && activeOrgId ? (
-            <button type="button" className={styles.orgCreateButton} onClick={handleResetHq}>
-              Shred HQ Data
-            </button>
+            <DropdownMenu.Root
+              open={isDataLayersOpen}
+              onOpenChange={(open) => {
+                setIsDataLayersOpen(open);
+                if (!open) setConfirmAction(null);
+              }}
+            >
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  className={styles.orgCreateButton}
+                  aria-haspopup="menu"
+                  aria-expanded={isDataLayersOpen}
+                  disabled={isShredding}
+                >
+                  Data layers
+                </button>
+              </DropdownMenu.Trigger>
+
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className={styles.dataLayersMenu}
+                  sideOffset={8}
+                  align="end"
+                  collisionPadding={12}
+                >
+                  <DropdownMenu.Label className={styles.dataLayersMenuLabel}>Data layers</DropdownMenu.Label>
+                  <div className={styles.dataLayersMenuHint}>
+                    Bank connection (account stays) · Imported CSV datasets · Categorization rules
+                  </div>
+                  <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                      onClick={() =>
+                        requestConfirmOrRun("remove-csv", async () => {
+                          await handleRemoveCsvDatasets();
+                        })
+                      }
+                      disabled={isShredding}
+                    >
+                      <span className={styles.dataLayersMenuItemTitle}>
+                        {confirmAction === "remove-csv" ? "Confirm: Remove CSV datasets" : "Remove CSV datasets"}
+                      </span>
+                      <span className={styles.dataLayersMenuItemDesc}>
+                        Deletes imported CSV datasets. Keeps account + bank sync + rules.
+                      </span>
+                    </button>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                      onClick={() =>
+                        requestConfirmOrRun("remove-bank", async () => {
+                          await handleRemoveBankTransactions();
+                        })
+                      }
+                      disabled={isShredding}
+                    >
+                      <span className={styles.dataLayersMenuItemTitle}>
+                        {confirmAction === "remove-bank"
+                          ? "Confirm: Remove bank-synced transactions"
+                          : "Remove bank-synced transactions"}
+                      </span>
+                      <span className={styles.dataLayersMenuItemDesc}>
+                        Clears only bank-synced transactions. Keeps accounts + rules + CSV imports.
+                      </span>
+                    </button>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                      onClick={() =>
+                        requestConfirmOrRun("remove-everything", async () => {
+                          await handleRemoveEverything();
+                        })
+                      }
+                      disabled={isShredding}
+                    >
+                      <span className={styles.dataLayersMenuItemTitle}>
+                        {confirmAction === "remove-everything" ? "Confirm: Remove everything" : "Remove everything"}
+                      </span>
+                      <span className={styles.dataLayersMenuItemDesc}>Deletes account + all data + rules (rare).</span>
+                    </button>
+                  </DropdownMenu.Item>
+
+                  {confirmAction ? (
+                    <div className={styles.dataLayersMenuHintStrong}>Click the same action again to confirm.</div>
+                  ) : null}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           ) : null}
           {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
         </div>
@@ -211,9 +381,106 @@ const HQLayout: React.FC<HQLayoutProps> = ({
           </button>
         ) : null}
         {canOrgAdmin && activeOrgId ? (
-          <button type="button" className={styles.orgCreateButton} onClick={handleResetHq}>
-            Reset HQ Data
-          </button>
+          <DropdownMenu.Root
+            open={isDataLayersOpen}
+            onOpenChange={(open) => {
+              setIsDataLayersOpen(open);
+              if (!open) setConfirmAction(null);
+            }}
+          >
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                className={styles.orgCreateButton}
+                aria-haspopup="menu"
+                aria-expanded={isDataLayersOpen}
+                disabled={isShredding}
+              >
+                Data layers
+              </button>
+            </DropdownMenu.Trigger>
+
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                className={styles.dataLayersMenu}
+                sideOffset={8}
+                align="end"
+                collisionPadding={12}
+              >
+                <DropdownMenu.Label className={styles.dataLayersMenuLabel}>Data layers</DropdownMenu.Label>
+                <div className={styles.dataLayersMenuHint}>
+                  Bank connection (account stays) · Imported CSV datasets · Categorization rules
+                </div>
+                <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+
+                <DropdownMenu.Item asChild>
+                  <button
+                    type="button"
+                    className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                    onClick={() =>
+                      requestConfirmOrRun("remove-csv", async () => {
+                        await handleRemoveCsvDatasets();
+                      })
+                    }
+                    disabled={isShredding}
+                  >
+                    <span className={styles.dataLayersMenuItemTitle}>
+                      {confirmAction === "remove-csv" ? "Confirm: Remove CSV datasets" : "Remove CSV datasets"}
+                    </span>
+                    <span className={styles.dataLayersMenuItemDesc}>
+                      Deletes imported CSV datasets. Keeps account + bank sync + rules.
+                    </span>
+                  </button>
+                </DropdownMenu.Item>
+
+                <DropdownMenu.Item asChild>
+                  <button
+                    type="button"
+                    className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                    onClick={() =>
+                      requestConfirmOrRun("remove-bank", async () => {
+                        await handleRemoveBankTransactions();
+                      })
+                    }
+                    disabled={isShredding}
+                  >
+                    <span className={styles.dataLayersMenuItemTitle}>
+                      {confirmAction === "remove-bank"
+                        ? "Confirm: Remove bank-synced transactions"
+                        : "Remove bank-synced transactions"}
+                    </span>
+                    <span className={styles.dataLayersMenuItemDesc}>
+                      Clears only bank-synced transactions. Keeps accounts + rules + CSV imports.
+                    </span>
+                  </button>
+                </DropdownMenu.Item>
+
+                <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+
+                <DropdownMenu.Item asChild>
+                  <button
+                    type="button"
+                    className={[styles.dataLayersMenuItem, styles.dataLayersMenuItemDanger].join(" ")}
+                    onClick={() =>
+                      requestConfirmOrRun("remove-everything", async () => {
+                        await handleRemoveEverything();
+                      })
+                    }
+                    disabled={isShredding}
+                  >
+                    <span className={styles.dataLayersMenuItemTitle}>
+                      {confirmAction === "remove-everything" ? "Confirm: Remove everything" : "Remove everything"}
+                    </span>
+                    <span className={styles.dataLayersMenuItemDesc}>Deletes account + all data + rules (rare).</span>
+                  </button>
+                </DropdownMenu.Item>
+
+                {confirmAction ? (
+                  <div className={styles.dataLayersMenuHintStrong}>Click the same action again to confirm.</div>
+                ) : null}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         ) : null}
         {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
       </div>

@@ -1165,7 +1165,7 @@ const deleteAccount = async (e, C, { accountId }) => {
   return json(200, C, { ok: true, accountId, deletedTransactions, deletedImportRuns });
 };
 
-// DELETE /hq/reset?orgId=...&mode=all|keepRules|keepAccountsAndRules|keepData
+// DELETE /hq/reset?orgId=...&mode=all|keepRules|keepAccountsAndRules|keepAccountsRulesAndImports|keepData
 const resetHq = async (e, C) => {
   const userId = requireCallerUserId(e);
   const q = Q(e);
@@ -1177,6 +1177,7 @@ const resetHq = async (e, C) => {
   const mode = String(q.mode || "all").trim().toLowerCase();
   const keepRules = mode === "keeprules";
   const keepAccountsAndRules = mode === "keepaccountsandrules";
+  const keepAccountsRulesAndImports = mode === "keepaccountsrulesandimports";
   const keepData = mode === "keepdata";
 
   let deletedAccounts = 0;
@@ -1197,6 +1198,19 @@ const resetHq = async (e, C) => {
     const deletes = [];
     for (const item of page.Items || []) {
       const sk = String(item.sk || "");
+
+      if (keepAccountsRulesAndImports) {
+        // Keep accounts, rules, and imports; only delete bank-synced TXNs.
+        // Heuristic: CSV-imported txns have importRunId; bank-synced do not.
+        if (sk.startsWith("ACCOUNT#") || sk.startsWith("RULE#") || sk.startsWith("IMPORT#")) continue;
+        if (sk.startsWith("TXN#")) {
+          if (item && item.importRunId) continue;
+        } else {
+          // For unknown/other entities, keep by default.
+          continue;
+        }
+      }
+
       if (keepRules && sk.startsWith("RULE#")) continue;
       if (keepAccountsAndRules && (sk.startsWith("RULE#") || sk.startsWith("ACCOUNT#"))) continue;
       if (keepData && !sk.startsWith("RULE#")) continue;
@@ -1219,7 +1233,15 @@ const resetHq = async (e, C) => {
   return json(200, C, {
     ok: true,
     orgId,
-    mode: keepRules ? "keepRules" : keepAccountsAndRules ? "keepAccountsAndRules" : keepData ? "keepData" : "all",
+    mode: keepRules
+      ? "keepRules"
+      : keepAccountsAndRules
+        ? "keepAccountsAndRules"
+        : keepAccountsRulesAndImports
+          ? "keepAccountsRulesAndImports"
+          : keepData
+            ? "keepData"
+            : "all",
     deletedAccounts,
     deletedTransactions,
     deletedImportRuns,

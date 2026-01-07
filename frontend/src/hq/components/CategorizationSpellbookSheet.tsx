@@ -307,7 +307,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
   const [isShredMenuOpen, setIsShredMenuOpen] = React.useState(false);
   const [confirmShredAction, setConfirmShredAction] = React.useState<
-    null | "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-everything"
+    null | "delete-import-run" | "delete-bank-txns-keep-accounts-rules" | "delete-everything"
   >(null);
   const [isShredding, setIsShredding] = React.useState(false);
 
@@ -354,7 +354,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   }, [isOpen, importRunId]);
 
   const handleShredAction = React.useCallback(
-    async (action: "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-everything") => {
+    async (action: "delete-import-run" | "delete-bank-txns-keep-accounts-rules" | "delete-everything") => {
       if (isShredding) return;
 
       setIsShredding(true);
@@ -370,9 +370,9 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           return;
         }
 
-        if (action === "delete-txns-keep-accounts-rules") {
-          await resetHqData(orgId, "keepAccountsAndRules");
-          toast.success("Removed transactions/imports. Kept accounts + rules.");
+        if (action === "delete-bank-txns-keep-accounts-rules") {
+          await resetHqData(orgId, "keepAccountsRulesAndImports");
+          toast.success("Removed bank-synced transactions. Kept accounts + rules + CSV imports.");
         }
 
         if (action === "delete-everything") {
@@ -408,7 +408,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   );
 
   const requestConfirmOrRun = React.useCallback(
-    (action: "delete-import-run" | "delete-txns-keep-accounts-rules" | "delete-everything") => {
+    (action: "delete-import-run" | "delete-bank-txns-keep-accounts-rules" | "delete-everything") => {
       if (isShredding) return;
       if (confirmShredAction !== action) {
         setConfirmShredAction(action);
@@ -1088,15 +1088,15 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                     <button
                       type="button"
                       className={[styles.menuItem, styles.menuItemDanger].join(" ")}
-                      onClick={() => requestConfirmOrRun("delete-txns-keep-accounts-rules")}
+                      onClick={() => requestConfirmOrRun("delete-bank-txns-keep-accounts-rules")}
                       disabled={isShredding}
                     >
                       <span className={styles.menuItemTitle}>
-                        {confirmShredAction === "delete-txns-keep-accounts-rules"
+                        {confirmShredAction === "delete-bank-txns-keep-accounts-rules"
                           ? "Confirm: Remove bank-synced transactions"
                           : "Remove bank-synced transactions"}
                       </span>
-                      <span className={styles.menuItemDesc}>Clears transactions/imports. Keeps the account shell + rules.</span>
+                      <span className={styles.menuItemDesc}>Clears only bank-synced transactions. Keeps accounts + rules + CSV imports.</span>
                     </button>
                   </DropdownMenu.Item>
 
