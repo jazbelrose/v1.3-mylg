@@ -634,6 +634,47 @@ const HQOverview: React.FC = () => {
           </div>
         </section>
 
+        <div className={styles.gridRowTwoCol}>
+          <HQCard title="Accounts" aria-label="Accounts breakdown">
+            {accounts.length === 0 ? (
+              <div className={styles.emptyState}>
+                Add an account to start.{" "}
+                {canAdmin ? (
+                  <button type="button" className={styles.inlineButton} onClick={openAddAccount}>
+                    Add account
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <ul className={styles.list}>
+                {accounts.slice(0, 5).map((acct) => (
+                  <li key={acct.accountId} className={styles.listItem}>
+                    <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
+                    <Link className={styles.cardLink} to="/dashboard/hq/accounts">
+                      {acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HQCard>
+
+          <HQCard title="Top categories" subtitle={rangeLabel} aria-label="Top spend categories">
+            {topCategories.length === 0 ? (
+              <div className={styles.emptyState}>No spend yet.</div>
+            ) : (
+              <ul className={styles.list}>
+                {topCategories.map((entry) => (
+                  <li key={entry.categoryId} className={styles.listItem}>
+                    <span>{HQ_CATEGORY_LABEL[entry.categoryId]}</span>
+                    <span>{currency.format(entry.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HQCard>
+        </div>
+
         <div className={styles.gridRow}>
           <HQCard
             title="Cash in vs cash out"
@@ -676,29 +717,6 @@ const HQOverview: React.FC = () => {
             )}
           </HQCard>
 
-          <HQCard
-            title="Top categories"
-            subtitle={rangeLabel}
-            aria-label="Top spend categories"
-            className={styles.gridSpan2IfLast}
-          >
-            {topCategories.length === 0 ? (
-              <div className={styles.emptyState}>No spend yet.</div>
-            ) : (
-              <ul className={styles.list}>
-                {topCategories.map((entry) => (
-                  <li key={entry.categoryId} className={styles.listItem}>
-                    <span>{HQ_CATEGORY_LABEL[entry.categoryId]}</span>
-                    <span>{currency.format(entry.amount)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </HQCard>
-
-        </div>
-
-        <div className={styles.gridRow}>
           <HQCard title="Alerts" aria-label="Financial alerts">
             {alerts.length === 0 ? (
               <div className={styles.emptyState}>All clear.</div>
@@ -724,30 +742,6 @@ const HQOverview: React.FC = () => {
                   Review now
                 </Link>
               </div>
-            )}
-          </HQCard>
-
-          <HQCard title="Accounts" aria-label="Accounts breakdown">
-            {accounts.length === 0 ? (
-              <div className={styles.emptyState}>
-                Add an account to start.{" "}
-                {canAdmin ? (
-                  <button type="button" className={styles.inlineButton} onClick={openAddAccount}>
-                  Add account
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <ul className={styles.list}>
-                {accounts.slice(0, 5).map((acct) => (
-                  <li key={acct.accountId} className={styles.listItem}>
-                    <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
-                    <Link className={styles.cardLink} to="/dashboard/hq/accounts">
-                      {acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
             )}
           </HQCard>
         </div>
