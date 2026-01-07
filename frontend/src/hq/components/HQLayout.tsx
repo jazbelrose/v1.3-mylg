@@ -135,6 +135,23 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   const [confirmText, setConfirmText] = useState("");
   const [isWhatStaysOpen, setIsWhatStaysOpen] = useState(false);
 
+  const desktopGreetingMessage = useMemo(() => {
+    if (!flags.isDesktop) return null;
+
+    const rawName = (userName || "User").trim();
+    const firstToken = rawName.split(/\s+/)[0] || "User";
+    const normalizedFirstName = firstToken
+      ? firstToken.charAt(0).toUpperCase() + firstToken.slice(1)
+      : "User";
+
+    const hour = new Date().getHours();
+    let baseGreeting = "Good evening";
+    if (hour < 12) baseGreeting = "Good morning";
+    else if (hour < 18) baseGreeting = "Good afternoon";
+
+    return `${baseGreeting}, ${normalizedFirstName}!`;
+  }, [flags.isDesktop, userName]);
+
   const handleRemoveCsvDatasets = useCallback(async () => {
     if (!activeOrgId) return;
     if (!canOrgAdmin) return;
@@ -230,12 +247,15 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   const pageHeader = (
     <header className={styles.pageHeader}>
       <div className={styles.pageHeading}>
-        <div className={styles.headingCopy}>
+        <div className={styles.pageHeadingTopRow}>
           <h1 className={styles.pageTitle}>{title}</h1>
-          {description ? (
-            <p className={styles.pageSubtitle}>{description}</p>
+          {desktopGreetingMessage ? (
+            <div className={styles.pageGreeting} aria-live="polite">
+              {desktopGreetingMessage}
+            </div>
           ) : null}
         </div>
+        {description ? <p className={styles.pageSubtitle}>{description}</p> : null}
         <div className={styles.actionsRow}>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -339,43 +359,41 @@ const HQLayout: React.FC<HQLayoutProps> = ({
                   <div className={styles.dataLayersMenuHint}>Choose what to delete. Accounts stay unless you pick the full reset.</div>
                   <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
 
-                  <DropdownMenu.Item asChild>
-                    <button
-                      type="button"
-                      className={styles.dataLayersMenuItem}
-                      onClick={() => {
-                        setIsShredMenuOpen(false);
-                        setConfirmAction("remove-csv");
-                      }}
-                      disabled={isShredding}
-                    >
-                      <span className={styles.dataLayersMenuItemTitle}>
-                        Shred CSV imports
-                      </span>
-                      <span className={styles.dataLayersMenuItemDesc}>
-                        Deletes imported CSV rows. Keeps accounts + bank sync + rules.
-                      </span>
-                    </button>
-                  </DropdownMenu.Item>
+                  <div className={styles.dataLayersMenuItems}>
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        className={styles.dataLayersMenuItem}
+                        onClick={() => {
+                          setIsShredMenuOpen(false);
+                          setConfirmAction("remove-csv");
+                        }}
+                        disabled={isShredding}
+                      >
+                        <span className={styles.dataLayersMenuItemTitle}>Shred CSV imports</span>
+                        <span className={styles.dataLayersMenuItemDesc}>
+                          Deletes imported CSV rows. Keeps accounts + bank sync + rules.
+                        </span>
+                      </button>
+                    </DropdownMenu.Item>
 
-                  <DropdownMenu.Item asChild>
-                    <button
-                      type="button"
-                      className={styles.dataLayersMenuItem}
-                      onClick={() => {
-                        setIsShredMenuOpen(false);
-                        setConfirmAction("remove-bank");
-                      }}
-                      disabled={isShredding}
-                    >
-                      <span className={styles.dataLayersMenuItemTitle}>
-                        Shred bank transactions
-                      </span>
-                      <span className={styles.dataLayersMenuItemDesc}>
-                        Deletes bank-synced rows. Keeps accounts + rules + CSV imports.
-                      </span>
-                    </button>
-                  </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        className={styles.dataLayersMenuItem}
+                        onClick={() => {
+                          setIsShredMenuOpen(false);
+                          setConfirmAction("remove-bank");
+                        }}
+                        disabled={isShredding}
+                      >
+                        <span className={styles.dataLayersMenuItemTitle}>Shred bank transactions</span>
+                        <span className={styles.dataLayersMenuItemDesc}>
+                          Deletes bank-synced rows. Keeps accounts + rules + CSV imports.
+                        </span>
+                      </button>
+                    </DropdownMenu.Item>
+                  </div>
 
                   <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
                   <div className={styles.dataLayersDangerZoneLabel}>Danger zone</div>
@@ -531,43 +549,41 @@ const HQLayout: React.FC<HQLayoutProps> = ({
                 <div className={styles.dataLayersMenuHint}>Choose what to delete. Accounts stay unless you pick the full reset.</div>
                 <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
 
-                <DropdownMenu.Item asChild>
-                  <button
-                    type="button"
-                    className={styles.dataLayersMenuItem}
-                    onClick={() => {
-                      setIsShredMenuOpen(false);
-                      setConfirmAction("remove-csv");
-                    }}
-                    disabled={isShredding}
-                  >
-                    <span className={styles.dataLayersMenuItemTitle}>
-                      Shred CSV imports
-                    </span>
-                    <span className={styles.dataLayersMenuItemDesc}>
-                      Deletes imported CSV rows. Keeps accounts + bank sync + rules.
-                    </span>
-                  </button>
-                </DropdownMenu.Item>
+                <div className={styles.dataLayersMenuItems}>
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={styles.dataLayersMenuItem}
+                      onClick={() => {
+                        setIsShredMenuOpen(false);
+                        setConfirmAction("remove-csv");
+                      }}
+                      disabled={isShredding}
+                    >
+                      <span className={styles.dataLayersMenuItemTitle}>Shred CSV imports</span>
+                      <span className={styles.dataLayersMenuItemDesc}>
+                        Deletes imported CSV rows. Keeps accounts + bank sync + rules.
+                      </span>
+                    </button>
+                  </DropdownMenu.Item>
 
-                <DropdownMenu.Item asChild>
-                  <button
-                    type="button"
-                    className={styles.dataLayersMenuItem}
-                    onClick={() => {
-                      setIsShredMenuOpen(false);
-                      setConfirmAction("remove-bank");
-                    }}
-                    disabled={isShredding}
-                  >
-                    <span className={styles.dataLayersMenuItemTitle}>
-                      Shred bank transactions
-                    </span>
-                    <span className={styles.dataLayersMenuItemDesc}>
-                      Deletes bank-synced rows. Keeps accounts + rules + CSV imports.
-                    </span>
-                  </button>
-                </DropdownMenu.Item>
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={styles.dataLayersMenuItem}
+                      onClick={() => {
+                        setIsShredMenuOpen(false);
+                        setConfirmAction("remove-bank");
+                      }}
+                      disabled={isShredding}
+                    >
+                      <span className={styles.dataLayersMenuItemTitle}>Shred bank transactions</span>
+                      <span className={styles.dataLayersMenuItemDesc}>
+                        Deletes bank-synced rows. Keeps accounts + rules + CSV imports.
+                      </span>
+                    </button>
+                  </DropdownMenu.Item>
+                </div>
 
                 <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
                 <div className={styles.dataLayersDangerZoneLabel}>Danger zone</div>
@@ -767,17 +783,6 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     </div>
   ) : null;
 
-  const desktopWelcomeHeader = flags.isDesktop ? (
-    <WelcomeHeader
-      userName={userName}
-      setActiveView={handleSetActiveView}
-      isDesktopLayout={flags.isDesktop}
-      showDesktopGreeting
-      showGlobalSearch={false}
-      showAvatar={false}
-    />
-  ) : null;
-
   const mainContent = (
     <main className="dashboard-main">
       {mobileWelcomeHeader}
@@ -785,7 +790,6 @@ const HQLayout: React.FC<HQLayoutProps> = ({
         {shredConfirmModal}
         {whatStaysModal}
         <div className={styles.headerContainer}>
-          {desktopWelcomeHeader}
           {flags.isDesktop ? pageHeader : mobilePageHeader}
         </div>
         <div className={styles.contentArea}>
