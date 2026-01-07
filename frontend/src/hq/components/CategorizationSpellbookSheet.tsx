@@ -1047,7 +1047,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 <button
                   type="button"
                   className={styles.moreButton}
-                  aria-label="Data layers"
+                  aria-label="Shred data"
                   aria-haspopup="menu"
                   aria-expanded={isShredMenuOpen}
                 >
@@ -1062,10 +1062,8 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                   align="end"
                   collisionPadding={12}
                 >
-                  <DropdownMenu.Label className={styles.menuLabel}>Data layers</DropdownMenu.Label>
-                  <div className={styles.menuHint}>
-                    Bank connection (account stays) · Imported CSV datasets · Categorization rules
-                  </div>
+                  <DropdownMenu.Label className={styles.menuLabel}>Shred data</DropdownMenu.Label>
+                  <div className={styles.menuHint}>Choose what to delete. Accounts stay unless you pick the full reset.</div>
                   <DropdownMenu.Separator className={styles.menuSeparator} />
 
                   {importRunId ? (

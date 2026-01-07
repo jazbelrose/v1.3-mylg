@@ -131,25 +131,124 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.orgDropdownTrigger {
+  padding: 0 14px;
+}
+
+.orgDropdownPrefix {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.orgDropdownValue {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.orgMenu {
+  z-index: 9999;
+  min-width: 280px;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 19, 20, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.orgMenuLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 2px 4px 0;
+}
+
+.orgMenuSeparator {
+  height: 1px;
+  margin: 10px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.orgMenuHint {
+  padding: 6px 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.orgMenuRadioItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  user-select: none;
+}
+
+.orgMenuRadioItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.orgMenuRadioItem:focus-visible {
+  outline: 1px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
+.orgMenuRadioLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.orgMenuRadioIndicator {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+}
+
+.orgMenuItem {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.orgMenuItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.orgMenuItem:focus-visible {
+  outline: 1px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
+.orgMenuItemDanger {
+  border-color: rgba(250, 51, 86, 0.25);
+}
+
 .dataLayersMenu {
   z-index: 9999;
   min-width: 320px;
   max-width: min(420px, calc(100vw - 24px));
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(18, 19, 20, 0.98);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
   color: rgba(255, 255, 255, 0.9);
 }
 
 .dataLayersMenuLabel {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.8);
-  padding: 2px 4px 0;
+  padding: 4px 4px 0;
 }
 
 .dataLayersMenuHint {
@@ -171,7 +270,7 @@
   text-align: left;
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -189,19 +288,224 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.dataLayersMenuItem:focus-visible {
+  outline: 1px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
 .dataLayersMenuItemTitle {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dataLayersMenuItemDesc {
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.45;
   color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .dataLayersMenuItemDanger {
   border-color: rgba(250, 51, 86, 0.25);
+}
+
+.dataLayersMenuItemDanger:hover,
+.dataLayersMenuItemDanger:focus-visible {
+  background: rgba(250, 51, 86, 0.12);
+}
+
+.dataLayersDangerZoneLabel {
+  padding: 2px 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dataLayersDangerZoneSpacer {
+  height: 8px;
+}
+
+.dataLayersDangerTitleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dataLayersDangerIcon {
+  color: rgba(250, 51, 86, 0.9);
+  font-size: 13px;
+}
+
+.dataLayersFooterLink {
+  margin-top: 10px;
+  padding: 8px 4px 0;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dataLayersFooterLink:hover,
+.dataLayersFooterLink:focus-visible {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: underline;
+}
+
+.dataLayersFooterLink:focus-visible {
+  outline: 1px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  z-index: 10000;
+}
+
+.modalContent {
+  outline: none;
+  width: min(520px, calc(100vw - 24px));
+}
+
+.modal {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 19, 20, 0.98);
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 16px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.modalBody {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.modalBodyText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.modalChecklistTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.modalChecklist {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.modalField {
+  display: grid;
+  gap: 6px;
+}
+
+.modalFieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.modalInput {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.modalInput:focus-visible {
+  outline: 1px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
+.modalActions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modalSecondaryButton {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.modalSecondaryButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modalPrimaryButton {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+}
+
+.modalPrimaryButton:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.modalDangerButton {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.85);
+  color: rgba(255, 255, 255, 0.98);
+  cursor: pointer;
+}
+
+.modalDangerButton:hover {
+  background: rgba(250, 51, 86, 0.95);
+}
+
+.modalPrimaryButton:disabled,
+.modalSecondaryButton:disabled,
+.modalDangerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .dataLayersMenuHintStrong {
