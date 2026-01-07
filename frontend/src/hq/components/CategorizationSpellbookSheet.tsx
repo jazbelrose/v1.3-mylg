@@ -14,10 +14,12 @@ import {
   fetchHqTransactions,
   deleteHqImportRun,
   resetHqData,
+  fetchHqVendorCounts,
+  fetchHqVendorMatches,
 } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
 import { suggestCategory, suggestCategoryFromUserRules } from "@/hq/lib/hqCategorization";
-import { cleanVendorLabel, getVendorKeyForTxn } from "@/hq/lib/vendorNormalization";
+import { cleanVendorLabel, getVendorKeyForTxn, normalizeVendorKey } from "@/hq/lib/vendorNormalization";
 
 import type { HqCategoryId, HqTransaction } from "@/hq/types";
 import styles from "./CategorizationSpellbookSheet.module.css";
@@ -41,6 +43,7 @@ type VendorCluster = {
   totalInflow: number;
   lastSeen: string;
   examples: HqTransaction[];
+  exampleAccountId?: string;
   suggestedCategoryId: HqCategoryId;
   suggestedConfidence: number;
   suggestedReason: string;
@@ -61,6 +64,7 @@ type PendingRule = {
   direction?: DirectionGuard;
   method?: MethodGuard;
   applyMode?: ApplyMode;
+  applyWindow?: { from?: string; to?: string; accountId?: string };
   amountMin?: number;
   amountMax?: number;
   frequencyHint?: "weekly" | "biweekly" | "monthly" | "other";
@@ -274,7 +278,7 @@ function computeAffectsCount(input: {
 
     if (apiMatchType === "vendor") {
       const label = cleanVendorLabel({ vendor: t.vendor, counterparty: t.counterparty, rawDescription: t.rawDescription });
-      return label.trim().toLowerCase() === input.patternText.trim().toLowerCase();
+      return normalizeVendorKey(label) === normalizeVendorKey(input.patternText);
     }
 
     const haystack = `${cleanVendorLabel({ vendor: t.vendor, counterparty: t.counterparty, rawDescription: t.rawDescription })} ${t.normalizedDescription || ""}`;
@@ -284,6 +288,7 @@ function computeAffectsCount(input: {
 
 const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRunId, onRequestClose }) => {
   const accounts = useHqStore(orgId, (s) => s.accounts);
+  const importRuns = useHqStore(orgId, (s) => s.importRuns);
   const categoryRules = useHqStore(orgId, (s) => s.categoryRules);
   const cachedTxns = useHqStore(orgId, (s) => s.transactions);
 
@@ -300,7 +305,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   const [customFrom, setCustomFrom] = React.useState<string>("");
   const [customTo, setCustomTo] = React.useState<string>("");
 
-  const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set());
   const [pendingRules, setPendingRules] = React.useState<Record<string, PendingRule>>({});
   const [selectedVendorKey, setSelectedVendorKey] = React.useState<string | null>(null);
 
@@ -325,9 +329,26 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
   const [applyToSimilarPrompt, setApplyToSimilarPrompt] = React.useState<{
     cluster: VendorCluster;
     categoryId: HqCategoryId;
-    matchCount: number;
+    counts: { inView: number; totalAllAccounts?: number; totalThisAccount?: number };
+    applyScope: "inView" | "allAccounts" | "thisAccount";
   } | null
   >(null);
+
+  const [totalCountsByVendorKey, setTotalCountsByVendorKey] = React.useState<Record<string, number>>({});
+
+  const [reviewIncludeCategorized, setReviewIncludeCategorized] = React.useState(true);
+  const [reviewRange, setReviewRange] = React.useState<"YTD" | "12MO" | "ALL">("YTD");
+  const [reviewAccountScope, setReviewAccountScope] = React.useState<"all" | "this">("all");
+  const [reviewMatches, setReviewMatches] = React.useState<HqTransaction[]>([]);
+  const [reviewCountInScope, setReviewCountInScope] = React.useState<number | null>(null);
+  const [reviewCountTotal, setReviewCountTotal] = React.useState<number | null>(null);
+  const [reviewLoading, setReviewLoading] = React.useState(false);
+
+  const importRunAccountId = React.useMemo(() => {
+    if (!importRunId) return "";
+    const run = importRuns.find((r) => r.importRunId === importRunId);
+    return run?.accountId || "";
+  }, [importRunId, importRuns]);
 
   useModalStack(isOpen);
 
@@ -357,7 +378,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     setPendingRules({});
     setSelectedVendorKey(null);
     setLastApply(null);
-    setExpanded(new Set());
     setIsShredMenuOpen(false);
     setConfirmShredAction(null);
     setApplyToSimilarPrompt(null);
@@ -393,7 +413,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         setPendingRules({});
         setSelectedVendorKey(null);
         setLastApply(null);
-        setExpanded(new Set());
 
         const summary = await fetchHqSummary(orgId);
         const tx = await fetchHqTransactions({ orgId, limit: 2000 });
@@ -476,7 +495,6 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
 
   const baseTxns = React.useMemo(() => {
     const filterTxn = (t: HqTransaction) => {
-      if (importRunId && t.importRunId !== importRunId) return false;
       if (fromIso && t.postedAt < fromIso) return false;
       if (toIso && t.postedAt > toIso) return false;
       return true;
@@ -486,7 +504,21 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     if (withinRange.length) return withinRange;
 
     return cachedTxns.filter(filterTxn);
-  }, [cachedTxns, fromIso, importRunId, toIso, txns]);
+  }, [cachedTxns, fromIso, toIso, txns]);
+
+  const viewTxns = React.useMemo(() => {
+    return filterUncategorizedOnly ? baseTxns.filter((t) => isUncategorized(t)) : baseTxns;
+  }, [baseTxns, filterUncategorizedOnly]);
+
+  const inViewCountsByVendorKey = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const txn of viewTxns) {
+      const { vendorKey } = getVendorKeyForTxn(txn);
+      const key = vendorKey || "unknown";
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+    return map;
+  }, [viewTxns]);
 
   const clusters = React.useMemo((): VendorCluster[] => {
     const groups = new Map<
@@ -509,6 +541,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     for (const [vendorKey, g] of groups.entries()) {
       const txnsSorted = [...g.txns].sort((a, b) => b.postedAt.localeCompare(a.postedAt));
       const examples = txnsSorted.slice(0, 5);
+      const exampleAccountId = txnsSorted[0]?.accountId;
       const count = g.txns.length;
       const totalOutflow = g.txns
         .filter((t) => t.direction === "out")
@@ -536,6 +569,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         totalInflow,
         lastSeen,
         examples,
+        exampleAccountId,
         suggestedCategoryId: (suggestion.categoryId || "OTHER") as HqCategoryId,
         suggestedConfidence: suggestion.confidence,
         suggestedReason: suggestion.reason,
@@ -564,6 +598,30 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       });
   }, [baseTxns, categoryRules, filterLowConfidence, filterRecurring, filterType, filterUncategorizedOnly, pendingRules, query]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (!clusters.length) return;
+
+    const keys = Array.from(new Set(clusters.map((c) => c.vendorKey).filter(Boolean))).slice(0, 80);
+    const missing = keys.filter((k) => totalCountsByVendorKey[k] === undefined);
+    if (!missing.length) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetchHqVendorCounts(orgId, { vendorKeys: missing, includeCategorized: true });
+        if (cancelled) return;
+        setTotalCountsByVendorKey((prev) => ({ ...prev, ...(res.counts || {}) }));
+      } catch {
+        // best-effort
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clusters, isOpen, orgId, totalCountsByVendorKey]);
+
   const categoryOptions = React.useMemo(
     () => HQ_CATEGORIES.filter((c) => c.id !== "TRANSFERS").map((c) => ({ value: c.id, label: c.label })),
     []
@@ -574,54 +632,105 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     return clusters.find((c) => c.vendorKey === selectedVendorKey) || null;
   }, [clusters, selectedVendorKey]);
 
+  const selectedClusterInViewCount = React.useMemo(() => {
+    if (!selectedCluster) return 0;
+    return inViewCountsByVendorKey.get(selectedCluster.vendorKey) || 0;
+  }, [inViewCountsByVendorKey, selectedCluster]);
+
+  const selectedClusterTotalCount = React.useMemo(() => {
+    if (!selectedCluster) return undefined;
+    return totalCountsByVendorKey[selectedCluster.vendorKey];
+  }, [selectedCluster, totalCountsByVendorKey]);
+
+  const reviewAccountOptions = React.useMemo(() => {
+    const opts: Array<{ value: "all" | "this"; label: string }> = [{ value: "all", label: "All accounts" }];
+    if (selectedCluster?.exampleAccountId) opts.push({ value: "this", label: "This account" });
+    return opts;
+  }, [selectedCluster?.exampleAccountId]);
+
   const queuedCount = Object.keys(pendingRules).length;
 
   // Calculate match count for a cluster with a given category
   const getMatchCountForCluster = React.useCallback(
     (cluster: VendorCluster): number => {
-      return computeAffectsCount({
-        txns: baseTxns,
-        patternText: cluster.vendorLabel,
-        matchType: "contains",
-        scope: "org",
-        direction: "any",
-        method: "any",
-        applyMode: "uncategorized",
-      });
+      return inViewCountsByVendorKey.get(cluster.vendorKey) || 0;
     },
-    [baseTxns]
+    [inViewCountsByVendorKey]
   );
 
   // Show the "Apply to similar?" prompt when user changes category inline
   const handleCategoryChangeFromRow = React.useCallback(
     (cluster: VendorCluster, categoryId: HqCategoryId) => {
-      const matchCount = getMatchCountForCluster(cluster);
-      setApplyToSimilarPrompt({ cluster, categoryId, matchCount });
+      const inView = getMatchCountForCluster(cluster);
+      const totalAllAccounts = totalCountsByVendorKey[cluster.vendorKey];
+
+      setApplyToSimilarPrompt({
+        cluster,
+        categoryId,
+        counts: { inView, totalAllAccounts },
+        applyScope: "inView",
+      });
+
+      const accountId = cluster.exampleAccountId || "";
+      if (!accountId) return;
+
+      void (async () => {
+        try {
+          const res = await fetchHqVendorCounts(orgId, {
+            vendorKeys: [cluster.vendorKey],
+            includeCategorized: true,
+            accountId,
+          });
+          const totalThisAccount = res.counts?.[cluster.vendorKey];
+          setApplyToSimilarPrompt((prev) => {
+            if (!prev) return prev;
+            if (prev.cluster.vendorKey !== cluster.vendorKey) return prev;
+            return {
+              ...prev,
+              counts: {
+                ...prev.counts,
+                totalThisAccount: typeof totalThisAccount === "number" ? totalThisAccount : prev.counts.totalThisAccount,
+              },
+            };
+          });
+        } catch {
+          // ignore
+        }
+      })();
     },
-    [getMatchCountForCluster]
+    [getMatchCountForCluster, orgId, totalCountsByVendorKey]
   );
 
   // Confirm and queue rule from prompt
   const handleConfirmApplyToSimilar = React.useCallback(() => {
     if (!applyToSimilarPrompt) return;
-    const { cluster, categoryId } = applyToSimilarPrompt;
+    const { cluster, categoryId, applyScope } = applyToSimilarPrompt;
+
+    const applyWindow: PendingRule["applyWindow"] =
+      applyScope === "inView"
+        ? { from: fromIso, to: toIso }
+        : applyScope === "thisAccount" && cluster.exampleAccountId
+          ? { accountId: cluster.exampleAccountId }
+          : undefined;
+
     setPendingRules((prev) => ({
       ...prev,
       [cluster.vendorKey]: {
         vendorKey: cluster.vendorKey,
         vendorLabel: cluster.vendorLabel,
-        patternText: cluster.vendorLabel,
+        patternText: cluster.vendorKey,
         categoryId,
-        matchType: "contains",
+        matchType: "exact",
         scope: "org",
         direction: "any",
         method: "any",
         applyMode: "uncategorized",
+        applyWindow,
       },
     }));
     setApplyToSimilarPrompt(null);
     toast.success(`Queued rule for "${cluster.vendorLabel}" → ${HQ_CATEGORY_LABEL[categoryId]}`);
-  }, [applyToSimilarPrompt]);
+  }, [applyToSimilarPrompt, fromIso, toIso]);
 
   // Review matches from prompt → open the drawer
   const handleReviewFromPrompt = React.useCallback(() => {
@@ -630,21 +739,85 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     setApplyToSimilarPrompt(null);
   }, [applyToSimilarPrompt]);
 
-  const handleToggleExpanded = React.useCallback((vendorKey: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(vendorKey)) next.delete(vendorKey);
-      else next.add(vendorKey);
-      return next;
-    });
-  }, []);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (!selectedCluster) return;
+
+    // Default review scope explains "why you only see 1".
+    setReviewIncludeCategorized(!filterUncategorizedOnly);
+    setReviewRange(rangeMode === "12MO" ? "12MO" : rangeMode === "YTD" ? "YTD" : "ALL");
+    setReviewAccountScope("all");
+  }, [filterUncategorizedOnly, isOpen, rangeMode, selectedCluster]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (!selectedCluster) return;
+
+    const vendorKey = selectedCluster.vendorKey;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const ytdFrom = `${new Date().getUTCFullYear()}-01-01`;
+    const twelveMoFrom = (() => {
+      const d = new Date();
+      d.setUTCFullYear(d.getUTCFullYear() - 1);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    const from = reviewRange === "YTD" ? ytdFrom : reviewRange === "12MO" ? twelveMoFrom : undefined;
+    const to = reviewRange === "ALL" ? undefined : todayIso;
+    const accountId = reviewAccountScope === "this" ? selectedCluster.exampleAccountId : undefined;
+
+    let cancelled = false;
+    setReviewLoading(true);
+
+    void (async () => {
+      try {
+        const [inScope, totalAll] = await Promise.all([
+          fetchHqVendorCounts(orgId, {
+            vendorKeys: [vendorKey],
+            from,
+            to,
+            includeCategorized: reviewIncludeCategorized,
+            ...(accountId ? { accountId } : {}),
+          }),
+          fetchHqVendorCounts(orgId, { vendorKeys: [vendorKey], includeCategorized: true }),
+        ]);
+        if (cancelled) return;
+
+        setReviewCountInScope(typeof inScope.counts?.[vendorKey] === "number" ? inScope.counts[vendorKey] : 0);
+        setReviewCountTotal(typeof totalAll.counts?.[vendorKey] === "number" ? totalAll.counts[vendorKey] : 0);
+
+        const res = await fetchHqVendorMatches(orgId, {
+          vendorKey,
+          from,
+          to,
+          includeCategorized: reviewIncludeCategorized,
+          ...(accountId ? { accountId } : {}),
+          limit: 30,
+        });
+        if (cancelled) return;
+        setReviewMatches(Array.isArray(res.matches) ? res.matches : []);
+      } catch {
+        if (!cancelled) {
+          setReviewMatches([]);
+          setReviewCountInScope(null);
+          setReviewCountTotal(null);
+        }
+      } finally {
+        if (!cancelled) setReviewLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, orgId, reviewAccountScope, reviewIncludeCategorized, reviewRange, selectedCluster]);
 
   const handleApply = React.useCallback(async () => {
     if (queuedCount === 0) return;
     setIsApplying(true);
 
     try {
-      const createdRuleIds: string[] = [];
+      const createdRuleIds: Array<{ ruleId: string; applyWindow?: PendingRule["applyWindow"] }> = [];
 
       for (const rule of Object.values(pendingRules)) {
         const { apiMatchType, pattern } = buildRulePattern({
@@ -670,16 +843,31 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           frequencyHint: rule.frequencyHint,
         });
 
-        createdRuleIds.push(created.rule.ruleId);
+        createdRuleIds.push({ ruleId: created.rule.ruleId, applyWindow: rule.applyWindow });
       }
 
-      const applied = await applyHqCategoryRules(orgId, {
-        importRunId,
-        ruleIds: createdRuleIds,
-      });
+      const groups = new Map<string, { ruleIds: string[]; from?: string; to?: string; accountId?: string }>();
+      for (const r of createdRuleIds) {
+        const w = r.applyWindow || {};
+        const key = `${w.from || ""}|${w.to || ""}|${w.accountId || ""}`;
+        const g = groups.get(key) || { ruleIds: [], from: w.from, to: w.to, accountId: w.accountId };
+        g.ruleIds.push(r.ruleId);
+        groups.set(key, g);
+      }
 
-      toast.success(`Applied ${createdRuleIds.length} rules. Updated ${applied.updated} transactions.`);
-      setLastApply({ createdRuleIds, updated: applied.updated });
+      let updatedTotal = 0;
+      for (const g of groups.values()) {
+        const applied = await applyHqCategoryRules(orgId, {
+          ruleIds: g.ruleIds,
+          from: g.from,
+          to: g.to,
+          accountId: g.accountId,
+        });
+        updatedTotal += applied.updated || 0;
+      }
+
+      toast.success(`Applied ${createdRuleIds.length} rules. Updated ${updatedTotal} transactions.`);
+      setLastApply({ createdRuleIds: createdRuleIds.map((r) => r.ruleId), updated: updatedTotal });
       setPendingRules({});
 
       // Refresh local store (best-effort) + notify pages.
@@ -701,7 +889,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     } finally {
       setIsApplying(false);
     }
-  }, [importRunId, orgId, pendingRules, queuedCount]);
+  }, [orgId, pendingRules, queuedCount]);
 
   const handleRevertLastApply = React.useCallback(async () => {
     if (!lastApply?.createdRuleIds?.length) return;
@@ -712,9 +900,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         await deleteHqCategoryRule(orgId, ruleId);
       }
 
-      const applied = await applyHqCategoryRules(orgId, {
-        importRunId,
-      });
+      const applied = await applyHqCategoryRules(orgId, {});
 
       toast.success(`Reverted. Recomputed ${applied.updated} transactions.`);
       setLastApply(null);
@@ -737,14 +923,16 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
     } finally {
       setIsApplying(false);
     }
-  }, [importRunId, lastApply, orgId]);
+  }, [lastApply, orgId]);
 
   const renderRow = React.useCallback(
     (index: number, cluster: VendorCluster) => {
       void index;
-      const isExpanded = expanded.has(cluster.vendorKey);
       const pending = pendingRules[cluster.vendorKey];
       const isSelected = selectedVendorKey === cluster.vendorKey;
+
+      const inViewCount = inViewCountsByVendorKey.get(cluster.vendorKey) || 0;
+      const totalCount = typeof totalCountsByVendorKey[cluster.vendorKey] === "number" ? totalCountsByVendorKey[cluster.vendorKey] : null;
 
       const currentCategory = pending?.categoryId || cluster.suggestedCategoryId || "OTHER";
 
@@ -764,15 +952,27 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       ].filter(Boolean).join(" ");
 
       return (
-        <div className={rowClasses}>
+        <div
+          className={rowClasses}
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedVendorKey(cluster.vendorKey)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setSelectedVendorKey(cluster.vendorKey);
+            }
+          }}
+        >
           <button
             type="button"
             className={styles.vendorCell}
-            onClick={() => handleToggleExpanded(cluster.vendorKey)}
-            aria-expanded={isExpanded}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedVendorKey(cluster.vendorKey);
+            }}
           >
             <div className={styles.vendorTop}>
-              <span className={styles.vendorIcon} aria-hidden />
               <span className={styles.vendorName} title={cluster.vendorLabel}>
                 {cluster.vendorLabel}
               </span>
@@ -783,19 +983,11 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             <div className={styles.vendorHint} title={cluster.examples[0]?.rawDescription || ""}>
               {exampleLine}
             </div>
-            {isExpanded ? (
-              <div className={styles.expandedExamples}>
-                {cluster.examples.slice(0, 5).map((t) => (
-                  <div key={`${t.postedAt}-${t.dedupeHash}`} className={styles.exampleLine}>
-                    {t.type.replace(/_/g, " ")} — {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))}
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </button>
 
           <div className={styles.metricsCell}>
-            <div className={styles.metricStrong}>{cluster.count} tx</div>
+            <div className={styles.metricStrong}>{inViewCount} in view</div>
+            <div className={styles.metricMuted}>{totalCount === null ? "…" : totalCount} total</div>
             <div className={styles.metricMuted}>{currencyCompact.format(cluster.totalAbs)}</div>
             <div className={styles.metricMuted}>Last {formatShortDate(cluster.lastSeen)}</div>
           </div>
@@ -830,7 +1022,10 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             <button
               type="button"
               className={styles.previewButton}
-              onClick={() => setSelectedVendorKey(cluster.vendorKey)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedVendorKey(cluster.vendorKey);
+              }}
             >
               Preview matches
             </button>
@@ -838,7 +1033,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
         </div>
       );
     },
-    [categoryOptions, expanded, handleCategoryChangeFromRow, handleToggleExpanded, isApplying, pendingRules, selectedVendorKey]
+    [categoryOptions, handleCategoryChangeFromRow, inViewCountsByVendorKey, isApplying, pendingRules, selectedVendorKey, totalCountsByVendorKey]
   );
 
   const [builderMatchType, setBuilderMatchType] = React.useState<MatchType>("contains");
@@ -1305,13 +1500,64 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                   <strong>"{applyToSimilarPrompt.cluster.vendorLabel}"</strong> transactions?
                 </span>
                 <div className={styles.promptActions}>
-                  <button
-                    type="button"
-                    className={styles.primaryButton}
-                    onClick={handleConfirmApplyToSimilar}
-                  >
-                    Apply to {applyToSimilarPrompt.matchCount} matches
-                  </button>
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <button type="button" className={styles.primaryButton}>
+                        Apply to {applyToSimilarPrompt.counts.inView} in view ▾
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content className={styles.menu} sideOffset={8} align="start">
+                        <div className={styles.menuLabel}>Apply scope</div>
+                        <div className={styles.menuHint}>Choose how far back to apply when running rules.</div>
+                        <div className={styles.menuSeparator} />
+
+                        <button
+                          type="button"
+                          className={styles.menuItem}
+                          onClick={() => {
+                            setApplyToSimilarPrompt((p) => (p ? { ...p, applyScope: "inView" } : p));
+                            void handleConfirmApplyToSimilar();
+                          }}
+                        >
+                          <span className={styles.menuItemTitle}>Apply to {applyToSimilarPrompt.counts.inView} in view</span>
+                          <span className={styles.menuItemDesc}>Respects current filters + range.</span>
+                        </button>
+
+                        {typeof applyToSimilarPrompt.counts.totalThisAccount === "number" && applyToSimilarPrompt.cluster.exampleAccountId ? (
+                          <button
+                            type="button"
+                            className={styles.menuItem}
+                            onClick={() => {
+                              setApplyToSimilarPrompt((p) => (p ? { ...p, applyScope: "thisAccount" } : p));
+                              void handleConfirmApplyToSimilar();
+                            }}
+                          >
+                            <span className={styles.menuItemTitle}>
+                              Apply to {applyToSimilarPrompt.counts.totalThisAccount} total (this account)
+                            </span>
+                            <span className={styles.menuItemDesc}>All time, limited to the account of the example match.</span>
+                          </button>
+                        ) : null}
+
+                        {typeof applyToSimilarPrompt.counts.totalAllAccounts === "number" ? (
+                          <button
+                            type="button"
+                            className={styles.menuItem}
+                            onClick={() => {
+                              setApplyToSimilarPrompt((p) => (p ? { ...p, applyScope: "allAccounts" } : p));
+                              void handleConfirmApplyToSimilar();
+                            }}
+                          >
+                            <span className={styles.menuItemTitle}>
+                              Apply to {applyToSimilarPrompt.counts.totalAllAccounts} total (all accounts)
+                            </span>
+                            <span className={styles.menuItemDesc}>All time across the org.</span>
+                          </button>
+                        ) : null}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
                   <button
                     type="button"
                     className={styles.secondaryButton}
@@ -1369,7 +1615,7 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                   <div>
                     <div className={styles.drawerTitle}>{selectedCluster.vendorLabel}</div>
                     <div className={styles.drawerSubtitle}>
-                      {selectedCluster.count} transactions · {currencyCompact.format(selectedCluster.totalAbs)}
+                      In view {selectedClusterInViewCount} · Total {typeof selectedClusterTotalCount === "number" ? selectedClusterTotalCount : "…"}
                     </div>
                     <div className={styles.drawerHint}>
                       {builderMatchPreview.hasInvalidRegex ? (
@@ -1390,6 +1636,73 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
                 </div>
 
                 <div className={styles.drawerBody}>
+                  <div className={styles.previewExamples}>
+                    <div className={styles.previewTitle}>Review matches</div>
+
+                    <div className={styles.guardGrid}>
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Include</span>
+                        <HqSelect
+                          value={reviewIncludeCategorized ? "include" : "uncategorized"}
+                          onValueChange={(v) => setReviewIncludeCategorized(v === "include")}
+                          ariaLabel="Review include categorized"
+                          options={[
+                            { value: "uncategorized", label: "Uncategorized only" },
+                            { value: "include", label: "Include categorized" },
+                          ]}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Time</span>
+                        <HqSelect
+                          value={reviewRange}
+                          onValueChange={(v) => setReviewRange(v as any)}
+                          ariaLabel="Review time range"
+                          options={[
+                            { value: "YTD", label: "YTD" },
+                            { value: "12MO", label: "Last 12 months" },
+                            { value: "ALL", label: "All time" },
+                          ]}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Account</span>
+                        <HqSelect
+                          value={reviewAccountScope}
+                          onValueChange={(v) => setReviewAccountScope(v as any)}
+                          ariaLabel="Review account scope"
+                          options={reviewAccountOptions}
+                        />
+                      </label>
+                    </div>
+
+                    <div className={styles.exampleLine}>
+                      List filters: {filterUncategorizedOnly ? "Uncategorized only" : "Include categorized"} · Range: {rangeMode}
+                    </div>
+                    <div className={styles.exampleLine}>
+                      {reviewLoading ? (
+                        <>Loading…</>
+                      ) : (
+                        <>
+                          Showing <span className={styles.inlineStrong}>{reviewCountInScope ?? "…"}</span> in scope ·{" "}
+                          <span className={styles.inlineStrong}>{reviewCountTotal ?? "…"}</span> total (all time)
+                        </>
+                      )}
+                    </div>
+
+                    {reviewMatches.length ? (
+                      reviewMatches.slice(0, 10).map((t) => (
+                        <div key={`${t.postedAt}-${t.dedupeHash}`} className={styles.exampleLine}>
+                          {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))} — {t.normalizedDescription || t.rawDescription}
+                        </div>
+                      ))
+                    ) : reviewLoading ? null : (
+                      <div className={styles.drawerHint}>No matches in the current review scope.</div>
+                    )}
+                  </div>
+
                   <div className={styles.templateBar}>
                     {selectedCluster.clusterType === "Owner" ? (
                       <button type="button" className={styles.templateButton} onClick={() => applyTemplate("owner-draw")}>
@@ -1638,6 +1951,73 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
             </div>
 
             <div className={styles.mobileDrawerBody}>
+              <div className={styles.previewExamples}>
+                <div className={styles.previewTitle}>Review matches</div>
+
+                <div className={styles.guardGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Include</span>
+                    <HqSelect
+                      value={reviewIncludeCategorized ? "include" : "uncategorized"}
+                      onValueChange={(v) => setReviewIncludeCategorized(v === "include")}
+                      ariaLabel="Review include categorized"
+                      options={[
+                        { value: "uncategorized", label: "Uncategorized only" },
+                        { value: "include", label: "Include categorized" },
+                      ]}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Time</span>
+                    <HqSelect
+                      value={reviewRange}
+                      onValueChange={(v) => setReviewRange(v as any)}
+                      ariaLabel="Review time range"
+                      options={[
+                        { value: "YTD", label: "YTD" },
+                        { value: "12MO", label: "Last 12 months" },
+                        { value: "ALL", label: "All time" },
+                      ]}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Account</span>
+                    <HqSelect
+                      value={reviewAccountScope}
+                      onValueChange={(v) => setReviewAccountScope(v as any)}
+                      ariaLabel="Review account scope"
+                      options={reviewAccountOptions}
+                    />
+                  </label>
+                </div>
+
+                <div className={styles.exampleLine}>
+                  In view {selectedClusterInViewCount} · Total {typeof selectedClusterTotalCount === "number" ? selectedClusterTotalCount : "…"}
+                </div>
+                <div className={styles.exampleLine}>
+                  {reviewLoading ? (
+                    <>Loading…</>
+                  ) : (
+                    <>
+                      Showing <span className={styles.inlineStrong}>{reviewCountInScope ?? "…"}</span> in scope ·{" "}
+                      <span className={styles.inlineStrong}>{reviewCountTotal ?? "…"}</span> total (all time)
+                    </>
+                  )}
+                </div>
+
+                {reviewMatches.length ? (
+                  reviewMatches.slice(0, 6).map((t) => (
+                    <div key={`${t.postedAt}-${t.dedupeHash}`} className={styles.exampleLine}>
+                      {formatShortDate(t.postedAt)} — {currencyPrecise.format(Math.abs(t.amount))} — {t.normalizedDescription || t.rawDescription}
+                    </div>
+                  ))
+                ) : reviewLoading ? null : (
+                  <div className={styles.drawerHint}>No matches in the current review scope.</div>
+                )}
+              </div>
+
               <div className={styles.drawerHint}>
                 {builderMatchPreview.hasInvalidRegex ? (
                   <span className={styles.inlineStrong}>Invalid regex</span>

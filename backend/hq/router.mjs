@@ -73,6 +73,20 @@ const normalizeVendorKey = (value) =>
     .replace(/\b(inc|llc|ltd|corp|co)\b\.?/g, "")
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    // Strip trailing location-ish / noise tokens to stabilize vendor clustering.
+    .filter((t, idx, arr) => {
+      void idx;
+      const last = arr[arr.length - 1];
+      if (t !== last) return true;
+      if (/^[a-z]{2}$/.test(t)) return false; // state codes like CA
+      if (/^\d{5}$/.test(t)) return false; // zip
+      if (/^\d{1,4}$/.test(t) && arr.length >= 3) return false; // store/location ids
+      return true;
+    })
+    .join(" ")
     .trim();
 
 const HQ_TIME_ZONE = "America/Los_Angeles";
@@ -120,7 +134,143 @@ const DEFAULT_RULEPACK = [
   { pattern: "\\bDELTA\\b|\\bUNITED\\b|\\bAMERICAN AIRLINES\\b|\\bJETBLUE\\b", categoryId: "TRAVEL", priority: 155 },
   { pattern: "\\bWEWORK\\b", categoryId: "RENT_LEASE", priority: 150 },
   { pattern: "\\bSQUARE\\b|\\bSTRIPE\\b", categoryId: "INCOME", priority: 145 },
+  { pattern: "\\bTESLA\\s+FINANCE\\b", categoryId: "AUTO_PAYMENT", priority: 142 },
+  { pattern: "\\bTESLA\\s+INSURANCE\\b", categoryId: "INSURANCE", priority: 141 },
+  { pattern: "\\bCHARGEPOINT\\b|\\bELECTRIFY\\s+AMERICA\\b", categoryId: "CHARGING", priority: 140 },
 ];
+
+const isUncategorizedTxn = (t) => {
+  const c = String(t?.categoryId || "OTHER");
+  return !c || c === "OTHER";
+};
+
+// GET /hq/vendor-counts?orgId=...&vendorKeys=a,b,c&from=...&to=...&includeCategorized=1&accountId=...
+const getVendorCounts = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const rawKeys = q.vendorKeys ? String(q.vendorKeys) : "";
+  const vendorKeys = rawKeys
+    .split(",")
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .slice(0, 120);
+  if (!vendorKeys.length) return json(400, C, { error: "vendorKeys required" });
+
+  const keySet = new Set(vendorKeys);
+  const from = q.from ? String(q.from).trim() : "";
+  const to = q.to ? String(q.to).trim() : "";
+  const accountId = q.accountId ? String(q.accountId).trim() : "";
+  const includeCategorized = String(q.includeCategorized || "1").trim() !== "0";
+
+  const counts = {};
+  for (const k of vendorKeys) counts[k] = 0;
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      const postedAt = String(t.postedAt || "");
+      if (from && postedAt && postedAt < from) continue;
+      if (to && postedAt && postedAt > to) continue;
+      if (accountId && t.accountId !== accountId) continue;
+      if (!includeCategorized && !isUncategorizedTxn(t)) continue;
+
+      const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
+      const key = normalizeVendorKey(vendor || t.rawDescription || t.normalizedDescription || "");
+      if (!key || !keySet.has(key)) continue;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return json(200, C, { orgId, counts });
+};
+
+// GET /hq/vendor-matches?orgId=...&vendorKey=...&from=...&to=...&includeCategorized=1&accountId=...&cursor=...&limit=...
+const getVendorMatches = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const vendorKey = q.vendorKey ? String(q.vendorKey).trim() : "";
+  if (!vendorKey) return json(400, C, { error: "vendorKey required" });
+
+  const from = q.from ? String(q.from).trim() : "0000-00-00";
+  const to = q.to ? String(q.to).trim() : "9999-99-99";
+  const accountId = q.accountId ? String(q.accountId).trim() : "";
+  const includeCategorized = String(q.includeCategorized || "1").trim() !== "0";
+  const limit = Math.min(parseInt(q.limit || "30", 10), 60);
+  const exclusiveStartKey = decodeCursor(q.cursor);
+
+  const start = `TXN#${from}`;
+  const end = `TXN#${to}~`;
+
+  const matches = [];
+  let lastKey = exclusiveStartKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :a AND :b",
+      ExpressionAttributeValues: { ":o": orgId, ":a": start, ":b": end },
+      ScanIndexForward: false,
+      Limit: 250,
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      if (matches.length >= limit) break;
+      if (accountId && t.accountId !== accountId) continue;
+      if (!includeCategorized && !isUncategorizedTxn(t)) continue;
+
+      const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
+      const key = normalizeVendorKey(vendor || t.rawDescription || t.normalizedDescription || "");
+      if (!key || key !== vendorKey) continue;
+
+      matches.push({
+        orgId,
+        accountId: t.accountId,
+        postedAt: t.postedAt,
+        authorizedAt: t.authorizedAt,
+        amount: t.amount,
+        currency: t.currency || "USD",
+        rawDescription: t.rawDescription,
+        normalizedDescription: t.normalizedDescription,
+        type: t.type,
+        direction: t.direction,
+        vendor: t.vendor,
+        counterparty: t.counterparty,
+        locationCity: t.locationCity,
+        locationState: t.locationState,
+        cardLast4: t.cardLast4,
+        referenceId: t.referenceId,
+        categoryId: t.categoryId,
+        categoryConfidence: t.categoryConfidence,
+        isInternalTransfer: t.isInternalTransfer,
+        projectId: t.projectId,
+        importRunId: t.importRunId,
+        dedupeHash: t.dedupeHash,
+      });
+    }
+
+    lastKey = page.LastEvaluatedKey;
+    if (!lastKey) break;
+  } while (matches.length < limit);
+
+  return json(200, C, { orgId, vendorKey, matches, cursor: encodeCursor(lastKey) });
+};
 
 const listCategoryRules = async (orgId) => {
   const res = await ddb.query({
@@ -870,6 +1020,9 @@ const applyCategoryRules = async (e, C) => {
   const ruleIds = Array.isArray(body.ruleIds)
     ? body.ruleIds.map((x) => String(x || "").trim()).filter(Boolean)
     : null;
+  const from = typeof body.from === "string" ? body.from.trim() : "";
+  const to = typeof body.to === "string" ? body.to.trim() : "";
+  const accountId = typeof body.accountId === "string" ? body.accountId.trim() : "";
 
   const allRules = await ensureSeedRulepack(orgId);
   const rules = ruleIds ? allRules.filter((r) => ruleIds.includes(r.ruleId)) : allRules;
@@ -885,6 +1038,10 @@ const applyCategoryRules = async (e, C) => {
     });
 
     for (const t of page.Items || []) {
+      const postedAt = String(t.postedAt || "");
+      if (from && postedAt && postedAt < from) continue;
+      if (to && postedAt && postedAt > to) continue;
+      if (accountId && t.accountId !== accountId) continue;
       if (importRunId && t.importRunId !== importRunId) continue;
 
       const currentCategory = t.categoryId || "OTHER";
@@ -1615,6 +1772,8 @@ const routes = [
   { m: "DELETE", r: /^\/hq\/category-rules\/(?<ruleId>[^/]+)\/?$/i, h: deleteCategoryRule },
   { m: "POST", r: /^\/hq\/category-rules\/apply\/?$/i, h: applyCategoryRules },
   { m: "GET", r: /^\/hq\/uncategorized\/?$/i, h: listUncategorized },
+  { m: "GET", r: /^\/hq\/vendor-counts\/?$/i, h: getVendorCounts },
+  { m: "GET", r: /^\/hq\/vendor-matches\/?$/i, h: getVendorMatches },
 
   { m: "POST", r: /^\/hq\/import-csv\/?$/i, h: importCsv },
 

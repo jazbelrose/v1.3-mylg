@@ -442,7 +442,7 @@ const HQOverview: React.FC = () => {
 
   return (
     <HQLayout
-      title="HQ: Financial"
+      title="HQ"
       description="Accounts, ledger, burn, runway, and anomalies at a glance."
       actions={actions}
     >

@@ -39,12 +39,34 @@ export function cleanVendorLabel(input: {
 }
 
 export function normalizeVendorKey(value: string): string {
-  return normalizeWhitespace(value)
+  const tokens = normalizeWhitespace(value)
     .toLowerCase()
     .replace(/\b(inc|llc|ltd|corp|co)\b\.?/g, "")
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+
+  // Strip trailing location-ish / noise tokens to stabilize vendor clustering.
+  while (tokens.length) {
+    const last = tokens[tokens.length - 1];
+    if (/^[a-z]{2}$/.test(last)) {
+      tokens.pop();
+      continue;
+    }
+    if (/^\d{5}$/.test(last)) {
+      tokens.pop();
+      continue;
+    }
+    if (/^\d{1,4}$/.test(last) && tokens.length >= 3) {
+      tokens.pop();
+      continue;
+    }
+    break;
+  }
+
+  return tokens.join(" ").trim();
 }
 
 export function getVendorKeyForTxn(txn: Pick<HqTransaction, "vendor" | "counterparty" | "rawDescription">): {

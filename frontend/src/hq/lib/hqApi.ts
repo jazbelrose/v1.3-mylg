@@ -233,7 +233,7 @@ export async function deleteHqCategoryRule(orgId: string, ruleId: string): Promi
 
 export async function applyHqCategoryRules(
   orgId: string,
-  input: { importRunId?: string; ruleIds?: string[] }
+  input: { importRunId?: string; ruleIds?: string[]; from?: string; to?: string; accountId?: string }
 ): Promise<{ orgId: string; updated: number }> {
   const base = getHqServiceBaseUrl();
   return apiFetch<{ orgId: string; updated: number }>(`${base}/hq/category-rules/apply?orgId=${encodeURIComponent(orgId)}`, {
@@ -265,5 +265,60 @@ export async function resetHqData(
   const params = new URLSearchParams({ orgId, mode });
   return apiFetch(`${base}/hq/reset?${params.toString()}`, {
     method: "DELETE",
+  });
+}
+
+export type HqVendorCountsResponse = {
+  orgId: string;
+  counts: Record<string, number>;
+};
+
+export async function fetchHqVendorCounts(orgId: string, input: {
+  vendorKeys: string[];
+  from?: string;
+  to?: string;
+  includeCategorized?: boolean;
+  accountId?: string;
+}): Promise<HqVendorCountsResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId });
+  params.set("vendorKeys", input.vendorKeys.join(","));
+  if (input.from) params.set("from", input.from);
+  if (input.to) params.set("to", input.to);
+  if (typeof input.includeCategorized === "boolean") params.set("includeCategorized", input.includeCategorized ? "1" : "0");
+  if (input.accountId) params.set("accountId", input.accountId);
+  return apiFetch<HqVendorCountsResponse>(`${base}/hq/vendor-counts?${params.toString()}`, {
+    method: "GET",
+    suppressErrorLog: true,
+  });
+}
+
+export type HqVendorMatchesResponse = {
+  orgId: string;
+  vendorKey: string;
+  matches: HqTransaction[];
+  cursor: string | null;
+};
+
+export async function fetchHqVendorMatches(orgId: string, input: {
+  vendorKey: string;
+  from?: string;
+  to?: string;
+  includeCategorized?: boolean;
+  accountId?: string;
+  cursor?: string | null;
+  limit?: number;
+}): Promise<HqVendorMatchesResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId, vendorKey: input.vendorKey });
+  if (input.from) params.set("from", input.from);
+  if (input.to) params.set("to", input.to);
+  if (typeof input.includeCategorized === "boolean") params.set("includeCategorized", input.includeCategorized ? "1" : "0");
+  if (input.accountId) params.set("accountId", input.accountId);
+  if (input.cursor) params.set("cursor", input.cursor);
+  if (input.limit) params.set("limit", String(input.limit));
+  return apiFetch<HqVendorMatchesResponse>(`${base}/hq/vendor-matches?${params.toString()}`, {
+    method: "GET",
+    suppressErrorLog: true,
   });
 }

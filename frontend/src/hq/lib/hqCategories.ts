@@ -27,9 +27,12 @@ export const HQ_CATEGORIES: readonly HqCategoryDefinition[] = [
   { id: "SHIPPING", label: "Shipping", tone: "out" },
 
   // Travel & Vehicles
-  { id: "GAS", label: "Gas", tone: "out" },
-  { id: "CHARGING", label: "Charging", tone: "out" },
-  { id: "PARKING_TOLLS", label: "Parking / Tolls", tone: "out" },
+  { id: "AUTO_PAYMENT", label: "Auto — Car payment", tone: "neutral" },
+  { id: "INSURANCE", label: "Auto — Insurance", tone: "out" },
+  { id: "GAS", label: "Auto — Fuel", tone: "out" },
+  { id: "CHARGING", label: "Auto — Charging", tone: "out" },
+  { id: "AUTO_MAINTENANCE", label: "Auto — Maintenance / Repairs", tone: "out" },
+  { id: "PARKING_TOLLS", label: "Auto — Parking / Tolls", tone: "out" },
   { id: "TRAVEL", label: "Travel (air/hotel/uber)", tone: "out" },
 
   // Finance
