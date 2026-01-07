@@ -2626,6 +2626,7 @@ function WeekGrid({
 
     const useTileLayout = isFocusBlock;
 
+    return (
       <>
         <button
           key={resolvedKey}
@@ -2664,7 +2665,7 @@ function WeekGrid({
                   })
                 : content}
 
-              {useTileLayout ? renderFocusBlockPreviewList() : null}
+              {useTileLayout ? renderFocusBlockChildren() : null}
             </div>
 
             {useTileLayout ? null : inlineAvatars}
@@ -2692,7 +2693,7 @@ function WeekGrid({
                         ) : null,
                     })
                   : content}
-                {useTileLayout ? renderFocusBlockPreviewList() : null}
+                {useTileLayout ? renderFocusBlockChildren() : null}
               </div>
               {useTileLayout ? null : inlineAvatars}
             </div>
@@ -2700,6 +2701,7 @@ function WeekGrid({
           </div>
         ) : null}
       </>
+    );
   };
 
   useEffect(() => {
