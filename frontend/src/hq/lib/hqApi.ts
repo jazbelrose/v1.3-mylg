@@ -20,6 +20,15 @@ export type HqTransactionsResponse = {
 
 export type HqChartSeriesRange = "1W" | "1M" | "3M" | "1Y" | "ALL";
 
+export type HqBalanceSeriesResponse = {
+  accountId: string;
+  currency: "USD";
+  anchorDate: string; // YYYY-MM-DD
+  anchorBalance: number;
+  days: number;
+  points: Array<{ date: string; balance: number }>;
+};
+
 export type HqChartSeriesResponse = {
   scope: "aggregate" | "account";
   accountId?: string;
@@ -90,6 +99,24 @@ export async function fetchHqChartSeries(input: {
   if (input.scope === "account" && input.accountId) params.set("accountId", input.accountId);
 
   return apiFetch<HqChartSeriesResponse>(`${base}/hq/chart-series?${params.toString()}`, {
+    method: "GET",
+    suppressErrorLog: true,
+  });
+}
+
+export async function fetchHqBalanceSeries(input: {
+  orgId: string;
+  accountId: string;
+  days?: number;
+}): Promise<HqBalanceSeriesResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({
+    orgId: input.orgId,
+    accountId: input.accountId,
+  });
+  if (typeof input.days === "number") params.set("days", String(input.days));
+
+  return apiFetch<HqBalanceSeriesResponse>(`${base}/hq/balance-series?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
   });

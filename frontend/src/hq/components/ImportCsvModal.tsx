@@ -160,6 +160,8 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         importRuns: summary.importRuns,
         transactions: txns.transactions,
         categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
+        cashOnHandAggregate: typeof summary.cashOnHandAggregate === "number" ? summary.cashOnHandAggregate : null,
+        missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
       });
 
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);

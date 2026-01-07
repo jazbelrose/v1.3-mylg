@@ -12,6 +12,7 @@ import { useHqStore } from "@/hq/lib/hqStore";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import {
   computeCashOnHand,
+  canonicalSignedAmount,
   computeMonthlyFlow,
   computeTopCategories,
   computeTrailingBurn,
@@ -103,10 +104,9 @@ function buildLocalChartSeries(input: {
 
   for (const t of input.transactions) {
     if (!includedAccountIds.has(t.accountId)) continue;
-    if (t.isInternalTransfer) continue;
     const date = String(t.postedAt || "").slice(0, 10);
     if (!date || date < start || date > today) continue;
-    const amt = typeof t.amount === "number" ? t.amount : Number(t.amount);
+    const amt = canonicalSignedAmount(t);
     if (!Number.isFinite(amt) || amt === 0) continue;
     if (amt > 0) inflowByDate.set(date, (inflowByDate.get(date) ?? 0) + amt);
     else outflowByDate.set(date, (outflowByDate.get(date) ?? 0) + Math.abs(amt));

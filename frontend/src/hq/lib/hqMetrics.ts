@@ -44,6 +44,41 @@ export function monthLabel(yyyyMm: string): string {
   return date.toLocaleString(undefined, { month: "short" });
 }
 
+function inferTxnDirection(t: HqTransaction): "in" | "out" | undefined {
+  const type = typeof t?.type === "string" ? t.type.trim().toLowerCase() : "";
+  const normalized = typeof t?.normalizedDescription === "string" ? t.normalizedDescription : "";
+
+  if (type === "deposit") return "in";
+  if (type === "card_purchase" || type === "recurring" || type === "fee") return "out";
+
+  if (type === "transfer") {
+    const m = /^ONLINE\s+TRANSFER\s+(TO|FROM)\b/i.exec(normalized);
+    if (m?.[1]) return m[1].toUpperCase() === "TO" ? "out" : "in";
+  }
+
+  if (type === "zelle") {
+    const m = /^ZELLE\s+(TO|FROM)\b/i.exec(normalized);
+    if (m?.[1]) return m[1].toUpperCase() === "TO" ? "out" : "in";
+  }
+
+  const directionRaw = typeof t?.direction === "string" ? t.direction.trim().toLowerCase() : "";
+  if (directionRaw === "in" || directionRaw === "out") return directionRaw;
+
+  const amt = typeof t?.amount === "number" ? t.amount : Number(t?.amount);
+  if (Number.isFinite(amt)) return amt >= 0 ? "in" : "out";
+  return undefined;
+}
+
+export function canonicalSignedAmount(t: HqTransaction): number | null {
+  const amt = typeof t?.amount === "number" ? t.amount : Number(t?.amount);
+  if (!Number.isFinite(amt)) return null;
+  if (amt < 0) return amt;
+  const dir = inferTxnDirection(t);
+  if (dir === "in") return Math.abs(amt);
+  if (dir === "out") return -Math.abs(amt);
+  return amt;
+}
+
 export function computeCashOnHand(accounts: HqAccount[], transactions: HqTransaction[]): number | null {
   if (accounts.length === 0) return null;
   const accountsWithAnchors = accounts
@@ -60,12 +95,15 @@ export function computeCashOnHand(accounts: HqAccount[], transactions: HqTransac
       // To reach today's cash-on-hand, include only txns AFTER the anchor date.
       .filter((t) => {
         if (t.accountId !== account.accountId) return false;
-        if (t.isInternalTransfer) return false;
         const postedAt = String(t.postedAt || "").slice(0, 10);
         if (!postedAt || !anchorDate) return false;
         return postedAt > anchorDate;
       })
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => {
+        const signed = canonicalSignedAmount(t);
+        if (typeof signed !== "number") return acc;
+        return acc + signed;
+      }, 0);
     total += anchorBalance + netSinceAnchor;
   }
   return Math.round(total * 100) / 100;

@@ -305,10 +305,106 @@ const canonicalSignedAmount = (t) => {
   const amt = typeof t?.amount === "number" ? t.amount : Number(t?.amount);
   if (!Number.isFinite(amt)) return null;
 
+  // If it's already negative, assume it's correctly signed.
+  // This avoids flipping legitimately-signed inflows/outflows based on heuristic direction.
+  if (amt < 0) return amt;
+
   const dir = inferTxnDirection(t);
   if (dir === "in") return Math.abs(amt);
   if (dir === "out") return -Math.abs(amt);
   return amt;
+};
+
+// GET /hq/balance-series?orgId=...&accountId=...&days=365
+// Returns end-of-day balance points from (anchorDate - days) .. anchorDate (inclusive), oldest -> newest.
+// Anchor is treated as end-of-day for anchorDate.
+const getBalanceSeries = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const accountId = typeof q.accountId === "string" ? q.accountId.trim() : "";
+  if (!accountId) return json(400, C, { error: "accountId required" });
+
+  const daysRaw = typeof q.days === "string" ? q.days.trim() : "365";
+  const days = Math.min(3660, Math.max(1, parseInt(daysRaw || "365", 10)));
+  if (!Number.isFinite(days)) return json(400, C, { error: "days must be an integer" });
+
+  // Load the account (and its anchor).
+  const accountsRes = await ddb.query({
+    TableName: HQ_TABLE,
+    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+    ExpressionAttributeValues: { ":o": orgId, ":p": "ACCOUNT#" },
+  });
+
+  const account = (accountsRes.Items || []).find((a) => a && a.accountId === accountId) || null;
+  if (!account) throw httpError(404, "Not found");
+
+  const anchorDate = String(account.anchorDate || "").slice(0, 10);
+  const anchorBalance = typeof account.anchorBalance === "number" ? Number(account.anchorBalance) : null;
+
+  if (!anchorDate || typeof anchorBalance !== "number" || !Number.isFinite(anchorBalance)) {
+    return json(400, C, { error: "Account is missing anchorDate/anchorBalance" });
+  }
+
+  const endDate = anchorDate;
+  const startDate = addDaysIso(endDate, -days);
+
+  const netByDate = {};
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :from AND :to",
+      ExpressionAttributeValues: {
+        ":o": orgId,
+        ":from": `TXN#${startDate}`,
+        ":to": `TXN#${endDate}#~`,
+      },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      if (!t || t.accountId !== accountId) continue;
+      // Transfers still change cash/balances (e.g. card payments, moves to non-included accounts).
+      // Only exclude transfers from spend analytics, not balance math.
+      const postedAt = String(t.postedAt || "").slice(0, 10);
+      if (!postedAt || postedAt < startDate || postedAt > endDate) continue;
+
+      const signedAmt = canonicalSignedAmount(t);
+      if (typeof signedAmt !== "number" || !Number.isFinite(signedAmt) || signedAmt === 0) continue;
+      netByDate[postedAt] = (netByDate[postedAt] || 0) + signedAmt;
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const dates = [];
+  for (let d = startDate; d <= endDate; d = addDaysIso(d, 1)) dates.push(d);
+
+  const balanceOn = {};
+  balanceOn[endDate] = Math.round(anchorBalance * 100) / 100;
+
+  for (let i = dates.length - 2; i >= 0; i -= 1) {
+    const nextDay = dates[i + 1];
+    const netNextDay = netByDate[nextDay] || 0;
+    balanceOn[dates[i]] = Math.round((balanceOn[nextDay] - netNextDay) * 100) / 100;
+  }
+
+  const points = dates.map((d) => ({ date: d, balance: balanceOn[d] ?? 0 }));
+
+  return json(200, C, {
+    accountId,
+    currency: "USD",
+    anchorDate,
+    anchorBalance: Math.round(anchorBalance * 100) / 100,
+    days,
+    points,
+  });
 };
 
 // GET /hq/chart-series?orgId=...&scope=aggregate|account&accountId=...&range=1W|1M|3M|1Y|ALL
@@ -380,7 +476,6 @@ const getChartSeries = async (e, C) => {
 
   const shouldIncludeTxn = (t) => {
     if (!t || !t.accountId || !anchoredSet.has(t.accountId)) return false;
-    if (t.isInternalTransfer) return false;
     return true;
   };
 
@@ -619,7 +714,6 @@ const getSummary = async (e, C) => {
       for (const t of page.Items || []) {
         const anchor = anchors.get(t.accountId);
         if (!anchor) continue;
-        if (t.isInternalTransfer) continue;
         const postedAt = String(t.postedAt || "").slice(0, 10);
         if (!postedAt) continue;
         if (!anchor.anchorDate) continue;
@@ -1512,6 +1606,7 @@ const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
 
   { m: "GET", r: /^\/hq\/summary\/?$/i, h: getSummary },
+  { m: "GET", r: /^\/hq\/balance-series\/?$/i, h: getBalanceSeries },
   { m: "GET", r: /^\/hq\/chart-series\/?$/i, h: getChartSeries },
   { m: "GET", r: /^\/hq\/transactions\/?$/i, h: listTransactions },
 
