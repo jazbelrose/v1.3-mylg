@@ -657,13 +657,13 @@ function DayGrid({
   // Track Ctrl/Cmd key for copy mode toggle during drag
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === "Control" || event.key === "Meta") && interactionRef.current) {
+      if ((event.key === "Control" || event.key === "Meta" || event.key === "Alt") && interactionRef.current) {
         interactionRef.current.isCopyMode = true;
         setIsCopyMode(true);
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
-      if ((event.key === "Control" || event.key === "Meta") && interactionRef.current) {
+      if ((event.key === "Control" || event.key === "Meta" || event.key === "Alt") && interactionRef.current) {
         interactionRef.current.isCopyMode = false;
         setIsCopyMode(false);
       }
@@ -748,8 +748,9 @@ function DayGrid({
           ? "resizeBottom"
           : "drag";
 
-      // Copy mode during drag - only when no additive modifier was used for selection
-      const copyMode = !additive && Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
+      // Copy mode during drag (Ctrl/Cmd/Alt). When copy-mode is on, we render a separate
+      // moving preview so the original stays visible.
+      const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,
@@ -1577,6 +1578,7 @@ function DayGrid({
     };
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
     const resizeTransform = resizePreviewTransforms[entrySelectionKey];
+    const showCopyPreview = Boolean(isCopyMode && dragTransform);
 
     const className = [
       "week-grid__timeline-entry",
@@ -1586,13 +1588,14 @@ function DayGrid({
       isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
       stacked ? "week-grid__timeline-entry--stacked" : "",
       isEntrySelected ? "week-grid__timeline-entry--selected" : "",
-      isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
+      // Only apply the copy styling to the moving preview, not the original.
+      !showCopyPreview && isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
     ]
       .filter(Boolean)
       .join(" ");
-    
+
     let entryStyleWithPreview: React.CSSProperties = pillStyle;
-    if (dragTransform) {
+    if (!showCopyPreview && dragTransform) {
       entryStyleWithPreview = {
         ...pillStyle,
         transform: `translate(${dragTransform.translateX}px, ${dragTransform.translateY}px)`,
@@ -1611,60 +1614,110 @@ function DayGrid({
       };
     }
 
+    const copyPreviewStyle: React.CSSProperties | null = showCopyPreview
+      ? {
+          ...pillStyle,
+          transform: `translate(${dragTransform!.translateX}px, ${dragTransform!.translateY}px)`,
+          transition: "none",
+          zIndex: 3,
+          pointerEvents: "none",
+        }
+      : null;
+
+    const copyPreviewClassName = showCopyPreview
+      ? [
+          "week-grid__timeline-entry",
+          entry.type === "event"
+            ? "week-grid__timeline-entry--event"
+            : "week-grid__timeline-entry--task",
+          isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
+          stacked ? "week-grid__timeline-entry--stacked" : "",
+          isEntrySelected ? "week-grid__timeline-entry--selected" : "",
+          "week-grid__timeline-entry--copying",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : "";
+
     if (entry.type === "event") {
       return (
-        <motion.div
+        <>
+          <motion.div
+            key={entry.id}
+            initial={stacked ? undefined : { opacity: 0.4, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={className}
+            data-entry-key={entrySelectionKey}
+            data-entry-type={entry.type}
+            onPointerDown={(event) => handleEntryPointerDown(entry, event)}
+            role="button"
+            tabIndex={0}
+            onClick={(event) => handleEntryClick(event, entry)}
+            onContextMenu={(event) => handleContextMenu(event, entry)}
+            onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
+            style={entryStyleWithPreview}
+            onMouseMove={updateResizeCursor}
+            onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
+            onMouseLeave={handleEntryMouseLeave}
+          >
+            <div className="week-grid__timeline-entry-main">
+              {content}
+              {inlineAvatars}
+            </div>
+            {focusMeter}
+          </motion.div>
+          {showCopyPreview && copyPreviewStyle ? (
+            <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+              <div className="week-grid__timeline-entry-main">
+                {content}
+                {inlineAvatars}
+              </div>
+              {focusMeter}
+            </div>
+          ) : null}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <button
           key={entry.id}
-          initial={stacked ? undefined : { opacity: 0.4, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
+          type="button"
           className={className}
           data-entry-key={entrySelectionKey}
           data-entry-type={entry.type}
+          style={entryStyleWithPreview}
           onPointerDown={(event) => handleEntryPointerDown(entry, event)}
-          role="button"
-          tabIndex={0}
           onClick={(event) => handleEntryClick(event, entry)}
           onContextMenu={(event) => handleContextMenu(event, entry)}
           onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
-          style={entryStyleWithPreview}
           onMouseMove={updateResizeCursor}
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
           <div className="week-grid__timeline-entry-main">
-            {content}
+            <div className="week-grid__timeline-entry-body">
+              {content}
+              {renderFocusBlockChildren()}
+            </div>
             {inlineAvatars}
           </div>
           {focusMeter}
-        </motion.div>
-      );
-    }
-
-    return (
-      <button
-        key={entry.id}
-        type="button"
-        className={className}
-        data-entry-key={entrySelectionKey}
-        data-entry-type={entry.type}
-        style={entryStyleWithPreview}
-        onPointerDown={(event) => handleEntryPointerDown(entry, event)}
-        onClick={(event) => handleEntryClick(event, entry)}
-        onContextMenu={(event) => handleContextMenu(event, entry)}
-        onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
-        onMouseMove={updateResizeCursor}
-        onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
-        onMouseLeave={handleEntryMouseLeave}
-      >
-        <div className="week-grid__timeline-entry-main">
-          <div className="week-grid__timeline-entry-body">
-            {content}
-            {renderFocusBlockChildren()}
+        </button>
+        {showCopyPreview && copyPreviewStyle ? (
+          <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+            <div className="week-grid__timeline-entry-main">
+              <div className="week-grid__timeline-entry-body">
+                {content}
+                {renderFocusBlockChildren()}
+              </div>
+              {inlineAvatars}
+            </div>
+            {focusMeter}
           </div>
-          {inlineAvatars}
-        </div>
-        {focusMeter}
-      </button>
+        ) : null}
+      </>
     );
   };
 

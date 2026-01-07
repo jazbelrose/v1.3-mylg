@@ -1296,6 +1296,138 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         const createsByProject = new Map<string, Task[]>();
         const updatesByProject = new Map<string, Array<{ taskId: string; fields: Partial<Task> }>>();
 
+        const isFocusBlockLike = (task: CalendarTask) => {
+          if (task.kind === "focus_block") return true;
+          const hasChildren =
+            (Array.isArray(task.focusChildTaskIds) && task.focusChildTaskIds.length > 0) ||
+            (Array.isArray(task.focusChecklist) && task.focusChecklist.length > 0);
+          return hasChildren;
+        };
+
+        const duplicateFocusBlockWithChildren = async (options: {
+          task: CalendarTask;
+          targetDate: string;
+          start: string;
+          end: string;
+        }) => {
+          const { task, targetDate, start, end } = options;
+          const source = task.source as ApiTask;
+          const projectId = source.projectId ?? activeProjectId ?? undefined;
+          const focusId = resolveTaskIdentifier(task);
+          if (!projectId || !focusId) return;
+
+          const focusStart = parseTimeToMinutes(task.start);
+          const focusEnd = parseTimeToMinutes(task.end);
+          const targetStart = parseTimeToMinutes(start);
+          const targetEnd = parseTimeToMinutes(end);
+          if (targetStart == null || targetEnd == null) return;
+
+          const startAt = buildIsoDateTime(targetDate, start);
+          const endAt = buildIsoDateTime(targetDate, end);
+          const dueAt = endAt ?? targetDate;
+
+          const taskById = new Map<string, CalendarTask>();
+          tasks.forEach((t) => {
+            const id = resolveTaskIdentifier(t);
+            if (id) taskById.set(id, t);
+          });
+
+          const referencedIds = new Set<string>();
+          (task.focusChildTaskIds ?? []).forEach((id) => {
+            if (id) referencedIds.add(id);
+          });
+          (task.focusChecklist ?? []).forEach((item) => {
+            if (item?.taskId) referencedIds.add(item.taskId);
+          });
+
+          // Include children that link back via focusBlockId as well.
+          tasks.forEach((t) => {
+            if (t.focusBlockId && t.focusBlockId === focusId) {
+              const id = resolveTaskIdentifier(t);
+              if (id) referencedIds.add(id);
+            }
+          });
+
+          const childTasks = Array.from(referencedIds)
+            .map((id) => taskById.get(id))
+            .filter((t): t is CalendarTask => Boolean(t));
+
+          // Create new Focus Block wrapper first.
+          const newFocus = await createTask({
+            projectId,
+            title: task.title ?? "Focus Block",
+            description: task.description ?? undefined,
+            status: (source.status as Task["status"]) ?? "todo",
+            kind: "focus_block",
+            cluster: (source as { cluster?: string }).cluster,
+            durationMinutes: Math.max(15, targetEnd - targetStart),
+            startAt,
+            endAt,
+            dueDate: dueAt,
+            dueAt,
+            focusChildTaskIds: [],
+            focusChecklist: [],
+          });
+
+          if (!newFocus.taskId) return;
+
+          // Duplicate the content tasks, preserving relative timing within the block when possible.
+          const childPayloads: Task[] = childTasks.map((child) => {
+            const childSource = child.source as ApiTask;
+            const childStart = parseTimeToMinutes(child.start);
+            const childEnd = parseTimeToMinutes(child.end);
+
+            const base: Task = {
+              projectId,
+              title: child.title ?? "Untitled task",
+              description: child.description ?? undefined,
+              assigneeId: childSource.assigneeId,
+              assigneeIds: childSource.assigneeIds,
+              address: childSource.address,
+              location: childSource.location,
+              focusBlockId: newFocus.taskId,
+            };
+
+            if (
+              focusStart != null &&
+              focusEnd != null &&
+              childStart != null &&
+              childEnd != null &&
+              focusEnd > focusStart
+            ) {
+              const offsetStart = childStart - focusStart;
+              const offsetEnd = childEnd - focusStart;
+              const nextStart = Math.max(0, Math.min(24 * 60 - 1, targetStart + offsetStart));
+              const nextEnd = Math.max(nextStart + 15, Math.min(24 * 60, targetStart + offsetEnd));
+              base.startAt = buildIsoDateTime(targetDate, formatMinutesHHMM(nextStart));
+              base.endAt = buildIsoDateTime(targetDate, formatMinutesHHMM(nextEnd));
+              base.dueDate = base.endAt ?? targetDate;
+              base.dueAt = base.endAt ?? targetDate;
+            } else {
+              // Default to unscheduled (inherits the day), but still belongs to the new focus block.
+              base.dueDate = dueAt;
+              base.dueAt = dueAt;
+            }
+
+            return base;
+          });
+
+          const createdChildren = childPayloads.length > 0 ? await createTasksBulk(projectId, childPayloads) : [];
+
+          const childIds = createdChildren
+            .map((t) => t.taskId)
+            .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+          await updateTask({
+            projectId,
+            taskId: newFocus.taskId,
+            focusChildTaskIds: childIds,
+            focusChecklist: createdChildren
+              .filter((t) => typeof t.taskId === "string" && t.taskId.trim().length > 0)
+              .map((t) => ({ taskId: t.taskId as string, title: t.title })),
+          });
+        };
+
         taskChanges.forEach((change) => {
           const task = change.entry as CalendarTask;
           const source = task.source as ApiTask;
@@ -1310,6 +1442,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           const dueAt = endAt ?? dueDate;
 
           if (change.duplicate) {
+            if (isFocusBlockLike(task)) {
+              operations.push(
+                duplicateFocusBlockWithChildren({
+                  task,
+                  targetDate: dueDate,
+                  start: change.start,
+                  end: change.end,
+                }),
+              );
+              return;
+            }
             const payload: Task = {
               projectId,
               title: task.title ?? "Untitled task",

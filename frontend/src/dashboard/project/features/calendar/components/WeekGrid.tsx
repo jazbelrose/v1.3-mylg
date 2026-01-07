@@ -1193,13 +1193,13 @@ function WeekGrid({
   // Track Ctrl/Cmd key for copy mode toggle during drag
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === "Control" || event.key === "Meta") && interactionRef.current) {
+      if ((event.key === "Control" || event.key === "Meta" || event.key === "Alt") && interactionRef.current) {
         interactionRef.current.isCopyMode = true;
         setIsCopyMode(true);
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
-      if ((event.key === "Control" || event.key === "Meta") && interactionRef.current) {
+      if ((event.key === "Control" || event.key === "Meta" || event.key === "Alt") && interactionRef.current) {
         interactionRef.current.isCopyMode = false;
         setIsCopyMode(false);
       }
@@ -1311,8 +1311,9 @@ function WeekGrid({
         ? "resizeBottom"
         : "drag";
 
-      // Ctrl/Cmd during drag = copy mode (only when not using for selection)
-      const copyMode = !additive && Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey);
+      // Copy mode during drag (Ctrl/Cmd/Alt). When copy-mode is on, we render a separate
+      // moving preview so the original stays visible.
+      const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey);
       interactionRef.current = {
         mode,
         startX: pointerEvent.clientX,
@@ -1887,7 +1888,6 @@ function WeekGrid({
       const nodes = grid.querySelectorAll<HTMLElement>("[data-entry-key][data-entry-type]");
       nodes.forEach((node) => {
         const entryType = node.dataset.entryType;
-        if (entryType !== "event" && entryType !== "task") return;
         const entryKey = node.dataset.entryKey;
         if (!entryKey) return;
         const b = node.getBoundingClientRect();
@@ -1897,7 +1897,25 @@ function WeekGrid({
           b.bottom < rect.top ||
           b.top > rect.bottom
         );
-        if (intersects) keys.add(entryKey);
+        if (!intersects) return;
+
+        if (entryType === "event" || entryType === "task") {
+          keys.add(entryKey);
+          return;
+        }
+
+        // Stack tiles are UI aggregates that visually cover multiple entries.
+        // When marquee-selecting, expand them into their child entry keys so
+        // multi-copy / bulk actions include the underlying entries.
+        if (entryType === "overlapStack" || entryType === "taskStack") {
+          const raw = node.dataset.stackChildKeys;
+          if (!raw) return;
+          raw
+            .split(",")
+            .map((k) => k.trim())
+            .filter(Boolean)
+            .forEach((k) => keys.add(k));
+        }
       });
       return keys;
     },
@@ -2162,6 +2180,7 @@ function WeekGrid({
     };
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
     const resizeTransform = resizePreviewTransforms[entrySelectionKey];
+    const showCopyPreview = Boolean(isCopyMode && dragTransform);
 
     const entryClasses = [
       "week-grid__timeline-entry",
@@ -2175,13 +2194,14 @@ function WeekGrid({
       isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
       stacked ? "week-grid__timeline-entry--stacked" : "",
       isEntrySelected ? "week-grid__timeline-entry--selected" : "",
-      isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
+      // Only apply the copy styling to the moving preview, not the original.
+      !showCopyPreview && isEntrySelected && isCopyMode && dragTransform ? "week-grid__timeline-entry--copying" : "",
     ]
       .filter(Boolean)
       .join(" ");
     
     let entryStyleWithPreview = pillStyle;
-    if (dragTransform) {
+    if (!showCopyPreview && dragTransform) {
       entryStyleWithPreview = {
         ...pillStyle,
         transform: `translate(${dragTransform.translateX}px, ${dragTransform.translateY}px)`,
@@ -2199,6 +2219,35 @@ function WeekGrid({
         borderRadius: `${ENTRY_RADIUS_PX}px`,
       };
     }
+
+    const copyPreviewStyle: React.CSSProperties | null = showCopyPreview
+      ? {
+          ...pillStyle,
+          transform: `translate(${dragTransform!.translateX}px, ${dragTransform!.translateY}px)`,
+          transition: "none",
+          zIndex: 3,
+          pointerEvents: "none",
+        }
+      : null;
+
+    const copyPreviewClassName = showCopyPreview
+      ? [
+          "week-grid__timeline-entry",
+          entry.type === "event"
+            ? "week-grid__timeline-entry--event"
+            : entry.type === "task"
+            ? "week-grid__timeline-entry--task"
+            : entry.type === "taskStack"
+            ? "week-grid__timeline-entry--task-stack"
+            : "week-grid__timeline-entry--overlap-stack",
+          isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
+          stacked ? "week-grid__timeline-entry--stacked" : "",
+          isEntrySelected ? "week-grid__timeline-entry--selected" : "",
+          "week-grid__timeline-entry--copying",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : "";
     const content = (
       <div className="week-grid__timeline-entry-content">
         <div className="week-grid__timeline-entry-header">
@@ -2395,12 +2444,112 @@ function WeekGrid({
 
       if (isSingleUserStack) {
         return (
+          <>
+            <button
+              key={resolvedKey}
+              type="button"
+              className={entryClasses}
+              data-entry-key={entrySelectionKey}
+              data-entry-type={entry.type}
+              data-stack-child-keys={payload.childEntryKeys.join(",")}
+              onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
+              style={entryStyleWithPreview}
+              title={tooltipLabel}
+              aria-label={tooltipLabel}
+              onClick={(event) => handleEntryClick(event, entry)}
+              onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
+            >
+              <div className="week-grid__timeline-entry-main">
+                <div className="week-grid__timeline-entry-body">
+                  {content}
+                  {renderInlineStackList()}
+                </div>
+                {inlineAvatars}
+              </div>
+              {focusMeter}
+            </button>
+            {showCopyPreview && copyPreviewStyle ? (
+              <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+                <div className="week-grid__timeline-entry-main">
+                  <div className="week-grid__timeline-entry-body">
+                    {content}
+                    {renderInlineStackList()}
+                  </div>
+                  {inlineAvatars}
+                </div>
+                {focusMeter}
+              </div>
+            ) : null}
+          </>
+        );
+      }
+
+      const extra = Math.max(count - entry.avatars.length, 0);
+      const headerChip = entry.avatars.length ? (
+        <div className="week-grid__tile-chip-avatars" aria-hidden="true">
+          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "overlap")}
+          {extra > 0 && (
+            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>
+          )}
+        </div>
+      ) : null;
+
+      return (
+        <>
           <button
             key={resolvedKey}
             type="button"
             className={entryClasses}
             data-entry-key={entrySelectionKey}
             data-entry-type={entry.type}
+            data-stack-child-keys={payload.childEntryKeys.join(",")}
+            onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
+            style={entryStyleWithPreview}
+            title={tooltipLabel}
+            aria-label={tooltipLabel}
+            onClick={(event) => handleEntryClick(event, entry)}
+            onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
+          >
+            <div className="week-grid__timeline-entry-main week-grid__timeline-entry-main--tile">
+              <div className="week-grid__timeline-entry-body week-grid__timeline-entry-body--tile">
+                {renderTileHeader({
+                  icon: <Users className="week-grid__task-icon-svg" aria-hidden />,
+                  title: previewTitle,
+                  chip: headerChip,
+                })}
+                {renderMultiUserOverlapChecklist()}
+              </div>
+            </div>
+          </button>
+          {showCopyPreview && copyPreviewStyle ? (
+            <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+              <div className="week-grid__timeline-entry-main week-grid__timeline-entry-main--tile">
+                <div className="week-grid__timeline-entry-body week-grid__timeline-entry-body--tile">
+                  {renderTileHeader({
+                    icon: <Users className="week-grid__task-icon-svg" aria-hidden />,
+                    title: previewTitle,
+                    chip: headerChip,
+                  })}
+                  {renderMultiUserOverlapChecklist()}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </>
+      );
+    }
+
+    if (entry.type === "taskStack") {
+      const payload = entry.payload as TaskStackPayload;
+      return (
+        <>
+          <button
+            key={resolvedKey}
+            type="button"
+            className={entryClasses}
+            data-entry-key={entrySelectionKey}
+            data-entry-type={entry.type}
+            data-stack-child-keys={payload.childEntryKeys.join(",")}
             onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
             style={entryStyleWithPreview}
             title={tooltipLabel}
@@ -2417,89 +2566,77 @@ function WeekGrid({
             </div>
             {focusMeter}
           </button>
-        );
-      }
-
-      const extra = Math.max(count - entry.avatars.length, 0);
-      const headerChip = entry.avatars.length ? (
-        <div className="week-grid__tile-chip-avatars" aria-hidden="true">
-          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "overlap")}
-          {extra > 0 && (
-            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>
-          )}
-        </div>
-      ) : null;
-
-      return (
-        <button
-          key={resolvedKey}
-          type="button"
-          className={entryClasses}
-          data-entry-key={entrySelectionKey}
-          data-entry-type={entry.type}
-          onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
-          style={entryStyleWithPreview}
-          title={tooltipLabel}
-          aria-label={tooltipLabel}
-          onClick={(event) => handleEntryClick(event, entry)}
-          onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
-        >
-          <div className="week-grid__timeline-entry-main week-grid__timeline-entry-main--tile">
-            <div className="week-grid__timeline-entry-body week-grid__timeline-entry-body--tile">
-              {renderTileHeader({
-                icon: <Users className="week-grid__task-icon-svg" aria-hidden />,
-                title: previewTitle,
-                chip: headerChip,
-              })}
-              {renderMultiUserOverlapChecklist()}
+          {showCopyPreview && copyPreviewStyle ? (
+            <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+              <div className="week-grid__timeline-entry-main">
+                <div className="week-grid__timeline-entry-body">
+                  {content}
+                  {renderInlineStackList()}
+                </div>
+                {inlineAvatars}
+              </div>
+              {focusMeter}
             </div>
-          </div>
-        </button>
-      );
-    }
-
-    if (entry.type === "taskStack") {
-      return (
-        <button
-          key={resolvedKey}
-          type="button"
-          className={entryClasses}
-          data-entry-key={entrySelectionKey}
-          data-entry-type={entry.type}
-          onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
-          style={entryStyleWithPreview}
-          title={tooltipLabel}
-          aria-label={tooltipLabel}
-          onClick={(event) => handleEntryClick(event, entry)}
-          onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
-        >
-          <div className="week-grid__timeline-entry-main">
-            <div className="week-grid__timeline-entry-body">
-              {content}
-              {renderInlineStackList()}
-            </div>
-            {inlineAvatars}
-          </div>
-          {focusMeter}
-        </button>
+          ) : null}
+        </>
       );
     }
 
     if (entry.type === "event") {
       return (
-        <motion.div
+        <>
+          <motion.div
+            key={resolvedKey}
+            initial={stacked ? undefined : { opacity: 0.4, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={entryClasses}
+            data-entry-key={entrySelectionKey}
+            data-entry-type={entry.type}
+            onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
+            style={entryStyleWithPreview}
+            title={tooltipLabel}
+            aria-label={tooltipLabel}
+            role="button"
+            tabIndex={0}
+            onClick={(event) => handleEntryClick(event, entry)}
+            onContextMenu={(event) => handleContextMenu(event, entry)}
+            onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
+            onMouseMove={updateResizeCursor}
+            onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
+            onMouseLeave={handleEntryMouseLeave}
+          >
+            <div className="week-grid__timeline-entry-main">
+              {content}
+              {inlineAvatars}
+            </div>
+            {focusMeter}
+          </motion.div>
+          {showCopyPreview && copyPreviewStyle ? (
+            <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+              <div className="week-grid__timeline-entry-main">
+                {content}
+                {inlineAvatars}
+              </div>
+              {focusMeter}
+            </div>
+          ) : null}
+        </>
+      );
+    }
+
+    const useTileLayout = isFocusBlock;
+
+      <>
+        <button
           key={resolvedKey}
-          initial={stacked ? undefined : { opacity: 0.4, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
+          type="button"
           className={entryClasses}
           data-entry-key={entrySelectionKey}
           data-entry-type={entry.type}
-          onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
           style={entryStyleWithPreview}
           title={tooltipLabel}
           aria-label={tooltipLabel}
-          role="button"
-          tabIndex={0}
+          onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
           onClick={(event) => handleEntryClick(event, entry)}
           onContextMenu={(event) => handleContextMenu(event, entry)}
           onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
@@ -2507,61 +2644,62 @@ function WeekGrid({
           onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
           onMouseLeave={handleEntryMouseLeave}
         >
-          <div className="week-grid__timeline-entry-main">
-            {content}
-            {inlineAvatars}
+          <div
+            className={`week-grid__timeline-entry-main${useTileLayout ? " week-grid__timeline-entry-main--tile" : ""}`}
+          >
+            <div
+              className={`week-grid__timeline-entry-body${useTileLayout ? " week-grid__timeline-entry-body--tile" : ""}`}
+            >
+              {useTileLayout
+                ? renderTileHeader({
+                    icon: <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
+                    title: previewTitle,
+                    isComplete: entry.completed,
+                    chip:
+                      avatarsToRender.length > 0 ? (
+                        <div className="week-grid__tile-chip-avatars" aria-hidden="true">
+                          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
+                        </div>
+                      ) : null,
+                  })
+                : content}
+
+              {useTileLayout ? renderFocusBlockPreviewList() : null}
+            </div>
+
+            {useTileLayout ? null : inlineAvatars}
           </div>
           {focusMeter}
-        </motion.div>
-      );
-    }
-
-    const useTileLayout = isFocusBlock;
-
-    return (
-      <button
-        key={resolvedKey}
-        type="button"
-        className={entryClasses}
-        data-entry-key={entrySelectionKey}
-        data-entry-type={entry.type}
-        style={entryStyleWithPreview}
-        title={tooltipLabel}
-        aria-label={tooltipLabel}
-        onPointerDown={(event) => handleEntryPointerDown(entry, dayKey, event)}
-        onClick={(event) => handleEntryClick(event, entry)}
-        onContextMenu={(event) => handleContextMenu(event, entry)}
-        onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
-        onMouseMove={updateResizeCursor}
-        onMouseEnter={(event) => handleEntryMouseEnter(event, entry)}
-        onMouseLeave={handleEntryMouseLeave}
-      >
-        <div
-          className={`week-grid__timeline-entry-main${useTileLayout ? " week-grid__timeline-entry-main--tile" : ""}`}
-        >
-          <div
-            className={`week-grid__timeline-entry-body${useTileLayout ? " week-grid__timeline-entry-body--tile" : ""}`}
-          >
-            {useTileLayout
-              ? renderTileHeader({
-                  icon: <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
-                  title: previewTitle,
-                  isComplete: entry.completed,
-                  chip:
-                    avatarsToRender.length > 0 ? (
-                      <div className="week-grid__tile-chip-avatars" aria-hidden="true">
-                        {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
-                      </div>
-                    ) : null,
-                })
-              : content}
-            {renderFocusBlockChildren()}
+        </button>
+        {showCopyPreview && copyPreviewStyle ? (
+          <div className={copyPreviewClassName} style={copyPreviewStyle} aria-hidden>
+            <div
+              className={`week-grid__timeline-entry-main${useTileLayout ? " week-grid__timeline-entry-main--tile" : ""}`}
+            >
+              <div
+                className={`week-grid__timeline-entry-body${useTileLayout ? " week-grid__timeline-entry-body--tile" : ""}`}
+              >
+                {useTileLayout
+                  ? renderTileHeader({
+                      icon: <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
+                      title: previewTitle,
+                      isComplete: entry.completed,
+                      chip:
+                        avatarsToRender.length > 0 ? (
+                          <div className="week-grid__tile-chip-avatars" aria-hidden="true">
+                            {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
+                          </div>
+                        ) : null,
+                    })
+                  : content}
+                {useTileLayout ? renderFocusBlockPreviewList() : null}
+              </div>
+              {useTileLayout ? null : inlineAvatars}
+            </div>
+            {focusMeter}
           </div>
-          {!useTileLayout && inlineAvatars}
-        </div>
-        {focusMeter}
-      </button>
-    );
+        ) : null}
+      </>
   };
 
   useEffect(() => {
