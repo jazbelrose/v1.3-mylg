@@ -9,6 +9,7 @@ export type HQCardProps = {
   footer?: ReactNode;
   children?: ReactNode;
   className?: string;
+  onClick?: () => void;
   "aria-label"?: string;
 };
 
@@ -20,10 +21,29 @@ export function HQCard({
   footer,
   children,
   className,
+  onClick,
   "aria-label": ariaLabel,
 }: HQCardProps) {
+  const isClickable = typeof onClick === "function";
+
   return (
-    <section className={[styles.card, className].filter(Boolean).join(" ")} aria-label={ariaLabel}>
+    <section
+      className={[styles.card, isClickable ? styles.cardClickable : "", className].filter(Boolean).join(" ")}
+      aria-label={ariaLabel}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={isClickable ? onClick : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <header className={styles.cardHeader}>
         <div>
           <h3 className={styles.cardTitle}>{title}</h3>

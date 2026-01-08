@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import HQLayout from "../components/HQLayout";
 import HQCard from "../components/HQCard";
 import CategorizationSpellbookSheet from "@/hq/components/CategorizationSpellbookSheet";
@@ -157,6 +157,8 @@ const HQOverview: React.FC = () => {
   const hasOrg = Boolean(activeOrgId);
   const orgId = activeOrgId ?? "__no_org__";
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
+
+  const navigate = useNavigate();
 
   useHqBootstrap(activeOrgId);
 
@@ -635,12 +637,25 @@ const HQOverview: React.FC = () => {
         </section>
 
         <div className={styles.gridRowTwoCol}>
-          <HQCard title="Accounts" aria-label="Accounts breakdown">
+          <HQCard
+            title="Accounts"
+            aria-label="Accounts breakdown"
+            onClick={() => {
+              navigate("/dashboard/hq/accounts");
+            }}
+          >
             {accounts.length === 0 ? (
               <div className={styles.emptyState}>
                 Add an account to start.{" "}
                 {canAdmin ? (
-                  <button type="button" className={styles.inlineButton} onClick={openAddAccount}>
+                  <button
+                    type="button"
+                    className={styles.inlineButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAddAccount();
+                    }}
+                  >
                     Add account
                   </button>
                 ) : null}
@@ -650,16 +665,25 @@ const HQOverview: React.FC = () => {
                 {accounts.slice(0, 5).map((acct) => (
                   <li key={acct.accountId} className={styles.listItem}>
                     <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
-                    <Link className={styles.cardLink} to="/dashboard/hq/accounts">
-                      {acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}
-                    </Link>
+                    <span>{acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}</span>
                   </li>
                 ))}
               </ul>
             )}
           </HQCard>
 
-          <HQCard title="Top categories" subtitle={rangeLabel} aria-label="Top spend categories">
+          <HQCard
+            title="Top categories"
+            subtitle={rangeLabel}
+            aria-label="Top spend categories"
+            badge={
+              canAdmin ? (
+                <button type="button" className={styles.cardLink} onClick={() => openSpellbook({})}>
+                  Spellbook
+                </button>
+              ) : null
+            }
+          >
             {topCategories.length === 0 ? (
               <div className={styles.emptyState}>No spend yet.</div>
             ) : (
