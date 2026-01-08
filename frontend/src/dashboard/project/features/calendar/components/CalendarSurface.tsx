@@ -1503,7 +1503,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Unable to save calendar changes. Please try again.");
       }
     },
-    [activeProjectId, onCreateEvent, onRefreshTasks, onUpdateEvent],
+    [activeProjectId, onCreateEvent, onRefreshTasks, onUpdateEvent, tasks],
   );
 
   const handleSelectDate = useCallback((date: Date) => {

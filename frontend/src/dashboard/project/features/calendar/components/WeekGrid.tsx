@@ -2109,9 +2109,10 @@ function WeekGrid({
     entryKeyOverride?: string,
   ) => {
     const entrySelectionKey = `${entry.type}:${entry.id}`;
-    const isEntrySelected = selectedEntryKeys.has(entrySelectionKey);
     const isStack = entry.type === "taskStack" || entry.type === "overlapStack";
     const stackPayload = isStack ? (entry.payload as TaskStackPayload | OverlapStackPayload) : null;
+    const isEntrySelected = selectedEntryKeys.has(entrySelectionKey) ||
+      (isStack ? stackPayload!.childEntryKeys.some((k) => selectedEntryKeys.has(k)) : false);
     const stackChildren = isStack
       ? stackPayload!.childEntryKeys
           .map((key) => entryLookup.get(key)?.entry)
