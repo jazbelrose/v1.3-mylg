@@ -1601,6 +1601,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               dueAt: taskSourceForUndo.dueAt,
               startAt: taskSourceForUndo.startAt,
               endAt: taskSourceForUndo.endAt,
+              focusBlockId: taskSourceForUndo.focusBlockId,
             },
           });
 
@@ -1611,6 +1612,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             startAt,
             endAt,
           };
+
+          if (Object.prototype.hasOwnProperty.call(change, "focusBlockId")) {
+            fields.focusBlockId = change.focusBlockId ?? null;
+          }
           updatesByProject.set(projectId, [
             ...(updatesByProject.get(projectId) ?? []),
             { taskId, fields },

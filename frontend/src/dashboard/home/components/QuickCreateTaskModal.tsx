@@ -833,6 +833,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       location: selectedLocation,
       noteAttachments: noteAttachments.map(att => ({ fileName: att.fileName, mimeType: att.mimeType, url: att.url })),
       status,
+      primaryBudgetLineItemId: attachedBudgetItemId,
+      budgetLinkType: attachedBudgetItemId ? budgetLinkType : null,
     };
     if (initialTaskRef.current) {
       // edit mode
@@ -855,6 +857,10 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         location: normalizeLocation(initialTaskRef.current.location),
         noteAttachments: sanitizeIncomingAttachments(initialTaskRef.current.noteAttachments).map(att => ({ fileName: att.fileName, mimeType: att.mimeType, url: att.url })),
         status: normalizeStatus(initialTaskRef.current.status),
+        primaryBudgetLineItemId: getPrimaryBudgetLineItemId(initialTaskRef.current as unknown as Task),
+        budgetLinkType: getPrimaryBudgetLineItemId(initialTaskRef.current as unknown as Task)
+          ? normalizeBudgetTaskLinkType((initialTaskRef.current as { budgetLinkType?: unknown }).budgetLinkType)
+          : null,
       };
       const hasChanges = JSON.stringify(current) !== JSON.stringify(initial);
       return hasChanges;
@@ -1010,6 +1016,124 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [addressSuggestions.length]);
+
+  const costProjectId = useMemo(() => assigneeScopeProjectId, [assigneeScopeProjectId]);
+
+  const loadBudget = useCallback(async () => {
+    if (!costProjectId) return;
+    setBudgetLoading(true);
+    setBudgetLoadError(null);
+    try {
+      const header = await fetchBudgetHeader(costProjectId);
+      setBudgetHeader(header);
+      if (!header?.budgetId) {
+        setBudgetLines([]);
+        return;
+      }
+      const lines = await fetchBudgetItems(header.budgetId, header.revision);
+      setBudgetLines(lines);
+    } catch (err) {
+      console.error("Failed to load budget for cost attach", err);
+      setBudgetLines([]);
+      setBudgetHeader(null);
+      setBudgetLoadError("Failed to load budget.");
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [costProjectId]);
+
+  useEffect(() => {
+    if (!costProjectId) return;
+    if (!isCostPanelOpen && !attachedBudgetItemId) return;
+    void loadBudget();
+  }, [attachedBudgetItemId, isCostPanelOpen, loadBudget, costProjectId]);
+
+  const budgetLineById = useMemo(() => {
+    const map = new Map<string, BudgetLine>();
+    budgetLines.forEach((line) => {
+      if (typeof line?.budgetItemId === "string" && line.budgetItemId.trim()) {
+        map.set(line.budgetItemId.trim(), line);
+      }
+    });
+    return map;
+  }, [budgetLines]);
+
+  const attachedBudgetLine = useMemo(() => {
+    if (!attachedBudgetItemId) return null;
+    return budgetLineById.get(attachedBudgetItemId) ?? null;
+  }, [attachedBudgetItemId, budgetLineById]);
+
+  const attachedBudgetLabel = useMemo(() => {
+    if (!attachedBudgetItemId) return "";
+    if (!attachedBudgetLine) return attachedBudgetItemId;
+    const key = typeof attachedBudgetLine.elementKey === "string" ? attachedBudgetLine.elementKey.trim() : "";
+    const desc = typeof attachedBudgetLine.description === "string" ? attachedBudgetLine.description.trim() : "";
+    return [key, desc].filter(Boolean).join(" ") || attachedBudgetItemId;
+  }, [attachedBudgetItemId, attachedBudgetLine]);
+
+  const filteredBudgetLines = useMemo(() => {
+    const q = costQuery.trim().toLowerCase();
+    if (!q) return budgetLines.slice(0, 20);
+    return budgetLines
+      .filter((line) => {
+        const key = typeof line.elementKey === "string" ? line.elementKey.toLowerCase() : "";
+        const desc = typeof line.description === "string" ? line.description.toLowerCase() : "";
+        return key.includes(q) || desc.includes(q) || (line.budgetItemId || "").toLowerCase().includes(q);
+      })
+      .slice(0, 20);
+  }, [budgetLines, costQuery]);
+
+  const handleAttachCost = useCallback((budgetItemId: string) => {
+    const next = (budgetItemId || "").trim();
+    if (!next) return;
+    setAttachedBudgetItemId(next);
+    setIsCostPanelOpen(false);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    costTouchedRef.current = true;
+  }, []);
+
+  const handleDetachCost = useCallback(() => {
+    setAttachedBudgetItemId(null);
+    setIsCostPanelOpen(false);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    costTouchedRef.current = true;
+  }, []);
+
+  const handleCreateLineItemAndAttach = useCallback(async () => {
+    if (!costProjectId) return;
+    if (!budgetHeader?.budgetId) return;
+
+    const elementKey = newLineKey.trim();
+    const description = newLineDesc.trim();
+    if (!elementKey || !description) return;
+
+    const parsedCost = Number(String(newLineCost).replace(/[$,]/g, ""));
+    const itemBudgetedCost = Number.isFinite(parsedCost) ? parsedCost : 0;
+
+    setIsCostSaving(true);
+    try {
+      const created = await createBudgetItem(costProjectId, budgetHeader.budgetId, {
+        revision: budgetHeader.revision ?? 1,
+        category: "CONTINGENCY-MISC",
+        elementKey,
+        description,
+        quantity: 1,
+        unit: "EA",
+        itemBudgetedCost,
+      });
+
+      if (created && typeof created === "object" && typeof (created as BudgetLine).budgetItemId === "string") {
+        const createdLine = created as BudgetLine;
+        setBudgetLines((prev) => [createdLine, ...prev]);
+        handleAttachCost(createdLine.budgetItemId);
+        setIsCreatingLineItem(false);
+      }
+    } finally {
+      setIsCostSaving(false);
+    }
+  }, [budgetHeader?.budgetId, budgetHeader?.revision, costProjectId, handleAttachCost, newLineCost, newLineDesc, newLineKey]);
 
   const getDistance = useCallback((coord1: Coordinates, coord2: Coordinates): number => {
     const R = 6371; // Earth's radius in km
@@ -1309,9 +1433,26 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         if (cancelled || !taskDetails) return;
         const attachments = sanitizeIncomingAttachments(taskDetails.noteAttachments);
         setNoteAttachments(attachments);
+
+        if (!costTouchedRef.current) {
+          const primaryId = getPrimaryBudgetLineItemId(taskDetails);
+          setAttachedBudgetItemId(primaryId);
+          const inferred = inferBudgetTaskLinkTypeFromTitle(taskDetails.title || "");
+          const existing = normalizeBudgetTaskLinkType(taskDetails.budgetLinkType);
+          setBudgetLinkType(existing ?? inferred);
+        }
         initialTaskRef.current = initialTaskRef.current
-          ? { ...initialTaskRef.current, noteAttachments: attachments }
-          : { noteAttachments: attachments } as QuickCreateTaskModalTask;
+          ? {
+              ...initialTaskRef.current,
+              noteAttachments: attachments,
+              primaryBudgetLineItemId: getPrimaryBudgetLineItemId(taskDetails),
+              budgetLinkType: typeof taskDetails.budgetLinkType === "string" ? taskDetails.budgetLinkType : null,
+            }
+          : {
+              noteAttachments: attachments,
+              primaryBudgetLineItemId: getPrimaryBudgetLineItemId(taskDetails),
+              budgetLinkType: typeof taskDetails.budgetLinkType === "string" ? taskDetails.budgetLinkType : null,
+            } as QuickCreateTaskModalTask;
       } catch (error) {
         console.error("Failed to refresh task attachments", error);
       }
@@ -2372,6 +2513,16 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         ...(locationPayload ? { location: locationPayload } : {}),
       };
 
+      const initialPrimaryBudgetId = getPrimaryBudgetLineItemId(initialTaskRef.current as unknown as Task);
+      const normalizedAttachedBudgetId = (attachedBudgetItemId || "").trim() || null;
+      if (normalizedAttachedBudgetId) {
+        payload.primaryBudgetLineItemId = normalizedAttachedBudgetId;
+        payload.budgetLinkType = budgetLinkType;
+      } else if (isEditing && initialPrimaryBudgetId) {
+        payload.primaryBudgetLineItemId = null;
+        payload.budgetLinkType = null;
+      }
+
       const trimmedAssigneeTokens = assigneeTokens.map((token) => token.trim()).filter(Boolean);
 
       if (trimmedAssigneeTokens.length) {
@@ -2439,6 +2590,8 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           address: trimmedAddress,
           location: normalizeLocation(locationPayload ? { ...locationPayload } : null),
           noteAttachments: sanitizeIncomingAttachments(savedAttachmentsSnapshot),
+          primaryBudgetLineItemId: normalizedAttachedBudgetId,
+          budgetLinkType: normalizedAttachedBudgetId ? budgetLinkType : null,
         };
         setSuccessMessage("Task updated. Changes saved.");
         onUpdated?.();
@@ -2457,6 +2610,20 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         setSelectedLocation(null);
         setAssigneeTokens([]);
         setNoteAttachments([]);
+        setAttachedBudgetItemId(null);
+        setBudgetLinkType("build");
+        setIsCostPanelOpen(false);
+        setBudgetHeader(null);
+        setBudgetLines([]);
+        setBudgetLoading(false);
+        setBudgetLoadError(null);
+        setCostQuery("");
+        setIsCostSaving(false);
+        setIsCreatingLineItem(false);
+        setNewLineKey("");
+        setNewLineDesc("");
+        setNewLineCost("");
+        costTouchedRef.current = false;
         setStatus("todo");
         setTitleError(null);
         setProjectError(null);
@@ -3425,6 +3592,169 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   ) : null}
                 </div>
               )}
+
+              <div className={styles.fieldGroup}>
+                  <div className={styles.fieldHeader}>
+                    <label className={styles.fieldLabel}>
+                      <span className={styles.fieldLabelText}>Cost</span>
+                    </label>
+                    <span className={styles.fieldOptional}>Optional</span>
+                  </div>
+
+                  <div className={styles.costRow}>
+                    <DollarSign className={styles.costIcon} size={16} aria-hidden="true" />
+                    {attachedBudgetItemId ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.costButton}
+                          onClick={() => setIsCostPanelOpen((prev) => !prev)}
+                          disabled={isBusy || isCostSaving}
+                          title="Change attached cost"
+                        >
+                          <span className={styles.costLabel}>Cost:</span>
+                          <span className={styles.costValue}>{attachedBudgetLabel}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.costRemoveButton}
+                          onClick={handleDetachCost}
+                          disabled={isBusy || isCostSaving}
+                          title="Detach cost"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.costButton}
+                        onClick={() => setIsCostPanelOpen(true)}
+                        disabled={isBusy || isCostSaving}
+                      >
+                        + Attach cost
+                      </button>
+                    )}
+                  </div>
+
+                  {isCostPanelOpen && (
+                    <div className={styles.costPanel} onClick={(e) => e.stopPropagation()}>
+                      <div className={styles.costPanelRow}>
+                        <label className={styles.costPanelLabel}>Link type</label>
+                        <select
+                          className={styles.selectInput}
+                          value={budgetLinkType}
+                          onChange={(e) => {
+                            setBudgetLinkType(e.target.value as BudgetTaskLinkType);
+                            costTouchedRef.current = true;
+                          }}
+                          disabled={isBusy || isCostSaving}
+                        >
+                          {BUDGET_TASK_LINK_TYPES.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {budgetLoading ? (
+                        <div className={styles.costPanelMuted}>Loading budget…</div>
+                      ) : budgetLoadError ? (
+                        <div className={styles.costPanelMuted}>{budgetLoadError}</div>
+                      ) : !budgetHeader?.budgetId ? (
+                        <div className={styles.costPanelMuted}>No budget found for this project.</div>
+                      ) : (
+                        <>
+                          <input
+                            className={styles.textInput}
+                            value={costQuery}
+                            onChange={(e) => setCostQuery(e.target.value)}
+                            placeholder="Search line items…"
+                            disabled={isBusy || isCostSaving}
+                          />
+
+                          <div className={styles.costPanelResults}>
+                            {filteredBudgetLines.length === 0 ? (
+                              <div className={styles.costPanelMuted}>No matches.</div>
+                            ) : (
+                              filteredBudgetLines.map((line) => {
+                                const id = String(line.budgetItemId || "");
+                                const key = typeof line.elementKey === "string" ? line.elementKey : "";
+                                const desc = typeof line.description === "string" ? line.description : "";
+                                return (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    className={styles.costPanelResult}
+                                    onClick={() => handleAttachCost(id)}
+                                    disabled={isBusy || isCostSaving}
+                                    title="Attach this line item"
+                                  >
+                                    <div className={styles.costPanelResultTitle}>
+                                      {key ? `${key} ` : ""}
+                                      {desc || id}
+                                    </div>
+                                    <div className={styles.costPanelResultMeta}>{id}</div>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            className={styles.costPanelToggle}
+                            onClick={() => setIsCreatingLineItem((prev) => !prev)}
+                            disabled={isBusy || isCostSaving}
+                          >
+                            {isCreatingLineItem ? "Cancel new line item" : "Create new line item"}
+                          </button>
+
+                          {isCreatingLineItem && (
+                            <div className={styles.costPanelCreate}>
+                              <input
+                                className={styles.textInput}
+                                value={newLineKey}
+                                onChange={(e) => setNewLineKey(e.target.value)}
+                                placeholder="Element key (e.g. NIKE-0023)"
+                                disabled={isBusy || isCostSaving}
+                              />
+                              <input
+                                className={styles.textInput}
+                                value={newLineDesc}
+                                onChange={(e) => setNewLineDesc(e.target.value)}
+                                placeholder="Description"
+                                disabled={isBusy || isCostSaving}
+                              />
+                              <input
+                                className={styles.textInput}
+                                value={newLineCost}
+                                onChange={(e) => setNewLineCost(e.target.value)}
+                                placeholder="Budgeted cost (optional)"
+                                disabled={isBusy || isCostSaving}
+                              />
+                              <button
+                                type="button"
+                                className={styles.costPanelPrimary}
+                                onClick={() => void handleCreateLineItemAndAttach()}
+                                disabled={
+                                  isBusy ||
+                                  isCostSaving ||
+                                  !budgetHeader?.budgetId ||
+                                  newLineKey.trim().length === 0 ||
+                                  newLineDesc.trim().length === 0
+                                }
+                              >
+                                Create + attach
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
             </div>
             {isEditing ? (
               <div className={styles.fieldGroup}>

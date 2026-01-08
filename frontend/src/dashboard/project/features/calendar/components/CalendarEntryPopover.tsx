@@ -70,6 +70,10 @@ export interface CalendarEntryPopoverProps {
   onEdit: () => void;
   onRenameTaskTitle?: (task: CalendarTask, title: string) => void | Promise<void>;
   onEditFocusChild?: (task: CalendarTask) => void;
+  onStartDragFocusChild?: (
+    task: CalendarTask,
+    pointerEvent: React.PointerEvent<HTMLElement>,
+  ) => void;
   onOpenFocusChildContextMenu?: (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
@@ -91,18 +95,176 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   onEdit,
   onRenameTaskTitle,
   onEditFocusChild,
+  onStartDragFocusChild,
   onOpenFocusChildContextMenu,
   onSubmitForReview,
   onMarkAsDone,
   onDuplicate,
   onDelete,
 }) => {
+  const DRAG_PX = 8;
+  const LONG_PRESS_MS = 220;
+  const TOUCH_SLOP_PX = 12;
+
   const popoverRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [titleOverride, setTitleOverride] = useState<string | null>(null);
   const [activeChildKey, setActiveChildKey] = useState<string | null>(null);
+
+  const focusChildPointerRef = useRef<{
+    task: CalendarTask;
+    key: string;
+    pointerId: number;
+    pointerType: string;
+    startX: number;
+    startY: number;
+    didDrag: boolean;
+    dragArmed: boolean;
+    longPressTimer: number | null;
+    cancelled: boolean;
+  } | null>(null);
+
+  const clearFocusChildPointerState = useCallback(() => {
+    const state = focusChildPointerRef.current;
+    if (state?.longPressTimer) {
+      window.clearTimeout(state.longPressTimer);
+    }
+    focusChildPointerRef.current = null;
+  }, []);
+
+  const startDragFocusChildIfPossible = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = focusChildPointerRef.current;
+      if (!state) return;
+      if (state.didDrag || state.cancelled) return;
+      if (!onStartDragFocusChild) return;
+
+      state.didDrag = true;
+      if (state.longPressTimer) {
+        window.clearTimeout(state.longPressTimer);
+        state.longPressTimer = null;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveChildKey(state.key);
+      onStartDragFocusChild(state.task, event);
+    },
+    [onStartDragFocusChild],
+  );
+
+  const handleFocusChildPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>, child: CalendarTask, childKey: string) => {
+      if (event.button !== 0) return;
+      if (isEditingTitle) return;
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore
+      }
+
+      setActiveChildKey(childKey);
+
+      const pointerType = event.pointerType || "mouse";
+      const isTouch = pointerType === "touch";
+
+      const nextState = {
+        task: child,
+        key: childKey,
+        pointerId: event.pointerId,
+        pointerType,
+        startX: event.clientX,
+        startY: event.clientY,
+        didDrag: false,
+        dragArmed: !isTouch,
+        longPressTimer: null as number | null,
+        cancelled: false,
+      };
+
+      if (isTouch) {
+        nextState.longPressTimer = window.setTimeout(() => {
+          const st = focusChildPointerRef.current;
+          if (!st) return;
+          if (st.pointerId !== event.pointerId) return;
+          if (st.cancelled || st.didDrag) return;
+          st.dragArmed = true;
+        }, LONG_PRESS_MS);
+      }
+
+      focusChildPointerRef.current = nextState;
+    },
+    [LONG_PRESS_MS, isEditingTitle],
+  );
+
+  const handleFocusChildPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = focusChildPointerRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+      if (state.didDrag || state.cancelled) return;
+
+      const dx = event.clientX - state.startX;
+      const dy = event.clientY - state.startY;
+      const dist = Math.hypot(dx, dy);
+
+      const isTouch = state.pointerType === "touch";
+      if (isTouch && !state.dragArmed) {
+        if (dist > TOUCH_SLOP_PX) {
+          state.cancelled = true;
+          if (state.longPressTimer) {
+            window.clearTimeout(state.longPressTimer);
+            state.longPressTimer = null;
+          }
+        }
+        return;
+      }
+
+      const threshold = isTouch ? TOUCH_SLOP_PX : DRAG_PX;
+      if (dist >= threshold) {
+        startDragFocusChildIfPossible(event);
+      }
+    },
+    [DRAG_PX, TOUCH_SLOP_PX, startDragFocusChildIfPossible],
+  );
+
+  const handleFocusChildPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = focusChildPointerRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+
+      const didDrag = state.didDrag;
+      const taskToEdit = state.task;
+      const key = state.key;
+      clearFocusChildPointerState();
+
+      if (didDrag) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveChildKey(key);
+      onEditFocusChild?.(taskToEdit);
+      onClose();
+    },
+    [clearFocusChildPointerState, onClose, onEditFocusChild],
+  );
+
+  const handleFocusChildPointerCancel = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = focusChildPointerRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+      clearFocusChildPointerState();
+    },
+    [clearFocusChildPointerState],
+  );
 
   // Position calculation
   useEffect(() => {
@@ -919,11 +1081,15 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                     timeLabel={childTime}
                     isDone={isChildDone}
                     isSelected={activeChildKey === childKey}
-                    onClick={() => {
-                      setActiveChildKey(childKey);
-                      onEditFocusChild?.(child);
-                      onClose();
+                    draggable={Boolean(onStartDragFocusChild)}
+                    showDragHandle={false}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      handleFocusChildPointerDown(e, child, childKey);
                     }}
+                    onPointerMove={handleFocusChildPointerMove}
+                    onPointerUp={handleFocusChildPointerUp}
+                    onPointerCancel={handleFocusChildPointerCancel}
                     onContextMenu={(e) => {
                       if (!onOpenFocusChildContextMenu) return;
                       e.preventDefault();

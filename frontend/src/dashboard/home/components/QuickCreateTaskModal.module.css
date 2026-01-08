@@ -230,6 +230,183 @@
   margin-top: -8px;
 }
 
+.costRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.costIcon {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.7));
+  flex-shrink: 0;
+}
+
+.costButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(24, 26, 29, 0.9);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.costButton:hover,
+.costButton:focus-visible {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(24, 26, 29, 1);
+}
+
+.costButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.costLabel {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  font-size: 0.9rem;
+}
+
+.costValue {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.costRemoveButton {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.72));
+  cursor: pointer;
+}
+
+.costRemoveButton:hover,
+.costRemoveButton:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.costRemoveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.costPanel {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(24, 26, 29, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.costPanelRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.costPanelLabel {
+  font-size: 0.85rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+}
+
+.costPanelMuted {
+  font-size: 0.9rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+}
+
+.costPanelResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.costPanelResult {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 14, 16, 0.45);
+  color: inherit;
+  cursor: pointer;
+}
+
+.costPanelResult:hover,
+.costPanelResult:focus-visible {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(13, 14, 16, 0.6);
+}
+
+.costPanelResult:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.costPanelResultTitle {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.costPanelResultMeta {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.55));
+}
+
+.costPanelToggle {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.72));
+  cursor: pointer;
+}
+
+.costPanelToggle:hover,
+.costPanelToggle:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.costPanelToggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.costPanelCreate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.costPanelPrimary {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.costPanelPrimary:hover,
+.costPanelPrimary:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.costPanelPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .selectInput,
 .textInput,
 .textarea {

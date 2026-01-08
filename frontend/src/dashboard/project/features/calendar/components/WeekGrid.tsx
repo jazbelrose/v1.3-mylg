@@ -1854,6 +1854,52 @@ function WeekGrid({
     [dayIndexLookup, entryLookup],
   );
 
+  /**
+   * Start dragging a Focus Block child out of the entry popover.
+   * Uses the same grid drag interaction state as stack popovers.
+   */
+  const handleStartDragFromFocusChildPopover = useCallback(
+    (task: CalendarTask, pointerEvent: React.PointerEvent<HTMLElement>) => {
+      const key = `task:${task.id}`;
+      const lookup = entryLookup.get(key);
+      if (!lookup) return;
+
+      const { entry, dayKey } = lookup;
+      const dayIndex = dayIndexLookup.get(dayKey) ?? 0;
+
+      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const initialHeight = minutesToPxWeek(durationMinutes);
+
+      const target: InteractionTarget = {
+        entry,
+        dayKey,
+        dayIndex,
+        startMinutes: entry.startMinutes,
+        endMinutes: entry.endMinutes,
+        initialTop: 0,
+        initialHeight,
+      };
+
+      const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey);
+
+      interactionRef.current = {
+        mode: "drag",
+        startX: pointerEvent.clientX,
+        startY: pointerEvent.clientY,
+        targets: [target],
+        duplicate: false,
+        isCopyMode: copyMode,
+        startDayIndex: dayIndex,
+      };
+      setIsCopyMode(copyMode);
+      isDraggingRef.current = true;
+
+      setPopover(null);
+      setChildMenu(null);
+    },
+    [dayIndexLookup, entryLookup],
+  );
+
   // Handle single click vs double click for entries
   const handleEntryClick = useCallback(
     (
@@ -3533,6 +3579,7 @@ function WeekGrid({
           }}
           onRenameTaskTitle={onRenameTaskTitle}
           onEditFocusChild={(task) => onEditTask(task)}
+          onStartDragFocusChild={handleStartDragFromFocusChildPopover}
           onOpenFocusChildContextMenu={handleOpenContextMenuFromFocusChild}
           onSubmitForReview={onSubmitForReview ? (tasks) => onSubmitForReview(tasks) : undefined}
           onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}

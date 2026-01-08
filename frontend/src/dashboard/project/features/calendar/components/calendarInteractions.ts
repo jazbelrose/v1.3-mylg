@@ -17,6 +17,12 @@ export type CalendarEntryChanges = {
   date: string; // YYYY-MM-DD
   start?: string; // HH:MM
   end?: string; // HH:MM
+  /**
+   * Optional Focus Block linkage update.
+   * - `null` detaches the task from any Focus Block.
+   * - string attaches the task to that Focus Block id.
+   */
+  focusBlockId?: string | null;
   duplicate?: boolean;
 };
 

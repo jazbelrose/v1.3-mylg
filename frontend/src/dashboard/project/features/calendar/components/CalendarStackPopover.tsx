@@ -94,6 +94,10 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   onDeleteEntry,
   onStartDragChild,
 }) => {
+  const DRAG_PX = 8;
+  const LONG_PRESS_MS = 220;
+  const TOUCH_SLOP_PX = 12;
+
   const popoverRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -594,6 +598,163 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
   const [activeRowKey, setActiveRowKey] = useState<string | null>(null);
 
+  const pointerStateRef = useRef<{
+    child: StackPopoverChild;
+    pointerId: number;
+    pointerType: string;
+    startX: number;
+    startY: number;
+    didDrag: boolean;
+    dragArmed: boolean;
+    longPressTimer: number | null;
+    cancelled: boolean;
+  } | null>(null);
+
+  const clearPointerState = useCallback(() => {
+    const state = pointerStateRef.current;
+    if (state?.longPressTimer) {
+      window.clearTimeout(state.longPressTimer);
+    }
+    pointerStateRef.current = null;
+  }, []);
+
+  const startDragIfPossible = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>, child: StackPopoverChild) => {
+      if (!onStartDragChild) return;
+      const state = pointerStateRef.current;
+      if (!state || state.didDrag || state.cancelled) return;
+
+      state.didDrag = true;
+      if (state.longPressTimer) {
+        window.clearTimeout(state.longPressTimer);
+        state.longPressTimer = null;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveRowKey(child.entryKey);
+      onStartDragChild(child, event);
+    },
+    [onStartDragChild],
+  );
+
+  const handleRowPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>, child: StackPopoverChild) => {
+      // Only initiate interactions on primary button.
+      if (event.button !== 0) return;
+      // If user is editing title, ignore.
+      if (isEditingTitle) return;
+
+      // Capture pointer so move/up events continue even if cursor leaves the row.
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore
+      }
+
+      setActiveRowKey(child.entryKey);
+
+      const pointerType = event.pointerType || "mouse";
+      const isTouch = pointerType === "touch";
+
+      const nextState = {
+        child,
+        pointerId: event.pointerId,
+        pointerType,
+        startX: event.clientX,
+        startY: event.clientY,
+        didDrag: false,
+        dragArmed: !isTouch,
+        longPressTimer: null as number | null,
+        cancelled: false,
+      };
+
+      if (isTouch) {
+        nextState.longPressTimer = window.setTimeout(() => {
+          const st = pointerStateRef.current;
+          if (!st) return;
+          if (st.pointerId !== event.pointerId) return;
+          if (st.cancelled || st.didDrag) return;
+          st.dragArmed = true;
+        }, LONG_PRESS_MS);
+      }
+
+      pointerStateRef.current = nextState;
+    },
+    [LONG_PRESS_MS, isEditingTitle],
+  );
+
+  const handleRowPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = pointerStateRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+      if (state.didDrag || state.cancelled) return;
+
+      const dx = event.clientX - state.startX;
+      const dy = event.clientY - state.startY;
+      const dist = Math.hypot(dx, dy);
+
+      const isTouch = state.pointerType === "touch";
+      if (isTouch && !state.dragArmed) {
+        // Cancel long-press if user moves too much before the timer fires.
+        if (dist > TOUCH_SLOP_PX) {
+          state.cancelled = true;
+          if (state.longPressTimer) {
+            window.clearTimeout(state.longPressTimer);
+            state.longPressTimer = null;
+          }
+        }
+        return;
+      }
+
+      // Start drag once threshold is exceeded.
+      const threshold = isTouch ? TOUCH_SLOP_PX : DRAG_PX;
+      if (dist >= threshold) {
+        startDragIfPossible(event, state.child);
+      }
+    },
+    [DRAG_PX, TOUCH_SLOP_PX, startDragIfPossible],
+  );
+
+  const handleRowPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = pointerStateRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+
+      const child = state.child;
+      const didDrag = state.didDrag;
+      clearPointerState();
+
+      if (didDrag) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      // Short click → primary action (edit) WITHOUT using onClick.
+      event.preventDefault();
+      event.stopPropagation();
+      if (onPrimaryAction) {
+        onPrimaryAction(child);
+        return;
+      }
+      onOpenDetails(child, event.currentTarget);
+    },
+    [clearPointerState, onOpenDetails, onPrimaryAction],
+  );
+
+  const handleRowPointerCancel = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const state = pointerStateRef.current;
+      if (!state) return;
+      if (event.pointerId !== state.pointerId) return;
+      clearPointerState();
+    },
+    [clearPointerState],
+  );
+
   const popoverContent = (
     <PopoverShell
       ref={popoverRef}
@@ -702,31 +863,19 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                         }
                         isSelected={activeRowKey === row.child.entryKey}
                         draggable={Boolean(onStartDragChild)}
-                        onClick={(e) => {
+                        showDragHandle={false}
+                        onPointerDown={(e) => {
                           e.stopPropagation();
-                          setActiveRowKey(row.child.entryKey);
-                          if (onPrimaryAction) {
-                            onPrimaryAction(row.child);
-                            return;
-                          }
-                          onOpenDetails(row.child, e.currentTarget);
+                          handleRowPointerDown(e, row.child);
                         }}
+                        onPointerMove={handleRowPointerMove}
+                        onPointerUp={handleRowPointerUp}
+                        onPointerCancel={handleRowPointerCancel}
                         onContextMenu={(e) => {
                           e.stopPropagation();
                           setActiveRowKey(row.child.entryKey);
                           onOpenContextMenu(row.child, e);
                         }}
-                        onPointerDown={
-                          onStartDragChild
-                            ? (e) => {
-                                // Only initiate drag on left-click
-                                if (e.button !== 0) return;
-                                e.stopPropagation();
-                                onStartDragChild(row.child, e);
-                                onClose();
-                              }
-                            : undefined
-                        }
                         titleAttr={row.title}
                       />
 
@@ -755,26 +904,18 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                 }
                 isSelected={activeRowKey === row.child.entryKey}
                 draggable={Boolean(onStartDragChild)}
-                onClick={(e) => {
+                onPointerDown={(e) => {
                   e.stopPropagation();
-                  setActiveRowKey(row.child.entryKey);
-                  onOpenDetails(row.child, e.currentTarget);
+                  handleRowPointerDown(e, row.child);
                 }}
+                onPointerMove={handleRowPointerMove}
+                onPointerUp={handleRowPointerUp}
+                onPointerCancel={handleRowPointerCancel}
                 onContextMenu={(e) => {
                   e.stopPropagation();
                   setActiveRowKey(row.child.entryKey);
                   onOpenContextMenu(row.child, e);
                 }}
-                onPointerDown={
-                  onStartDragChild
-                    ? (e) => {
-                        if (e.button !== 0) return;
-                        e.stopPropagation();
-                        onStartDragChild(row.child, e);
-                        onClose();
-                      }
-                    : undefined
-                }
                 titleAttr={row.title}
               />
 

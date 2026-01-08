@@ -3714,8 +3714,17 @@ body.isMarqueeSelecting * {
 
 /* Drag handle for extracting entries from stacks */
 .calendar-entry-row--draggable {
-  grid-template-columns: 14px 18px 1fr auto;
   cursor: grab;
+}
+
+/* Default draggable layout includes a visible handle */
+.calendar-entry-row--draggable:not(.calendar-entry-row--draggable-no-handle) {
+  grid-template-columns: 14px 18px 1fr auto;
+}
+
+/* Draggable, but no handle icon: keep the original 3-column layout */
+.calendar-entry-row--draggable.calendar-entry-row--draggable-no-handle {
+  grid-template-columns: 18px 1fr auto;
 }
 
 .calendar-entry-row--draggable:active {

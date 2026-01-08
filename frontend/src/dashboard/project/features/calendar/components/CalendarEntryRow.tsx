@@ -14,9 +14,14 @@ export type CalendarEntryRowProps = {
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerUp?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerCancel?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   titleAttr?: string;
   /** Show a drag handle to indicate the row can be dragged out of a stack. */
   draggable?: boolean;
+  /** When draggable, optionally hide the grip icon (full row is still draggable). */
+  showDragHandle?: boolean;
 };
 
 export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
@@ -30,11 +35,16 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
   onClick,
   onContextMenu,
   onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
   titleAttr,
   draggable,
+  showDragHandle = true,
 }) => {
   const resolvedAvatars = avatars ?? [];
   const showAvatars = resolvedAvatars.length > 0;
+  const hasDragHandle = Boolean(draggable && showDragHandle);
 
   const icon =
     entryType === "event" ? (
@@ -54,15 +64,19 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
         "calendar-entry-row",
         isSelected ? "calendar-entry-row--selected" : "",
         draggable ? "calendar-entry-row--draggable" : "",
+        draggable && !hasDragHandle ? "calendar-entry-row--draggable-no-handle" : "",
       ]
         .filter(Boolean)
         .join(" ")}
       onClick={onClick}
       onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       title={titleAttr ?? title}
     >
-      {draggable ? (
+      {hasDragHandle ? (
         <span className="calendar-entry-row__drag-handle" aria-hidden>
           <GripVertical size={14} />
         </span>
