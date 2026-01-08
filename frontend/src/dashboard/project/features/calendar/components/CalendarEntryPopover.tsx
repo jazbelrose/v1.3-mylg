@@ -16,6 +16,9 @@ import {
   Clock,
   Calendar,
   DollarSign,
+  CheckSquare,
+  Square,
+  ListTodo,
 } from "lucide-react";
 import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
@@ -51,6 +54,7 @@ import {
   type ContextMenuEntry,
 } from "./CalendarEntryContextMenu";
 import { PopoverShell } from "./PopoverShell";
+import { CalendarEntryRow } from "./CalendarEntryRow";
 
 export interface CalendarEntryPopoverProps {
   anchorElement: HTMLElement;
@@ -98,6 +102,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [titleOverride, setTitleOverride] = useState<string | null>(null);
+  const [activeChildKey, setActiveChildKey] = useState<string | null>(null);
 
   // Position calculation
   useEffect(() => {
@@ -621,6 +626,23 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     >
       {/* Header with title and avatar stack */}
       <div className="calendar-entry-popover__header">
+        <span className="calendar-entry-row__icon" aria-hidden>
+          {entryType === "event" ? (
+            <Clock className="calendar-entry-row__icon-svg" aria-hidden />
+          ) : isFocusBlock ? (
+            <ListTodo className="calendar-entry-row__icon-svg" aria-hidden />
+          ) : (() => {
+            const bundleDone =
+              isFocusBlock && focusChildrenResolved.length > 0
+                ? focusChildrenResolved.every((t) => t.status === "done" || t.done === true)
+                : Boolean(task && (task.status === "done" || task.done === true));
+            return bundleDone ? (
+              <CheckSquare className="calendar-entry-row__icon-svg" aria-hidden />
+            ) : (
+              <Square className="calendar-entry-row__icon-svg" aria-hidden />
+            );
+          })()}
+        </span>
         {canInlineRenameTitle && isEditingTitle ? (
           <div className="calendar-entry-popover__title-btn" role="group" aria-label="Edit title">
             <input
@@ -888,14 +910,17 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                 ? `${formatTimeLabel(child.start) ?? child.start} - ${formatTimeLabel(child.end) ?? child.end}`
                 : (formatTimeLabel(child.start) ?? child.start) || "";
               const isChildDone = child.status === "done" || child.done === true;
+              const childKey = `task:${child.id}`;
               return (
                 <div key={child.id} className="calendar-entry-popover__child-row">
-                  <button
-                    type="button"
-                    className={
-                      `calendar-entry-popover__child${isChildDone ? " calendar-entry-popover__child--done" : ""}`
-                    }
+                  <CalendarEntryRow
+                    entryType="task"
+                    title={childTitle}
+                    timeLabel={childTime}
+                    isDone={isChildDone}
+                    isSelected={activeChildKey === childKey}
                     onClick={() => {
+                      setActiveChildKey(childKey);
                       onEditFocusChild?.(child);
                       onClose();
                     }}
@@ -903,27 +928,11 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                       if (!onOpenFocusChildContextMenu) return;
                       e.preventDefault();
                       e.stopPropagation();
+                      setActiveChildKey(childKey);
                       onOpenFocusChildContextMenu(child, e);
                     }}
-                    title={childTitle}
-                  >
-                    <div
-                      className={
-                        `calendar-entry-popover__child-title${isChildDone ? " calendar-entry-popover__child-title--done" : ""}`
-                      }
-                    >
-                      {childTitle}
-                    </div>
-                    {childTime && (
-                      <div
-                        className={
-                          `calendar-entry-popover__child-time${isChildDone ? " calendar-entry-popover__child-time--done" : ""}`
-                        }
-                      >
-                        {childTime}
-                      </div>
-                    )}
-                  </button>
+                    titleAttr={childTitle}
+                  />
 
                   {/* Focus Block time blocks: actions are available via right-click on the row. */}
                 </div>

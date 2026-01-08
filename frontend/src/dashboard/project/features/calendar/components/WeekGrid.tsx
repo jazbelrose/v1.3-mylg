@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, ListTodo, Plus, Users } from "lucide-react";
+import { CheckSquare, Clock, Square, Plus, Users, ListTodo } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
@@ -2172,13 +2172,27 @@ function WeekGrid({
         </div>
       ) : null;
     
-    // Stacks are UI-computed aggregates; keep them aligned to the active project's color.
-    const color = isStack ? projectColor : entry.projectColor || projectColor;
-    const pillStyle = {
-      ...entryStyle,
-      background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
-      border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
-    };
+    // Tasks are allowed to be neutral (no mandatory project tint).
+    // Keep Focus Blocks + stacks aligned to the active project's color.
+    const pillStyle = (() => {
+      const isTimeBlockTask = (() => {
+        if (entry.type !== "task" || isStack || isFocusBlock) return false;
+        const task = entry.payload as CalendarTask | undefined;
+        return Boolean(task?.start || task?.end);
+      })();
+
+      if (entry.type === "task" && !isStack && !isFocusBlock && !isTimeBlockTask) {
+        return entryStyle;
+      }
+
+      const shouldUseActiveProjectTint = isFocusBlock || isStack || isTimeBlockTask;
+      const color = shouldUseActiveProjectTint ? projectColor : entry.projectColor || projectColor;
+      return {
+        ...entryStyle,
+        background: hexToRgba(color).replace(/[\d.]+\)$/, "0.18)"),
+        border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, "0.32)")}`,
+      };
+    })();
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
     const resizeTransform = resizePreviewTransforms[entrySelectionKey];
     const showCopyPreview = Boolean(isCopyMode && dragTransform);
@@ -2256,11 +2270,23 @@ function WeekGrid({
             <span className="week-grid__timeline-entry-icon">
               {entry.type === "overlapStack" ? (
                 <Users className="week-grid__task-icon-svg" aria-hidden />
-              ) : entry.type === "task" && isFocusBlock ? (
-                <ListTodo className="week-grid__task-icon-svg" aria-hidden />
-              ) : (
-                <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-              )}
+              ) : (() => {
+                if (entry.type !== "task") {
+                  return <CheckSquare className="week-grid__task-icon-svg" aria-hidden />;
+                }
+
+                if (isFocusBlock) {
+                  return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
+                }
+
+                const focusDone = isFocusBlock && focusMeter ? focusMeter.done === focusMeter.total : false;
+                const resolvedDone = isFocusBlock ? focusDone : Boolean(entry.completed);
+                return resolvedDone ? (
+                  <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                ) : (
+                  <Square className="week-grid__task-icon-svg" aria-hidden />
+                );
+              })()}
             </span>
           )}
           {entry.type === "event" && (

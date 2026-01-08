@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, CheckSquare, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
@@ -19,6 +19,7 @@ import {
   type ContextMenuEntry,
 } from "./CalendarEntryContextMenu";
 import { PopoverShell } from "./PopoverShell";
+import { CalendarEntryRow } from "./CalendarEntryRow";
 import {
   buildEventAvatars,
   buildTeamMemberLookup,
@@ -496,6 +497,16 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       .map((child) => {
         const title =
           child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
+        const isFocusBlock = (() => {
+          if (child.entryType !== "task") return false;
+          const task = child.entry as CalendarTask;
+          const normalizedKind = String(task.kind ?? "").trim().toLowerCase();
+          if (normalizedKind === "focus_block") return true;
+          const hasChildren =
+            (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+            (task.focusChecklist && task.focusChecklist.length > 0);
+          return hasChildren;
+        })();
         const isDone =
           child.entryType === "task"
             ? ((child.entry as CalendarTask).status === "done" || (child.entry as CalendarTask).done === true)
@@ -507,6 +518,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
           time: buildTimeRange(child),
           avatar: buildRowAvatar(child),
           isDone,
+          isFocusBlock,
           primaryUser,
         };
       })
@@ -573,6 +585,8 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       </div>
     );
   }, [headerAvatarSource, kind, userStacks]);
+
+  const [activeRowKey, setActiveRowKey] = useState<string | null>(null);
 
   const popoverContent = (
     <PopoverShell
@@ -669,11 +683,21 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                   .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title))
                   .map((row) => (
                     <div key={row.child.entryKey} className="calendar-stack-popover__row calendar-stack-popover__row--list">
-                      <button
-                        type="button"
-                        className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
+                      <CalendarEntryRow
+                        entryType={row.child.entryType}
+                        title={row.title}
+                        timeLabel={row.time}
+                        isDone={row.isDone}
+                        taskIcon={row.child.entryType === "task" && row.isFocusBlock ? "list" : undefined}
+                        avatars={
+                          row.child.entryType === "event"
+                            ? buildEventAvatars(row.child.entry as CalendarEvent, memberLookup)
+                            : undefined
+                        }
+                        isSelected={activeRowKey === row.child.entryKey}
                         onClick={(e) => {
                           e.stopPropagation();
+                          setActiveRowKey(row.child.entryKey);
                           if (onPrimaryAction) {
                             onPrimaryAction(row.child);
                             return;
@@ -682,20 +706,11 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                         }}
                         onContextMenu={(e) => {
                           e.stopPropagation();
+                          setActiveRowKey(row.child.entryKey);
                           onOpenContextMenu(row.child, e);
                         }}
-                        title={row.title}
-                      >
-                        <span className="calendar-stack-popover__item-icon" aria-hidden>
-                          {row.child.entryType === "event" ? (
-                            <Calendar style={{ color: projectColor }} aria-hidden />
-                          ) : (
-                            <CheckSquare style={{ color: projectColor }} aria-hidden />
-                          )}
-                        </span>
-                        <div className="calendar-stack-popover__item-title">{row.title}</div>
-                        {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
-                      </button>
+                        titleAttr={row.title}
+                      />
 
                       {/* Multi-user overlap stack: actions via right-click on the row. */}
                     </div>
@@ -709,40 +724,30 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
               key={row.child.entryKey}
               className="calendar-stack-popover__row calendar-stack-popover__row--list"
             >
-              <button
-                type="button"
-                className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}${row.avatar ? " calendar-stack-popover__item--has-avatar" : ""}`}
+              <CalendarEntryRow
+                entryType={row.child.entryType}
+                title={row.title}
+                timeLabel={row.time}
+                isDone={row.isDone}
+                taskIcon={row.child.entryType === "task" && row.isFocusBlock ? "list" : undefined}
+                avatars={
+                  row.child.entryType === "event"
+                    ? buildEventAvatars(row.child.entry as CalendarEvent, memberLookup)
+                    : buildTaskAvatars(row.child.entry as CalendarTask, memberLookup)
+                }
+                isSelected={activeRowKey === row.child.entryKey}
                 onClick={(e) => {
                   e.stopPropagation();
+                  setActiveRowKey(row.child.entryKey);
                   onOpenDetails(row.child, e.currentTarget);
                 }}
                 onContextMenu={(e) => {
                   e.stopPropagation();
+                  setActiveRowKey(row.child.entryKey);
                   onOpenContextMenu(row.child, e);
                 }}
-                title={row.title}
-              >
-                <span className="calendar-stack-popover__item-icon" aria-hidden>
-                  {row.child.entryType === "event" ? (
-                    <Calendar style={{ color: projectColor }} aria-hidden />
-                  ) : (
-                    <CheckSquare style={{ color: projectColor }} aria-hidden />
-                  )}
-                </span>
-                <div className="calendar-stack-popover__item-title">{row.title}</div>
-                {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
-                {row.avatar ? (
-                  <span className="calendar-stack-popover__row-avatar" aria-hidden>
-                    <ProjectAvatar
-                      className="calendar-stack-popover__row-avatar-img"
-                      thumb={row.avatar.thumb ?? undefined}
-                      name={row.avatar.name}
-                      shape="circle"
-                      radius={9}
-                    />
-                  </span>
-                ) : null}
-              </button>
+                titleAttr={row.title}
+              />
 
               {/* Multi-user overlap stack: actions via right-click on the row. */}
             </div>

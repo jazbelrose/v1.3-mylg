@@ -376,6 +376,23 @@ export const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent |
       (details as { [key: string]: unknown })["guest-list"],
   );
 
+  // Fallback: many TimelineEvent payloads don’t populate guests/attendees.
+  // For avatar parity with tiles, treat the creator/owner as the primary “assignee” when present.
+  const fallbackGuests = parseStringArray(
+    (event as { createdById?: unknown }).createdById ??
+      (event as { createdBy?: unknown }).createdBy ??
+      details.createdById ??
+      (details as { createdBy?: unknown }).createdBy ??
+      (details as { ownerUserId?: unknown }).ownerUserId ??
+      (details as { ownerId?: unknown }).ownerId ??
+      (details as { userId?: unknown }).userId ??
+      (details as { assigneeId?: unknown }).assigneeId ??
+      (details as { assignedTo?: unknown }).assignedTo ??
+      (details as { assigneeIds?: unknown }).assigneeIds,
+  );
+
+  const mergedGuests = Array.from(new Set([...(guests ?? []), ...(fallbackGuests ?? [])]));
+
   const payloadDescription = (details as { description?: string }).description;
   const payloadTitle = (details as { title?: string }).title;
   const payloadNotes = (details as { notes?: string; details?: string }).notes;
@@ -418,7 +435,7 @@ export const normalizeTimelineEvent = (event: ApiTimelineEvent): CalendarEvent |
     eventType,
     location,
     tags,
-    guests,
+    guests: mergedGuests,
     source: event,
   };
 };

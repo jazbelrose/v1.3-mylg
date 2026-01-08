@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, ListTodo, Plus } from "lucide-react";
+import { CheckSquare, Clock, Square, Plus, ListTodo } from "lucide-react";
 import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
   CalendarEntryContextMenu,
@@ -1547,11 +1547,18 @@ function DayGrid({
         <div className="week-grid__timeline-entry-header">
           {entry.type === "task" && (
             <span className="week-grid__timeline-entry-icon">
-              {isFocusBlock ? (
-                <ListTodo className="week-grid__task-icon-svg" aria-hidden />
-              ) : (
-                <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
-              )}
+              {(() => {
+                if (isFocusBlock) {
+                  return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
+                }
+                const focusDone = isFocusBlock && focusMeter ? focusMeter.done === focusMeter.total : false;
+                const resolvedDone = isFocusBlock ? focusDone : Boolean(entry.completed);
+                return resolvedDone ? (
+                  <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
+                ) : (
+                  <Square className="week-grid__task-icon-svg" aria-hidden />
+                );
+              })()}
             </span>
           )}
           {entry.type === "event" && (
@@ -1570,12 +1577,25 @@ function DayGrid({
       </div>
     );
 
-    const color = entry.projectColor || projectColor;
-    const pillStyle = {
-      ...entryStyle,
-      background: hexToRgba(color).replace(/[\d.]+\)$/, '0.18)'),
-      border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, '0.32)')}`,
-    };
+    const pillStyle = (() => {
+      const isTimeBlockTask = (() => {
+        if (entry.type !== "task" || isFocusBlock) return false;
+        const task = entry.payload as CalendarTask | undefined;
+        return Boolean(task?.start || task?.end);
+      })();
+
+      if (entry.type === "task" && !isFocusBlock && !isTimeBlockTask) {
+        return entryStyle;
+      }
+
+      const shouldUseActiveProjectTint = isFocusBlock || isTimeBlockTask;
+      const color = shouldUseActiveProjectTint ? projectColor : entry.projectColor || projectColor;
+      return {
+        ...entryStyle,
+        background: hexToRgba(color).replace(/[\d.]+\)$/, "0.18)"),
+        border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, "0.32)")}`,
+      };
+    })();
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
     const resizeTransform = resizePreviewTransforms[entrySelectionKey];
     const showCopyPreview = Boolean(isCopyMode && dragTransform);
