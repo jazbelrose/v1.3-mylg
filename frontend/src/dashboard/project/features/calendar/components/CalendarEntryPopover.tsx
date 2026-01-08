@@ -21,7 +21,6 @@ import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
-import { Kebab } from "@/shared/icons/Kebab";
 import {
   buildTeamMemberLookup,
   buildTaskAvatars,
@@ -148,7 +147,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   useEffect(() => {
     if (!childMenu || !parentId || childMenu.parentId !== parentId) return;
     const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
-    if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+    if (!anchorEl || typeof anchorEl.getBoundingClientRect !== "function") {
       setChildMenu?.(null);
     }
   }, [childMenu, parentId, setChildMenu]);
@@ -328,7 +327,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     return names.length > 0 ? names : null;
   }, [isTask, task, memberLookup]);
 
-  const canInlineRenameFocusBlock = Boolean(isTask && task && isFocusBlock && onRenameTaskTitle);
+  const canInlineRenameTitle = Boolean(isTask && task && onRenameTaskTitle);
 
   const [attachedBudgetItemId, setAttachedBudgetItemId] = useState<string | null>(null);
   const [budgetLinkType, setBudgetLinkType] = useState<BudgetTaskLinkType>("build");
@@ -518,7 +517,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   }, [isEditingTitle]);
 
   const beginEditTitle = useCallback(() => {
-    if (!canInlineRenameFocusBlock) {
+    if (!canInlineRenameTitle) {
       // Fallback: open the full editor. Let the parent decide whether to close the popover.
       onEdit();
       return;
@@ -527,10 +526,10 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     const initial = ((rawTitle ?? "").trim() || (title ?? "").trim() || "").toString();
     setDraftTitle(initial);
     setIsEditingTitle(true);
-  }, [canInlineRenameFocusBlock, onEdit, rawTitle, title]);
+  }, [canInlineRenameTitle, onEdit, rawTitle, title]);
 
   const commitTitle = useCallback(async () => {
-    if (!canInlineRenameFocusBlock || !task || !onRenameTaskTitle) {
+    if (!canInlineRenameTitle || !task || !onRenameTaskTitle) {
       setIsEditingTitle(false);
       return;
     }
@@ -546,7 +545,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     } finally {
       setIsEditingTitle(false);
     }
-  }, [canInlineRenameFocusBlock, draftTitle, onRenameTaskTitle, task]);
+  }, [canInlineRenameTitle, draftTitle, onRenameTaskTitle, task]);
 
   const cancelTitleEdit = useCallback(() => {
     setIsEditingTitle(false);
@@ -623,7 +622,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     >
       {/* Header with title and avatar stack */}
       <div className="calendar-entry-popover__header">
-        {canInlineRenameFocusBlock && isEditingTitle ? (
+        {canInlineRenameTitle && isEditingTitle ? (
           <div className="calendar-entry-popover__title-btn" role="group" aria-label="Edit title">
             <input
               ref={titleInputRef}
@@ -650,7 +649,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             type="button"
             className="calendar-entry-popover__title-btn"
             onClick={beginEditTitle}
-            title={canInlineRenameFocusBlock ? "Click to rename" : "Click to edit"}
+            title={canInlineRenameTitle ? "Click to rename" : "Click to edit"}
           >
             <span className="calendar-entry-popover__title">{displayTitle}</span>
             <Pencil className="calendar-entry-popover__edit-icon" />
@@ -693,33 +692,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             </span>
           )}
 
-          {/* Kebab actions are not used for Focus Blocks; actions are available via right-click. */}
-          {!isFocusBlock && parentId && setChildMenu ? (
-            <button
-              type="button"
-              className="calendar-entry-popover__menu-btn"
-              aria-label="Actions"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const ownerId = `${entryType}:${entry.id}`;
-                setChildMenu((prev) => {
-                  const isSame = prev && prev.parentId === parentId && prev.ownerId === ownerId;
-                  if (isSame) return null;
-                  return {
-                    kind: "entry_actions",
-                    parentId,
-                    ownerId,
-                    anchorEl: e.currentTarget,
-                    entryType,
-                    entry,
-                  };
-                });
-              }}
-            >
-              <Kebab className="calendar-entry-popover__menu-icon" />
-            </button>
-          ) : null}
+          {/* Removed kebab/ellipsis menu: actions are available via right-click and the buttons below. */}
         </div>
       </div>
 
@@ -1012,7 +985,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       {childMenu && parentId && childMenu.parentId === parentId ? (
         (() => {
           const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
-          if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+          if (!anchorEl || typeof anchorEl.getBoundingClientRect !== "function") {
             return null;
           }
           const rect = anchorEl.getBoundingClientRect();
@@ -1033,13 +1006,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
               onEdit={
                 isFocusChild
                   ? focusChildTask
-                    ? (_e) => {
+                    ? () => {
                         onEditFocusChild?.(focusChildTask);
                         setChildMenu?.(null);
                         onClose();
                       }
                     : undefined
-                  : (_e) => {
+                  : () => {
                       onEdit();
                       setChildMenu?.(null);
                     }
