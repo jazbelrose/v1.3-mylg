@@ -74,6 +74,8 @@ export type WeekGridProps = {
   onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
+  /** Bulk assign all children of a Focus Block to a user */
+  onBulkAssignChildren?: (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => void;
   // Multi-user overlap stack title persistence
   overlapStackTitles?: Record<string, string>;
   onRenameOverlapStackTitle?: (key: string, title: string) => void | Promise<void>;
@@ -345,6 +347,7 @@ function WeekGrid({
   onUngroupFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
+  onBulkAssignChildren,
   overlapStackTitles,
   onRenameOverlapStackTitle,
 }: WeekGridProps) {
@@ -3064,8 +3067,9 @@ function WeekGrid({
               });
             };
 
-            const allDayIntents = dayTaskBucket.allDay.filter((task) => task.kind === "intent");
             const allDayTasks = dayTaskBucket.allDay.filter((task) => task.kind !== "intent");
+            // Intent items are no longer rendered - per product decision, only Focus Blocks
+            // should appear on calendar. Intent tiles broke trust (grey, uneditable ghosts).
 
             return (
                 <div
@@ -3078,21 +3082,9 @@ function WeekGrid({
                 {hourIndex === 0 &&
                   (dayEventBucket.allDay.length > 0 || dayTaskBucket.allDay.length > 0 || doneCount > 0) && (
                     <div className="week-grid__all-day">
-                      {allDayIntents.length > 0 && (
-                        <div className="week-grid__intents" aria-label="Intents">
-                          {allDayIntents.map((task) => (
-                            <button
-                              key={`${task.id}-intent`}
-                              type="button"
-                              className="week-grid__intent-chip"
-                              onClick={() => onEditTask(task)}
-                              title="Intent (click to edit)"
-                            >
-                              {task.title}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {/* Intent chips removed per product decision: 
+                          Spellbook should only create Focus Blocks.
+                          Grey "intent" tiles broke trust (looked like ghost/corrupted records). */}
                       {hideCompleted && doneCount > 0 && (
                         <div className="week-grid__done-sweep-badge" title="Completed tasks hidden">
                           Done · {doneCount}

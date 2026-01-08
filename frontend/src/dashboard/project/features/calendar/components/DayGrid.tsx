@@ -325,18 +325,10 @@ function DayGrid({
     return floating;
   }, [tasks, key]);
 
-  const dayIntents = useMemo(() => {
-    const intents: CalendarTask[] = [];
-    tasks.forEach((task) => {
-      if (!task.due) return;
-      const taskDate = safeDate(task.due);
-      if (!taskDate) return;
-      if (fmtLocal(taskDate) !== key) return;
-      if (task.kind !== "intent") return;
-      intents.push(task);
-    });
-    return intents;
-  }, [tasks, key]);
+  // Intent items are no longer collected or rendered.
+  // Per product decision, Spellbook should only create Focus Blocks.
+  // Grey intent tiles broke trust (uneditable ghost records).
+  const dayIntents: CalendarTask[] = [];
 
   const teamMemberLookup = useMemo(
     () => buildTeamMemberLookup(teamMembers ?? []),

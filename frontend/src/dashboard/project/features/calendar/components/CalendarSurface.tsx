@@ -961,20 +961,26 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           });
         } else {
           const baseItems = request.variant.items;
-          const taskItemIndexes = baseItems
-            .map((item, idx) => ({ item, idx }))
-            .filter(({ item }) => item.kind === "task")
-            .map(({ idx }) => idx);
+          // Include ALL items (tasks + intents) in focus blocks.
+          // Per product decision: Spellbook only creates Focus Blocks.
+          // All items become child tasks inside the focus block.
+          const allItemIndexes = baseItems.map((_, idx) => idx);
 
           const focusDrafts =
             request.variant.focusBlocks.length > 0
-              ? request.variant.focusBlocks
+              ? request.variant.focusBlocks.map((fb) => ({
+                  ...fb,
+                  // Expand itemIndexes to include ALL items if variant only tracked "task" items
+                  itemIndexes: fb.itemIndexes?.length
+                    ? [...new Set([...fb.itemIndexes, ...allItemIndexes.filter((idx) => baseItems[idx]?.kind === "intent")])]
+                    : allItemIndexes,
+                }))
               : [
                   {
                     title: "Focus Block",
                     cluster: "",
-                    itemIndexes: taskItemIndexes,
-                    durationMinutes: taskItemIndexes.reduce(
+                    itemIndexes: allItemIndexes,
+                    durationMinutes: allItemIndexes.reduce(
                       (sum, idx) => sum + (baseItems[idx]?.durationMinutes ?? 0),
                       0,
                     ),
@@ -984,16 +990,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           for (let blockIdx = 0; blockIdx < focusDrafts.length; blockIdx += 1) {
             const focusDraft = focusDrafts[blockIdx];
             const itemIndexes = focusDraft.itemIndexes ?? [];
+            // Convert ALL items (task + intent) into child tasks
             const taskChildPayloads: Task[] = itemIndexes
               .map((idx) => baseItems[idx])
-              .filter((item): item is NonNullable<typeof item> => Boolean(item) && item.kind === "task")
+              .filter((item): item is NonNullable<typeof item> => Boolean(item))
               .map((item) => ({
                 projectId: activeProjectId,
                 title: item.title,
                 status: "todo",
                 dueDate: targetDate,
                 dueAt: targetDate,
-                kind: "task",
+                kind: "task", // Always create as regular task, never as "intent"
                 cluster: item.cluster,
                 tags: item.tags,
                 durationMinutes: item.durationMinutes,
@@ -1011,23 +1018,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             });
           }
 
-          const intentPayloads: Task[] = request.variant.items
-            .filter((item) => item.kind === "intent")
-            .map((item) => ({
-              projectId: activeProjectId,
-              title: item.title,
-              status: "todo",
-              dueDate: targetDate,
-              dueAt: targetDate,
-              kind: "intent",
-              cluster: item.cluster,
-              tags: item.tags,
-              durationMinutes: item.durationMinutes,
-            }));
-
-          if (intentPayloads.length > 0) {
-            await createTasksBulk(activeProjectId, intentPayloads);
-          }
+          // Intent items are included as children in focus blocks above.
+          // Per product decision, Spellbook/Conjure should ONLY create Focus Blocks.
+          // Standalone "intent" tiles broke trust (grey, uneditable ghost blocks).
+          // All items parsed as "intent" are now converted to regular tasks inside the focus block.
         }
 
         await onRefreshTasks();
