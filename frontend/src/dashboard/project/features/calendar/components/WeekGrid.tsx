@@ -420,6 +420,7 @@ function WeekGrid({
     entryType: CalendarEntryType;
     entry: CalendarTask | CalendarEvent;
     allowConvertToFocusBlock: boolean;
+    focusBlockChildren?: CalendarTask[];
   } | null>(null);
 
   // Child action menu (opened from inside a parent popover)
@@ -1591,14 +1592,34 @@ function WeekGrid({
         return eligible.length;
       })();
 
+      // Compute Focus Block children for bulk-assign menu
+      const focusBlockChildren = (() => {
+        if (entry.type !== "task") return undefined;
+        const task = entry.payload as CalendarTask;
+        if (!isFocusBlockTask(task)) return undefined;
+        const focusId = task.source?.taskId ?? task.id;
+        const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+        const childrenFromIds = childIds
+          .map((id) => calendarTaskById.get(id))
+          .filter((value): value is CalendarTask => Boolean(value));
+        const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+        const children = Array.from(
+          new Map(
+            [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [childTask.source?.taskId ?? childTask.id, childTask]),
+          ).values(),
+        ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
+        return children.length ? children : undefined;
+      })();
+
       setContextMenu({
         position: { x: event.clientX, y: event.clientY },
         entryType: entry.type === "event" ? "event" : "task",
         entry: entry.payload as CalendarTask | CalendarEvent,
         allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
+        focusBlockChildren,
       });
     },
-    [entryLookup, selectedEntryKeys],
+    [calendarTaskById, entryLookup, focusChildrenByFocusId, selectedEntryKeys],
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -2346,26 +2367,27 @@ function WeekGrid({
           {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
         </div>
       ) : null;
+
+    // Compute whether the entry should use the active project's color.
+    const isTimeBlockTask = (() => {
+      if (entry.type !== "task" || isStack || isFocusBlock) return false;
+      const task = entry.payload as CalendarTask | undefined;
+      return Boolean(task?.start || task?.end);
+    })();
+    const shouldUseActiveProjectTint = isFocusBlock || isStack || isTimeBlockTask;
+    const entryColor = shouldUseActiveProjectTint ? projectColor : entry.projectColor || projectColor;
     
     // Tasks are allowed to be neutral (no mandatory project tint).
     // Keep Focus Blocks + stacks aligned to the active project's color.
     const pillStyle = (() => {
-      const isTimeBlockTask = (() => {
-        if (entry.type !== "task" || isStack || isFocusBlock) return false;
-        const task = entry.payload as CalendarTask | undefined;
-        return Boolean(task?.start || task?.end);
-      })();
-
       if (entry.type === "task" && !isStack && !isFocusBlock && !isTimeBlockTask) {
         return entryStyle;
       }
 
-      const shouldUseActiveProjectTint = isFocusBlock || isStack || isTimeBlockTask;
-      const color = shouldUseActiveProjectTint ? projectColor : entry.projectColor || projectColor;
       return {
         ...entryStyle,
-        background: hexToRgba(color).replace(/[\d.]+\)$/, "0.18)"),
-        border: `1px solid ${hexToRgba(color).replace(/[\d.]+\)$/, "0.32)")}`,
+        background: hexToRgba(entryColor).replace(/[\d.]+\)$/, "0.18)"),
+        border: `1px solid ${hexToRgba(entryColor).replace(/[\d.]+\)$/, "0.32)")}`,
       };
     })();
     const dragTransform = dragPreviewTransforms[entrySelectionKey];
@@ -2573,7 +2595,7 @@ function WeekGrid({
         <div className="week-grid__stack-list" aria-hidden>
           {visible.map((child) => {
             const childKey = `${child.type}:${child.id}`;
-            const childColor = color;
+            const childColor = entryColor;
             return (
               <div
                 key={childKey}
@@ -3444,6 +3466,8 @@ function WeekGrid({
           entryType={contextMenu.entryType}
           entry={contextMenu.entry}
           selectedEntries={getSelectedContextMenuEntries()}
+          teamMembers={teamMembers}
+          focusBlockChildren={contextMenu.focusBlockChildren}
           onClose={handleCloseContextMenu}
           onEdit={(e) => {
             if (contextMenu.entryType === "event") {
@@ -3461,6 +3485,7 @@ function WeekGrid({
           onUngroupFocusBlock={onUngroupFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
+          onBulkAssignChildren={onBulkAssignChildren}
         />
       )}
     </div>

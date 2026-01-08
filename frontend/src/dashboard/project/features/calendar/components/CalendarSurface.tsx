@@ -645,33 +645,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [activeProjectId, activeProjectName, taskProjects],
   );
 
-  const handleOpenQuickIntentModal = useCallback(
-    (date: Date) => {
-      setInternalDate(date);
-      const fallbackProjectId = activeProjectId ?? taskProjects[0]?.id ?? null;
-      if (!fallbackProjectId) {
-        notify("error", "Add a project before creating tasks.");
-        return;
-      }
-
-      const fallbackProjectName =
-        activeProjectName ??
-        taskProjects.find((project) => project.id === fallbackProjectId)?.name ??
-        null;
-
-      const draft: QuickCreateTaskModalTask = {
-        projectId: fallbackProjectId,
-        projectName: fallbackProjectName ?? null,
-        dueDate: date,
-        status: "todo",
-        kind: "intent",
-      };
-
-      setQuickTaskDraft(draft);
-      setIsQuickTaskModalOpen(true);
-    },
-    [activeProjectId, activeProjectName, taskProjects],
-  );
+  // Note: handleOpenQuickIntentModal removed per product decision.
+  // Spellbook/Conjure should only create Focus Blocks.
+  // "intent" tasks broke trust (grey, uneditable tiles on calendar).
 
   const handleTaskDrawerClose = useCallback(() => {
     setIsQuickTaskModalOpen(false);
@@ -1707,6 +1683,54 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [],
   );
 
+  // Bulk assign all children of a Focus Block to a user
+  const handleBulkAssignChildren = useCallback(
+    async (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => {
+      if (!activeProjectId) {
+        notify("error", "No active project selected");
+        return;
+      }
+      if (children.length === 0) {
+        notify("info", "No children to assign");
+        return;
+      }
+
+      // Build updates for all children
+      const updates = children.map((child) => ({
+        taskId: child.source?.taskId ?? child.id,
+        fields: {
+          assigneeId: userId ?? undefined,
+        },
+      }));
+
+      try {
+        await updateTasksBulk(activeProjectId, updates);
+
+        // Find user name for toast
+        let userName = "Unassigned";
+        if (userId) {
+          const member = teamMembers?.find((m) => m.userId === userId);
+          if (member) {
+            userName = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.userId;
+          }
+        }
+
+        notify(
+          "success",
+          userId
+            ? `Assigned ${children.length} item(s) to ${userName}`
+            : `Unassigned ${children.length} item(s)`,
+        );
+
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Bulk assign failed:", error);
+        notify("error", "Failed to assign items");
+      }
+    },
+    [activeProjectId, onRefreshTasks, teamMembers],
+  );
+
   const handleOpenMiniCalendarEvent = useCallback(
     (eventId: string) => {
       const target = eventById.get(eventId);
@@ -1908,6 +1932,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onUngroupFocusBlock={handleUngroupFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
+                      onBulkAssignChildren={handleBulkAssignChildren}
                       overlapStackTitles={overlapStackTitles}
                       onRenameOverlapStackTitle={handleRenameOverlapStackTitle}
                     />
