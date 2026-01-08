@@ -65,6 +65,36 @@ const resolveTaskIdentifier = (task: CalendarTask) => {
   );
 };
 
+const runWithConcurrency = async <T,>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<{ ok: T[]; failed: Array<{ item: T; error: unknown }> }> => {
+  const list = Array.isArray(items) ? items : [];
+  const limit = Math.max(1, Math.min(concurrency, list.length || 1));
+
+  const ok: T[] = [];
+  const failed: Array<{ item: T; error: unknown }> = [];
+
+  let index = 0;
+  const runners = Array.from({ length: limit }, async () => {
+    while (index < list.length) {
+      const currentIndex = index;
+      index += 1;
+      const item = list[currentIndex];
+      try {
+        await worker(item);
+        ok.push(item);
+      } catch (error) {
+        failed.push({ item, error });
+      }
+    }
+  });
+
+  await Promise.all(runners);
+  return { ok, failed };
+};
+
 export type CalendarSurfaceProps = {
   events: CalendarEvent[];
   tasks: CalendarTask[];
@@ -129,6 +159,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(() => new Set());
+
+  // Optimistic task overrides (used to reflect immediate UI changes for status updates)
+  const [optimisticTaskOverrides, setOptimisticTaskOverrides] = useState<
+    Record<string, Partial<CalendarTask>>
+  >({});
 
   // Undo stack for calendar actions
   type UndoAction = {
@@ -339,6 +374,19 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const normalizedSearchTerm = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm]);
 
+  const tasksForUi = useMemo(() => {
+    if (!optimisticTaskOverrides || Object.keys(optimisticTaskOverrides).length === 0) {
+      return tasks;
+    }
+    return tasks.map((task) => {
+      const key = resolveTaskIdentifier(task) ?? task.id;
+      if (!key) return task;
+      const override = optimisticTaskOverrides[key];
+      if (!override) return task;
+      return { ...task, ...override };
+    });
+  }, [optimisticTaskOverrides, tasks]);
+
   const visibleEvents = useMemo(() => {
     if (!normalizedSearchTerm) {
       return events;
@@ -376,10 +424,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const visibleTasks = useMemo(() => {
     if (!normalizedSearchTerm) {
-      return tasks;
+      return tasksForUi;
     }
 
-    return tasks.filter((task) => {
+    return tasksForUi.filter((task) => {
       const matches = (value?: string | null) =>
         typeof value === "string" && value.toLowerCase().includes(normalizedSearchTerm);
 
@@ -435,11 +483,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       ];
       return sourceFields.some((value) => matches(typeof value === "string" ? value : undefined));
     });
-  }, [tasks, normalizedSearchTerm, quickTaskById]);
+  }, [normalizedSearchTerm, quickTaskById, tasksForUi]);
 
   const doneCountsByDay = useMemo(() => {
     const map = new Map<string, number>();
-    tasks.forEach((task) => {
+    tasksForUi.forEach((task) => {
       if (task.status !== "done" && task.status !== "archived") return;
       const dueDate = task.due ? safeDate(task.due) : null;
       if (!dueDate) return;
@@ -447,7 +495,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       map.set(key, (map.get(key) ?? 0) + 1);
     });
     return map;
-  }, [tasks]);
+  }, [tasksForUi]);
 
   const effectiveTasks = useMemo(() => {
     if (!hideCompleted) return visibleTasks;
@@ -1775,22 +1823,57 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const handleMarkAsDone = useCallback(
     async (tasks: CalendarTask[]) => {
-      for (const task of tasks) {
+      const eligible = (Array.isArray(tasks) ? tasks : []).filter(
+        (task) => task.status !== "done" && task.status !== "archived",
+      );
+      if (eligible.length === 0) return;
+
+      // Optimistically update UI
+      const keys = eligible
+        .map((task) => resolveTaskIdentifier(task) ?? task.id)
+        .filter((value): value is string => Boolean(value));
+      setOptimisticTaskOverrides((prev) => {
+        const next = { ...prev };
+        keys.forEach((key) => {
+          next[key] = { ...(next[key] ?? {}), status: "done", done: true };
+        });
+        return next;
+      });
+
+      const { ok, failed } = await runWithConcurrency(eligible, 5, async (task) => {
         const source = task.source as ApiTask;
-        if (!source.projectId || !source.taskId) continue;
-        try {
-          await reviewTransitionTask(source.projectId, source.taskId, {
-            action: "mark_done",
-          });
-        } catch (error) {
-          console.error("Failed to mark task as done:", error);
-          notify("error", `Failed to mark "${task.title}" as done`);
-        }
+        if (!source.projectId || !source.taskId) return;
+        await reviewTransitionTask(source.projectId, source.taskId, { action: "mark_done" });
+      });
+
+      if (failed.length > 0) {
+        console.error("Failed to mark some tasks as done", failed);
+        notify(
+          "error",
+          failed.length === 1
+            ? `Failed to mark "${(failed[0].item as CalendarTask).title}" as done`
+            : `Failed to mark ${failed.length} tasks as done`,
+        );
       }
-      if (tasks.length > 0) {
-        notify("success", tasks.length > 1 ? `${tasks.length} tasks marked as done` : "Task marked as done");
-        await onRefreshTasks();
+
+      if (ok.length > 0) {
+        notify(
+          "success",
+          ok.length > 1 ? `Marked ${ok.length} items as done` : "Marked 1 item as done",
+        );
       }
+
+      await onRefreshTasks();
+
+      // Clear optimistic overrides once the authoritative refresh completes.
+      setOptimisticTaskOverrides((prev) => {
+        if (!prev || Object.keys(prev).length === 0) return prev;
+        const next = { ...prev };
+        keys.forEach((key) => {
+          delete next[key];
+        });
+        return next;
+      });
     },
     [onRefreshTasks],
   );

@@ -130,6 +130,16 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     [actionableTasks]
   );
 
+  // Focus Block parent-only: operate on children (tasks) instead of the parent task.
+  const focusBlockChildTasks = useMemo(() => {
+    if (!isFocusBlock) return [];
+    return Array.isArray(focusBlockChildren) ? focusBlockChildren : [];
+  }, [focusBlockChildren, isFocusBlock]);
+
+  const focusBlockChildrenForDone = useMemo(() => {
+    return focusBlockChildTasks.filter((t) => t.status !== "done");
+  }, [focusBlockChildTasks]);
+
   const focusBlockCandidates = useMemo(() => {
     return actionableTasks.filter((t) => {
       if (t.kind === "intent") return false;
@@ -218,6 +228,15 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     }
     onClose();
   }, [tasksForDone, onMarkAsDone, onClose]);
+
+  const handleMarkAllFocusChildrenDone = useCallback(() => {
+    if (!onMarkAsDone) return;
+    if (!isFocusBlock) return;
+    if (isMultiSelect) return;
+    if (focusBlockChildrenForDone.length === 0) return;
+    onMarkAsDone(focusBlockChildrenForDone);
+    onClose();
+  }, [focusBlockChildrenForDone, isFocusBlock, isMultiSelect, onClose, onMarkAsDone]);
 
   const handleConvertToFocusBlock = useCallback(() => {
     if (onConvertToFocusBlock && focusBlockCandidates.length >= 2) {
@@ -311,8 +330,26 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
         </button>
       )}
 
+      {/* Focus Block parent: Mark all children tasks as done */}
+      {isFocusBlock && !isMultiSelect && onMarkAsDone && (
+        <button
+          type="button"
+          className="calendar-entry-context-menu__item"
+          onClick={handleMarkAllFocusChildrenDone}
+          role="menuitem"
+          disabled={focusBlockChildrenForDone.length === 0}
+          title={focusBlockChildrenForDone.length === 0 ? "No tasks to mark" : undefined}
+        >
+          <CheckCircle className="calendar-entry-context-menu__icon" />
+          <span>
+            Mark all tasks as done
+            {focusBlockChildrenForDone.length > 0 ? ` (${focusBlockChildrenForDone.length})` : ""}
+          </span>
+        </button>
+      )}
+
       {/* Mark as Done - for tasks not done */}
-      {tasksForDone.length > 0 && onMarkAsDone && (
+      {tasksForDone.length > 0 && onMarkAsDone && (!isFocusBlock || isMultiSelect) && (
         <button
           type="button"
           className="calendar-entry-context-menu__item"
