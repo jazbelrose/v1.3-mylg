@@ -1357,7 +1357,9 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             projectId,
             title: task.title ?? "Focus Block",
             description: task.description ?? undefined,
-            status: (source.status as Task["status"]) ?? "todo",
+            // Copying a focus block should create a fresh (not-done) wrapper.
+            // The copied children are also reset, so the parent should not remain strikethrough.
+            status: "todo",
             kind: "focus_block",
             cluster: (source as { cluster?: string }).cluster,
             durationMinutes: Math.max(15, targetEnd - targetStart),
