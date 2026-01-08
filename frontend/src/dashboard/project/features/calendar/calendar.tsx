@@ -286,6 +286,84 @@ const CalendarPage: React.FC = () => {
   }, [extraTeamMembers, projectTasks, teamMembers]);
 
   useEffect(() => {
+    if (!timelineEvents || timelineEvents.length === 0) return;
+
+    const isViableUserId = (value: string): boolean => {
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+      if (trimmed.length > 128) return false;
+      if (trimmed.includes(",")) return false;
+      if (/\s/.test(trimmed)) return false;
+      return true;
+    };
+
+    const knownIds = new Set((teamMembers ?? []).map((m) => m.userId).filter(Boolean));
+    extraTeamMembers.forEach((m) => {
+      if (m?.userId) knownIds.add(m.userId);
+    });
+
+    const idsToFetch = new Set<string>();
+    const push = (candidate?: string | null) => {
+      if (!candidate || typeof candidate !== "string") return;
+      const trimmed = candidate.trim();
+      if (!trimmed) return;
+      const parts = trimmed.split("__");
+      const id = (parts.length > 1 ? parts[parts.length - 1] : trimmed).trim();
+      if (!isViableUserId(id)) return;
+      if (knownIds.has(id)) return;
+      if (fetchedAssigneeIdsRef.current.has(id)) return;
+      idsToFetch.add(id);
+    };
+
+    timelineEvents.forEach((event) => {
+      // guests (collaborators)
+      const rawGuests = (event as { guests?: unknown }).guests;
+      if (Array.isArray(rawGuests)) {
+        rawGuests.forEach((value) => {
+          if (typeof value === "string") push(value);
+        });
+      }
+      // creator is commonly the primary avatar fallback
+      push((event as { createdById?: string }).createdById);
+      push((event as { createdBy?: string }).createdBy);
+    });
+
+    const ids = Array.from(idsToFetch);
+    if (ids.length === 0) return;
+
+    let cancelled = false;
+
+    fetchUserProfilesBatch(ids)
+      .then((profiles) => {
+        if (cancelled) return;
+        const members: ProjectTeamMember[] = (profiles ?? [])
+          .filter((p) => Boolean(p?.userId))
+          .map((p) => ({
+            userId: String(p.userId),
+            firstName: typeof p.firstName === "string" ? p.firstName : "",
+            lastName: typeof p.lastName === "string" ? p.lastName : "",
+            thumbnail: typeof p.thumbnail === "string" ? p.thumbnail : null,
+          }));
+
+        members.forEach((m) => fetchedAssigneeIdsRef.current.add(m.userId));
+        setExtraTeamMembers((prev) => {
+          const merged = new Map(prev.map((m) => [m.userId, m]));
+          members.forEach((m) => {
+            if (!merged.has(m.userId)) merged.set(m.userId, m);
+          });
+          return Array.from(merged.values());
+        });
+      })
+      .catch(() => {
+        // Ignore: calendar can still render initials for unknown users.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [extraTeamMembers, teamMembers, timelineEvents]);
+
+  useEffect(() => {
     if (!projectId) return;
     if (initializedDateForProject.current !== projectId) {
       initializedDateForProject.current = projectId;
