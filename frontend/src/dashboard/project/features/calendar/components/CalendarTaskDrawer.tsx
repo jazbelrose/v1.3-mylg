@@ -6,6 +6,7 @@ import QuickCreateTaskModal, {
   type QuickCreateTaskModalEvent,
   type QuickCreateTaskModalProject,
   type QuickCreateTaskModalTask,
+  type TeamMemberInfo,
 } from "@/dashboard/home/components/QuickCreateTaskModal";
 import { useIsMobile } from "@/dashboard/project/components/Shared/calendar/hooks";
 
@@ -17,6 +18,7 @@ type CalendarTaskDrawerProps = {
   projects: QuickCreateTaskModalProject[];
   activeProjectId?: string | null;
   activeProjectName?: string | null;
+  teamMembers?: TeamMemberInfo[];
   onClose: () => void;
   onCreated: (event: QuickCreateTaskModalEvent) => void;
   onUpdated: () => void;
@@ -29,6 +31,7 @@ const CalendarTaskDrawer: React.FC<CalendarTaskDrawerProps> = ({
   projects,
   activeProjectId,
   activeProjectName,
+  teamMembers,
   onClose,
   onCreated,
   onUpdated,
@@ -81,6 +84,7 @@ const CalendarTaskDrawer: React.FC<CalendarTaskDrawerProps> = ({
           task={task ?? undefined}
           activeProjectId={task?.projectId ?? activeProjectId ?? undefined}
           activeProjectName={task?.projectName ?? activeProjectName ?? undefined}
+          teamMembers={teamMembers}
           embedMode
         />
       </div>

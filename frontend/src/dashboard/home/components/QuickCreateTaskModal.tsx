@@ -419,6 +419,13 @@ export type QuickCreateTaskModalProject = {
   name: string;
 };
 
+export type TeamMemberInfo = {
+  userId: string;
+  firstName?: string;
+  lastName?: string;
+  thumbnail?: string | null;
+};
+
 export type QuickCreateTaskModalProps = {
   open: boolean;
   onClose: () => void;
@@ -431,6 +438,8 @@ export type QuickCreateTaskModalProps = {
   onUpdated?: () => void;
   onDeleted?: () => void;
   embedMode?: boolean;
+  /** Optional team members with enriched user info for assignee lookup */
+  teamMembers?: TeamMemberInfo[];
 };
 
 const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
@@ -445,6 +454,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   onUpdated,
   onDeleted,
   embedMode = false,
+  teamMembers: externalTeamMembers,
 }) => {
   const { userData, allUsers, userId, isAdmin, updateUserProfile, refreshUser } = useUser();
   const { activeProject, projects: detailedProjects, fetchProjectDetails } = useData();
@@ -638,7 +648,9 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       if (!trimmedId) return undefined;
       const [, extractedId] = trimmedId.includes("__") ? trimmedId.split("__") : [null, null];
       const normalizedId = extractedId?.trim() || trimmedId;
-      return allUsers.find((user) => {
+      
+      // First try to find in allUsers
+      const fromAllUsers = allUsers.find((user) => {
         const userId = user.userId?.trim();
         const username = user.username?.trim();
         const compactName = `${user.firstName?.trim() ?? ""}${user.lastName?.trim() ?? ""}`;
@@ -649,6 +661,26 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
           (compactName && compactName === trimmedId)
         );
       });
+      if (fromAllUsers) return fromAllUsers;
+      
+      // Fallback: try to find in externalTeamMembers (enriched team data)
+      if (externalTeamMembers?.length) {
+        const fromTeam = externalTeamMembers.find((member) => {
+          const memberId = member.userId?.trim();
+          return memberId === normalizedId || memberId === trimmedId;
+        });
+        if (fromTeam) {
+          // Convert TeamMemberInfo to a compatible format for the rest of the function
+          return {
+            userId: fromTeam.userId,
+            firstName: fromTeam.firstName ?? "",
+            lastName: fromTeam.lastName ?? "",
+            thumbnail: fromTeam.thumbnail ?? undefined,
+          } as (typeof allUsers)[number];
+        }
+      }
+      
+      return undefined;
     };
 
     const formatLabel = (collaborator: (typeof allUsers)[number] | undefined, fallbackId: string) => {
@@ -741,7 +773,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     return Array.from(dedupeMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
-  }, [allUsers, assigneeSearch, collaboratorIds, assigneeTokens, isAdmin, projectTeamUserIdSet]);
+  }, [allUsers, assigneeSearch, collaboratorIds, assigneeTokens, isAdmin, projectTeamUserIdSet, externalTeamMembers]);
 
   // Filtered options based on search
   const filteredAssigneeOptions = useMemo(() => {
@@ -761,7 +793,21 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const selectedAssignees = useMemo(
     () =>
       assigneeTokens
-        .map((token) => collaboratorOptions.find((option) => option.value === token))
+        .map((token) => {
+          // First try exact match
+          const exactMatch = collaboratorOptions.find((option) => option.value === token);
+          if (exactMatch) return exactMatch;
+
+          // Extract userId from token and try matching by userId
+          const tokenUserId = extractAssigneeUserId(token);
+          if (!tokenUserId) return undefined;
+
+          // Find option where the extracted userId matches
+          return collaboratorOptions.find((option) => {
+            const optionUserId = extractAssigneeUserId(option.value);
+            return optionUserId === tokenUserId;
+          });
+        })
         .filter((option): option is AssigneeOption => Boolean(option)),
     [assigneeTokens, collaboratorOptions],
   );

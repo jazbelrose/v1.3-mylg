@@ -2175,6 +2175,15 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         return;
       }
 
+      const assigneeToken = userId
+        ? (() => {
+            const member = teamMembers?.find((m) => m.userId === userId);
+            const compactName = `${member?.firstName ?? ""}${member?.lastName ?? ""}`.replace(/\s+/g, "");
+            const safeName = (compactName || userId).replace(/\s+/g, "");
+            return `${safeName}__${userId}`;
+          })()
+        : undefined;
+
       // Store previous assignees for undo
       const previousAssignees = children.map((child) => ({
         taskId: child.source?.taskId ?? child.id,
@@ -2185,7 +2194,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       const updates = children.map((child) => ({
         taskId: child.source?.taskId ?? child.id,
         fields: {
-          assigneeId: userId ?? undefined,
+          assigneeId: assigneeToken,
         },
       }));
 
@@ -2544,6 +2553,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         projects={taskProjects}
         activeProjectId={activeProjectId ?? null}
         activeProjectName={activeProjectName ?? null}
+        teamMembers={teamMembers}
         onClose={handleTaskDrawerClose}
         onCreated={handleTaskDrawerCreated}
         onUpdated={handleTaskDrawerUpdated}

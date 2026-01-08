@@ -89,6 +89,31 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   const menuRef = useRef<HTMLDivElement>(null);
   const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
   const assignButtonRef = useRef<HTMLButtonElement>(null);
+  const submenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (submenuTimeoutRef.current) {
+        clearTimeout(submenuTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handlers for submenu hover with delay to prevent flickering
+  const handleSubmenuMouseEnter = useCallback(() => {
+    if (submenuTimeoutRef.current) {
+      clearTimeout(submenuTimeoutRef.current);
+      submenuTimeoutRef.current = null;
+    }
+    setShowAssignSubmenu(true);
+  }, []);
+
+  const handleSubmenuMouseLeave = useCallback(() => {
+    submenuTimeoutRef.current = setTimeout(() => {
+      setShowAssignSubmenu(false);
+    }, 150); // 150ms delay to allow moving between button and submenu
+  }, []);
 
   // Determine if we're in multi-select mode
   const effectiveEntries: ContextMenuEntry[] = useMemo(
@@ -389,13 +414,15 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
 
       {/* Bulk assign children of Focus Block */}
       {showBulkAssign && (
-        <div className="calendar-entry-context-menu__submenu-wrapper">
+        <div 
+          className="calendar-entry-context-menu__submenu-wrapper"
+          onMouseEnter={handleSubmenuMouseEnter}
+          onMouseLeave={handleSubmenuMouseLeave}
+        >
           <button
             ref={assignButtonRef}
             type="button"
             className="calendar-entry-context-menu__item calendar-entry-context-menu__item--has-submenu"
-            onMouseEnter={() => setShowAssignSubmenu(true)}
-            onMouseLeave={() => setShowAssignSubmenu(false)}
             onClick={() => setShowAssignSubmenu((prev) => !prev)}
             role="menuitem"
             aria-haspopup="true"
@@ -409,8 +436,6 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
           {showAssignSubmenu && (
             <div
               className="calendar-entry-context-menu__submenu"
-              onMouseEnter={() => setShowAssignSubmenu(true)}
-              onMouseLeave={() => setShowAssignSubmenu(false)}
             >
               {teamMembers?.map((member) => {
                 const displayName =
@@ -421,7 +446,10 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
                     key={member.userId}
                     type="button"
                     className="calendar-entry-context-menu__item"
-                    onClick={() => handleBulkAssign(member.userId)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBulkAssign(member.userId);
+                    }}
                     role="menuitem"
                   >
                     <span>{displayName}</span>
@@ -432,7 +460,10 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
               <button
                 type="button"
                 className="calendar-entry-context-menu__item calendar-entry-context-menu__item--secondary"
-                onClick={() => handleBulkAssign(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBulkAssign(null);
+                }}
                 role="menuitem"
               >
                 <UserX className="calendar-entry-context-menu__icon" />
