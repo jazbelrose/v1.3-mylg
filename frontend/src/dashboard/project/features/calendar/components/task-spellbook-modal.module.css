@@ -333,6 +333,16 @@
   );
 }
 
+.cardActive:hover:enabled {
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 70%, white 30%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent, #6366f1) 18%, var(--bg3) 82%),
+    color-mix(in srgb, var(--bg3) 92%, transparent)
+  );
+  transform: none;
+}
+
 .cardTop {
   display: flex;
   align-items: center;
@@ -391,6 +401,16 @@
     color-mix(in srgb, var(--color-accent, #6366f1) 16%, var(--bg3) 84%),
     color-mix(in srgb, var(--bg3) 92%, transparent)
   );
+}
+
+.planButtonActive:hover:enabled {
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 70%, white 30%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent, #6366f1) 16%, var(--bg3) 84%),
+    color-mix(in srgb, var(--bg3) 92%, transparent)
+  );
+  transform: none;
 }
 
 .planTop {

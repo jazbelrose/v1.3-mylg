@@ -220,6 +220,13 @@
   color: color-mix(in srgb, var(--text) 96%, transparent);
 }
 
+.tabActive:hover {
+  border-color: color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 86%, transparent);
+  color: color-mix(in srgb, var(--text) 96%, transparent);
+  transform: none;
+}
+
 .planTab {
   display: flex;
   flex-direction: column;
@@ -480,6 +487,16 @@
     color-mix(in srgb, var(--color-accent) 18%, var(--bg2) 82%),
     color-mix(in srgb, var(--bg2) 92%, transparent)
   );
+}
+
+.railButtonActive:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 75%, white 25%);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--color-accent) 18%, var(--bg2) 82%),
+    color-mix(in srgb, var(--bg2) 92%, transparent)
+  );
+  transform: none;
 }
 
 .railLabel {
