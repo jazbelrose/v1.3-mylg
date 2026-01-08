@@ -133,10 +133,15 @@ const DEFAULT_RULEPACK = [
   { pattern: "\\bUBER\\b|\\bLYFT\\b", categoryId: "TRAVEL", priority: 160 },
   { pattern: "\\bDELTA\\b|\\bUNITED\\b|\\bAMERICAN AIRLINES\\b|\\bJETBLUE\\b", categoryId: "TRAVEL", priority: 155 },
   { pattern: "\\bWEWORK\\b", categoryId: "RENT_LEASE", priority: 150 },
-  { pattern: "\\bSQUARE\\b|\\bSTRIPE\\b", categoryId: "INCOME", priority: 145 },
+  { pattern: "\\bSQUARE\\b|\\bSTRIPE\\b", categoryId: "CLIENT_PAYMENT", priority: 145 },
   { pattern: "\\bTESLA\\s+FINANCE\\b", categoryId: "AUTO_PAYMENT", priority: 142 },
   { pattern: "\\bTESLA\\s+INSURANCE\\b", categoryId: "AUTO_INSURANCE", priority: 141 },
   { pattern: "\\bCHARGEPOINT\\b|\\bELECTRIFY\\s+AMERICA\\b", categoryId: "CHARGING", priority: 140 },
+  // Income patterns
+  { pattern: "\\bPAYPAL\\s+TRANSFER\\b|\\bPAYPAL\\s+DEPOSIT\\b", categoryId: "CLIENT_PAYMENT", priority: 138 },
+  { pattern: "\\bVENMO\\s+PAYMENT\\b|\\bZELLE\\s+FROM\\b", categoryId: "CLIENT_PAYMENT", priority: 136 },
+  { pattern: "\\bREFUND\\b|\\bCREDIT\\s+MEMO\\b", categoryId: "REFUND_RECEIVED", priority: 130 },
+  { pattern: "\\bINTEREST\\s+EARNED\\b|\\bINTEREST\\s+PAID\\b|\\bINTEREST\\s+PAYMENT\\b", categoryId: "INTEREST_INCOME", priority: 125 },
 ];
 
 const isUncategorizedTxn = (t) => {
@@ -354,7 +359,9 @@ const ensureSeedRulepack = async (orgId) => {
 
 const pickCategorization = (txn, rules) => {
   const normalizedDescription = normalizeForMatching(txn.normalizedDescription);
-  const vendorKey = normalizeVendorKey(txn.vendor);
+  // Use same fallback chain as vendor-counts/matches to ensure preview ↔ apply parity
+  const vendorRaw = normalizeForMatching(txn.vendor || txn.counterparty || "");
+  const vendorKey = normalizeVendorKey(vendorRaw || txn.rawDescription || txn.normalizedDescription || "");
   const isInternalTransfer = Boolean(txn.isInternalTransfer) || isLikelyInternalTransfer(txn);
 
   const currentCategory = normalizeForMatching(txn.currentCategory || txn.categoryId || "OTHER") || "OTHER";
@@ -1027,7 +1034,11 @@ const applyCategoryRules = async (e, C) => {
   const allRules = await ensureSeedRulepack(orgId);
   const rules = ruleIds ? allRules.filter((r) => ruleIds.includes(r.ruleId)) : allRules;
 
+  let scanned = 0;
+  let matched = 0;
   let updated = 0;
+  let skippedAlreadyCategorized = 0;
+  let skippedNoChange = 0;
   let lastKey;
   do {
     const page = await ddb.query({
@@ -1038,6 +1049,7 @@ const applyCategoryRules = async (e, C) => {
     });
 
     for (const t of page.Items || []) {
+      scanned += 1;
       const postedAt = String(t.postedAt || "");
       if (from && postedAt && postedAt < from) continue;
       if (to && postedAt && postedAt > to) continue;
@@ -1051,6 +1063,7 @@ const applyCategoryRules = async (e, C) => {
           rawDescription: t.rawDescription,
           normalizedDescription: t.normalizedDescription,
           vendor: t.vendor,
+          counterparty: t.counterparty,
           type: t.type,
           direction: t.direction,
           amount: t.amount,
@@ -1063,6 +1076,7 @@ const applyCategoryRules = async (e, C) => {
       );
       if (!pick) continue;
 
+      matched += 1;
       const nextCategory = pick.categoryId;
       const nextConfidence = pick.categoryConfidence;
       const nextTransfer = Boolean(pick.isInternalTransfer);
@@ -1072,6 +1086,13 @@ const applyCategoryRules = async (e, C) => {
         Number(t.categoryConfidence || 0) >= Number(nextConfidence || 0) &&
         currentIsTransfer === nextTransfer
       ) {
+        skippedNoChange += 1;
+        continue;
+      }
+
+      // If already categorized and applyMode != overwrite, skip
+      if (currentCategory && currentCategory !== "OTHER") {
+        skippedAlreadyCategorized += 1;
         continue;
       }
 
@@ -1091,7 +1112,17 @@ const applyCategoryRules = async (e, C) => {
     lastKey = page.LastEvaluatedKey;
   } while (lastKey);
 
-  return json(200, C, { orgId, updated });
+  return json(200, C, {
+    orgId,
+    updated,
+    scanned,
+    matched,
+    skipped: skippedAlreadyCategorized + skippedNoChange,
+    skippedReasons: {
+      alreadyCategorized: skippedAlreadyCategorized,
+      noChange: skippedNoChange,
+    },
+  });
 };
 
 // GET /hq/uncategorized?orgId=...&importRunId=...

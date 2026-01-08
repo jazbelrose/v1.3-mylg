@@ -50,8 +50,13 @@ export const HQ_CATEGORIES: readonly HqCategoryDefinition[] = [
   { id: "TRANSFER_INTERNAL", label: "Transfer (Internal)", tone: "neutral" },
   { id: "REFUND_CHARGEBACK", label: "Refund / Chargeback", tone: "neutral" },
 
-  // Income + fallback
-  { id: "INCOME", label: "Income", tone: "in" },
+  // Income
+  { id: "INCOME", label: "Income (general)", tone: "in" },
+  { id: "CLIENT_PAYMENT", label: "Client Payment", tone: "in" },
+  { id: "REFUND_RECEIVED", label: "Refund Received", tone: "in" },
+  { id: "INTEREST_INCOME", label: "Interest Income", tone: "in" },
+
+  // Fallback
   { id: "OTHER", label: "Other", tone: "neutral" },
 ] as const;
 

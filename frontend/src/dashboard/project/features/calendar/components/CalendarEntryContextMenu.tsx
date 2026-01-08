@@ -6,11 +6,12 @@
  * Provides quick actions: Submit for Review, Mark as Done, Duplicate, Delete.
  */
 
-import React, { useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Send, CheckCircle, Copy, Trash2, Pencil, Layers } from "lucide-react";
+import { Send, CheckCircle, Copy, Trash2, Pencil, Layers, Users, UserX, ChevronRight } from "lucide-react";
 import type { CalendarTask, CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 
 export interface ContextMenuPosition {
   x: number;
@@ -38,6 +39,10 @@ export interface CalendarEntryContextMenuProps {
   dismissOnOutsideClick?: boolean;
   /** If false, parent overlay will handle Escape dismissal. */
   dismissOnEscape?: boolean;
+  /** Team members for bulk-assign submenu */
+  teamMembers?: ProjectTeamMember[];
+  /** Child tasks of a Focus Block (for bulk assign) */
+  focusBlockChildren?: CalendarTask[];
   onClose: () => void;
   onEdit?: (entry: CalendarTask | CalendarEvent) => void;
   onSubmitForReview?: (entries: CalendarTask[]) => void;
@@ -46,6 +51,8 @@ export interface CalendarEntryContextMenuProps {
   onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicate?: (entries: ContextMenuEntry[]) => void;
   onDelete?: (entries: ContextMenuEntry[]) => void;
+  /** Bulk assign all children of a Focus Block to a user */
+  onBulkAssignChildren?: (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => void;
 }
 
 export type ChildMenuState =
@@ -67,6 +74,8 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   portal = true,
   dismissOnOutsideClick = true,
   dismissOnEscape = true,
+  teamMembers,
+  focusBlockChildren,
   onClose,
   onEdit,
   onSubmitForReview,
@@ -75,8 +84,11 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   onUngroupFocusBlock,
   onDuplicate,
   onDelete,
+  onBulkAssignChildren,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
+  const assignButtonRef = useRef<HTMLButtonElement>(null);
 
   // Determine if we're in multi-select mode
   const effectiveEntries: ContextMenuEntry[] = useMemo(
@@ -237,6 +249,26 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     onClose();
   }, [effectiveEntries, onDelete, onClose]);
 
+  const handleBulkAssign = useCallback(
+    (userId: string | null) => {
+      if (!onBulkAssignChildren) return;
+      if (!isFocusBlock) return;
+      if (!focusBlockChildren || focusBlockChildren.length === 0) return;
+      const focusBlock = entry as CalendarTask;
+      onBulkAssignChildren(focusBlock, userId, focusBlockChildren);
+      onClose();
+    },
+    [entry, focusBlockChildren, isFocusBlock, onBulkAssignChildren, onClose],
+  );
+
+  const showBulkAssign =
+    isFocusBlock &&
+    Boolean(onBulkAssignChildren) &&
+    Boolean(focusBlockChildren) &&
+    (focusBlockChildren?.length ?? 0) > 0 &&
+    Boolean(teamMembers) &&
+    (teamMembers?.length ?? 0) > 0;
+
   // Build label suffix for multi-select
   const countSuffix = isMultiSelect ? ` (${selectionCount})` : "";
 
@@ -316,6 +348,62 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
           <Layers className="calendar-entry-context-menu__icon" />
           <span>Convert to Time Blocks (Ungroup)</span>
         </button>
+      )}
+
+      {/* Bulk assign children of Focus Block */}
+      {showBulkAssign && (
+        <div className="calendar-entry-context-menu__submenu-wrapper">
+          <button
+            ref={assignButtonRef}
+            type="button"
+            className="calendar-entry-context-menu__item calendar-entry-context-menu__item--has-submenu"
+            onMouseEnter={() => setShowAssignSubmenu(true)}
+            onMouseLeave={() => setShowAssignSubmenu(false)}
+            onClick={() => setShowAssignSubmenu((prev) => !prev)}
+            role="menuitem"
+            aria-haspopup="true"
+            aria-expanded={showAssignSubmenu}
+          >
+            <Users className="calendar-entry-context-menu__icon" />
+            <span>Assign all children to...</span>
+            <ChevronRight className="calendar-entry-context-menu__chevron" />
+          </button>
+
+          {showAssignSubmenu && (
+            <div
+              className="calendar-entry-context-menu__submenu"
+              onMouseEnter={() => setShowAssignSubmenu(true)}
+              onMouseLeave={() => setShowAssignSubmenu(false)}
+            >
+              {teamMembers?.map((member) => {
+                const displayName =
+                  `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() ||
+                  member.userId;
+                return (
+                  <button
+                    key={member.userId}
+                    type="button"
+                    className="calendar-entry-context-menu__item"
+                    onClick={() => handleBulkAssign(member.userId)}
+                    role="menuitem"
+                  >
+                    <span>{displayName}</span>
+                  </button>
+                );
+              })}
+              <div className="calendar-entry-context-menu__separator" />
+              <button
+                type="button"
+                className="calendar-entry-context-menu__item calendar-entry-context-menu__item--secondary"
+                onClick={() => handleBulkAssign(null)}
+                role="menuitem"
+              >
+                <UserX className="calendar-entry-context-menu__icon" />
+                <span>Unassign all</span>
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Duplicate */}

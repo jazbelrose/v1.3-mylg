@@ -154,6 +154,59 @@ const MIN_DURATION_MINUTES = SNAP_INTERVAL_MINUTES;
 const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
 
+/**
+ * Determine if a task is a Focus Block (wrapper that contains child time blocks).
+ */
+const isFocusBlockTask = (task: CalendarTask): boolean => {
+  if (task.kind === "focus_block") return true;
+  const hasChildren =
+    (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+    (task.focusChecklist && task.focusChecklist.length > 0);
+  return hasChildren;
+};
+
+/**
+ * When a time block is dropped "into" a Focus Block's time window, snap/clamp its time
+ * range to guarantee overlap so the overlap-stack generator folds them into one tile.
+ *
+ * Rules:
+ *  - start = max(dropped.start, focus.start) snapped to grid
+ *  - end   = min(dropped.end, focus.end)
+ *  - If clamping inverts duration, use focus.start + min(originalDuration, focusDuration)
+ */
+const snapTimeIntoFocusBlock = (
+  droppedStart: number,
+  droppedEnd: number,
+  focusStart: number,
+  focusEnd: number,
+): [number, number] => {
+  const originalDuration = droppedEnd - droppedStart;
+  const focusDuration = focusEnd - focusStart;
+
+  let newStart = Math.max(droppedStart, focusStart);
+  let newEnd = Math.min(droppedEnd, focusEnd);
+
+  // Snap start to grid
+  newStart = snapToInterval(newStart);
+  newStart = Math.max(focusStart, Math.min(focusEnd - MIN_DURATION_MINUTES, newStart));
+
+  // If clamping inverted the range, fall back
+  if (newEnd <= newStart) {
+    newStart = focusStart;
+    newEnd = focusStart + Math.min(originalDuration, focusDuration);
+  }
+
+  // Ensure minimum duration
+  if (newEnd - newStart < MIN_DURATION_MINUTES) {
+    newEnd = Math.min(focusEnd, newStart + MIN_DURATION_MINUTES);
+    if (newEnd - newStart < MIN_DURATION_MINUTES) {
+      newStart = Math.max(focusStart, newEnd - MIN_DURATION_MINUTES);
+    }
+  }
+
+  return [clampMinutes(newStart), clampMinutes(newEnd)];
+};
+
 const minutesToPxWeek = (minutes: number) => (minutes / MINUTES_IN_HOUR) * WEEK_ROW_HEIGHT_PX;
 const ENTRY_MIN_HEIGHT_PX = 24;
 const ENTRY_RADIUS_PX = 12;
@@ -530,6 +583,45 @@ function WeekGrid({
       const focusId = task.focusBlockId;
       if (!focusId) return;
       map.set(focusId, [...(map.get(focusId) ?? []), task]);
+    });
+    return map;
+  }, [tasks]);
+
+  /**
+   * Lookup: for each day key, list of Focus Block entries (with their time ranges).
+   * Used by the drop handler to detect when an entry lands inside a Focus Block window.
+   */
+  const focusBlocksByDay = useMemo(() => {
+    const map = new Map<string, Array<{ task: CalendarTask; startMinutes: number; endMinutes: number }>>();
+    tasks.forEach((task) => {
+      if (!isFocusBlockTask(task)) return;
+      const source = task.source as unknown as Record<string, unknown>;
+
+      // Determine the day this focus block is scheduled on
+      const rawStartDateTime =
+        parseDateTimeCandidate(source.startAt) ??
+        parseDateTimeCandidate((source as { start_at?: unknown }).start_at) ??
+        (task.due && task.start ? buildLocalDateTime(task.due, task.start) : null);
+      if (!rawStartDateTime) return;
+
+      const dayKey = fmtLocal(rawStartDateTime);
+      const startMinutes = minutesSinceMidnight(rawStartDateTime);
+
+      const fallbackEndTime = task.end ?? (task.start ? addHoursToTime(task.start, 1) : undefined);
+      const rawEndDateTime =
+        parseDateTimeCandidate(source.endAt) ??
+        parseDateTimeCandidate((source as { end_at?: unknown }).end_at) ??
+        (task.due && fallbackEndTime ? buildLocalDateTime(task.due, fallbackEndTime) : null);
+      let endMinutes = rawEndDateTime
+        ? minutesSinceMidnight(rawEndDateTime)
+        : startMinutes + MINUTES_IN_HOUR;
+      if (endMinutes <= startMinutes) {
+        endMinutes = startMinutes + MINUTES_IN_HOUR;
+      }
+
+      const bucket = map.get(dayKey) ?? [];
+      bucket.push({ task, startMinutes, endMinutes });
+      map.set(dayKey, bucket);
     });
     return map;
   }, [tasks]);
@@ -1065,6 +1157,35 @@ function WeekGrid({
           newEnd = Math.min(MAX_MINUTES, Math.max(newEnd, target.startMinutes + MIN_DURATION_MINUTES));
         }
 
+        // --- Focus Block drop-snap ---
+        // If dragging a non-Focus Block entry onto a Focus Block, snap times to overlap.
+        if (state.mode === "drag") {
+          const targetDayKey = fmtLocal(days[newDayIndex]);
+          const focusBlocks = focusBlocksByDay.get(targetDayKey) ?? [];
+          const entryPayload = target.entry.payload;
+          const isTargetFocusBlock =
+            target.entry.type === "task" && isFocusBlockTask(entryPayload as CalendarTask);
+
+          // Only snap non-Focus Block entries that land inside a Focus Block window
+          if (!isTargetFocusBlock && focusBlocks.length > 0) {
+            // Find a Focus Block that the entry lands inside (midpoint check)
+            const entryMidpoint = (newStart + newEnd) / 2;
+            const matchingFocus = focusBlocks.find(
+              (fb) => entryMidpoint >= fb.startMinutes && entryMidpoint < fb.endMinutes,
+            );
+
+            if (matchingFocus) {
+              [newStart, newEnd] = snapTimeIntoFocusBlock(
+                newStart,
+                newEnd,
+                matchingFocus.startMinutes,
+                matchingFocus.endMinutes,
+              );
+            }
+          }
+        }
+        // --- End Focus Block drop-snap ---
+
         const [finalStart, finalEnd] = snapAndClampRange(newStart, newEnd);
 
         const hadChange =
@@ -1119,7 +1240,7 @@ function WeekGrid({
     return () => {
       document.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [days]);
+  }, [days, focusBlocksByDay]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -1610,6 +1731,57 @@ function WeekGrid({
       });
     },
     [entryLookup, onEntrySelect, selectedEntryKeys],
+  );
+
+  /**
+   * Start dragging a child entry out of the stack popover.
+   * We simulate a pointer-down on the grid so the existing drag logic kicks in.
+   */
+  const handleStartDragFromStackPopover = useCallback(
+    (child: StackPopoverChild, pointerEvent: React.PointerEvent<HTMLElement>) => {
+      const lookup = entryLookup.get(child.entryKey);
+      if (!lookup) return;
+
+      const { entry, dayKey } = lookup;
+      const dayIndex = dayIndexLookup.get(dayKey) ?? 0;
+
+      // Compute initialTop/initialHeight from the entry's known time range.
+      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const initialHeight = minutesToPxWeek(durationMinutes);
+
+      // Build target for the interaction state
+      const target: InteractionTarget = {
+        entry,
+        dayKey,
+        dayIndex,
+        startMinutes: entry.startMinutes,
+        endMinutes: entry.endMinutes,
+        initialTop: 0, // Will be updated by pointer move
+        initialHeight,
+      };
+
+      // Copy mode if Ctrl/Cmd/Alt held
+      const copyMode = Boolean(
+        pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey,
+      );
+
+      interactionRef.current = {
+        mode: "drag",
+        startX: pointerEvent.clientX,
+        startY: pointerEvent.clientY,
+        targets: [target],
+        duplicate: false,
+        isCopyMode: copyMode,
+        startDayIndex: dayIndex,
+      };
+      setIsCopyMode(copyMode);
+      isDraggingRef.current = true;
+
+      // Close the popover immediately
+      setStackPopover(null);
+      setChildMenu(null);
+    },
+    [dayIndexLookup, entryLookup],
   );
 
   // Handle single click vs double click for entries
@@ -3198,6 +3370,7 @@ function WeekGrid({
           }
           onOpenDetails={handleOpenDetailsFromStackPopover}
           onOpenContextMenu={handleOpenContextMenuFromStackPopover}
+          onStartDragChild={handleStartDragFromStackPopover}
           onEditEntry={(entryType, entry) => {
             if (entryType === "event") {
               onEditEvent(entry as CalendarEvent);

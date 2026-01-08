@@ -856,6 +856,8 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
       }
 
       let updatedTotal = 0;
+      let matchedTotal = 0;
+      let skippedTotal = 0;
       for (const g of groups.values()) {
         const applied = await applyHqCategoryRules(orgId, {
           ruleIds: g.ruleIds,
@@ -864,9 +866,20 @@ const CategorizationSpellbookSheet: React.FC<Props> = ({ orgId, isOpen, importRu
           accountId: g.accountId,
         });
         updatedTotal += applied.updated || 0;
+        matchedTotal += applied.matched || 0;
+        skippedTotal += applied.skipped || 0;
       }
 
-      toast.success(`Applied ${createdRuleIds.length} rules. Updated ${updatedTotal} transactions.`);
+      // Show informative toast based on results
+      if (updatedTotal > 0) {
+        toast.success(`Applied ${createdRuleIds.length} rules → updated ${updatedTotal} transactions.`);
+      } else if (matchedTotal > 0 && skippedTotal > 0) {
+        toast.info(
+          `Applied ${createdRuleIds.length} rules → ${matchedTotal} matched, ${skippedTotal} skipped (already categorized or no change).`
+        );
+      } else {
+        toast.info(`Applied ${createdRuleIds.length} rules. No new transactions to update.`);
+      }
       setLastApply({ createdRuleIds: createdRuleIds.map((r) => r.ruleId), updated: updatedTotal });
       setPendingRules({});
 

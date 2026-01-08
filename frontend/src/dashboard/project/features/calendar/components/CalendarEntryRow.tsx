@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckSquare, Clock, Square, ListTodo } from "lucide-react";
+import { CheckSquare, Clock, Square, ListTodo, GripVertical } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import type { TimelineAvatar } from "./timelineLayout";
 
@@ -13,7 +13,10 @@ export type CalendarEntryRowProps = {
   isSelected?: boolean;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   titleAttr?: string;
+  /** Show a drag handle to indicate the row can be dragged out of a stack. */
+  draggable?: boolean;
 };
 
 export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
@@ -26,7 +29,9 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
   isSelected,
   onClick,
   onContextMenu,
+  onPointerDown,
   titleAttr,
+  draggable,
 }) => {
   const resolvedAvatars = avatars ?? [];
   const showAvatars = resolvedAvatars.length > 0;
@@ -45,13 +50,23 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
   return (
     <button
       type="button"
-      className={["calendar-entry-row", isSelected ? "calendar-entry-row--selected" : ""]
+      className={[
+        "calendar-entry-row",
+        isSelected ? "calendar-entry-row--selected" : "",
+        draggable ? "calendar-entry-row--draggable" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onPointerDown={onPointerDown}
       title={titleAttr ?? title}
     >
+      {draggable ? (
+        <span className="calendar-entry-row__drag-handle" aria-hidden>
+          <GripVertical size={14} />
+        </span>
+      ) : null}
       <span className="calendar-entry-row__icon" aria-hidden>
         {icon}
       </span>

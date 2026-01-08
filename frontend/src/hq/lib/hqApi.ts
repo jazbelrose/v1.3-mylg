@@ -231,12 +231,24 @@ export async function deleteHqCategoryRule(orgId: string, ruleId: string): Promi
   });
 }
 
+export interface ApplyRulesResult {
+  orgId: string;
+  updated: number;
+  scanned?: number;
+  matched?: number;
+  skipped?: number;
+  skippedReasons?: {
+    alreadyCategorized?: number;
+    noChange?: number;
+  };
+}
+
 export async function applyHqCategoryRules(
   orgId: string,
   input: { importRunId?: string; ruleIds?: string[]; from?: string; to?: string; accountId?: string }
-): Promise<{ orgId: string; updated: number }> {
+): Promise<ApplyRulesResult> {
   const base = getHqServiceBaseUrl();
-  return apiFetch<{ orgId: string; updated: number }>(`${base}/hq/category-rules/apply?orgId=${encodeURIComponent(orgId)}`, {
+  return apiFetch<ApplyRulesResult>(`${base}/hq/category-rules/apply?orgId=${encodeURIComponent(orgId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

@@ -63,6 +63,11 @@ export interface CalendarStackPopoverProps {
   onEditEntry?: (entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => void;
   onDuplicateEntry?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntry?: (entries: ContextMenuEntry[]) => void;
+  /**
+   * Called when user starts dragging a child entry out of the stack.
+   * The parent (WeekGrid) should start a drag interaction for this entry.
+   */
+  onStartDragChild?: (child: StackPopoverChild, event: React.PointerEvent<HTMLElement>) => void;
 }
 
 export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
@@ -87,6 +92,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   onEditEntry,
   onDuplicateEntry,
   onDeleteEntry,
+  onStartDragChild,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -695,6 +701,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                             : undefined
                         }
                         isSelected={activeRowKey === row.child.entryKey}
+                        draggable={Boolean(onStartDragChild)}
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveRowKey(row.child.entryKey);
@@ -709,6 +716,17 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                           setActiveRowKey(row.child.entryKey);
                           onOpenContextMenu(row.child, e);
                         }}
+                        onPointerDown={
+                          onStartDragChild
+                            ? (e) => {
+                                // Only initiate drag on left-click
+                                if (e.button !== 0) return;
+                                e.stopPropagation();
+                                onStartDragChild(row.child, e);
+                                onClose();
+                              }
+                            : undefined
+                        }
                         titleAttr={row.title}
                       />
 
@@ -736,6 +754,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                     : buildTaskAvatars(row.child.entry as CalendarTask, memberLookup)
                 }
                 isSelected={activeRowKey === row.child.entryKey}
+                draggable={Boolean(onStartDragChild)}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveRowKey(row.child.entryKey);
@@ -746,6 +765,16 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                   setActiveRowKey(row.child.entryKey);
                   onOpenContextMenu(row.child, e);
                 }}
+                onPointerDown={
+                  onStartDragChild
+                    ? (e) => {
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        onStartDragChild(row.child, e);
+                        onClose();
+                      }
+                    : undefined
+                }
                 titleAttr={row.title}
               />
 

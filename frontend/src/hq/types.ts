@@ -35,8 +35,12 @@ export type HqCategoryId =
   // Movement
   | "TRANSFER_INTERNAL"
   | "REFUND_CHARGEBACK"
-  // Income / fallback
+  // Income
   | "INCOME"
+  | "CLIENT_PAYMENT"
+  | "REFUND_RECEIVED"
+  | "INTEREST_INCOME"
+  // Fallback
   | "OTHER"
   // Legacy IDs (keep for backwards compatibility with stored data)
   | "PAYROLL"
