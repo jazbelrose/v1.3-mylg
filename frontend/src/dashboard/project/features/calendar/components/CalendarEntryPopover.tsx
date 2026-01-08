@@ -143,6 +143,16 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     setChildMenu(null);
   }, [childMenu, parentId, setChildMenu]);
 
+  // Defensive: if an anchored child menu loses its anchor element (e.g. rerender/unmount)
+  // close it instead of crashing on getBoundingClientRect.
+  useEffect(() => {
+    if (!childMenu || !parentId || childMenu.parentId !== parentId) return;
+    const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
+    if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+      setChildMenu?.(null);
+    }
+  }, [childMenu, parentId, setChildMenu]);
+
   // Close on Escape
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -683,7 +693,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             </span>
           )}
 
-          {parentId && setChildMenu ? (
+          {/* Kebab actions are not used for Focus Blocks; actions are available via right-click. */}
+          {!isFocusBlock && parentId && setChildMenu ? (
             <button
               type="button"
               className="calendar-entry-popover__menu-btn"
@@ -942,32 +953,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                     )}
                   </button>
 
-                  {parentId && setChildMenu ? (
-                    <button
-                      type="button"
-                      className="calendar-entry-popover__child-actions"
-                      aria-label="Actions"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const ownerId = `task:${child.id}`;
-                        setChildMenu((prev) => {
-                          const isSame = prev && prev.parentId === parentId && prev.ownerId === ownerId;
-                          if (isSame) return null;
-                          return {
-                            kind: "focus_child_actions",
-                            parentId,
-                            ownerId,
-                            anchorEl: e.currentTarget,
-                            entryType: "task",
-                            entry: child,
-                          };
-                        });
-                      }}
-                    >
-                      <Kebab className="calendar-entry-popover__child-actions-icon" />
-                    </button>
-                  ) : null}
+                  {/* Focus Block time blocks: actions are available via right-click on the row. */}
                 </div>
               );
             })}
@@ -1025,7 +1011,11 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
 
       {childMenu && parentId && childMenu.parentId === parentId ? (
         (() => {
-          const rect = childMenu.anchorEl.getBoundingClientRect();
+          const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
+          if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+            return null;
+          }
+          const rect = anchorEl.getBoundingClientRect();
           const position = { x: rect.left, y: rect.bottom + 6 };
           const isFocusChild = childMenu.kind === "focus_child_actions";
           const focusChildTask = isFocusChild && childMenu.entryType === "task"

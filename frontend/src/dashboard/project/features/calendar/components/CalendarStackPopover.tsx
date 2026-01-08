@@ -13,7 +13,6 @@ import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/compon
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 import { fetchUserProfilesBatch } from "@/shared/utils/api";
-import { Kebab } from "@/shared/icons/Kebab";
 import {
   CalendarEntryContextMenu,
   type ChildMenuState,
@@ -322,6 +321,16 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     if (!childMenu) return;
     if (childMenu.parentId !== parentId) return;
     setChildMenu(null);
+  }, [childMenu, parentId, setChildMenu]);
+
+  // Defensive: if an anchored child menu loses its anchor element (e.g. rerender/unmount)
+  // close it instead of crashing on getBoundingClientRect.
+  useEffect(() => {
+    if (!childMenu || childMenu.parentId !== parentId) return;
+    const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
+    if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+      setChildMenu?.(null);
+    }
   }, [childMenu, parentId, setChildMenu]);
 
   useEffect(() => {
@@ -687,32 +696,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                         {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
                       </button>
 
-                      <button
-                        type="button"
-                        className="calendar-stack-popover__row-actions"
-                        aria-label="Actions"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (!setChildMenu) return;
-                          const ownerId = `${row.child.entryType}:${row.child.entry.id}`;
-                          setChildMenu((prev) => {
-                            const isSame =
-                              prev && prev.parentId === parentId && prev.ownerId === ownerId;
-                            if (isSame) return null;
-                            return {
-                              kind: "stack_row_actions",
-                              parentId,
-                              ownerId,
-                              anchorEl: e.currentTarget,
-                              entryType: row.child.entryType,
-                              entry: row.child.entry,
-                            };
-                          });
-                        }}
-                      >
-                        <Kebab className="calendar-stack-popover__row-actions-icon" />
-                      </button>
+                      {/* Multi-user overlap stack: actions via right-click on the row. */}
                     </div>
                   ))}
               </div>
@@ -757,31 +741,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                 ) : null}
               </button>
 
-              <button
-                type="button"
-                className="calendar-stack-popover__row-actions"
-                aria-label="Actions"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!setChildMenu) return;
-                  const ownerId = `${row.child.entryType}:${row.child.entry.id}`;
-                  setChildMenu((prev) => {
-                    const isSame = prev && prev.parentId === parentId && prev.ownerId === ownerId;
-                    if (isSame) return null;
-                    return {
-                      kind: "stack_row_actions",
-                      parentId,
-                      ownerId,
-                      anchorEl: e.currentTarget,
-                      entryType: row.child.entryType,
-                      entry: row.child.entry,
-                    };
-                  });
-                }}
-              >
-                <Kebab className="calendar-stack-popover__row-actions-icon" />
-              </button>
+              {/* Multi-user overlap stack: actions via right-click on the row. */}
             </div>
           ))
         )}
@@ -789,7 +749,11 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
 
       {childMenu && childMenu.parentId === parentId ? (
         (() => {
-          const rect = childMenu.anchorEl.getBoundingClientRect();
+          const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
+          if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+            return null;
+          }
+          const rect = anchorEl.getBoundingClientRect();
           const position = { x: rect.left, y: rect.bottom + 6 };
           return (
             <CalendarEntryContextMenu
