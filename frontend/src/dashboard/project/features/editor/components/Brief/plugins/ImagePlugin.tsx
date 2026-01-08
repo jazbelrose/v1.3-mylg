@@ -4,17 +4,21 @@ import { FileImageOutlined } from "@ant-design/icons";
 import { uploadData } from "aws-amplify/storage";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
-  $createTextNode,
+  $createNodeSelection,
+  $createParagraphNode,
   $getSelection,
+  $getRoot,
   $insertNodes,
   $isRangeSelection,
+  $setSelection,
   COMMAND_PRIORITY_EDITOR,
   type LexicalCommand,
+  type LexicalNode,
 } from "lexical";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { DEFAULT_IMAGE_BORDER_RADIUS } from "./nodes/imageBorderRadius";
 import { useData } from "@/app/contexts/useData";
-import { S3_PUBLIC_BASE, getFileUrl } from "@/shared/utils/api";
+import { S3_PUBLIC_BASE, normalizeFileUrl } from "@/shared/utils/api";
 import { OPEN_IMAGE_COMMAND } from "../commands";
 import FileManagerComponent, { type FileItem } from "@/dashboard/project/components/FileManager/FileManager";
 import { notify } from "@/shared/ui/ToastNotifications";
@@ -22,6 +26,7 @@ import styles from "./ImagePlugin.module.css";
 
 type Props = {
   showToolbarButton?: boolean;
+  slidesMode?: boolean;
 };
 
 type ProjectLike = {
@@ -39,7 +44,7 @@ if (typeof document !== "undefined") {
   ReactModal.setAppElement("#root");
 }
 
-export default function ImagePlugin({ showToolbarButton = true }: Props) {
+export default function ImagePlugin({ showToolbarButton = true, slidesMode = false }: Props) {
   const { activeProject } = useData() as { activeProject: ProjectLike };
   const [isOpen, setIsOpen] = useState(false);
   const [url, setURL] = useState("");
@@ -78,6 +83,16 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
     return unregister;
   }, [editor]);
 
+  const countNodesOfType = (node: LexicalNode, type: string): number => {
+    let count = node.getType() === type ? 1 : 0;
+    const maybeChildren = (node as unknown as { getChildren?: () => LexicalNode[] }).getChildren;
+    if (typeof maybeChildren !== "function") return count;
+    for (const child of maybeChildren.call(node)) {
+      count += countNodesOfType(child, type);
+    }
+    return count;
+  };
+
   const handleFileUpload = async (fs: File[]): Promise<string[]> => {
     if (!fs.length || !activeProject?.projectId) return [];
 
@@ -112,26 +127,61 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
 
   const insertImageNode = (src: string, width = 400, height = 300) => {
     editor.update(() => {
+      const maxWidth = 1200;
+      const maxHeight = 900;
+      const safeWidth = Number.isFinite(width) && width > 0 ? width : 400;
+      const safeHeight = Number.isFinite(height) && height > 0 ? height : 300;
+      const scale = Math.min(1, maxWidth / safeWidth, maxHeight / safeHeight);
+      const finalWidth = Math.max(10, Math.round(safeWidth * scale));
+      const finalHeight = Math.max(10, Math.round(safeHeight * scale));
+
       const node = $createResizableImageNode({
         src,
         altText: "Image",
-        width,
-        height,
-        originalAspectRatio: width / height,
+        width: finalWidth,
+        height: finalHeight,
+        originalAspectRatio: finalWidth / finalHeight,
         borderRadius: DEFAULT_IMAGE_BORDER_RADIUS,
       });
-      const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        selection.insertNodes([node]);
-      } else {
-        $insertNodes([node]);
+
+      if (!slidesMode) {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          selection.insertNodes([node]);
+        } else {
+          $insertNodes([node]);
+        }
+        return;
       }
+
+      const existing = countNodesOfType($getRoot(), "resizable-image");
+      const cascade = 28;
+      const offset = existing * cascade;
+      const padding = 24;
+
+      node.setX(Math.min((1920 - finalWidth) / 2 + offset, 1920 - finalWidth - padding));
+      node.setY(Math.min((1080 - finalHeight) / 2 + offset, 1080 - finalHeight - padding));
+
+      const root = $getRoot();
+      const last = root.getLastChild();
+      if (last && last.getType() === "paragraph") {
+        (last as unknown as { append: (...nodes: LexicalNode[]) => void }).append(node);
+      } else {
+        const paragraph = $createParagraphNode();
+        root.append(paragraph);
+        paragraph.append(node);
+      }
+
+      const selection = $createNodeSelection();
+      selection.add(node.getKey());
+      $setSelection(selection);
     });
   };
 
   const handleFileSelectedFromManager = (selectedFiles: FileItem[]) => {
     selectedFiles.forEach((selectedFile) => {
-      const src = getFileUrl(selectedFile.url);
+      const src = selectedFile.url;
+      const probeUrl = normalizeFileUrl(src);
       
       // Validate it's an image
       const extension = selectedFile.fileName.split(".").pop()?.toLowerCase();
@@ -144,15 +194,14 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
 
       // Load image to get dimensions
       const img = new Image();
-      img.src = src;
+      img.src = probeUrl;
 
       img.onload = () => {
         insertImageNode(src, img.width || 400, img.height || 300);
       };
 
       img.onerror = () => {
-        console.error("Failed to load image:", src);
-        // Still insert as fallback
+        console.warn("Failed to probe image dimensions:", probeUrl);
         insertImageNode(src, 400, 300);
       };
     });
@@ -169,23 +218,16 @@ export default function ImagePlugin({ showToolbarButton = true }: Props) {
 
     srcs.forEach((src) => {
       const img = new Image();
-      img.src = src;
+      const probeUrl = normalizeFileUrl(src);
+      img.src = probeUrl;
 
       img.onload = () => {
         insertImageNode(src, img.width || 400, img.height || 300);
       };
 
       img.onerror = () => {
-        console.error("Failed to load image:", src);
-        editor.update(() => {
-          const selection = $getSelection();
-          const text = $createTextNode(src);
-          if ($isRangeSelection(selection)) {
-            selection.insertNodes([text]);
-          } else {
-            $insertNodes([text]);
-          }
-        });
+        console.warn("Failed to probe image dimensions:", probeUrl);
+        insertImageNode(src, 400, 300);
       };
     });
 

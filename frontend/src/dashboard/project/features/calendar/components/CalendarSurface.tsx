@@ -178,6 +178,60 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     undoStackRef.current = [...undoStackRef.current.slice(-(MAX_UNDO_STACK - 1)), action];
   }, []);
 
+  const isFocusBlockSource = useCallback((task: ApiTask | null | undefined) => {
+    if (!task) return false;
+    if (task.kind === "focus_block") return true;
+    if (Array.isArray(task.focusChildTaskIds) && task.focusChildTaskIds.length > 0) return true;
+    if (Array.isArray(task.focusChecklist) && task.focusChecklist.length > 0) return true;
+    return false;
+  }, []);
+
+  const getFocusChildIdsFromSource = useCallback((task: ApiTask | null | undefined) => {
+    const ids: string[] = [];
+    if (!task) return ids;
+
+    (task.focusChildTaskIds ?? []).forEach((id) => {
+      if (typeof id === "string" && id.trim()) ids.push(id);
+    });
+
+    (task.focusChecklist ?? []).forEach((item) => {
+      const id = item?.taskId;
+      if (typeof id === "string" && id.trim()) ids.push(id);
+    });
+
+    // Uniqued while preserving insertion order.
+    return Array.from(new Set(ids));
+  }, []);
+
+  const collectCascadeDeleteSourcesForFocusBlock = useCallback(
+    (focusBlock: ApiTask, allCalendarTasks: CalendarTask[]) => {
+      const focusTaskId = focusBlock.taskId;
+      const projectId = focusBlock.projectId;
+      if (!focusTaskId || !projectId) return [] as ApiTask[];
+
+      const referencedChildIds = new Set(getFocusChildIdsFromSource(focusBlock));
+
+      const children: ApiTask[] = [];
+      allCalendarTasks.forEach((t) => {
+        const src = t.source as ApiTask;
+        if (!src || src.projectId !== projectId) return;
+        if (!src.taskId || src.taskId === focusTaskId) return;
+
+        const isLinkedByPointer = src.focusBlockId === focusTaskId;
+        const isLinkedByChecklist = referencedChildIds.has(src.taskId);
+        if (isLinkedByPointer || isLinkedByChecklist) {
+          children.push({ ...src });
+        }
+      });
+
+      // If the focus block references child ids that are not present in the
+      // current task list, we can't delete them here (no projectId/taskId source).
+      // We'll still delete any children we can see in the current calendar state.
+      return Array.from(new Map(children.map((t) => [t.taskId as string, t])).values());
+    },
+    [getFocusChildIdsFromSource],
+  );
+
   const handleUndo = useCallback(async () => {
     const action = undoStackRef.current.pop();
     if (!action) {
@@ -1917,19 +1971,46 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         const source = task.source as ApiTask;
         if (!source.projectId || !source.taskId) return;
         try {
-          // Store full task data for undo before deleting
-          const deletedTaskData = { ...source };
           const { projectId } = source;
+          const isFocusBlock = isFocusBlockSource(source);
 
-          await deleteTask({
-            projectId: source.projectId,
-            taskId: source.taskId,
-          });
+          if (isFocusBlock) {
+            const childSources = collectCascadeDeleteSourcesForFocusBlock(source, tasks);
+            const deletedFocus = { ...source };
+            const deletedChildren = childSources.map((t) => ({ ...t }));
 
-          // Register undo action to restore the deleted task
+            // Delete children first, then the wrapper.
+            for (const child of deletedChildren) {
+              if (!child.taskId) continue;
+              await deleteTask({ projectId, taskId: child.taskId });
+            }
+            await deleteTask({ projectId, taskId: source.taskId });
+
+            pushUndo({
+              type: "delete",
+              label: `Delete "${task.title || "Untitled"}"`,
+              undo: async () => {
+                // Preserve taskIds so the restored focus block still points at its children.
+                for (const childData of deletedChildren) {
+                  await createTask({ ...(childData as Task), projectId } as Task);
+                }
+                await createTask({ ...(deletedFocus as Task), projectId } as Task);
+              },
+            });
+
+            notify("success", "Task deleted (Ctrl+Z to undo)");
+            await onRefreshTasks();
+            return;
+          }
+
+          // Non-focus task delete (existing behavior).
+          const deletedTaskData = { ...source };
+
+          await deleteTask({ projectId: source.projectId, taskId: source.taskId });
+
           pushUndo({
             type: "delete",
-            label: `Delete "${task.title || 'Untitled'}"`,
+            label: `Delete "${task.title || "Untitled"}"`,
             undo: async () => {
               // Remove taskId so the backend generates a new one
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1953,7 +2034,14 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         }
       }
     },
-    [onRefreshTasks, onDeleteEvent, pushUndo],
+    [
+      onRefreshTasks,
+      onDeleteEvent,
+      pushUndo,
+      collectCascadeDeleteSourcesForFocusBlock,
+      isFocusBlockSource,
+      tasks,
+    ],
   );
 
   // Clear selection handler
@@ -1967,25 +2055,48 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       const taskEntries = entries.filter((e) => e.entryType === "task");
       const eventEntries = entries.filter((e) => e.entryType === "event");
 
-      // Store task data for undo before deleting
-      const deletedTasks: ApiTask[] = [];
+      // Store task data for undo before deleting (deduped)
+      const deletedTasksByKey = new Map<string, ApiTask>();
+      const focusBlockKeys = new Set<string>();
 
-      // Delete tasks
+      // Build the full delete set (including focus block children)
       for (const { entry } of taskEntries) {
         const task = entry as CalendarTask;
         const source = task.source as ApiTask;
         if (!source.projectId || !source.taskId) continue;
-        try {
-          // Store full task data before deletion
-          deletedTasks.push({ ...source });
 
-          await deleteTask({
-            projectId: source.projectId,
-            taskId: source.taskId,
+        const key = `${source.projectId}::${source.taskId}`;
+        deletedTasksByKey.set(key, { ...source });
+
+        if (isFocusBlockSource(source)) {
+          focusBlockKeys.add(key);
+          const children = collectCascadeDeleteSourcesForFocusBlock(source, tasks);
+          children.forEach((child) => {
+            if (!child.projectId || !child.taskId) return;
+            const childKey = `${child.projectId}::${child.taskId}`;
+            deletedTasksByKey.set(childKey, { ...child });
           });
+        }
+      }
+
+      const deletedTasks = Array.from(deletedTasksByKey.values());
+      const hasAnyFocusBlock = deletedTasks.some((t) => isFocusBlockSource(t));
+
+      // Delete tasks (children first, then focus blocks)
+      const deleteOrder = [...deletedTasks].sort((a, b) => {
+        const aIsFocus = isFocusBlockSource(a);
+        const bIsFocus = isFocusBlockSource(b);
+        if (aIsFocus === bIsFocus) return 0;
+        return aIsFocus ? 1 : -1;
+      });
+
+      for (const source of deleteOrder) {
+        if (!source.projectId || !source.taskId) continue;
+        try {
+          await deleteTask({ projectId: source.projectId, taskId: source.taskId });
         } catch (error) {
           console.error("Failed to delete task:", error);
-          notify("error", `Failed to delete "${task.title}"`);
+          notify("error", `Failed to delete "${source.title ?? "Untitled"}"`);
         }
       }
 
@@ -2004,6 +2115,23 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           type: "delete",
           label: `Delete ${deletedTasks.length} task(s)`,
           undo: async () => {
+            // If any focus block was deleted, preserve taskIds so focus-child links remain valid.
+            // Otherwise, keep prior behavior (new ids) for safety.
+            if (hasAnyFocusBlock) {
+              const restoreOrder = [...deletedTasks].sort((a, b) => {
+                const aIsFocus = isFocusBlockSource(a);
+                const bIsFocus = isFocusBlockSource(b);
+                if (aIsFocus === bIsFocus) return 0;
+                return aIsFocus ? 1 : -1;
+              });
+              for (const taskData of restoreOrder) {
+                const projectId = taskData.projectId;
+                if (!projectId) continue;
+                await createTask({ ...(taskData as Task), projectId } as Task);
+              }
+              return;
+            }
+
             for (const taskData of deletedTasks) {
               // Remove taskId so the backend generates a new one
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -2022,7 +2150,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
       setSelectedEntries(new Set());
     },
-    [onRefreshTasks, onDeleteEvent, pushUndo],
+    [onRefreshTasks, onDeleteEvent, pushUndo, collectCascadeDeleteSourcesForFocusBlock, isFocusBlockSource, tasks],
   );
 
   // Duplicate entries (placeholder - implement actual duplication logic as needed)

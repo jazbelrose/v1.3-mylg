@@ -1,6 +1,5 @@
 import React, { ComponentProps } from 'react';
 import Modal from 'react-modal';
-import useModalStack from '../utils/useModalStack';
 
 type ClassState = {
   base: string;
@@ -19,7 +18,6 @@ type ModalWithStackComponent = React.FC<ModalWithStackProps> & {
 };
 
 const ModalWithStack: ModalWithStackComponent = ({ isOpen, ...rest }) => {
-  useModalStack(isOpen ?? false);
   return <Modal isOpen={isOpen} {...(rest as ComponentProps<typeof Modal>)} />;
 };
 

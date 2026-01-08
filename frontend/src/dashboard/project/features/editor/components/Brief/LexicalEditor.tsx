@@ -465,7 +465,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
         )}
         <ColorPlugin showToolbar={false} />
         <FontPlugin showToolbar={false} />
-        <ImagePlugin showToolbarButton={false} />
+        <ImagePlugin showToolbarButton={false} slidesMode={slidesMode} />
         <VectorPlugin showToolbarButton={false} />
         <FigmaPlugin showToolbarButton={false} />
         <LayoutPlugin showToolbarButton={false} />

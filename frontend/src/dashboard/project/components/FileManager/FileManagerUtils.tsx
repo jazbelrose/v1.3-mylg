@@ -52,7 +52,7 @@ export const truncateFileName = (fileName?: string, maxLength = 12) => {
 
 export const isPreviewableImage = (file: FileItem) => {
   const ext = file.fileName.split(".").pop()?.toLowerCase();
-  return Boolean(ext && ["jpg", "jpeg", "png"].includes(ext));
+  return Boolean(ext && ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "ico"].includes(ext));
 };
 
 export const getFilePreviewIcon = (extension: string | undefined) => {
