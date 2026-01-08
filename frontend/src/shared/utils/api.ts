@@ -802,13 +802,17 @@ export async function fetchUserProfilesBatch(userIds: string[] = []): Promise<Us
 
   const resultsMap = new Map<string, UserProfile>();
   const idsToFetch: string[] = [];
+  const idsToFetchSeen = new Set<string>();
 
   for (const id of userIds) {
     const cached = userProfilesCache.get(id);
     if (cached) {
       resultsMap.set(id, cached);
     } else {
-      idsToFetch.push(id);
+      if (!idsToFetchSeen.has(id)) {
+        idsToFetchSeen.add(id);
+        idsToFetch.push(id);
+      }
     }
   }
 

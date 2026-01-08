@@ -211,9 +211,18 @@ function buildUpdate(obj) {
 }
 
 async function batchGetUsersByIds(ids) {
+  // DynamoDB BatchGet rejects duplicate keys, so dedupe first (preserve order)
+  const uniqueIds = [];
+  const seen = new Set();
+  for (const id of ids || []) {
+    if (!id) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    uniqueIds.push(id);
+  }
   // Always fetch directly from UserProfiles in chunks
   const chunks = [];
-  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  for (let i = 0; i < uniqueIds.length; i += 100) chunks.push(uniqueIds.slice(i, i + 100));
   const out = [];
   for (const ch of chunks) {
     const r = await ddb.batchGet({
