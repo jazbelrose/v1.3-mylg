@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FileText, Folder, Upload } from "lucide-react";
+import { DollarSign, FileText, Folder, Upload } from "lucide-react";
 
 import type { Task } from "@/shared/utils/api";
 import {
@@ -13,12 +13,24 @@ import {
   getFileUrl,
   apiFetch,
   PROJECTS_SERVICE_URL,
+  fetchBudgetHeader,
+  fetchBudgetItems,
+  createBudgetItem,
+  type BudgetHeader,
+  type BudgetLine,
   requestTaskReview,
   fetchTask,
   approveTask,
   approveTaskReview,
   requestTaskChanges,
 } from "@/shared/utils/api";
+import {
+  BUDGET_TASK_LINK_TYPES,
+  type BudgetTaskLinkType,
+  getPrimaryBudgetLineItemId,
+  inferBudgetTaskLinkTypeFromTitle,
+  normalizeBudgetTaskLinkType,
+} from "@/shared/utils/budgetTaskLinks";
 import { fetchLocationSuggestions, fetchGlobalLocationSuggestions, type NominatimSuggestion, type SavedLocation } from "@/shared/utils/location";
 import { useData } from "@/app/contexts/useData";
 import { useUser } from "@/app/contexts/useUser";
@@ -453,6 +465,20 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [currentLocationAddress, setCurrentLocationAddress] = useState<string | null>(null);
   const [assigneeTokens, setAssigneeTokens] = useState<string[]>([]);
   const [noteAttachments, setNoteAttachments] = useState<TaskNoteAttachment[]>([]);
+  const [attachedBudgetItemId, setAttachedBudgetItemId] = useState<string | null>(null);
+  const [budgetLinkType, setBudgetLinkType] = useState<BudgetTaskLinkType>("build");
+  const [isCostPanelOpen, setIsCostPanelOpen] = useState(false);
+  const [budgetHeader, setBudgetHeader] = useState<BudgetHeader | null>(null);
+  const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetLoadError, setBudgetLoadError] = useState<string | null>(null);
+  const [costQuery, setCostQuery] = useState("");
+  const [isCostSaving, setIsCostSaving] = useState(false);
+  const [isCreatingLineItem, setIsCreatingLineItem] = useState(false);
+  const [newLineKey, setNewLineKey] = useState("");
+  const [newLineDesc, setNewLineDesc] = useState("");
+  const [newLineCost, setNewLineCost] = useState("");
+  const costTouchedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -1084,6 +1110,20 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setSelectedLocation(null);
     setAssigneeTokens([]);
     setNoteAttachments([]);
+    setAttachedBudgetItemId(null);
+    setBudgetLinkType("build");
+    setIsCostPanelOpen(false);
+    setBudgetHeader(null);
+    setBudgetLines([]);
+    setBudgetLoading(false);
+    setBudgetLoadError(null);
+    setCostQuery("");
+    setIsCostSaving(false);
+    setIsCreatingLineItem(false);
+    setNewLineKey("");
+    setNewLineDesc("");
+    setNewLineCost("");
+    costTouchedRef.current = false;
     setSubmitting(false);
     setDeleting(false);
     setErrorMessage(null);

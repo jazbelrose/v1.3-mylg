@@ -1829,11 +1829,28 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         const source = task.source as ApiTask;
         if (!source.projectId || !source.taskId) return;
         try {
+          // Store full task data for undo before deleting
+          const deletedTaskData = { ...source };
+          const { projectId } = source;
+
           await deleteTask({
             projectId: source.projectId,
             taskId: source.taskId,
           });
-          notify("success", "Task deleted");
+
+          // Register undo action to restore the deleted task
+          pushUndo({
+            type: "delete",
+            label: `Delete "${task.title || 'Untitled'}"`,
+            undo: async () => {
+              // Remove taskId so the backend generates a new one
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { taskId: _oldTaskId, ...taskPayload } = deletedTaskData;
+              await createTask({ ...taskPayload, projectId } as Task);
+            },
+          });
+
+          notify("success", "Task deleted (Ctrl+Z to undo)");
           await onRefreshTasks();
         } catch (error) {
           console.error("Failed to delete task:", error);
@@ -1848,7 +1865,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         }
       }
     },
-    [onRefreshTasks, onDeleteEvent],
+    [onRefreshTasks, onDeleteEvent, pushUndo],
   );
 
   // Clear selection handler
@@ -1862,12 +1879,18 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       const taskEntries = entries.filter((e) => e.entryType === "task");
       const eventEntries = entries.filter((e) => e.entryType === "event");
 
+      // Store task data for undo before deleting
+      const deletedTasks: ApiTask[] = [];
+
       // Delete tasks
       for (const { entry } of taskEntries) {
         const task = entry as CalendarTask;
         const source = task.source as ApiTask;
         if (!source.projectId || !source.taskId) continue;
         try {
+          // Store full task data before deletion
+          deletedTasks.push({ ...source });
+
           await deleteTask({
             projectId: source.projectId,
             taskId: source.taskId,
@@ -1887,14 +1910,31 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         }
       }
 
+      // Register undo action for deleted tasks
+      if (deletedTasks.length > 0) {
+        pushUndo({
+          type: "delete",
+          label: `Delete ${deletedTasks.length} task(s)`,
+          undo: async () => {
+            for (const taskData of deletedTasks) {
+              // Remove taskId so the backend generates a new one
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { taskId: _oldTaskId, projectId, ...taskPayload } = taskData;
+              await createTask({ ...taskPayload, projectId } as Task);
+            }
+          },
+        });
+      }
+
       const total = entries.length;
       if (total > 0) {
-        notify("success", total > 1 ? `${total} items deleted` : "Item deleted");
+        const undoHint = deletedTasks.length > 0 ? " (Ctrl+Z to undo)" : "";
+        notify("success", (total > 1 ? `${total} items deleted` : "Item deleted") + undoHint);
         if (taskEntries.length > 0) await onRefreshTasks();
       }
       setSelectedEntries(new Set());
     },
-    [onRefreshTasks, onDeleteEvent],
+    [onRefreshTasks, onDeleteEvent, pushUndo],
   );
 
   // Duplicate entries (placeholder - implement actual duplication logic as needed)

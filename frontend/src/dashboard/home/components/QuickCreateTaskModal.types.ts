@@ -31,6 +31,12 @@ export type QuickCreateTaskModalTask = {
   projectName?: string | null;
   title?: string | null;
   description?: string | null;
+  /** Primary budget line item id attached to this task ("Attach cost" in calendar). */
+  primaryBudgetLineItemId?: string | null;
+  /** Legacy backend alias for the primary budget link (kept for compatibility). */
+  budgetItemId?: string | null;
+  /** Budget link type for the primary budget item (MYLG extension). */
+  budgetLinkType?: string | null;
   dueDate?: string | number | Date | null;
   startAt?: string | number | Date | null;
   endAt?: string | number | Date | null;
