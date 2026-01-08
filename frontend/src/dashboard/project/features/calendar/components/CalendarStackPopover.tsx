@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pencil } from "lucide-react";
+import { Calendar, CheckSquare, Pencil } from "lucide-react";
 import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
@@ -18,6 +18,7 @@ import {
   type ChildMenuState,
   type ContextMenuEntry,
 } from "./CalendarEntryContextMenu";
+import { PopoverShell } from "./PopoverShell";
 import {
   buildEventAvatars,
   buildTeamMemberLookup,
@@ -574,11 +575,9 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   }, [headerAvatarSource, kind, userStacks]);
 
   const popoverContent = (
-    <div
+    <PopoverShell
       ref={popoverRef}
-      className="calendar-entry-popover"
-      role="dialog"
-      aria-label="Stack details"
+      ariaLabel="Stack details"
       onMouseDownCapture={(e) => {
         if (!childMenu || childMenu.parentId !== parentId) return;
         const target = e.target as HTMLElement;
@@ -669,7 +668,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                 {group.rows
                   .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title))
                   .map((row) => (
-                    <div key={row.child.entryKey} className="calendar-stack-popover__row">
+                    <div key={row.child.entryKey} className="calendar-stack-popover__row calendar-stack-popover__row--list">
                       <button
                         type="button"
                         className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
@@ -687,11 +686,13 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                         }}
                         title={row.title}
                       >
-                        <span
-                          className="calendar-stack-popover__item-pill"
-                          style={{ background: projectColor }}
-                          aria-hidden
-                        />
+                        <span className="calendar-stack-popover__item-icon" aria-hidden>
+                          {row.child.entryType === "event" ? (
+                            <Calendar style={{ color: projectColor }} aria-hidden />
+                          ) : (
+                            <CheckSquare style={{ color: projectColor }} aria-hidden />
+                          )}
+                        </span>
                         <div className="calendar-stack-popover__item-title">{row.title}</div>
                         {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
                       </button>
@@ -706,11 +707,11 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
           rows.map((row) => (
             <div
               key={row.child.entryKey}
-              className="calendar-stack-popover__row"
+              className="calendar-stack-popover__row calendar-stack-popover__row--list"
             >
               <button
                 type="button"
-                className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}`}
+                className={`calendar-stack-popover__item${row.isDone ? " is-done" : ""}${row.avatar ? " calendar-stack-popover__item--has-avatar" : ""}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenDetails(row.child, e.currentTarget);
@@ -721,11 +722,13 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                 }}
                 title={row.title}
               >
-                <span
-                  className="calendar-stack-popover__item-pill"
-                  style={{ background: projectColor }}
-                  aria-hidden
-                />
+                <span className="calendar-stack-popover__item-icon" aria-hidden>
+                  {row.child.entryType === "event" ? (
+                    <Calendar style={{ color: projectColor }} aria-hidden />
+                  ) : (
+                    <CheckSquare style={{ color: projectColor }} aria-hidden />
+                  )}
+                </span>
                 <div className="calendar-stack-popover__item-title">{row.title}</div>
                 {row.time ? <div className="calendar-stack-popover__item-time">{row.time}</div> : null}
                 {row.avatar ? (
@@ -750,7 +753,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       {childMenu && childMenu.parentId === parentId ? (
         (() => {
           const anchorEl = (childMenu.anchorEl as unknown as HTMLElement | null) ?? null;
-          if (!anchorEl || typeof (anchorEl as any).getBoundingClientRect !== "function") {
+          if (!anchorEl || typeof anchorEl.getBoundingClientRect !== "function") {
             return null;
           }
           const rect = anchorEl.getBoundingClientRect();
@@ -774,7 +777,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
           );
         })()
       ) : null}
-    </div>
+    </PopoverShell>
   );
 
   return createPortal(popoverContent, document.body);

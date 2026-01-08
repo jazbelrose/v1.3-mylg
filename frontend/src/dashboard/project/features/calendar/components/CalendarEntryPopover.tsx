@@ -50,6 +50,7 @@ import {
   type ChildMenuState,
   type ContextMenuEntry,
 } from "./CalendarEntryContextMenu";
+import { PopoverShell } from "./PopoverShell";
 
 export interface CalendarEntryPopoverProps {
   anchorElement: HTMLElement;
@@ -598,11 +599,9 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   }, [entryType, entry, onDelete, onClose]);
 
   const popoverContent = (
-    <div
+    <PopoverShell
       ref={popoverRef}
-      className="calendar-entry-popover"
-      role="dialog"
-      aria-label="Entry details"
+      ariaLabel="Entry details"
       onMouseDownCapture={(e) => {
         if (!childMenu || !parentId) return;
         if (childMenu.parentId !== parentId) return;
@@ -1043,7 +1042,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           );
         })()
       ) : null}
-    </div>
+    </PopoverShell>
   );
 
   return createPortal(popoverContent, document.body);

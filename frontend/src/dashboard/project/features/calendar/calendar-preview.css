@@ -3312,10 +3312,11 @@ body.isMarqueeSelecting * {
 ─────────────────────────────────────────────────────────────────────────── */
 
 .calendar-stack-popover__list {
-  padding: 10px 12px;
+  padding: 10px 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.2);
 }
 
@@ -3376,10 +3377,13 @@ body.isMarqueeSelecting * {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.calendar-stack-popover__user-stack:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 
 .calendar-stack-popover__user-stack-header {
@@ -3412,13 +3416,11 @@ body.isMarqueeSelecting * {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .calendar-stack-popover__row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  align-items: center;
+  display: block;
 }
 
 .calendar-stack-popover__row--list {
@@ -3430,17 +3432,38 @@ body.isMarqueeSelecting * {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  padding: 8px 34px 8px 10px;
+  padding: 8px 10px;
   cursor: pointer;
   min-width: 0;
+  width: 100%;
 
   position: relative;
 
   display: grid;
-  grid-template-columns: 8px 1fr;
+  grid-template-columns: 18px 1fr;
   grid-template-rows: auto auto;
   column-gap: 8px;
   row-gap: 2px;
+}
+
+.calendar-stack-popover__item--has-avatar {
+  padding-right: 34px;
+}
+
+.calendar-stack-popover__item-icon {
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  opacity: 0.9;
+}
+
+.calendar-stack-popover__item-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .calendar-stack-popover__row-actions {
