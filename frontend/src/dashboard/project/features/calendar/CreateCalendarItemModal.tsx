@@ -35,6 +35,7 @@ type EventFormInitialValues = Partial<{
   location?: string;
   description?: string;
   tags?: string[];
+  // Guest userIds
   guests?: string[];
 }>;
 
@@ -48,6 +49,7 @@ type FormSnapshot = {
   location: string;
   description: string;
   tags: string[];
+  // Guest userIds
   guests: string[];
   triggeredFromCalendar: boolean;
 };
@@ -85,6 +87,7 @@ export type CreateEventRequest = {
   location?: string;
   description?: string;
   tags: string[];
+  // Guest userIds
   guests: string[];
 };
 
@@ -139,6 +142,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>(["Meeting"]);
   const [guestQuery, setGuestQuery] = useState("");
+  // Store guest userIds (not display names)
   const [guests, setGuests] = useState<string[]>([]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("11:30");
@@ -170,11 +174,55 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       .filter((option): option is { id: string; name: string } => option !== null);
   }, [teamMembers]);
 
+  const guestOptionById = useMemo(() => {
+    return new Map(guestOptions.map((option) => [option.id, option] as const));
+  }, [guestOptions]);
+
+  const guestOptionByName = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    guestOptions.forEach((option) => {
+      map.set(option.name.trim().toLowerCase(), option);
+    });
+    return map;
+  }, [guestOptions]);
+
+  const normalizeGuestsToIds = useCallback(
+    (values: string[] | undefined): string[] => {
+      if (!values || values.length === 0) return [];
+
+      const resolved: string[] = [];
+      values.forEach((value) => {
+        if (typeof value !== "string") return;
+        const trimmed = value.trim();
+        if (!trimmed) return;
+
+        // If it already matches a known userId, keep it.
+        if (guestOptionById.has(trimmed)) {
+          resolved.push(trimmed);
+          return;
+        }
+
+        // If it matches a known display name, convert to id.
+        const byName = guestOptionByName.get(trimmed.toLowerCase());
+        if (byName) {
+          resolved.push(byName.id);
+          return;
+        }
+
+        // Fallback: keep the raw value (likely a userId not yet in teamMembers).
+        resolved.push(trimmed);
+      });
+
+      return Array.from(new Set(resolved));
+    },
+    [guestOptionById, guestOptionByName],
+  );
+
   const filteredSuggestions = useMemo(() => {
     if (guestOptions.length === 0) return [];
     const normalizedQuery = guestQuery.trim().toLowerCase();
     return guestOptions.filter((option) => {
-      if (guests.includes(option.name)) return false;
+      if (guests.includes(option.id)) return false;
       if (!normalizedQuery) return true;
       return option.name.toLowerCase().includes(normalizedQuery);
     });
@@ -270,7 +318,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
           : ["Meeting"];
     const resolvedGuests =
       initialValues?.guests && initialValues.guests.length > 0
-        ? [...initialValues.guests]
+        ? normalizeGuestsToIds(initialValues.guests)
         : [];
     const resolvedEventType = initialValues?.eventType ?? EVENT_TYPE_OPTIONS[0].value;
     const resolvedLocation = initialValues?.location ?? "";
@@ -307,7 +355,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       guests: resolvedGuests,
       triggeredFromCalendar,
     });
-  }, [initialDate, initialValues, isEditing, isOpen, triggeredFromCalendar]);
+  }, [initialDate, initialValues, isEditing, isOpen, normalizeGuestsToIds, triggeredFromCalendar]);
 
   useEffect(() => {
     if (guestError && guestQuery) {
@@ -358,9 +406,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     const trimmed = value.trim();
     if (!trimmed) return false;
     const normalized = trimmed.toLowerCase();
-    const match = guestOptions.find(
-      (option) => option.name.toLowerCase() === normalized
-    ) ||
+    const match =
+      guestOptions.find((option) => option.name.toLowerCase() === normalized) ||
       guestOptions.find((option) => option.name.toLowerCase().includes(normalized));
 
     if (!match) {
@@ -368,7 +415,7 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
       return false;
     }
 
-    setGuests((prev) => (prev.includes(match.name) ? prev : [...prev, match.name]));
+    setGuests((prev) => (prev.includes(match.id) ? prev : [...prev, match.id]));
     setGuestError(null);
     return true;
   };
@@ -383,8 +430,8 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
     }
   };
 
-  const handleRemoveGuest = (name: string) => {
-    setGuests((prev) => prev.filter((guest) => guest !== name));
+  const handleRemoveGuest = (guestId: string) => {
+    setGuests((prev) => prev.filter((guest) => guest !== guestId));
     setGuestError(null);
   };
 
@@ -700,8 +747,10 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                     />
                   </div>
                   <div className={styles.chipList}>
-                    {guests.map((guest) => {
-                      const initials = guest
+                    {guests.map((guestId) => {
+                      const option = guestOptionById.get(guestId);
+                      const label = option?.name ?? "Unknown collaborator";
+                      const initials = label
                         .split(/\s+/)
                         .filter(Boolean)
                         .map((part) => part[0] ?? "")
@@ -709,14 +758,14 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                         .slice(0, 2)
                         .toUpperCase();
                       return (
-                        <span key={guest} className={styles.chip}>
+                        <span key={guestId} className={styles.chip}>
                           <span className={styles.chipAvatar}>{initials || "?"}</span>
-                          <span className={styles.chipLabel}>{guest}</span>
+                          <span className={styles.chipLabel}>{label}</span>
                           <button
                             type="button"
                             className={styles.chipRemove}
-                            onClick={() => handleRemoveGuest(guest)}
-                            aria-label={`Remove ${guest}`}
+                            onClick={() => handleRemoveGuest(guestId)}
+                            aria-label={`Remove ${label}`}
                             disabled={isSubmitting}
                           >
                             ×
@@ -733,10 +782,9 @@ const CreateCalendarItemModal: React.FC<BaseProps> = ({
                           type="button"
                           className={styles.suggestionButton}
                           onClick={() => {
-                            const added = handleAddGuest(option.name);
-                            if (added) {
-                              setGuestQuery("");
-                            }
+                            setGuests((prev) => (prev.includes(option.id) ? prev : [...prev, option.id]));
+                            setGuestError(null);
+                            setGuestQuery("");
                           }}
                           disabled={isSubmitting}
                         >

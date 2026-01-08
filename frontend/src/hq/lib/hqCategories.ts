@@ -28,7 +28,7 @@ export const HQ_CATEGORIES: readonly HqCategoryDefinition[] = [
 
   // Travel & Vehicles
   { id: "AUTO_PAYMENT", label: "Auto — Car payment", tone: "neutral" },
-  { id: "INSURANCE", label: "Auto — Insurance", tone: "out" },
+  { id: "AUTO_INSURANCE", label: "Auto — Insurance", tone: "out" },
   { id: "GAS", label: "Auto — Fuel", tone: "out" },
   { id: "CHARGING", label: "Auto — Charging", tone: "out" },
   { id: "AUTO_MAINTENANCE", label: "Auto — Maintenance / Repairs", tone: "out" },

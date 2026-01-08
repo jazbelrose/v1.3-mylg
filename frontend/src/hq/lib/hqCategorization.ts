@@ -18,7 +18,7 @@ const DEFAULT_VENDOR_RULES: Array<{ match: RegExp; categoryId: HqCategoryId; con
   { match: /\bGUSTO\b|\bADP\b|\bPAYCHEX\b|\bPAYROLL\b/i, categoryId: "PAYROLL_W2", confidence: 0.8 },
   { match: /\bIRS\b|\bFRANCHISE\b\s+TAX\b|\bTAX\s+PAYMENT\b/i, categoryId: "ESTIMATED_TAXES", confidence: 0.65 },
   { match: /\bTESLA\s+FINANCE\b/i, categoryId: "AUTO_PAYMENT", confidence: 0.8 },
-  { match: /\bTESLA\s+INSURANCE\b/i, categoryId: "INSURANCE", confidence: 0.8 },
+  { match: /\bTESLA\s+INSURANCE\b/i, categoryId: "AUTO_INSURANCE", confidence: 0.8 },
   { match: /\bCHARGEPOINT\b|\bELECTRIFY\s+AMERICA\b/i, categoryId: "CHARGING", confidence: 0.75 },
 ];
 

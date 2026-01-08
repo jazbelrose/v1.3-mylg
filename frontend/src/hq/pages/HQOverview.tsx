@@ -738,9 +738,16 @@ const HQOverview: React.FC = () => {
             ) : (
               <div className={styles.queue}>
                 <div className={styles.queueMetric}>{totals.uncategorizedCount}</div>
-                <Link className={styles.primaryLink} to="/dashboard/hq/transactions?filter=uncategorized">
-                  Review now
-                </Link>
+                <div className={styles.queueActions}>
+                  <Link className={styles.primaryLink} to="/dashboard/hq/transactions?filter=uncategorized">
+                    Review now
+                  </Link>
+                  {canAdmin ? (
+                    <button type="button" className={styles.secondaryButton} onClick={() => openSpellbook({})}>
+                      Spellbook
+                    </button>
+                  ) : null}
+                </div>
               </div>
             )}
           </HQCard>

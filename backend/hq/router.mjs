@@ -135,7 +135,7 @@ const DEFAULT_RULEPACK = [
   { pattern: "\\bWEWORK\\b", categoryId: "RENT_LEASE", priority: 150 },
   { pattern: "\\bSQUARE\\b|\\bSTRIPE\\b", categoryId: "INCOME", priority: 145 },
   { pattern: "\\bTESLA\\s+FINANCE\\b", categoryId: "AUTO_PAYMENT", priority: 142 },
-  { pattern: "\\bTESLA\\s+INSURANCE\\b", categoryId: "INSURANCE", priority: 141 },
+  { pattern: "\\bTESLA\\s+INSURANCE\\b", categoryId: "AUTO_INSURANCE", priority: 141 },
   { pattern: "\\bCHARGEPOINT\\b|\\bELECTRIFY\\s+AMERICA\\b", categoryId: "CHARGING", priority: 140 },
 ];
 

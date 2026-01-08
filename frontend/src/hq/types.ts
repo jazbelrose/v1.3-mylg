@@ -17,6 +17,7 @@ export type HqCategoryId =
   | "SHIPPING"
   // Travel & Vehicles
   | "AUTO_PAYMENT"
+  | "AUTO_INSURANCE"
   | "AUTO_MAINTENANCE"
   | "GAS"
   | "CHARGING"

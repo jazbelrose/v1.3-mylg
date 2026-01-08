@@ -365,6 +365,12 @@
   gap: 10px;
 }
 
+.queueActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .queueMetric {
   font-size: 28px;
   font-weight: 800;
