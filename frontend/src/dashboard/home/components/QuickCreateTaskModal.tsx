@@ -1205,6 +1205,28 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setAddressSuggestions([]);
       setSelectedLocation(normalizeLocation(taskData.location));
       setNoteAttachments(sanitizeIncomingAttachments(taskData.noteAttachments));
+
+      const primaryId = getPrimaryBudgetLineItemId(taskData as unknown as Task);
+      setAttachedBudgetItemId(primaryId);
+      const inferredLinkType = inferBudgetTaskLinkTypeFromTitle(
+        typeof taskData.title === "string" ? taskData.title : "",
+      );
+      const existingLinkType = normalizeBudgetTaskLinkType(
+        (taskData as { budgetLinkType?: unknown }).budgetLinkType,
+      );
+      setBudgetLinkType(existingLinkType ?? inferredLinkType);
+      setIsCostPanelOpen(false);
+      setBudgetHeader(null);
+      setBudgetLines([]);
+      setBudgetLoading(false);
+      setBudgetLoadError(null);
+      setCostQuery("");
+      setIsCreatingLineItem(false);
+      setNewLineKey("");
+      setNewLineDesc("");
+      setNewLineCost("");
+      setIsCostSaving(false);
+      costTouchedRef.current = false;
       setCreatedById(typeof taskData.createdById === "string" ? taskData.createdById : null);
       setCreatedByName(typeof taskData.createdByName === "string" ? taskData.createdByName : null);
       setCreatedByUsername(typeof taskData.createdByUsername === "string" ? taskData.createdByUsername : null);
