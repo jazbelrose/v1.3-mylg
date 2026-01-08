@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import HQLayout from "../components/HQLayout";
 import HQCard from "../components/HQCard";
 import CategorizationSpellbookSheet from "@/hq/components/CategorizationSpellbookSheet";
@@ -678,8 +679,11 @@ const HQOverview: React.FC = () => {
             aria-label="Top spend categories"
             badge={
               canAdmin ? (
-                <button type="button" className={styles.cardLink} onClick={() => openSpellbook({})}>
-                  Spellbook
+                <button type="button" className={styles.spellbookButton} onClick={() => openSpellbook({})} aria-label="Open spellbook">
+                  <span className={styles.spellbookIcon} aria-hidden>
+                    <Sparkles size={16} />
+                  </span>
+                  <span className={styles.spellbookLabel}>Spellbook</span>
                 </button>
               ) : null
             }
@@ -756,22 +760,23 @@ const HQOverview: React.FC = () => {
             )}
           </HQCard>
 
-          <HQCard title="Uncategorized" subtitle={rangeLabel} aria-label="Uncategorized transactions">
+          <HQCard
+            title="Uncategorized"
+            subtitle={rangeLabel}
+            aria-label="Uncategorized transactions"
+            badge={
+              totals.uncategorizedCount > 0 ? (
+                <Link className={styles.primaryLink} to="/dashboard/hq/transactions?filter=uncategorized">
+                  Review now
+                </Link>
+              ) : null
+            }
+          >
             {totals.uncategorizedCount === 0 ? (
               <div className={styles.emptyState}>Nothing to triage.</div>
             ) : (
               <div className={styles.queue}>
                 <div className={styles.queueMetric}>{totals.uncategorizedCount}</div>
-                <div className={styles.queueActions}>
-                  <Link className={styles.primaryLink} to="/dashboard/hq/transactions?filter=uncategorized">
-                    Review now
-                  </Link>
-                  {canAdmin ? (
-                    <button type="button" className={styles.secondaryButton} onClick={() => openSpellbook({})}>
-                      Spellbook
-                    </button>
-                  ) : null}
-                </div>
               </div>
             )}
           </HQCard>
