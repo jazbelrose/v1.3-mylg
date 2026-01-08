@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrushCleaning, CheckSquare, ChevronLeft, ChevronRight, Menu, Search, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -129,6 +129,60 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const [quickTaskDraft, setQuickTaskDraft] = useState<QuickCreateTaskModalTask | null>(null);
   const [isQuickTaskModalOpen, setIsQuickTaskModalOpen] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(() => new Set());
+
+  // Undo stack for calendar actions
+  type UndoAction = {
+    type: "reschedule" | "delete" | "bulk-assign";
+    label: string;
+    undo: () => Promise<void>;
+  };
+  const undoStackRef = useRef<UndoAction[]>([]);
+  const MAX_UNDO_STACK = 20;
+
+  const pushUndo = useCallback((action: UndoAction) => {
+    undoStackRef.current = [...undoStackRef.current.slice(-(MAX_UNDO_STACK - 1)), action];
+  }, []);
+
+  const handleUndo = useCallback(async () => {
+    const action = undoStackRef.current.pop();
+    if (!action) {
+      notify("info", "Nothing to undo");
+      return;
+    }
+    try {
+      await action.undo();
+      notify("success", `Undid: ${action.label}`);
+      await onRefreshTasks();
+    } catch (error) {
+      console.error("Undo failed:", error);
+      // Provide a more helpful message if a task was deleted
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Task not found") || errorMessage.includes("404")) {
+        notify("error", "Cannot undo: one or more tasks were deleted or modified");
+      } else {
+        notify("error", "Failed to undo action");
+      }
+    }
+  }, [onRefreshTasks]);
+
+  // Global Ctrl+Z handler for undo
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleUndo]);
+
   const buildSelectionKey = useCallback(
     (type: CalendarEntryType, id: string) => `${type}:${id}`,
     [],
@@ -1265,6 +1319,65 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       if (taskChanges.length) {
         const createsByProject = new Map<string, Task[]>();
         const updatesByProject = new Map<string, Array<{ taskId: string; fields: Partial<Task> }>>();
+        // Store previous values for undo
+        const undoUpdates: Array<{ projectId: string; taskId: string; fields: Partial<Task> }> = [];
+        // Track focus block creation requests for same-user overlap
+        const focusBlockCreations: Array<{
+          projectId: string;
+          date: string;
+          start: string;
+          end: string;
+          assigneeId: string | undefined;
+          childTaskIds: string[];
+          childTitles: Array<{ taskId: string; title: string }>;
+        }> = [];
+
+        // Helper to check if a task overlaps with any existing task by the same user
+        const findSameUserOverlap = (
+          movedTask: CalendarTask,
+          targetDate: string,
+          targetStart: string,
+          targetEnd: string,
+        ) => {
+          const movedTaskSource = movedTask.source as ApiTask;
+          const movedAssignee = movedTaskSource?.assigneeId;
+          const movedTaskId = resolveTaskIdentifier(movedTask);
+
+          // Convert times to minutes for comparison
+          const startMinutes = parseTimeToMinutes(targetStart);
+          const endMinutes = parseTimeToMinutes(targetEnd);
+          if (startMinutes == null || endMinutes == null) return null;
+
+          // Find overlapping tasks on the same day with the same assignee
+          const overlapping = tasks.filter((t) => {
+            // Skip self
+            const tid = resolveTaskIdentifier(t);
+            if (tid === movedTaskId) return false;
+            // Skip Focus Blocks themselves
+            if (isFocusBlockLike(t)) return false;
+            // Skip tasks already in a Focus Block
+            if (t.focusBlockId) return false;
+
+            const tSource = t.source as ApiTask;
+            const tAssignee = tSource?.assigneeId;
+            // Same assignee check
+            if (tAssignee !== movedAssignee) return false;
+
+            // Same day check - use source dueDate or fallback to due
+            const tDate = tSource?.dueDate?.split("T")[0] ?? t.due;
+            if (tDate !== targetDate) return false;
+
+            // Time overlap check
+            const tStart = parseTimeToMinutes(t.start);
+            const tEnd = parseTimeToMinutes(t.end);
+            if (tStart == null || tEnd == null) return false;
+
+            // Check overlap: ranges overlap if start < otherEnd && end > otherStart
+            return startMinutes < tEnd && endMinutes > tStart;
+          });
+
+          return overlapping.length > 0 ? overlapping : null;
+        };
 
         const isFocusBlockLike = (task: CalendarTask) => {
           if (task.kind === "focus_block") return true;
@@ -1443,6 +1556,54 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           }
 
           if (!taskId) return;
+
+          // Check for same-user overlap → Focus Block creation
+          // Skip this check for tasks that are already in a focus block or are focus blocks
+          const taskSource = task.source as ApiTask;
+          if (!isFocusBlockLike(task) && !task.focusBlockId) {
+            const overlapping = findSameUserOverlap(task, dueDate, change.start, change.end);
+            if (overlapping && overlapping.length > 0) {
+              // Found same-user overlap! Create a Focus Block instead of just moving.
+              const allTasks = [task, ...overlapping];
+              const allTaskIds = allTasks
+                .map((t) => resolveTaskIdentifier(t))
+                .filter((id): id is string => Boolean(id));
+
+              // Compute combined time range (min start, max end)
+              const allStarts = allTasks.map((t) => parseTimeToMinutes(t.start) ?? 0);
+              const allEnds = allTasks.map((t) => parseTimeToMinutes(t.end) ?? 0);
+              const combinedStart = Math.min(parseTimeToMinutes(change.start) ?? 0, ...allStarts);
+              const combinedEnd = Math.max(parseTimeToMinutes(change.end) ?? 0, ...allEnds);
+
+              focusBlockCreations.push({
+                projectId,
+                date: dueDate,
+                start: formatMinutesHHMM(combinedStart),
+                end: formatMinutesHHMM(combinedEnd),
+                assigneeId: taskSource?.assigneeId,
+                childTaskIds: allTaskIds,
+                childTitles: allTasks.map((t) => ({
+                  taskId: resolveTaskIdentifier(t) ?? t.id,
+                  title: t.title ?? "Untitled",
+                })),
+              });
+              return; // Skip normal update for this task
+            }
+          }
+
+          // Store original values for undo
+          const taskSourceForUndo = task.source as ApiTask;
+          undoUpdates.push({
+            projectId,
+            taskId,
+            fields: {
+              dueDate: taskSourceForUndo.dueDate,
+              dueAt: taskSourceForUndo.dueAt,
+              startAt: taskSourceForUndo.startAt,
+              endAt: taskSourceForUndo.endAt,
+            },
+          });
+
           const fields: Partial<Task> = {
             title: task.title,
             dueDate: dueAt,
@@ -1456,12 +1617,75 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           ]);
         });
 
+        // Register undo action for task moves (non-duplicate only)
+        if (undoUpdates.length > 0) {
+          pushUndo({
+            type: "reschedule",
+            label: `Move ${undoUpdates.length} task(s)`,
+            undo: async () => {
+              // Group by project
+              const byProject = new Map<string, Array<{ taskId: string; fields: Partial<Task> }>>();
+              undoUpdates.forEach(({ projectId, taskId, fields }) => {
+                byProject.set(projectId, [
+                  ...(byProject.get(projectId) ?? []),
+                  { taskId, fields },
+                ]);
+              });
+              await Promise.all(
+                Array.from(byProject.entries()).map(([pid, updates]) =>
+                  updateTasksBulk(pid, updates),
+                ),
+              );
+            },
+          });
+        }
+
         createsByProject.forEach((payloads, projectId) => {
           operations.push(createTasksBulk(projectId, payloads));
         });
         updatesByProject.forEach((updates, projectId) => {
           operations.push(updateTasksBulk(projectId, updates));
         });
+
+        // Create Focus Blocks for same-user overlaps
+        for (const fb of focusBlockCreations) {
+          const createFocusBlock = async () => {
+            const startAt = buildIsoDateTime(fb.date, fb.start);
+            const endAt = buildIsoDateTime(fb.date, fb.end);
+            const dueAt = endAt ?? fb.date;
+            const startMinutes = parseTimeToMinutes(fb.start) ?? 0;
+            const endMinutes = parseTimeToMinutes(fb.end) ?? 0;
+
+            // Create the Focus Block wrapper
+            const newFocus = await createTask({
+              projectId: fb.projectId,
+              title: "Focus Block",
+              kind: "focus_block",
+              durationMinutes: Math.max(15, endMinutes - startMinutes),
+              startAt,
+              endAt,
+              dueDate: dueAt,
+              dueAt,
+              assigneeId: fb.assigneeId,
+              focusChildTaskIds: fb.childTaskIds,
+              focusChecklist: fb.childTitles,
+            });
+
+            if (newFocus.taskId) {
+              // Update children to link to the focus block
+              const childUpdates = fb.childTaskIds.map((childId) => ({
+                taskId: childId,
+                fields: {
+                  focusBlockId: newFocus.taskId,
+                },
+              }));
+              await updateTasksBulk(fb.projectId, childUpdates);
+            }
+
+            notify("success", `Created Focus Block with ${fb.childTaskIds.length} tasks`);
+          };
+          operations.push(createFocusBlock());
+        }
       }
 
       try {
@@ -1475,7 +1699,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Unable to save calendar changes. Please try again.");
       }
     },
-    [activeProjectId, onCreateEvent, onRefreshTasks, onUpdateEvent, tasks],
+    [activeProjectId, onCreateEvent, onRefreshTasks, onUpdateEvent, pushUndo, tasks],
   );
 
   const handleSelectDate = useCallback((date: Date) => {
@@ -1695,6 +1919,12 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         return;
       }
 
+      // Store previous assignees for undo
+      const previousAssignees = children.map((child) => ({
+        taskId: child.source?.taskId ?? child.id,
+        assigneeId: (child.source as ApiTask)?.assigneeId,
+      }));
+
       // Build updates for all children
       const updates = children.map((child) => ({
         taskId: child.source?.taskId ?? child.id,
@@ -1715,6 +1945,20 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           }
         }
 
+        // Register undo action
+        const projectId = activeProjectId;
+        pushUndo({
+          type: "bulk-assign",
+          label: `Assign ${children.length} item(s) to ${userName}`,
+          undo: async () => {
+            const undoUpdates = previousAssignees.map(({ taskId, assigneeId }) => ({
+              taskId,
+              fields: { assigneeId },
+            }));
+            await updateTasksBulk(projectId, undoUpdates);
+          },
+        });
+
         notify(
           "success",
           userId
@@ -1728,7 +1972,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Failed to assign items");
       }
     },
-    [activeProjectId, onRefreshTasks, teamMembers],
+    [activeProjectId, onRefreshTasks, pushUndo, teamMembers],
   );
 
   const handleOpenMiniCalendarEvent = useCallback(

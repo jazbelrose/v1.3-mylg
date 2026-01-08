@@ -411,6 +411,7 @@ function WeekGrid({
   const isDraggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const rescheduleEntriesRef = useRef(onRescheduleEntries);
+  const deleteEntriesRef = useRef(onDeleteEntries);
   const lastClickTimeRef = useRef(0);
   const lastClickedKeyRef = useRef<string | null>(null);
   
@@ -461,6 +462,10 @@ function WeekGrid({
   useEffect(() => {
     rescheduleEntriesRef.current = onRescheduleEntries;
   }, [onRescheduleEntries]);
+
+  useEffect(() => {
+    deleteEntriesRef.current = onDeleteEntries;
+  }, [onDeleteEntries]);
 
   useEffect(() => {
     setDragPreviewTransforms({});
@@ -1337,6 +1342,47 @@ function WeekGrid({
     };
   }, []);
 
+  // Global Delete key handler for selected entries
+  useEffect(() => {
+    const handleDeleteKeyDown = (event: KeyboardEvent) => {
+      // Ignore if typing in an input/textarea
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (selectedEntryKeys.size === 0) return;
+        const onDelete = deleteEntriesRef.current;
+        if (!onDelete) return;
+
+        // Build entries from selection
+        const entries: ContextMenuEntry[] = [];
+        selectedEntryKeys.forEach((key) => {
+          const lookup = entryLookup.get(key);
+          if (!lookup) return;
+          entries.push({
+            entryType: lookup.entry.type === "event" ? "event" : "task",
+            entry: lookup.entry.payload as CalendarTask | CalendarEvent,
+          });
+        });
+
+        if (entries.length > 0) {
+          event.preventDefault();
+          onDelete(entries);
+          setPopover(null);
+          setStackPopover(null);
+          onClearSelection?.();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleDeleteKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleDeleteKeyDown);
+    };
+  }, [selectedEntryKeys, entryLookup, onClearSelection]);
+
   const createTarget = useCallback(
     (entry: WeekTimelineEntry, dayKey: string): InteractionTarget => ({
       entry,
@@ -1821,6 +1867,25 @@ function WeekGrid({
       if (entry.type === "taskStack" || entry.type === "overlapStack") {
         const payload = entry.payload as TaskStackPayload | OverlapStackPayload;
 
+        // Ensure stack tiles behave like normal entries for selection styling.
+        // Drag-select already selects the child entries; click should do the same.
+        const additive = Boolean(event.shiftKey || event.ctrlKey || event.metaKey);
+        const nextSelection = additive
+          ? new Set<string>([...selectedEntryKeys, ...payload.childEntryKeys])
+          : new Set<string>(payload.childEntryKeys);
+
+        if (onReplaceSelection) {
+          onReplaceSelection(nextSelection);
+        } else {
+          // Fallback (older callers): clear then add keys back via onEntrySelect.
+          onClearSelection?.();
+          nextSelection.forEach((key) => {
+            const [type, id] = key.split(":");
+            if (type !== "event" && type !== "task") return;
+            onEntrySelect?.(type as CalendarEntryType, id, true);
+          });
+        }
+
         const isFocusBlockTask = (task: CalendarTask) =>
           task.kind === "focus_block" ||
           (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
@@ -1920,9 +1985,13 @@ function WeekGrid({
       calendarTaskById,
       entryLookup,
       focusChildrenByFocusId,
+      onClearSelection,
       onEditEvent,
       onEditTask,
+      onEntrySelect,
+      onReplaceSelection,
       overlapStackTitleOverrides,
+      selectedEntryKeys,
     ],
   );
 
@@ -1954,17 +2023,30 @@ function WeekGrid({
         setChildMenu(null);
         onClearSelection?.();
       } else if (keyboardEvent.key === "Delete" || keyboardEvent.key === "Backspace") {
-        // Delete key → delete when popover is open
-        if (popover && onDeleteEntries) {
+        // Delete key → delete selected entries (works with or without popover)
+        if (onDeleteEntries) {
           keyboardEvent.preventDefault();
-          const entries = getSelectedContextMenuEntries();
+          // Build entries inline to avoid dependency ordering issues
+          const entries: ContextMenuEntry[] = [];
+          selectedEntryKeys.forEach((key) => {
+            const lookup = entryLookup.get(key);
+            if (!lookup) return;
+            entries.push({
+              entryType: lookup.entry.type === "event" ? "event" : "task",
+              entry: lookup.entry.payload as CalendarTask | CalendarEvent,
+            });
+          });
           if (entries.length > 0) {
             onDeleteEntries(entries);
+            // Close popover after deletion
+            setPopover(null);
+            setStackPopover(null);
+            onClearSelection?.();
           }
         }
       }
     },
-    [onEditEvent, onEditTask, onClearSelection, popover, onDeleteEntries],
+    [onEditEvent, onEditTask, onClearSelection, onDeleteEntries, selectedEntryKeys, entryLookup],
   );
 
   // Build selected entries for context menu / bulk actions

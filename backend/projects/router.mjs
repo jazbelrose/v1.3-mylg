@@ -1248,16 +1248,22 @@ const bulkPatchTasks = async (e, C, { projectId }) => {
       }
     }
 
-    const updated = await dalUpdateTaskFields({
-      ddb,
-      tableName: TASKS_TABLE,
-      projectId,
-      taskId,
-      fields: updatesObj,
-      now,
-    });
+    try {
+      const updated = await dalUpdateTaskFields({
+        ddb,
+        tableName: TASKS_TABLE,
+        projectId,
+        taskId,
+        fields: updatesObj,
+        now,
+      });
 
-    out.push(updated);
+      out.push(updated);
+    } catch (err) {
+      // Return proper status code for known errors (e.g., 404 Task not found)
+      const statusCode = err.statusCode || 500;
+      return json(statusCode, C, { error: err.message || "Failed to update task" });
+    }
   }
 
   return json(200, C, { projectId, tasks: out });
