@@ -863,7 +863,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
                         }
                         isSelected={activeRowKey === row.child.entryKey}
                         draggable={Boolean(onStartDragChild)}
-                        showDragHandle={false}
+                        showDragHandle={kind !== "overlapStack"}
                         onPointerDown={(e) => {
                           e.stopPropagation();
                           handleRowPointerDown(e, row.child);

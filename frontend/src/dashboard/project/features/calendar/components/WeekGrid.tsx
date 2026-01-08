@@ -321,6 +321,8 @@ const getWeekEntryPreview = (text: string): string => {
   return `${words.slice(0, WEEK_TITLE_WORD_LIMIT).join(" ")}…`;
 };
 
+const POPOVER_GHOST_KEY = "popover-ghost";
+
 function WeekGrid({
   anchorDate,
   events,
@@ -445,6 +447,18 @@ function WeekGrid({
     childEntryKeys: string[];
     avatars: TimelineAvatar[];
   } | null>(null);
+
+  const [popoverDragGhost, setPopoverDragGhost] = useState<
+    | null
+    | {
+        key: string;
+        title: string;
+        entryType: "task" | "event";
+        startX: number;
+        startY: number;
+        color: string;
+      }
+  >(null);
 
   // Use prop-based overlap stack titles (fetched from backend by parent)
   // Local state merges prop with any optimistic updates made during the session
@@ -1213,12 +1227,36 @@ function WeekGrid({
           end: formatTimeFromMinutes(finalEnd),
           duplicate: state.isCopyMode,
         };
+
+        // Focus Block attach/detach: if a task is dropped inside a Focus Block window,
+        // attach to that Focus Block; otherwise detach.
+        if (state.mode === "drag" && target.entry.type === "task") {
+          const taskPayload = target.entry.payload as CalendarTask;
+          const isFocusBlock = isFocusBlockTask(taskPayload);
+          if (!isFocusBlock) {
+            const targetDayKey = fmtLocal(days[newDayIndex]);
+            const focusBlocks = focusBlocksByDay.get(targetDayKey) ?? [];
+            const entryMidpoint = (finalStart + finalEnd) / 2;
+            const matchingFocus = focusBlocks.find(
+              (fb) => entryMidpoint >= fb.startMinutes && entryMidpoint < fb.endMinutes,
+            );
+
+            const nextFocusBlockId = matchingFocus
+              ? (matchingFocus.task.source?.taskId ?? matchingFocus.task.id)
+              : null;
+            const prevFocusBlockId = taskPayload.focusBlockId ?? null;
+            if (prevFocusBlockId !== nextFocusBlockId) {
+              change.focusBlockId = nextFocusBlockId;
+            }
+          }
+        }
         changes.push(change);
       });
 
       const wasDragging = isDraggingRef.current;
       interactionRef.current = null;
       setIsCopyMode(false);
+      setPopoverDragGhost(null);
       gridRef.current?.classList.remove("is-interacting");
       
       // Clear previews after a brief delay to allow visual feedback
@@ -1843,15 +1881,25 @@ function WeekGrid({
         duplicate: false,
         isCopyMode: copyMode,
         startDayIndex: dayIndex,
+        previewEntryKey: POPOVER_GHOST_KEY,
       };
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
+
+      setPopoverDragGhost({
+        key: POPOVER_GHOST_KEY,
+        title: entry.title,
+        entryType: child.entryType,
+        startX: pointerEvent.clientX,
+        startY: pointerEvent.clientY,
+        color: projectColor,
+      });
 
       // Close the popover immediately
       setStackPopover(null);
       setChildMenu(null);
     },
-    [dayIndexLookup, entryLookup],
+    [dayIndexLookup, entryLookup, projectColor],
   );
 
   /**
@@ -1860,22 +1908,57 @@ function WeekGrid({
    */
   const handleStartDragFromFocusChildPopover = useCallback(
     (task: CalendarTask, pointerEvent: React.PointerEvent<HTMLElement>) => {
-      const key = `task:${task.id}`;
-      const lookup = entryLookup.get(key);
-      if (!lookup) return;
+      const source = task.source as unknown as Record<string, unknown>;
+      const rawStartDateTime =
+        parseDateTimeCandidate(source.startAt) ??
+        parseDateTimeCandidate((source as { start_at?: unknown }).start_at) ??
+        (task.due && task.start ? buildLocalDateTime(task.due, task.start) : null);
+      if (!rawStartDateTime) return;
 
-      const { entry, dayKey } = lookup;
+      const dayKey = fmtLocal(rawStartDateTime);
       const dayIndex = dayIndexLookup.get(dayKey) ?? 0;
+      const startMinutes = minutesSinceMidnight(rawStartDateTime);
 
-      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const fallbackEndTime = task.end ?? (task.start ? addHoursToTime(task.start, 1) : undefined);
+      const rawEndDateTime =
+        parseDateTimeCandidate(source.endAt) ??
+        parseDateTimeCandidate((source as { end_at?: unknown }).end_at) ??
+        (task.due && fallbackEndTime ? buildLocalDateTime(task.due, fallbackEndTime) : null);
+      let endMinutes = rawEndDateTime
+        ? minutesSinceMidnight(rawEndDateTime)
+        : startMinutes + MINUTES_IN_HOUR;
+      if (endMinutes <= startMinutes) {
+        endMinutes = startMinutes + MINUTES_IN_HOUR;
+      }
+
+      const startLabel = (formatTimeLabel(task.start) ?? task.start) || "";
+      const endLabel = fallbackEndTime ? (formatTimeLabel(fallbackEndTime) ?? fallbackEndTime) : "";
+      const timeLabel = startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel || endLabel;
+      const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
+
+      const entry: WeekTimelineEntry = {
+        id: `task-${task.id}`,
+        type: "task",
+        payload: task,
+        title: task.title || "Untitled task",
+        timeLabel,
+        startMinutes,
+        endMinutes,
+        avatars: buildTaskAvatars(task, teamMemberLookup),
+        colorClass: undefined,
+        projectColor,
+        hour,
+      };
+
+      const durationMinutes = endMinutes - startMinutes;
       const initialHeight = minutesToPxWeek(durationMinutes);
 
       const target: InteractionTarget = {
         entry,
         dayKey,
         dayIndex,
-        startMinutes: entry.startMinutes,
-        endMinutes: entry.endMinutes,
+        startMinutes,
+        endMinutes,
         initialTop: 0,
         initialHeight,
       };
@@ -1890,14 +1973,24 @@ function WeekGrid({
         duplicate: false,
         isCopyMode: copyMode,
         startDayIndex: dayIndex,
+        previewEntryKey: POPOVER_GHOST_KEY,
       };
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
 
+      setPopoverDragGhost({
+        key: POPOVER_GHOST_KEY,
+        title: task.title || "Untitled task",
+        entryType: "task",
+        startX: pointerEvent.clientX,
+        startY: pointerEvent.clientY,
+        color: projectColor,
+      });
+
       setPopover(null);
       setChildMenu(null);
     },
-    [dayIndexLookup, entryLookup],
+    [dayIndexLookup, projectColor, teamMemberLookup],
   );
 
   // Handle single click vs double click for entries
@@ -3350,6 +3443,38 @@ function WeekGrid({
           }}
         />
       )}
+      {popoverDragGhost && (() => {
+        const transform = dragPreviewTransforms[popoverDragGhost.key];
+        const style: React.CSSProperties = {
+          position: "fixed",
+          left: popoverDragGhost.startX - 90,
+          top: popoverDragGhost.startY - 14,
+          width: 220,
+          height: 32,
+          zIndex: 9999,
+          pointerEvents: "none",
+          opacity: 0.92,
+          background: hexToRgba(popoverDragGhost.color).replace(/([\d.]+)\)$/, "0.18)"),
+          border: `1px solid ${hexToRgba(popoverDragGhost.color).replace(/([\d.]+)\)$/, "0.32)")}`,
+          transform: transform
+            ? `translate(${transform.translateX}px, ${transform.translateY}px)`
+            : undefined,
+          transition: "none",
+        };
+
+        const className = [
+          "week-grid__timeline-entry",
+          popoverDragGhost.entryType === "event"
+            ? "week-grid__timeline-entry--event"
+            : "week-grid__timeline-entry--task",
+        ].join(" ");
+
+        return (
+          <div className={className} style={style} aria-hidden>
+            <div className="week-grid__timeline-entry-title">{popoverDragGhost.title}</div>
+          </div>
+        );
+      })()}
       {createMenu && (
         <CalendarGridCreateMenu
           position={createMenu.position}
