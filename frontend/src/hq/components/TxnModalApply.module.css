@@ -114,6 +114,31 @@
   margin-bottom: 8px;
 }
 
+.similarHeaderRight {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.selectActions {
+  display: flex;
+  gap: 10px;
+}
+
+.linkButton {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .similarTitle {
   font-weight: 600;
 }
@@ -121,6 +146,61 @@
 .similarMeta {
   opacity: 0.75;
   font-size: 12px;
+}
+
+.addMore {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.addMoreTitle {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.addMoreFields {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 0.9fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.addMoreField {
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 12px;
+  outline: none;
+  font-size: 12px;
+}
+
+.addMoreField:focus {
+  border-color: rgba(250, 51, 86, 0.4);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.14);
+}
+
+.addMoreButton {
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+}
+
+.addMoreButton:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .emptyState {
@@ -138,14 +218,24 @@
 
 .similarRow {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 12px;
   padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: flex-start;
 }
 
 .similarRow:first-child {
   border-top: none;
+}
+
+.checkboxCell {
+  padding-top: 2px;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
 }
 
 .similarName {
@@ -163,6 +253,12 @@
 .similarAmt {
   font-weight: 500;
   white-space: nowrap;
+}
+
+@media (max-width: 899px) {
+  .addMoreFields {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .footer {
