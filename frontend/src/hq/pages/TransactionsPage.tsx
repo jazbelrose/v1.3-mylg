@@ -7,7 +7,6 @@ import {
   CreditCard,
   Landmark,
   Minus,
-  Repeat,
   Zap,
 } from "lucide-react";
 import HQLayout from "../components/HQLayout";
@@ -18,7 +17,8 @@ import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
-import type { HqCategoryId, HqPaymentType, HqTransaction, HqTransactionTypeLegacy } from "@/hq/types";
+import { todayPacificIsoDate } from "@/hq/lib/hqDate";
+import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import TxnModalApply from "@/hq/components/TxnModalApply";
@@ -30,12 +30,10 @@ const currency = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
 });
 
-function typeIcon(type: HqTransactionTypeLegacy): React.ReactNode {
+function typeIcon(type: HqPaymentType): React.ReactNode {
   switch (type) {
     case "card_purchase":
       return <CreditCard size={16} />;
-    case "recurring":
-      return <Repeat size={16} />;
     case "transfer":
       return <ArrowLeftRight size={16} />;
     case "zelle":
@@ -50,6 +48,29 @@ function typeIcon(type: HqTransactionTypeLegacy): React.ReactNode {
       return <Circle size={12} />;
   }
 }
+
+function addDaysIso(isoDate: string, deltaDays: number): string {
+  const [yyyy, mm, dd] = String(isoDate || "").split("-");
+  const year = Number(yyyy);
+  const monthIndex = Number(mm) - 1;
+  const day = Number(dd);
+  const base = new Date(Date.UTC(year, monthIndex, day));
+  if (!Number.isFinite(base.getTime())) return isoDate;
+  base.setUTCDate(base.getUTCDate() + deltaDays);
+  return base.toISOString().slice(0, 10);
+}
+
+function effectivePaymentType(txn: HqTransaction): HqPaymentType {
+  const paymentType = txn.paymentType;
+  if (paymentType) return paymentType;
+  const legacy = String(txn.type || "unknown").trim();
+  // Legacy stored `type: "recurring"` should not be treated as a payment type.
+  if (legacy === "recurring") return "unknown";
+  return legacy as HqPaymentType;
+}
+
+type RecurringFilter = "all" | "confirmed" | "candidates";
+type DateRangePreset = "all" | "7d" | "30d" | "90d" | "month" | "ytd";
 
 function txnTitle(txn: HqTransaction) {
   return txn.vendor || txn.counterparty || txn.rawDescription;
@@ -70,9 +91,10 @@ const TransactionsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [accountId, setAccountId] = React.useState<string>("all");
   const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
-  const [txnType, setTxnType] = React.useState<"all" | HqTransactionTypeLegacy>("all");
-  const [recurringOnly, setRecurringOnly] = React.useState(false);
+  const [paymentType, setPaymentType] = React.useState<"all" | HqPaymentType>("all");
+  const [recurringFilter, setRecurringFilter] = React.useState<RecurringFilter>("all");
   const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
+  const [dateRange, setDateRange] = React.useState<DateRangePreset>("all");
   const [startDate, setStartDate] = React.useState<string>("");
   const [endDate, setEndDate] = React.useState<string>("");
   const [isImportOpen, setIsImportOpen] = React.useState(false);
@@ -95,14 +117,76 @@ const TransactionsPage: React.FC = () => {
     const filter = params.get("filter");
     const q = params.get("q");
     const type = params.get("type");
+    const recurring = params.get("recurring");
     if (typeof q === "string" && q.length) setSearchTerm(q);
-    if (type && type !== "all") setTxnType(type as HqTransactionTypeLegacy);
+
+    const allowedPaymentTypes: Array<HqPaymentType> = [
+      "card_purchase",
+      "transfer",
+      "zelle",
+      "wire",
+      "deposit",
+      "fee",
+      "unknown",
+    ];
+    if (type && type !== "all" && allowedPaymentTypes.includes(type as HqPaymentType)) {
+      setPaymentType(type as HqPaymentType);
+    }
+
+    if (recurring === "confirmed" || recurring === "candidates" || recurring === "all") {
+      setRecurringFilter(recurring as RecurringFilter);
+    } else if (filter === "recurring") {
+      // Backward-compat for old links.
+      setRecurringFilter("confirmed");
+    } else if (filter === "recurringCandidate") {
+      setRecurringFilter("candidates");
+    }
+
     if (filter === "uncategorized") {
       setCategoryId("UNCATEGORIZED");
     }
-    setRecurringOnly(filter === "recurring");
-    if (filter === "recurring") setDirection("out");
+
+    if ((filter === "recurring" || filter === "recurringCandidate" || recurring === "confirmed" || recurring === "candidates") && direction === "all") {
+      setDirection("out");
+    }
   }, [location.search]);
+
+  React.useEffect(() => {
+    const today = todayPacificIsoDate();
+    if (dateRange === "all") {
+      setStartDate("");
+      setEndDate("");
+      return;
+    }
+
+    if (dateRange === "7d") {
+      setStartDate(addDaysIso(today, -6));
+      setEndDate(today);
+      return;
+    }
+
+    if (dateRange === "30d") {
+      setStartDate(addDaysIso(today, -29));
+      setEndDate(today);
+      return;
+    }
+
+    if (dateRange === "90d") {
+      setStartDate(addDaysIso(today, -89));
+      setEndDate(today);
+      return;
+    }
+
+    if (dateRange === "month") {
+      setStartDate(`${today.slice(0, 7)}-01`);
+      setEndDate(today);
+      return;
+    }
+
+    // YTD
+    setStartDate(`${today.slice(0, 4)}-01-01`);
+    setEndDate(today);
+  }, [dateRange]);
 
   const accountsById = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -119,10 +203,11 @@ const TransactionsPage: React.FC = () => {
       if (direction === "in" && txn.amount < 0) return false;
       if (direction === "out" && txn.amount >= 0) return false;
 
-      if (recurringOnly && txn.isRecurring !== true) return false;
+      if (recurringFilter === "confirmed" && txn.isRecurring !== true) return false;
+      if (recurringFilter === "candidates" && !(txn.recurringCandidate === true && txn.isRecurring !== true)) return false;
 
-      const effectiveType = (txn.paymentType || txn.type || "unknown") as HqTransactionTypeLegacy;
-      if (txnType !== "all" && effectiveType !== txnType) return false;
+      const effectiveType = effectivePaymentType(txn);
+      if (paymentType !== "all" && effectiveType !== paymentType) return false;
 
       if (categoryId === "UNCATEGORIZED") {
         if (txn.categoryId && txn.categoryId !== "OTHER") return false;
@@ -137,7 +222,7 @@ const TransactionsPage: React.FC = () => {
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [accountId, categoryId, direction, endDate, recurringOnly, searchTerm, startDate, transactions, txnType]);
+  }, [accountId, categoryId, direction, endDate, paymentType, recurringFilter, searchTerm, startDate, transactions]);
 
   const actions = (
     <div className={styles.actions}>
@@ -157,7 +242,6 @@ const TransactionsPage: React.FC = () => {
   return (
     <HQLayout
       title="Transactions"
-      description="Your ledger. Search, filter, and categorize — re-importing CSVs safely skips duplicates."
       actions={actions}
     >
       <div className={styles.page}>
@@ -190,21 +274,32 @@ const TransactionsPage: React.FC = () => {
             onValueChange={(v) => setDirection(v as "all" | "in" | "out")}
             ariaLabel="Filter by direction"
             options={[
-              { value: "all", label: "In + Out" },
-              { value: "out", label: "Outflow" },
-              { value: "in", label: "Inflow" },
+              { value: "all", label: "Flow: In + Out" },
+              { value: "out", label: "Flow: Out" },
+              { value: "in", label: "Flow: In" },
             ]}
           />
 
           <HqSelect
             className={styles.filterField}
-            value={txnType}
-            onValueChange={(v) => setTxnType(v as "all" | HqTransactionTypeLegacy)}
-            ariaLabel="Filter by type"
+            value={recurringFilter}
+            onValueChange={(v) => setRecurringFilter(v as RecurringFilter)}
+            ariaLabel="Filter by recurring"
             options={[
-              { value: "all", label: "All types" },
+              { value: "all", label: "Recurring: All" },
+              { value: "confirmed", label: "Recurring: Confirmed" },
+              { value: "candidates", label: "Recurring: Candidates" },
+            ]}
+          />
+
+          <HqSelect
+            className={styles.filterField}
+            value={paymentType}
+            onValueChange={(v) => setPaymentType(v as "all" | HqPaymentType)}
+            ariaLabel="Filter by payment type"
+            options={[
+              { value: "all", label: "All payment types" },
               { value: "card_purchase", label: "Card purchase" },
-              { value: "recurring", label: "Legacy recurring (hint)" },
               { value: "transfer", label: "Transfer" },
               { value: "zelle", label: "Zelle" },
               { value: "wire", label: "Wire" },
@@ -226,19 +321,20 @@ const TransactionsPage: React.FC = () => {
               { value: "UNCATEGORIZED", label: "Uncategorized" },
             ]}
           />
-          <input
+
+          <HqSelect
             className={styles.filterField}
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            aria-label="Start date"
-          />
-          <input
-            className={styles.filterField}
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            aria-label="End date"
+            value={dateRange}
+            onValueChange={(v) => setDateRange(v as DateRangePreset)}
+            ariaLabel="Filter by date range"
+            options={[
+              { value: "all", label: "Date: All time" },
+              { value: "7d", label: "Date: Last 7d" },
+              { value: "30d", label: "Date: Last 30d" },
+              { value: "90d", label: "Date: Last 90d" },
+              { value: "month", label: "Date: This month" },
+              { value: "ytd", label: "Date: YTD" },
+            ]}
           />
         </div>
 
@@ -257,6 +353,7 @@ const TransactionsPage: React.FC = () => {
               const accountLabel = accountsById.get(txn.accountId) || "Account";
               const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
               const directionClass = txn.amount < 0 ? styles.out : styles.in;
+              const iconType = effectivePaymentType(txn);
               return (
                 <div
                   key={txn.dedupeHash}
@@ -279,7 +376,7 @@ const TransactionsPage: React.FC = () => {
                 >
                   <div className={styles.txnCell}>
                     <div className={styles.icon} aria-hidden>
-                      {typeIcon(txn.type)}
+                      {typeIcon(iconType)}
                     </div>
                     <div className={styles.txnMain}>
                       <div className={styles.txnTitle}>{txnTitle(txn)}</div>
