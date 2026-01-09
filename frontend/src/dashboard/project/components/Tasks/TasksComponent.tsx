@@ -6,6 +6,11 @@ import { fetchTasks, requestTaskReview, approveTask } from "@/shared/utils/api";
 import { useUser } from "@/app/contexts/useUser";
 import { notify } from "@/shared/ui/ToastNotifications";
 import CalendarTaskDrawer from "@/dashboard/project/features/calendar/components/CalendarTaskDrawer";
+import type {
+  QuickCreateTaskModalProject,
+  QuickCreateTaskModalTask,
+  TaskNoteAttachment,
+} from "@/dashboard/home/components/QuickCreateTaskModal";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -217,6 +222,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
   const [taskToEdit, setTaskToEdit] = useState<QuickCreateTaskModalTask | null>(null);
   const [viewportHeight, setViewportHeight] = useState(() => getViewportHeight());
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [, setMapFocus] = useState<{ lat: number; lng: number } | null>(null);
   const [markingTaskIds, setMarkingTaskIds] = useState<Set<string>>(() => new Set());
   const drawerTaskListRef = useRef<HTMLUListElement | null>(null);
   const initialScrollDoneRef = useRef(false);

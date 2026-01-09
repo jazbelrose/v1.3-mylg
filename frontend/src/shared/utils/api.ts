@@ -126,7 +126,11 @@ export interface Task extends JsonRecord {
     isPrimary?: boolean;
   }>;
   status?: 'todo' | 'in_progress' | 'in_review' | 'needs_changes' | 'done' | 'archived';
-  assigneeId?: string;
+  /**
+   * Assignment token (`<name>__<userId>`) or null to explicitly clear.
+   * Note: undefined is treated as "no change" in PATCH payloads.
+   */
+  assigneeId?: string | null;
   assigneeIds?: string[];
   assigneeTokens?: string[];
   dueDate?: string; // ISO

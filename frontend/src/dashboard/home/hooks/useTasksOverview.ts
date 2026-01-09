@@ -72,7 +72,7 @@ export type TasksOverviewListItem = {
   timeLabel?: string;
   completedTimeLabel?: string;
   description?: string;
-  assigneeId?: string;
+  assigneeId?: string | null;
   address?: string;
   location?: QuickCreateTaskLocation;
   dueDateInput?: string | null;

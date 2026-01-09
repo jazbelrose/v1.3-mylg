@@ -58,6 +58,7 @@ type SerializedImageNode = {
   width: number;
   height: number;
   clipPath: string;
+  border?: { enabled: boolean; width: number; color: string };
 };
 
 type SerializedResizableImageNode = {
@@ -173,6 +174,9 @@ export default function ImageCopyPastePlugin(): null {
                     width: data.width ?? 300,
                     height: data.height ?? 200,
                     clipPath: (data as SerializedImageNode).clipPath ?? "none",
+                    border:
+                      (data as unknown as { border?: { enabled: boolean; width: number; color: string } }).border ??
+                      { enabled: false, width: 2, color: "#ffffff" },
                   });
                 }
                 if (item.type === "resizable-image") {

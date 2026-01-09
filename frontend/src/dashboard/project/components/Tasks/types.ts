@@ -24,7 +24,7 @@ export interface ApiTask {
   comments?: string;
   budgetItemId?: string | null;
   status?: Status;
-  assigneeId?: string;
+  assigneeId?: string | null;
   assignedTo?: string;
   dueDate?: string;
   priority?: string;
@@ -38,7 +38,7 @@ export interface Task {
   taskId?: string;
   projectId: string;
   name: string;
-  assigneeId?: string;
+  assigneeId?: string | null;
   assignedTo?: string;
   dueDate?: string;
   priority?: string;

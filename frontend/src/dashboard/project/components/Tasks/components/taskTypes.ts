@@ -13,7 +13,7 @@ export type RawTask = {
   dueDate?: string | number | Date;
   due_date?: string | number | Date;
   due?: string | number | Date;
-  assigneeId?: string;
+  assigneeId?: string | null;
   assignedTo?: string;
   location?: unknown;
   address?: string;

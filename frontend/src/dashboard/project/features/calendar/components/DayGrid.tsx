@@ -1549,9 +1549,7 @@ function DayGrid({
                 if (isFocusBlock) {
                   return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
                 }
-                const focusDone = isFocusBlock && focusMeter ? focusMeter.done === focusMeter.total : false;
-                const resolvedDone = isFocusBlock ? focusDone : Boolean(entry.completed);
-                return resolvedDone ? (
+                return Boolean(entry.completed) ? (
                   <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                 ) : (
                   <Square className="week-grid__task-icon-svg" aria-hidden />

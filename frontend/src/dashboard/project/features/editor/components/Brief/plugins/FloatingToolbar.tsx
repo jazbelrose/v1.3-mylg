@@ -245,7 +245,10 @@ const FloatingToolbar: React.FC<Props> = ({ editorRef }) => {
       if (node && $isSvgNode(node)) {
         const parent = node.getParent();
         if (parent) {
-          parent.insertBefore(node, parent.getFirstChild());
+          const firstChild = parent.getFirstChild();
+          if (firstChild && firstChild !== node) {
+            firstChild.insertBefore(node);
+          }
         }
       }
     });

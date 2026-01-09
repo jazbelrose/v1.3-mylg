@@ -398,7 +398,6 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
             fileInputRef={fileInputRef}
             onFileSelect={handleFileSelect}
             onToggleSelectMode={toggleSelectMode}
-            onConfirmSelection={onConfirmSelection}
             onBulkDownload={handleBulkDownload}
             onDeleteSelected={handleDelete}
             onCancelSelection={() => {

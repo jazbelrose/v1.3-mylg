@@ -827,6 +827,10 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
             if (!origin) {
               return;
             }
+            if (typeof origin !== "object") {
+              return;
+            }
+            const originPoint = origin as { x: number; y: number; rotation: number };
             const targetNode = $getNodeByKey(key as string);
             if (!targetNode) {
               return;
@@ -836,8 +840,8 @@ export default function TextBoxTransformPlugin({ scale = 1 }: { scale?: number }
                 return;
               }
             }
-            const nextX = origin.x + dx;
-            const nextY = origin.y + dy;
+            const nextX = originPoint.x + dx;
+            const nextY = originPoint.y + dy;
             if (targetNode instanceof TextBoxNode) {
               targetNode.setPosition(nextX, nextY);
             } else if (targetNode instanceof ResizableImageNode) {

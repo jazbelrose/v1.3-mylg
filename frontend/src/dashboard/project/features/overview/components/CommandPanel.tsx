@@ -60,7 +60,7 @@ export interface TimelineTask {
   status?: string;
   done?: boolean;
   assignedTo?: string;
-  assigneeId?: string;
+  assigneeId?: string | null;
   assigneeIds?: string[];
   assigneeTokens?: string[];
   isOverdue?: boolean;

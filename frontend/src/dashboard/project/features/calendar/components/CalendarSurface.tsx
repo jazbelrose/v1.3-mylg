@@ -1989,8 +1989,10 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   );
 
   const buildAssigneeToken = useCallback(
-    (userId: string | null): string | undefined => {
-      if (!userId) return undefined;
+    (userId: string | null): string | null => {
+      // IMPORTANT: `null` is the explicit "clear" value for assigneeId.
+      // Using `undefined` would omit the field in JSON and may not persist an unassign.
+      if (!userId) return null;
       const member = teamMembers?.find((m) => m.userId === userId);
       const compactName = `${member?.firstName ?? ""}${member?.lastName ?? ""}`.replace(/\s+/g, "");
       const safeName = (compactName || userId).replace(/\s+/g, "");

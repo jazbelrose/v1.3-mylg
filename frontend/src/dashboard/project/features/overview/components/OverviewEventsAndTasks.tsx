@@ -50,7 +50,7 @@ interface RawTask {
   endAt?: string | null;
   status?: string;
   assignedTo?: string | { name?: string; email?: string }[];
-  assigneeId?: string;
+  assigneeId?: string | null;
   assigneeIds?: string[];
   assigneeTokens?: string[];
   address?: string;

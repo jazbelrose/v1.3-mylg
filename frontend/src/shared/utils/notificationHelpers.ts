@@ -5,7 +5,12 @@
  * Regular edits should NOT use these - they go to Activity automatically.
  */
 
-import type { WebSocket } from 'ws';
+type WebSocketLike = {
+  readyState: number;
+  send: (data: string) => void;
+};
+
+const WS_READY_STATE_OPEN = 1;
 
 // ============================================================================
 // TYPES
@@ -77,10 +82,10 @@ export function isNotifiable(type: string): type is NotificationType {
  * Create a notification via WebSocket
  */
 export function createNotification(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: CreateNotificationParams
 ): boolean {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
+  if (!ws || ws.readyState !== WS_READY_STATE_OPEN) {
     console.warn('[createNotification] WebSocket not ready');
     return false;
   }
@@ -110,7 +115,7 @@ export function createNotification(
  * Notify user when they are @mentioned
  */
 export function notifyMention(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     senderName: string;
@@ -141,7 +146,7 @@ export function notifyMention(
  * Notify user when a deck is shared with them
  */
 export function notifyShare(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     senderName: string;
@@ -169,7 +174,7 @@ export function notifyShare(
  * Notify user when review is requested
  */
 export function notifyReviewRequest(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     senderName: string;
@@ -197,7 +202,7 @@ export function notifyReviewRequest(
  * Notify user when a deck is published
  */
 export function notifyPublish(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     senderName: string;
@@ -225,7 +230,7 @@ export function notifyPublish(
  * Notify user of a failure (export, publish, sync)
  */
 export function notifyFailure(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     projectId: string;
@@ -260,7 +265,7 @@ export function notifyFailure(
  * Notify user when a comment is resolved/reopened
  */
 export function notifyCommentStatus(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     senderName: string;
@@ -288,7 +293,7 @@ export function notifyCommentStatus(
  * Notify user when a task is assigned to them
  */
 export function notifyTaskAssigned(
-  ws: WebSocket | null,
+  ws: WebSocketLike | null,
   params: {
     recipientId: string;
     senderName: string;

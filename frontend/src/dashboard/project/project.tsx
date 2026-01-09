@@ -68,7 +68,7 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
       startAt: task.startAt as string | null | undefined,
       endAt: task.endAt as string | null | undefined,
       address: task.address as string | undefined,
-      assigneeId: task.assigneeId as string | undefined,
+      assigneeId: task.assigneeId as string | null | undefined,
       assigneeIds: task.assigneeIds as string[] | undefined,
       assigneeTokens: task.assigneeTokens as string[] | undefined,
     };

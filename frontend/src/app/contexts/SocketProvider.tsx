@@ -143,21 +143,21 @@ function mergeSlides(existingSlides: unknown, incomingSlides: unknown): unknown 
   return merged;
 }
 
-function mergeProjectFields(prev: unknown, fields: unknown, versionId?: unknown): unknown {
+function mergeProjectFields<T>(prev: T, fields: unknown, versionId?: unknown): T {
   if (!isRecord(fields)) return prev;
   if (versionId) {
     return prev;
   }
   if (!("slides" in fields)) {
-    const base = isRecord(prev) ? prev : {};
-    return { ...base, ...fields };
+    const base = (isRecord(prev) ? prev : {}) as Record<string, unknown>;
+    return { ...base, ...fields } as T;
   }
 
-  const base = isRecord(prev) ? prev : {};
+  const base = (isRecord(prev) ? prev : {}) as Record<string, unknown>;
   const mergedSlides = mergeSlides(base.slides, fields.slides);
-  const rest = { ...fields };
+  const rest = { ...fields } as Record<string, unknown>;
   delete rest.slides;
-  return { ...base, ...rest, slides: mergedSlides };
+  return { ...base, ...rest, slides: mergedSlides } as T;
 }
 
 export const SocketProvider: React.FC<React.PropsWithChildren> = ({ children }) => {

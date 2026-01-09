@@ -49,7 +49,7 @@ export interface TimelineItem {
   isAllDay: boolean;
   status?: string;
   assignee?: string;
-  assigneeId?: string;
+  assigneeId?: string | null;
   dueLabel?: 'overdue' | 'due-today' | 'due-soon' | null;
   hasConflict?: boolean;
   conflictSeverity?: 'hard' | 'soft';
