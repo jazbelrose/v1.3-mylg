@@ -461,9 +461,10 @@ const HQOverview: React.FC = () => {
         // Common during dev: backend not redeployed yet -> endpoint returns 404.
         // Fall back to local cache so HQ stays usable.
         if (String(msg).includes("404")) {
-          const local = computeTopCategories(transactions, topCategoriesWindow.start, topCategoriesWindow.end)
-            .slice(0, 8)
-            .map((x) => ({ categoryId: x.categoryId, amount: x.amount }));
+          const local = computeTopCategories(transactions, topCategoriesWindow.start, topCategoriesWindow.end, {
+            direction: "out",
+            limit: 8,
+          }).map((x) => ({ categoryId: x.categoryId, amount: x.amount }));
           setTopCategoriesData({
             orgId: activeOrgId,
             range: topCategoriesRange,

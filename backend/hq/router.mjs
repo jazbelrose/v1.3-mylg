@@ -613,7 +613,7 @@ const getTopCategories = async (e, C) => {
       ExpressionAttributeValues: {
         ":o": orgId,
         ":from": `TXN#${startDate}`,
-        ":to": `TXN#${endDate}#~`,
+        ":to": `TXN#${endDate}~`,
       },
       ExclusiveStartKey: lastKey,
     });
@@ -692,7 +692,7 @@ const getRecurringCommitments = async (e, C) => {
       ExpressionAttributeValues: {
         ":o": orgId,
         ":from": `TXN#${startDate}`,
-        ":to": `TXN#${endDate}#~`,
+        ":to": `TXN#${endDate}~`,
       },
       ExclusiveStartKey: lastKey,
     });
@@ -1235,7 +1235,7 @@ const getBalanceSeries = async (e, C) => {
       ExpressionAttributeValues: {
         ":o": orgId,
         ":from": `TXN#${startDate}`,
-        ":to": `TXN#${endDate}#~`,
+        ":to": `TXN#${endDate}~`,
       },
       ExclusiveStartKey: lastKey,
     });

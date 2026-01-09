@@ -262,23 +262,34 @@ export function computeMonthlyFlow(transactions: HqTransaction[], start: string,
 export function computeTopCategories(
   transactions: HqTransaction[],
   start: string,
-  end: string
-): Array<{ categoryId: HqCategoryId; amount: number }> {
-  const totals: Partial<Record<HqCategoryId, number>> = {};
+  end: string,
+  options?: { direction?: "out" | "in" | "net"; limit?: number }
+): Array<{ categoryId: string; amount: number }> {
+  const direction = options?.direction === "in" ? "in" : options?.direction === "net" ? "net" : "out";
+  const limit = typeof options?.limit === "number" ? options.limit : 8;
+
+  const totals: Record<string, number> = {};
 
   for (const txn of transactions) {
     const postedAt = String(txn.postedAt || "").slice(0, 10);
     if (!postedAt || postedAt < start || postedAt > end) continue;
     if (txn.isInternalTransfer) continue;
     const signed = canonicalSignedAmount(txn);
-    if (typeof signed !== "number" || !Number.isFinite(signed) || signed >= 0) continue;
-    const category = txn.categoryId || "OTHER";
-    if (category === "TRANSFERS") continue;
-    totals[category] = (totals[category] || 0) + Math.abs(signed);
+    if (typeof signed !== "number" || !Number.isFinite(signed) || signed === 0) continue;
+
+    if (direction === "out" && signed >= 0) continue;
+    if (direction === "in" && signed <= 0) continue;
+
+    const categoryId = txn.categoryId ? String(txn.categoryId) : "OTHER";
+    if (categoryId === "TRANSFERS") continue;
+
+    const add = direction === "out" ? Math.abs(signed) : direction === "in" ? signed : signed;
+    totals[categoryId] = Math.round(((totals[categoryId] || 0) + add) * 100) / 100;
   }
 
   return Object.entries(totals)
-    .map(([categoryId, amount]) => ({ categoryId: categoryId as HqCategoryId, amount: Math.round((amount as number) * 100) / 100 }))
+    .map(([categoryId, amount]) => ({ categoryId, amount: Math.round((amount as number) * 100) / 100 }))
+    .filter((x) => Number.isFinite(x.amount) && x.amount !== 0)
     .sort((a, b) => b.amount - a.amount)
-    .slice(0, 6);
+    .slice(0, Math.max(1, limit));
 }
