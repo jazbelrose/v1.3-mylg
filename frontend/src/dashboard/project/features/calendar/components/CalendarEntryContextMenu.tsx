@@ -150,6 +150,15 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     return Boolean(task.start || task.end);
   }, [entry, entryType, isFocusBlock]);
 
+  // For multi-select, check if we have any tasks that can be actioned
+  const actionableTasks = useMemo(
+    () =>
+      effectiveEntries
+        .filter((e) => e.entryType === "task")
+        .map((e) => e.entry as CalendarTask),
+    [effectiveEntries]
+  );
+
   const selectedTimeBlocks = useMemo(() => {
     const isTaskFocusBlock = (task: CalendarTask) => {
       if (task.kind === "focus_block") return true;
@@ -164,15 +173,6 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       return Boolean(task.start || task.end);
     });
   }, [actionableTasks]);
-
-  // For multi-select, check if we have any tasks that can be actioned
-  const actionableTasks = useMemo(
-    () =>
-      effectiveEntries
-        .filter((e) => e.entryType === "task")
-        .map((e) => e.entry as CalendarTask),
-    [effectiveEntries]
-  );
   
   const tasksForReview = useMemo(
     () => actionableTasks.filter((t) => t.status !== "in_review" && t.status !== "done"),
