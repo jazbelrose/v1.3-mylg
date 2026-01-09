@@ -37,6 +37,26 @@ const B = (e) => {
 
 const nowISO = () => new Date().toISOString();
 
+// Normalize API Gateway path differences across REST API (stage prefix) vs HTTP API,
+// and across deployments that may mount this router at either `/hq/*` or `/*`.
+const normalizePathForRoutes = (event) => {
+  let path = String(P(event) || "/");
+
+  const stage = String(event?.requestContext?.stage || "").trim();
+  if (stage && path.startsWith(`/${stage}/`)) {
+    path = path.slice(stage.length + 1);
+  }
+
+  // If this router is mounted at the API root, requests might come in as `/import-csv`.
+  // Our route table expects `/hq/import-csv`.
+  if (path === "/") return "/hq";
+  if (!path.startsWith("/hq")) {
+    path = `/hq${path.startsWith("/") ? "" : "/"}${path}`;
+  }
+
+  return path;
+};
+
 const decodeCursor = (raw) => {
   if (!raw) return undefined;
   try {
@@ -54,6 +74,13 @@ const skAccount = (accountId) => `ACCOUNT#${accountId}`;
 const skImport = (createdAt, importRunId) => `IMPORT#${createdAt}#${importRunId}`;
 const skTxn = (postedAt, dedupeHash) => `TXN#${postedAt}#${dedupeHash}`;
 const skRule = (ruleId) => `RULE#${ruleId}`;
+
+// HQ derived storage
+const skHqHeader = () => "HQHDR#v1";
+const skLedgerDay = (date) => `LEDGER#${date}`; // date=YYYY-MM-DD
+const skLedgerDayAccount = (accountId, date) => `LEDGERA#${accountId}#${date}`;
+
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 const chunk = (arr, n = 25) => {
   const out = [];
@@ -472,6 +499,417 @@ const canonicalSignedAmount = (t) => {
   return amt;
 };
 
+const queryAllByPrefix = async ({ orgId, prefix }) => {
+  const items = [];
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": prefix },
+      ExclusiveStartKey: lastKey,
+    });
+    for (const item of page.Items || []) items.push(item);
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+  return items;
+};
+
+const queryAllBetween = async ({ orgId, fromSk, toSk, scanIndexForward }) => {
+  const items = [];
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :a AND :b",
+      ExpressionAttributeValues: { ":o": orgId, ":a": fromSk, ":b": toSk },
+      ScanIndexForward: typeof scanIndexForward === "boolean" ? scanIndexForward : true,
+      ExclusiveStartKey: lastKey,
+    });
+    for (const item of page.Items || []) items.push(item);
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+  return items;
+};
+
+const hasAnyByPrefix = async ({ orgId, prefix }) => {
+  const res = await ddb.query({
+    TableName: HQ_TABLE,
+    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+    ExpressionAttributeValues: { ":o": orgId, ":p": prefix },
+    ScanIndexForward: true,
+    Limit: 1,
+  });
+  return Boolean((res.Items || []).length);
+};
+
+const deleteByPrefix = async ({ orgId, prefix }) => {
+  let deleted = 0;
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": prefix },
+      ExclusiveStartKey: lastKey,
+    });
+
+    const deletes = (page.Items || []).map((it) => ({ DeleteRequest: { Key: { orgId, sk: it.sk } } }));
+    for (const batch of chunk(deletes, 25)) {
+      await ddb.batchWrite({ RequestItems: { [HQ_TABLE]: batch } });
+      deleted += batch.length;
+    }
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+  return deleted;
+};
+
+const computeAccountBalanceFromLedger = async ({ orgId, accountId, anchorDate, anchorBalance, today }) => {
+  if (!anchorDate || typeof anchorBalance !== "number" || !Number.isFinite(anchorBalance)) return null;
+  const from = addDaysIso(anchorDate, 1);
+  if (from > today) return round2(anchorBalance);
+
+  const rows = await queryAllBetween({
+    orgId,
+    fromSk: skLedgerDayAccount(accountId, from),
+    toSk: skLedgerDayAccount(accountId, today),
+    scanIndexForward: true,
+  });
+
+  let net = 0;
+  for (const r of rows) {
+    const inflow = typeof r.inflow === "number" ? r.inflow : Number(r.inflow);
+    const outflow = typeof r.outflow === "number" ? r.outflow : Number(r.outflow);
+    net += (Number.isFinite(inflow) ? inflow : 0) - (Number.isFinite(outflow) ? outflow : 0);
+  }
+  return round2(anchorBalance + net);
+};
+
+const recomputeHqHeaderFromLedger = async ({ orgId, nowIso }) => {
+  const today = todayIsoInTimeZone();
+
+  const allAccounts = await queryAllByPrefix({ orgId, prefix: "ACCOUNT#" });
+  const includedAccounts = (allAccounts || []).filter((a) => !a.archivedAt && a.includeInCashOnHand !== false);
+
+  const missingAnchorAccountIds = includedAccounts
+    .filter((a) => !(a.anchorDate && typeof a.anchorBalance === "number"))
+    .map((a) => a.accountId)
+    .filter(Boolean);
+
+  let cashOnHandAggregate = null;
+  const anchoredIncluded = includedAccounts.filter((a) => a.anchorDate && typeof a.anchorBalance === "number");
+  if (anchoredIncluded.length) {
+    let total = 0;
+    for (const a of anchoredIncluded) {
+      const currentBalance = typeof a.currentBalance === "number" ? a.currentBalance : null;
+      if (typeof currentBalance === "number" && Number.isFinite(currentBalance)) {
+        total += currentBalance;
+        continue;
+      }
+      const computed = await computeAccountBalanceFromLedger({
+        orgId,
+        accountId: a.accountId,
+        anchorDate: String(a.anchorDate).slice(0, 10),
+        anchorBalance: Number(a.anchorBalance),
+        today,
+      });
+      if (typeof computed === "number" && Number.isFinite(computed)) total += computed;
+    }
+    cashOnHandAggregate = round2(total);
+  }
+
+  const yearStart = `${today.slice(0, 4)}-01-01`;
+  const ytdRows = await queryAllBetween({ orgId, fromSk: skLedgerDay(yearStart), toSk: skLedgerDay(today), scanIndexForward: true });
+
+  let ytdInflow = 0;
+  let ytdOutflow = 0;
+  for (const r of ytdRows) {
+    const inflow = typeof r.inflow === "number" ? r.inflow : Number(r.inflow);
+    const outflow = typeof r.outflow === "number" ? r.outflow : Number(r.outflow);
+    ytdInflow += Number.isFinite(inflow) ? inflow : 0;
+    ytdOutflow += Number.isFinite(outflow) ? outflow : 0;
+  }
+  ytdInflow = round2(ytdInflow);
+  ytdOutflow = round2(ytdOutflow);
+  const ytdNet = round2(ytdInflow - ytdOutflow);
+
+  const currentMonthStart = `${today.slice(0, 7)}-01`;
+  const currentMonthStartDate = isoToDate(currentMonthStart);
+  currentMonthStartDate.setUTCMonth(currentMonthStartDate.getUTCMonth() - 3);
+  const trailingStart = dateToIso(currentMonthStartDate);
+  const trailingEnd = addDaysIso(currentMonthStart, -1);
+
+  let trailing3FullMonthsOutflow = 0;
+  if (trailingStart <= trailingEnd) {
+    const trailingRows = await queryAllBetween({
+      orgId,
+      fromSk: skLedgerDay(trailingStart),
+      toSk: skLedgerDay(trailingEnd),
+      scanIndexForward: true,
+    });
+    for (const r of trailingRows) {
+      const outflow = typeof r.outflow === "number" ? r.outflow : Number(r.outflow);
+      trailing3FullMonthsOutflow += Number.isFinite(outflow) ? outflow : 0;
+    }
+  }
+  trailing3FullMonthsOutflow = round2(trailing3FullMonthsOutflow);
+
+  const header = {
+    orgId,
+    sk: skHqHeader(),
+    entityType: "hqHeader",
+    updatedAt: nowIso,
+    cashOnHandAggregate,
+    missingAnchorAccountIds,
+    ytdInflow,
+    ytdOutflow,
+    ytdNet,
+    trailing3FullMonthsOutflow,
+  };
+
+  await ddb.put({ TableName: HQ_TABLE, Item: header });
+  return header;
+};
+
+const updateLedgerFromImportedTxns = async ({ orgId, accountId, txns, account, nowIso }) => {
+  const dayOrg = new Map();
+  const dayAcct = new Map();
+  let deltaAfterAnchor = 0;
+
+  const anchorDate = account?.anchorDate ? String(account.anchorDate).slice(0, 10) : "";
+  const hasAnchor = anchorDate && typeof account?.anchorBalance === "number";
+
+  for (const t of txns) {
+    const postedAt = String(t.postedAt || "").slice(0, 10);
+    if (!postedAt) continue;
+
+    const signed = canonicalSignedAmount(t);
+    if (typeof signed !== "number" || !Number.isFinite(signed)) continue;
+
+    const inflow = signed > 0 ? signed : 0;
+    const outflow = signed < 0 ? Math.abs(signed) : 0;
+
+    const o = dayOrg.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+    o.inflow += inflow;
+    o.outflow += outflow;
+    o.txCount += 1;
+    dayOrg.set(postedAt, o);
+
+    const a = dayAcct.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+    a.inflow += inflow;
+    a.outflow += outflow;
+    a.txCount += 1;
+    dayAcct.set(postedAt, a);
+
+    if (hasAnchor && postedAt > anchorDate) deltaAfterAnchor += signed;
+  }
+
+  const updates = [];
+  for (const [date, agg] of dayOrg.entries()) {
+    updates.push(() =>
+      ddb.update({
+        TableName: HQ_TABLE,
+        Key: { orgId, sk: skLedgerDay(date) },
+        UpdateExpression:
+          "SET entityType = if_not_exists(entityType, :et), date = if_not_exists(date, :d), updatedAt = :u " +
+          "ADD inflow :in, outflow :out, txCount :n",
+        ExpressionAttributeValues: {
+          ":et": "hqLedgerDay",
+          ":d": date,
+          ":u": nowIso,
+          ":in": round2(agg.inflow),
+          ":out": round2(agg.outflow),
+          ":n": agg.txCount,
+        },
+      })
+    );
+  }
+
+  for (const [date, agg] of dayAcct.entries()) {
+    updates.push(() =>
+      ddb.update({
+        TableName: HQ_TABLE,
+        Key: { orgId, sk: skLedgerDayAccount(accountId, date) },
+        UpdateExpression:
+          "SET entityType = if_not_exists(entityType, :et), date = if_not_exists(date, :d), accountId = if_not_exists(accountId, :a), updatedAt = :u " +
+          "ADD inflow :in, outflow :out, txCount :n",
+        ExpressionAttributeValues: {
+          ":et": "hqLedgerDayAccount",
+          ":d": date,
+          ":a": accountId,
+          ":u": nowIso,
+          ":in": round2(agg.inflow),
+          ":out": round2(agg.outflow),
+          ":n": agg.txCount,
+        },
+      })
+    );
+  }
+
+  for (const batch of chunk(updates, 25)) {
+    await Promise.all(batch.map((fn) => fn()));
+  }
+
+  if (hasAnchor && Number.isFinite(deltaAfterAnchor)) {
+    await ddb.update({
+      TableName: HQ_TABLE,
+      Key: { orgId, sk: skAccount(accountId) },
+      UpdateExpression: "SET currentBalance = if_not_exists(currentBalance, :init) + :d, updatedAt = :u",
+      ExpressionAttributeValues: {
+        ":init": Number(account.anchorBalance),
+        ":d": round2(deltaAfterAnchor),
+        ":u": nowIso,
+      },
+    });
+  }
+};
+
+const rebuildLedgerAndHeaderFromTxns = async ({ orgId, deleteExistingLedger = false }) => {
+  const nowIso = nowISO();
+
+  if (deleteExistingLedger) {
+    await deleteByPrefix({ orgId, prefix: "LEDGER#" });
+    await deleteByPrefix({ orgId, prefix: "LEDGERA#" });
+    await ddb.delete({ TableName: HQ_TABLE, Key: { orgId, sk: skHqHeader() } }).catch(() => {});
+  }
+
+  const accounts = await queryAllByPrefix({ orgId, prefix: "ACCOUNT#" });
+  const anchorByAccountId = new Map(
+    (accounts || [])
+      .filter((a) => a && a.accountId && a.anchorDate && typeof a.anchorBalance === "number")
+      .map((a) => [
+        a.accountId,
+        {
+          anchorDate: String(a.anchorDate).slice(0, 10),
+          anchorBalance: Number(a.anchorBalance),
+        },
+      ])
+  );
+
+  const deltaAfterAnchorByAccountId = new Map(Array.from(anchorByAccountId.keys()).map((id) => [id, 0]));
+
+  const dayOrg = new Map();
+  const dayAcct = new Map(); // accountId -> Map(date -> agg)
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      const postedAt = String(t?.postedAt || "").slice(0, 10);
+      if (!postedAt) continue;
+
+      const signed = canonicalSignedAmount(t);
+      if (typeof signed !== "number" || !Number.isFinite(signed)) continue;
+
+      const inflow = signed > 0 ? signed : 0;
+      const outflow = signed < 0 ? Math.abs(signed) : 0;
+
+      const o = dayOrg.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+      o.inflow += inflow;
+      o.outflow += outflow;
+      o.txCount += 1;
+      dayOrg.set(postedAt, o);
+
+      const acctId = String(t?.accountId || "").trim();
+      if (acctId) {
+        const m = dayAcct.get(acctId) || new Map();
+        const a = m.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+        a.inflow += inflow;
+        a.outflow += outflow;
+        a.txCount += 1;
+        m.set(postedAt, a);
+        dayAcct.set(acctId, m);
+
+        const anchor = anchorByAccountId.get(acctId);
+        if (anchor && postedAt > anchor.anchorDate) {
+          deltaAfterAnchorByAccountId.set(acctId, (deltaAfterAnchorByAccountId.get(acctId) || 0) + signed);
+        }
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const puts = [];
+  for (const [date, agg] of dayOrg.entries()) {
+    puts.push({
+      PutRequest: {
+        Item: {
+          orgId,
+          sk: skLedgerDay(date),
+          entityType: "hqLedgerDay",
+          date,
+          inflow: round2(agg.inflow),
+          outflow: round2(agg.outflow),
+          txCount: agg.txCount,
+          updatedAt: nowIso,
+        },
+      },
+    });
+  }
+
+  for (const [acctId, m] of dayAcct.entries()) {
+    for (const [date, agg] of m.entries()) {
+      puts.push({
+        PutRequest: {
+          Item: {
+            orgId,
+            sk: skLedgerDayAccount(acctId, date),
+            entityType: "hqLedgerDayAccount",
+            date,
+            accountId: acctId,
+            inflow: round2(agg.inflow),
+            outflow: round2(agg.outflow),
+            txCount: agg.txCount,
+            updatedAt: nowIso,
+          },
+        },
+      });
+    }
+  }
+
+  for (const batch of chunk(puts, 25)) {
+    await ddb.batchWrite({ RequestItems: { [HQ_TABLE]: batch } });
+  }
+
+  // Recompute account currentBalance from anchors + txns.
+  for (const [acctId, delta] of deltaAfterAnchorByAccountId.entries()) {
+    const anchor = anchorByAccountId.get(acctId);
+    if (!anchor) continue;
+    const nextBalance = round2(anchor.anchorBalance + round2(delta));
+    await ddb.update({
+      TableName: HQ_TABLE,
+      Key: { orgId, sk: skAccount(acctId) },
+      UpdateExpression: "SET currentBalance = :b, updatedAt = :u",
+      ExpressionAttributeValues: { ":b": nextBalance, ":u": nowIso },
+    });
+  }
+
+  await recomputeHqHeaderFromLedger({ orgId, nowIso });
+};
+
+const ensureHqHeader = async ({ orgId }) => {
+  const hdr = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skHqHeader() } });
+  if (hdr?.Item) return hdr.Item;
+
+  const nowIso = nowISO();
+  const ledgerExists = await hasAnyByPrefix({ orgId, prefix: "LEDGER#" });
+  if (!ledgerExists) {
+    await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: false });
+  } else {
+    await recomputeHqHeaderFromLedger({ orgId, nowIso });
+  }
+
+  const hdr2 = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skHqHeader() } });
+  return hdr2?.Item || null;
+};
+
 // GET /hq/balance-series?orgId=...&accountId=...&days=365
 // Returns end-of-day balance points from (anchorDate - days) .. anchorDate (inclusive), oldest -> newest.
 // Anchor is treated as end-of-day for anchorDate.
@@ -581,34 +1019,9 @@ const getChartSeries = async (e, C) => {
   const today = todayIsoInTimeZone();
   const accountIdParam = typeof q.accountId === "string" ? q.accountId.trim() : "";
 
-  // Load accounts and anchors.
-  const accountsRes = await ddb.query({
-    TableName: HQ_TABLE,
-    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
-    ExpressionAttributeValues: { ":o": orgId, ":p": "ACCOUNT#" },
-  });
-
-  const allAccounts = accountsRes.Items || [];
-
-  let includedAccounts = [];
-  if (scope === "account") {
-    if (!accountIdParam) return json(400, C, { error: "accountId required for scope=account" });
-    includedAccounts = allAccounts.filter((a) => a.accountId === accountIdParam);
-    if (!includedAccounts.length) throw httpError(404, "Not found");
-  } else {
-    includedAccounts = allAccounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false);
-  }
-
-  const anchored = includedAccounts
-    .filter((a) => typeof a.anchorBalance === "number" && typeof a.anchorDate === "string" && a.anchorDate)
-    .map((a) => ({
-      accountId: a.accountId,
-      anchorDate: String(a.anchorDate).slice(0, 10),
-      anchorBalance: Number(a.anchorBalance),
-    }));
-
-  if (!anchored.length) {
-    return json(400, C, { error: "No anchored accounts available for chart series" });
+  // Ensure derived state exists (ledger/header) on first read.
+  if (!(await hasAnyByPrefix({ orgId, prefix: "LEDGER#" }))) {
+    await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: false });
   }
 
   const anchorDate = today;
@@ -618,131 +1031,94 @@ const getChartSeries = async (e, C) => {
 
   let startDate = fixedRangeDays ? addDaysIso(today, -(fixedRangeDays - 1)) : null;
 
-  // For computing today's anchor balance we must include net since each account's anchorDate.
-  const minAnchorDate = anchored.reduce((min, a) => minIso(min, a.anchorDate), null);
+  if (range === "ALL") {
+    if (scope === "account") {
+      if (!accountIdParam) return json(400, C, { error: "accountId required for scope=account" });
+      const earliest = await ddb.query({
+        TableName: HQ_TABLE,
+        KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":o": orgId, ":p": `LEDGERA#${accountIdParam}#` },
+        ScanIndexForward: true,
+        Limit: 1,
+      });
+      const first = (earliest.Items || [])[0];
+      startDate = first?.date ? String(first.date).slice(0, 10) : (first?.sk ? String(first.sk).split("#").slice(-1)[0] : today);
+    } else {
+      const earliest = await ddb.query({
+        TableName: HQ_TABLE,
+        KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":o": orgId, ":p": "LEDGER#" },
+        ScanIndexForward: true,
+        Limit: 1,
+      });
+      const first = (earliest.Items || [])[0];
+      startDate = first?.date ? String(first.date).slice(0, 10) : (first?.sk ? String(first.sk).split("#").slice(-1)[0] : today);
+    }
+  }
 
-  const anchoredSet = new Set(anchored.map((a) => a.accountId));
-  const anchorByAccountId = new Map(anchored.map((a) => [a.accountId, a]));
+  startDate = startDate || today;
 
-  const netSinceAnchor = {};
-  for (const a of anchored) netSinceAnchor[a.accountId] = 0;
+  let anchorBalance;
+  if (scope === "aggregate") {
+    const hdr = await ensureHqHeader({ orgId });
+    anchorBalance = typeof hdr?.cashOnHandAggregate === "number" ? hdr.cashOnHandAggregate : 0;
+  } else {
+    if (!accountIdParam) return json(400, C, { error: "accountId required for scope=account" });
+    const acctRes = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skAccount(accountIdParam) } });
+    const acct = acctRes?.Item;
+    if (!acct) throw httpError(404, "Not found");
+
+    if (typeof acct.currentBalance === "number" && Number.isFinite(acct.currentBalance)) {
+      anchorBalance = round2(acct.currentBalance);
+    } else if (acct.anchorDate && typeof acct.anchorBalance === "number") {
+      const computed = await computeAccountBalanceFromLedger({
+        orgId,
+        accountId: accountIdParam,
+        anchorDate: String(acct.anchorDate).slice(0, 10),
+        anchorBalance: Number(acct.anchorBalance),
+        today,
+      });
+      anchorBalance = typeof computed === "number" ? computed : 0;
+    } else {
+      return json(400, C, { error: "Account is missing currentBalance and anchorDate/anchorBalance" });
+    }
+  }
 
   const inflowByDate = {};
   const outflowByDate = {};
-  let earliestSeen = null;
 
-  const shouldIncludeTxn = (t) => {
-    if (!t || !t.accountId || !anchoredSet.has(t.accountId)) return false;
-    return true;
-  };
+  const fromSk =
+    scope === "aggregate"
+      ? skLedgerDay(startDate)
+      : skLedgerDayAccount(accountIdParam, startDate);
+  const toSk =
+    scope === "aggregate"
+      ? skLedgerDay(today)
+      : skLedgerDayAccount(accountIdParam, today);
 
-  const considerForDaily = (postedAt) => {
-    if (!postedAt) return false;
-    if (!startDate) return true; // ALL: collect everything and trim later
-    return postedAt >= startDate && postedAt <= today;
-  };
-
-  const queryTxnsBetween = async (fromIso, toIso) => {
-    let lastKey;
-    do {
-      const page = await ddb.query({
-        TableName: HQ_TABLE,
-        KeyConditionExpression: "orgId = :o AND sk BETWEEN :from AND :to",
-        ExpressionAttributeValues: {
-          ":o": orgId,
-          ":from": `TXN#${fromIso}`,
-          ":to": `TXN#${toIso}#~`,
-        },
-        ExclusiveStartKey: lastKey,
-      });
-
-      for (const t of page.Items || []) {
-        if (!shouldIncludeTxn(t)) continue;
-        const postedAt = String(t.postedAt || "").slice(0, 10);
-        if (!postedAt) continue;
-
-        if (range === "ALL") {
-          if (!earliestSeen || postedAt < earliestSeen) earliestSeen = postedAt;
-        }
-
-        const signedAmt = canonicalSignedAmount(t);
-        const anchor = anchorByAccountId.get(t.accountId);
-        if (anchor && postedAt > anchor.anchorDate && typeof signedAmt === "number") {
-          netSinceAnchor[t.accountId] += signedAmt;
-        }
-
-        if (!considerForDaily(postedAt)) continue;
-
-        if (typeof signedAmt !== "number") continue;
-        if (signedAmt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + signedAmt;
-        else if (signedAmt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(signedAmt);
-      }
-
-      lastKey = page.LastEvaluatedKey;
-    } while (lastKey);
-  };
-
-  if (range === "ALL") {
-    // Scan all TXN# items.
-    let lastKey;
-    do {
-      const page = await ddb.query({
-        TableName: HQ_TABLE,
-        KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
-        ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
-        ExclusiveStartKey: lastKey,
-      });
-
-      for (const t of page.Items || []) {
-        if (!shouldIncludeTxn(t)) continue;
-        const postedAt = String(t.postedAt || "").slice(0, 10);
-        if (!postedAt) continue;
-        if (!earliestSeen || postedAt < earliestSeen) earliestSeen = postedAt;
-
-        const signedAmt = canonicalSignedAmount(t);
-        const anchor = anchorByAccountId.get(t.accountId);
-        if (anchor && postedAt > anchor.anchorDate && typeof signedAmt === "number") {
-          netSinceAnchor[t.accountId] += signedAmt;
-        }
-
-        if (typeof signedAmt !== "number") continue;
-        if (signedAmt > 0) inflowByDate[postedAt] = (inflowByDate[postedAt] || 0) + signedAmt;
-        else if (signedAmt < 0) outflowByDate[postedAt] = (outflowByDate[postedAt] || 0) + Math.abs(signedAmt);
-      }
-
-      lastKey = page.LastEvaluatedKey;
-    } while (lastKey);
-
-    startDate = earliestSeen || today;
-  } else {
-    const fromIso = minIso(minAnchorDate, startDate) || startDate;
-    await queryTxnsBetween(fromIso, today);
+  const rows = await queryAllBetween({ orgId, fromSk, toSk, scanIndexForward: true });
+  for (const r of rows) {
+    const date = String(r.date || "").slice(0, 10) || String(r.sk || "").split("#").slice(-1)[0];
+    if (!date) continue;
+    const inflow = typeof r.inflow === "number" ? r.inflow : Number(r.inflow);
+    const outflow = typeof r.outflow === "number" ? r.outflow : Number(r.outflow);
+    inflowByDate[date] = round2(inflowByDate[date] || 0) + (Number.isFinite(inflow) ? inflow : 0);
+    outflowByDate[date] = round2(outflowByDate[date] || 0) + (Number.isFinite(outflow) ? outflow : 0);
   }
 
-  // Compute today's anchorBalance (ending balance today): sum(anchorBalance at anchorDate + net since anchor).
-  let anchorBalance = 0;
-  for (const a of anchored) {
-    anchorBalance += a.anchorBalance + (netSinceAnchor[a.accountId] || 0);
-  }
-  anchorBalance = Math.round(anchorBalance * 100) / 100;
-
-  // Build point list oldest -> newest.
   const points = [];
-  let d = startDate;
-  while (d <= today) {
-    const inflow = Math.round(((inflowByDate[d] || 0) * 100)) / 100;
-    const outflow = Math.round(((outflowByDate[d] || 0) * 100)) / 100;
+  for (let d = startDate; d <= today; d = addDaysIso(d, 1)) {
+    const inflow = round2(inflowByDate[d] || 0);
+    const outflow = round2(outflowByDate[d] || 0);
     points.push({ date: d, inflow, outflow, balance: 0 });
-    d = addDaysIso(d, 1);
   }
 
-  // Walk backwards from today.
   if (points.length) {
-    points[points.length - 1].balance = anchorBalance;
+    points[points.length - 1].balance = round2(anchorBalance);
     for (let i = points.length - 2; i >= 0; i -= 1) {
       const next = points[i + 1];
       const netNext = (next.inflow || 0) - (next.outflow || 0);
-      points[i].balance = Math.round((next.balance - netNext) * 100) / 100;
+      points[i].balance = round2(next.balance - netNext);
     }
   }
 
@@ -754,9 +1130,9 @@ const getChartSeries = async (e, C) => {
     },
     { inflow: 0, outflow: 0 }
   );
-  totals.inflow = Math.round(totals.inflow * 100) / 100;
-  totals.outflow = Math.round(totals.outflow * 100) / 100;
-  const net = Math.round((totals.inflow - totals.outflow) * 100) / 100;
+  totals.inflow = round2(totals.inflow);
+  totals.outflow = round2(totals.outflow);
+  const net = round2(totals.inflow - totals.outflow);
 
   return json(200, C, {
     scope,
@@ -764,7 +1140,7 @@ const getChartSeries = async (e, C) => {
     range,
     currency: "USD",
     anchorDate,
-    anchorBalance,
+    anchorBalance: round2(anchorBalance),
     points,
     totals: {
       inflow: totals.inflow,
@@ -808,6 +1184,7 @@ const getSummary = async (e, C) => {
     notes: a.notes,
     anchorDate: a.anchorDate,
     anchorBalance: a.anchorBalance,
+    currentBalance: typeof a.currentBalance === "number" ? a.currentBalance : null,
     includeInCashOnHand: a.includeInCashOnHand !== false,
     archivedAt: a.archivedAt || null,
     createdAt: a.createdAt,
@@ -837,58 +1214,10 @@ const getSummary = async (e, C) => {
 
   const categoryRules = await ensureSeedRulepack(orgId);
 
-  // Cash-on-hand aggregation (server-side), using ALL transactions, not just the client cache.
-  // Included accounts default to true unless explicitly disabled.
-  const includedAccounts = accounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false);
-  const missingAnchorAccountIds = includedAccounts
-    .filter((a) => !(a.anchorDate && typeof a.anchorBalance === "number"))
-    .map((a) => a.accountId);
-
-  const anchoredAccounts = includedAccounts.filter((a) => a.anchorDate && typeof a.anchorBalance === "number");
-  let cashOnHandAggregate = null;
-
-  if (anchoredAccounts.length) {
-    const anchors = new Map();
-    for (const a of anchoredAccounts) {
-      anchors.set(a.accountId, {
-        anchorDate: String(a.anchorDate || "").slice(0, 10),
-        anchorBalance: a.anchorBalance,
-      });
-    }
-
-    const netByAccount = {};
-    for (const a of anchoredAccounts) netByAccount[a.accountId] = 0;
-
-    let lastKey;
-    do {
-      const page = await ddb.query({
-        TableName: HQ_TABLE,
-        KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
-        ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
-        ExclusiveStartKey: lastKey,
-      });
-
-      for (const t of page.Items || []) {
-        const anchor = anchors.get(t.accountId);
-        if (!anchor) continue;
-        const postedAt = String(t.postedAt || "").slice(0, 10);
-        if (!postedAt) continue;
-        if (!anchor.anchorDate) continue;
-        if (postedAt <= anchor.anchorDate) continue;
-        const signedAmt = canonicalSignedAmount(t);
-        if (typeof signedAmt !== "number") continue;
-        netByAccount[t.accountId] += signedAmt;
-      }
-
-      lastKey = page.LastEvaluatedKey;
-    } while (lastKey);
-
-    let total = 0;
-    for (const a of anchoredAccounts) {
-      total += (a.anchorBalance || 0) + (netByAccount[a.accountId] || 0);
-    }
-    cashOnHandAggregate = Math.round(total * 100) / 100;
-  }
+  // Read the precomputed header; if missing, recompute-on-read once.
+  const header = await ensureHqHeader({ orgId });
+  const cashOnHandAggregate = typeof header?.cashOnHandAggregate === "number" ? header.cashOnHandAggregate : null;
+  const missingAnchorAccountIds = Array.isArray(header?.missingAnchorAccountIds) ? header.missingAnchorAccountIds : [];
 
   return json(200, C, {
     orgId,
@@ -900,6 +1229,19 @@ const getSummary = async (e, C) => {
     cashOnHandAggregate,
     missingAnchorAccountIds,
   });
+};
+
+// POST /hq/recompute?orgId=... (admin-only)
+const recomputeHq = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: true });
+  const header = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skHqHeader() } });
+  return json(200, C, { ok: true, orgId, header: header?.Item || null });
 };
 
 // GET /hq/category-rules?orgId=...
@@ -1353,6 +1695,10 @@ const createAccount = async (e, C) => {
     notes: typeof body.notes === "string" ? body.notes.trim() || undefined : undefined,
     anchorDate: typeof body.anchorDate === "string" ? body.anchorDate.trim() || undefined : undefined,
     anchorBalance: typeof body.anchorBalance === "number" ? body.anchorBalance : undefined,
+    currentBalance:
+      typeof body.anchorBalance === "number" && typeof body.anchorDate === "string" && body.anchorDate.trim()
+        ? body.anchorBalance
+        : undefined,
     includeInCashOnHand: body.includeInCashOnHand === false ? false : true,
     archivedAt: null,
     createdAt,
@@ -1588,6 +1934,10 @@ const importCsv = async (e, C) => {
   const importRunId = uuidv4();
   const createdAt = nowISO();
 
+  const accountRes = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skAccount(accountId) } });
+  const account = accountRes?.Item || null;
+  if (!account) throw httpError(404, "Not found");
+
   const categoryRules = await ensureSeedRulepack(orgId);
 
   // Sanity check: sign inversion detection.
@@ -1658,6 +2008,7 @@ const importCsv = async (e, C) => {
   }
 
   const toWrite = [];
+  const writtenTxnItems = [];
   for (const k of uniqueTxKeys) {
     if (existing.has(k.sk)) {
       duplicates += 1;
@@ -1713,6 +2064,8 @@ const importCsv = async (e, C) => {
         },
       },
     });
+
+    writtenTxnItems.push(toWrite[toWrite.length - 1].PutRequest.Item);
   }
 
   // Write transactions in Dynamo batchWrite chunks (25)
@@ -1736,6 +2089,10 @@ const importCsv = async (e, C) => {
   };
 
   await ddb.put({ TableName: HQ_TABLE, Item: runItem });
+
+  // Update derived state using ONLY the imported transactions.
+  await updateLedgerFromImportedTxns({ orgId, accountId, txns: writtenTxnItems, account, nowIso: createdAt });
+  await recomputeHqHeaderFromLedger({ orgId, nowIso: createdAt });
 
   return json(200, C, { importRun: runItem, imported, duplicates });
 };
@@ -1798,6 +2155,8 @@ const routes = [
   { m: "GET", r: /^\/hq\/chart-series\/?$/i, h: getChartSeries },
   { m: "GET", r: /^\/hq\/transactions\/?$/i, h: listTransactions },
 
+  { m: "POST", r: /^\/hq\/recompute\/?$/i, h: recomputeHq },
+
   { m: "GET", r: /^\/hq\/category-rules\/?$/i, h: getCategoryRules },
   { m: "POST", r: /^\/hq\/category-rules\/?$/i, h: createCategoryRule },
   { m: "DELETE", r: /^\/hq\/category-rules\/(?<ruleId>[^/]+)\/?$/i, h: deleteCategoryRule },
@@ -1823,7 +2182,7 @@ export async function handler(event) {
   if (M(event) === "OPTIONS") return preflightFromEvent(event);
   const CORS = corsHeadersFromEvent(event);
   const method = M(event);
-  const path = P(event);
+  const path = normalizePathForRoutes(event);
 
   try {
     for (const { m, r, h } of routes) {

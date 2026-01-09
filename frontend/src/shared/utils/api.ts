@@ -141,6 +141,15 @@ export interface Task extends JsonRecord {
   tags?: string[];
   cluster?: string;
   durationMinutes?: number;
+  /**
+   * Planned effort inside a Focus Block container.
+   * This is not calendar-grid time; it should not create overlaps.
+   */
+  plannedMinutes?: number;
+  /**
+   * Ordering hint for tasks within a Focus Block container.
+   */
+  order?: number;
   focusBlockId?: string;
   focusChildTaskIds?: string[];
   focusChecklist?: Array<{ taskId: string; title: string }>;

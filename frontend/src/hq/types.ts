@@ -79,6 +79,9 @@ export type HqAccount = {
   anchorDate?: string | null; // YYYY-MM-DD
   anchorBalance?: number | null;
 
+  /** Stored current balance (fast cash-on-hand). Updated at import-time or via recompute. */
+  currentBalance?: number | null;
+
   createdAt: string; // ISO
   updatedAt: string; // ISO
 };

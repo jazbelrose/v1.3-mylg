@@ -50,6 +50,8 @@ import { CalendarEvent, CalendarTask, fmt, fmtLocal, safeDate, isSameDay, format
 import TaskSpellbookModal, { type TaskSpellbookApplyRequest } from "./TaskSpellbookModal";
 import { formatMinutesHHMM } from "../lib/doablePlanner";
 import { parseTimeToMinutes } from "./timelineLayout";
+import { blockMinutesFromWindow, getFocusBlockWindow } from "@/shared/utils/focusBlockWindows";
+import { packTasksIntoFocusBlock } from "@/shared/utils/packTasksIntoFocusBlock";
 
 import "../calendar-preview.css";
 
@@ -845,166 +847,33 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
       const targetDate = request.targetDate;
       try {
-        const clampMinutesOfDay = (value: number) => Math.max(0, Math.min(24 * 60, Math.round(value)));
+        const window = getFocusBlockWindow(request.focusBlockWindowId);
+        const startAt = buildIsoDateTime(targetDate, window.startLocalTime);
+        const endAt = buildIsoDateTime(targetDate, window.endLocalTime);
+        const durationMinutes = blockMinutesFromWindow(window.startLocalTime, window.endLocalTime);
 
-        const mergeBusy = (busy: Array<{ startMinutes: number; endMinutes: number }>) => {
-          const sorted = busy
-            .map((block) => ({
-              startMinutes: clampMinutesOfDay(block.startMinutes),
-              endMinutes: clampMinutesOfDay(block.endMinutes),
-            }))
-            .filter((block) => block.endMinutes > block.startMinutes)
-            .sort((a, b) => a.startMinutes - b.startMinutes);
+        const focusTitle = "Focus Block";
+        const focusTask = await createTask({
+          projectId: activeProjectId,
+          title: focusTitle,
+          status: "todo",
+          kind: "focus_block",
+          cluster: "Plan",
+          durationMinutes,
+          startAt,
+          endAt,
+          dueDate: targetDate,
+          dueAt: targetDate,
+          focusChildTaskIds: [],
+          focusChecklist: [],
+        });
 
-          const merged: Array<{ startMinutes: number; endMinutes: number }> = [];
-          for (const block of sorted) {
-            const last = merged[merged.length - 1];
-            if (!last || block.startMinutes > last.endMinutes) {
-              merged.push({ ...block });
-              continue;
-            }
-            last.endMinutes = Math.max(last.endMinutes, block.endMinutes);
-          }
-          return merged;
-        };
+        if (!focusTask.taskId) {
+          notify("error", "Unable to create focus block.");
+          return;
+        }
 
-        const invertBusy = (
-          busy: Array<{ startMinutes: number; endMinutes: number }>,
-          dayStart: number,
-          dayEnd: number,
-        ) => {
-          const merged = mergeBusy(busy);
-          const clampedStart = clampMinutesOfDay(dayStart);
-          const clampedEnd = clampMinutesOfDay(dayEnd);
-          if (clampedEnd <= clampedStart) return [];
-
-          const slots: Array<{ startMinutes: number; endMinutes: number }> = [];
-          let cursor = clampedStart;
-          for (const block of merged) {
-            if (block.endMinutes <= clampedStart) continue;
-            if (block.startMinutes >= clampedEnd) break;
-            const start = Math.max(cursor, clampedStart);
-            const end = Math.min(block.startMinutes, clampedEnd);
-            if (end > start) slots.push({ startMinutes: start, endMinutes: end });
-            cursor = Math.max(cursor, block.endMinutes);
-          }
-          if (cursor < clampedEnd) {
-            slots.push({ startMinutes: cursor, endMinutes: clampedEnd });
-          }
-          return slots;
-        };
-
-        const findNearestSlotStart = (
-          busy: Array<{ startMinutes: number; endMinutes: number }>,
-          desiredStartMinutes: number,
-          durationMinutes: number,
-        ) => {
-          const desired = clampMinutesOfDay(desiredStartMinutes);
-          const duration = Math.max(5, Math.round(durationMinutes));
-          const slots = invertBusy(busy, 6 * 60, 22 * 60);
-          const candidates = slots
-            .filter((slot) => slot.endMinutes - slot.startMinutes >= duration)
-            .map((slot) => Math.min(Math.max(desired, slot.startMinutes), slot.endMinutes - duration));
-
-          if (candidates.length === 0) return desired;
-          candidates.sort((a, b) => Math.abs(a - desired) - Math.abs(b - desired) || a - b);
-          return candidates[0];
-        };
-
-        const busyBlocksForDate = (() => {
-          const busy: Array<{ startMinutes: number; endMinutes: number }> = [];
-
-          events.forEach((event) => {
-            if (event.date !== targetDate) return;
-            if (!event.start || !event.end) return;
-            const startMinutes = parseTimeToMinutes(event.start);
-            const endMinutes = parseTimeToMinutes(event.end);
-            if (startMinutes == null || endMinutes == null) return;
-            if (endMinutes <= startMinutes) return;
-            busy.push({ startMinutes, endMinutes });
-          });
-
-          tasks.forEach((task) => {
-            if (task.due !== targetDate) return;
-            if (!task.start || !task.end) return;
-            const startMinutes = parseTimeToMinutes(task.start);
-            const endMinutes = parseTimeToMinutes(task.end);
-            if (startMinutes == null || endMinutes == null) return;
-            if (endMinutes <= startMinutes) return;
-            busy.push({ startMinutes, endMinutes });
-          });
-
-          return mergeBusy(busy);
-        })();
-
-        const resolveFocusBlockTimes = (blockIdx: number, durationMinutes: number) => {
-          const placement = request.plan?.placements.find((p) => p.draftId === `block-${blockIdx}`) ?? null;
-          if (placement) {
-            const startAt = buildIsoDateTime(targetDate, formatMinutesHHMM(placement.startMinutes));
-            const endAt = buildIsoDateTime(targetDate, formatMinutesHHMM(placement.endMinutes));
-            return { startAt, endAt };
-          }
-
-          const startMinutes = findNearestSlotStart(busyBlocksForDate, 12 * 60, durationMinutes);
-          const endMinutes = startMinutes + Math.max(15, Math.round(durationMinutes));
-          const startAt = buildIsoDateTime(targetDate, formatMinutesHHMM(startMinutes));
-          const endAt = buildIsoDateTime(targetDate, formatMinutesHHMM(Math.min(24 * 60, endMinutes)));
-          return { startAt, endAt };
-        };
-
-        const createFocusBlockWithChildren = async (options: {
-          blockIdx: number;
-          title: string;
-          cluster?: string;
-          durationMinutes: number;
-          taskChildPayloads: Task[];
-        }) => {
-          const { startAt, endAt } = resolveFocusBlockTimes(options.blockIdx, options.durationMinutes);
-          const focusTask = await createTask({
-            projectId: activeProjectId,
-            title: options.title,
-            status: "todo",
-            kind: "focus_block",
-            cluster: options.cluster,
-            durationMinutes: options.durationMinutes,
-            startAt,
-            endAt,
-            dueDate: endAt ?? targetDate,
-            dueAt: endAt ?? targetDate,
-            focusChildTaskIds: [],
-            focusChecklist: [],
-          });
-
-          if (!focusTask.taskId) {
-            notify("error", "Unable to create focus block.");
-            return;
-          }
-
-          const focusId = focusTask.taskId;
-          const childPayloads = options.taskChildPayloads.map((task) => ({
-            ...task,
-            projectId: activeProjectId,
-            focusBlockId: focusId,
-          }));
-          const createdChildren = childPayloads.length > 0 ? await createTasksBulk(activeProjectId, childPayloads) : [];
-
-          const childIds = createdChildren
-            .map((task) => task.taskId)
-            .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
-
-          await updateTask({
-            projectId: activeProjectId,
-            taskId: focusId,
-            title: options.title,
-            focusChildTaskIds: childIds,
-            focusChecklist: createdChildren
-              .filter((child) => typeof child.taskId === "string" && child.taskId.trim().length > 0)
-              .map((child) => ({
-                taskId: child.taskId as string,
-                title: child.title,
-              })),
-          });
-        };
+        const focusId = focusTask.taskId;
 
         if (request.inputSource === "load-today") {
           const taskById = new Map<string, CalendarTask>();
@@ -1027,61 +896,30 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             return;
           }
 
-          const focusTitle = request.variant.focusBlocks[0]?.title ?? "Focus Block";
-          const focusCluster = request.variant.focusBlocks[0]?.cluster ?? undefined;
-          const durationMinutes =
-            request.variant.focusBlocks[0]?.durationMinutes ??
-            eligible.reduce((sum, task) => sum + (task.durationMinutes || 30), 0);
+          const packable = eligible
+            .map((task) => ({ task, taskId: resolveTaskIdentifier(task) }))
+            .filter((rec): rec is { task: CalendarTask; taskId: string } => typeof rec.taskId === "string" && rec.taskId.trim().length > 0)
+            .map((rec) => ({ draftId: rec.taskId, title: rec.task.title }));
 
-          const { startAt, endAt } = resolveFocusBlockTimes(0, durationMinutes);
-          const focusTask = await createTask({
-            projectId: activeProjectId,
-            title: focusTitle,
-            status: "todo",
-            kind: "focus_block",
-            cluster: focusCluster,
-            durationMinutes,
-            startAt,
-            endAt,
-            dueDate: endAt ?? targetDate,
-            dueAt: endAt ?? targetDate,
-            focusChildTaskIds: [],
-            focusChecklist: [],
-          });
-
-          if (!focusTask.taskId) {
-            notify("error", "Unable to create focus block.");
-            return;
-          }
-
-          const focusId = focusTask.taskId;
-          const updates: Array<{ taskId: string; fields: Partial<Task> }> = [];
-          const childIds: string[] = [];
-
-          request.existingTaskIds.forEach((id) => {
-            const task = taskById.get(id);
-            if (!task) return;
-            const source = task.source as ApiTask;
-            if (source.projectId !== activeProjectId) return;
-            const taskId = resolveTaskIdentifier(task);
-            if (!taskId) return;
-            childIds.push(taskId);
-            updates.push({
-              taskId,
-              fields: {
-                focusBlockId: focusId,
-                startAt: null,
-                endAt: null,
-                dueDate: targetDate,
-                dueAt: targetDate,
-              },
-            });
-          });
+          const packed = packTasksIntoFocusBlock(durationMinutes, packable, { minTaskMinutes: 20, maxTaskMinutes: 120 });
+          const updates: Array<{ taskId: string; fields: Partial<Task> }> = packed.tasks.map((pt) => ({
+            taskId: pt.draftId,
+            fields: {
+              focusBlockId: focusId,
+              startAt: null,
+              endAt: null,
+              dueDate: targetDate,
+              dueAt: targetDate,
+              plannedMinutes: pt.plannedMinutes,
+              order: pt.order,
+            },
+          }));
 
           if (updates.length > 0) {
             await updateTasksBulk(activeProjectId, updates);
           }
 
+          const childIds = packed.tasks.map((pt) => pt.draftId);
           await updateTask({
             projectId: activeProjectId,
             taskId: focusId,
@@ -1093,67 +931,53 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           });
         } else {
           const baseItems = request.variant.items;
-          // Include ALL items (tasks + intents) in focus blocks.
-          // Per product decision: Spellbook only creates Focus Blocks.
-          // All items become child tasks inside the focus block.
-          const allItemIndexes = baseItems.map((_, idx) => idx);
+          const byDraftId = new Map<string, (typeof baseItems)[number]>();
+          baseItems.forEach((item, idx) => {
+            byDraftId.set(`item-${idx}`, item);
+          });
 
-          const focusDrafts =
-            request.variant.focusBlocks.length > 0
-              ? request.variant.focusBlocks.map((fb) => ({
-                  ...fb,
-                  // Expand itemIndexes to include ALL items if variant only tracked "task" items
-                  itemIndexes: fb.itemIndexes?.length
-                    ? [...new Set([...fb.itemIndexes, ...allItemIndexes.filter((idx) => baseItems[idx]?.kind === "intent")])]
-                    : allItemIndexes,
-                }))
-              : [
-                  {
-                    title: "Focus Block",
-                    cluster: "",
-                    itemIndexes: allItemIndexes,
-                    durationMinutes: allItemIndexes.reduce(
-                      (sum, idx) => sum + (baseItems[idx]?.durationMinutes ?? 0),
-                      0,
-                    ),
-                  },
-                ];
+          const packed = packTasksIntoFocusBlock(
+            durationMinutes,
+            baseItems.map((item, idx) => ({ draftId: `item-${idx}`, title: item.title })),
+            { minTaskMinutes: 20, maxTaskMinutes: 120 },
+          );
 
-          for (let blockIdx = 0; blockIdx < focusDrafts.length; blockIdx += 1) {
-            const focusDraft = focusDrafts[blockIdx];
-            const itemIndexes = focusDraft.itemIndexes ?? [];
-            // Convert ALL items (task + intent) into child tasks
-            const taskChildPayloads: Task[] = itemIndexes
-              .map((idx) => baseItems[idx])
-              .filter((item): item is NonNullable<typeof item> => Boolean(item))
-              .map((item) => ({
-                projectId: activeProjectId,
-                title: item.title,
-                status: "todo",
-                dueDate: targetDate,
-                dueAt: targetDate,
-                kind: "task", // Always create as regular task, never as "intent"
-                cluster: item.cluster,
-                tags: item.tags,
-                durationMinutes: item.durationMinutes,
-              }));
+          const childPayloads: Task[] = packed.tasks.map((pt) => {
+            const parts = pt.draftId.split("__");
+            const first = byDraftId.get(parts[0]);
+            return {
+              projectId: activeProjectId,
+              title: pt.title,
+              status: "todo",
+              dueDate: targetDate,
+              dueAt: targetDate,
+              kind: "task", // Always create as regular task, never as "intent"
+              cluster: first?.cluster,
+              tags: first?.tags,
+              focusBlockId: focusId,
+              plannedMinutes: pt.plannedMinutes,
+              order: pt.order,
+            };
+          });
 
-            const durationMinutes =
-              focusDraft.durationMinutes ?? taskChildPayloads.reduce((sum, task) => sum + (task.durationMinutes ?? 0), 0);
+          const createdChildrenRaw = childPayloads.length > 0 ? await createTasksBulk(activeProjectId, childPayloads) : [];
+          const createdChildren = [...createdChildrenRaw].sort(
+            (a, b) => (Number((a as any)?.order ?? 0) - Number((b as any)?.order ?? 0)) || String(a.title ?? "").localeCompare(String(b.title ?? "")),
+          );
 
-            await createFocusBlockWithChildren({
-              blockIdx,
-              title: focusDraft.title ?? "Focus Block",
-              cluster: focusDraft.cluster ?? undefined,
-              durationMinutes,
-              taskChildPayloads,
-            });
-          }
+          const childIds = createdChildren
+            .map((task) => task.taskId)
+            .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
-          // Intent items are included as children in focus blocks above.
-          // Per product decision, Spellbook/Conjure should ONLY create Focus Blocks.
-          // Standalone "intent" tiles broke trust (grey, uneditable ghost blocks).
-          // All items parsed as "intent" are now converted to regular tasks inside the focus block.
+          await updateTask({
+            projectId: activeProjectId,
+            taskId: focusId,
+            title: focusTitle,
+            focusChildTaskIds: childIds,
+            focusChecklist: createdChildren
+              .filter((child) => typeof child.taskId === "string" && child.taskId.trim().length > 0)
+              .map((child) => ({ taskId: child.taskId as string, title: child.title })),
+          });
         }
 
         await onRefreshTasks();
@@ -1163,7 +987,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Unable to apply spellbook. Please try again.");
       }
     },
-    [activeProjectId, events, onRefreshTasks, tasks],
+    [activeProjectId, onRefreshTasks, tasks],
   );
 
   const handleConvertToFocusBlock = useCallback(
@@ -1608,6 +1432,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           await updateTask({
             projectId,
             taskId: newFocus.taskId,
+            title: newFocus.title,
             focusChildTaskIds: childIds,
             focusChecklist: createdChildren
               .filter((t) => typeof t.taskId === "string" && t.taskId.trim().length > 0)

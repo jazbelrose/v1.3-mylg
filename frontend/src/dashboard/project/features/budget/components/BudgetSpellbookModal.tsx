@@ -21,6 +21,7 @@ import {
   type PlanDraftAssumptions,
   type PlanDraftOutputs,
 } from "../lib/planDraft";
+import { FOCUS_BLOCK_WINDOWS } from "@/shared/utils/focusBlockWindows";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -54,6 +55,11 @@ const formatMoney = (value: number) =>
   new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 
 const percentLabel = (value: number) => `${Math.round(value * 100)}%`;
+
+const formatMinutes = (minutes: number | undefined) => {
+  const value = typeof minutes === "number" && Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
+  return value ? `${value}m` : "";
+};
 
 export default function BudgetSpellbookModal({
   isOpen,
@@ -146,16 +152,7 @@ export default function BudgetSpellbookModal({
 
   const parseResult = useMemo(() => parseBudgetSpellbookInput(text), [text]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const inferredDays = parseResult.inferred.installDays;
-    if (typeof inferredDays !== "number" || !Number.isFinite(inferredDays)) return;
-    setPlanAssumptions((prev) => ({
-      ...prev,
-      loadInHours: Math.max(2, Math.min(48, Math.round(inferredDays * 6))),
-    }));
-    setAssumptionConfidence((prev) => ({ ...prev, loadInHours: 0.7 }));
-  }, [isOpen, parseResult.inferred.installDays]);
+  // Note: Plan time is controlled by a Focus Block window (Plan tab).
   const variants = useMemo(() => buildBudgetSpellbookVariants(parseResult, options), [options, parseResult]);
   const selectedVariant = useMemo(
     () => variants.find((variant) => variant.id === variantId) ?? variants[0],
@@ -189,7 +186,7 @@ export default function BudgetSpellbookModal({
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [activeTab, isOpen, planDraft.calendarBlocks.length, planDraft.tasks.length, selectedVariant.id]);
+  }, [activeTab, isOpen, planDraft.focusBlocks.length, planDraft.tasks.length, selectedVariant.id]);
 
   const categoryBars = useMemo(() => {
     const rows = Object.entries(totals.byCategory)
@@ -457,84 +454,59 @@ export default function BudgetSpellbookModal({
                   </label>
 
                   <label className={styles.chip}>
-                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.loadInHours }} aria-hidden />
-                    <span className={styles.chipLabel}>Load-in</span>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.focusBlockWindowId }} aria-hidden />
+                    <span className={styles.chipLabel}>Focus Block</span>
+                    <select
+                      className={styles.chipInput}
+                      value={planAssumptions.focusBlockWindowId}
+                      onChange={(e) => {
+                        const v = e.target.value as PlanDraftAssumptions["focusBlockWindowId"];
+                        setPlanAssumptions((prev) => ({ ...prev, focusBlockWindowId: v }));
+                        setAssumptionConfidence((prev) => ({ ...prev, focusBlockWindowId: 0.95 }));
+                      }}
+                    >
+                      {FOCUS_BLOCK_WINDOWS.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className={styles.chip}>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.minTaskMinutes }} aria-hidden />
+                    <span className={styles.chipLabel}>Min task</span>
                     <input
                       className={styles.chipInput}
                       type="number"
                       min={0}
-                      max={72}
-                      value={String(planAssumptions.loadInHours)}
+                      max={240}
+                      value={String(planAssumptions.minTaskMinutes)}
                       onChange={(e) => {
                         const next = Number(e.target.value);
-                        setPlanAssumptions((prev) => ({ ...prev, loadInHours: Number.isFinite(next) ? next : prev.loadInHours }));
-                        setAssumptionConfidence((prev) => ({ ...prev, loadInHours: 0.95 }));
+                        setPlanAssumptions((prev) => ({ ...prev, minTaskMinutes: Number.isFinite(next) ? next : prev.minTaskMinutes }));
+                        setAssumptionConfidence((prev) => ({ ...prev, minTaskMinutes: 0.95 }));
                       }}
                     />
-                    <span className={styles.chipSuffix}>h</span>
+                    <span className={styles.chipSuffix}>m</span>
                   </label>
 
                   <label className={styles.chip}>
-                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.strikeHours }} aria-hidden />
-                    <span className={styles.chipLabel}>Strike</span>
+                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.maxTaskMinutes }} aria-hidden />
+                    <span className={styles.chipLabel}>Max task</span>
                     <input
                       className={styles.chipInput}
                       type="number"
                       min={0}
-                      max={72}
-                      value={String(planAssumptions.strikeHours)}
+                      max={480}
+                      value={String(planAssumptions.maxTaskMinutes)}
                       onChange={(e) => {
                         const next = Number(e.target.value);
-                        setPlanAssumptions((prev) => ({ ...prev, strikeHours: Number.isFinite(next) ? next : prev.strikeHours }));
-                        setAssumptionConfidence((prev) => ({ ...prev, strikeHours: 0.95 }));
+                        setPlanAssumptions((prev) => ({ ...prev, maxTaskMinutes: Number.isFinite(next) ? next : prev.maxTaskMinutes }));
+                        setAssumptionConfidence((prev) => ({ ...prev, maxTaskMinutes: 0.95 }));
                       }}
                     />
-                    <span className={styles.chipSuffix}>h</span>
-                  </label>
-
-                  <label className={styles.chip}>
-                    <span className={styles.chipDot} style={{ opacity: assumptionConfidence.crewCallTime }} aria-hidden />
-                    <span className={styles.chipLabel}>Crew call</span>
-                    <input
-                      className={styles.chipInput}
-                      type="time"
-                      value={planAssumptions.crewCallTime}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPlanAssumptions((prev) => ({ ...prev, crewCallTime: v || prev.crewCallTime }));
-                        setAssumptionConfidence((prev) => ({ ...prev, crewCallTime: 0.95 }));
-                      }}
-                    />
-                  </label>
-
-                  <label className={styles.chip}>
-                    <span
-                      className={styles.chipDot}
-                      style={{ opacity: Math.min(assumptionConfidence.venueStartTime, assumptionConfidence.venueEndTime) }}
-                      aria-hidden
-                    />
-                    <span className={styles.chipLabel}>Venue</span>
-                    <input
-                      className={styles.chipInput}
-                      type="time"
-                      value={planAssumptions.venueStartTime}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPlanAssumptions((prev) => ({ ...prev, venueStartTime: v || prev.venueStartTime }));
-                        setAssumptionConfidence((prev) => ({ ...prev, venueStartTime: 0.9 }));
-                      }}
-                    />
-                    <span className={styles.chipRangeDash}>–</span>
-                    <input
-                      className={styles.chipInput}
-                      type="time"
-                      value={planAssumptions.venueEndTime}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setPlanAssumptions((prev) => ({ ...prev, venueEndTime: v || prev.venueEndTime }));
-                        setAssumptionConfidence((prev) => ({ ...prev, venueEndTime: 0.9 }));
-                      }}
-                    />
+                    <span className={styles.chipSuffix}>m</span>
                   </label>
                 </div>
 
@@ -564,16 +536,16 @@ export default function BudgetSpellbookModal({
                 </div>
 
                 <div className={`${styles.planSection} ${conjurePhase >= 1 ? styles.planSectionOn : ""}`}>
-                  <div className={styles.planSectionTitle}>Timeline blocks</div>
+                  <div className={styles.planSectionTitle}>Focus Blocks (containers)</div>
                   <div className={styles.planBlocks}>
-                    {planDraft.calendarBlocks.length === 0 ? (
+                    {planDraft.focusBlocks.length === 0 ? (
                       <div className={styles.planEmpty}>Add an event date to preview blocks.</div>
                     ) : (
-                      planDraft.calendarBlocks.map((b) => (
+                      planDraft.focusBlocks.map((b) => (
                         <div key={b.key} className={styles.planBlockRow}>
                           <div className={styles.planBlockTitle}>{b.title}</div>
                           <div className={styles.planBlockMeta}>
-                            {b.dateIso} • {b.startTime}–{b.endTime}
+                            {b.dateIso} • {b.startLocalTime}–{b.endLocalTime}
                           </div>
                         </div>
                       ))
@@ -582,19 +554,21 @@ export default function BudgetSpellbookModal({
                 </div>
 
                 <div className={`${styles.planSection} ${conjurePhase >= 2 ? styles.planSectionOn : ""}`}>
-                  <div className={styles.planSectionTitle}>Tasks + links</div>
+                  <div className={styles.planSectionTitle}>Tasks (fit inside Focus Blocks)</div>
                   <div className={styles.planTasks}>
                     {planDraft.tasks.length === 0 ? (
                       <div className={styles.planEmpty}>No tasks generated for these line items.</div>
                     ) : (
-                      planDraft.tasks.slice(0, 16).map((t) => (
-                        <div key={t.id} className={styles.planTaskRow}>
-                          <div className={styles.planTaskTitle}>{t.title}</div>
-                          <div className={styles.planTaskMeta}>
-                            {t.dateIso} • {t.linkType.toUpperCase()}
+                      planDraft.tasks
+                        .slice(0, 16)
+                        .map((t) => (
+                          <div key={t.id} className={styles.planTaskRow}>
+                            <div className={styles.planTaskTitle}>{t.title}</div>
+                            <div className={styles.planTaskMeta}>
+                              {t.dateIso} • {t.linkType.toUpperCase()}{t.plannedMinutes ? ` • ${formatMinutes(t.plannedMinutes)}` : ""}
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        ))
                     )}
                     {planDraft.tasks.length > 16 ? (
                       <div className={styles.planMiniMore}>+{planDraft.tasks.length - 16} more</div>

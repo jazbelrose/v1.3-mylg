@@ -4,8 +4,8 @@ import { Sparkles, X } from "lucide-react";
 import styles from "./task-spellbook-modal.module.css";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import { fmtLocal, safeDate } from "../utils";
-import { parseTimeToMinutes } from "./timelineLayout";
-import { buildDoablePlans, type BusyBlock, type DoablePlan, type DoableDraft } from "../lib/doablePlanner";
+import { blockMinutesFromWindow, getFocusBlockWindow, type FocusBlockWindowId, FOCUS_BLOCK_WINDOWS } from "@/shared/utils/focusBlockWindows";
+import { packTasksIntoFocusBlock } from "@/shared/utils/packTasksIntoFocusBlock";
 import {
   buildSpellbookVariants,
   parseSpellbookInput,
@@ -25,9 +25,7 @@ export type TaskSpellbookApplyRequest = {
   variantId: SpellbookVariantId;
   variant: SpellbookVariant;
   parseResult: SpellbookParseResult;
-  autoPack: boolean;
-  planId: string | null;
-  plan: DoablePlan | null;
+  focusBlockWindowId: FocusBlockWindowId;
 };
 
 export type TaskSpellbookModalProps = {
@@ -43,39 +41,7 @@ export type TaskSpellbookModalProps = {
   accentColor?: string | null;
 };
 
-const buildBusyBlocksForDate = (dateIso: string, events: CalendarEvent[], tasks: CalendarTask[]): BusyBlock[] => {
-  const busy: BusyBlock[] = [];
-
-  events.forEach((event) => {
-    if (event.date !== dateIso) return;
-    if (!event.start || !event.end) return;
-    const startMinutes = parseTimeToMinutes(event.start);
-    const endMinutes = parseTimeToMinutes(event.end);
-    if (startMinutes == null || endMinutes == null) return;
-    if (endMinutes <= startMinutes) return;
-    busy.push({ startMinutes, endMinutes });
-  });
-
-  tasks.forEach((task) => {
-    if (task.due !== dateIso) return;
-    if (!task.start || !task.end) return;
-    const startMinutes = parseTimeToMinutes(task.start);
-    const endMinutes = parseTimeToMinutes(task.end);
-    if (startMinutes == null || endMinutes == null) return;
-    if (endMinutes <= startMinutes) return;
-    busy.push({ startMinutes, endMinutes });
-  });
-
-  return busy;
-};
-
 const isMeaningfulText = (value: string) => value.trim().length >= 3;
-
-const formatEstHours = (totalMinutes: number) => {
-  const hours = Math.round((totalMinutes / 60) * 2) / 2;
-  if (!Number.isFinite(hours) || hours <= 0) return "0h";
-  return `${hours % 1 === 0 ? String(Math.round(hours)) : String(hours)}h`;
-};
 
 const formatDurationHint = (minutes: number | undefined) => {
   const value = typeof minutes === "number" && Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
@@ -122,24 +88,6 @@ const buildLoadTodayCandidates = (dateIso: string, tasks: CalendarTask[], active
     .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? "") || (a.title ?? "").localeCompare(b.title ?? ""));
 };
 
-const toDraftsFromVariant = (variant: SpellbookVariant): DoableDraft[] => {
-  if (variant.focusBlocks.length > 0) {
-    return variant.focusBlocks.map((block, idx) => ({
-      id: `block-${idx}`,
-      title: block.title,
-      durationMinutes: block.durationMinutes,
-    }));
-  }
-
-  return variant.items
-    .map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item.kind === "task")
-    .map(({ item, idx }) => ({
-      id: `item-${idx}`,
-      title: item.title,
-      durationMinutes: item.durationMinutes,
-    }));
-};
 
 function hexToRgb(hex: string): string {
   const cleaned = hex.replace("#", "");
@@ -153,7 +101,7 @@ function hexToRgb(hex: string): string {
 export default function TaskSpellbookModal({
   isOpen,
   anchorDate,
-  events,
+  events: _events,
   tasks,
   activeProjectId,
   initialSource = "paste",
@@ -167,8 +115,7 @@ export default function TaskSpellbookModal({
   const [text, setText] = useState("");
   const [targetDate, setTargetDate] = useState<string>(() => fmtLocal(anchorDate));
   const [variantId, setVariantId] = useState<SpellbookVariantId>("producer-standard");
-  const [autoPack, setAutoPack] = useState(true);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>("balanced");
+  const [focusBlockWindowId, setFocusBlockWindowId] = useState<FocusBlockWindowId>("balanced");
   const [isApplying, setIsApplying] = useState(false);
   const [selectedLoadTodayTaskIds, setSelectedLoadTodayTaskIds] = useState<Set<string>>(() => new Set());
 
@@ -250,19 +197,11 @@ export default function TaskSpellbookModal({
     [variants, variantId],
   );
 
-  const busyBlocks = useMemo(() => buildBusyBlocksForDate(targetDate, events, tasks), [events, tasks, targetDate]);
-  const drafts = useMemo(() => toDraftsFromVariant(selectedVariant), [selectedVariant]);
-  const plans = useMemo(() => buildDoablePlans({ drafts, busy: busyBlocks }), [drafts, busyBlocks]);
-  const selectedPlan = useMemo(
-    () => (autoPack ? plans.find((plan) => plan.id === selectedPlanId) ?? plans[0] : null),
-    [autoPack, plans, selectedPlanId],
+  const selectedWindow = useMemo(() => getFocusBlockWindow(focusBlockWindowId), [focusBlockWindowId]);
+  const blockMinutes = useMemo(
+    () => blockMinutesFromWindow(selectedWindow.startLocalTime, selectedWindow.endLocalTime),
+    [selectedWindow.endLocalTime, selectedWindow.startLocalTime],
   );
-
-  useEffect(() => {
-    if (!autoPack) return;
-    if (plans.some((plan) => plan.id === selectedPlanId)) return;
-    setSelectedPlanId(plans[0]?.id ?? "balanced");
-  }, [autoPack, plans, selectedPlanId]);
 
   const handleApply = useCallback(async () => {
     if (!selectedVariant) return;
@@ -270,8 +209,6 @@ export default function TaskSpellbookModal({
     if (inputSource === "load-today" && selectedLoadTodayTasks.length === 0) return;
 
     const resolvedTarget = safeDate(targetDate) ? targetDate : fmtLocal(anchorDate);
-    const plan = autoPack ? selectedPlan : null;
-    const planId = autoPack ? plan?.id ?? null : null;
 
     try {
       setIsApplying(true);
@@ -287,9 +224,7 @@ export default function TaskSpellbookModal({
         variantId: selectedVariant.id,
         variant: selectedVariant,
         parseResult,
-        autoPack,
-        planId,
-        plan,
+        focusBlockWindowId,
       });
       onClose();
       setText("");
@@ -300,13 +235,12 @@ export default function TaskSpellbookModal({
     }
   }, [
     anchorDate,
-    autoPack,
     inputSource,
+    focusBlockWindowId,
     onApply,
     onClose,
     parseResult,
     selectedLoadTodayTasks,
-    selectedPlan,
     selectedVariant,
     targetDate,
     text,
@@ -327,12 +261,22 @@ export default function TaskSpellbookModal({
     } as React.CSSProperties;
   }, [accentColor]);
 
-  if (!isOpen) return null;
-
   const hasItems = parseResult.items.length > 0;
   const canApply =
     !isApplying &&
     (inputSource === "paste" ? isMeaningfulText(text) : selectedLoadTodayTasks.length > 0);
+
+  const previewTasks = useMemo(() => {
+    if (!hasItems) return [];
+    const baseItems = selectedVariant.items;
+    const packable = baseItems.map((item, idx) => ({ draftId: `item-${idx}`, title: item.title }));
+    return packTasksIntoFocusBlock(blockMinutes, packable, { minTaskMinutes: 20, maxTaskMinutes: 120 }).tasks;
+  }, [blockMinutes, hasItems, selectedVariant.items]);
+
+  const previewTaskCount = previewTasks.length;
+  const previewAvg = previewTaskCount > 0 ? Math.round((blockMinutes / previewTaskCount) / 5) * 5 : 0;
+
+  if (!isOpen) return null;
 
   return (
     <Modal
@@ -449,8 +393,8 @@ export default function TaskSpellbookModal({
               <div className={styles.summary} aria-live="polite">
                 {hasItems ? (
                   <span>
-                    Detected: {parseResult.items.length} items • {parseResult.clusters.length} clusters •{" "}
-                    {formatEstHours(parseResult.totalMinutes)} est.
+                    Creates: 1 Focus Block ({selectedWindow.startLocalTime}–{selectedWindow.endLocalTime}) • Tasks: {previewTaskCount}
+                    {previewTaskCount > 0 ? ` • Auto-fit: ~${previewAvg}m each (min 20m)` : ""}
                   </span>
                 ) : (
                   <span>Paste anything to detect items.</span>
@@ -462,16 +406,12 @@ export default function TaskSpellbookModal({
           <div className={styles.rightPane}>
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
-                <div className={styles.sectionTitle}>Structures</div>
-                <div className={styles.sectionHint}>Pick a preset</div>
+                <div className={styles.sectionTitle}>Breakdown style</div>
+                <div className={styles.sectionHint}>Structure (time-free)</div>
               </div>
               <div className={styles.cardRail}>
                 {variants.map((variant) => {
                   const taskCount = variant.items.filter((i) => i.kind === "task").length;
-                  const totalTaskMinutes = variant.items.reduce(
-                    (sum, item) => sum + (item.kind === "task" ? item.durationMinutes : 0),
-                    0,
-                  );
                   return (
                     <button
                       key={variant.id}
@@ -483,7 +423,7 @@ export default function TaskSpellbookModal({
                       <div className={styles.cardTop}>
                         <div className={styles.cardLabel}>{variant.label}</div>
                         <div className={styles.cardMetric}>
-                          {taskCount} • {formatEstHours(totalTaskMinutes)}
+                          {taskCount} tasks
                         </div>
                       </div>
                       <div className={styles.cardHint}>{variant.hint}</div>
@@ -495,28 +435,25 @@ export default function TaskSpellbookModal({
 
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
-                <div className={styles.sectionTitle}>Plans</div>
-                <div className={styles.sectionHint}>Balanced / Early / Late</div>
+                <div className={styles.sectionTitle}>Focus Block</div>
+                <div className={styles.sectionHint}>Plan (the only time knob)</div>
               </div>
               <div className={styles.planRail}>
-                {plans.map((plan) => (
+                {FOCUS_BLOCK_WINDOWS.map((w) => (
                   <button
-                    key={plan.id}
+                    key={w.id}
                     type="button"
                     className={`${styles.planButton} ${
-                      autoPack && plan.id === selectedPlanId ? styles.planButtonActive : ""
+                      w.id === focusBlockWindowId ? styles.planButtonActive : ""
                     }`}
-                    onClick={() => setSelectedPlanId(plan.id)}
-                    disabled={!hasItems || !autoPack}
+                    onClick={() => setFocusBlockWindowId(w.id)}
+                    disabled={!hasItems}
                   >
                     <div className={styles.planTop}>
-                      <div className={styles.planLabel}>{plan.label}</div>
-                      <div className={styles.planMetric}>
-                        {Math.round(plan.scheduledMinutes / 5) * 5}m
-                        {plan.overflow.length > 0 ? ` • +${plan.overflow.length} overflow` : ""}
-                      </div>
+                      <div className={styles.planLabel}>{w.label}</div>
+                      <div className={styles.planMetric}>{w.startLocalTime}–{w.endLocalTime}</div>
                     </div>
-                    <div className={styles.planHint}>{plan.hint}</div>
+                    <div className={styles.planHint}>Creates 1 Focus Block container.</div>
                   </button>
                 ))}
               </div>
@@ -534,10 +471,6 @@ export default function TaskSpellbookModal({
                 value={targetDate}
                 onChange={(event) => setTargetDate(event.target.value)}
               />
-            </label>
-            <label className={`${styles.field} ${styles.checkboxField}`}>
-              <span>Auto-pack into day</span>
-              <input type="checkbox" checked={autoPack} onChange={(event) => setAutoPack(event.target.checked)} />
             </label>
           </div>
 

@@ -60,6 +60,7 @@ import {
   type BudgetTaskLinkType,
 } from "@/shared/utils/budgetTaskLinks";
 import { buildPlanDraft, type PlanDraftAssumptions, type PlanDraftOutputs } from "../lib/planDraft";
+import { blockMinutesFromWindow } from "@/shared/utils/focusBlockWindows";
 import { v4 as uuid } from "uuid";
 import type { InvoiceDetailsPayload } from "@/dashboard/project/features/budget/components/invoicePreviewTypes";
 import { notify } from "@/shared/ui/ToastNotifications";
@@ -794,18 +795,19 @@ const BudgetPageContent = () => {
 
           const buildIsoLocal = (dateIso: string, timeHHMM: string) => `${dateIso}T${timeHHMM}:00`;
 
-          const blocksByKey = new Map<string, { taskId: string; dateIso: string }>();
+          const blocksByDraftId = new Map<string, { taskId: string; dateIso: string }>();
 
-          for (const block of plan.calendarBlocks) {
+          for (const block of plan.focusBlocks) {
+            const durationMinutes = blockMinutesFromWindow(block.startLocalTime, block.endLocalTime);
             const focus = await createTask({
               projectId,
               title: block.title,
               status: "todo",
               kind: "focus_block",
               cluster: "Plan",
-              durationMinutes: block.durationMinutes,
-              startAt: buildIsoLocal(block.dateIso, block.startTime),
-              endAt: buildIsoLocal(block.dateIso, block.endTime),
+              durationMinutes,
+              startAt: buildIsoLocal(block.dateIso, block.startLocalTime),
+              endAt: buildIsoLocal(block.dateIso, block.endLocalTime),
               dueDate: block.dateIso,
               dueAt: block.dateIso,
               focusChildTaskIds: [],
@@ -813,11 +815,11 @@ const BudgetPageContent = () => {
             });
 
             if (focus.taskId) {
-              blocksByKey.set(block.key, { taskId: focus.taskId, dateIso: block.dateIso });
+              blocksByDraftId.set(block.draftId, { taskId: focus.taskId, dateIso: block.dateIso });
             }
           }
 
-          // Create tasks; attach to focus blocks when dates align.
+          // Create tasks; attach to focus blocks (container-first).
           const childPayloadsByFocusId = new Map<string, Task[]>();
           const standalonePayloads: Task[] = [];
 
@@ -825,28 +827,36 @@ const BudgetPageContent = () => {
             const budgetItemId = draftIdToBudgetItemId.get(t.budgetLineDraftId) ?? null;
             const shouldLink = Boolean(request.outputs?.links) && Boolean(budgetItemId);
 
+            const focus = blocksByDraftId.get(t.focusBlockDraftId) ?? null;
+
             const base: Task = {
               projectId,
               title: t.title,
               status: "todo",
               kind: "task",
-              dueDate: t.dateIso,
-              dueAt: t.dateIso,
+              dueDate: focus?.dateIso ?? t.dateIso,
+              dueAt: focus?.dateIso ?? t.dateIso,
+              plannedMinutes: typeof t.plannedMinutes === "number" ? t.plannedMinutes : undefined,
+              order: typeof t.order === "number" ? t.order : undefined,
               ...(shouldLink ? { primaryBudgetLineItemId: budgetItemId, budgetLinkType: t.linkType } : {}),
             };
 
-            const focus = blocksByKey.get(t.blockKey);
-            if (focus && focus.dateIso === t.dateIso) {
+            if (focus?.taskId) {
               const list = childPayloadsByFocusId.get(focus.taskId) ?? [];
               list.push({ ...base, focusBlockId: focus.taskId });
               childPayloadsByFocusId.set(focus.taskId, list);
-            } else {
-              standalonePayloads.push(base);
+              return;
             }
+
+            // Fallback: still create as a non-overlapping task (no start/end).
+            standalonePayloads.push(base);
           });
 
           for (const [focusId, children] of childPayloadsByFocusId.entries()) {
-            const createdChildren = children.length > 0 ? await createTasksBulk(projectId, children) : [];
+            const createdChildrenRaw = children.length > 0 ? await createTasksBulk(projectId, children) : [];
+            const createdChildren = [...createdChildrenRaw].sort(
+              (a, b) => (Number((a as any)?.order ?? 0) - Number((b as any)?.order ?? 0)) || String(a.title ?? "").localeCompare(String(b.title ?? "")),
+            );
             const childIds = createdChildren
               .map((task) => task.taskId)
               .filter((value): value is string => typeof value === "string" && value.trim().length > 0);

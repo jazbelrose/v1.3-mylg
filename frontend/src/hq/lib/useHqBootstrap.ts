@@ -19,7 +19,7 @@ export function useHqBootstrap(orgId: string | null) {
 
       try {
         const summary = await fetchHqSummary(orgId);
-        const txnsRes = await fetchHqTransactions({ orgId, limit: 500 });
+        const txnsRes = await fetchHqTransactions({ orgId, limit: 25 });
 
         if (cancelled) return;
 
