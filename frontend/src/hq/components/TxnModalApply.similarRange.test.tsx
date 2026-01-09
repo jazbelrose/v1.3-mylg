@@ -2,11 +2,11 @@ import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 
-import TxnModalApply from "@/hq/components/TxnModalApply";
+import TxnModalApply from "./TxnModalApply";
 import * as api from "@/shared/utils/api";
 
-describe("HQOverview Similar Transactions range", () => {
-  it("does not include from/to in Similar vendor-matches request URL", async () => {
+describe("TxnModalApply Similar Transactions range", () => {
+  it("omits from/to query params when opened without a view range (HQOverview)", async () => {
     const apiFetchSpy = vi.spyOn(api, "apiFetch").mockImplementation(async (url: string) => {
       if (String(url).includes("/hq/vendor-matches?")) {
         return { orgId: "org_1", vendorKey: "acme", matches: [], cursor: null } as any;

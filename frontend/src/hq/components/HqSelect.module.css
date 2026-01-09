@@ -68,6 +68,8 @@
 
 .viewport {
   padding: 6px;
+  max-height: inherit;
+  overflow-y: auto;
 }
 
 .item {
