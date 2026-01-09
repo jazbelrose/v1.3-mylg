@@ -574,6 +574,21 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.txnRowClickable {
+  cursor: pointer;
+}
+
+.txnRowClickable:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.txnRowClickable:focus-visible {
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.4);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.14);
+}
+
 .txnMain {
   min-width: 0;
   display: grid;

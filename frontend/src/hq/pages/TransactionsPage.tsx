@@ -229,7 +229,7 @@ const TransactionsPage: React.FC = () => {
               return (
                 <div
                   key={txn.dedupeHash}
-                  className={styles.row}
+                  className={[styles.row, canAdmin ? styles.rowClickable : ""].filter(Boolean).join(" ")}
                   role={canAdmin ? "button" : undefined}
                   tabIndex={canAdmin ? 0 : undefined}
                   onClick={() => {

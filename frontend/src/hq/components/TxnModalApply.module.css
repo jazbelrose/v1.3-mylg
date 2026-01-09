@@ -16,12 +16,15 @@
 .modalContent {
   width: min(860px, 100%);
   max-height: min(78vh, 820px);
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border-radius: 14px;
   background-color: var(--bg-color);
   color: var(--text-color);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: var(--shadow-lg);
+  text-shadow: none;
 }
 
 .header {
@@ -34,7 +37,7 @@
 }
 
 .title {
-  font-weight: 700;
+  font-weight: 650;
   font-size: 16px;
 }
 
@@ -56,6 +59,10 @@
 
 .body {
   padding: 20px 22px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .summary {
@@ -76,7 +83,7 @@
 }
 
 .amount {
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .controls {
@@ -105,7 +112,7 @@
 }
 
 .similarTitle {
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .similarMeta {
@@ -121,7 +128,9 @@
 .similarList {
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .similarRow {
@@ -137,7 +146,7 @@
 }
 
 .similarName {
-  font-weight: 600;
+  font-weight: 550;
 }
 
 .similarMetaRow {
@@ -149,7 +158,7 @@
 }
 
 .similarAmt {
-  font-weight: 600;
+  font-weight: 550;
   white-space: nowrap;
 }
 

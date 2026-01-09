@@ -789,7 +789,7 @@ const HQOverview: React.FC = () => {
               {latestTransactions.map((txn) => (
                 <div
                   key={txn.dedupeHash}
-                  className={styles.txnRow}
+                  className={[styles.txnRow, canAdmin ? styles.txnRowClickable : ""].filter(Boolean).join(" ")}
                   role={canAdmin ? "button" : undefined}
                   tabIndex={canAdmin ? 0 : undefined}
                   onClick={() => {
