@@ -337,70 +337,74 @@ const TransactionsPage: React.FC = () => {
           ) : null}
           </div>
 
-            {filtered.length === 0 ? (
-            <div className={styles.emptyState} role="status">
-              No transactions for this filter. Import a CSV or adjust your search.
-            </div>
-          ) : (
-            <div className={styles.table} role="region" aria-label="Transactions table">
-            {filtered.map((txn) => {
-              const accountLabel = accountsById.get(txn.accountId) || "Account";
-              const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
-              const directionClass = txn.amount < 0 ? styles.out : styles.in;
-              const iconType = effectivePaymentType(txn);
-              return (
-                <div
-                  key={txn.dedupeHash}
-                  className={[styles.row, canAdmin ? styles.rowClickable : ""].filter(Boolean).join(" ")}
-                  role={canAdmin ? "button" : undefined}
-                  tabIndex={canAdmin ? 0 : undefined}
-                  onClick={() => {
-                    if (!canAdmin) return;
-                    setSelectedTxn(txn);
-                    setIsApplyOpen(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (!canAdmin) return;
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedTxn(txn);
-                      setIsApplyOpen(true);
-                    }
-                  }}
-                >
-                  <div className={styles.txnCell}>
-                    <div className={styles.icon} aria-hidden>
-                      {typeIcon(iconType)}
-                    </div>
-                    <div className={styles.txnMain}>
-                      <div className={styles.txnTitle}>{txnTitle(txn)}</div>
-                      <div className={styles.txnMeta}>
-                        <span>{txn.postedAt}</span>
-                        <span>·</span>
-                        <span>{accountLabel}</span>
-                        {txn.cardLast4 ? (
-                          <>
-                            <span>·</span>
-                            <span>Card {txn.cardLast4}</span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={styles.categoryCell}>
-                    {HQ_CATEGORY_LABEL[currentCategoryId]}
-                  </div>
-
-                  <div className={[styles.amountCol, directionClass].join(" ")}>
-                    {txn.amount < 0 ? "-" : "+"}
-                    {currency.format(Math.abs(txn.amount))}
-                  </div>
+          <div className={styles.tableClip}>
+            <div className={styles.tableScroll}>
+              {filtered.length === 0 ? (
+                <div className={styles.emptyState} role="status">
+                  No transactions for this filter. Import a CSV or adjust your search.
                 </div>
-              );
-            })}
+              ) : (
+                <div className={styles.table} role="region" aria-label="Transactions table">
+                  {filtered.map((txn) => {
+                    const accountLabel = accountsById.get(txn.accountId) || "Account";
+                    const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
+                    const directionClass = txn.amount < 0 ? styles.out : styles.in;
+                    const iconType = effectivePaymentType(txn);
+                    return (
+                      <div
+                        key={txn.dedupeHash}
+                        className={[styles.row, canAdmin ? styles.rowClickable : ""].filter(Boolean).join(" ")}
+                        role={canAdmin ? "button" : undefined}
+                        tabIndex={canAdmin ? 0 : undefined}
+                        onClick={() => {
+                          if (!canAdmin) return;
+                          setSelectedTxn(txn);
+                          setIsApplyOpen(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!canAdmin) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedTxn(txn);
+                            setIsApplyOpen(true);
+                          }
+                        }}
+                      >
+                        <div className={styles.txnCell}>
+                          <div className={styles.icon} aria-hidden>
+                            {typeIcon(iconType)}
+                          </div>
+                          <div className={styles.txnMain}>
+                            <div className={styles.txnTitle}>{txnTitle(txn)}</div>
+                            <div className={styles.txnMeta}>
+                              <span>{txn.postedAt}</span>
+                              <span>·</span>
+                              <span>{accountLabel}</span>
+                              {txn.cardLast4 ? (
+                                <>
+                                  <span>·</span>
+                                  <span>Card {txn.cardLast4}</span>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={styles.categoryCell}>
+                          {HQ_CATEGORY_LABEL[currentCategoryId]}
+                        </div>
+
+                        <div className={[styles.amountCol, directionClass].join(" ")}>
+                          {txn.amount < 0 ? "-" : "+"}
+                          {currency.format(Math.abs(txn.amount))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-          )}
         </div>
       </div>
 

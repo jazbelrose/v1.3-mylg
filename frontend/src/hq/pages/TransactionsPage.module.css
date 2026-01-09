@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .actions {
@@ -37,10 +39,27 @@
 
 .transactionsShell {
   border-radius: 16px;
-  overflow: clip;
   background: rgb(17, 18, 19);
   border: 1px solid rgba(255, 255, 255, 0.12);
   isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.tableClip {
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tableScroll {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .stickyStack {
@@ -52,6 +71,7 @@
   background-clip: padding-box;
   isolation: isolate;
   contain: layout style paint;
+  border-radius: 16px 16px 0 0;
 }
 
 .filters {
