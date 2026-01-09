@@ -18,7 +18,7 @@ export type HqTransactionsResponse = {
   cursor: string | null;
 };
 
-export type HqChartSeriesRange = "1W" | "1M" | "3M" | "1Y" | "ALL";
+export type HqChartSeriesRange = "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
 export type HqBalanceSeriesResponse = {
   accountId: string;

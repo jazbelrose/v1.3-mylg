@@ -1041,7 +1041,7 @@ const getChartSeries = async (e, C) => {
   const scopeRaw = String(q.scope || "aggregate").trim().toLowerCase();
   const scope = scopeRaw === "account" ? "account" : "aggregate";
   const rangeRaw = String(q.range || "1M").trim().toUpperCase();
-  const range = ["1W", "1M", "3M", "1Y", "ALL"].includes(rangeRaw) ? rangeRaw : "1M";
+  const range = ["1W", "1M", "3M", "YTD", "1Y", "ALL"].includes(rangeRaw) ? rangeRaw : "1M";
 
   const today = todayIsoInTimeZone();
   const accountIdParam = typeof q.accountId === "string" ? q.accountId.trim() : "";
@@ -1057,6 +1057,10 @@ const getChartSeries = async (e, C) => {
     range === "1W" ? 7 : range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : null;
 
   let startDate = fixedRangeDays ? addDaysIso(today, -(fixedRangeDays - 1)) : null;
+
+  if (range === "YTD") {
+    startDate = `${today.slice(0, 4)}-01-01`;
+  }
 
   if (range === "ALL") {
     if (scope === "account") {

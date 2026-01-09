@@ -45,6 +45,11 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
 
 function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: HqChartSeriesRange): HqChartSeriesResponse["points"] {
   if (range === "ALL") return points;
+  if (range === "YTD") {
+    const anchor = points.length ? points[points.length - 1].date : todayPacificIsoDate();
+    const start = `${String(anchor).slice(0, 4)}-01-01`;
+    return points.filter((p) => p.date >= start);
+  }
   const fixedDays = range === "1W" ? 7 : range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : null;
   if (!fixedDays) return points;
   const anchor = points.length ? points[points.length - 1].date : todayPacificIsoDate();
@@ -62,6 +67,7 @@ const chartRanges: Array<{ id: HqChartSeriesRange; label: string }> = [
   { id: "1W", label: "1W" },
   { id: "1M", label: "1M" },
   { id: "3M", label: "3M" },
+  { id: "YTD", label: "YTD" },
   { id: "1Y", label: "1Y" },
   { id: "ALL", label: "ALL" },
 ];
@@ -456,7 +462,12 @@ const HQOverview: React.FC = () => {
                   className={[styles.filterChip, selectedRange === filter.id ? styles.filterChipActive : ""]
                     .filter(Boolean)
                     .join(" ")}
-                  onClick={() => setSelectedRange(filter.id)}
+                  onClick={() => {
+                    setSelectedRange(filter.id);
+                    if (filter.id === "month") setChartRange("1M");
+                    else if (filter.id === "quarter") setChartRange("3M");
+                    else if (filter.id === "ytd") setChartRange("YTD");
+                  }}
                   aria-pressed={selectedRange === filter.id}
                 >
                   {filter.label}
