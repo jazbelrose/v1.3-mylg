@@ -233,8 +233,9 @@ const TransactionsPage: React.FC = () => {
       actions={actions}
     >
       <div className={styles.page}>
-        <div className={styles.stickyStack}>
-          <div className={styles.filters}>
+        <div className={styles.transactionsShell}>
+          <div className={styles.stickyStack}>
+            <div className={styles.filters}>
             <input
               className={styles.filterField}
               type="search"
@@ -334,14 +335,14 @@ const TransactionsPage: React.FC = () => {
               <div className={styles.amountCol}>Amount</div>
             </div>
           ) : null}
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className={styles.emptyState} role="status">
-            No transactions for this filter. Import a CSV or adjust your search.
           </div>
-        ) : (
-          <div className={styles.table} role="region" aria-label="Transactions table">
+
+            {filtered.length === 0 ? (
+            <div className={styles.emptyState} role="status">
+              No transactions for this filter. Import a CSV or adjust your search.
+            </div>
+          ) : (
+            <div className={styles.table} role="region" aria-label="Transactions table">
             {filtered.map((txn) => {
               const accountLabel = accountsById.get(txn.accountId) || "Account";
               const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
@@ -399,7 +400,8 @@ const TransactionsPage: React.FC = () => {
               );
             })}
           </div>
-        )}
+          )}
+        </div>
       </div>
 
       {activeOrgId ? (

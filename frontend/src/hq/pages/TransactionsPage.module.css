@@ -35,16 +35,23 @@
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+.transactionsShell {
+  border-radius: 16px;
+  overflow: clip;
+  background: rgb(17, 18, 19);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  isolation: isolate;
+}
 
 .stickyStack {
   position: sticky;
   top: 0;
   z-index: 6;
-  border-radius: 16px 16px 0 0;
-  background: rgba(17, 18, 19, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 0;
+  background: rgb(17, 18, 19);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
+  background-clip: padding-box;
+  isolation: isolate;
+  contain: layout style paint;
 }
 
 .filters {
@@ -118,11 +125,7 @@
 }
 
 .table {
-  border-radius: 0 0 16px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
-  overflow: hidden;
-  border-top: 0;
 }
 
 .tableHeader {
@@ -252,8 +255,6 @@
 }
 
 .emptyState {
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
   padding: 18px;
   color: rgba(255, 255, 255, 0.65);
