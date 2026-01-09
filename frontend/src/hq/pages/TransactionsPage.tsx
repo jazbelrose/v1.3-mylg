@@ -70,6 +70,7 @@ const TransactionsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [accountId, setAccountId] = React.useState<string>("all");
   const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
+  const [txnType, setTxnType] = React.useState<"all" | HqTransactionType>("all");
   const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
   const [startDate, setStartDate] = React.useState<string>("");
   const [endDate, setEndDate] = React.useState<string>("");
@@ -91,8 +92,16 @@ const TransactionsPage: React.FC = () => {
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const filter = params.get("filter");
+    const q = params.get("q");
+    const type = params.get("type");
+    if (typeof q === "string" && q.length) setSearchTerm(q);
+    if (type && type !== "all") setTxnType(type as HqTransactionType);
     if (filter === "uncategorized") {
       setCategoryId("UNCATEGORIZED");
+    }
+    if (filter === "recurring") {
+      setTxnType("recurring");
+      setDirection("out");
     }
   }, [location.search]);
 
@@ -110,6 +119,7 @@ const TransactionsPage: React.FC = () => {
       if (endDate && txn.postedAt > endDate) return false;
       if (direction === "in" && txn.amount < 0) return false;
       if (direction === "out" && txn.amount >= 0) return false;
+      if (txnType !== "all" && txn.type !== txnType) return false;
 
       if (categoryId === "UNCATEGORIZED") {
         if (txn.categoryId && txn.categoryId !== "OTHER") return false;
@@ -124,7 +134,7 @@ const TransactionsPage: React.FC = () => {
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [accountId, categoryId, direction, endDate, searchTerm, startDate, transactions]);
+  }, [accountId, categoryId, direction, endDate, searchTerm, startDate, transactions, txnType]);
 
   const actions = (
     <div className={styles.actions}>
@@ -180,6 +190,24 @@ const TransactionsPage: React.FC = () => {
               { value: "all", label: "In + Out" },
               { value: "out", label: "Outflow" },
               { value: "in", label: "Inflow" },
+            ]}
+          />
+
+          <HqSelect
+            className={styles.filterField}
+            value={txnType}
+            onValueChange={(v) => setTxnType(v as "all" | HqTransactionType)}
+            ariaLabel="Filter by type"
+            options={[
+              { value: "all", label: "All types" },
+              { value: "card_purchase", label: "Card purchase" },
+              { value: "recurring", label: "Recurring" },
+              { value: "transfer", label: "Transfer" },
+              { value: "zelle", label: "Zelle" },
+              { value: "wire", label: "Wire" },
+              { value: "deposit", label: "Deposit" },
+              { value: "fee", label: "Fee" },
+              { value: "unknown", label: "Unknown" },
             ]}
           />
 

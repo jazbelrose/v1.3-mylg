@@ -31,6 +31,16 @@ export type HqTopCategoriesResponse = {
   items: Array<{ categoryId: string; amount: number }>;
 };
 
+export type HqRecurringCommitmentsResponse = {
+  orgId: string;
+  months: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  excludeInternalTransfers: boolean;
+  mandatoryMonthlyBurn: number;
+  items: Array<{ vendorKey: string; label: string; amountMonthly: number }>;
+};
+
 export type HqBalanceSeriesResponse = {
   accountId: string;
   currency: "USD";
@@ -130,6 +140,23 @@ export async function fetchHqTopCategories(input: {
   if (typeof input.limit === "number") params.set("limit", String(input.limit));
 
   return apiFetch<HqTopCategoriesResponse>(`${base}/hq/top-categories?${params.toString()}`, {
+    method: "GET",
+    suppressErrorLog: true,
+  });
+}
+
+export async function fetchHqRecurringCommitments(input: {
+  orgId: string;
+  months?: number;
+  limit?: number;
+  excludeInternalTransfers?: boolean;
+}): Promise<HqRecurringCommitmentsResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId: input.orgId });
+  if (typeof input.months === "number") params.set("months", String(input.months));
+  if (typeof input.limit === "number") params.set("limit", String(input.limit));
+  if (input.excludeInternalTransfers === false) params.set("excludeInternalTransfers", "0");
+  return apiFetch<HqRecurringCommitmentsResponse>(`${base}/hq/recurring-commitments?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCashOnHand } from "@/hq/lib/hqMetrics";
+import { computeCashOnHand, computeTopCategories } from "@/hq/lib/hqMetrics";
 import type { HqAccount, HqTransaction } from "@/hq/types";
 
 describe("computeCashOnHand", () => {
@@ -111,5 +111,64 @@ describe("computeCashOnHand", () => {
 
     // Only the 2026-01-07 txn counts.
     expect(computeCashOnHand(accounts, transactions)).toBe(105);
+  });
+});
+
+describe("computeTopCategories", () => {
+  it("aggregates outflows using canonical signed amount semantics", () => {
+    const transactions: HqTransaction[] = [
+      {
+        orgId: "ORG#1",
+        accountId: "acct-1",
+        postedAt: "2026-01-07T10:00:00Z",
+        amount: 100, // positive raw amount, but still an outflow
+        currency: "USD",
+        rawDescription: "Owner draw",
+        normalizedDescription: "owner draw",
+        type: "unknown",
+        direction: "out",
+        categoryId: "OWNER_DRAW",
+        isInternalTransfer: false,
+        importRunId: "import-1",
+        dedupeHash: "h1",
+        createdAt: "2026-01-07T10:00:00Z",
+      },
+      {
+        orgId: "ORG#1",
+        accountId: "acct-1",
+        postedAt: "2026-01-06",
+        amount: -50,
+        currency: "USD",
+        rawDescription: "Owner draw 2",
+        normalizedDescription: "owner draw 2",
+        type: "unknown",
+        direction: "out",
+        categoryId: "OWNER_DRAW",
+        isInternalTransfer: false,
+        importRunId: "import-1",
+        dedupeHash: "h2",
+        createdAt: "2026-01-06T00:00:00Z",
+      },
+      {
+        orgId: "ORG#1",
+        accountId: "acct-1",
+        postedAt: "2026-01-06",
+        amount: -999,
+        currency: "USD",
+        rawDescription: "Internal transfer",
+        normalizedDescription: "internal transfer",
+        type: "unknown",
+        direction: "out",
+        categoryId: "OWNER_DRAW",
+        isInternalTransfer: true,
+        importRunId: "import-1",
+        dedupeHash: "h3",
+        createdAt: "2026-01-06T00:00:00Z",
+      },
+    ];
+
+    const res = computeTopCategories(transactions, "2026-01-06", "2026-01-07");
+    const ownerDraw = res.find((x) => x.categoryId === "OWNER_DRAW");
+    expect(ownerDraw?.amount).toBe(150);
   });
 });

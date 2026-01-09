@@ -13,6 +13,7 @@ import {
   computeCashOnHand,
   canonicalSignedAmount,
   computeMonthlyFlow,
+  computeRecurringCommitments,
   computeTopCategories,
   computeTrailingBurn,
   getRange,
@@ -21,9 +22,11 @@ import {
 } from "@/hq/lib/hqMetrics";
 import {
   fetchHqChartSeries,
+  fetchHqRecurringCommitments,
   fetchHqTopCategories,
   type HqChartSeriesRange,
   type HqChartSeriesResponse,
+  type HqRecurringCommitmentsResponse,
   type HqTopCategoriesResponse,
 } from "@/hq/lib/hqApi";
 import type { HqAccount, HqAlert, HqTransaction } from "@/hq/types";
@@ -211,6 +214,10 @@ const HQOverview: React.FC = () => {
   const [topCategoriesError, setTopCategoriesError] = React.useState<string | null>(null);
   const [topCategoriesLoading, setTopCategoriesLoading] = React.useState(false);
 
+  const [recurringData, setRecurringData] = React.useState<HqRecurringCommitmentsResponse | null>(null);
+  const [recurringError, setRecurringError] = React.useState<string | null>(null);
+  const [recurringLoading, setRecurringLoading] = React.useState(false);
+
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
     setIsImportOpen(true);
@@ -328,13 +335,32 @@ const HQOverview: React.FC = () => {
 
   const { start, end } = getRange(selectedRange);
 
+  const recurringLocal = React.useMemo(() => {
+    return computeRecurringCommitments(transactions, 3, { limit: 8, excludeInternalTransfers: true });
+  }, [transactions]);
+
+  const recurringSummary = React.useMemo(() => {
+    if (recurringData) return recurringData;
+    if (!activeOrgId) return null;
+    return {
+      orgId: activeOrgId,
+      months: recurringLocal.months,
+      startDate: recurringLocal.startDate,
+      endDate: recurringLocal.endDate,
+      excludeInternalTransfers: true,
+      mandatoryMonthlyBurn: recurringLocal.mandatoryMonthlyBurn,
+      items: recurringLocal.items,
+    };
+  }, [activeOrgId, recurringData, recurringLocal]);
+
   const totals = React.useMemo(() => {
     const cashOnHand =
       typeof cashOnHandAggregate === "number" ? cashOnHandAggregate : computeCashOnHand(accounts, transactions);
-    const burnOutflow = computeTrailingBurn(transactions, 3);
+    const avgOutflow = computeTrailingBurn(transactions, 3);
+    const mandatoryMonthlyBurn = Math.max(0, Number(recurringSummary?.mandatoryMonthlyBurn ?? 0) || 0);
     const runwayMonths =
-      cashOnHand !== null && burnOutflow !== null && burnOutflow > 0
-        ? cashOnHand / burnOutflow
+      cashOnHand !== null && mandatoryMonthlyBurn > 0
+        ? cashOnHand / mandatoryMonthlyBurn
         : null;
 
     const rangeTxns = transactions.filter(
@@ -345,8 +371,23 @@ const HQOverview: React.FC = () => {
     const net = inflow - outflow;
     const uncategorizedCount = rangeTxns.filter((t) => !t.categoryId || t.categoryId === "OTHER").length;
 
-    return { cashOnHand, burnOutflow, runwayMonths, net, inflow, outflow, uncategorizedCount };
-  }, [accounts, cashOnHandAggregate, end, start, transactions]);
+    const variableSpend =
+      avgOutflow === null
+        ? null
+        : Math.max(0, Math.round((avgOutflow - mandatoryMonthlyBurn) * 100) / 100);
+
+    return {
+      cashOnHand,
+      avgOutflow,
+      mandatoryMonthlyBurn,
+      variableSpend,
+      runwayMonths,
+      net,
+      inflow,
+      outflow,
+      uncategorizedCount,
+    };
+  }, [accounts, cashOnHandAggregate, end, recurringSummary?.mandatoryMonthlyBurn, start, transactions]);
 
   const includedAccounts = React.useMemo(
     () => accounts.filter((a) => !a.archivedAt && a.includeInCashOnHand !== false),
@@ -448,6 +489,56 @@ const HQOverview: React.FC = () => {
     };
   }, [activeOrgId, topCategoriesRange, topCategoriesWindow.end, topCategoriesWindow.start, transactions]);
 
+  React.useEffect(() => {
+    if (!activeOrgId) {
+      setRecurringData(null);
+      setRecurringError(null);
+      setRecurringLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRecurringLoading(true);
+    setRecurringError(null);
+
+    fetchHqRecurringCommitments({ orgId: activeOrgId, months: 3, limit: 8, excludeInternalTransfers: true })
+      .then((res) => {
+        if (cancelled) return;
+        setRecurringData(res);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Could not load recurring commitments.";
+
+        // Common during dev: backend not redeployed yet -> endpoint returns 404.
+        // Fall back to local cache so HQ stays usable.
+        if (String(msg).includes("404")) {
+          setRecurringData({
+            orgId: activeOrgId,
+            months: recurringLocal.months,
+            startDate: recurringLocal.startDate,
+            endDate: recurringLocal.endDate,
+            excludeInternalTransfers: true,
+            mandatoryMonthlyBurn: recurringLocal.mandatoryMonthlyBurn,
+            items: recurringLocal.items,
+          });
+          setRecurringError(null);
+          return;
+        }
+
+        setRecurringData(null);
+        setRecurringError(msg);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setRecurringLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrgId, recurringLocal]);
+
   const topCategories = React.useMemo(() => {
     return (topCategoriesData?.items || []).slice(0, 8);
   }, [topCategoriesData]);
@@ -461,6 +552,15 @@ const HQOverview: React.FC = () => {
     const endLabel = topCategoriesData?.endDate || topCategoriesWindow.end;
     return `${startLabel} – ${endLabel}`;
   }, [topCategoriesData?.endDate, topCategoriesData?.startDate, topCategoriesWindow.end, topCategoriesWindow.start]);
+
+  const recurringItems = React.useMemo(() => {
+    return (recurringSummary?.items || []).slice(0, 8);
+  }, [recurringSummary]);
+
+  const recurringLabel = React.useMemo(() => {
+    if (!recurringSummary) return "Trailing 3 full months";
+    return `${recurringSummary.startDate} – ${recurringSummary.endDate}`;
+  }, [recurringSummary]);
 
   const latestTransactions = React.useMemo(() => {
     return [...transactions]
@@ -505,7 +605,7 @@ const HQOverview: React.FC = () => {
       items.push({
         id: "low-runway",
         severity: "warning",
-        message: "Runway is below 2 months. Consider tightening burn or replenishing cash.",
+        message: "Runway is below 2 months. Consider tightening mandatory burn or replenishing cash.",
       });
     }
     if (totals.uncategorizedCount > 0) {
@@ -701,22 +801,31 @@ const HQOverview: React.FC = () => {
               </div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kpiLabel}>Burn (avg / mo)</div>
+              <div className={styles.kpiLabel}>Mandatory burn (avg / mo)</div>
               <div className={styles.kpiValue}>
-                {totals.burnOutflow === null ? "—" : currency.format(totals.burnOutflow)}
+                {currency.format(totals.mandatoryMonthlyBurn)}
               </div>
-              <div className={styles.kpiHint}>Trailing 3 full months, outflow only</div>
+              <div className={styles.kpiHint}>Trailing 3 full months, recurring only</div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kpiLabel}>Runway</div>
+              <div className={styles.kpiLabel}>Runway (mandatory)</div>
               <div className={styles.kpiValue}>
-                {totals.runwayMonths === null
+                {totals.cashOnHand === null
                   ? "—"
-                  : totals.burnOutflow === 0
+                  : totals.mandatoryMonthlyBurn === 0
                     ? "Stable"
-                    : `${runwayFormatter.format(totals.runwayMonths)} mo`}
+                    : totals.runwayMonths === null
+                      ? "—"
+                      : `${runwayFormatter.format(totals.runwayMonths)} mo`}
               </div>
-              <div className={styles.kpiHint}>Cash / burn</div>
+              <div className={styles.kpiHint}>Cash / mandatory burn</div>
+            </div>
+            <div className={styles.kpi}>
+              <div className={styles.kpiLabel}>Variable spend (avg / mo)</div>
+              <div className={styles.kpiValue}>
+                {totals.variableSpend === null ? "—" : currency.format(totals.variableSpend)}
+              </div>
+              <div className={styles.kpiHint}>Trailing 3 months outflow minus mandatory</div>
             </div>
             <div className={styles.kpi}>
               <div className={styles.kpiLabel}>Net cash flow ({rangeShortLabel})</div>
@@ -731,40 +840,91 @@ const HQOverview: React.FC = () => {
         </section>
 
         <div className={styles.gridRowTwoCol}>
-          <HQCard
-            title="Accounts"
-            aria-label="Accounts breakdown"
-            onClick={() => {
-              navigate("/dashboard/hq/accounts");
-            }}
-          >
-            {accounts.length === 0 ? (
-              <div className={styles.emptyState}>
-                Add an account to start.{" "}
-                {canAdmin ? (
-                  <button
-                    type="button"
-                    className={styles.inlineButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openAddAccount();
-                    }}
-                  >
-                    Add account
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <ul className={styles.list}>
-                {accounts.slice(0, 5).map((acct) => (
-                  <li key={acct.accountId} className={styles.listItem}>
-                    <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
-                    <span>{acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </HQCard>
+          <div className={styles.leftStack}>
+            <HQCard
+              title="Accounts"
+              aria-label="Accounts breakdown"
+              onClick={() => {
+                navigate("/dashboard/hq/accounts");
+              }}
+            >
+              {accounts.length === 0 ? (
+                <div className={styles.emptyState}>
+                  Add an account to start.{" "}
+                  {canAdmin ? (
+                    <button
+                      type="button"
+                      className={styles.inlineButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAddAccount();
+                      }}
+                    >
+                      Add account
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <ul className={styles.list}>
+                  {accounts.slice(0, 5).map((acct) => (
+                    <li key={acct.accountId} className={styles.listItem}>
+                      <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
+                      <span>{acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </HQCard>
+
+            <HQCard
+              title="Recurring"
+              subtitle={recurringLabel}
+              aria-label="Recurring commitments"
+              onClick={() => {
+                navigate("/dashboard/hq/transactions?filter=recurring");
+              }}
+              footer={
+                <Link className={styles.cardLink} to="/dashboard/hq/transactions?filter=recurring">
+                  View all
+                </Link>
+              }
+            >
+              {recurringLoading && recurringItems.length === 0 ? (
+                <div className={styles.emptyState}>Loading…</div>
+              ) : recurringError ? (
+                <div className={styles.emptyState}>Could not load recurring commitments.</div>
+              ) : recurringItems.length === 0 ? (
+                <div className={styles.emptyState}>No recurring transactions detected yet.</div>
+              ) : (
+                <ul className={styles.list}>
+                  {recurringItems.map((entry) => (
+                    <li
+                      key={entry.vendorKey}
+                      className={[styles.listItem, styles.listItemClickable].join(" ")}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
+                        }
+                      }}
+                    >
+                      <span className={styles.accountName} title={entry.label}>
+                        {entry.label}
+                      </span>
+                      <span className={styles.out}>{currency.format(entry.amountMonthly)}/mo</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </HQCard>
+          </div>
 
           <HQCard
             title="Top Categories"

@@ -200,7 +200,7 @@
 
 .kpiRow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
 }
 
@@ -256,6 +256,12 @@
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
   gap: 16px;
+}
+
+.leftStack {
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
 
 .topCategoriesPills {
@@ -414,6 +420,21 @@
   gap: 10px;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
+}
+
+.listItemClickable {
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.listItemClickable:hover,
+.listItemClickable:focus-visible {
+  background: rgba(250, 51, 86, 0.12);
+  border-color: rgba(250, 51, 86, 0.22);
+  outline: none;
 }
 
 .accountName {

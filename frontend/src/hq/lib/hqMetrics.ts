@@ -1,5 +1,6 @@
 import type { HqAccount, HqCategoryId, HqTransaction } from "@/hq/types";
 import { HQ_DEFAULT_TIME_ZONE, todayIsoDateInTimeZone } from "@/hq/lib/hqDate";
+import { getVendorKeyForTxn } from "@/hq/lib/vendorNormalization";
 
 export type HqRangeId = "month" | "quarter" | "ytd";
 
@@ -153,6 +154,90 @@ export function computeTrailingBurn(
   return Math.round(avg * 100) / 100;
 }
 
+type RecurringSummary = {
+  months: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  mandatoryMonthlyBurn: number;
+  items: Array<{ vendorKey: string; label: string; amountMonthly: number }>;
+};
+
+function lastDayOfMonth(yyyyMm: string): string | null {
+  const { year, monthIndex } = parseYyyyMm(yyyyMm);
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) return null;
+  const d = new Date(Date.UTC(year, monthIndex + 1, 0));
+  return d.toISOString().slice(0, 10);
+}
+
+export function computeRecurringCommitments(
+  transactions: HqTransaction[],
+  months: number,
+  opts?: { excludeInternalTransfers?: boolean; limit?: number }
+): RecurringSummary {
+  const safeMonths = Math.max(1, Math.min(12, Math.floor(months || 0) || 3));
+  const limit = typeof opts?.limit === "number" ? Math.max(1, Math.min(12, Math.floor(opts.limit))) : 8;
+  const excludeInternalTransfers = opts?.excludeInternalTransfers !== false;
+
+  const today = todayIsoDate();
+  const currentMonthKey = monthKey(today);
+  const monthKeys: string[] = [];
+  for (let i = 1; i <= safeMonths; i += 1) monthKeys.push(addMonths(currentMonthKey, -i));
+  monthKeys.sort();
+
+  const earliest = monthKeys[0] || currentMonthKey;
+  const latest = monthKeys[monthKeys.length - 1] || currentMonthKey;
+  const startDate = `${earliest}-01`;
+  const endDate = lastDayOfMonth(latest) || today;
+
+  const byVendorKey = new Map<
+    string,
+    { vendorKey: string; labelCounts: Map<string, number>; byMonth: Record<string, number> }
+  >();
+
+  for (const txn of transactions) {
+    if (excludeInternalTransfers && txn.isInternalTransfer) continue;
+    const type = String(txn.type || "").trim().toLowerCase();
+    if (type !== "recurring") continue;
+
+    const signed = canonicalSignedAmount(txn);
+    if (typeof signed !== "number" || !Number.isFinite(signed) || signed >= 0) continue;
+
+    const key = monthKey(txn.postedAt);
+    if (!monthKeys.includes(key)) continue;
+
+    const { vendorKey, vendorLabel } = getVendorKeyForTxn(txn);
+    const entry =
+      byVendorKey.get(vendorKey) ??
+      (() => {
+        const next = { vendorKey, labelCounts: new Map<string, number>(), byMonth: {} as Record<string, number> };
+        byVendorKey.set(vendorKey, next);
+        return next;
+      })();
+
+    entry.byMonth[key] = Math.round(((entry.byMonth[key] || 0) + Math.abs(signed)) * 100) / 100;
+    entry.labelCounts.set(vendorLabel, (entry.labelCounts.get(vendorLabel) || 0) + 1);
+  }
+
+  const allItems = [...byVendorKey.values()].map((entry) => {
+    const monthTotal = monthKeys.reduce((acc, m) => acc + (entry.byMonth[m] || 0), 0);
+    const amountMonthly = Math.round((monthTotal / Math.max(1, monthKeys.length)) * 100) / 100;
+    const label =
+      [...entry.labelCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([name]) => name)
+        .find(Boolean) || "Unknown";
+    return { vendorKey: entry.vendorKey, label, amountMonthly };
+  });
+
+  const mandatoryMonthlyBurn = Math.round(allItems.reduce((acc, x) => acc + (x.amountMonthly || 0), 0) * 100) / 100;
+  const items = allItems
+    .filter((x) => Number.isFinite(x.amountMonthly) && x.amountMonthly > 0)
+    .sort((a, b) => b.amountMonthly - a.amountMonthly)
+    .slice(0, limit);
+
+  return { months: safeMonths, startDate, endDate, mandatoryMonthlyBurn, items };
+}
+
 export function computeMonthlyFlow(transactions: HqTransaction[], start: string, end: string) {
   const buckets: Record<string, { inflow: number; outflow: number }> = {};
   for (const txn of transactions) {
@@ -182,12 +267,14 @@ export function computeTopCategories(
   const totals: Partial<Record<HqCategoryId, number>> = {};
 
   for (const txn of transactions) {
-    if (!inRange(txn.postedAt, start, end)) continue;
+    const postedAt = String(txn.postedAt || "").slice(0, 10);
+    if (!postedAt || postedAt < start || postedAt > end) continue;
     if (txn.isInternalTransfer) continue;
-    if (txn.amount >= 0) continue;
+    const signed = canonicalSignedAmount(txn);
+    if (typeof signed !== "number" || !Number.isFinite(signed) || signed >= 0) continue;
     const category = txn.categoryId || "OTHER";
     if (category === "TRANSFERS") continue;
-    totals[category] = (totals[category] || 0) + Math.abs(txn.amount);
+    totals[category] = (totals[category] || 0) + Math.abs(signed);
   }
 
   return Object.entries(totals)
@@ -195,4 +282,3 @@ export function computeTopCategories(
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 6);
 }
-

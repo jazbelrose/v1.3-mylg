@@ -143,6 +143,30 @@ const addDaysIso = (iso, deltaDays) => {
   return dateToIso(d);
 };
 
+const monthKey = (iso) => String(iso || "").slice(0, 7);
+
+const parseYyyyMm = (yyyyMm) => {
+  const [y, m] = String(yyyyMm || "").split("-");
+  return { year: Number(y), monthIndex: Number(m) - 1 };
+};
+
+const addMonths = (yyyyMm, deltaMonths) => {
+  const { year, monthIndex } = parseYyyyMm(yyyyMm);
+  const total = year * 12 + monthIndex + deltaMonths;
+  const nextYear = Math.floor(total / 12);
+  const nextMonthIndex = total % 12;
+  return `${String(nextYear)}-${String(nextMonthIndex + 1).padStart(2, "0")}`;
+};
+
+const firstDayOfMonth = (yyyyMm) => `${String(yyyyMm || "").slice(0, 7)}-01`;
+
+const lastDayOfMonth = (yyyyMm) => {
+  const { year, monthIndex } = parseYyyyMm(yyyyMm);
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) return null;
+  const d = new Date(Date.UTC(year, monthIndex + 1, 0));
+  return dateToIso(d);
+};
+
 const parseLimitParam = (raw, fallback, min, max) => {
   const n = Number.parseInt(String(raw || ""), 10);
   if (!Number.isFinite(n)) return fallback;
@@ -184,6 +208,36 @@ const DEFAULT_RULEPACK = [
 const isUncategorizedTxn = (t) => {
   const c = String(t?.categoryId || "OTHER");
   return !c || c === "OTHER";
+};
+
+const cleanVendorLabel = (input) => {
+  const raw = String(input?.vendor || input?.counterparty || input?.rawDescription || "").trim();
+  if (!raw) return "Unknown";
+
+  let value = raw.replace(/\s+/g, " ").trim();
+  value = value
+    .replace(/\b(PURCHASE|RECURRING\s+PAYMENT)\s+AUTHORIZED\s+ON\b/i, "")
+    .replace(/\bAUTHORIZED\s+ON\b/i, "")
+    .replace(/\bONLINE\s+TRANSFER\b/i, "")
+    .replace(/\bPOS\b/i, "")
+    .replace(/\bDEBIT\b/i, "")
+    .replace(/\bCREDIT\b/i, "")
+    .replace(/\bCARD\s+\d{4}\b/i, "")
+    .replace(/\bREF\s*#\s*[A-Z0-9-]+\b/i, "")
+    .replace(/\bFED#\s*[A-Z0-9-]+\b/i, "")
+    .replace(/\b\d{4,}\b/g, "");
+
+  value = value.replace(/\s+/g, " ").trim();
+  value = value.replace(/^AMAZON\s+MKTPLCE\*?.*$/i, "Amazon");
+  value = value.replace(/^SQ\s*\*\s*/i, "");
+  value = value.replace(/\s+/g, " ").trim();
+  return value.length > 60 ? `${value.slice(0, 57)}.` : value;
+};
+
+const getVendorKeyForTxn = (txn) => {
+  const vendorLabel = cleanVendorLabel(txn);
+  const vendorKey = normalizeVendorKey(vendorLabel) || "unknown";
+  return { vendorLabel, vendorKey };
 };
 
 // GET /hq/vendor-counts?orgId=...&vendorKeys=a,b,c&from=...&to=...&includeCategorized=1&accountId=...
@@ -598,6 +652,103 @@ const getTopCategories = async (e, C) => {
     direction,
     startDate,
     endDate,
+    items,
+  });
+};
+
+// GET /hq/recurring-commitments?orgId=...&months=...&limit=...&excludeInternalTransfers=1
+const getRecurringCommitments = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const months = parseLimitParam(q.months, 3, 1, 12);
+  const limit = parseLimitParam(q.limit, 8, 1, 12);
+  const excludeInternalTransfers =
+    String(q.excludeInternalTransfers ?? "1").trim() === "0" || String(q.excludeInternalTransfers ?? "").toLowerCase() === "false"
+      ? false
+      : true;
+
+  const today = todayIsoInTimeZone();
+  const currentMonth = monthKey(today);
+  const keys = [];
+  for (let i = 1; i <= months; i += 1) keys.push(addMonths(currentMonth, -i));
+  const monthKeys = keys.filter(Boolean).sort();
+  const earliest = monthKeys[0] || currentMonth;
+  const latest = monthKeys[monthKeys.length - 1] || currentMonth;
+  const startDate = firstDayOfMonth(earliest);
+  const endDate = lastDayOfMonth(latest) || today;
+
+  const byVendorKey = {};
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :from AND :to",
+      ExpressionAttributeValues: {
+        ":o": orgId,
+        ":from": `TXN#${startDate}`,
+        ":to": `TXN#${endDate}#~`,
+      },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      if (!t) continue;
+      const postedAt = String(t.postedAt || "").slice(0, 10);
+      if (!postedAt || postedAt < startDate || postedAt > endDate) continue;
+      const month = monthKey(postedAt);
+      if (!monthKeys.includes(month)) continue;
+
+      const type = String(t.type || "").trim().toLowerCase();
+      if (type !== "recurring") continue;
+
+      if (excludeInternalTransfers && (t.isInternalTransfer || isLikelyInternalTransfer(t))) continue;
+
+      const signed = canonicalSignedAmount(t);
+      if (typeof signed !== "number" || !Number.isFinite(signed) || signed >= 0) continue;
+
+      const amt = Math.abs(signed);
+      const { vendorLabel, vendorKey } = getVendorKeyForTxn(t);
+      if (!byVendorKey[vendorKey]) {
+        byVendorKey[vendorKey] = { vendorKey, labelCounts: {}, byMonth: {} };
+      }
+      const entry = byVendorKey[vendorKey];
+      entry.byMonth[month] = round2((entry.byMonth[month] || 0) + amt);
+      entry.labelCounts[vendorLabel] = (entry.labelCounts[vendorLabel] || 0) + 1;
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const all = Object.values(byVendorKey).map((entry) => {
+    const monthTotal = monthKeys.reduce((acc, m) => acc + (entry.byMonth[m] || 0), 0);
+    const amountMonthly = round2(monthTotal / Math.max(1, monthKeys.length));
+    const label =
+      Object.entries(entry.labelCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name]) => name)
+        .find(Boolean) || "Unknown";
+    return { vendorKey: entry.vendorKey, label, amountMonthly };
+  });
+
+  const mandatoryMonthlyBurn = round2(all.reduce((acc, x) => acc + (x.amountMonthly || 0), 0));
+  const items = all
+    .filter((x) => Number.isFinite(x.amountMonthly) && x.amountMonthly > 0)
+    .sort((a, b) => b.amountMonthly - a.amountMonthly)
+    .slice(0, limit);
+
+  return json(200, C, {
+    orgId,
+    months,
+    startDate,
+    endDate,
+    excludeInternalTransfers,
+    mandatoryMonthlyBurn,
     items,
   });
 };
@@ -2399,6 +2550,7 @@ const routes = [
   { m: "GET", r: /^\/hq\/balance-series\/?$/i, h: getBalanceSeries },
   { m: "GET", r: /^\/hq\/chart-series\/?$/i, h: getChartSeries },
   { m: "GET", r: /^\/hq\/top-categories\/?$/i, h: getTopCategories },
+  { m: "GET", r: /^\/hq\/recurring-commitments\/?$/i, h: getRecurringCommitments },
   { m: "GET", r: /^\/hq\/transactions\/?$/i, h: listTransactions },
 
   { m: "POST", r: /^\/hq\/recompute\/?$/i, h: recomputeHq },
