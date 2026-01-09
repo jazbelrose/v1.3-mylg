@@ -68,8 +68,6 @@ function effectivePaymentType(txn: HqTransaction): HqPaymentType {
   if (legacy === "recurring") return "unknown";
   return legacy as HqPaymentType;
 }
-
-type RecurringFilter = "all" | "confirmed" | "candidates";
 type DateRangePreset = "all" | "7d" | "30d" | "90d" | "month" | "ytd";
 
 function txnTitle(txn: HqTransaction) {
@@ -92,7 +90,7 @@ const TransactionsPage: React.FC = () => {
   const [accountId, setAccountId] = React.useState<string>("all");
   const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
   const [paymentType, setPaymentType] = React.useState<"all" | HqPaymentType>("all");
-  const [recurringFilter, setRecurringFilter] = React.useState<RecurringFilter>("all");
+  const [recurringOnly, setRecurringOnly] = React.useState(false);
   const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
   const [dateRange, setDateRange] = React.useState<DateRangePreset>("all");
   const [startDate, setStartDate] = React.useState<string>("");
@@ -117,7 +115,6 @@ const TransactionsPage: React.FC = () => {
     const filter = params.get("filter");
     const q = params.get("q");
     const type = params.get("type");
-    const recurring = params.get("recurring");
     if (typeof q === "string" && q.length) setSearchTerm(q);
 
     const allowedPaymentTypes: Array<HqPaymentType> = [
@@ -133,22 +130,13 @@ const TransactionsPage: React.FC = () => {
       setPaymentType(type as HqPaymentType);
     }
 
-    if (recurring === "confirmed" || recurring === "candidates" || recurring === "all") {
-      setRecurringFilter(recurring as RecurringFilter);
-    } else if (filter === "recurring") {
-      // Backward-compat for old links.
-      setRecurringFilter("confirmed");
-    } else if (filter === "recurringCandidate") {
-      setRecurringFilter("candidates");
-    }
+    // Backward-compat for old links.
+    setRecurringOnly(filter === "recurring");
 
     if (filter === "uncategorized") {
       setCategoryId("UNCATEGORIZED");
     }
 
-    if ((filter === "recurring" || filter === "recurringCandidate" || recurring === "confirmed" || recurring === "candidates") && direction === "all") {
-      setDirection("out");
-    }
   }, [location.search]);
 
   React.useEffect(() => {
@@ -203,8 +191,7 @@ const TransactionsPage: React.FC = () => {
       if (direction === "in" && txn.amount < 0) return false;
       if (direction === "out" && txn.amount >= 0) return false;
 
-      if (recurringFilter === "confirmed" && txn.isRecurring !== true) return false;
-      if (recurringFilter === "candidates" && !(txn.recurringCandidate === true && txn.isRecurring !== true)) return false;
+      if (recurringOnly && txn.isRecurring !== true) return false;
 
       const effectiveType = effectivePaymentType(txn);
       if (paymentType !== "all" && effectiveType !== paymentType) return false;
@@ -222,7 +209,7 @@ const TransactionsPage: React.FC = () => {
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [accountId, categoryId, direction, endDate, paymentType, recurringFilter, searchTerm, startDate, transactions]);
+  }, [accountId, categoryId, direction, endDate, paymentType, recurringOnly, searchTerm, startDate, transactions]);
 
   const actions = (
     <div className={styles.actions}>
@@ -280,17 +267,18 @@ const TransactionsPage: React.FC = () => {
             ]}
           />
 
-          <HqSelect
-            className={styles.filterField}
-            value={recurringFilter}
-            onValueChange={(v) => setRecurringFilter(v as RecurringFilter)}
-            ariaLabel="Filter by recurring"
-            options={[
-              { value: "all", label: "Recurring: All" },
-              { value: "confirmed", label: "Recurring: Confirmed" },
-              { value: "candidates", label: "Recurring: Candidates" },
-            ]}
-          />
+          <label
+            className={styles.toggleField}
+            title="Only includes transactions you marked as recurring (counts toward burn/runway)."
+          >
+            <input
+              type="checkbox"
+              checked={recurringOnly}
+              onChange={(e) => setRecurringOnly(e.target.checked)}
+              aria-label="Recurring"
+            />
+            <span>Recurring</span>
+          </label>
 
           <HqSelect
             className={styles.filterField}
