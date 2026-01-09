@@ -1562,6 +1562,7 @@ const patchTransaction = async (e, C, { dedupeHash }) => {
   const body = B(e);
   const nextCategoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
   const nextIsTransfer = typeof body.isInternalTransfer === "boolean" ? body.isInternalTransfer : undefined;
+  const nextType = typeof body.type === "string" ? body.type.trim() : undefined;
 
   let found = null;
   let lastKey;
@@ -1589,16 +1590,104 @@ const patchTransaction = async (e, C, { dedupeHash }) => {
     sets.push("isInternalTransfer = :t");
     values[":t"] = nextIsTransfer;
   }
+  if (nextType !== undefined) {
+    sets.push("#type = :ty");
+    values[":ty"] = nextType || "unknown";
+  }
   if (!sets.length) return json(400, C, { error: "No fields to update" });
 
   await ddb.update({
     TableName: HQ_TABLE,
     Key: { orgId, sk: found.sk },
     UpdateExpression: `SET ${sets.join(", ")}`,
+    ExpressionAttributeNames: nextType !== undefined ? { "#type": "type" } : undefined,
     ExpressionAttributeValues: values,
   });
 
   return json(200, C, { ok: true });
+};
+
+// POST /hq/transactions/apply?orgId=...
+// Bulk-apply (category/type) to a list of dedupeHashes, then rebuild derived ledger/header.
+const applyTransactionsBulk = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const body = B(e);
+  const dedupeHashes = Array.isArray(body.dedupeHashes)
+    ? body.dedupeHashes.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 60)
+    : [];
+  if (!dedupeHashes.length) return json(400, C, { error: "dedupeHashes required" });
+
+  const nextCategoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
+  const nextType = typeof body.type === "string" ? body.type.trim() : undefined;
+  if (nextCategoryId === undefined && nextType === undefined) {
+    return json(400, C, { error: "No fields to update" });
+  }
+
+  const requested = new Set(dedupeHashes);
+  const foundByHash = new Map();
+
+  // Scan TXN items once to find sks for the requested dedupe hashes.
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+      ProjectionExpression: "sk, dedupeHash",
+    });
+
+    for (const t of page.Items || []) {
+      const dh = String(t.dedupeHash || "").trim();
+      if (!dh || !requested.has(dh)) continue;
+      foundByHash.set(dh, String(t.sk));
+      if (foundByHash.size >= requested.size) break;
+    }
+
+    lastKey = foundByHash.size >= requested.size ? null : page.LastEvaluatedKey;
+  } while (lastKey);
+
+  if (!foundByHash.size) return json(404, C, { error: "Not found" });
+
+  const sets = [];
+  const values = {};
+  const names = {};
+  if (nextCategoryId !== undefined) {
+    sets.push("categoryId = :c");
+    values[":c"] = nextCategoryId || "OTHER";
+  }
+  if (nextType !== undefined) {
+    sets.push("#type = :ty");
+    values[":ty"] = nextType || "unknown";
+    names["#type"] = "type";
+  }
+
+  const updateFns = [];
+  for (const [dedupeHash, sk] of foundByHash.entries()) {
+    void dedupeHash;
+    updateFns.push(() =>
+      ddb.update({
+        TableName: HQ_TABLE,
+        Key: { orgId, sk },
+        UpdateExpression: `SET ${sets.join(", ")}`,
+        ExpressionAttributeNames: Object.keys(names).length ? names : undefined,
+        ExpressionAttributeValues: values,
+      })
+    );
+  }
+
+  for (const batch of chunk(updateFns, 25)) {
+    await Promise.all(batch.map((fn) => fn()));
+  }
+
+  // Type changes can alter inferred direction/sign; rebuild derived ledger/header.
+  await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: true });
+
+  return json(200, C, { orgId, updated: foundByHash.size });
 };
 
 // GET /hq/transactions?orgId=...&accountId=...&from=...&to=...&cursor=...
@@ -2189,6 +2278,8 @@ const routes = [
   { m: "POST", r: /^\/hq\/import-csv\/?$/i, h: importCsv },
 
   { m: "DELETE", r: /^\/hq\/import-runs\/(?<importRunId>[^/]+)\/?$/i, h: deleteImportRun },
+
+  { m: "POST", r: /^\/hq\/transactions\/apply\/?$/i, h: applyTransactionsBulk },
 
   { m: "PATCH", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/?$/i, h: patchTransaction },
 

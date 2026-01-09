@@ -1,0 +1,174 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.modalContent {
+  width: min(860px, 100%);
+  max-height: min(78vh, 820px);
+  overflow: auto;
+  border-radius: 14px;
+  background: var(--mylg-surface);
+  color: inherit;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.subtitle {
+  opacity: 0.8;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.closeButton {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.body {
+  padding: 16px 18px;
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.summaryRow {
+  display: flex;
+  gap: 8px;
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.amount {
+  font-weight: 700;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.controlLabel {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.select {
+  width: 100%;
+}
+
+.similarHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.similarTitle {
+  font-weight: 700;
+}
+
+.similarMeta {
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.emptyState {
+  opacity: 0.75;
+  padding: 10px 2px;
+}
+
+.similarList {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.similarRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.similarRow:first-child {
+  border-top: none;
+}
+
+.similarName {
+  font-weight: 600;
+}
+
+.similarMetaRow {
+  opacity: 0.75;
+  font-size: 12px;
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.similarAmt {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.primaryButton {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

@@ -14,13 +14,14 @@ import HQLayout from "../components/HQLayout";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
-import { setTransactionCategory, useHqStore } from "@/hq/lib/hqStore";
+import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
+import TxnModalApply from "@/hq/components/TxnModalApply";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -73,6 +74,8 @@ const TransactionsPage: React.FC = () => {
   const [endDate, setEndDate] = React.useState<string>("");
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
+  const [selectedTxn, setSelectedTxn] = React.useState<HqTransaction | null>(null);
+  const [isApplyOpen, setIsApplyOpen] = React.useState(false);
 
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
@@ -219,10 +222,28 @@ const TransactionsPage: React.FC = () => {
             </div>
             {filtered.map((txn) => {
               const accountLabel = accountsById.get(txn.accountId) || "Account";
-              const currentCategory = txn.categoryId && txn.categoryId !== "OTHER" ? txn.categoryId : "__uncategorized__";
+              const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
               const directionClass = txn.amount < 0 ? styles.out : styles.in;
               return (
-                <div key={txn.dedupeHash} className={styles.row}>
+                <div
+                  key={txn.dedupeHash}
+                  className={styles.row}
+                  role={canAdmin ? "button" : undefined}
+                  tabIndex={canAdmin ? 0 : undefined}
+                  onClick={() => {
+                    if (!canAdmin) return;
+                    setSelectedTxn(txn);
+                    setIsApplyOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!canAdmin) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedTxn(txn);
+                      setIsApplyOpen(true);
+                    }
+                  }}
+                >
                   <div className={styles.txnCell}>
                     <div className={styles.icon} aria-hidden>
                       {typeIcon(txn.type)}
@@ -244,23 +265,7 @@ const TransactionsPage: React.FC = () => {
                   </div>
 
                   <div className={styles.categoryCell}>
-                    <HqSelect
-                      className={styles.categorySelect}
-                      value={currentCategory}
-                      disabled={!canAdmin}
-                      onValueChange={(v) =>
-                        setTransactionCategory(
-                          orgId,
-                          txn.dedupeHash,
-                          v === "__uncategorized__" ? undefined : (v as HqCategoryId)
-                        )
-                      }
-                      ariaLabel={`Set category for ${txnTitle(txn)}`}
-                      options={[
-                        { value: "__uncategorized__", label: HQ_CATEGORY_LABEL.OTHER },
-                        ...HQ_CATEGORIES.filter((c) => c.id !== "OTHER").map((c) => ({ value: c.id, label: c.label })),
-                      ]}
-                    />
+                    {HQ_CATEGORY_LABEL[currentCategoryId]}
                   </div>
 
                   <div className={[styles.amountCol, directionClass].join(" ")}>
@@ -281,6 +286,15 @@ const TransactionsPage: React.FC = () => {
             orgId={activeOrgId}
             isOpen={isAddAccountOpen}
             onRequestClose={() => setIsAddAccountOpen(false)}
+          />
+          <TxnModalApply
+            orgId={activeOrgId}
+            isOpen={isApplyOpen}
+            txn={selectedTxn}
+            onRequestClose={() => {
+              setIsApplyOpen(false);
+              setSelectedTxn(null);
+            }}
           />
         </>
       ) : null}

@@ -334,3 +334,20 @@ export async function fetchHqVendorMatches(orgId: string, input: {
     suppressErrorLog: true,
   });
 }
+
+export type HqTransactionsBulkApplyResult = {
+  orgId: string;
+  updated: number;
+};
+
+export async function applyHqTransactionsBulk(
+  orgId: string,
+  input: { dedupeHashes: string[]; categoryId?: string; type?: string }
+): Promise<HqTransactionsBulkApplyResult> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<HqTransactionsBulkApplyResult>(`${base}/hq/transactions/apply?orgId=${encodeURIComponent(orgId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}

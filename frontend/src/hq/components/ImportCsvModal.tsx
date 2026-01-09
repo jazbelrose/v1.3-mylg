@@ -19,7 +19,6 @@ type ImportCsvModalProps = {
   onRequestClose: () => void;
   defaultAccountId?: string;
   onImported?: (result: { imported: number; duplicates: number }) => void;
-  onOpenCategorization?: (input: { importRunId: string }) => void;
 };
 
 type ImportStep = 1 | 2 | 3 | 4;
@@ -49,7 +48,6 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   onRequestClose,
   defaultAccountId,
   onImported,
-  onOpenCategorization,
 }) => {
   const accounts = useHqStore(orgId, (s) => s.accounts);
   const categoryRules = useHqStore(orgId, (s) => s.categoryRules);
@@ -166,13 +164,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
 
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
       onImported?.({ imported: result.imported, duplicates: result.duplicates });
-
-      const importRunId = result.importRun?.importRunId;
       onRequestClose();
-      if (importRunId && onOpenCategorization) {
-        // Let the modal close before opening the sheet (prevents stacked overlays).
-        window.setTimeout(() => onOpenCategorization({ importRunId }), 220);
-      }
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : String(err);
@@ -203,7 +195,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     } finally {
       setIsWorking(false);
     }
-  }, [accountId, file, isWorking, onImported, onOpenCategorization, onRequestClose, orgId, parsed]);
+  }, [accountId, file, isWorking, onImported, onRequestClose, orgId, parsed]);
 
   const previewRows = (parsed || []).slice(0, 20);
 
