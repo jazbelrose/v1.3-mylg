@@ -65,6 +65,8 @@ export type DayGridProps = {
   onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
   onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
+  /** Assign a single time block (task with a time range) to a user */
+  onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
 };
 
 const parseHour = (time?: string) => {
@@ -193,6 +195,7 @@ function DayGrid({
   onUngroupFocusBlock,
   onDuplicateEntries,
   onDeleteEntries,
+  onAssignTimeBlock,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
   const doneCount = useMemo(
@@ -1969,6 +1972,7 @@ function DayGrid({
           entryType={contextMenu.entryType}
           entry={contextMenu.entry}
           selectedEntries={getSelectedContextMenuEntries()}
+          teamMembers={teamMembers}
           onClose={handleCloseContextMenu}
           onEdit={(e) => {
             if (contextMenu.entryType === "event") {
@@ -1986,6 +1990,7 @@ function DayGrid({
           onUngroupFocusBlock={onUngroupFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
+          onAssignTimeBlock={onAssignTimeBlock}
         />
       )}
       {popover && (
@@ -2043,6 +2048,7 @@ function DayGrid({
           onMarkAsDone={onMarkAsDone ? (tasks) => onMarkAsDone(tasks) : undefined}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
+          onAssignTimeBlock={onAssignTimeBlock}
         />
           );
         })()

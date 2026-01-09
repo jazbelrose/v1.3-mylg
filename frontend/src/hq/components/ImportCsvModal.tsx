@@ -175,7 +175,31 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
       }
     } catch (err) {
       console.error(err);
-      toast.error("Import failed.");
+      const message = err instanceof Error ? err.message : String(err);
+      if (/\b404\b/.test(message) && /Not found/i.test(message)) {
+        toast.error("Account not found. Refreshing accounts—please pick again.");
+        try {
+          const summary = await fetchHqSummary(orgId);
+          const prev = readHqState(orgId);
+          hydrateHqState(orgId, {
+            ...prev,
+            accounts: summary.accounts,
+            importRuns: summary.importRuns,
+            categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
+            cashOnHandAggregate: typeof summary.cashOnHandAggregate === "number" ? summary.cashOnHandAggregate : null,
+            missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
+          });
+          // Force re-select if the selected account no longer exists.
+          if (!summary.accounts.some((a) => a.accountId === accountId)) {
+            setAccountId("");
+          }
+          setStep(2);
+        } catch {
+          // Ignore refresh failures; keep the original error toast.
+        }
+      } else {
+        toast.error("Import failed.");
+      }
     } finally {
       setIsWorking(false);
     }

@@ -1988,6 +1988,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [],
   );
 
+  const buildAssigneeToken = useCallback(
+    (userId: string | null): string | undefined => {
+      if (!userId) return undefined;
+      const member = teamMembers?.find((m) => m.userId === userId);
+      const compactName = `${member?.firstName ?? ""}${member?.lastName ?? ""}`.replace(/\s+/g, "");
+      const safeName = (compactName || userId).replace(/\s+/g, "");
+      return `${safeName}__${userId}`;
+    },
+    [teamMembers],
+  );
+
   // Bulk assign all children of a Focus Block to a user
   const handleBulkAssignChildren = useCallback(
     async (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => {
@@ -2000,14 +2011,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         return;
       }
 
-      const assigneeToken = userId
-        ? (() => {
-            const member = teamMembers?.find((m) => m.userId === userId);
-            const compactName = `${member?.firstName ?? ""}${member?.lastName ?? ""}`.replace(/\s+/g, "");
-            const safeName = (compactName || userId).replace(/\s+/g, "");
-            return `${safeName}__${userId}`;
-          })()
-        : undefined;
+      const assigneeToken = buildAssigneeToken(userId);
 
       // Store previous assignees for undo
       const previousAssignees = children.map((child) => ({
@@ -2062,7 +2066,71 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         notify("error", "Failed to assign items");
       }
     },
-    [activeProjectId, onRefreshTasks, pushUndo, teamMembers],
+    [activeProjectId, buildAssigneeToken, onRefreshTasks, pushUndo, teamMembers],
+  );
+
+  // Assign a single time block to a user
+  const handleAssignTimeBlock = useCallback(
+    async (task: CalendarTask, userId: string | null) => {
+      if (!activeProjectId) {
+        notify("error", "No active project selected");
+        return;
+      }
+
+      const source = task.source as ApiTask | undefined;
+      const taskId = source?.taskId ?? task.id;
+      if (!taskId) {
+        notify("error", "Missing task id");
+        return;
+      }
+
+      const assigneeToken = buildAssigneeToken(userId);
+      const previousAssigneeId = source?.assigneeId;
+
+      try {
+        await updateTasksBulk(activeProjectId, [
+          {
+            taskId,
+            fields: {
+              assigneeId: assigneeToken,
+            },
+          },
+        ]);
+
+        let userName = "Unassigned";
+        if (userId) {
+          const member = teamMembers?.find((m) => m.userId === userId);
+          if (member) {
+            userName = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.userId;
+          } else {
+            userName = userId;
+          }
+        }
+
+        const projectId = activeProjectId;
+        pushUndo({
+          type: "assign",
+          label: userId ? `Assign to ${userName}` : "Unassign",
+          undo: async () => {
+            await updateTasksBulk(projectId, [
+              {
+                taskId,
+                fields: {
+                  assigneeId: previousAssigneeId,
+                },
+              },
+            ]);
+          },
+        });
+
+        notify("success", userId ? `Assigned to ${userName}` : "Unassigned");
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Assign time block failed:", error);
+        notify("error", "Failed to assign time block");
+      }
+    },
+    [activeProjectId, buildAssigneeToken, onRefreshTasks, pushUndo, teamMembers],
   );
 
   const handleOpenMiniCalendarEvent = useCallback(
@@ -2267,6 +2335,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
                       onBulkAssignChildren={handleBulkAssignChildren}
+                      onAssignTimeBlock={handleAssignTimeBlock}
                       overlapStackTitles={overlapStackTitles}
                       onRenameOverlapStackTitle={handleRenameOverlapStackTitle}
                     />
@@ -2300,6 +2369,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onUngroupFocusBlock={handleUngroupFocusBlock}
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
+                      onAssignTimeBlock={handleAssignTimeBlock}
                     />
                   </div>
                 )}

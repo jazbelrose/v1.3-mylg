@@ -1934,9 +1934,30 @@ const importCsv = async (e, C) => {
   const importRunId = uuidv4();
   const createdAt = nowISO();
 
-  const accountRes = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skAccount(accountId) } });
-  const account = accountRes?.Item || null;
+  // Be tolerant of historical/accountId formatting differences.
+  // Some clients/records may pass or store accountId as either a raw UUID or with an `ACCOUNT#` prefix.
+  const accountSkCandidates = new Set();
+  accountSkCandidates.add(skAccount(accountId));
+  if (accountId.startsWith("ACCOUNT#")) {
+    accountSkCandidates.add(accountId);
+    accountSkCandidates.add(skAccount(accountId.slice("ACCOUNT#".length)));
+  } else {
+    accountSkCandidates.add(skAccount(`ACCOUNT#${accountId}`));
+  }
+
+  let account = null;
+  for (const sk of accountSkCandidates) {
+    // eslint-disable-next-line no-await-in-loop
+    const accountRes = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk } });
+    if (accountRes?.Item) {
+      account = accountRes.Item;
+      break;
+    }
+  }
   if (!account) throw httpError(404, "Not found");
+
+  const effectiveAccountId =
+    typeof account.accountId === "string" && account.accountId.trim() ? account.accountId.trim() : accountId;
 
   const categoryRules = await ensureSeedRulepack(orgId);
 
@@ -1959,7 +1980,7 @@ const importCsv = async (e, C) => {
     if (outflowCount <= 1 || outflowRatio < 0.05) {
       warnings.push("POSSIBLE_SIGN_INVERSION");
       console.warn(
-        `[hq.importCsv] POSSIBLE_SIGN_INVERSION orgId=${orgId} accountId=${accountId} numeric=${numericCount} in=${inflowCount} out=${outflowCount}`
+        `[hq.importCsv] POSSIBLE_SIGN_INVERSION orgId=${orgId} accountId=${effectiveAccountId} numeric=${numericCount} in=${inflowCount} out=${outflowCount}`
       );
     }
   }
@@ -1969,7 +1990,7 @@ const importCsv = async (e, C) => {
     .map((t) => ({
       orgId,
       sk: skTxn(String(t.postedAt || ""), String(t.dedupeHash || "")),
-      accountId: String(t.accountId || accountId),
+      accountId: String(t.accountId || effectiveAccountId),
       postedAt: String(t.postedAt || ""),
       dedupeHash: String(t.dedupeHash || ""),
       raw: t,
@@ -2027,7 +2048,7 @@ const importCsv = async (e, C) => {
         vendor: normalizedVendor,
         type: t.type,
         isInternalTransfer: internalTransfer,
-        accountId,
+        accountId: effectiveAccountId,
         cardLast4: t.cardLast4,
       },
       categoryRules
@@ -2039,7 +2060,7 @@ const importCsv = async (e, C) => {
           orgId,
           sk: k.sk,
           entityType: "transaction",
-          accountId,
+          accountId: effectiveAccountId,
           postedAt: k.postedAt,
           authorizedAt: t.authorizedAt,
           amount: t.amount,
@@ -2078,7 +2099,7 @@ const importCsv = async (e, C) => {
     sk: skImport(createdAt, importRunId),
     entityType: "importRun",
     importRunId,
-    accountId,
+    accountId: effectiveAccountId,
     filename,
     rowCount: transactions.length,
     importedCount: imported,
@@ -2091,7 +2112,7 @@ const importCsv = async (e, C) => {
   await ddb.put({ TableName: HQ_TABLE, Item: runItem });
 
   // Update derived state using ONLY the imported transactions.
-  await updateLedgerFromImportedTxns({ orgId, accountId, txns: writtenTxnItems, account, nowIso: createdAt });
+  await updateLedgerFromImportedTxns({ orgId, accountId: effectiveAccountId, txns: writtenTxnItems, account, nowIso: createdAt });
   await recomputeHqHeaderFromLedger({ orgId, nowIso: createdAt });
 
   return json(200, C, { importRun: runItem, imported, duplicates });

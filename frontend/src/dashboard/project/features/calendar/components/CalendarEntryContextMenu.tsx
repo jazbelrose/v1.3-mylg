@@ -53,6 +53,8 @@ export interface CalendarEntryContextMenuProps {
   onDelete?: (entries: ContextMenuEntry[]) => void;
   /** Bulk assign all children of a Focus Block to a user */
   onBulkAssignChildren?: (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => void;
+  /** Assign a single time block (task with a time range) to a user */
+  onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
 }
 
 export type ChildMenuState =
@@ -85,6 +87,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   onDuplicate,
   onDelete,
   onBulkAssignChildren,
+  onAssignTimeBlock,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
@@ -136,6 +139,13 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       (task.focusChecklist && task.focusChecklist.length > 0);
     return hasChildren;
   }, [entry, entryType]);
+
+  const isTimeBlock = useMemo(() => {
+    if (entryType !== "task") return false;
+    if (isFocusBlock) return false;
+    const task = entry as CalendarTask;
+    return Boolean(task.start || task.end);
+  }, [entry, entryType, isFocusBlock]);
 
   // For multi-select, check if we have any tasks that can be actioned
   const actionableTasks = useMemo(
@@ -305,11 +315,29 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     [entry, focusBlockChildren, isFocusBlock, onBulkAssignChildren, onClose],
   );
 
+  const handleAssignTimeBlock = useCallback(
+    (userId: string | null) => {
+      if (!onAssignTimeBlock) return;
+      if (isMultiSelect) return;
+      if (!isTimeBlock) return;
+      onAssignTimeBlock(entry as CalendarTask, userId);
+      onClose();
+    },
+    [entry, isMultiSelect, isTimeBlock, onAssignTimeBlock, onClose],
+  );
+
   const showBulkAssign =
     isFocusBlock &&
     Boolean(onBulkAssignChildren) &&
     Boolean(focusBlockChildren) &&
     (focusBlockChildren?.length ?? 0) > 0 &&
+    Boolean(teamMembers) &&
+    (teamMembers?.length ?? 0) > 0;
+
+  const showTimeBlockAssign =
+    isTimeBlock &&
+    !isMultiSelect &&
+    Boolean(onAssignTimeBlock) &&
     Boolean(teamMembers) &&
     (teamMembers?.length ?? 0) > 0;
 
@@ -468,6 +496,66 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
               >
                 <UserX className="calendar-entry-context-menu__icon" />
                 <span>Unassign all</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Assign single Time Block */}
+      {showTimeBlockAssign && (
+        <div
+          className="calendar-entry-context-menu__submenu-wrapper"
+          onMouseEnter={handleSubmenuMouseEnter}
+          onMouseLeave={handleSubmenuMouseLeave}
+        >
+          <button
+            ref={assignButtonRef}
+            type="button"
+            className="calendar-entry-context-menu__item calendar-entry-context-menu__item--has-submenu"
+            onClick={() => setShowAssignSubmenu((prev) => !prev)}
+            role="menuitem"
+            aria-haspopup="true"
+            aria-expanded={showAssignSubmenu}
+          >
+            <Users className="calendar-entry-context-menu__icon" />
+            <span>Assign to...</span>
+            <ChevronRight className="calendar-entry-context-menu__chevron" />
+          </button>
+
+          {showAssignSubmenu && (
+            <div className="calendar-entry-context-menu__submenu">
+              {teamMembers?.map((member) => {
+                const displayName =
+                  `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() ||
+                  member.userId;
+                return (
+                  <button
+                    key={member.userId}
+                    type="button"
+                    className="calendar-entry-context-menu__item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAssignTimeBlock(member.userId);
+                    }}
+                    role="menuitem"
+                  >
+                    <span>{displayName}</span>
+                  </button>
+                );
+              })}
+              <div className="calendar-entry-context-menu__separator" />
+              <button
+                type="button"
+                className="calendar-entry-context-menu__item calendar-entry-context-menu__item--secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAssignTimeBlock(null);
+                }}
+                role="menuitem"
+              >
+                <UserX className="calendar-entry-context-menu__icon" />
+                <span>Unassign</span>
               </button>
             </div>
           )}
