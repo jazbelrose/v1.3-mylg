@@ -169,6 +169,7 @@ describe("computeTopCategories", () => {
 
     const res = computeTopCategories(transactions, "2026-01-06", "2026-01-07", { direction: "out", limit: 8 });
     const ownerDraw = res.find((x) => x.categoryId === "OWNER_DRAW");
-    expect(ownerDraw?.amount).toBe(150);
+    // Includes Owner Draw rows even if marked as internal transfer.
+    expect(ownerDraw?.amount).toBe(1149);
   });
 });

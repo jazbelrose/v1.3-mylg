@@ -622,7 +622,6 @@ const getTopCategories = async (e, C) => {
       if (!t) continue;
       const postedAt = String(t.postedAt || "").slice(0, 10);
       if (!postedAt || postedAt < startDate || postedAt > endDate) continue;
-      if (t.isInternalTransfer) continue;
 
       const signed = canonicalSignedAmount(t);
       if (typeof signed !== "number" || !Number.isFinite(signed) || signed === 0) continue;
@@ -631,7 +630,9 @@ const getTopCategories = async (e, C) => {
       if (direction === "in" && signed <= 0) continue;
 
       const categoryId = t.categoryId ? String(t.categoryId) : "OTHER";
-      if (categoryId === "TRANSFERS") continue;
+      // Only exclude true transfer categories; do not drop user-categorized Owner Draw/etc
+      // just because an upstream heuristic flagged the txn as an internal transfer.
+      if (categoryId === "TRANSFERS" || categoryId === "TRANSFER_INTERNAL") continue;
 
       const add = direction === "out" ? Math.abs(signed) : direction === "in" ? signed : signed;
       totals[categoryId] = round2((totals[categoryId] || 0) + add);

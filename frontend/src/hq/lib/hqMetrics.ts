@@ -273,7 +273,6 @@ export function computeTopCategories(
   for (const txn of transactions) {
     const postedAt = String(txn.postedAt || "").slice(0, 10);
     if (!postedAt || postedAt < start || postedAt > end) continue;
-    if (txn.isInternalTransfer) continue;
     const signed = canonicalSignedAmount(txn);
     if (typeof signed !== "number" || !Number.isFinite(signed) || signed === 0) continue;
 
@@ -281,7 +280,9 @@ export function computeTopCategories(
     if (direction === "in" && signed <= 0) continue;
 
     const categoryId = txn.categoryId ? String(txn.categoryId) : "OTHER";
-    if (categoryId === "TRANSFERS") continue;
+    // Keep parity with backend: only exclude true transfer categories.
+    // We still want to count Owner Draw/etc even if a txn is flagged as internal transfer.
+    if (categoryId === "TRANSFERS" || categoryId === "TRANSFER_INTERNAL") continue;
 
     const add = direction === "out" ? Math.abs(signed) : direction === "in" ? signed : signed;
     totals[categoryId] = Math.round(((totals[categoryId] || 0) + add) * 100) / 100;
