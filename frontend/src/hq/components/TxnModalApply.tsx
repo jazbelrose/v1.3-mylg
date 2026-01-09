@@ -1,11 +1,12 @@
 import React from "react";
 import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
-import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions, fetchHqVendorMatches } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
 import HqSelect from "@/hq/components/HqSelect";
+import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import styles from "./TxnModalApply.module.css";
 
 if (typeof document !== "undefined") {
@@ -176,13 +177,14 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
           <div className={styles.controls}>
             <div className={styles.control}>
               <div className={styles.controlLabel}>Category</div>
-              <HqSelect
+              <HqCategoryPicker
+                orgId={orgId}
                 className={styles.select}
                 value={String(categoryId)}
                 disabled={isWorking}
                 onValueChange={(v) => setCategoryId(v as HqCategoryId)}
                 ariaLabel="Select category"
-                options={HQ_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))}
+                placeholder="Search categories…"
               />
             </div>
 

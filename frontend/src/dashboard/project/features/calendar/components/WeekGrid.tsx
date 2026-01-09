@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { CheckSquare, Clock, Square, Plus, Users, ListTodo } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
@@ -161,6 +162,19 @@ const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
 const POPOVER_GHOST_WIDTH = 220;
 const POPOVER_GHOST_HEIGHT = 32;
+
+const normalizePointerOffsetToGhost = (
+  rawOffset: number,
+  sourceSize: number,
+  ghostSize: number,
+): number => {
+  if (!Number.isFinite(rawOffset)) return ghostSize / 2;
+  if (Number.isFinite(sourceSize) && sourceSize > 0) {
+    const scaled = (rawOffset / sourceSize) * ghostSize;
+    return Math.max(0, Math.min(ghostSize, scaled));
+  }
+  return Math.max(0, Math.min(ghostSize, rawOffset));
+};
 
 /**
  * Determine if a task is a Focus Block (wrapper that contains child time blocks).
@@ -1930,10 +1944,14 @@ function WeekGrid({
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
 
-      // Calculate pointer offset relative to the dragged element for proper ghost alignment
+      // Calculate pointer offset relative to the dragged element.
+      // Normalize it to the fixed ghost size so the cursor stays aligned even if
+      // the source element is wider/taller than the ghost.
       const rect = pointerEvent.currentTarget.getBoundingClientRect();
-      const offsetX = pointerEvent.clientX - rect.left;
-      const offsetY = pointerEvent.clientY - rect.top;
+      const rawOffsetX = pointerEvent.clientX - rect.left;
+      const rawOffsetY = pointerEvent.clientY - rect.top;
+      const offsetX = normalizePointerOffsetToGhost(rawOffsetX, rect.width, POPOVER_GHOST_WIDTH);
+      const offsetY = normalizePointerOffsetToGhost(rawOffsetY, rect.height, POPOVER_GHOST_HEIGHT);
 
       setPopoverDragGhost({
         key: POPOVER_GHOST_KEY,
@@ -1961,7 +1979,14 @@ function WeekGrid({
     (
       task: CalendarTask,
       pointerEvent: React.PointerEvent<HTMLElement>,
-      dragInfo: { startX: number; startY: number; offsetX: number; offsetY: number },
+      dragInfo: {
+        startX: number;
+        startY: number;
+        offsetX: number;
+        offsetY: number;
+        sourceWidth: number;
+        sourceHeight: number;
+      },
     ) => {
       const source = task.source as unknown as Record<string, unknown>;
       const rawStartDateTime =
@@ -2043,8 +2068,16 @@ function WeekGrid({
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
 
-      const offsetX = Math.max(0, Math.min(POPOVER_GHOST_WIDTH, dragInfo.offsetX));
-      const offsetY = Math.max(0, Math.min(POPOVER_GHOST_HEIGHT, dragInfo.offsetY));
+      const offsetX = normalizePointerOffsetToGhost(
+        dragInfo.offsetX,
+        dragInfo.sourceWidth,
+        POPOVER_GHOST_WIDTH,
+      );
+      const offsetY = normalizePointerOffsetToGhost(
+        dragInfo.offsetY,
+        dragInfo.sourceHeight,
+        POPOVER_GHOST_HEIGHT,
+      );
 
       setPopoverDragGhost({
         key: POPOVER_GHOST_KEY,
@@ -3511,41 +3544,49 @@ function WeekGrid({
           }}
         />
       )}
-      {popoverDragGhost && (() => {
-        const transform = dragPreviewTransforms[popoverDragGhost.key];
-        // Use captured offset for proper cursor alignment; fallback to centered positioning
-        const offsetX = popoverDragGhost.offsetX ?? POPOVER_GHOST_WIDTH / 2;
-        const offsetY = popoverDragGhost.offsetY ?? POPOVER_GHOST_HEIGHT / 2;
-        const style: React.CSSProperties = {
-          position: "fixed",
-          left: popoverDragGhost.startX - offsetX,
-          top: popoverDragGhost.startY - offsetY,
-          width: POPOVER_GHOST_WIDTH,
-          height: POPOVER_GHOST_HEIGHT,
-          zIndex: 9999,
-          pointerEvents: "none",
-          opacity: 0.92,
-          background: hexToRgba(popoverDragGhost.color).replace(/([\d.]+)\)$/, "0.18)"),
-          border: `1px solid ${hexToRgba(popoverDragGhost.color).replace(/([\d.]+)\)$/, "0.32)")}`,
-          transform: transform
-            ? `translate(${transform.translateX}px, ${transform.translateY}px)`
-            : undefined,
-          transition: "none",
-        };
+      {popoverDragGhost &&
+        typeof document !== "undefined" &&
+        createPortal(
+          (() => {
+            const transform = dragPreviewTransforms[popoverDragGhost.key];
+            // Use captured offset for proper cursor alignment; fallback to centered positioning
+            const offsetX = popoverDragGhost.offsetX ?? POPOVER_GHOST_WIDTH / 2;
+            const offsetY = popoverDragGhost.offsetY ?? POPOVER_GHOST_HEIGHT / 2;
+            const baseX = popoverDragGhost.startX - offsetX;
+            const baseY = popoverDragGhost.startY - offsetY;
+            const previewX = transform?.translateX ?? 0;
+            const previewY = transform?.translateY ?? 0;
 
-        const className = [
-          "week-grid__timeline-entry",
-          popoverDragGhost.entryType === "event"
-            ? "week-grid__timeline-entry--event"
-            : "week-grid__timeline-entry--task",
-        ].join(" ");
+            const style: React.CSSProperties = {
+              position: "fixed",
+              left: 0,
+              top: 0,
+              width: POPOVER_GHOST_WIDTH,
+              height: POPOVER_GHOST_HEIGHT,
+              zIndex: 9999,
+              pointerEvents: "none",
+              opacity: 0.92,
+              background: hexToRgba(popoverDragGhost.color).replace(/([\d.]+)\)$/, "0.18)"),
+              border: `1px solid ${hexToRgba(popoverDragGhost.color).replace(/([\d.]+)\)$/, "0.32)")}`,
+              transform: `translate3d(${baseX}px, ${baseY}px, 0) translate3d(${previewX}px, ${previewY}px, 0)`,
+              transition: "none",
+            };
 
-        return (
-          <div className={className} style={style} aria-hidden>
-            <div className="week-grid__timeline-entry-title">{popoverDragGhost.title}</div>
-          </div>
-        );
-      })()}
+            const className = [
+              "week-grid__timeline-entry",
+              popoverDragGhost.entryType === "event"
+                ? "week-grid__timeline-entry--event"
+                : "week-grid__timeline-entry--task",
+            ].join(" ");
+
+            return (
+              <div className={className} style={style} aria-hidden>
+                <div className="week-grid__timeline-entry-title">{popoverDragGhost.title}</div>
+              </div>
+            );
+          })(),
+          document.body,
+        )}
       {createMenu && (
         <CalendarGridCreateMenu
           position={createMenu.position}

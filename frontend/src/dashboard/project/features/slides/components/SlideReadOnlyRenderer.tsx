@@ -24,13 +24,31 @@ import { TextBoxNode } from "@/dashboard/project/features/editor/components/Brie
 import "@/dashboard/project/features/editor/components/Brief/lexical-editor.css";
 
 type SlideReadOnlyRendererProps = {
+  slideId?: string;
   content?: string | null;
   contentPadding?: string | number;
+  /** Called after content has been applied and a Lexical update has occurred. */
+  onRendered?: (slideId?: string) => void;
 };
 
-function EditorStateSyncPlugin({ content }: { content?: string | null }): null {
+function EditorStateSyncPlugin({
+  content,
+  slideId,
+  onRendered,
+}: {
+  content?: string | null;
+  slideId?: string;
+  onRendered?: (slideId?: string) => void;
+}): null {
   const [editor] = useLexicalComposerContext();
   const lastContentRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     editor.setEditable(false);
@@ -43,29 +61,56 @@ function EditorStateSyncPlugin({ content }: { content?: string | null }): null {
     }
     lastContentRef.current = nextContent;
 
+    let unregister: (() => void) | null = null;
+    const notifyRendered = () => {
+      if (!isMountedRef.current) return;
+      onRendered?.(slideId);
+    };
+
     if (!nextContent) {
       editor.update(() => {
         const root = $getRoot();
         root.clear();
         root.append($createParagraphNode());
       });
+      queueMicrotask(() => {
+        requestAnimationFrame(() => notifyRendered());
+      });
       return;
     }
 
     try {
-      editor.setEditorState(editor.parseEditorState(nextContent));
+      const parsed = editor.parseEditorState(nextContent);
+      // Lexical internally uses React.flushSync in some code paths.
+      // Scheduling avoids calling flushSync during React's lifecycle work.
+      queueMicrotask(() => {
+        if (!isMountedRef.current) return;
+        unregister = editor.registerUpdateListener(() => {
+          unregister?.();
+          unregister = null;
+          requestAnimationFrame(() => notifyRendered());
+        });
+        editor.setEditorState(parsed);
+      });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Lexical Slides Presentation: failed to parse editorState", error);
     }
-  }, [content, editor]);
+
+    return () => {
+      unregister?.();
+      unregister = null;
+    };
+  }, [content, editor, onRendered, slideId]);
 
   return null;
 }
 
 const SlideReadOnlyRenderer: React.FC<SlideReadOnlyRendererProps> = ({
+  slideId,
   content,
   contentPadding = "96px 120px",
+  onRendered,
 }) => {
   const resolvedContentPadding = typeof contentPadding === "number" ? `${contentPadding}px` : contentPadding;
 
@@ -135,7 +180,7 @@ const SlideReadOnlyRenderer: React.FC<SlideReadOnlyRendererProps> = ({
       <LexicalComposer initialConfig={initialConfig}>
         {/* Provide ImageLockContext so slide nodes like ResizableImageNode don't crash in read-only mode. */}
         <ImageLockPlugin provider={null}>
-          <EditorStateSyncPlugin content={content} />
+          <EditorStateSyncPlugin content={content} slideId={slideId} onRendered={onRendered} />
           <RichTextPlugin
             contentEditable={
               <ContentEditable

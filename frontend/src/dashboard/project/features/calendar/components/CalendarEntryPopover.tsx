@@ -74,7 +74,14 @@ export interface CalendarEntryPopoverProps {
     task: CalendarTask,
     pointerEvent: React.PointerEvent<HTMLElement>,
     /** Initial pointer position and offset for proper ghost alignment */
-    dragInfo: { startX: number; startY: number; offsetX: number; offsetY: number },
+    dragInfo: {
+      startX: number;
+      startY: number;
+      offsetX: number;
+      offsetY: number;
+      sourceWidth: number;
+      sourceHeight: number;
+    },
   ) => void;
   onOpenFocusChildContextMenu?: (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
@@ -131,6 +138,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     /** Offset of the initial click within the element */
     offsetX: number;
     offsetY: number;
+    sourceWidth: number;
+    sourceHeight: number;
     didDrag: boolean;
     dragArmed: boolean;
     longPressTimer: number | null;
@@ -167,6 +176,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         startY: event.clientY,
         offsetX: state.offsetX,
         offsetY: state.offsetY,
+        sourceWidth: state.sourceWidth,
+        sourceHeight: state.sourceHeight,
       });
     },
     [onStartDragFocusChild],
@@ -202,6 +213,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         startY: event.clientY,
         offsetX,
         offsetY,
+        sourceWidth: rect.width,
+        sourceHeight: rect.height,
         didDrag: false,
         dragArmed: !isTouch,
         longPressTimer: null as number | null,

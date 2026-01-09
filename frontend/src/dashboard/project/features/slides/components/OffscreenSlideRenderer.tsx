@@ -136,6 +136,8 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
   const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
   const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   const resolveRenderRef = useRef<(() => void) | null>(null);
+  const expectedSlideIdRef = useRef<string | null>(null);
+  const renderTimeoutRef = useRef<number | null>(null);
 
   // Create the offscreen container on mount
   useEffect(() => {
@@ -160,28 +162,57 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
     };
   }, []);
 
-  // When currentSlide changes and render is complete, resolve the promise
-  useEffect(() => {
-    if (currentSlide && resolveRenderRef.current) {
-      const timer = setTimeout(async () => {
-        if (containerRef.current) {
-          await waitForImagesToLoad(containerRef.current, 3000);
-        }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        resolveRenderRef.current?.();
-        resolveRenderRef.current = null;
-      }, 200);
+  const resolvePendingRender = useCallback(async () => {
+    const resolve = resolveRenderRef.current;
+    if (!resolve) return;
 
-      return () => clearTimeout(timer);
+    if (renderTimeoutRef.current) {
+      window.clearTimeout(renderTimeoutRef.current);
+      renderTimeoutRef.current = null;
     }
-  }, [currentSlide]);
 
-  const renderSlideAndWait = useCallback((slide: Slide): Promise<void> => {
-    return new Promise((resolve) => {
-      resolveRenderRef.current = resolve;
-      setCurrentSlide(slide);
-    });
+    if (containerRef.current) {
+      await waitForImagesToLoad(containerRef.current, 3000);
+    }
+    await new Promise((r) => setTimeout(r, 50));
+
+    resolveRenderRef.current = null;
+    resolve();
   }, []);
+
+  const handleSlideRendered = useCallback(
+    (slideId?: string) => {
+      if (!slideId) return;
+      if (!expectedSlideIdRef.current) return;
+      if (slideId !== expectedSlideIdRef.current) return;
+      void resolvePendingRender();
+    },
+    [resolvePendingRender]
+  );
+
+  const renderSlideAndWait = useCallback(
+    (slide: Slide): Promise<void> => {
+      return new Promise((resolve) => {
+        expectedSlideIdRef.current = slide.id;
+        resolveRenderRef.current = resolve;
+        setCurrentSlide(slide);
+
+        if (renderTimeoutRef.current) {
+          window.clearTimeout(renderTimeoutRef.current);
+        }
+
+        // Fallback: if Lexical render callbacks don't fire (shouldn't happen),
+        // don't hang the export indefinitely.
+        renderTimeoutRef.current = window.setTimeout(() => {
+          if (resolveRenderRef.current) {
+            console.warn("[OffscreenSlideRenderer] Timed out waiting for slide render; capturing anyway");
+            void resolvePendingRender();
+          }
+        }, 2000);
+      });
+    },
+    [resolvePendingRender]
+  );
 
   const captureCurrentSlide = useCallback(
     async (backgroundColor: string, options?: OffscreenSlideCaptureOptions): Promise<string | null> => {
@@ -206,6 +237,9 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
           cacheBust: true,
           pixelRatio,
           skipAutoScale: true,
+          // CSP often blocks remote font CSS (e.g. fonts.googleapis.com),
+          // which would otherwise cause html-to-image to fail the capture.
+          skipFonts: true,
         };
 
         const dataUrl =
@@ -257,6 +291,7 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
       }
 
       setCurrentSlide(null);
+      expectedSlideIdRef.current = null;
 
       return results;
     },
@@ -294,7 +329,12 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
         visibility: "visible",
       }}
     >
-      <SlideReadOnlyRenderer content={currentSlide.content} contentPadding="96px 120px" />
+      <SlideReadOnlyRenderer
+        slideId={currentSlide.id}
+        content={currentSlide.content}
+        contentPadding="96px 120px"
+        onRendered={handleSlideRendered}
+      />
     </div>,
     portalContainer
   );

@@ -1,47 +1,70 @@
 export type HqCategoryId =
-  // People
+  // People / Payroll
   | "PAYROLL_W2"
   | "PAYROLL_TAXES"
   | "CONTRACTORS_1099"
   | "REIMBURSEMENTS"
+  | "BENEFITS"
+
   // Owner
   | "OWNER_DRAW"
   | "OWNER_CONTRIBUTION"
-  // Operations
+
+  // Direct Job Costs
   | "MATERIALS_SUPPLIES"
+  | "RENTALS_EQUIPMENT"
+  | "SHIPPING"
+  | "TRUCKING_TRANSPORT"
+  | "PERMITS_LICENSES"
+
+  // Operating Expenses
   | "SOFTWARE_SAAS"
   | "INSURANCE"
   | "RENT_LEASE"
   | "UTILITIES"
   | "PHONE_INTERNET"
-  | "SHIPPING"
-  // Travel & Vehicles
+  | "OFFICE_SUPPLIES"
+  | "PROFESSIONAL_SERVICES"
+
+  // Vehicle
   | "AUTO_PAYMENT"
   | "AUTO_INSURANCE"
-  | "AUTO_MAINTENANCE"
   | "GAS"
   | "CHARGING"
+  | "AUTO_MAINTENANCE"
   | "PARKING_TOLLS"
+
+  // Travel
   | "TRAVEL"
+  | "GROUND_TRANSPORTATION"
+  | "MEALS"
+
   // Finance
   | "BANK_FEES"
   | "INTEREST"
   | "CARD_PAYMENT"
   | "LOAN_PAYMENT"
-  // Government
+
+  // Taxes
   | "SALES_TAX"
   | "ESTIMATED_TAXES"
-  | "PERMITS_LICENSES"
-  // Movement
+
+  // Transfers and Owner
   | "TRANSFER_INTERNAL"
+
+  // Refunds and Adjustments
+  | "CUSTOMER_REFUND"
   | "REFUND_CHARGEBACK"
+  | "REFUND_RECEIVED"
+
   // Income
   | "INCOME"
   | "CLIENT_PAYMENT"
-  | "REFUND_RECEIVED"
   | "INTEREST_INCOME"
+
   // Fallback
   | "OTHER"
+
   // Legacy IDs (keep for backwards compatibility with stored data)
   | "PAYROLL"
   | "PRODUCTION"

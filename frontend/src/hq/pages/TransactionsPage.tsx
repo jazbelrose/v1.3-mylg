@@ -13,7 +13,7 @@ import {
 import HQLayout from "../components/HQLayout";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
-import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
@@ -22,6 +22,7 @@ import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types"
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import TxnModalApply from "@/hq/components/TxnModalApply";
+import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -182,15 +183,16 @@ const TransactionsPage: React.FC = () => {
             ]}
           />
 
-          <HqSelect
+          <HqCategoryPicker
+            orgId={orgId}
             className={styles.filterField}
             value={categoryId}
             onValueChange={(v) => setCategoryId(v as "all" | HqCategoryId | "UNCATEGORIZED")}
             ariaLabel="Filter by category"
-            options={[
+            placeholder="All categories"
+            staticOptions={[
               { value: "all", label: "All categories" },
               { value: "UNCATEGORIZED", label: "Uncategorized" },
-              ...HQ_CATEGORIES.map((c) => ({ value: c.id, label: c.label })),
             ]}
           />
           <input

@@ -1582,7 +1582,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
           </button>
         )}
 
-        {(onMicToggle || onDuplicate || onDelete || onExport) && (
+        {(onMicToggle || onDuplicate || onDelete || onExport || onExportAllPdf) && (
           <button
             type="button"
             className="toolbar-item more-trigger"

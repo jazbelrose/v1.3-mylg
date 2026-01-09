@@ -12,6 +12,7 @@ import FileManagerComponent from "@/dashboard/project/components/FileManager/Fil
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
+import OffscreenSlideRenderer, { type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
@@ -23,11 +24,13 @@ import { saveSlideThumb } from "./lib/thumbnails";
 import { isUiThumbsEnabled } from "./lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "./lib/lexicalContent";
 import { generateMagicLayoutContent } from "./lib/magicLayoutToLexical";
+import { generatePdfFromImages } from "./lib/slideExport";
 import type { LayoutVariant, TasteModeId } from "./lib/magicLayoutTypes";
 import type { LayoutMode } from "./lib/pictureFrameLayoutGenerator";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl, patchSlideThumbnail } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import { saveAs } from "file-saver";
 import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
@@ -255,6 +258,10 @@ const SlidesPage: React.FC = () => {
   const [pdfImportStatus, setPdfImportStatus] = useState<"idle" | "uploading" | "processing">("idle");
   const [pdfImportProgress, setPdfImportProgress] = useState<number>(0);
   const [pdfImportDetail, setPdfImportDetail] = useState<PdfImportDetail | null>(null);
+
+  const offscreenSlideRendererRef = useRef<OffscreenSlideRendererRef | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfExportProgress, setPdfExportProgress] = useState<{ current: number; total: number } | null>(null);
   const toolbarPortalRef = useCallback((node: HTMLDivElement | null) => {
     setToolbarPortalNode(node);
   }, []);
@@ -1611,6 +1618,58 @@ const SlidesPage: React.FC = () => {
     // TODO: Implement PDF export with jsPDF
   }, []);
 
+  const handleExportAllPdf = useCallback(
+    async (preset: "screen" | "high" | "print" = "high") => {
+      if (isExportingPdf) return;
+
+      const slidesToExport = [...slides].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      if (slidesToExport.length === 0) {
+        notify("info", "No slides to export");
+        return;
+      }
+
+      const renderer = offscreenSlideRendererRef.current;
+      if (!renderer) {
+        notify("error", "PDF export is not ready yet—try again in a moment");
+        return;
+      }
+
+      const projectName = activeProject?.title ?? "Presentation";
+      const pixelRatio = preset === "screen" ? 1 : preset === "print" ? 4 : 2;
+
+      setIsExportingPdf(true);
+      setPdfExportProgress({ current: 0, total: slidesToExport.length });
+
+      try {
+        const slideImages = await renderer.captureAllSlides(
+          slidesToExport,
+          (current, total) => setPdfExportProgress({ current, total }),
+          { imageFormat: "png", pixelRatio }
+        );
+
+        const pdfBlob = await generatePdfFromImages(slideImages, projectName);
+        if (!pdfBlob) {
+          notify("error", "PDF export failed");
+          return;
+        }
+
+        const sanitizedName = (projectName || "Presentation")
+          .replace(/[^a-zA-Z0-9-_ ]/g, "")
+          .trim() || "Presentation";
+
+        saveAs(pdfBlob, `${sanitizedName}.pdf`);
+        notify("success", "PDF downloaded");
+      } catch (err) {
+        console.error("[Slides] PDF export failed:", err);
+        notify("error", "PDF export failed");
+      } finally {
+        setIsExportingPdf(false);
+        setPdfExportProgress(null);
+      }
+    },
+    [activeProject?.title, isExportingPdf, slides]
+  );
+
   const uploadPdfForSlidesImport = useCallback(
     async (file: File) => {
       if (!projectId) return;
@@ -1965,6 +2024,9 @@ const SlidesPage: React.FC = () => {
                   isSaving={isSaving}
                   isDirty={isDirty}
                   onPreview={handlePreview}
+                  onExportAllPdf={handleExportAllPdf}
+                  isExportingPdf={isExportingPdf}
+                  pdfExportProgress={pdfExportProgress}
                   onImportPdf={handleImportPdfClick}
                   isImportingPdf={isImportingPdf}
                   pdfImportStatus={pdfImportStatus}
@@ -1990,6 +2052,8 @@ const SlidesPage: React.FC = () => {
             </section>
           </div>
         </DropdownProvider>
+
+        <OffscreenSlideRenderer ref={offscreenSlideRendererRef} />
       </div>
     </ProjectPageLayout>
   );
