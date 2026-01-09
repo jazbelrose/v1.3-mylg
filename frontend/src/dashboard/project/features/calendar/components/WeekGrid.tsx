@@ -159,6 +159,8 @@ const SNAP_INTERVAL_MINUTES = 30;
 const MIN_DURATION_MINUTES = SNAP_INTERVAL_MINUTES;
 const RESIZE_HANDLE_THRESHOLD_PX = 10;
 const MAX_MINUTES = 24 * MINUTES_IN_HOUR;
+const POPOVER_GHOST_WIDTH = 220;
+const POPOVER_GHOST_HEIGHT = 32;
 
 /**
  * Determine if a task is a Focus Block (wrapper that contains child time blocks).
@@ -1159,7 +1161,34 @@ function WeekGrid({
       }
       const deltaDays = state.mode === "drag" ? dropDayIndex - state.startDayIndex : 0;
       const deltaY = event.clientY - state.startY;
-      const deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
+      let deltaMinutes = Math.round(deltaY / (WEEK_ROW_HEIGHT_PX / MINUTES_IN_HOUR));
+
+      // Popover drags (e.g., dragging a Focus Block child "out") should land where the pointer is,
+      // not where the popover list item started (which would introduce a constant offset).
+      if (state.mode === "drag" && state.previewEntryKey === POPOVER_GHOST_KEY) {
+        const anchor = state.targets[0];
+        const dropMinutes = (() => {
+          const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+          const cell = el?.closest?.(".week-grid__cell") as HTMLElement | null;
+          if (!cell) return null;
+          const hourAttr = cell.getAttribute("data-hour");
+          const hour = hourAttr != null ? Number(hourAttr) : Number.NaN;
+          if (!Number.isFinite(hour)) return null;
+          const rect = cell.getBoundingClientRect();
+          if (rect.height <= 0) return null;
+          const styles = window.getComputedStyle(cell);
+          const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
+          const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
+          const innerHeight = Math.max(1, rect.height - paddingTop - paddingBottom);
+          const y = Math.max(0, Math.min(innerHeight, event.clientY - rect.top - paddingTop));
+          const minutesWithinHour = (y / innerHeight) * MINUTES_IN_HOUR;
+          return clampMinutes(hour * MINUTES_IN_HOUR + minutesWithinHour);
+        })();
+
+        if (dropMinutes != null && anchor) {
+          deltaMinutes = Math.round(dropMinutes - anchor.startMinutes);
+        }
+      }
 
       const changes: CalendarEntryChanges[] = [];
 
@@ -1882,6 +1911,12 @@ function WeekGrid({
         pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey,
       );
 
+      // Reset preview transform so the ghost starts exactly under the cursor.
+      setDragPreviewTransforms({
+        [POPOVER_GHOST_KEY]: { translateX: 0, translateY: 0 },
+      });
+      setResizePreviewTransforms({});
+
       interactionRef.current = {
         mode: "drag",
         startX: pointerEvent.clientX,
@@ -1983,13 +2018,22 @@ function WeekGrid({
         initialHeight,
       };
 
+      // Default: move/detach. Hold Ctrl/Cmd/Alt to copy instead.
       const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey);
+      const startX = pointerEvent.clientX;
+      const startY = pointerEvent.clientY;
 
-      // Use the initial click position from dragInfo for proper drag tracking
+      // Use the pointer position at drag-start (not pointer-down) to avoid a visible ghost jump.
+      // Also reset any previous preview transforms so the ghost starts under the cursor.
+      setDragPreviewTransforms({
+        [POPOVER_GHOST_KEY]: { translateX: 0, translateY: 0 },
+      });
+      setResizePreviewTransforms({});
+
       interactionRef.current = {
         mode: "drag",
-        startX: dragInfo.startX,
-        startY: dragInfo.startY,
+        startX,
+        startY,
         targets: [target],
         duplicate: false,
         isCopyMode: copyMode,
@@ -1999,15 +2043,17 @@ function WeekGrid({
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
 
-      // Use offset from dragInfo (captured at pointer down) for proper ghost alignment
+      const offsetX = Math.max(0, Math.min(POPOVER_GHOST_WIDTH, dragInfo.offsetX));
+      const offsetY = Math.max(0, Math.min(POPOVER_GHOST_HEIGHT, dragInfo.offsetY));
+
       setPopoverDragGhost({
         key: POPOVER_GHOST_KEY,
         title: task.title || "Untitled task",
         entryType: "task",
-        startX: dragInfo.startX,
-        startY: dragInfo.startY,
-        offsetX: dragInfo.offsetX,
-        offsetY: dragInfo.offsetY,
+        startX,
+        startY,
+        offsetX,
+        offsetY,
         color: projectColor,
       });
 
@@ -3468,16 +3514,14 @@ function WeekGrid({
       {popoverDragGhost && (() => {
         const transform = dragPreviewTransforms[popoverDragGhost.key];
         // Use captured offset for proper cursor alignment; fallback to centered positioning
-        const ghostWidth = 220;
-        const ghostHeight = 32;
-        const offsetX = popoverDragGhost.offsetX ?? ghostWidth / 2;
-        const offsetY = popoverDragGhost.offsetY ?? ghostHeight / 2;
+        const offsetX = popoverDragGhost.offsetX ?? POPOVER_GHOST_WIDTH / 2;
+        const offsetY = popoverDragGhost.offsetY ?? POPOVER_GHOST_HEIGHT / 2;
         const style: React.CSSProperties = {
           position: "fixed",
           left: popoverDragGhost.startX - offsetX,
           top: popoverDragGhost.startY - offsetY,
-          width: ghostWidth,
-          height: ghostHeight,
+          width: POPOVER_GHOST_WIDTH,
+          height: POPOVER_GHOST_HEIGHT,
           zIndex: 9999,
           pointerEvents: "none",
           opacity: 0.92,
@@ -3706,7 +3750,11 @@ function WeekGrid({
                 [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [childTask.source?.taskId ?? childTask.id, childTask]),
               ).values(),
             ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
-            return children.length ? children : undefined;
+            if (!children.length) return undefined;
+            // Ensure children have a `focusBlockId` so drag-out detaches from the parent Focus Block.
+            return children.map((child) =>
+              child.focusBlockId ? child : { ...child, focusBlockId: focusId },
+            );
           })();
 
           return (

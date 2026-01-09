@@ -161,10 +161,10 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       event.preventDefault();
       event.stopPropagation();
       setActiveChildKey(state.key);
-      // Pass the initial click position and offset stored on pointer down
+      // Use the current pointer position (drag start), plus the offset captured on pointer down.
       onStartDragFocusChild(state.task, event, {
-        startX: state.startX,
-        startY: state.startY,
+        startX: event.clientX,
+        startY: event.clientY,
         offsetX: state.offsetX,
         offsetY: state.offsetY,
       });
