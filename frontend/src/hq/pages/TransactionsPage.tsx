@@ -291,6 +291,8 @@ const TransactionsPage: React.FC = () => {
             orgId={activeOrgId}
             isOpen={isApplyOpen}
             txn={selectedTxn}
+            from={startDate || undefined}
+            to={endDate || undefined}
             onRequestClose={() => {
               setIsApplyOpen(false);
               setSelectedTxn(null);

@@ -1257,6 +1257,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           childTaskIds: string[];
           childTitles: Array<{ taskId: string; title: string }>;
         }> = [];
+        // Track parent Focus Blocks that need their children lists updated (detach case)
+        const focusBlockDetachUpdates = new Map<
+          string, // parent focus block task ID
+          { projectId: string; removedChildIds: Set<string> }
+        >();
 
         // Helper to check if a task overlaps with any existing task by the same user
         const findSameUserOverlap = (
@@ -1541,7 +1546,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           };
 
           if (Object.prototype.hasOwnProperty.call(change, "focusBlockId")) {
-            fields.focusBlockId = change.focusBlockId ?? null;
+            const newFocusBlockId = change.focusBlockId ?? null;
+            fields.focusBlockId = newFocusBlockId;
+
+            // If detaching from a Focus Block (setting to null), queue parent update
+            const prevFocusBlockId = task.focusBlockId ?? null;
+            if (prevFocusBlockId && newFocusBlockId === null && taskId) {
+              const existing = focusBlockDetachUpdates.get(prevFocusBlockId);
+              if (existing) {
+                existing.removedChildIds.add(taskId);
+              } else {
+                focusBlockDetachUpdates.set(prevFocusBlockId, {
+                  projectId,
+                  removedChildIds: new Set([taskId]),
+                });
+              }
+            }
           }
           updatesByProject.set(projectId, [
             ...(updatesByProject.get(projectId) ?? []),
@@ -1578,6 +1598,34 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         updatesByProject.forEach((updates, projectId) => {
           operations.push(updateTasksBulk(projectId, updates));
         });
+
+        // Update parent Focus Blocks when children are detached
+        for (const [parentTaskId, { projectId, removedChildIds }] of focusBlockDetachUpdates) {
+          const parentTask = tasks.find((t) => {
+            const id = resolveTaskIdentifier(t);
+            return id === parentTaskId;
+          });
+          if (!parentTask) continue;
+
+          const currentChildIds = parentTask.focusChildTaskIds ?? [];
+          const currentChecklist = parentTask.focusChecklist ?? [];
+
+          const newChildIds = currentChildIds.filter((id) => !removedChildIds.has(id));
+          const newChecklist = currentChecklist.filter((item) => !removedChildIds.has(item.taskId));
+
+          // Only update if we actually removed something
+          if (newChildIds.length !== currentChildIds.length || newChecklist.length !== currentChecklist.length) {
+            operations.push(
+              updateTask({
+                projectId,
+                taskId: parentTaskId,
+                title: parentTask.title ?? "Focus Block",
+                focusChildTaskIds: newChildIds,
+                focusChecklist: newChecklist,
+              }),
+            );
+          }
+        }
 
         // Create Focus Blocks for same-user overlaps
         for (const fb of focusBlockCreations) {

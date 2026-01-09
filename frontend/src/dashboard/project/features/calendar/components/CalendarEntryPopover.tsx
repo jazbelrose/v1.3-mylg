@@ -73,6 +73,8 @@ export interface CalendarEntryPopoverProps {
   onStartDragFocusChild?: (
     task: CalendarTask,
     pointerEvent: React.PointerEvent<HTMLElement>,
+    /** Initial pointer position and offset for proper ghost alignment */
+    dragInfo: { startX: number; startY: number; offsetX: number; offsetY: number },
   ) => void;
   onOpenFocusChildContextMenu?: (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
@@ -126,6 +128,9 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     pointerType: string;
     startX: number;
     startY: number;
+    /** Offset of the initial click within the element */
+    offsetX: number;
+    offsetY: number;
     didDrag: boolean;
     dragArmed: boolean;
     longPressTimer: number | null;
@@ -156,7 +161,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       event.preventDefault();
       event.stopPropagation();
       setActiveChildKey(state.key);
-      onStartDragFocusChild(state.task, event);
+      // Pass the initial click position and offset stored on pointer down
+      onStartDragFocusChild(state.task, event, {
+        startX: state.startX,
+        startY: state.startY,
+        offsetX: state.offsetX,
+        offsetY: state.offsetY,
+      });
     },
     [onStartDragFocusChild],
   );
@@ -177,6 +188,11 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       const pointerType = event.pointerType || "mouse";
       const isTouch = pointerType === "touch";
 
+      // Calculate offset within the element at pointer down time
+      const rect = event.currentTarget.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+
       const nextState = {
         task: child,
         key: childKey,
@@ -184,6 +200,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         pointerType,
         startX: event.clientX,
         startY: event.clientY,
+        offsetX,
+        offsetY,
         didDrag: false,
         dragArmed: !isTouch,
         longPressTimer: null as number | null,

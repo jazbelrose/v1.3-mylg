@@ -139,6 +139,9 @@ export type HqTransaction = {
   rawDescription: string;
   normalizedDescription: string;
 
+  /** Server-computed vendor match key (parity with /hq/vendor-matches). */
+  vendorKey?: string;
+
   type: HqTransactionType;
   direction: "in" | "out";
   vendor?: string;

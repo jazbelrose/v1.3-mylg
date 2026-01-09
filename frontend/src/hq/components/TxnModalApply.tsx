@@ -3,7 +3,6 @@ import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
 import { HQ_CATEGORIES, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions, fetchHqVendorMatches } from "@/hq/lib/hqApi";
-import { getVendorKeyForTxn } from "@/hq/lib/vendorNormalization";
 import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
 import HqSelect from "@/hq/components/HqSelect";
@@ -18,6 +17,8 @@ type Props = {
   isOpen: boolean;
   txn: HqTransaction | null;
   onRequestClose: () => void;
+  from?: string;
+  to?: string;
 };
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -41,11 +42,12 @@ const TYPE_OPTIONS: Array<{ value: HqTransactionType; label: string }> = [
   { value: "unknown", label: "Unknown" },
 ];
 
-const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose }) => {
+const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, from, to }) => {
   const [categoryId, setCategoryId] = React.useState<HqCategoryId | "OTHER">("OTHER");
   const [type, setType] = React.useState<HqTransactionType>("unknown");
   const [isWorking, setIsWorking] = React.useState(false);
   const [similar, setSimilar] = React.useState<HqTransaction[]>([]);
+  const [similarUnavailable, setSimilarUnavailable] = React.useState(false);
 
   React.useEffect(() => {
     if (!isOpen || !txn) return;
@@ -55,16 +57,22 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose }) 
 
     let cancelled = false;
     setIsWorking(true);
+    setSimilarUnavailable(false);
     void (async () => {
       try {
-        const { vendorKey } = getVendorKeyForTxn(txn);
-        if (!vendorKey || vendorKey === "unknown") {
-          if (!cancelled) setSimilar([]);
+        const vendorKey = String(txn.vendorKey || "").trim();
+        if (!vendorKey) {
+          if (!cancelled) {
+            setSimilar([]);
+            setSimilarUnavailable(true);
+          }
           return;
         }
 
         const res = await fetchHqVendorMatches(orgId, {
           vendorKey,
+          from,
+          to,
           includeCategorized: true,
           limit: 30,
         });
@@ -85,7 +93,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose }) 
     return () => {
       cancelled = true;
     };
-  }, [isOpen, orgId, txn]);
+  }, [from, isOpen, orgId, to, txn]);
 
   const handleApply = React.useCallback(async () => {
     if (!txn) return;
@@ -196,7 +204,9 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose }) 
             <div className={styles.similarMeta}>{similar.length} shown</div>
           </div>
 
-          {similar.length === 0 ? (
+          {similarUnavailable ? (
+            <div className={styles.emptyState}>Similar unavailable (no vendor key).</div>
+          ) : similar.length === 0 ? (
             <div className={styles.emptyState}>No similar transactions found.</div>
           ) : (
             <div className={styles.similarList} role="region" aria-label="Similar transactions">

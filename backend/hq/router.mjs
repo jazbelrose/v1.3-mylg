@@ -1718,6 +1718,11 @@ const listTransactions = async (e, C) => {
   });
 
   let txns = (res.Items || []).map((t) => ({
+    // Keep vendorKey generation in parity with /hq/vendor-matches.
+    vendorKey: (() => {
+      const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
+      return normalizeVendorKey(vendor || t.rawDescription || t.normalizedDescription || "");
+    })(),
     orgId,
     accountId: t.accountId,
     postedAt: t.postedAt,

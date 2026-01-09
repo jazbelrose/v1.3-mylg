@@ -1,12 +1,16 @@
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  z-index: 50;
+  padding: 28px;
+  /* Must sit above left-nav (z-index ~999) */
+  z-index: 16000;
+  pointer-events: auto;
 }
 
 .modalContent {
@@ -14,8 +18,10 @@
   max-height: min(78vh, 820px);
   overflow: auto;
   border-radius: 14px;
-  background: var(--mylg-surface);
-  color: inherit;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: var(--shadow-lg);
 }
 
 .header {
@@ -23,7 +29,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px;
+  padding: 20px 22px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -49,7 +55,7 @@
 }
 
 .body {
-  padding: 16px 18px;
+  padding: 20px 22px;
 }
 
 .summary {
@@ -151,7 +157,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 14px 18px;
+  padding: 18px 22px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 

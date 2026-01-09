@@ -23,6 +23,7 @@ import { fetchHqChartSeries, type HqChartSeriesRange, type HqChartSeriesResponse
 import type { HqAccount, HqAlert, HqTransaction } from "@/hq/types";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import HeroCashChart, { type DailyPoint, type VisibleHeroCashSeries } from "@/hq/components/HeroCashChart";
+import TxnModalApply from "@/hq/components/TxnModalApply";
 import styles from "./HQOverview.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -164,6 +165,8 @@ const HQOverview: React.FC = () => {
   const [selectedRange, setSelectedRange] = React.useState<HqRangeId>("ytd");
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
+  const [selectedTxn, setSelectedTxn] = React.useState<HqTransaction | null>(null);
+  const [isApplyOpen, setIsApplyOpen] = React.useState(false);
 
   const [chartRange, setChartRange] = React.useState<HqChartSeriesRange>("1Y");
   const [chartCollapsed, setChartCollapsed] = React.useState(false);
@@ -773,7 +776,25 @@ const HQOverview: React.FC = () => {
           ) : (
             <div className={styles.txnPreview}>
               {latestTransactions.map((txn) => (
-                <div key={txn.dedupeHash} className={styles.txnRow}>
+                <div
+                  key={txn.dedupeHash}
+                  className={styles.txnRow}
+                  role={canAdmin ? "button" : undefined}
+                  tabIndex={canAdmin ? 0 : undefined}
+                  onClick={() => {
+                    if (!canAdmin) return;
+                    setSelectedTxn(txn);
+                    setIsApplyOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!canAdmin) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedTxn(txn);
+                      setIsApplyOpen(true);
+                    }
+                  }}
+                >
                   <div className={styles.txnMain}>
                     <div className={styles.txnVendor}>{txn.vendor || txn.counterparty || txn.rawDescription}</div>
                     <div className={styles.txnMeta}>
@@ -799,6 +820,17 @@ const HQOverview: React.FC = () => {
             orgId={activeOrgId}
             isOpen={isAddAccountOpen}
             onRequestClose={() => setIsAddAccountOpen(false)}
+          />
+          <TxnModalApply
+            orgId={activeOrgId}
+            isOpen={isApplyOpen}
+            txn={selectedTxn}
+            from={start}
+            to={end}
+            onRequestClose={() => {
+              setIsApplyOpen(false);
+              setSelectedTxn(null);
+            }}
           />
         </>
       ) : null}

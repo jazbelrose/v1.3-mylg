@@ -462,6 +462,9 @@ function WeekGrid({
         entryType: "task" | "event";
         startX: number;
         startY: number;
+        /** Pointer offset within the dragged element (for proper cursor alignment). */
+        offsetX: number;
+        offsetY: number;
         color: string;
       }
   >(null);
@@ -1892,12 +1895,19 @@ function WeekGrid({
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
 
+      // Calculate pointer offset relative to the dragged element for proper ghost alignment
+      const rect = pointerEvent.currentTarget.getBoundingClientRect();
+      const offsetX = pointerEvent.clientX - rect.left;
+      const offsetY = pointerEvent.clientY - rect.top;
+
       setPopoverDragGhost({
         key: POPOVER_GHOST_KEY,
         title: entry.title,
         entryType: child.entryType,
         startX: pointerEvent.clientX,
         startY: pointerEvent.clientY,
+        offsetX,
+        offsetY,
         color: projectColor,
       });
 
@@ -1913,7 +1923,11 @@ function WeekGrid({
    * Uses the same grid drag interaction state as stack popovers.
    */
   const handleStartDragFromFocusChildPopover = useCallback(
-    (task: CalendarTask, pointerEvent: React.PointerEvent<HTMLElement>) => {
+    (
+      task: CalendarTask,
+      pointerEvent: React.PointerEvent<HTMLElement>,
+      dragInfo: { startX: number; startY: number; offsetX: number; offsetY: number },
+    ) => {
       const source = task.source as unknown as Record<string, unknown>;
       const rawStartDateTime =
         parseDateTimeCandidate(source.startAt) ??
@@ -1971,10 +1985,11 @@ function WeekGrid({
 
       const copyMode = Boolean(pointerEvent.ctrlKey || pointerEvent.metaKey || pointerEvent.altKey);
 
+      // Use the initial click position from dragInfo for proper drag tracking
       interactionRef.current = {
         mode: "drag",
-        startX: pointerEvent.clientX,
-        startY: pointerEvent.clientY,
+        startX: dragInfo.startX,
+        startY: dragInfo.startY,
         targets: [target],
         duplicate: false,
         isCopyMode: copyMode,
@@ -1984,12 +1999,15 @@ function WeekGrid({
       setIsCopyMode(copyMode);
       isDraggingRef.current = true;
 
+      // Use offset from dragInfo (captured at pointer down) for proper ghost alignment
       setPopoverDragGhost({
         key: POPOVER_GHOST_KEY,
         title: task.title || "Untitled task",
         entryType: "task",
-        startX: pointerEvent.clientX,
-        startY: pointerEvent.clientY,
+        startX: dragInfo.startX,
+        startY: dragInfo.startY,
+        offsetX: dragInfo.offsetX,
+        offsetY: dragInfo.offsetY,
         color: projectColor,
       });
 
@@ -3449,12 +3467,17 @@ function WeekGrid({
       )}
       {popoverDragGhost && (() => {
         const transform = dragPreviewTransforms[popoverDragGhost.key];
+        // Use captured offset for proper cursor alignment; fallback to centered positioning
+        const ghostWidth = 220;
+        const ghostHeight = 32;
+        const offsetX = popoverDragGhost.offsetX ?? ghostWidth / 2;
+        const offsetY = popoverDragGhost.offsetY ?? ghostHeight / 2;
         const style: React.CSSProperties = {
           position: "fixed",
-          left: popoverDragGhost.startX - 90,
-          top: popoverDragGhost.startY - 14,
-          width: 220,
-          height: 32,
+          left: popoverDragGhost.startX - offsetX,
+          top: popoverDragGhost.startY - offsetY,
+          width: ghostWidth,
+          height: ghostHeight,
           zIndex: 9999,
           pointerEvents: "none",
           opacity: 0.92,
