@@ -30,6 +30,7 @@ vi.mock('html-to-image', () => ({
 
 import { toJpeg, toPng } from 'html-to-image';
 import OffscreenSlideRenderer, { type OffscreenSlideRendererRef } from './OffscreenSlideRenderer';
+import { getPdfExportCaptureOptions } from '../lib/pdfExportPresets';
 
 test('creates an offscreen portal container that remains renderable for capture', async () => {
   const { unmount } = render(<OffscreenSlideRenderer />);
@@ -78,6 +79,43 @@ test('uses JPEG when configured via capture options', async () => {
   expect(mockedToJpeg.mock.calls.length).toBeGreaterThan(0);
   expect(mockedToPng.mock.calls.length).toBe(0);
   expect(results[0]?.imageDataUrl.startsWith('data:image/jpeg')).toBe(true);
+});
+
+test('Screen preset uses jpeg + pixelRatio=1 and routes to toJpeg', async () => {
+  const ref = React.createRef<OffscreenSlideRendererRef>();
+  render(<OffscreenSlideRenderer ref={ref} />);
+
+  await waitFor(() => {
+    expect(document.getElementById('offscreen-slide-renderer')).toBeTruthy();
+    expect(ref.current).toBeTruthy();
+  });
+
+  const mockedToPng = vi.mocked(toPng);
+  const mockedToJpeg = vi.mocked(toJpeg);
+  mockedToPng.mockClear();
+  mockedToJpeg.mockClear();
+
+  const screenOptions = getPdfExportCaptureOptions('screen');
+
+  await ref.current!.captureAllSlides(
+    [
+      {
+        id: 'slide-1',
+        title: 'Slide 1',
+        order: 0,
+        content: null,
+        backgroundColor: '#101112',
+      } as any,
+    ],
+    undefined,
+    screenOptions
+  );
+
+  expect(mockedToJpeg).toHaveBeenCalledTimes(1);
+  expect(mockedToPng).toHaveBeenCalledTimes(0);
+  expect(mockedToJpeg.mock.calls[0]?.[1]?.pixelRatio).toBe(1);
+  expect(mockedToJpeg.mock.calls[0]?.[1]?.quality).toBeGreaterThanOrEqual(0.7);
+  expect(mockedToJpeg.mock.calls[0]?.[1]?.quality).toBeLessThanOrEqual(0.8);
 });
 
 test('captures each slide exactly once and captures the intended slide DOM', async () => {

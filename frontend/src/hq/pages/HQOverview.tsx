@@ -92,7 +92,7 @@ function buildLocalChartSeries(input: {
   if (!fixedDays) {
     // ALL: best-effort using whatever the client cache has.
     const dates = input.transactions
-      .filter((t) => includedAccountIds.has(t.accountId) && !t.isInternalTransfer)
+      .filter((t) => includedAccountIds.has(t.accountId))
       .map((t) => String(t.postedAt || "").slice(0, 10))
       .filter(Boolean);
     dates.sort();

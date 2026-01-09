@@ -37,6 +37,7 @@ import { FileImageOutlined, LayoutOutlined } from "@ant-design/icons";
 import NodeIndexOutlined from "@ant-design/icons/lib/icons/NodeIndexOutlined";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import ColorPicker from "@/shared/ui/ColorPicker";
+import SlidesPdfExportMenu from "./SlidesPdfExportMenu";
 import {
   useToolbarContextBridge,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
@@ -1655,54 +1656,13 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
                   )}
                   {onExportAllPdf && (
                     <>
-                      <button
-                        type="button"
-                        className="item"
-                        disabled={isExportingPdf}
-                        onClick={() => {
-                          onExportAllPdf("screen");
+                      <SlidesPdfExportMenu
+                        onExportAllPdf={(preset) => {
+                          onExportAllPdf(preset);
                           closeDropdown();
                         }}
-                      >
-                        <Download size={18} className="dropdown-icon" />
-                        <span className="text">
-                          {isExportingPdf && pdfExportProgress
-                            ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
-                            : "PDF (Screen) — small & fast"}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className="item"
-                        disabled={isExportingPdf}
-                        onClick={() => {
-                          onExportAllPdf("high");
-                          closeDropdown();
-                        }}
-                      >
-                        <Download size={18} className="dropdown-icon" />
-                        <span className="text">
-                          {isExportingPdf && pdfExportProgress
-                            ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
-                            : "PDF (High) — crisp (default)"}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className="item"
-                        disabled={isExportingPdf}
-                        onClick={() => {
-                          onExportAllPdf("print");
-                          closeDropdown();
-                        }}
-                      >
-                        <Download size={18} className="dropdown-icon" />
-                        <span className="text">
-                          {isExportingPdf && pdfExportProgress
-                            ? `Exporting... (${pdfExportProgress.current}/${pdfExportProgress.total})`
-                            : "PDF (Print) — very large"}
-                        </span>
-                      </button>
+                        isExportingPdf={isExportingPdf}
+                      />
                     </>
                   )}
                 </>

@@ -13,6 +13,10 @@ const REGION = process.env.AWS_REGION || "us-west-2";
 const HQ_TABLE = process.env.HQ_TABLE || "HqLedger";
 const ORG_MEMBERS_TABLE = process.env.ORG_MEMBERS_TABLE || "OrgMembers";
 
+// Bump this when changing how LEDGER# aggregate rows are derived.
+// Used to trigger a one-time rebuild so existing orgs don't keep stale aggregates.
+const HQ_LEDGER_VERSION = 2;
+
 /* ------------ DDB ------------ */
 const ddb = DynamoDBDocument.from(new DynamoDBClient({ region: REGION }), {
   marshallOptions: { removeUndefinedValues: true },
@@ -659,6 +663,7 @@ const recomputeHqHeaderFromLedger = async ({ orgId, nowIso }) => {
     sk: skHqHeader(),
     entityType: "hqHeader",
     updatedAt: nowIso,
+    ledgerVersion: HQ_LEDGER_VERSION,
     cashOnHandAggregate,
     missingAnchorAccountIds,
     ytdInflow,
@@ -676,6 +681,8 @@ const updateLedgerFromImportedTxns = async ({ orgId, accountId, txns, account, n
   const dayAcct = new Map();
   let deltaAfterAnchor = 0;
 
+  const includeInAggregateLedger = Boolean(account) && !account?.archivedAt && account?.includeInCashOnHand !== false;
+
   const anchorDate = account?.anchorDate ? String(account.anchorDate).slice(0, 10) : "";
   const hasAnchor = anchorDate && typeof account?.anchorBalance === "number";
 
@@ -689,11 +696,13 @@ const updateLedgerFromImportedTxns = async ({ orgId, accountId, txns, account, n
     const inflow = signed > 0 ? signed : 0;
     const outflow = signed < 0 ? Math.abs(signed) : 0;
 
-    const o = dayOrg.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
-    o.inflow += inflow;
-    o.outflow += outflow;
-    o.txCount += 1;
-    dayOrg.set(postedAt, o);
+    if (includeInAggregateLedger) {
+      const o = dayOrg.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+      o.inflow += inflow;
+      o.outflow += outflow;
+      o.txCount += 1;
+      dayOrg.set(postedAt, o);
+    }
 
     const a = dayAcct.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
     a.inflow += inflow;
@@ -774,6 +783,15 @@ const rebuildLedgerAndHeaderFromTxns = async ({ orgId, deleteExistingLedger = fa
   }
 
   const accounts = await queryAllByPrefix({ orgId, prefix: "ACCOUNT#" });
+
+  // Aggregate cash series should reflect only accounts included in cash-on-hand.
+  // Account-specific series (LEDGERA#) remains complete regardless of inclusion.
+  const includedAccountIds = new Set(
+    (accounts || [])
+      .filter((a) => a && !a.archivedAt && a.includeInCashOnHand !== false)
+      .map((a) => a.accountId)
+      .filter(Boolean)
+  );
   const anchorByAccountId = new Map(
     (accounts || [])
       .filter((a) => a && a.accountId && a.anchorDate && typeof a.anchorBalance === "number")
@@ -804,32 +822,34 @@ const rebuildLedgerAndHeaderFromTxns = async ({ orgId, deleteExistingLedger = fa
       const postedAt = String(t?.postedAt || "").slice(0, 10);
       if (!postedAt) continue;
 
+      const acctId = String(t?.accountId || "").trim();
+      if (!acctId) continue;
+
       const signed = canonicalSignedAmount(t);
       if (typeof signed !== "number" || !Number.isFinite(signed)) continue;
 
       const inflow = signed > 0 ? signed : 0;
       const outflow = signed < 0 ? Math.abs(signed) : 0;
 
-      const o = dayOrg.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
-      o.inflow += inflow;
-      o.outflow += outflow;
-      o.txCount += 1;
-      dayOrg.set(postedAt, o);
+      if (includedAccountIds.has(acctId)) {
+        const o = dayOrg.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+        o.inflow += inflow;
+        o.outflow += outflow;
+        o.txCount += 1;
+        dayOrg.set(postedAt, o);
+      }
 
-      const acctId = String(t?.accountId || "").trim();
-      if (acctId) {
-        const m = dayAcct.get(acctId) || new Map();
-        const a = m.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
-        a.inflow += inflow;
-        a.outflow += outflow;
-        a.txCount += 1;
-        m.set(postedAt, a);
-        dayAcct.set(acctId, m);
+      const m = dayAcct.get(acctId) || new Map();
+      const a = m.get(postedAt) || { inflow: 0, outflow: 0, txCount: 0 };
+      a.inflow += inflow;
+      a.outflow += outflow;
+      a.txCount += 1;
+      m.set(postedAt, a);
+      dayAcct.set(acctId, m);
 
-        const anchor = anchorByAccountId.get(acctId);
-        if (anchor && postedAt > anchor.anchorDate) {
-          deltaAfterAnchorByAccountId.set(acctId, (deltaAfterAnchorByAccountId.get(acctId) || 0) + signed);
-        }
+      const anchor = anchorByAccountId.get(acctId);
+      if (anchor && postedAt > anchor.anchorDate) {
+        deltaAfterAnchorByAccountId.set(acctId, (deltaAfterAnchorByAccountId.get(acctId) || 0) + signed);
       }
     }
 
@@ -896,14 +916,21 @@ const rebuildLedgerAndHeaderFromTxns = async ({ orgId, deleteExistingLedger = fa
 
 const ensureHqHeader = async ({ orgId }) => {
   const hdr = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skHqHeader() } });
-  if (hdr?.Item) return hdr.Item;
+  const existing = hdr?.Item || null;
+  const existingVersion = existing && typeof existing.ledgerVersion === "number" ? existing.ledgerVersion : 0;
+  if (existing && existingVersion >= HQ_LEDGER_VERSION) return existing;
 
   const nowIso = nowISO();
   const ledgerExists = await hasAnyByPrefix({ orgId, prefix: "LEDGER#" });
   if (!ledgerExists) {
     await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: false });
   } else {
-    await recomputeHqHeaderFromLedger({ orgId, nowIso });
+    // If derived aggregate ledger was built with an older derivation, rebuild it.
+    if (existing && existingVersion < HQ_LEDGER_VERSION) {
+      await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: true });
+    } else {
+      await recomputeHqHeaderFromLedger({ orgId, nowIso });
+    }
   }
 
   const hdr2 = await ddb.get({ TableName: HQ_TABLE, Key: { orgId, sk: skHqHeader() } });

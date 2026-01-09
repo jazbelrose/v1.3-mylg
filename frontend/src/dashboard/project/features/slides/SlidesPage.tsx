@@ -12,7 +12,7 @@ import FileManagerComponent from "@/dashboard/project/components/FileManager/Fil
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
-import OffscreenSlideRenderer, { type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
+import OffscreenSlideRenderer, { type OffscreenSlideCaptureOptions, type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
@@ -31,6 +31,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl, patchSlideThumbnail } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import { saveAs } from "file-saver";
+import { getPdfExportCaptureOptions, type PdfExportPreset } from "./lib/pdfExportPresets";
 import "./slides.css";
 
 const MAX_THUMBNAIL_ATTEMPTS = 5;
@@ -1619,7 +1620,7 @@ const SlidesPage: React.FC = () => {
   }, []);
 
   const handleExportAllPdf = useCallback(
-    async (preset: "screen" | "high" | "print" = "high") => {
+    async (preset: PdfExportPreset = "high") => {
       if (isExportingPdf) return;
 
       const slidesToExport = [...slides].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -1635,7 +1636,7 @@ const SlidesPage: React.FC = () => {
       }
 
       const projectName = activeProject?.title ?? "Presentation";
-      const pixelRatio = preset === "screen" ? 1 : preset === "print" ? 4 : 2;
+      const captureOptions: OffscreenSlideCaptureOptions = getPdfExportCaptureOptions(preset);
 
       setIsExportingPdf(true);
       setPdfExportProgress({ current: 0, total: slidesToExport.length });
@@ -1644,7 +1645,7 @@ const SlidesPage: React.FC = () => {
         const slideImages = await renderer.captureAllSlides(
           slidesToExport,
           (current, total) => setPdfExportProgress({ current, total }),
-          { imageFormat: "png", pixelRatio }
+          captureOptions
         );
 
         const pdfBlob = await generatePdfFromImages(slideImages, projectName);
@@ -1962,6 +1963,18 @@ const SlidesPage: React.FC = () => {
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div className="slides-shell">
+        {isExportingPdf && pdfExportProgress && (
+          <div className="slides-import-banner" role="status" aria-live="polite">
+            <div className="slides-import-banner__text">
+              Exporting slides… {Math.min(pdfExportProgress.current, pdfExportProgress.total)}/{pdfExportProgress.total}
+            </div>
+            <progress
+              className="slides-import-banner__progress"
+              max={pdfExportProgress.total}
+              value={Math.min(pdfExportProgress.current, pdfExportProgress.total)}
+            />
+          </div>
+        )}
         {isImportingPdf && (
           <div className="slides-import-banner" role="status" aria-live="polite">
             <div className="slides-import-banner__text">{importStatusText}</div>
