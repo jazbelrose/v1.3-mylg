@@ -705,8 +705,9 @@ const getRecurringCommitments = async (e, C) => {
       const month = monthKey(postedAt);
       if (!monthKeys.includes(month)) continue;
 
-      const type = String(t.type || "").trim().toLowerCase();
-      if (type !== "recurring") continue;
+      // Only confirmed recurring commitments count toward burn/runway.
+      // Import hints like "RECURRING PAYMENT ..." should NOT be treated as truth.
+      if (t.isRecurring !== true) continue;
 
       if (excludeInternalTransfers && (t.isInternalTransfer || isLikelyInternalTransfer(t))) continue;
 
@@ -1844,6 +1845,9 @@ const patchTransaction = async (e, C, { dedupeHash }) => {
   const body = B(e);
   const nextCategoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
   const nextIsTransfer = typeof body.isInternalTransfer === "boolean" ? body.isInternalTransfer : undefined;
+  const nextIsRecurring = typeof body.isRecurring === "boolean" ? body.isRecurring : undefined;
+  const nextPaymentType = typeof body.paymentType === "string" ? body.paymentType.trim() : undefined;
+  const nextRecurringSeriesId = typeof body.recurringSeriesId === "string" ? body.recurringSeriesId.trim() : undefined;
   const nextType = typeof body.type === "string" ? body.type.trim() : undefined;
 
   let found = null;
@@ -1871,6 +1875,18 @@ const patchTransaction = async (e, C, { dedupeHash }) => {
   if (nextIsTransfer !== undefined) {
     sets.push("isInternalTransfer = :t");
     values[":t"] = nextIsTransfer;
+  }
+  if (nextIsRecurring !== undefined) {
+    sets.push("isRecurring = :r");
+    values[":r"] = nextIsRecurring;
+  }
+  if (nextPaymentType !== undefined) {
+    sets.push("paymentType = :pt");
+    values[":pt"] = nextPaymentType || "unknown";
+  }
+  if (nextRecurringSeriesId !== undefined) {
+    sets.push("recurringSeriesId = :rs");
+    values[":rs"] = nextRecurringSeriesId || null;
   }
   if (nextType !== undefined) {
     sets.push("#type = :ty");
@@ -1904,8 +1920,17 @@ const applyTransactionsBulk = async (e, C) => {
   if (!dedupeHashes.length) return json(400, C, { error: "dedupeHashes required" });
 
   const nextCategoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : undefined;
+  const nextIsRecurring = typeof body.isRecurring === "boolean" ? body.isRecurring : undefined;
+  const nextPaymentType = typeof body.paymentType === "string" ? body.paymentType.trim() : undefined;
+  const nextRecurringSeriesId = typeof body.recurringSeriesId === "string" ? body.recurringSeriesId.trim() : undefined;
   const nextType = typeof body.type === "string" ? body.type.trim() : undefined;
-  if (nextCategoryId === undefined && nextType === undefined) {
+  if (
+    nextCategoryId === undefined &&
+    nextIsRecurring === undefined &&
+    nextPaymentType === undefined &&
+    nextRecurringSeriesId === undefined &&
+    nextType === undefined
+  ) {
     return json(400, C, { error: "No fields to update" });
   }
 
@@ -1946,6 +1971,18 @@ const applyTransactionsBulk = async (e, C) => {
     sets.push("#type = :ty");
     values[":ty"] = nextType || "unknown";
     names["#type"] = "type";
+  }
+  if (nextIsRecurring !== undefined) {
+    sets.push("isRecurring = :r");
+    values[":r"] = nextIsRecurring;
+  }
+  if (nextPaymentType !== undefined) {
+    sets.push("paymentType = :pt");
+    values[":pt"] = nextPaymentType || "unknown";
+  }
+  if (nextRecurringSeriesId !== undefined) {
+    sets.push("recurringSeriesId = :rs");
+    values[":rs"] = nextRecurringSeriesId || null;
   }
 
   const updateFns = [];
@@ -2013,7 +2050,11 @@ const listTransactions = async (e, C) => {
     currency: t.currency || "USD",
     rawDescription: t.rawDescription,
     normalizedDescription: t.normalizedDescription,
+    paymentType: t.paymentType,
     type: t.type,
+    isRecurring: t.isRecurring,
+    recurringCandidate: t.recurringCandidate,
+    recurringSeriesId: t.recurringSeriesId,
     direction: t.direction,
     vendor: t.vendor,
     counterparty: t.counterparty,
@@ -2443,7 +2484,11 @@ const importCsv = async (e, C) => {
           currency: t.currency || "USD",
           rawDescription: t.rawDescription,
           normalizedDescription: t.normalizedDescription,
+          paymentType: t.paymentType,
           type: t.type,
+          isRecurring: t.isRecurring === true ? true : undefined,
+          recurringCandidate: t.recurringCandidate === true ? true : undefined,
+          recurringSeriesId: typeof t.recurringSeriesId === "string" && t.recurringSeriesId.trim() ? t.recurringSeriesId.trim() : undefined,
           direction: t.direction,
           vendor: normalizedVendor,
           counterparty: t.counterparty,

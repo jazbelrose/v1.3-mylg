@@ -46,11 +46,11 @@ export function monthLabel(yyyyMm: string): string {
 }
 
 function inferTxnDirection(t: HqTransaction): "in" | "out" | undefined {
-  const type = typeof t?.type === "string" ? t.type.trim().toLowerCase() : "";
+  const type = String((t.paymentType || t.type || "") as string).trim().toLowerCase();
   const normalized = typeof t?.normalizedDescription === "string" ? t.normalizedDescription : "";
 
   if (type === "deposit") return "in";
-  if (type === "card_purchase" || type === "recurring" || type === "fee") return "out";
+  if (type === "card_purchase" || type === "fee") return "out";
 
   if (type === "transfer") {
     const m = /^ONLINE\s+TRANSFER\s+(TO|FROM)\b/i.exec(normalized);
@@ -196,8 +196,8 @@ export function computeRecurringCommitments(
 
   for (const txn of transactions) {
     if (excludeInternalTransfers && txn.isInternalTransfer) continue;
-    const type = String(txn.type || "").trim().toLowerCase();
-    if (type !== "recurring") continue;
+    const isRecurring = txn.isRecurring === true;
+    if (!isRecurring) continue;
 
     const signed = canonicalSignedAmount(txn);
     if (typeof signed !== "number" || !Number.isFinite(signed) || signed >= 0) continue;

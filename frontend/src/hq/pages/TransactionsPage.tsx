@@ -18,7 +18,7 @@ import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
-import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
+import type { HqCategoryId, HqPaymentType, HqTransaction, HqTransactionTypeLegacy } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import TxnModalApply from "@/hq/components/TxnModalApply";
@@ -30,7 +30,7 @@ const currency = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
 });
 
-function typeIcon(type: HqTransactionType): React.ReactNode {
+function typeIcon(type: HqTransactionTypeLegacy): React.ReactNode {
   switch (type) {
     case "card_purchase":
       return <CreditCard size={16} />;
@@ -70,7 +70,8 @@ const TransactionsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [accountId, setAccountId] = React.useState<string>("all");
   const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
-  const [txnType, setTxnType] = React.useState<"all" | HqTransactionType>("all");
+  const [txnType, setTxnType] = React.useState<"all" | HqTransactionTypeLegacy>("all");
+  const [recurringOnly, setRecurringOnly] = React.useState(false);
   const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
   const [startDate, setStartDate] = React.useState<string>("");
   const [endDate, setEndDate] = React.useState<string>("");
@@ -95,14 +96,12 @@ const TransactionsPage: React.FC = () => {
     const q = params.get("q");
     const type = params.get("type");
     if (typeof q === "string" && q.length) setSearchTerm(q);
-    if (type && type !== "all") setTxnType(type as HqTransactionType);
+    if (type && type !== "all") setTxnType(type as HqTransactionTypeLegacy);
     if (filter === "uncategorized") {
       setCategoryId("UNCATEGORIZED");
     }
-    if (filter === "recurring") {
-      setTxnType("recurring");
-      setDirection("out");
-    }
+    setRecurringOnly(filter === "recurring");
+    if (filter === "recurring") setDirection("out");
   }, [location.search]);
 
   const accountsById = React.useMemo(() => {
@@ -119,7 +118,11 @@ const TransactionsPage: React.FC = () => {
       if (endDate && txn.postedAt > endDate) return false;
       if (direction === "in" && txn.amount < 0) return false;
       if (direction === "out" && txn.amount >= 0) return false;
-      if (txnType !== "all" && txn.type !== txnType) return false;
+
+      if (recurringOnly && txn.isRecurring !== true) return false;
+
+      const effectiveType = (txn.paymentType || txn.type || "unknown") as HqTransactionTypeLegacy;
+      if (txnType !== "all" && effectiveType !== txnType) return false;
 
       if (categoryId === "UNCATEGORIZED") {
         if (txn.categoryId && txn.categoryId !== "OTHER") return false;
@@ -134,7 +137,7 @@ const TransactionsPage: React.FC = () => {
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [accountId, categoryId, direction, endDate, searchTerm, startDate, transactions, txnType]);
+  }, [accountId, categoryId, direction, endDate, recurringOnly, searchTerm, startDate, transactions, txnType]);
 
   const actions = (
     <div className={styles.actions}>
@@ -196,12 +199,12 @@ const TransactionsPage: React.FC = () => {
           <HqSelect
             className={styles.filterField}
             value={txnType}
-            onValueChange={(v) => setTxnType(v as "all" | HqTransactionType)}
+            onValueChange={(v) => setTxnType(v as "all" | HqTransactionTypeLegacy)}
             ariaLabel="Filter by type"
             options={[
               { value: "all", label: "All types" },
               { value: "card_purchase", label: "Card purchase" },
-              { value: "recurring", label: "Recurring" },
+              { value: "recurring", label: "Legacy recurring (hint)" },
               { value: "transfer", label: "Transfer" },
               { value: "zelle", label: "Zelle" },
               { value: "wire", label: "Wire" },

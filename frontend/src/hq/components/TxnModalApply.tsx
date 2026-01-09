@@ -4,7 +4,7 @@ import Modal from "@/shared/ui/ModalWithStack";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions, fetchHqVendorMatches } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
-import type { HqCategoryId, HqTransaction, HqTransactionType } from "@/hq/types";
+import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import HqSelect from "@/hq/components/HqSelect";
 import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import styles from "./TxnModalApply.module.css";
@@ -39,9 +39,8 @@ function txnSearchHaystack(txn: HqTransaction) {
     .toLowerCase();
 }
 
-const TYPE_OPTIONS: Array<{ value: HqTransactionType; label: string }> = [
+const PAYMENT_TYPE_OPTIONS: Array<{ value: HqPaymentType; label: string }> = [
   { value: "card_purchase", label: "Card purchase" },
-  { value: "recurring", label: "Recurring" },
   { value: "transfer", label: "Transfer" },
   { value: "zelle", label: "Zelle" },
   { value: "wire", label: "Wire" },
@@ -54,7 +53,8 @@ const MIN_AUTO_SUGGESTIONS = 5;
 
 const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, from, to }) => {
   const [categoryId, setCategoryId] = React.useState<HqCategoryId | "OTHER">("OTHER");
-  const [type, setType] = React.useState<HqTransactionType>("unknown");
+  const [paymentType, setPaymentType] = React.useState<HqPaymentType>("unknown");
+  const [isRecurring, setIsRecurring] = React.useState(false);
   const [isWorking, setIsWorking] = React.useState(false);
   const [similar, setSimilar] = React.useState<HqTransaction[]>([]);
   const [similarUnavailable, setSimilarUnavailable] = React.useState(false);
@@ -66,13 +66,15 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
   const [addMoreFrom, setAddMoreFrom] = React.useState<string>("");
   const [addMoreTo, setAddMoreTo] = React.useState<string>("");
   const [addMoreAccountId, setAddMoreAccountId] = React.useState<string>("all");
-  const [addMoreType, setAddMoreType] = React.useState<"all" | HqTransactionType>("all");
+  const [addMoreType, setAddMoreType] = React.useState<"all" | HqPaymentType>("all");
 
   React.useEffect(() => {
     if (!isOpen || !txn) return;
 
     setCategoryId((txn.categoryId && txn.categoryId !== "OTHER" ? txn.categoryId : "OTHER") as HqCategoryId | "OTHER");
-    setType((txn.type || "unknown") as HqTransactionType);
+    const nextPaymentType = (txn.paymentType || (txn.type === "recurring" ? "unknown" : txn.type) || "unknown") as HqPaymentType;
+    setPaymentType(nextPaymentType);
+    setIsRecurring(Boolean(txn.isRecurring));
     setSelectedSimilar({});
     setAddMoreSearch(String(txn.vendor || txn.counterparty || ""));
     setAddMoreFrom(from || "");
@@ -174,7 +176,8 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
       for (const t of all) {
         if (!t?.dedupeHash) continue;
         if (existing.has(t.dedupeHash)) continue;
-        if (addMoreType !== "all" && t.type !== addMoreType) continue;
+        const tPaymentType = (t.paymentType || (t.type === "recurring" ? "unknown" : t.type) || "unknown") as HqPaymentType;
+        if (addMoreType !== "all" && tPaymentType !== addMoreType) continue;
         if (term && !txnSearchHaystack(t).includes(term)) continue;
         added.push(t);
         existing.add(t.dedupeHash);
@@ -206,7 +209,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
     if (!txn) return;
 
     const nextCategoryId = String(categoryId || "OTHER");
-    const nextType = String(type || "unknown");
+    const nextPaymentType = String(paymentType || "unknown");
 
     const selected = similar.map((t) => t.dedupeHash).filter((dh) => Boolean(dh) && Boolean(selectedSimilar[String(dh)]));
     const dedupeHashes = [txn.dedupeHash, ...selected].filter(Boolean);
@@ -217,7 +220,10 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
       const res = await applyHqTransactionsBulk(orgId, {
         dedupeHashes: unique,
         categoryId: nextCategoryId,
-        type: nextType,
+        paymentType: nextPaymentType,
+        // Keep legacy field name sent as well for any older server path.
+        type: nextPaymentType,
+        isRecurring,
       });
 
       // Refresh local cache from server so HQ pages stay consistent.
@@ -242,7 +248,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
     } finally {
       setIsWorking(false);
     }
-  }, [categoryId, onRequestClose, orgId, selectedSimilar, similar, txn, type]);
+  }, [categoryId, isRecurring, onRequestClose, orgId, paymentType, selectedSimilar, similar, txn]);
 
   const title = txn ? txnTitle(txn) : "Transaction";
   const accountLabel = txn?.accountId ? txn.accountId : "Account";
@@ -296,15 +302,32 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
             </div>
 
             <div className={styles.control}>
-              <div className={styles.controlLabel}>Type</div>
+              <div className={styles.controlLabel}>Payment type</div>
               <HqSelect
                 className={styles.select}
-                value={type}
+                value={paymentType}
                 disabled={isWorking}
-                onValueChange={(v) => setType(v as HqTransactionType)}
-                ariaLabel="Select type"
-                options={TYPE_OPTIONS}
+                onValueChange={(v) => setPaymentType(v as HqPaymentType)}
+                ariaLabel="Select payment type"
+                options={PAYMENT_TYPE_OPTIONS}
               />
+            </div>
+
+            <div className={styles.control} style={{ gridColumn: "1 / -1" }}>
+              <div className={styles.controlLabel}>Recurring commitment</div>
+              <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  disabled={isWorking}
+                  aria-label="Mark as recurring commitment"
+                />
+                <span style={{ opacity: 0.9 }}>Counts toward burn/runway</span>
+                {txn?.recurringCandidate && !txn?.isRecurring ? (
+                  <span style={{ opacity: 0.7, fontSize: 12 }}>(Suggested)</span>
+                ) : null}
+              </label>
             </div>
           </div>
 
@@ -371,12 +394,12 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
                 <HqSelect
                   className={styles.addMoreField}
                   value={addMoreType}
-                  onValueChange={(v) => setAddMoreType(v as "all" | HqTransactionType)}
-                  ariaLabel="Filter candidates by type"
+                  onValueChange={(v) => setAddMoreType(v as "all" | HqPaymentType)}
+                  ariaLabel="Filter candidates by payment type"
                   disabled={isWorking}
                   options={[
                     { value: "all", label: "All types" },
-                    ...TYPE_OPTIONS,
+                    ...PAYMENT_TYPE_OPTIONS,
                   ]}
                 />
                 <button type="button" className={styles.addMoreButton} onClick={() => void handleAddMore()} disabled={isWorking || !txn}>
@@ -414,7 +437,18 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
                       <span>·</span>
                       <span>{HQ_CATEGORY_LABEL[(t.categoryId || "OTHER") as HqCategoryId]}</span>
                       <span>·</span>
-                      <span>{t.type}</span>
+                      <span>{String(t.paymentType || (t.type === "recurring" ? "unknown" : t.type) || "unknown")}</span>
+                      {t.isRecurring ? (
+                        <>
+                          <span>·</span>
+                          <span>Recurring</span>
+                        </>
+                      ) : t.recurringCandidate ? (
+                        <>
+                          <span>·</span>
+                          <span>Suggested</span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                   <div className={styles.similarAmt}>

@@ -1,4 +1,4 @@
-import type { HqTransaction, HqTransactionType } from "@/hq/types";
+import type { HqPaymentType, HqTransaction, HqTransactionTypeLegacy } from "@/hq/types";
 import { suggestCategory, suggestCategoryFromUserRules } from "@/hq/lib/hqCategorization";
 import type { HqCategoryRule } from "@/hq/types";
 
@@ -110,7 +110,9 @@ function extractCardPurchaseDetails(rawDescription: string, normalizedDescriptio
   const match = /(PURCHASE|RECURRING PAYMENT)\s+AUTHORIZED\s+ON\s+(\d{1,2}\/\d{1,2})\s+(.+)/i.exec(upper);
   if (!match) return null;
 
-  const kind = match[1].toUpperCase() === "RECURRING PAYMENT" ? "recurring" : "card_purchase";
+  // Wells Fargo “RECURRING PAYMENT …” is only a hint.
+  const recurringCandidate = match[1].toUpperCase() === "RECURRING PAYMENT";
+  const kind: HqPaymentType = "card_purchase";
   const authorizedAt = inferAuthorizedIsoDate(postedAt, match[2]);
 
   let tail = match[3] || "";
@@ -126,14 +128,24 @@ function extractCardPurchaseDetails(rawDescription: string, normalizedDescriptio
 
   const vendor = normalizeWhitespace(vendorTokens.join(" ")).slice(0, 80) || undefined;
 
-  return { type: kind as HqTransactionType, authorizedAt, vendor, locationCity: city, locationState: state, cardLast4 };
+  return {
+    paymentType: kind,
+    // Keep legacy field populated so older code paths don’t break.
+    type: kind as HqTransactionTypeLegacy,
+    recurringCandidate,
+    authorizedAt,
+    vendor,
+    locationCity: city,
+    locationState: state,
+    cardLast4,
+  };
 }
 
 function extractTransferDetails(normalizedDescription: string) {
   const match = /^ONLINE\s+TRANSFER\s+(TO|FROM)\s+(.+?)(?:\s+REF\s*#\s*[A-Z0-9-]+)?$/i.exec(normalizedDescription);
   if (!match) return null;
   const counterparty = normalizeWhitespace(match[2] || "").slice(0, 80) || undefined;
-  return { type: "transfer" as const, counterparty };
+  return { paymentType: "transfer" as const, type: "transfer" as const, counterparty };
 }
 
 function extractZelleDetails(normalizedDescription: string, postedAt: string) {
@@ -141,13 +153,12 @@ function extractZelleDetails(normalizedDescription: string, postedAt: string) {
   if (!match) return null;
   const counterparty = normalizeWhitespace(match[2] || "").slice(0, 80) || undefined;
   const authorizedAt = match[3] ? inferAuthorizedIsoDate(postedAt, match[3]) : undefined;
-  return { type: "zelle" as const, counterparty, authorizedAt };
+  return { paymentType: "zelle" as const, type: "zelle" as const, counterparty, authorizedAt };
 }
 
-function inferType(normalizedDescription: string): HqTransactionType {
+function inferType(normalizedDescription: string): HqTransactionTypeLegacy {
   const upper = normalizedDescription.toUpperCase();
   if (upper.startsWith("BANKCARD FEE")) return "fee";
-  if (upper.includes("RECURRING PAYMENT AUTHORIZED ON")) return "recurring";
   if (upper.includes("PURCHASE AUTHORIZED ON")) return "card_purchase";
   if (upper.startsWith("ONLINE TRANSFER")) return "transfer";
   if (upper.startsWith("ZELLE ")) return "zelle";
@@ -308,6 +319,7 @@ export async function parseWellsFargoNoHeaderTransactions(input: {
     rows.map(async (row) => {
       const normalizedDescription = normalizeTransactionDescription(row.rawDescription);
       const type = inferType(normalizedDescription);
+      const paymentType: HqPaymentType = (type === "recurring" ? "unknown" : type) as HqPaymentType;
 
       const base: Omit<HqTransaction, "dedupeHash"> = {
         orgId: input.orgId,
@@ -317,6 +329,8 @@ export async function parseWellsFargoNoHeaderTransactions(input: {
         currency: "USD",
         rawDescription: row.rawDescription,
         normalizedDescription,
+        paymentType,
+        // Keep legacy field populated so server-side code that still reads `type` remains stable.
         type,
         direction: row.amount >= 0 ? "in" : "out",
         importRunId: "pending",
@@ -344,7 +358,7 @@ export async function parseWellsFargoNoHeaderTransactions(input: {
       } as HqTransaction;
 
       // Heuristic: ONLINE TRANSFER is usually an internal bank transfer.
-      if (merged.type === "transfer" && merged.normalizedDescription.toUpperCase().startsWith("ONLINE TRANSFER")) {
+      if (merged.paymentType === "transfer" && merged.normalizedDescription.toUpperCase().startsWith("ONLINE TRANSFER")) {
         merged.isInternalTransfer = true;
       }
 

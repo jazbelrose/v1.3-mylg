@@ -6,10 +6,10 @@ export type HqSummaryResponse = {
   orgRole: string;
   accounts: HqAccount[];
   importRuns: HqImportRun[];
-  importWarnings?: string[];
-  categoryRules?: HqCategoryRule[];
-  cashOnHandAggregate?: number | null;
-  missingAnchorAccountIds?: string[];
+  importWarnings: string[];
+  categoryRules: HqCategoryRule[];
+  cashOnHandAggregate: number | null;
+  missingAnchorAccountIds: string[];
 };
 
 export type HqTransactionsResponse = {
@@ -400,7 +400,15 @@ export type HqTransactionsBulkApplyResult = {
 
 export async function applyHqTransactionsBulk(
   orgId: string,
-  input: { dedupeHashes: string[]; categoryId?: string; type?: string }
+  input: {
+    dedupeHashes: string[];
+    categoryId?: string;
+    /** Legacy field name (server accepts). Prefer paymentType going forward. */
+    type?: string;
+    paymentType?: string;
+    isRecurring?: boolean;
+    recurringSeriesId?: string;
+  }
 ): Promise<HqTransactionsBulkApplyResult> {
   const base = getHqServiceBaseUrl();
   return apiFetch<HqTransactionsBulkApplyResult>(`${base}/hq/transactions/apply?orgId=${encodeURIComponent(orgId)}`, {

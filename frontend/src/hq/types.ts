@@ -75,15 +75,18 @@ export type HqCategoryId =
   | "TAXES"
   | "TRANSFERS";
 
-export type HqTransactionType =
+// How the money moved (payment method/type). This should NOT encode whether something is a recurring commitment.
+export type HqPaymentType =
   | "card_purchase"
-  | "recurring"
   | "transfer"
   | "zelle"
   | "wire"
   | "deposit"
   | "fee"
   | "unknown";
+
+// Legacy: historical data may still have `type: "recurring"`. New code should use `isRecurring` + `paymentType`.
+export type HqTransactionTypeLegacy = HqPaymentType | "recurring";
 
 export type HqAccount = {
   orgId: string;
@@ -165,7 +168,18 @@ export type HqTransaction = {
   /** Server-computed vendor match key (parity with /hq/vendor-matches). */
   vendorKey?: string;
 
-  type: HqTransactionType;
+  /** How the money moved (card/ach/transfer/etc). Prefer this over `type`. */
+  paymentType?: HqPaymentType;
+
+  /** @deprecated legacy field name/semantics. May include `"recurring"` for historical imports. */
+  type: HqTransactionTypeLegacy;
+
+  /** Confirmed recurring commitment flag (counts toward burn/runway). */
+  isRecurring?: boolean;
+  /** Low-confidence hint that this *might* be recurring (eg bank memo says “RECURRING PAYMENT …”). */
+  recurringCandidate?: boolean;
+  /** Links confirmed recurring transactions into a series once user confirms. */
+  recurringSeriesId?: string;
   direction: "in" | "out";
   vendor?: string;
   counterparty?: string;
