@@ -58,34 +58,34 @@
 }
 
 .hero {
-  margin-top: 12px;
+  margin-top: 10px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background:
     radial-gradient(900px 260px at 12% 8%, rgba(250, 51, 86, 0.24), rgba(0, 0, 0, 0)),
     radial-gradient(700px 260px at 88% 12%, rgba(45, 212, 191, 0.18), rgba(0, 0, 0, 0)),
     rgba(255, 255, 255, 0.03);
-  padding: 16px;
+  padding: 14px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .heroChart {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.12);
-  padding: 10px;
+  padding: 8px 8px 6px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .heroChartBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  min-height: 52px;
+  min-height: 44px;
 }
 
 .heroChartBarLeft {
@@ -97,7 +97,7 @@
 }
 
 .heroChartSubtitleInline {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.62);
   white-space: nowrap;
   overflow: hidden;
@@ -113,7 +113,7 @@
 }
 
 .chartChip {
-  padding: 6px 10px;
+  padding: 5px 9px;
   font-size: 11px;
 }
 
@@ -133,7 +133,7 @@
 
 .toolbarDivider {
   width: 1px;
-  height: 22px;
+  height: 18px;
   background: rgba(255, 255, 255, 0.12);
   flex: 0 0 auto;
 }
@@ -152,7 +152,7 @@
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.78);
-  padding: 6px 10px;
+  padding: 5px 9px;
   font-size: 11px;
   font-weight: 650;
   cursor: pointer;
@@ -169,9 +169,9 @@
 }
 
 .iconButton {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.86);
@@ -198,8 +198,8 @@
 
 .heroChartStageWrap {
   display: grid;
-  gap: 8px;
-  --hq-hero-chart-height: 360px;
+  gap: 6px;
+  --hq-hero-chart-height: 320px;
 }
 
 .heroChartSvg {
@@ -223,10 +223,10 @@
 .heroChartFooter {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: space-between;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .heroChartFooterStat {
@@ -830,7 +830,7 @@
 
 @media (max-width: 1199px) {
   .heroChartStageWrap {
-    --hq-hero-chart-height: 280px;
+    --hq-hero-chart-height: 240px;
   }
 
   .heroChartBar {
