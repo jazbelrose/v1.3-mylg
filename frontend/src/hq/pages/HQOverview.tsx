@@ -681,7 +681,6 @@ const HQOverview: React.FC = () => {
             <div className={styles.heroTitleBlock}>
               <div className={styles.heroTitle}>Financial HQ</div>
               <div className={styles.heroSubtitle}>
-                Last synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "—"} ·{" "}
                 {accounts.length} accounts · {transactions.length} transactions
               </div>
             </div>
@@ -691,28 +690,37 @@ const HQOverview: React.FC = () => {
             <div className={styles.heroChartBar} aria-label="Cash chart controls">
               <div className={styles.heroChartBarLeft}>
                 <div className={styles.heroChartTitle}>Cash</div>
-                <div className={styles.heroChartSubtitleInline} title={chart?.anchorDate ? `Ending balance ${chart.anchorDate}` : undefined}>
-                  {chartLoading ? "Loading…" : chartError ? chartError : chart ? `Ending balance ${chart.anchorDate}` : "—"}
+                <div
+                  className={styles.heroChartSubtitleInline}
+                  title={lastSyncedAt ? `Last sync ${new Date(lastSyncedAt).toLocaleString()}` : undefined}
+                >
+                  {chartLoading
+                    ? "Loading…"
+                    : chartError
+                      ? chartError
+                      : chart
+                        ? `Ending ${currency.format(chart.anchorBalance ?? 0)} · Last sync ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`
+                        : `Last sync ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}
                 </div>
               </div>
 
-              <div className={styles.heroChartBarCenter} aria-label="Chart range">
-                {chartRanges.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className={[styles.filterChip, styles.chartChip, chartRange === r.id ? styles.filterChipActive : ""]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => setChartRange(r.id)}
-                    aria-pressed={chartRange === r.id}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-
               <div className={styles.heroChartBarRight}>
+                <div className={styles.chartPills} aria-label="Chart range">
+                  {chartRanges.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className={[styles.filterChip, styles.chartChip, chartRange === r.id ? styles.filterChipActive : ""]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => setChartRange(r.id)}
+                      aria-pressed={chartRange === r.id}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div className={styles.seriesSegment} role="group" aria-label="Series toggles">
                   <button
                     type="button"

@@ -105,12 +105,11 @@
   min-width: 0;
 }
 
-.heroChartBarCenter {
+.chartPills {
   display: flex;
   gap: 6px;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: center;
 }
 
 .chartChip {
@@ -128,6 +127,8 @@
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .seriesSegment {
@@ -191,7 +192,7 @@
 .heroChartStageWrap {
   display: grid;
   gap: 8px;
-  --hq-hero-chart-height: 280px;
+  --hq-hero-chart-height: 320px;
 }
 
 .heroChartSvg {
@@ -822,28 +823,19 @@
 
 @media (max-width: 1199px) {
   .heroChartStageWrap {
-    --hq-hero-chart-height: 240px;
+    --hq-hero-chart-height: 260px;
   }
 
   .heroChartBar {
     gap: 8px;
   }
 
-  .heroChartBarCenter {
-    order: 3;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
   .heroChartBarRight {
-    order: 2;
+    justify-content: flex-start;
   }
 
-  .heroChartBarLeft {
-    order: 1;
-  }
-  .kpiRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .chartPills {
+    flex-wrap: wrap;
   }
   .gridRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -861,7 +853,7 @@
 
 @media (min-width: 1600px) {
   .heroChartStageWrap {
-    --hq-hero-chart-height: 320px;
+    --hq-hero-chart-height: 360px;
   }
 }
 
