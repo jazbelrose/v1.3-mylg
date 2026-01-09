@@ -589,6 +589,26 @@ const HQOverview: React.FC = () => {
 
   const actions = (
     <div className={styles.actions}>
+      <div className={styles.actionsRange} aria-label="Dashboard range">
+        {quickFilters.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={[styles.filterChip, styles.actionsRangeChip, selectedRange === filter.id ? styles.filterChipActive : ""]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => {
+              setSelectedRange(filter.id);
+              if (filter.id === "month") setChartRange("1M");
+              else if (filter.id === "quarter") setChartRange("3M");
+              else if (filter.id === "ytd") setChartRange("YTD");
+            }}
+            aria-pressed={selectedRange === filter.id}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
       {canAdmin ? (
         <>
           <button type="button" className={styles.secondaryButton} onClick={openImport}>
@@ -665,54 +685,23 @@ const HQOverview: React.FC = () => {
                 {accounts.length} accounts · {transactions.length} transactions
               </div>
             </div>
-            <div className={styles.heroFilters} aria-label="Quick range filters">
-              {quickFilters.map((filter) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  className={[styles.filterChip, selectedRange === filter.id ? styles.filterChipActive : ""]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => {
-                    setSelectedRange(filter.id);
-                    if (filter.id === "month") setChartRange("1M");
-                    else if (filter.id === "quarter") setChartRange("3M");
-                    else if (filter.id === "ytd") setChartRange("YTD");
-                  }}
-                  aria-pressed={selectedRange === filter.id}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className={styles.heroChart} aria-label="Cash chart module">
-            <div className={styles.heroChartHeader}>
-              <div className={styles.heroChartTitleBlock}>
+            <div className={styles.heroChartBar} aria-label="Cash chart controls">
+              <div className={styles.heroChartBarLeft}>
                 <div className={styles.heroChartTitle}>Cash</div>
-                <div className={styles.heroChartSubtitle}>
+                <div className={styles.heroChartSubtitleInline} title={chart?.anchorDate ? `Ending balance ${chart.anchorDate}` : undefined}>
                   {chartLoading ? "Loading…" : chartError ? chartError : chart ? `Ending balance ${chart.anchorDate}` : "—"}
                 </div>
               </div>
-              <div className={styles.heroChartHeaderRight}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setChartCollapsed((v) => !v)}
-                >
-                  {chartCollapsed ? "Expand" : "Collapse"}
-                </button>
-              </div>
-            </div>
 
-            <div className={styles.heroChartControls} aria-label="Chart controls">
-              <div className={styles.heroFilters} aria-label="Chart range">
+              <div className={styles.heroChartBarCenter} aria-label="Chart range">
                 {chartRanges.map((r) => (
                   <button
                     key={r.id}
                     type="button"
-                    className={[styles.filterChip, chartRange === r.id ? styles.filterChipActive : ""]
+                    className={[styles.filterChip, styles.chartChip, chartRange === r.id ? styles.filterChipActive : ""]
                       .filter(Boolean)
                       .join(" ")}
                     onClick={() => setChartRange(r.id)}
@@ -723,30 +712,42 @@ const HQOverview: React.FC = () => {
                 ))}
               </div>
 
-              <div className={styles.heroFilters} aria-label="Series toggles">
+              <div className={styles.heroChartBarRight}>
+                <div className={styles.seriesSegment} role="group" aria-label="Series toggles">
+                  <button
+                    type="button"
+                    className={[styles.seriesButton, showBalance ? styles.seriesButtonActive : ""].filter(Boolean).join(" ")}
+                    onClick={toggleBalance}
+                    aria-pressed={showBalance}
+                  >
+                    Balance
+                  </button>
+                  <button
+                    type="button"
+                    className={[styles.seriesButton, showInflow ? styles.seriesButtonActive : ""].filter(Boolean).join(" ")}
+                    onClick={toggleInflow}
+                    aria-pressed={showInflow}
+                  >
+                    Inflow
+                  </button>
+                  <button
+                    type="button"
+                    className={[styles.seriesButton, showOutflow ? styles.seriesButtonActive : ""].filter(Boolean).join(" ")}
+                    onClick={toggleOutflow}
+                    aria-pressed={showOutflow}
+                  >
+                    Outflow
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  className={[styles.filterChip, showBalance ? styles.filterChipActive : ""].filter(Boolean).join(" ")}
-                  onClick={toggleBalance}
-                  aria-pressed={showBalance}
+                  className={styles.iconButton}
+                  onClick={() => setChartCollapsed((v) => !v)}
+                  aria-label={chartCollapsed ? "Expand chart" : "Collapse chart"}
+                  title={chartCollapsed ? "Expand" : "Collapse"}
                 >
-                  Balance
-                </button>
-                <button
-                  type="button"
-                  className={[styles.filterChip, showInflow ? styles.filterChipActive : ""].filter(Boolean).join(" ")}
-                  onClick={toggleInflow}
-                  aria-pressed={showInflow}
-                >
-                  Inflow
-                </button>
-                <button
-                  type="button"
-                  className={[styles.filterChip, showOutflow ? styles.filterChipActive : ""].filter(Boolean).join(" ")}
-                  onClick={toggleOutflow}
-                  aria-pressed={showOutflow}
-                >
-                  Outflow
+                  {chartCollapsed ? "▸" : "▾"}
                 </button>
               </div>
             </div>

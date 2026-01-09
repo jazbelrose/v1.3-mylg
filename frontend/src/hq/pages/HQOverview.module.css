@@ -12,6 +12,23 @@
   justify-content: flex-end;
 }
 
+.actionsRange {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.actionsRangeChip {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.actionsRangeChip:hover,
+.actionsRangeChip:focus-visible {
+  transform: none;
+}
+
 .primaryButton,
 .secondaryButton {
   height: 38px;
@@ -62,44 +79,113 @@
   gap: 10px;
 }
 
-.heroChartHeader {
+.heroChartBar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 52px;
 }
 
-.heroChartTitleBlock {
+.heroChartBarLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.heroChartSubtitleInline {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.heroChartBarCenter {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.chartChip {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.chartChip:hover,
+.chartChip:focus-visible {
+  transform: none;
+}
+
+.heroChartBarRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.seriesSegment {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.seriesButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.seriesButton:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.seriesButtonActive {
+  background: rgba(250, 51, 86, 0.26);
+  color: #ffffff;
+}
+
+.iconButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
   display: grid;
-  gap: 4px;
+  place-items: center;
+}
+
+.iconButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.iconButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 0 0 4px rgba(0, 0, 0, 0.45);
 }
 
 .heroChartTitle {
   font-size: 14px;
   font-weight: 750;
   color: rgba(255, 255, 255, 0.92);
-}
-
-.heroChartSubtitle {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
-}
-
-.heroChartHeaderRight {
-  display: flex;
-  gap: 10px;
-}
-
-.heroChartControls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.heroChartControls .filterChip {
-  padding: 6px 10px;
-  font-size: 11px;
 }
 
 .heroChartStageWrap {
@@ -737,6 +823,24 @@
 @media (max-width: 1199px) {
   .heroChartStageWrap {
     --hq-hero-chart-height: 240px;
+  }
+
+  .heroChartBar {
+    gap: 8px;
+  }
+
+  .heroChartBarCenter {
+    order: 3;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .heroChartBarRight {
+    order: 2;
+  }
+
+  .heroChartBarLeft {
+    order: 1;
   }
   .kpiRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
