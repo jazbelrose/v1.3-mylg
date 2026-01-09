@@ -676,16 +676,7 @@ const HQOverview: React.FC = () => {
       actions={actions}
     >
       <div className={styles.page}>
-        <section className={styles.hero} aria-label="Financial HQ hero">
-          <div className={styles.heroTopRow}>
-            <div className={styles.heroTitleBlock}>
-              <div className={styles.heroTitle}>Financial HQ</div>
-              <div className={styles.heroSubtitle}>
-                {accounts.length} accounts · {transactions.length} transactions
-              </div>
-            </div>
-          </div>
-
+        <section className={styles.hero} aria-label="HQ overview">
           <div className={styles.heroChart} aria-label="Cash chart module">
             <div className={styles.heroChartBar} aria-label="Cash chart controls">
               <div className={styles.heroChartBarLeft}>
@@ -699,8 +690,8 @@ const HQOverview: React.FC = () => {
                     : chartError
                       ? chartError
                       : chart
-                        ? `Ending ${currency.format(chart.anchorBalance ?? 0)} · Last sync ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`
-                        : `Last sync ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"}`}
+                        ? `Ending ${currency.format(chart.anchorBalance ?? 0)} · Last sync ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"} · ${accounts.length} ${accounts.length === 1 ? "acct" : "accts"} · ${transactions.length} txns`
+                        : `Last sync ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "—"} · ${accounts.length} ${accounts.length === 1 ? "acct" : "accts"} · ${transactions.length} txns`}
                 </div>
               </div>
 
@@ -720,6 +711,8 @@ const HQOverview: React.FC = () => {
                     </button>
                   ))}
                 </div>
+
+                <span className={styles.toolbarDivider} aria-hidden="true" />
 
                 <div className={styles.seriesSegment} role="group" aria-label="Series toggles">
                   <button
@@ -747,6 +740,8 @@ const HQOverview: React.FC = () => {
                     Outflow
                   </button>
                 </div>
+
+                <span className={styles.toolbarDivider} aria-hidden="true" />
 
                 <button
                   type="button"
