@@ -20,6 +20,17 @@ export type HqTransactionsResponse = {
 
 export type HqChartSeriesRange = "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
 
+export type HqTopCategoriesDirection = "out" | "in" | "net";
+
+export type HqTopCategoriesResponse = {
+  orgId: string;
+  range: HqChartSeriesRange;
+  direction: HqTopCategoriesDirection;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  items: Array<{ categoryId: string; amount: number }>;
+};
+
 export type HqBalanceSeriesResponse = {
   accountId: string;
   currency: "USD";
@@ -99,6 +110,26 @@ export async function fetchHqChartSeries(input: {
   if (input.scope === "account" && input.accountId) params.set("accountId", input.accountId);
 
   return apiFetch<HqChartSeriesResponse>(`${base}/hq/chart-series?${params.toString()}`, {
+    method: "GET",
+    suppressErrorLog: true,
+  });
+}
+
+export async function fetchHqTopCategories(input: {
+  orgId: string;
+  range: HqChartSeriesRange;
+  limit?: number;
+  direction?: HqTopCategoriesDirection;
+}): Promise<HqTopCategoriesResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({
+    orgId: input.orgId,
+    range: input.range,
+    direction: input.direction || "out",
+  });
+  if (typeof input.limit === "number") params.set("limit", String(input.limit));
+
+  return apiFetch<HqTopCategoriesResponse>(`${base}/hq/top-categories?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
   });

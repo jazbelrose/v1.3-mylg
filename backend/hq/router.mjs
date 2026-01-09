@@ -143,6 +143,12 @@ const addDaysIso = (iso, deltaDays) => {
   return dateToIso(d);
 };
 
+const parseLimitParam = (raw, fallback, min, max) => {
+  const n = Number.parseInt(String(raw || ""), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+};
+
 const minIso = (a, b) => {
   if (!a) return b;
   if (!b) return a;
@@ -501,6 +507,99 @@ const canonicalSignedAmount = (t) => {
   if (dir === "in") return Math.abs(amt);
   if (dir === "out") return -Math.abs(amt);
   return amt;
+};
+
+// GET /hq/top-categories?orgId=...&range=1W|1M|3M|YTD|1Y|ALL&limit=...&direction=out|in|net
+const getTopCategories = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const rangeRaw = String(q.range || "1M").trim().toUpperCase();
+  const range = ["1W", "1M", "3M", "YTD", "1Y", "ALL"].includes(rangeRaw) ? rangeRaw : "1M";
+
+  const directionRaw = String(q.direction || "out").trim().toLowerCase();
+  const direction = directionRaw === "in" ? "in" : directionRaw === "net" ? "net" : "out";
+
+  const limit = parseLimitParam(q.limit, 8, 1, 12);
+
+  const today = todayIsoInTimeZone();
+  const fixedRangeDays =
+    range === "1W" ? 7 : range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : null;
+
+  let startDate = fixedRangeDays ? addDaysIso(today, -(fixedRangeDays - 1)) : null;
+  if (range === "YTD") startDate = `${today.slice(0, 4)}-01-01`;
+
+  if (range === "ALL") {
+    const earliest = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ScanIndexForward: true,
+      Limit: 1,
+    });
+    const first = (earliest.Items || [])[0];
+    const posted = first?.postedAt ? String(first.postedAt).slice(0, 10) : "";
+    startDate = posted || today;
+  }
+
+  startDate = startDate || today;
+  const endDate = today;
+
+  const totals = {};
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :from AND :to",
+      ExpressionAttributeValues: {
+        ":o": orgId,
+        ":from": `TXN#${startDate}`,
+        ":to": `TXN#${endDate}#~`,
+      },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      if (!t) continue;
+      const postedAt = String(t.postedAt || "").slice(0, 10);
+      if (!postedAt || postedAt < startDate || postedAt > endDate) continue;
+      if (t.isInternalTransfer) continue;
+
+      const signed = canonicalSignedAmount(t);
+      if (typeof signed !== "number" || !Number.isFinite(signed) || signed === 0) continue;
+
+      if (direction === "out" && signed >= 0) continue;
+      if (direction === "in" && signed <= 0) continue;
+
+      const categoryId = t.categoryId ? String(t.categoryId) : "OTHER";
+      if (categoryId === "TRANSFERS") continue;
+
+      const add = direction === "out" ? Math.abs(signed) : direction === "in" ? signed : signed;
+      totals[categoryId] = round2((totals[categoryId] || 0) + add);
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const items = Object.entries(totals)
+    .map(([categoryId, amount]) => ({ categoryId, amount: round2(amount) }))
+    .filter((x) => Number.isFinite(x.amount) && x.amount !== 0)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, limit);
+
+  return json(200, C, {
+    orgId,
+    range,
+    direction,
+    startDate,
+    endDate,
+    items,
+  });
 };
 
 const queryAllByPrefix = async ({ orgId, prefix }) => {
@@ -2299,6 +2398,7 @@ const routes = [
   { m: "GET", r: /^\/hq\/summary\/?$/i, h: getSummary },
   { m: "GET", r: /^\/hq\/balance-series\/?$/i, h: getBalanceSeries },
   { m: "GET", r: /^\/hq\/chart-series\/?$/i, h: getChartSeries },
+  { m: "GET", r: /^\/hq\/top-categories\/?$/i, h: getTopCategories },
   { m: "GET", r: /^\/hq\/transactions\/?$/i, h: listTransactions },
 
   { m: "POST", r: /^\/hq\/recompute\/?$/i, h: recomputeHq },

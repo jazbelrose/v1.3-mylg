@@ -19,7 +19,13 @@ import {
   inRange,
   type HqRangeId,
 } from "@/hq/lib/hqMetrics";
-import { fetchHqChartSeries, type HqChartSeriesRange, type HqChartSeriesResponse } from "@/hq/lib/hqApi";
+import {
+  fetchHqChartSeries,
+  fetchHqTopCategories,
+  type HqChartSeriesRange,
+  type HqChartSeriesResponse,
+  type HqTopCategoriesResponse,
+} from "@/hq/lib/hqApi";
 import type { HqAccount, HqAlert, HqTransaction } from "@/hq/types";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import HeroCashChart, { type DailyPoint, type VisibleHeroCashSeries } from "@/hq/components/HeroCashChart";
@@ -71,6 +77,22 @@ const chartRanges: Array<{ id: HqChartSeriesRange; label: string }> = [
   { id: "1Y", label: "1Y" },
   { id: "ALL", label: "ALL" },
 ];
+
+function getDateWindowForChartRange(range: HqChartSeriesRange, txns: HqTransaction[]): { start: string; end: string } {
+  const end = todayPacificIsoDate();
+  if (range === "ALL") {
+    const earliest = [...txns]
+      .map((t) => String(t.postedAt || "").slice(0, 10))
+      .filter(Boolean)
+      .sort()
+      .at(0);
+    return { start: earliest || end, end };
+  }
+  if (range === "YTD") return { start: `${String(end).slice(0, 4)}-01-01`, end };
+  const fixedDays = range === "1W" ? 7 : range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : null;
+  if (!fixedDays) return { start: end, end };
+  return { start: addDaysIso(end, -(fixedDays - 1)), end };
+}
 
 function addDaysIso(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -183,6 +205,11 @@ const HQOverview: React.FC = () => {
   const [chartError, setChartError] = React.useState<string | null>(null);
   const [chartLoading, setChartLoading] = React.useState(false);
   const [chartNeedsImport, setChartNeedsImport] = React.useState(false);
+
+  const [topCategoriesRange, setTopCategoriesRange] = React.useState<HqChartSeriesRange>("1M");
+  const [topCategoriesData, setTopCategoriesData] = React.useState<HqTopCategoriesResponse | null>(null);
+  const [topCategoriesError, setTopCategoriesError] = React.useState<string | null>(null);
+  const [topCategoriesLoading, setTopCategoriesLoading] = React.useState(false);
 
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
@@ -365,9 +392,75 @@ const HQOverview: React.FC = () => {
     );
   }, [monthlyFlow]);
 
+  const topCategoriesWindow = React.useMemo(() => {
+    return getDateWindowForChartRange(topCategoriesRange, transactions);
+  }, [topCategoriesRange, transactions]);
+
+  React.useEffect(() => {
+    if (!activeOrgId) {
+      setTopCategoriesData(null);
+      setTopCategoriesError(null);
+      setTopCategoriesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setTopCategoriesLoading(true);
+    setTopCategoriesError(null);
+
+    fetchHqTopCategories({ orgId: activeOrgId, range: topCategoriesRange, limit: 8, direction: "out" })
+      .then((res) => {
+        if (cancelled) return;
+        setTopCategoriesData(res);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Could not load top categories.";
+
+        // Common during dev: backend not redeployed yet -> endpoint returns 404.
+        // Fall back to local cache so HQ stays usable.
+        if (String(msg).includes("404")) {
+          const local = computeTopCategories(transactions, topCategoriesWindow.start, topCategoriesWindow.end)
+            .slice(0, 8)
+            .map((x) => ({ categoryId: x.categoryId, amount: x.amount }));
+          setTopCategoriesData({
+            orgId: activeOrgId,
+            range: topCategoriesRange,
+            direction: "out",
+            startDate: topCategoriesWindow.start,
+            endDate: topCategoriesWindow.end,
+            items: local,
+          });
+          setTopCategoriesError(null);
+          return;
+        }
+
+        setTopCategoriesData(null);
+        setTopCategoriesError(msg);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setTopCategoriesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrgId, topCategoriesRange, topCategoriesWindow.end, topCategoriesWindow.start, transactions]);
+
   const topCategories = React.useMemo(() => {
-    return computeTopCategories(transactions, start, end);
-  }, [end, start, transactions]);
+    return (topCategoriesData?.items || []).slice(0, 8);
+  }, [topCategoriesData]);
+
+  const topCategoriesMax = React.useMemo(() => {
+    return Math.max(1, ...topCategories.map((x) => x.amount));
+  }, [topCategories]);
+
+  const topCategoriesLabel = React.useMemo(() => {
+    const startLabel = topCategoriesData?.startDate || topCategoriesWindow.start;
+    const endLabel = topCategoriesData?.endDate || topCategoriesWindow.end;
+    return `${startLabel} – ${endLabel}`;
+  }, [topCategoriesData?.endDate, topCategoriesData?.startDate, topCategoriesWindow.end, topCategoriesWindow.start]);
 
   const latestTransactions = React.useMemo(() => {
     return [...transactions]
@@ -674,20 +767,57 @@ const HQOverview: React.FC = () => {
           </HQCard>
 
           <HQCard
-            title="Top categories"
-            subtitle={rangeLabel}
+            title="Top Categories"
+            subtitle={topCategoriesLabel}
             aria-label="Top spend categories"
+            badge={
+              <div className={styles.topCategoriesPills} aria-label="Top categories range">
+                {chartRanges.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={[styles.filterChip, topCategoriesRange === r.id ? styles.filterChipActive : ""]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTopCategoriesRange(r.id);
+                    }}
+                    aria-pressed={topCategoriesRange === r.id}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            }
+            footer={
+              <Link className={styles.cardLink} to="/dashboard/hq/transactions">
+                View all
+              </Link>
+            }
           >
-            {topCategories.length === 0 ? (
+            {topCategoriesLoading && topCategories.length === 0 ? (
+              <div className={styles.emptyState}>Loading…</div>
+            ) : topCategoriesError ? (
+              <div className={styles.emptyState}>Could not load top categories.</div>
+            ) : topCategories.length === 0 ? (
               <div className={styles.emptyState}>No spend yet.</div>
             ) : (
-              <ul className={styles.list}>
-                {topCategories.map((entry) => (
-                  <li key={entry.categoryId} className={styles.listItem}>
-                    <span>{HQ_CATEGORY_LABEL[entry.categoryId]}</span>
-                    <span>{currency.format(entry.amount)}</span>
-                  </li>
-                ))}
+              <ul className={styles.topCategoriesList}>
+                {topCategories.map((entry) => {
+                  const pct = Math.round((entry.amount / topCategoriesMax) * 100);
+                  return (
+                    <li key={entry.categoryId} className={styles.topCategoriesRow}>
+                      <span className={styles.topCategoriesName} title={HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL]}>
+                        {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
+                      </span>
+                      <div className={styles.chartBar} aria-hidden>
+                        <div className={styles.chartBarFill} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={styles.topCategoriesAmount}>{currency.format(entry.amount)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </HQCard>
