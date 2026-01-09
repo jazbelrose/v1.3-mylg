@@ -55,6 +55,8 @@ export interface CalendarEntryContextMenuProps {
   onBulkAssignChildren?: (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => void;
   /** Assign a single time block (task with a time range) to a user */
   onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
+  /** Assign selected time blocks (multi-select) to a user */
+  onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
 }
 
 export type ChildMenuState =
@@ -88,6 +90,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   onDelete,
   onBulkAssignChildren,
   onAssignTimeBlock,
+  onAssignTimeBlocks,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
@@ -146,6 +149,21 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     const task = entry as CalendarTask;
     return Boolean(task.start || task.end);
   }, [entry, entryType, isFocusBlock]);
+
+  const selectedTimeBlocks = useMemo(() => {
+    const isTaskFocusBlock = (task: CalendarTask) => {
+      if (task.kind === "focus_block") return true;
+      return Boolean(
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+          (task.focusChecklist && task.focusChecklist.length > 0),
+      );
+    };
+
+    return actionableTasks.filter((task) => {
+      if (isTaskFocusBlock(task)) return false;
+      return Boolean(task.start || task.end);
+    });
+  }, [actionableTasks]);
 
   // For multi-select, check if we have any tasks that can be actioned
   const actionableTasks = useMemo(
@@ -326,8 +344,20 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     [entry, isMultiSelect, isTimeBlock, onAssignTimeBlock, onClose],
   );
 
+  const handleAssignSelectedTimeBlocks = useCallback(
+    (userId: string | null) => {
+      if (!onAssignTimeBlocks) return;
+      if (!isMultiSelect) return;
+      if (selectedTimeBlocks.length === 0) return;
+      onAssignTimeBlocks(selectedTimeBlocks, userId);
+      onClose();
+    },
+    [isMultiSelect, onAssignTimeBlocks, onClose, selectedTimeBlocks],
+  );
+
   const showBulkAssign =
     isFocusBlock &&
+    !isMultiSelect &&
     Boolean(onBulkAssignChildren) &&
     Boolean(focusBlockChildren) &&
     (focusBlockChildren?.length ?? 0) > 0 &&
@@ -338,6 +368,13 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     isTimeBlock &&
     !isMultiSelect &&
     Boolean(onAssignTimeBlock) &&
+    Boolean(teamMembers) &&
+    (teamMembers?.length ?? 0) > 0;
+
+  const showMultiTimeBlockAssign =
+    isMultiSelect &&
+    selectedTimeBlocks.length > 0 &&
+    Boolean(onAssignTimeBlocks) &&
     Boolean(teamMembers) &&
     (teamMembers?.length ?? 0) > 0;
 
@@ -556,6 +593,66 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
               >
                 <UserX className="calendar-entry-context-menu__icon" />
                 <span>Unassign</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Assign selected Time Blocks (multi-select) */}
+      {showMultiTimeBlockAssign && (
+        <div
+          className="calendar-entry-context-menu__submenu-wrapper"
+          onMouseEnter={handleSubmenuMouseEnter}
+          onMouseLeave={handleSubmenuMouseLeave}
+        >
+          <button
+            ref={assignButtonRef}
+            type="button"
+            className="calendar-entry-context-menu__item calendar-entry-context-menu__item--has-submenu"
+            onClick={() => setShowAssignSubmenu((prev) => !prev)}
+            role="menuitem"
+            aria-haspopup="true"
+            aria-expanded={showAssignSubmenu}
+          >
+            <Users className="calendar-entry-context-menu__icon" />
+            <span>Assign to... ({selectedTimeBlocks.length})</span>
+            <ChevronRight className="calendar-entry-context-menu__chevron" />
+          </button>
+
+          {showAssignSubmenu && (
+            <div className="calendar-entry-context-menu__submenu">
+              {teamMembers?.map((member) => {
+                const displayName =
+                  `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() ||
+                  member.userId;
+                return (
+                  <button
+                    key={member.userId}
+                    type="button"
+                    className="calendar-entry-context-menu__item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAssignSelectedTimeBlocks(member.userId);
+                    }}
+                    role="menuitem"
+                  >
+                    <span>{displayName}</span>
+                  </button>
+                );
+              })}
+              <div className="calendar-entry-context-menu__separator" />
+              <button
+                type="button"
+                className="calendar-entry-context-menu__item calendar-entry-context-menu__item--secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAssignSelectedTimeBlocks(null);
+                }}
+                role="menuitem"
+              >
+                <UserX className="calendar-entry-context-menu__icon" />
+                <span>Unassign ({selectedTimeBlocks.length})</span>
               </button>
             </div>
           )}

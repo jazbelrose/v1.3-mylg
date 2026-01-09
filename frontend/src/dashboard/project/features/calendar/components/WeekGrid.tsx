@@ -78,6 +78,8 @@ export type WeekGridProps = {
   onBulkAssignChildren?: (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => void;
   /** Assign a single time block (task with a time range) to a user */
   onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
+  /** Assign selected time blocks (multi-select) to a user */
+  onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
   // Multi-user overlap stack title persistence
   overlapStackTitles?: Record<string, string>;
   onRenameOverlapStackTitle?: (key: string, title: string) => void | Promise<void>;
@@ -353,6 +355,7 @@ function WeekGrid({
   onDeleteEntries,
   onBulkAssignChildren,
   onAssignTimeBlock,
+  onAssignTimeBlocks,
   overlapStackTitles,
   onRenameOverlapStackTitle,
 }: WeekGridProps) {
@@ -3714,6 +3717,7 @@ function WeekGrid({
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
           onAssignTimeBlock={onAssignTimeBlock}
+          onAssignTimeBlocks={onAssignTimeBlocks}
         />
           );
         })()
@@ -3745,6 +3749,7 @@ function WeekGrid({
           onDelete={onDeleteEntries}
           onBulkAssignChildren={onBulkAssignChildren}
           onAssignTimeBlock={onAssignTimeBlock}
+          onAssignTimeBlocks={onAssignTimeBlocks}
         />
       )}
     </div>

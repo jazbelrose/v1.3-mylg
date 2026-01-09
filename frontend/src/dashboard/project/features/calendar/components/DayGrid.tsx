@@ -67,6 +67,8 @@ export type DayGridProps = {
   onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
   /** Assign a single time block (task with a time range) to a user */
   onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
+  /** Assign selected time blocks (multi-select) to a user */
+  onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
 };
 
 const parseHour = (time?: string) => {
@@ -196,6 +198,7 @@ function DayGrid({
   onDuplicateEntries,
   onDeleteEntries,
   onAssignTimeBlock,
+  onAssignTimeBlocks,
 }: DayGridProps) {
   const key = useMemo(() => fmtLocal(date), [date]);
   const doneCount = useMemo(
@@ -1991,6 +1994,7 @@ function DayGrid({
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
           onAssignTimeBlock={onAssignTimeBlock}
+          onAssignTimeBlocks={onAssignTimeBlocks}
         />
       )}
       {popover && (
@@ -2049,6 +2053,7 @@ function DayGrid({
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
           onAssignTimeBlock={onAssignTimeBlock}
+          onAssignTimeBlocks={onAssignTimeBlocks}
         />
           );
         })()

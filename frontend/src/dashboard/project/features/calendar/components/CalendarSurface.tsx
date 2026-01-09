@@ -169,7 +169,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   // Undo stack for calendar actions
   type UndoAction = {
-    type: "reschedule" | "delete" | "bulk-assign";
+    type: "reschedule" | "delete" | "bulk-assign" | "assign";
     label: string;
     undo: () => Promise<void>;
   };
@@ -2133,6 +2133,85 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [activeProjectId, buildAssigneeToken, onRefreshTasks, pushUndo, teamMembers],
   );
 
+  // Assign selected time blocks (multi-select) to a user
+  const handleAssignTimeBlocks = useCallback(
+    async (tasksToAssign: CalendarTask[], userId: string | null) => {
+      if (!activeProjectId) {
+        notify("error", "No active project selected");
+        return;
+      }
+
+      const tasksList = Array.isArray(tasksToAssign) ? tasksToAssign : [];
+      if (tasksList.length === 0) {
+        notify("info", "No time blocks selected");
+        return;
+      }
+
+      const assigneeToken = buildAssigneeToken(userId);
+
+      const previousAssignees: Array<{ taskId: string; assigneeId: string | undefined }> = [];
+      const updates: Array<{ taskId: string; fields: { assigneeId: string | undefined } }> = [];
+
+      tasksList.forEach((task) => {
+        const source = task.source as ApiTask | undefined;
+        const taskId = source?.taskId ?? task.id;
+        if (!taskId) return;
+        previousAssignees.push({ taskId, assigneeId: source?.assigneeId });
+        updates.push({
+          taskId,
+          fields: {
+            assigneeId: assigneeToken,
+          },
+        });
+      });
+
+      if (updates.length === 0) {
+        notify("error", "Missing task ids");
+        return;
+      }
+
+      try {
+        await updateTasksBulk(activeProjectId, updates);
+
+        let userName = "Unassigned";
+        if (userId) {
+          const member = teamMembers?.find((m) => m.userId === userId);
+          if (member) {
+            userName = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.userId;
+          } else {
+            userName = userId;
+          }
+        }
+
+        const projectId = activeProjectId;
+        pushUndo({
+          type: "bulk-assign",
+          label: userId ? `Assign ${updates.length} time block(s) to ${userName}` : `Unassign ${updates.length} time block(s)`,
+          undo: async () => {
+            const undoUpdates = previousAssignees.map(({ taskId, assigneeId }) => ({
+              taskId,
+              fields: { assigneeId },
+            }));
+            await updateTasksBulk(projectId, undoUpdates);
+          },
+        });
+
+        notify(
+          "success",
+          userId
+            ? `Assigned ${updates.length} time block(s) to ${userName}`
+            : `Unassigned ${updates.length} time block(s)`,
+        );
+
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Assign time blocks failed:", error);
+        notify("error", "Failed to assign time blocks");
+      }
+    },
+    [activeProjectId, buildAssigneeToken, onRefreshTasks, pushUndo, teamMembers],
+  );
+
   const handleOpenMiniCalendarEvent = useCallback(
     (eventId: string) => {
       const target = eventById.get(eventId);
@@ -2336,6 +2415,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onDeleteEntries={handleDeleteEntries}
                       onBulkAssignChildren={handleBulkAssignChildren}
                       onAssignTimeBlock={handleAssignTimeBlock}
+                      onAssignTimeBlocks={handleAssignTimeBlocks}
                       overlapStackTitles={overlapStackTitles}
                       onRenameOverlapStackTitle={handleRenameOverlapStackTitle}
                     />
@@ -2370,6 +2450,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onDuplicateEntries={handleDuplicateEntries}
                       onDeleteEntries={handleDeleteEntries}
                       onAssignTimeBlock={handleAssignTimeBlock}
+                      onAssignTimeBlocks={handleAssignTimeBlocks}
                     />
                   </div>
                 )}

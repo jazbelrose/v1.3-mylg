@@ -81,6 +81,8 @@ export interface CalendarEntryPopoverProps {
   onDelete?: (entries: ContextMenuEntry[]) => void;
   /** Assign a single time block (task with a time range) to a user */
   onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
+  /** Assign selected time blocks (multi-select) to a user */
+  onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
 }
 
 export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
@@ -104,6 +106,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   onDuplicate,
   onDelete,
   onAssignTimeBlock,
+  onAssignTimeBlocks,
 }) => {
   const DRAG_PX = 8;
   const LONG_PRESS_MS = 220;
@@ -1218,6 +1221,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                   : onDelete
               }
               onAssignTimeBlock={onAssignTimeBlock}
+              onAssignTimeBlocks={onAssignTimeBlocks}
             />
           );
         })()
