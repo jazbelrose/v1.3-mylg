@@ -52,6 +52,10 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
+const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 5;
+const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 6;
+const HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT = 6;
+
 function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: HqChartSeriesRange): HqChartSeriesResponse["points"] {
   if (range === "ALL") return points;
   if (range === "YTD") {
@@ -336,7 +340,10 @@ const HQOverview: React.FC = () => {
   const { start, end } = getRange(selectedRange);
 
   const recurringLocal = React.useMemo(() => {
-    return computeRecurringCommitments(transactions, 3, { limit: 8, excludeInternalTransfers: true });
+    return computeRecurringCommitments(transactions, 3, {
+      limit: HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT,
+      excludeInternalTransfers: true,
+    });
   }, [transactions]);
 
   const recurringSummary = React.useMemo(() => {
@@ -449,7 +456,12 @@ const HQOverview: React.FC = () => {
     setTopCategoriesLoading(true);
     setTopCategoriesError(null);
 
-    fetchHqTopCategories({ orgId: activeOrgId, range: topCategoriesRange, limit: 8, direction: "out" })
+    fetchHqTopCategories({
+      orgId: activeOrgId,
+      range: topCategoriesRange,
+      limit: HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT,
+      direction: "out",
+    })
       .then((res) => {
         if (cancelled) return;
         setTopCategoriesData(res);
@@ -463,7 +475,7 @@ const HQOverview: React.FC = () => {
         if (String(msg).includes("404")) {
           const local = computeTopCategories(transactions, topCategoriesWindow.start, topCategoriesWindow.end, {
             direction: "out",
-            limit: 8,
+            limit: HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT,
           }).map((x) => ({ categoryId: x.categoryId, amount: x.amount }));
           setTopCategoriesData({
             orgId: activeOrgId,
@@ -502,7 +514,12 @@ const HQOverview: React.FC = () => {
     setRecurringLoading(true);
     setRecurringError(null);
 
-    fetchHqRecurringCommitments({ orgId: activeOrgId, months: 3, limit: 8, excludeInternalTransfers: true })
+    fetchHqRecurringCommitments({
+      orgId: activeOrgId,
+      months: 3,
+      limit: HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT,
+      excludeInternalTransfers: true,
+    })
       .then((res) => {
         if (cancelled) return;
         setRecurringData(res);
@@ -541,7 +558,7 @@ const HQOverview: React.FC = () => {
   }, [activeOrgId, recurringLocal]);
 
   const topCategories = React.useMemo(() => {
-    return (topCategoriesData?.items || []).slice(0, 8);
+    return (topCategoriesData?.items || []).slice(0, HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT);
   }, [topCategoriesData]);
 
   const topCategoriesMax = React.useMemo(() => {
@@ -555,7 +572,7 @@ const HQOverview: React.FC = () => {
   }, [topCategoriesData?.endDate, topCategoriesData?.startDate, topCategoriesWindow.end, topCategoriesWindow.start]);
 
   const recurringItems = React.useMemo(() => {
-    return (recurringSummary?.items || []).slice(0, 8);
+    return (recurringSummary?.items || []).slice(0, HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT);
   }, [recurringSummary]);
 
   const recurringLabel = React.useMemo(() => {
@@ -840,97 +857,103 @@ const HQOverview: React.FC = () => {
           </div>
         </section>
 
-        <div className={styles.gridRowTwoCol}>
-          <div className={styles.leftStack}>
-            <HQCard
-              title="Accounts"
-              aria-label="Accounts breakdown"
-              onClick={() => {
-                navigate("/dashboard/hq/accounts");
-              }}
-            >
-              {accounts.length === 0 ? (
-                <div className={styles.emptyState}>
-                  Add an account to start.{" "}
-                  {canAdmin ? (
-                    <button
-                      type="button"
-                      className={styles.inlineButton}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openAddAccount();
-                      }}
-                    >
-                      Add account
-                    </button>
-                  ) : null}
-                </div>
-              ) : (
-                <ul className={styles.list}>
-                  {accounts.slice(0, 5).map((acct) => (
-                    <li key={acct.accountId} className={styles.listItem}>
-                      <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
-                      <span>{acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </HQCard>
+        <div className={styles.midRow}>
+          <HQCard
+            title="Accounts"
+            aria-label="Accounts breakdown"
+            className={styles.midCard}
+            onClick={() => {
+              navigate("/dashboard/hq/accounts");
+            }}
+            footer={
+              <Link className={styles.cardLink} to="/dashboard/hq/accounts">
+                View all
+              </Link>
+            }
+          >
+            {accounts.length === 0 ? (
+              <div className={styles.emptyState}>
+                Add an account to start.{" "}
+                {canAdmin ? (
+                  <button
+                    type="button"
+                    className={styles.inlineButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAddAccount();
+                    }}
+                  >
+                    Add account
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <ul className={styles.list}>
+                {accounts.slice(0, HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT).map((acct) => (
+                  <li key={acct.accountId} className={styles.listItem}>
+                    <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
+                    <span>{acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HQCard>
 
-            <HQCard
-              title="Recurring"
-              subtitle={recurringLabel}
-              aria-label="Recurring commitments"
-              onClick={() => {
-                navigate("/dashboard/hq/transactions?filter=recurring");
-              }}
-              footer={
-                <Link className={styles.cardLink} to="/dashboard/hq/transactions?filter=recurring">
-                  View all
-                </Link>
-              }
-            >
-              {recurringLoading && recurringItems.length === 0 ? (
-                <div className={styles.emptyState}>Loading…</div>
-              ) : recurringError ? (
-                <div className={styles.emptyState}>Could not load recurring commitments.</div>
-              ) : recurringItems.length === 0 ? (
-                <div className={styles.emptyState}>No recurring transactions detected yet.</div>
-              ) : (
-                <ul className={styles.list}>
-                  {recurringItems.map((entry) => (
-                    <li
-                      key={entry.vendorKey}
-                      className={[styles.listItem, styles.listItemClickable].join(" ")}
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
+          <HQCard
+            title="Recurring"
+            subtitle={recurringLabel}
+            aria-label="Recurring commitments"
+            className={styles.midCard}
+            onClick={() => {
+              navigate("/dashboard/hq/transactions?filter=recurring");
+            }}
+            footer={
+              <Link className={styles.cardLink} to="/dashboard/hq/transactions?filter=recurring">
+                View all
+              </Link>
+            }
+          >
+            {recurringLoading && recurringItems.length === 0 ? (
+              <div className={styles.emptyState}>Loading…</div>
+            ) : recurringError ? (
+              <div className={styles.emptyState}>Could not load recurring commitments.</div>
+            ) : recurringItems.length === 0 ? (
+              <div className={styles.emptyState}>No recurring transactions detected yet.</div>
+            ) : (
+              <ul className={styles.list}>
+                {recurringItems.map((entry) => (
+                  <li
+                    key={entry.vendorKey}
+                    className={[styles.listItem, styles.listItemClickable].join(" ")}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
                         e.stopPropagation();
                         navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
-                        }
-                      }}
-                    >
-                      <span className={styles.accountName} title={entry.label}>
-                        {entry.label}
-                      </span>
-                      <span className={styles.out}>{currency.format(entry.amountMonthly)}/mo</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </HQCard>
-          </div>
+                      }
+                    }}
+                  >
+                    <span className={styles.accountName} title={entry.label}>
+                      {entry.label}
+                    </span>
+                    <span className={styles.out}>{currency.format(entry.amountMonthly)}/mo</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </HQCard>
 
           <HQCard
             title="Top Categories"
             subtitle={topCategoriesLabel}
             aria-label="Top spend categories"
+            className={[styles.midCard, styles.midCardWide].join(" ")}
             badge={
               <div className={styles.topCategoriesPills} aria-label="Top categories range">
                 {chartRanges.map((r) => (
