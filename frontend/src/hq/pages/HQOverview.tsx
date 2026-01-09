@@ -825,8 +825,6 @@ const HQOverview: React.FC = () => {
             orgId={activeOrgId}
             isOpen={isApplyOpen}
             txn={selectedTxn}
-            from={start}
-            to={end}
             onRequestClose={() => {
               setIsApplyOpen(false);
               setSelectedTxn(null);
