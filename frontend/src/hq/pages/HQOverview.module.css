@@ -57,9 +57,9 @@
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.12);
-  padding: 12px;
+  padding: 10px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .heroChartHeader {
@@ -93,13 +93,19 @@
 .heroChartControls {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
+}
+
+.heroChartControls .filterChip {
+  padding: 6px 10px;
+  font-size: 11px;
 }
 
 .heroChartStageWrap {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  --hq-hero-chart-height: 280px;
 }
 
 .heroChartSvg {
@@ -123,7 +129,7 @@
 .heroChartFooter {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
   color: rgba(255, 255, 255, 0.7);
   font-size: 12px;
@@ -260,13 +266,17 @@
 
 .midRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 2.2fr);
   gap: 16px;
   align-items: stretch;
 }
 
 .midCard {
-  height: 280px;
+  height: 250px;
+  --hq-card-padding: 16px;
+  --hq-card-gap: 10px;
+  --hq-card-content-gap: 8px;
+  --hq-card-min-h: 0;
 }
 
 .midCardWide {
@@ -300,7 +310,7 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .topCategoriesRow {
@@ -308,7 +318,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) auto;
   gap: 12px;
   align-items: center;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
 }
 
@@ -412,7 +422,7 @@
 }
 
 .chartBar {
-  height: 10px;
+  height: 8px;
   border-radius: 8px;
   background: rgba(250, 51, 86, 0.14);
   overflow: hidden;
@@ -434,24 +444,39 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .listItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
 }
 
 .listItemClickable {
   cursor: pointer;
-  padding: 10px 12px;
-  border-radius: 14px;
+  padding: 8px 10px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.amountPill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .listItemClickable:hover,
@@ -710,6 +735,9 @@
 }
 
 @media (max-width: 1199px) {
+  .heroChartStageWrap {
+    --hq-hero-chart-height: 240px;
+  }
   .kpiRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -724,6 +752,12 @@
   }
   .midCardWide {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1600px) {
+  .heroChartStageWrap {
+    --hq-hero-chart-height: 320px;
   }
 }
 

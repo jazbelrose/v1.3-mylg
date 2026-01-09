@@ -6,7 +6,7 @@
 .stage {
   position: relative;
   width: 100%;
-  height: clamp(220px, 26vw, 340px);
+  height: var(--hq-hero-chart-height, clamp(220px, 26vw, 340px));
   max-width: 100%;
   overflow: hidden;
   border-radius: 14px;

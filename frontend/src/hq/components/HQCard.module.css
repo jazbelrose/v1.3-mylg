@@ -1,13 +1,13 @@
 .card {
   background: linear-gradient(160deg, rgba(12, 12, 12, 0.96), rgba(12, 12, 12, 0.88));
   border-radius: 20px;
-  padding: 20px;
+  padding: var(--hq-card-padding, 20px);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 140px;
+  gap: var(--hq-card-gap, 14px);
+  min-height: var(--hq-card-min-h, 140px);
   font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
   color: rgba(255, 255, 255, 0.9);
 }
@@ -58,7 +58,7 @@
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--hq-card-content-gap, 12px);
   min-height: 0;
   overflow-y: auto;
 }

@@ -52,8 +52,8 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 5;
-const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 6;
+const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 4;
+const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 4;
 const HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT = 6;
 
 function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: HqChartSeriesRange): HqChartSeriesResponse["points"] {
@@ -942,7 +942,7 @@ const HQOverview: React.FC = () => {
                     <span className={styles.accountName} title={entry.label}>
                       {entry.label}
                     </span>
-                    <span className={styles.out}>{currency.format(entry.amountMonthly)}/mo</span>
+                    <span className={[styles.amountPill, styles.out].join(" ")}>{currency.format(entry.amountMonthly)}/mo</span>
                   </li>
                 ))}
               </ul>
