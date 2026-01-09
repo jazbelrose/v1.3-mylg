@@ -7,6 +7,7 @@ import {
   CreditCard,
   Landmark,
   Minus,
+  Repeat,
   Zap,
 } from "lucide-react";
 import HQLayout from "../components/HQLayout";
@@ -267,19 +268,6 @@ const TransactionsPage: React.FC = () => {
             ]}
           />
 
-          <label
-            className={styles.toggleField}
-            title="Only includes transactions you marked as recurring (counts toward burn/runway)."
-          >
-            <input
-              type="checkbox"
-              checked={recurringOnly}
-              onChange={(e) => setRecurringOnly(e.target.checked)}
-              aria-label="Recurring"
-            />
-            <span>Recurring</span>
-          </label>
-
           <HqSelect
             className={styles.filterField}
             value={paymentType}
@@ -324,6 +312,18 @@ const TransactionsPage: React.FC = () => {
               { value: "ytd", label: "Date: YTD" },
             ]}
           />
+
+          <button
+            type="button"
+            className={styles.recurringToggle}
+            aria-label="Show only recurring commitments (you marked)."
+            title="Show only recurring commitments (you marked)."
+            aria-pressed={recurringOnly}
+            data-active={recurringOnly ? "true" : "false"}
+            onClick={() => setRecurringOnly((prev) => !prev)}
+          >
+            <Repeat size={18} aria-hidden="true" />
+          </button>
         </div>
 
         {filtered.length === 0 ? (
