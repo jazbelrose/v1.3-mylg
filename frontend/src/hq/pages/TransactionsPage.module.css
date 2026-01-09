@@ -35,33 +35,24 @@
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+
+.stickyStack {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  border-radius: 16px 16px 0 0;
+  background: rgba(17, 18, 19, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 0;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
+}
+
 .filters {
+  position: relative;
   display: grid;
   grid-template-columns: 1.4fr 0.8fr 0.85fr 0.9fr 0.85fr 0.7fr;
   gap: 8px;
   padding: 10px 54px 10px 10px;
-  border-radius: 16px 16px 0 0;
-  border: 0;
-  background: transparent;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.filters::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(17, 18, 19, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 0;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  z-index: -1;
 }
 
 
@@ -139,8 +130,9 @@
   grid-template-columns: 1.6fr 0.8fr 0.4fr;
   gap: 12px;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
   font-weight: 750;

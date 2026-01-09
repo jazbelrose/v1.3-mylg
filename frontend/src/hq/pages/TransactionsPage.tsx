@@ -233,97 +233,107 @@ const TransactionsPage: React.FC = () => {
       actions={actions}
     >
       <div className={styles.page}>
-        <div className={styles.filters}>
-          <input
-            className={styles.filterField}
-            type="search"
-            placeholder="Search vendor / memo"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            aria-label="Search transactions"
-          />
-          <HqSelect
-            className={styles.filterField}
-            value={accountId}
-            onValueChange={setAccountId}
-            ariaLabel="Filter by account"
-            options={[
-              { value: "all", label: "All accounts" },
-              ...accounts.map((a) => ({
-                value: a.accountId,
-                label: String(a.name ?? a.accountName ?? a.accountId),
-              })),
-            ]}
-          />
+        <div className={styles.stickyStack}>
+          <div className={styles.filters}>
+            <input
+              className={styles.filterField}
+              type="search"
+              placeholder="Search vendor / memo"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              aria-label="Search transactions"
+            />
+            <HqSelect
+              className={styles.filterField}
+              value={accountId}
+              onValueChange={setAccountId}
+              ariaLabel="Filter by account"
+              options={[
+                { value: "all", label: "All accounts" },
+                ...accounts.map((a) => ({
+                  value: a.accountId,
+                  label: String(a.name ?? a.accountName ?? a.accountId),
+                })),
+              ]}
+            />
 
-          <HqSelect
-            className={styles.filterField}
-            value={direction}
-            onValueChange={(v) => setDirection(v as "all" | "in" | "out")}
-            ariaLabel="Filter by direction"
-            options={[
-              { value: "all", label: "Flow: In + Out" },
-              { value: "out", label: "Flow: Out" },
-              { value: "in", label: "Flow: In" },
-            ]}
-          />
+            <HqSelect
+              className={styles.filterField}
+              value={direction}
+              onValueChange={(v) => setDirection(v as "all" | "in" | "out")}
+              ariaLabel="Filter by direction"
+              options={[
+                { value: "all", label: "Flow: In + Out" },
+                { value: "out", label: "Flow: Out" },
+                { value: "in", label: "Flow: In" },
+              ]}
+            />
 
-          <HqSelect
-            className={styles.filterField}
-            value={paymentType}
-            onValueChange={(v) => setPaymentType(v as "all" | HqPaymentType)}
-            ariaLabel="Filter by payment type"
-            options={[
-              { value: "all", label: "All payment types" },
-              { value: "card_purchase", label: "Card purchase" },
-              { value: "transfer", label: "Transfer" },
-              { value: "zelle", label: "Zelle" },
-              { value: "wire", label: "Wire" },
-              { value: "deposit", label: "Deposit" },
-              { value: "fee", label: "Fee" },
-              { value: "unknown", label: "Unknown" },
-            ]}
-          />
+            <HqSelect
+              className={styles.filterField}
+              value={paymentType}
+              onValueChange={(v) => setPaymentType(v as "all" | HqPaymentType)}
+              ariaLabel="Filter by payment type"
+              options={[
+                { value: "all", label: "All payment types" },
+                { value: "card_purchase", label: "Card purchase" },
+                { value: "transfer", label: "Transfer" },
+                { value: "zelle", label: "Zelle" },
+                { value: "wire", label: "Wire" },
+                { value: "deposit", label: "Deposit" },
+                { value: "fee", label: "Fee" },
+                { value: "unknown", label: "Unknown" },
+              ]}
+            />
 
-          <HqCategoryPicker
-            orgId={orgId}
-            className={styles.filterField}
-            value={categoryId}
-            onValueChange={(v) => setCategoryId(v as "all" | HqCategoryId | "UNCATEGORIZED")}
-            ariaLabel="Filter by category"
-            placeholder="All categories"
-            staticOptions={[
-              { value: "all", label: "All categories" },
-              { value: "UNCATEGORIZED", label: "Uncategorized" },
-            ]}
-          />
+            <HqCategoryPicker
+              orgId={orgId}
+              className={styles.filterField}
+              value={categoryId}
+              onValueChange={(v) => setCategoryId(v as "all" | HqCategoryId | "UNCATEGORIZED")}
+              ariaLabel="Filter by category"
+              placeholder="All categories"
+              staticOptions={[
+                { value: "all", label: "All categories" },
+                { value: "UNCATEGORIZED", label: "Uncategorized" },
+              ]}
+            />
 
-          <HqSelect
-            className={styles.filterField}
-            value={dateRange}
-            onValueChange={(v) => setDateRange(v as DateRangePreset)}
-            ariaLabel="Filter by date range"
-            options={[
-              { value: "all", label: "Date: All time" },
-              { value: "7d", label: "Date: Last 7d" },
-              { value: "30d", label: "Date: Last 30d" },
-              { value: "90d", label: "Date: Last 90d" },
-              { value: "month", label: "Date: This month" },
-              { value: "ytd", label: "Date: YTD" },
-            ]}
-          />
+            <HqSelect
+              className={styles.filterField}
+              value={dateRange}
+              onValueChange={(v) => setDateRange(v as DateRangePreset)}
+              ariaLabel="Filter by date range"
+              options={[
+                { value: "all", label: "Date: All time" },
+                { value: "7d", label: "Date: Last 7d" },
+                { value: "30d", label: "Date: Last 30d" },
+                { value: "90d", label: "Date: Last 90d" },
+                { value: "month", label: "Date: This month" },
+                { value: "ytd", label: "Date: YTD" },
+              ]}
+            />
 
-          <button
-            type="button"
-            className={styles.recurringToggle}
-            aria-label="Show only recurring commitments (you marked)."
-            title="Show only recurring commitments (you marked)."
-            aria-pressed={recurringOnly}
-            data-active={recurringOnly ? "true" : "false"}
-            onClick={() => setRecurringOnly((prev) => !prev)}
-          >
-            <Repeat size={18} aria-hidden="true" />
-          </button>
+            <button
+              type="button"
+              className={styles.recurringToggle}
+              aria-label="Show only recurring commitments (you marked)."
+              title="Show only recurring commitments (you marked)."
+              aria-pressed={recurringOnly}
+              data-active={recurringOnly ? "true" : "false"}
+              onClick={() => setRecurringOnly((prev) => !prev)}
+            >
+              <Repeat size={18} aria-hidden="true" />
+            </button>
+          </div>
+
+          {filtered.length ? (
+            <div className={styles.tableHeader} aria-hidden>
+              <div>Txn</div>
+              <div>Category</div>
+              <div className={styles.amountCol}>Amount</div>
+            </div>
+          ) : null}
         </div>
 
         {filtered.length === 0 ? (
@@ -332,11 +342,6 @@ const TransactionsPage: React.FC = () => {
           </div>
         ) : (
           <div className={styles.table} role="region" aria-label="Transactions table">
-            <div className={styles.tableHeader}>
-              <div>Txn</div>
-              <div>Category</div>
-              <div className={styles.amountCol}>Amount</div>
-            </div>
             {filtered.map((txn) => {
               const accountLabel = accountsById.get(txn.accountId) || "Account";
               const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
