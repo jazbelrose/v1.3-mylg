@@ -12,6 +12,7 @@ export type HQCardProps = {
   children?: ReactNode;
   className?: string;
   onClick?: () => void;
+  interactiveRole?: "button" | "link";
   "aria-label"?: string;
 };
 
@@ -26,6 +27,7 @@ export function HQCard({
   children,
   className,
   onClick,
+  interactiveRole = "button",
   "aria-label": ariaLabel,
 }: HQCardProps) {
   const isClickable = typeof onClick === "function";
@@ -35,7 +37,7 @@ export function HQCard({
     <section
       className={[styles.card, isClickable ? styles.cardClickable : "", className].filter(Boolean).join(" ")}
       aria-label={ariaLabel}
-      role={isClickable ? "button" : undefined}
+      role={isClickable ? interactiveRole : undefined}
       tabIndex={isClickable ? 0 : undefined}
       onClick={isClickable ? onClick : undefined}
       onKeyDown={

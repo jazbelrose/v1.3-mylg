@@ -99,6 +99,14 @@ const chartRanges: Array<{ id: HqChartSeriesRange; label: string }> = [
   { id: "ALL", label: "ALL" },
 ];
 
+function txnDateRangeForChartRange(range: HqChartSeriesRange): "all" | "7d" | "30d" | "90d" | "ytd" {
+  if (range === "1W") return "7d";
+  if (range === "1M") return "30d";
+  if (range === "3M") return "90d";
+  if (range === "YTD") return "ytd";
+  return "all";
+}
+
 function getDateWindowForChartRange(range: HqChartSeriesRange, txns: HqTransaction[]): { start: string; end: string } {
   const end = todayPacificIsoDate();
   if (range === "ALL") {
@@ -916,16 +924,12 @@ const HQOverview: React.FC = () => {
         <div className={styles.midRow}>
           <HQCard
             title="Accounts"
-            aria-label="Accounts breakdown"
+            aria-label="Open Accounts details"
+            interactiveRole="link"
             className={styles.midCard}
             onClick={() => {
               navigate("/dashboard/hq/accounts");
             }}
-            footer={
-              <Link className={styles.cardLink} to="/dashboard/hq/accounts">
-                View all
-              </Link>
-            }
           >
             {accounts.length === 0 ? (
               <div className={styles.emptyState}>
@@ -971,10 +975,11 @@ const HQOverview: React.FC = () => {
 
           <HQCard
             title="Recurring"
-            aria-label="Recurring commitments"
+            aria-label="Open Recurring details"
+            interactiveRole="link"
             className={styles.midCard}
             onClick={() => {
-              navigate("/dashboard/hq/transactions?filter=recurring");
+              navigate("/dashboard/hq/recurring");
             }}
             headerLeft={
               <div className={styles.cardHeaderLine} title={`Recurring · ${recurringLabel}`}>
@@ -987,13 +992,6 @@ const HQOverview: React.FC = () => {
                 <span className={styles.summaryPill}>
                   Total {currency.format(recurringSummary?.mandatoryMonthlyBurn ?? 0)}/mo
                 </span>
-                <Link
-                  className={styles.cardLink}
-                  to="/dashboard/hq/transactions?filter=recurring"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  View all
-                </Link>
               </div>
             }
           >
@@ -1027,7 +1025,6 @@ const HQOverview: React.FC = () => {
                       <span className={styles.recurringName} title={entry.label}>
                         {entry.label}
                       </span>
-                      <span className={styles.recurringMeta}>Recurring</span>
                     </span>
 
                     <div className={styles.chartBar} aria-hidden>
@@ -1046,7 +1043,8 @@ const HQOverview: React.FC = () => {
 
           <HQCard
             title="Top Categories"
-            aria-label="Top spend categories"
+            aria-label="Open Top Categories details"
+            interactiveRole="link"
             className={[styles.midCard, styles.midCardWide].join(" ")}
             headerLeft={
               <div className={styles.cardHeaderLine} title={`Top Categories · ${topCategoriesContextLabel}`}>
@@ -1054,11 +1052,9 @@ const HQOverview: React.FC = () => {
                 <span className={styles.cardHeaderContext}>· {topCategoriesContextLabel}</span>
               </div>
             }
-            headerRight={
-              <Link className={styles.cardLink} to="/dashboard/hq/transactions" onClick={(e) => e.stopPropagation()}>
-                View all
-              </Link>
-            }
+            onClick={() => {
+              navigate("/dashboard/hq/top-categories");
+            }}
           >
             {topCategoriesLoading && topCategories.length === 0 ? (
               <div className={styles.emptyState}>Loading…</div>
@@ -1070,8 +1066,29 @@ const HQOverview: React.FC = () => {
               <ul className={styles.topCategoriesList}>
                 {topCategories.map((entry) => {
                   const pct = Math.round((entry.amount / topCategoriesMax) * 100);
+                  const dir = topCategoriesDirection === "out" ? "out" : topCategoriesDirection === "in" ? "in" : "all";
+                  const dateRange = txnDateRangeForChartRange(chartRange);
                   return (
-                    <li key={entry.categoryId} className={styles.topCategoriesRow}>
+                    <li
+                      key={entry.categoryId}
+                      className={[styles.topCategoriesRow, styles.barRowClickable].join(" ")}
+                      role="link"
+                      tabIndex={0}
+                      aria-label={`Open category ${HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const category = encodeURIComponent(entry.categoryId);
+                        navigate(`/dashboard/hq/transactions?category=${category}&dir=${dir}&dateRange=${dateRange}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const category = encodeURIComponent(entry.categoryId);
+                          navigate(`/dashboard/hq/transactions?category=${category}&dir=${dir}&dateRange=${dateRange}`);
+                        }
+                      }}
+                    >
                       <span className={styles.topCategoriesName} title={HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL]}>
                         {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
                       </span>
@@ -1091,11 +1108,6 @@ const HQOverview: React.FC = () => {
           <HQCard
             title="Cash in vs cash out"
             subtitle={`Range: ${rangeLabel}`}
-            badge={
-              <Link className={styles.cardLink} to="/dashboard/hq/transactions">
-                View all
-              </Link>
-            }
             aria-label="Monthly cash inflow versus outflow chart"
           >
             {monthlyFlow.length === 0 ? (
@@ -1169,11 +1181,6 @@ const HQOverview: React.FC = () => {
         <HQCard
           title="Latest transactions"
           subtitle="Preview"
-          badge={
-            <Link className={styles.cardLink} to="/dashboard/hq/transactions">
-              View all
-            </Link>
-          }
           aria-label="Transactions preview"
         >
           {latestTransactions.length === 0 ? (

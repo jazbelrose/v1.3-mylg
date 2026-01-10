@@ -417,8 +417,8 @@
   align-items: center;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.85);
-  min-height: 30px;
-  padding: 6px 8px;
+  min-height: 28px;
+  padding: 4px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -452,8 +452,7 @@
 
 .recurringNameBlock {
   min-width: 0;
-  display: grid;
-  gap: 2px;
+  display: block;
 }
 
 .recurringName {
@@ -466,13 +465,6 @@
   line-height: 1.15;
 }
 
-.recurringMeta {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .recurringAmount {
   font-size: 13px;

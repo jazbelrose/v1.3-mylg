@@ -116,6 +116,9 @@ const TransactionsPage: React.FC = () => {
     const filter = params.get("filter");
     const q = params.get("q");
     const type = params.get("type");
+    const category = params.get("category");
+    const dir = params.get("dir");
+    const date = params.get("dateRange");
     if (typeof q === "string" && q.length) setSearchTerm(q);
 
     const allowedPaymentTypes: Array<HqPaymentType> = [
@@ -136,6 +139,18 @@ const TransactionsPage: React.FC = () => {
 
     if (filter === "uncategorized") {
       setCategoryId("UNCATEGORIZED");
+    }
+
+    if (category) {
+      setCategoryId(category as "all" | HqCategoryId | "UNCATEGORIZED");
+    }
+
+    if (dir === "in" || dir === "out" || dir === "all") {
+      setDirection(dir);
+    }
+
+    if (date === "all" || date === "7d" || date === "30d" || date === "90d" || date === "month" || date === "ytd") {
+      setDateRange(date);
     }
 
   }, [location.search]);

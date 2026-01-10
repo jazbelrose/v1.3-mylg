@@ -10,6 +10,7 @@
   min-height: var(--hq-card-min-h, 140px);
   font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
   color: rgba(255, 255, 255, 0.9);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cardClickable {
@@ -17,12 +18,19 @@
 }
 
 .cardClickable:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.5);
+}
+
+.cardClickable:active {
+  transform: translateY(0);
 }
 
 .cardClickable:focus-visible {
-  outline: 2px solid rgba(250, 51, 86, 0.6);
-  outline-offset: 2px;
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.5);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.18), 0 22px 56px rgba(0, 0, 0, 0.5);
 }
 
 .cardHeader {
