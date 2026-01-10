@@ -363,8 +363,8 @@
 
 .midRow {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr) minmax(0, 8fr);
-  gap: 16px;
+  grid-template-columns: 320px 1fr 1fr;
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -374,6 +374,10 @@
   --hq-card-gap: 8px;
   --hq-card-content-gap: 6px;
   --hq-card-min-h: 0;
+}
+
+.midCardData {
+  --hq-card-min-h: 340px;
 }
 
 .midCardWide {
@@ -453,6 +457,24 @@
 .recurringNameBlock {
   min-width: 0;
   display: block;
+}
+
+.recurringRow {
+  display: grid;
+  grid-template-columns: 180px 1fr 92px;
+  column-gap: 12px;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.recurringRow:last-child {
+  border-bottom: 0;
+}
+
+.recurringRow > * {
+  min-width: 0;
 }
 
 .recurringName {

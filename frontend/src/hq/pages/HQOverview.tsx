@@ -977,7 +977,7 @@ const HQOverview: React.FC = () => {
             title="Recurring"
             aria-label="Open Recurring details"
             interactiveRole="link"
-            className={styles.midCard}
+            className={[styles.midCard, styles.midCardData].join(" ")}
             onClick={() => {
               navigate("/dashboard/hq/recurring");
             }}
@@ -1006,8 +1006,8 @@ const HQOverview: React.FC = () => {
                 {recurringItems.map((entry) => (
                   <li
                     key={entry.vendorKey}
-                    className={[styles.topCategoriesRow, styles.barRowClickable].join(" ")}
-                    role="button"
+                    className={[styles.recurringRow, styles.barRowClickable].join(" ")}
+                    role="link"
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1045,7 +1045,7 @@ const HQOverview: React.FC = () => {
             title="Top Categories"
             aria-label="Open Top Categories details"
             interactiveRole="link"
-            className={[styles.midCard, styles.midCardWide].join(" ")}
+            className={[styles.midCard, styles.midCardData, styles.midCardWide].join(" ")}
             headerLeft={
               <div className={styles.cardHeaderLine} title={`Top Categories · ${topCategoriesContextLabel}`}>
                 <span className={styles.cardHeaderTitle}>Top Categories</span>
