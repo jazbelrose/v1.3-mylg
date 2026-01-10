@@ -6,6 +6,8 @@ export type HQCardProps = {
   metric?: ReactNode;
   subtitle?: ReactNode;
   badge?: ReactNode;
+  headerLeft?: ReactNode;
+  headerRight?: ReactNode;
   footer?: ReactNode;
   children?: ReactNode;
   className?: string;
@@ -18,6 +20,8 @@ export function HQCard({
   metric,
   subtitle,
   badge,
+  headerLeft,
+  headerRight,
   footer,
   children,
   className,
@@ -25,6 +29,7 @@ export function HQCard({
   "aria-label": ariaLabel,
 }: HQCardProps) {
   const isClickable = typeof onClick === "function";
+  const right = headerRight ?? badge;
 
   return (
     <section
@@ -46,10 +51,16 @@ export function HQCard({
     >
       <header className={styles.cardHeader}>
         <div>
-          <h3 className={styles.cardTitle}>{title}</h3>
-          {subtitle ? <p className={styles.cardSubtitle}>{subtitle}</p> : null}
+          {headerLeft ? (
+            headerLeft
+          ) : (
+            <>
+              <h3 className={styles.cardTitle}>{title}</h3>
+              {subtitle ? <p className={styles.cardSubtitle}>{subtitle}</p> : null}
+            </>
+          )}
         </div>
-        {badge ? <span className={styles.badge}>{badge}</span> : null}
+        {right ? <span className={styles.badge}>{right}</span> : null}
       </header>
 
       {metric ? <div className={styles.metric}>{metric}</div> : null}

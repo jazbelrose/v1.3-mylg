@@ -61,13 +61,13 @@ function formatIsoMonthDay(isoDate: string): string {
   const [yyyy, mm, dd] = safe.split("-").map((x) => Number(x));
   if (!yyyy || !mm || !dd) return safe;
   const d = new Date(Date.UTC(yyyy, mm - 1, dd));
-  return d.toLocaleString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleString(undefined, { month: "short", day: "2-digit" });
 }
 
 function formatIsoRange(startIso: string, endIso: string): string {
   const start = formatIsoMonthDay(startIso);
   const end = formatIsoMonthDay(endIso);
-  return `${start} → ${end}`;
+  return `${start}–${end}`;
 }
 
 function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: HqChartSeriesRange): HqChartSeriesResponse["points"] {
@@ -971,21 +971,30 @@ const HQOverview: React.FC = () => {
 
           <HQCard
             title="Recurring"
-            subtitle={`Outflow · 3M · ${recurringLabel}`}
             aria-label="Recurring commitments"
             className={styles.midCard}
             onClick={() => {
               navigate("/dashboard/hq/transactions?filter=recurring");
             }}
-            badge={
-              <span className={styles.summaryPill}>
-                Mandatory: {currency.format(recurringSummary?.mandatoryMonthlyBurn ?? 0)}/mo
-              </span>
+            headerLeft={
+              <div className={styles.cardHeaderLine} title={`Recurring · ${recurringLabel}`}>
+                <span className={styles.cardHeaderTitle}>Recurring</span>
+                <span className={styles.cardHeaderContext}>· {recurringLabel}</span>
+              </div>
             }
-            footer={
-              <Link className={styles.cardLink} to="/dashboard/hq/transactions?filter=recurring">
-                View all
-              </Link>
+            headerRight={
+              <div className={styles.cardHeaderRight}>
+                <span className={styles.summaryPill}>
+                  Total {currency.format(recurringSummary?.mandatoryMonthlyBurn ?? 0)}/mo
+                </span>
+                <Link
+                  className={styles.cardLink}
+                  to="/dashboard/hq/transactions?filter=recurring"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View all
+                </Link>
+              </div>
             }
           >
             {recurringLoading && recurringItems.length === 0 ? (
@@ -1037,11 +1046,16 @@ const HQOverview: React.FC = () => {
 
           <HQCard
             title="Top Categories"
-            subtitle={topCategoriesContextLabel}
             aria-label="Top spend categories"
             className={[styles.midCard, styles.midCardWide].join(" ")}
-            footer={
-              <Link className={styles.cardLink} to="/dashboard/hq/transactions">
+            headerLeft={
+              <div className={styles.cardHeaderLine} title={`Top Categories · ${topCategoriesContextLabel}`}>
+                <span className={styles.cardHeaderTitle}>Top Categories</span>
+                <span className={styles.cardHeaderContext}>· {topCategoriesContextLabel}</span>
+              </div>
+            }
+            headerRight={
+              <Link className={styles.cardLink} to="/dashboard/hq/transactions" onClick={(e) => e.stopPropagation()}>
                 View all
               </Link>
             }

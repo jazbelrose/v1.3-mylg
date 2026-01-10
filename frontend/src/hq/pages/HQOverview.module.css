@@ -568,6 +568,39 @@
   text-decoration: underline;
 }
 
+.cardHeaderLine {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardHeaderTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.cardHeaderContext {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardHeaderRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .spellbookButton {
   display: inline-flex;
   align-items: center;
