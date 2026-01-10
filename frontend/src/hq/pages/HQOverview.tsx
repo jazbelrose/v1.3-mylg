@@ -52,9 +52,23 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 4;
-const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 4;
+const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 5;
+const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 10;
 const HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT = 6;
+
+function formatIsoMonthDay(isoDate: string): string {
+  const safe = String(isoDate || "").slice(0, 10);
+  const [yyyy, mm, dd] = safe.split("-").map((x) => Number(x));
+  if (!yyyy || !mm || !dd) return safe;
+  const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+  return d.toLocaleString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatIsoRange(startIso: string, endIso: string): string {
+  const start = formatIsoMonthDay(startIso);
+  const end = formatIsoMonthDay(endIso);
+  return `${start} → ${end}`;
+}
 
 function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: HqChartSeriesRange): HqChartSeriesResponse["points"] {
   if (range === "ALL") return points;
@@ -213,7 +227,6 @@ const HQOverview: React.FC = () => {
   const [chartLoading, setChartLoading] = React.useState(false);
   const [chartNeedsImport, setChartNeedsImport] = React.useState(false);
 
-  const [topCategoriesRange, setTopCategoriesRange] = React.useState<HqChartSeriesRange>("1M");
   const [topCategoriesData, setTopCategoriesData] = React.useState<HqTopCategoriesResponse | null>(null);
   const [topCategoriesError, setTopCategoriesError] = React.useState<string | null>(null);
   const [topCategoriesLoading, setTopCategoriesLoading] = React.useState(false);
@@ -440,9 +453,19 @@ const HQOverview: React.FC = () => {
     );
   }, [monthlyFlow]);
 
+  const topCategoriesDirection = React.useMemo((): "out" | "in" | "net" => {
+    if (showOutflow) return "out";
+    if (showInflow) return "in";
+    return "net";
+  }, [showInflow, showOutflow]);
+
+  const topCategoriesMetricLabel = React.useMemo(() => {
+    return topCategoriesDirection === "out" ? "Outflow" : topCategoriesDirection === "in" ? "Inflow" : "Net";
+  }, [topCategoriesDirection]);
+
   const topCategoriesWindow = React.useMemo(() => {
-    return getDateWindowForChartRange(topCategoriesRange, transactions);
-  }, [topCategoriesRange, transactions]);
+    return getDateWindowForChartRange(chartRange, transactions);
+  }, [chartRange, transactions]);
 
   React.useEffect(() => {
     if (!activeOrgId) {
@@ -452,15 +475,36 @@ const HQOverview: React.FC = () => {
       return;
     }
 
+    // Top categories can be computed locally for all modes; use local for non-outflow
+    // so the card always stays in sync with HQ metric toggles even if the backend
+    // endpoint only supports outflow.
+    if (topCategoriesDirection !== "out") {
+      setTopCategoriesLoading(false);
+      setTopCategoriesError(null);
+      const local = computeTopCategories(transactions, topCategoriesWindow.start, topCategoriesWindow.end, {
+        direction: topCategoriesDirection,
+        limit: HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT,
+      }).map((x) => ({ categoryId: x.categoryId, amount: x.amount }));
+      setTopCategoriesData({
+        orgId: activeOrgId,
+        range: chartRange,
+        direction: topCategoriesDirection,
+        startDate: topCategoriesWindow.start,
+        endDate: topCategoriesWindow.end,
+        items: local,
+      });
+      return;
+    }
+
     let cancelled = false;
     setTopCategoriesLoading(true);
     setTopCategoriesError(null);
 
     fetchHqTopCategories({
       orgId: activeOrgId,
-      range: topCategoriesRange,
+      range: chartRange,
       limit: HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT,
-      direction: "out",
+      direction: topCategoriesDirection,
     })
       .then((res) => {
         if (cancelled) return;
@@ -472,15 +516,15 @@ const HQOverview: React.FC = () => {
 
         // Common during dev: backend not redeployed yet -> endpoint returns 404.
         // Fall back to local cache so HQ stays usable.
-        if (String(msg).includes("404")) {
+        if (String(msg).includes("404") || topCategoriesDirection !== "out") {
           const local = computeTopCategories(transactions, topCategoriesWindow.start, topCategoriesWindow.end, {
-            direction: "out",
+            direction: topCategoriesDirection,
             limit: HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT,
           }).map((x) => ({ categoryId: x.categoryId, amount: x.amount }));
           setTopCategoriesData({
             orgId: activeOrgId,
-            range: topCategoriesRange,
-            direction: "out",
+            range: chartRange,
+            direction: topCategoriesDirection,
             startDate: topCategoriesWindow.start,
             endDate: topCategoriesWindow.end,
             items: local,
@@ -500,7 +544,7 @@ const HQOverview: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, topCategoriesRange, topCategoriesWindow.end, topCategoriesWindow.start, transactions]);
+  }, [activeOrgId, chartRange, topCategoriesDirection, topCategoriesWindow.end, topCategoriesWindow.start, transactions]);
 
   React.useEffect(() => {
     if (!activeOrgId) {
@@ -568,8 +612,12 @@ const HQOverview: React.FC = () => {
   const topCategoriesLabel = React.useMemo(() => {
     const startLabel = topCategoriesData?.startDate || topCategoriesWindow.start;
     const endLabel = topCategoriesData?.endDate || topCategoriesWindow.end;
-    return `${startLabel} – ${endLabel}`;
+    return formatIsoRange(startLabel, endLabel);
   }, [topCategoriesData?.endDate, topCategoriesData?.startDate, topCategoriesWindow.end, topCategoriesWindow.start]);
+
+  const topCategoriesContextLabel = React.useMemo(() => {
+    return `${topCategoriesMetricLabel} · ${chartRange} · ${topCategoriesLabel}`;
+  }, [chartRange, topCategoriesLabel, topCategoriesMetricLabel]);
 
   const recurringItems = React.useMemo(() => {
     return (recurringSummary?.items || []).slice(0, HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT);
@@ -577,8 +625,12 @@ const HQOverview: React.FC = () => {
 
   const recurringLabel = React.useMemo(() => {
     if (!recurringSummary) return "Trailing 3 full months";
-    return `${recurringSummary.startDate} – ${recurringSummary.endDate}`;
+    return formatIsoRange(recurringSummary.startDate, recurringSummary.endDate);
   }, [recurringSummary]);
+
+  const recurringMax = React.useMemo(() => {
+    return Math.max(1, ...recurringItems.map((x) => x.amountMonthly));
+  }, [recurringItems]);
 
   const latestTransactions = React.useMemo(() => {
     return [...transactions]
@@ -892,11 +944,25 @@ const HQOverview: React.FC = () => {
                 ) : null}
               </div>
             ) : (
-              <ul className={styles.list}>
+              <ul className={styles.denseList}>
                 {accounts.slice(0, HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT).map((acct) => (
-                  <li key={acct.accountId} className={styles.listItem}>
-                    <span className={styles.accountName}>{acct.name ?? acct.accountName}</span>
-                    <span>{acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Set anchor"}</span>
+                  <li key={acct.accountId} className={styles.accountRow}>
+                    <span className={styles.accountName} title={acct.name ?? acct.accountName}>
+                      {acct.name ?? acct.accountName}
+                    </span>
+
+                    <span className={styles.accountRight}>
+                      <span className={styles.accountBalance}>
+                        {typeof acct.anchorBalance === "number" ? currency.format(acct.anchorBalance) : "—"}
+                      </span>
+                      <span
+                        className={[styles.accountBadge, acct.anchorDate && typeof acct.anchorBalance === "number" ? styles.accountBadgeAnchored : styles.accountBadgeNeedsAnchor]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {acct.anchorDate && typeof acct.anchorBalance === "number" ? "Anchored" : "Needs anchor"}
+                      </span>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -905,12 +971,17 @@ const HQOverview: React.FC = () => {
 
           <HQCard
             title="Recurring"
-            subtitle={recurringLabel}
+            subtitle={`Outflow · 3M · ${recurringLabel}`}
             aria-label="Recurring commitments"
             className={styles.midCard}
             onClick={() => {
               navigate("/dashboard/hq/transactions?filter=recurring");
             }}
+            badge={
+              <span className={styles.summaryPill}>
+                Mandatory: {currency.format(recurringSummary?.mandatoryMonthlyBurn ?? 0)}/mo
+              </span>
+            }
             footer={
               <Link className={styles.cardLink} to="/dashboard/hq/transactions?filter=recurring">
                 View all
@@ -924,11 +995,11 @@ const HQOverview: React.FC = () => {
             ) : recurringItems.length === 0 ? (
               <div className={styles.emptyState}>No recurring transactions detected yet.</div>
             ) : (
-              <ul className={styles.list}>
+              <ul className={styles.topCategoriesList}>
                 {recurringItems.map((entry) => (
                   <li
                     key={entry.vendorKey}
-                    className={[styles.listItem, styles.listItemClickable].join(" ")}
+                    className={[styles.topCategoriesRow, styles.barRowClickable].join(" ")}
                     role="button"
                     tabIndex={0}
                     onClick={(e) => {
@@ -943,10 +1014,21 @@ const HQOverview: React.FC = () => {
                       }
                     }}
                   >
-                    <span className={styles.accountName} title={entry.label}>
-                      {entry.label}
+                    <span className={styles.recurringNameBlock}>
+                      <span className={styles.recurringName} title={entry.label}>
+                        {entry.label}
+                      </span>
+                      <span className={styles.recurringMeta}>Recurring</span>
                     </span>
-                    <span className={[styles.amountPill, styles.out].join(" ")}>{currency.format(entry.amountMonthly)}/mo</span>
+
+                    <div className={styles.chartBar} aria-hidden>
+                      <div
+                        className={styles.chartBarFill}
+                        style={{ width: `${Math.round((entry.amountMonthly / recurringMax) * 100)}%` }}
+                      />
+                    </div>
+
+                    <span className={styles.recurringAmount}>{currency.format(entry.amountMonthly)}/mo</span>
                   </li>
                 ))}
               </ul>
@@ -955,29 +1037,9 @@ const HQOverview: React.FC = () => {
 
           <HQCard
             title="Top Categories"
-            subtitle={topCategoriesLabel}
+            subtitle={topCategoriesContextLabel}
             aria-label="Top spend categories"
             className={[styles.midCard, styles.midCardWide].join(" ")}
-            badge={
-              <div className={styles.topCategoriesPills} aria-label="Top categories range">
-                {chartRanges.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className={[styles.filterChip, topCategoriesRange === r.id ? styles.filterChipActive : ""]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTopCategoriesRange(r.id);
-                    }}
-                    aria-pressed={topCategoriesRange === r.id}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            }
             footer={
               <Link className={styles.cardLink} to="/dashboard/hq/transactions">
                 View all
