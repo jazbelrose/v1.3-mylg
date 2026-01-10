@@ -2137,6 +2137,10 @@ const patchAccount = async (e, C, { accountId }) => {
 
   const body = B(e);
 
+  const nowIso = nowISO();
+  const touchesAnchor = Object.prototype.hasOwnProperty.call(body, "anchorDate") || Object.prototype.hasOwnProperty.call(body, "anchorBalance");
+  const touchesCashInclusion = Object.prototype.hasOwnProperty.call(body, "includeInCashOnHand") || Object.prototype.hasOwnProperty.call(body, "archivedAt");
+
   const sets = [];
   const names = {};
   const values = {};
@@ -2169,7 +2173,7 @@ const patchAccount = async (e, C, { accountId }) => {
   if (body.archivedAt === null) setField("archivedAt", null);
 
   // Always bump updatedAt for any accepted patch.
-  if (sets.length) setField("updatedAt", nowISO());
+  if (sets.length) setField("updatedAt", nowIso);
 
   if (!sets.length) return json(400, C, { error: "No fields to update" });
 
@@ -2182,7 +2186,50 @@ const patchAccount = async (e, C, { accountId }) => {
     ReturnValues: "ALL_NEW",
   });
 
-  return json(200, C, { account: res.Attributes || null });
+  const updatedAccount = res.Attributes || null;
+
+  // Anchor updates (and cash-inclusion toggles) affect derived fields:
+  // - currentBalance per account
+  // - hqHeader.cashOnHandAggregate + missingAnchorAccountIds
+  if (updatedAccount && (touchesAnchor || touchesCashInclusion)) {
+    // Ensure derived ledger exists so we can compute balances cheaply.
+    await ensureHqHeader({ orgId });
+
+    let nextCurrentBalance = null;
+    const anchorDate = updatedAccount.anchorDate ? String(updatedAccount.anchorDate).slice(0, 10) : "";
+    const anchorBalance = typeof updatedAccount.anchorBalance === "number" ? Number(updatedAccount.anchorBalance) : null;
+    if (anchorDate && typeof anchorBalance === "number" && Number.isFinite(anchorBalance)) {
+      nextCurrentBalance = await computeAccountBalanceFromLedger({
+        orgId,
+        accountId,
+        anchorDate,
+        anchorBalance,
+        today: todayIsoInTimeZone(),
+      });
+    }
+
+    await ddb.update({
+      TableName: HQ_TABLE,
+      Key: { orgId, sk: skAccount(accountId) },
+      UpdateExpression: "SET currentBalance = :b, updatedAt = :u",
+      ExpressionAttributeValues: {
+        ":b": typeof nextCurrentBalance === "number" && Number.isFinite(nextCurrentBalance) ? round2(nextCurrentBalance) : null,
+        ":u": nowIso,
+      },
+    });
+
+    await recomputeHqHeaderFromLedger({ orgId, nowIso });
+
+    return json(200, C, {
+      account: {
+        ...updatedAccount,
+        currentBalance: typeof nextCurrentBalance === "number" && Number.isFinite(nextCurrentBalance) ? round2(nextCurrentBalance) : null,
+        updatedAt: nowIso,
+      },
+    });
+  }
+
+  return json(200, C, { account: updatedAccount });
 };
 
 // DELETE /hq/accounts/:accountId?orgId=...
