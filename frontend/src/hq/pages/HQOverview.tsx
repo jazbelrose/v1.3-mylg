@@ -54,6 +54,7 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
 
 const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 5;
 const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 14;
+const HQ_OVERVIEW_RECURRING_MONTHS = 1;
 const HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT = 6;
 
 function formatIsoMonthDay(isoDate: string): string {
@@ -361,7 +362,7 @@ const HQOverview: React.FC = () => {
   const { start, end } = getRange(selectedRange);
 
   const recurringLocal = React.useMemo(() => {
-    return computeRecurringCommitments(transactions, 3, {
+    return computeRecurringCommitments(transactions, HQ_OVERVIEW_RECURRING_MONTHS, {
       limit: HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT,
       excludeInternalTransfers: true,
     });
@@ -568,7 +569,7 @@ const HQOverview: React.FC = () => {
 
     fetchHqRecurringCommitments({
       orgId: activeOrgId,
-      months: 3,
+      months: HQ_OVERVIEW_RECURRING_MONTHS,
       limit: HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT,
       excludeInternalTransfers: true,
     })
@@ -656,7 +657,7 @@ const HQOverview: React.FC = () => {
   }, [recurringItems]);
 
   const recurringLabel = React.useMemo(() => {
-    if (!recurringSummary) return "Trailing 3 full months";
+    if (!recurringSummary) return `Trailing ${HQ_OVERVIEW_RECURRING_MONTHS} full month${HQ_OVERVIEW_RECURRING_MONTHS === 1 ? "" : "s"}`;
     return formatIsoRange(recurringSummary.startDate, recurringSummary.endDate);
   }, [recurringSummary]);
 
