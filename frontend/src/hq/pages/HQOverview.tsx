@@ -631,6 +631,30 @@ const HQOverview: React.FC = () => {
     return (recurringSummary?.items || []).slice(0, HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT);
   }, [recurringSummary]);
 
+  const recurringSuffixBySeriesKey = React.useMemo(() => {
+    const byLabel = new Map<string, string[]>();
+    for (const item of recurringItems) {
+      const label = String(item.label || "Unknown");
+      const arr = byLabel.get(label) || [];
+      arr.push(item.seriesKey);
+      byLabel.set(label, arr);
+    }
+
+    const out = new Map<string, string>();
+    for (const [label, keys] of byLabel.entries()) {
+      if (!label) continue;
+      if (keys.length <= 1) continue;
+      const sorted = keys.slice().sort((a, b) => a.localeCompare(b));
+      for (let i = 0; i < sorted.length; i += 1) {
+        const k = sorted[i];
+        if (!k) continue;
+        const letter = String.fromCharCode("A".charCodeAt(0) + Math.min(25, i));
+        out.set(k, `Series ${letter}`);
+      }
+    }
+    return out;
+  }, [recurringItems]);
+
   const recurringLabel = React.useMemo(() => {
     if (!recurringSummary) return "Trailing 3 full months";
     return formatIsoRange(recurringSummary.startDate, recurringSummary.endDate);
@@ -1005,25 +1029,37 @@ const HQOverview: React.FC = () => {
               <ul className={styles.recurringList}>
                 {recurringItems.map((entry) => (
                   <li
-                    key={entry.vendorKey}
+                    key={entry.seriesKey}
                     className={[styles.recurringRow, styles.barRowClickable].join(" ")}
                     role="link"
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
+                      navigate(
+                        `/dashboard/hq/transactions?filter=recurring&seriesKey=${encodeURIComponent(entry.seriesKey)}&q=${encodeURIComponent(entry.label)}`
+                      );
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         e.stopPropagation();
-                        navigate(`/dashboard/hq/transactions?filter=recurring&q=${encodeURIComponent(entry.label)}`);
+                        navigate(
+                          `/dashboard/hq/transactions?filter=recurring&seriesKey=${encodeURIComponent(entry.seriesKey)}&q=${encodeURIComponent(entry.label)}`
+                        );
                       }
                     }}
                   >
-                    <span className={styles.recurringName} title={entry.label}>
-                      {entry.label}
-                    </span>
+                    <div className={styles.recurringNameWrap} title={entry.label}>
+                      <span className={styles.recurringName}>{entry.label}</span>
+                      {entry.categoryId && entry.categoryId !== "OTHER" ? (
+                        <span className={styles.recurringPill}>
+                          {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
+                        </span>
+                      ) : null}
+                      {recurringSuffixBySeriesKey.get(entry.seriesKey) ? (
+                        <span className={styles.recurringSuffix}>{recurringSuffixBySeriesKey.get(entry.seriesKey)}</span>
+                      ) : null}
+                    </div>
 
                     <div className={styles.chartBar} aria-hidden>
                       <div

@@ -38,7 +38,7 @@ export type HqRecurringCommitmentsResponse = {
   endDate: string; // YYYY-MM-DD
   excludeInternalTransfers: boolean;
   mandatoryMonthlyBurn: number;
-  items: Array<{ vendorKey: string; label: string; amountMonthly: number }>;
+  items: Array<{ seriesKey: string; vendorKey: string; label: string; categoryId: string; amountMonthly: number }>;
 };
 
 export type HqBalanceSeriesResponse = {

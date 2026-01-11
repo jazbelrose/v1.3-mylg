@@ -240,6 +240,56 @@ const getVendorKeyForTxn = (txn) => {
   return { vendorLabel, vendorKey };
 };
 
+const extractRecurringSeriesDiscriminator = (txn) => {
+  const cardLast4 = typeof txn?.cardLast4 === "string" ? txn.cardLast4.trim() : "";
+  if (/^\d{4}$/.test(cardLast4)) return cardLast4;
+
+  const ref = typeof txn?.referenceId === "string" ? txn.referenceId.trim() : "";
+  if (ref && ref.length <= 12) {
+    const refDigits = /\b(\d{4})\b/.exec(ref)?.[1];
+    if (refDigits && !/^19\d{2}$|^20\d{2}$/.test(refDigits)) return refDigits;
+  }
+
+  const text = String(txn?.normalizedDescription || txn?.rawDescription || "").toUpperCase();
+  const matches = [...text.matchAll(/\b(\d{4})\b/g)].map((m) => m?.[1]).filter(Boolean);
+  // Prefer the last 4-digit token (often acct last4). Avoid years.
+  for (let i = matches.length - 1; i >= 0; i -= 1) {
+    const token = matches[i];
+    if (!token) continue;
+    if (/^19\d{2}$|^20\d{2}$/.test(token)) continue;
+    return token;
+  }
+
+  return "";
+};
+
+const recurringCommitmentSeriesKeyForTxn = (txn, { vendorKey, signed }) => {
+  const recurringSeriesId = typeof txn?.recurringSeriesId === "string" ? txn.recurringSeriesId.trim() : "";
+  if (recurringSeriesId) return `rs:${recurringSeriesId}`;
+
+  const accountId = typeof txn?.accountId === "string" ? txn.accountId.trim() : "unknown";
+  const direction = signed < 0 ? "out" : "in";
+  const amountBucket = Math.round(Math.abs(Number(signed) || 0));
+  const discriminator = extractRecurringSeriesDiscriminator(txn);
+  if (discriminator) return `${vendorKey}:${accountId}:${direction}:${amountBucket}:${discriminator}`;
+
+  // Fallback: split identical-looking same-day duplicates into stable slots.
+  // This avoids collapsing two distinct commitments that share vendorKey+account+amount.
+  const day = String(txn?.postedAt || "").slice(8, 10) || "??";
+  return `${vendorKey}:${accountId}:${direction}:${amountBucket}:d${day}`;
+};
+
+const medianNonZero = (values) => {
+  const nums = (Array.isArray(values) ? values : [])
+    .map((v) => Number(v) || 0)
+    .filter((v) => Number.isFinite(v) && v > 0)
+    .sort((a, b) => a - b);
+  if (!nums.length) return 0;
+  const mid = Math.floor(nums.length / 2);
+  if (nums.length % 2 === 1) return nums[mid];
+  return (nums[mid - 1] + nums[mid]) / 2;
+};
+
 // GET /hq/vendor-counts?orgId=...&vendorKeys=a,b,c&from=...&to=...&includeCategorized=1&accountId=...
 const getVendorCounts = async (e, C) => {
   const userId = requireCallerUserId(e);
@@ -683,7 +733,8 @@ const getRecurringCommitments = async (e, C) => {
   const startDate = firstDayOfMonth(earliest);
   const endDate = lastDayOfMonth(latest) || today;
 
-  const byVendorKey = {};
+  const bySeriesKey = {};
+  const slotCountsByDayKey = {};
 
   let lastKey;
   do {
@@ -709,33 +760,52 @@ const getRecurringCommitments = async (e, C) => {
       // Import hints like "RECURRING PAYMENT ..." should NOT be treated as truth.
       if (t.isRecurring !== true) continue;
 
-      if (excludeInternalTransfers && (t.isInternalTransfer || isLikelyInternalTransfer(t))) continue;
+      if (excludeInternalTransfers) {
+        const categoryId = t.categoryId ? String(t.categoryId) : "OTHER";
+        // Exclude only true transfer categories; do not drop user-categorized Owner Draw/etc
+        // just because an upstream heuristic flagged the txn as an internal transfer.
+        if (categoryId === "TRANSFERS" || categoryId === "TRANSFER_INTERNAL") continue;
+      }
 
       const signed = canonicalSignedAmount(t);
       if (typeof signed !== "number" || !Number.isFinite(signed) || signed >= 0) continue;
 
       const amt = Math.abs(signed);
       const { vendorLabel, vendorKey } = getVendorKeyForTxn(t);
-      if (!byVendorKey[vendorKey]) {
-        byVendorKey[vendorKey] = { vendorKey, labelCounts: {}, byMonth: {} };
+      let seriesKey = recurringCommitmentSeriesKeyForTxn(t, { vendorKey, signed });
+      if (!String(t?.recurringSeriesId || "").trim() && !extractRecurringSeriesDiscriminator(t)) {
+        const monthDaySlotKey = `${month}|${seriesKey}`;
+        slotCountsByDayKey[monthDaySlotKey] = (slotCountsByDayKey[monthDaySlotKey] || 0) + 1;
+        const slot = slotCountsByDayKey[monthDaySlotKey];
+        seriesKey = `${seriesKey}:slot${slot}`;
       }
-      const entry = byVendorKey[vendorKey];
+      if (!bySeriesKey[seriesKey]) {
+        bySeriesKey[seriesKey] = { seriesKey, vendorKey, labelCounts: {}, categoryCounts: {}, byMonth: {} };
+      }
+      const entry = bySeriesKey[seriesKey];
       entry.byMonth[month] = round2((entry.byMonth[month] || 0) + amt);
       entry.labelCounts[vendorLabel] = (entry.labelCounts[vendorLabel] || 0) + 1;
+      const categoryId = t.categoryId ? String(t.categoryId) : "OTHER";
+      entry.categoryCounts[categoryId] = (entry.categoryCounts[categoryId] || 0) + 1;
     }
 
     lastKey = page.LastEvaluatedKey;
   } while (lastKey);
 
-  const all = Object.values(byVendorKey).map((entry) => {
-    const monthTotal = monthKeys.reduce((acc, m) => acc + (entry.byMonth[m] || 0), 0);
-    const amountMonthly = round2(monthTotal / Math.max(1, monthKeys.length));
+  const all = Object.values(bySeriesKey).map((entry) => {
+    // “/mo” should mean “typical month for this series”, not an average diluted by missing months.
+    const amountMonthly = round2(medianNonZero(monthKeys.map((m) => entry.byMonth[m] || 0)));
     const label =
       Object.entries(entry.labelCounts)
         .sort((a, b) => b[1] - a[1])
         .map(([name]) => name)
         .find(Boolean) || "Unknown";
-    return { vendorKey: entry.vendorKey, label, amountMonthly };
+    const categoryId =
+      Object.entries(entry.categoryCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([id]) => id)
+        .find(Boolean) || "OTHER";
+    return { seriesKey: entry.seriesKey, vendorKey: entry.vendorKey, label, categoryId, amountMonthly };
   });
 
   const mandatoryMonthlyBurn = round2(all.reduce((acc, x) => acc + (x.amountMonthly || 0), 0));

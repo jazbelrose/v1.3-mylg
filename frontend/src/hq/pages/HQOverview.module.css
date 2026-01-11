@@ -377,6 +377,12 @@
 
 .midCardRecurring {
   --hq-card-content-overflow-y: hidden;
+  /* Keep the card compact; let the list scroll inside. */
+  --hq-card-min-h: 0px;
+  max-height: 260px;
+  overflow: hidden;
+  /* Override midRow's align-items: stretch for this card. */
+  align-self: start;
 }
 
 .midCardWide {
@@ -486,6 +492,38 @@
   font-size: 12px;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.recurringNameWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.recurringPill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.recurringSuffix {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .recurringList {

@@ -159,8 +159,133 @@ type RecurringSummary = {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   mandatoryMonthlyBurn: number;
-  items: Array<{ vendorKey: string; label: string; amountMonthly: number }>;
+  items: Array<{ seriesKey: string; vendorKey: string; label: string; categoryId: string; amountMonthly: number }>;
 };
+
+function extractRecurringSeriesDiscriminator(txn: HqTransaction): string {
+  const cardLast4 = typeof txn.cardLast4 === "string" ? txn.cardLast4.trim() : "";
+  if (/^\d{4}$/.test(cardLast4)) return cardLast4;
+
+  const ref = typeof txn.referenceId === "string" ? txn.referenceId.trim() : "";
+  if (ref && ref.length <= 12) {
+    const refDigits = /\b(\d{4})\b/.exec(ref)?.[1];
+    if (refDigits && !/^19\d{2}$|^20\d{2}$/.test(refDigits)) return refDigits;
+  }
+
+  const text = String(txn.normalizedDescription || txn.rawDescription || "").toUpperCase();
+  const matches = [...text.matchAll(/\b(\d{4})\b/g)].map((m) => m?.[1]).filter(Boolean);
+  for (let i = matches.length - 1; i >= 0; i -= 1) {
+    const token = matches[i];
+    if (!token) continue;
+    if (/^19\d{2}$|^20\d{2}$/.test(token)) continue;
+    return token;
+  }
+
+  return "";
+}
+
+function medianNonZero(values: number[]): number {
+  const nums = values
+    .map((v) => (Number.isFinite(v) ? v : 0))
+    .filter((v) => v > 0)
+    .slice()
+    .sort((a, b) => a - b);
+  if (!nums.length) return 0;
+  const mid = Math.floor(nums.length / 2);
+  if (nums.length % 2 === 1) return nums[mid] as number;
+  return ((nums[mid - 1] as number) + (nums[mid] as number)) / 2;
+}
+
+export function buildRecurringSeriesKeyIndex(transactions: HqTransaction[]): Map<string, string> {
+  const out = new Map<string, string>();
+
+  type Candidate = { txn: HqTransaction; dedupeHash: string; baseKey: string; month: string; day: string };
+  const candidatesByBaseKey = new Map<string, Candidate[]>();
+  const ambiguousBaseKeys = new Set<string>();
+  const countsByBaseMonthDay = new Map<string, number>();
+
+  for (const txn of transactions) {
+    const dh = String(txn.dedupeHash || "").trim();
+    if (!dh) continue;
+
+    const recurringSeriesId = typeof txn.recurringSeriesId === "string" ? txn.recurringSeriesId.trim() : "";
+    if (recurringSeriesId) {
+      out.set(dh, `rs:${recurringSeriesId}`);
+      continue;
+    }
+
+    const signed = canonicalSignedAmount(txn);
+    if (typeof signed !== "number" || !Number.isFinite(signed)) continue;
+    const direction = signed < 0 ? "out" : "in";
+    const amountBucket = Math.round(Math.abs(signed));
+    const { vendorKey } = getVendorKeyForTxn(txn);
+    const accountId = txn.accountId || "unknown";
+    const baseKey = `${vendorKey}:${accountId}:${direction}:${amountBucket}`;
+
+    const discriminator = extractRecurringSeriesDiscriminator(txn);
+    if (discriminator) {
+      out.set(dh, `${baseKey}:${discriminator}`);
+      continue;
+    }
+
+    const month = monthKey(String(txn.postedAt || ""));
+    const day = String(txn.postedAt || "").slice(8, 10) || "??";
+    const candidate: Candidate = { txn, dedupeHash: dh, baseKey, month, day };
+    const arr = candidatesByBaseKey.get(baseKey) || [];
+    arr.push(candidate);
+    candidatesByBaseKey.set(baseKey, arr);
+
+    // Only treat a baseKey as ambiguous if we see multiple same-day occurrences
+    // within the SAME MONTH. This is what we use to split truly identical-looking
+    // duplicate series (e.g. two Owner Draws on the same posted date), without
+    // mistakenly splitting a normal monthly series across months.
+    const countKey = `${baseKey}|||${month}|||${day}`;
+    const nextCount = (countsByBaseMonthDay.get(countKey) || 0) + 1;
+    countsByBaseMonthDay.set(countKey, nextCount);
+    if (nextCount > 1) ambiguousBaseKeys.add(baseKey);
+  }
+
+  for (const [baseKey, items] of candidatesByBaseKey.entries()) {
+    // Stable ordering so slot assignment is deterministic.
+    items.sort((a, b) => {
+      const dateCmp = String(a.txn.postedAt).localeCompare(String(b.txn.postedAt));
+      if (dateCmp) return dateCmp;
+      return String(a.dedupeHash).localeCompare(String(b.dedupeHash));
+    });
+
+    // Most of the time, treat (vendorKey + account + direction + amount) as a single series.
+    // This stays stable across months even if the day shifts.
+    if (!ambiguousBaseKeys.has(baseKey)) {
+      for (const it of items) out.set(it.dedupeHash, baseKey);
+      continue;
+    }
+
+    // Ambiguous: split only within a month+day bucket (same-day duplicates).
+    const byMonthDay = new Map<string, Candidate[]>();
+    for (const it of items) {
+      const k = `${it.month}|||${it.day}`;
+      const arr = byMonthDay.get(k) || [];
+      arr.push(it);
+      byMonthDay.set(k, arr);
+    }
+
+    for (const arr of byMonthDay.values()) {
+      arr.sort((a, b) => {
+        const dateCmp = String(a.txn.postedAt).localeCompare(String(b.txn.postedAt));
+        if (dateCmp) return dateCmp;
+        return String(a.dedupeHash).localeCompare(String(b.dedupeHash));
+      });
+      const day = arr[0]?.day || "??";
+      for (let i = 0; i < arr.length; i += 1) {
+        const it = arr[i];
+        if (!it) continue;
+        out.set(it.dedupeHash, `${baseKey}:d${day}:slot${i + 1}`);
+      }
+    }
+  }
+
+  return out;
+}
 
 function lastDayOfMonth(yyyyMm: string): string | null {
   const { year, monthIndex } = parseYyyyMm(yyyyMm);
@@ -189,13 +314,25 @@ export function computeRecurringCommitments(
   const startDate = `${earliest}-01`;
   const endDate = lastDayOfMonth(latest) || today;
 
-  const byVendorKey = new Map<
+  const seriesKeyIndex = buildRecurringSeriesKeyIndex(transactions);
+  const bySeriesKey = new Map<
     string,
-    { vendorKey: string; labelCounts: Map<string, number>; byMonth: Record<string, number> }
+    {
+      seriesKey: string;
+      vendorKey: string;
+      labelCounts: Map<string, number>;
+      categoryCounts: Map<string, number>;
+      byMonth: Record<string, number>;
+    }
   >();
 
   for (const txn of transactions) {
-    if (excludeInternalTransfers && txn.isInternalTransfer) continue;
+    if (excludeInternalTransfers) {
+      const categoryId = String(txn.categoryId || "OTHER");
+      // Exclude only true transfer categories; do not drop user-categorized Owner Draw/etc
+      // just because an upstream heuristic flagged the txn as an internal transfer.
+      if (categoryId === "TRANSFERS" || categoryId === "TRANSFER_INTERNAL") continue;
+    }
     const isRecurring = txn.isRecurring === true;
     if (!isRecurring) continue;
 
@@ -206,27 +343,42 @@ export function computeRecurringCommitments(
     if (!monthKeys.includes(key)) continue;
 
     const { vendorKey, vendorLabel } = getVendorKeyForTxn(txn);
+    const seriesKey = seriesKeyIndex.get(String(txn.dedupeHash)) || null;
+    if (!seriesKey) continue;
+
     const entry =
-      byVendorKey.get(vendorKey) ??
+      bySeriesKey.get(seriesKey) ??
       (() => {
-        const next = { vendorKey, labelCounts: new Map<string, number>(), byMonth: {} as Record<string, number> };
-        byVendorKey.set(vendorKey, next);
+        const next = {
+          seriesKey,
+          vendorKey,
+          labelCounts: new Map<string, number>(),
+          categoryCounts: new Map<string, number>(),
+          byMonth: {} as Record<string, number>,
+        };
+        bySeriesKey.set(seriesKey, next);
         return next;
       })();
 
     entry.byMonth[key] = Math.round(((entry.byMonth[key] || 0) + Math.abs(signed)) * 100) / 100;
     entry.labelCounts.set(vendorLabel, (entry.labelCounts.get(vendorLabel) || 0) + 1);
+    const categoryId = String(txn.categoryId || "OTHER");
+    entry.categoryCounts.set(categoryId, (entry.categoryCounts.get(categoryId) || 0) + 1);
   }
 
-  const allItems = [...byVendorKey.values()].map((entry) => {
-    const monthTotal = monthKeys.reduce((acc, m) => acc + (entry.byMonth[m] || 0), 0);
-    const amountMonthly = Math.round((monthTotal / Math.max(1, monthKeys.length)) * 100) / 100;
+  const allItems = [...bySeriesKey.values()].map((entry) => {
+    const amountMonthly = Math.round(medianNonZero(monthKeys.map((m) => entry.byMonth[m] || 0)) * 100) / 100;
     const label =
       [...entry.labelCounts.entries()]
         .sort((a, b) => b[1] - a[1])
         .map(([name]) => name)
         .find(Boolean) || "Unknown";
-    return { vendorKey: entry.vendorKey, label, amountMonthly };
+    const categoryId =
+      [...entry.categoryCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([id]) => id)
+        .find(Boolean) || "OTHER";
+    return { seriesKey: entry.seriesKey, vendorKey: entry.vendorKey, label, categoryId, amountMonthly };
   });
 
   const mandatoryMonthlyBurn = Math.round(allItems.reduce((acc, x) => acc + (x.amountMonthly || 0), 0) * 100) / 100;

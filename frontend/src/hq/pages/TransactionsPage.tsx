@@ -19,6 +19,7 @@ import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
+import { buildRecurringSeriesKeyIndex } from "@/hq/lib/hqMetrics";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
@@ -92,6 +93,7 @@ const TransactionsPage: React.FC = () => {
   const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
   const [paymentType, setPaymentType] = React.useState<"all" | HqPaymentType>("all");
   const [recurringOnly, setRecurringOnly] = React.useState(false);
+  const [seriesKey, setSeriesKey] = React.useState<string>("");
   const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
   const [dateRange, setDateRange] = React.useState<DateRangePreset>("all");
   const [startDate, setStartDate] = React.useState<string>("");
@@ -119,6 +121,7 @@ const TransactionsPage: React.FC = () => {
     const category = params.get("category");
     const dir = params.get("dir");
     const date = params.get("dateRange");
+    const nextSeriesKey = params.get("seriesKey");
     if (typeof q === "string" && q.length) setSearchTerm(q);
 
     const allowedPaymentTypes: Array<HqPaymentType> = [
@@ -136,6 +139,13 @@ const TransactionsPage: React.FC = () => {
 
     // Backward-compat for old links.
     setRecurringOnly(filter === "recurring");
+
+    if (typeof nextSeriesKey === "string" && nextSeriesKey.trim()) {
+      setSeriesKey(nextSeriesKey.trim());
+      setRecurringOnly(true);
+    } else {
+      setSeriesKey("");
+    }
 
     if (filter === "uncategorized") {
       setCategoryId("UNCATEGORIZED");
@@ -198,6 +208,10 @@ const TransactionsPage: React.FC = () => {
     return map;
   }, [accounts]);
 
+  const recurringSeriesKeyIndex = React.useMemo(() => {
+    return buildRecurringSeriesKeyIndex(transactions);
+  }, [transactions]);
+
   const filtered = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return transactions.filter((txn) => {
@@ -208,6 +222,11 @@ const TransactionsPage: React.FC = () => {
       if (direction === "out" && txn.amount >= 0) return false;
 
       if (recurringOnly && txn.isRecurring !== true) return false;
+
+      if (seriesKey) {
+        const key = recurringSeriesKeyIndex.get(String(txn.dedupeHash)) || null;
+        if (!key || key !== seriesKey) return false;
+      }
 
       const effectiveType = effectivePaymentType(txn);
       if (paymentType !== "all" && effectiveType !== paymentType) return false;
@@ -225,7 +244,7 @@ const TransactionsPage: React.FC = () => {
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [accountId, categoryId, direction, endDate, paymentType, recurringOnly, searchTerm, startDate, transactions]);
+  }, [accountId, categoryId, direction, endDate, paymentType, recurringOnly, recurringSeriesKeyIndex, searchTerm, seriesKey, startDate, transactions]);
 
   const actions = (
     <div className={styles.actions}>
