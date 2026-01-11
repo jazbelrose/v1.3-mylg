@@ -374,9 +374,6 @@
   
 }
 
-.midCardData {
-  --hq-card-min-h: 270px;
-}
 
 .midCardRecurring {
   --hq-card-content-overflow-y: hidden;
@@ -425,13 +422,14 @@
   line-height: 1.15;
   color: rgba(255, 255, 255, 0.85);
   box-sizing: border-box;
-  height: 30px;
+  height: 28px;
   padding: 0 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0;
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.06);
 }
 
 .topCategoriesRow:last-child {
-  border-bottom: 0;
+  box-shadow: none;
 }
 
 .topCategoriesName {
@@ -472,13 +470,14 @@
   line-height: 1.15;
   color: rgba(255, 255, 255, 0.85);
   box-sizing: border-box;
-  height: 30px;
+  height: 28px;
   padding: 0 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0;
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.06);
 }
 
 .recurringRow:last-child {
-  border-bottom: 0;
+  box-shadow: none;
 }
 
 .recurringRow > * {
