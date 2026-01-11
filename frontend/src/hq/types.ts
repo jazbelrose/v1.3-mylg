@@ -19,6 +19,7 @@ export type HqCategoryId =
 
   // Operating Expenses
   | "SOFTWARE_SAAS"
+  | "COMPUTER_HARDWARE"
   | "INSURANCE"
   | "RENT_LEASE"
   | "UTILITIES"

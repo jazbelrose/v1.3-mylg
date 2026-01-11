@@ -22,6 +22,7 @@ export const HQ_CATEGORIES: readonly HqCategoryDefinition[] = [
 
   // Operating Expenses
   { id: "SOFTWARE_SAAS", label: "Software / SaaS", tone: "out" },
+  { id: "COMPUTER_HARDWARE", label: "Computer Hardware", tone: "out" },
   { id: "INSURANCE", label: "Insurance", tone: "out" },
   { id: "RENT_LEASE", label: "Rent / Workspace", tone: "out" },
   { id: "RENT_STORAGE", label: "Rent / Storage", tone: "out" },
@@ -106,6 +107,7 @@ export const HQ_CATEGORY_GROUPS: readonly HqCategoryGroupDefinition[] = [
     label: "Operating Expenses",
     categoryIds: [
       "SOFTWARE_SAAS",
+      "COMPUTER_HARDWARE",
       "INSURANCE",
       "RENT_LEASE",
       "RENT_STORAGE",
