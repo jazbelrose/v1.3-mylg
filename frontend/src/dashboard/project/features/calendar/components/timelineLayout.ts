@@ -6,8 +6,12 @@ export const MINUTES_IN_HOUR = 60;
 
 export type TimelineAvatar = {
   key: string;
+  /** Stable identity for de-duping across entries (e.g., user:<userId> or label:<name>) */
+  entityId?: string;
   thumb?: string | null;
   name?: string;
+  /** Optional aggregate count (e.g., same user appears multiple times in a stack) */
+  count?: number;
 };
 
 type MemberLookup = {
@@ -28,8 +32,10 @@ const normalizeLabel = (value?: string): string | undefined => {
 
 const buildAvatar = (options: TimelineAvatar): TimelineAvatar => ({
   key: options.key,
+  entityId: options.entityId,
   thumb: options.thumb,
   name: options.name,
+  count: options.count,
 });
 
 export const buildTeamMemberLookup = (teamMembers: ProjectTeamMember[] = []): MemberLookup => {
@@ -63,6 +69,7 @@ const formatFallbackName = (value?: string): string | undefined => {
 const buildAvatarFromMember = (member: ProjectTeamMember, key: string): TimelineAvatar =>
   buildAvatar({
     key,
+    entityId: member.userId ? `user:${member.userId}` : undefined,
     thumb: member.thumbnail ?? undefined,
     name: `${getMemberDisplayName(member)}` || member.userId,
   });
@@ -70,6 +77,7 @@ const buildAvatarFromMember = (member: ProjectTeamMember, key: string): Timeline
 const buildAvatarFromLabel = (label: string, key: string): TimelineAvatar =>
   buildAvatar({
     key,
+    entityId: `label:${label.toLowerCase()}`,
     name: label,
   });
 

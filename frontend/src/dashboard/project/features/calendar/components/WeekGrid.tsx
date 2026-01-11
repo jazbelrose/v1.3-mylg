@@ -300,6 +300,8 @@ type OverlapStackPayload = {
   kind: "overlapStack";
   childEntryKeys: string[];
   childTaskIds: string[];
+  /** Count of unique users represented by the stack header avatars (used for +N). */
+  uniqueAvatarCount?: number;
 };
 
 type WeekTimelinePayload = CalendarEvent | CalendarTask | TaskStackPayload | OverlapStackPayload;
@@ -319,16 +321,27 @@ const buildAvatarStack = (
   avatarClassName: string,
   radius: number,
   keyPrefix: string,
+  showCounts = false,
 ) =>
   avatars.map((avatar) => (
-    <ProjectAvatar
+    <span
       key={`${keyPrefix}-${avatar.key}`}
-      className={avatarClassName}
-      thumb={avatar.thumb ?? undefined}
-      name={avatar.name}
-      shape="circle"
-      radius={radius}
-    />
+      className="week-grid__timeline-avatar-wrapper"
+      aria-hidden
+    >
+      <ProjectAvatar
+        className={avatarClassName}
+        thumb={avatar.thumb ?? undefined}
+        name={avatar.name}
+        shape="circle"
+        radius={radius}
+      />
+      {showCounts && typeof avatar.count === "number" && avatar.count > 1 ? (
+        <span className="week-grid__timeline-avatar-count" aria-hidden>
+          {avatar.count}
+        </span>
+      ) : null}
+    </span>
   ));
 
 const getWeekEntryPreview = (text: string): string => {
@@ -913,7 +926,7 @@ function WeekGrid({
           return a.endMinutes - b.endMinutes;
         });
 
-      const groups: Array<{ keys: string[]; start: number; end: number; avatars: TimelineAvatar[] }> = [];
+      const groups: Array<{ keys: string[]; start: number; end: number; avatars: TimelineAvatar[]; uniqueAvatarCount: number }> = [];
       let active: WeekTimelineEntry[] = [];
       let current: WeekTimelineEntry[] = [];
 
@@ -925,17 +938,30 @@ function WeekGrid({
         const keys = current.map((e) => `${e.type}:${e.id}`);
         const start = Math.min(...current.map((e) => e.startMinutes));
         const end = Math.max(...current.map((e) => e.endMinutes));
-        const seen = new Set<string>();
-        const avatars: TimelineAvatar[] = [];
-        current.forEach((e) => {
-          e.avatars.forEach((a) => {
-            if (avatars.length >= 3) return;
-            if (seen.has(a.key)) return;
-            seen.add(a.key);
-            avatars.push(a);
+
+        // Dedupe avatars by stable identity (user id), not by per-task avatar.key.
+        // Also track per-user occurrence counts to optionally show (e.g., "2").
+        const byEntity = new Map<string, { avatar: TimelineAvatar; count: number }>();
+        current.forEach((entry) => {
+          entry.avatars.forEach((avatar) => {
+            const entityId = avatar.entityId ?? avatar.key;
+            const existing = byEntity.get(entityId);
+            if (existing) {
+              existing.count += 1;
+              return;
+            }
+            byEntity.set(entityId, { avatar, count: 1 });
           });
         });
-        groups.push({ keys, start, end, avatars });
+
+        const uniqueAvatarCount = byEntity.size;
+        const deduped = Array.from(byEntity.values()).map(({ avatar, count }) => ({
+          ...avatar,
+          count,
+        }));
+        const avatars = deduped.slice(0, 3);
+
+        groups.push({ keys, start, end, avatars, uniqueAvatarCount });
         current = [];
       };
 
@@ -1068,6 +1094,7 @@ function WeekGrid({
                 return (lookup.entry.payload as CalendarTask).id;
               })
               .filter((id): id is string => Boolean(id)),
+            uniqueAvatarCount: group.uniqueAvatarCount,
           },
           title,
           timeLabel: `${rangeLabel} · ${group.keys.length} items`,
@@ -3030,10 +3057,13 @@ function WeekGrid({
         );
       }
 
-      const extra = Math.max(count - entry.avatars.length, 0);
+      const uniqueAvatarCount = typeof payload.uniqueAvatarCount === "number"
+        ? payload.uniqueAvatarCount
+        : entry.avatars.length;
+      const extra = Math.max(uniqueAvatarCount - entry.avatars.length, 0);
       const headerChip = entry.avatars.length ? (
         <div className="week-grid__tile-chip-avatars" aria-hidden="true">
-          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "overlap")}
+          {buildAvatarStack(entry.avatars, "week-grid__timeline-avatar", 10, "overlap", true)}
           {extra > 0 && (
             <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>
           )}
