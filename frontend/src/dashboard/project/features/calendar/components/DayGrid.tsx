@@ -766,6 +766,7 @@ function DayGrid({
   // Close popover handler
   const handleClosePopover = useCallback(() => {
     setPopover(null);
+    setContextMenu(null);
   }, []);
 
   const handleOpenContextMenuFromFocusChild = useCallback(
@@ -822,6 +823,7 @@ function DayGrid({
       if (isDoubleClick) {
         // Double click → open edit modal
         setPopover(null);
+        setContextMenu(null);
         if (entry.type === "event") {
           onEditEvent(entry.payload as CalendarEvent);
         } else {
@@ -829,6 +831,7 @@ function DayGrid({
         }
       } else {
         // Single click → show popover
+        setContextMenu(null);
         const focusChildren = (() => {
           if (entry.type !== "task") return undefined;
           const task = entry.payload as CalendarTask;

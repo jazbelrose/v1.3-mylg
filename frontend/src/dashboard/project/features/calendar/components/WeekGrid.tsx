@@ -459,6 +459,14 @@ function WeekGrid({
     entry: CalendarTask | CalendarEvent;
     allowConvertToFocusBlock: boolean;
     focusBlockChildren?: CalendarTask[];
+    /** When set, use this list instead of current selection for bulk actions (e.g., stack tiles). */
+    selectedEntriesOverride?: ContextMenuEntry[];
+    /** When set, enable multi-assign for these tasks even if they are focus blocks (e.g., stack tiles). */
+    multiAssignTasksOverride?: CalendarTask[];
+    /** Distinguish stack (container) menus from normal entry menus. */
+    kind?: "entry" | "stack";
+    /** For stack menus: clicking Edit opens the stack popover (details). */
+    stackContext?: { entry: WeekTimelineEntry; anchorElement: HTMLElement };
   } | null>(null);
 
   // Child action menu (opened from inside a parent popover)
@@ -1731,6 +1739,60 @@ function WeekGrid({
       entry: WeekTimelineEntry,
     ) => {
       if (entry.type === "taskStack" || entry.type === "overlapStack") {
+        event.preventDefault();
+        event.stopPropagation();
+        setPopover(null);
+        setStackPopover(null);
+        setChildMenu(null);
+
+        const payload = entry.payload as TaskStackPayload | OverlapStackPayload;
+
+        // Ensure stack tiles behave like normal entries for selection styling.
+        const additive = Boolean(event.shiftKey || event.ctrlKey || event.metaKey);
+        const nextSelection = additive
+          ? new Set<string>([...selectedEntryKeys, ...payload.childEntryKeys])
+          : new Set<string>(payload.childEntryKeys);
+
+        if (onReplaceSelection) {
+          onReplaceSelection(nextSelection);
+        } else {
+          // Fallback (older callers): clear then add keys back via onEntrySelect.
+          onClearSelection?.();
+          nextSelection.forEach((key) => {
+            const [type, id] = key.split(":");
+            if (type !== "event" && type !== "task") return;
+            onEntrySelect?.(type as CalendarEntryType, id, true);
+          });
+        }
+
+        const resolvedEntries: ContextMenuEntry[] = [];
+        const assignableTasks: CalendarTask[] = [];
+
+        payload.childEntryKeys.forEach((key) => {
+          const lookup = entryLookup.get(key);
+          if (!lookup) return;
+          resolvedEntries.push({
+            entryType: lookup.entry.type === "event" ? "event" : "task",
+            entry: lookup.entry.payload as CalendarTask | CalendarEvent,
+          });
+          if (lookup.entry.type === "task") {
+            assignableTasks.push(lookup.entry.payload as CalendarTask);
+          }
+        });
+
+        const primary = resolvedEntries[0];
+        if (!primary) return;
+
+        setContextMenu({
+          position: { x: event.clientX, y: event.clientY },
+          entryType: primary.entryType,
+          entry: primary.entry,
+          allowConvertToFocusBlock: false,
+          selectedEntriesOverride: resolvedEntries,
+          multiAssignTasksOverride: assignableTasks,
+          kind: "stack",
+          stackContext: { entry, anchorElement: event.currentTarget },
+        });
         return;
       }
       event.preventDefault();
@@ -1780,9 +1842,18 @@ function WeekGrid({
         entry: entry.payload as CalendarTask | CalendarEvent,
         allowConvertToFocusBlock: eligibleSelectedTasksCount >= 2,
         focusBlockChildren,
+        kind: "entry",
       });
     },
-    [calendarTaskById, entryLookup, focusChildrenByFocusId, selectedEntryKeys],
+    [
+      calendarTaskById,
+      entryLookup,
+      focusChildrenByFocusId,
+      onClearSelection,
+      onEntrySelect,
+      onReplaceSelection,
+      selectedEntryKeys,
+    ],
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -1792,12 +1863,64 @@ function WeekGrid({
   const handleClosePopover = useCallback(() => {
     setChildMenu(null);
     setPopover(null);
+    setContextMenu(null);
   }, []);
 
   const handleCloseStackPopover = useCallback(() => {
     setChildMenu(null);
     setStackPopover(null);
+    setContextMenu(null);
   }, []);
+
+  const openStackPopoverFromEntry = useCallback(
+    (entry: WeekTimelineEntry, anchorElement: HTMLElement) => {
+      if (entry.type !== "taskStack" && entry.type !== "overlapStack") return;
+      const payload = entry.payload as TaskStackPayload | OverlapStackPayload;
+
+      const isFocusBlockTaskLocal = (task: CalendarTask) =>
+        task.kind === "focus_block" ||
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0);
+
+      const focusBlockChildTitle = payload.childEntryKeys
+        .map((key) => entryLookup.get(key)?.entry)
+        .find((childEntry) => {
+          if (!childEntry) return false;
+          if (childEntry.type !== "task") return false;
+          return isFocusBlockTaskLocal(childEntry.payload as CalendarTask);
+        })?.title;
+
+      const firstChildTitle = payload.childEntryKeys
+        .map((key) => entryLookup.get(key)?.entry)
+        .filter((child): child is WeekTimelineEntry => Boolean(child))
+        .sort((a, b) => a.startMinutes - b.startMinutes || a.title.localeCompare(b.title))[0]?.title;
+
+      const overlapTitleKey =
+        entry.type === "overlapStack" ? buildOverlapTitleKey(payload.childEntryKeys) : undefined;
+
+      const defaultOverlapTitle = firstChildTitle ?? entry.title;
+      const baseTitle =
+        entry.type === "overlapStack"
+          ? overlapStackTitleOverrides[overlapTitleKey ?? ""] ?? defaultOverlapTitle
+          : `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
+
+      setPopover(null);
+      setContextMenu(null);
+      setChildMenu(null);
+
+      setStackPopover({
+        anchorElement,
+        kind: entry.type,
+        parentId: buildStackParentId(entry.type, payload.childEntryKeys, overlapTitleKey),
+        baseTitle,
+        titleKey: overlapTitleKey,
+        count: payload.childEntryKeys.length,
+        childEntryKeys: payload.childEntryKeys,
+        avatars: entry.avatars,
+      });
+    },
+    [buildOverlapTitleKey, entryLookup, overlapStackTitleOverrides],
+  );
 
   const handleOpenDetailsFromStackPopover = useCallback(
     (child: StackPopoverChild, anchor: HTMLElement) => {
@@ -2155,46 +2278,7 @@ function WeekGrid({
           });
         }
 
-        const isFocusBlockTask = (task: CalendarTask) =>
-          task.kind === "focus_block" ||
-          (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
-          (task.focusChecklist && task.focusChecklist.length > 0);
-
-        const focusBlockChildTitle = payload.childEntryKeys
-          .map((key) => entryLookup.get(key)?.entry)
-          .find((childEntry) => {
-            if (!childEntry) return false;
-            if (childEntry.type !== "task") return false;
-            return isFocusBlockTask(childEntry.payload as CalendarTask);
-          })?.title;
-
-        const firstChildTitle = payload.childEntryKeys
-          .map((key) => entryLookup.get(key)?.entry)
-          .filter((child): child is WeekTimelineEntry => Boolean(child))
-          .sort((a, b) => a.startMinutes - b.startMinutes || a.title.localeCompare(b.title))[0]?.title;
-
-        const overlapTitleKey =
-          entry.type === "overlapStack" ? buildOverlapTitleKey(payload.childEntryKeys) : undefined;
-
-        const defaultOverlapTitle = firstChildTitle ?? entry.title;
-        const baseTitle =
-          entry.type === "overlapStack"
-            ? overlapStackTitleOverrides[overlapTitleKey ?? ""] ?? defaultOverlapTitle
-            : `${focusBlockChildTitle ?? firstChildTitle ?? entry.title}`;
-        const count = payload.childEntryKeys.length;
-        setPopover(null);
-        setContextMenu(null);
-        setChildMenu(null);
-        setStackPopover({
-          anchorElement: event.currentTarget,
-          kind: entry.type,
-          parentId: buildStackParentId(entry.type, payload.childEntryKeys, overlapTitleKey),
-          baseTitle,
-          titleKey: overlapTitleKey,
-          count,
-          childEntryKeys: payload.childEntryKeys,
-          avatars: entry.avatars,
-        });
+        openStackPopoverFromEntry(entry, event.currentTarget);
         return;
       }
 
@@ -2211,6 +2295,7 @@ function WeekGrid({
         setPopover(null);
         setStackPopover(null);
         setChildMenu(null);
+        setContextMenu(null);
         if (entry.type === "event") {
           onEditEvent(entry.payload as CalendarEvent);
         } else {
@@ -2220,6 +2305,7 @@ function WeekGrid({
         // Single click → show popover
         setStackPopover(null);
         setChildMenu(null);
+        setContextMenu(null);
         const focusChildren = (() => {
           if (entry.type !== "task") return undefined;
           const task = entry.payload as CalendarTask;
@@ -2250,16 +2336,14 @@ function WeekGrid({
       }
     },
     [
-      buildOverlapTitleKey,
       calendarTaskById,
-      entryLookup,
       focusChildrenByFocusId,
+      openStackPopoverFromEntry,
       onClearSelection,
       onEditEvent,
       onEditTask,
       onEntrySelect,
       onReplaceSelection,
-      overlapStackTitleOverrides,
       selectedEntryKeys,
     ],
   );
@@ -2273,6 +2357,7 @@ function WeekGrid({
       if (entry.type === "taskStack" || entry.type === "overlapStack") {
         if (keyboardEvent.key === "Escape") {
           setStackPopover(null);
+          setContextMenu(null);
           onClearSelection?.();
         }
         return;
@@ -2290,6 +2375,7 @@ function WeekGrid({
         setPopover(null);
         setStackPopover(null);
         setChildMenu(null);
+        setContextMenu(null);
         onClearSelection?.();
       } else if (keyboardEvent.key === "Delete" || keyboardEvent.key === "Backspace") {
         // Delete key → delete selected entries (works with or without popover)
@@ -3867,11 +3953,20 @@ function WeekGrid({
           position={contextMenu.position}
           entryType={contextMenu.entryType}
           entry={contextMenu.entry}
-          selectedEntries={getSelectedContextMenuEntries()}
+          selectedEntries={contextMenu.selectedEntriesOverride ?? getSelectedContextMenuEntries()}
+          showEditInMultiSelect={contextMenu.kind === "stack"}
           teamMembers={teamMembers}
           focusBlockChildren={contextMenu.focusBlockChildren}
           onClose={handleCloseContextMenu}
           onEdit={(e) => {
+            if (contextMenu.kind === "stack" && contextMenu.stackContext) {
+              openStackPopoverFromEntry(
+                contextMenu.stackContext.entry,
+                contextMenu.stackContext.anchorElement,
+              );
+              handleCloseContextMenu();
+              return;
+            }
             if (contextMenu.entryType === "event") {
               onEditEvent(e as CalendarEvent);
             } else {
@@ -3881,15 +3976,24 @@ function WeekGrid({
           }}
           onSubmitForReview={onSubmitForReview}
           onMarkAsDone={onMarkAsDone}
+          markAsDoneLabelOverride={contextMenu.kind === "stack" ? "Mark all tasks as done" : undefined}
           onConvertToFocusBlock={
-            contextMenu.allowConvertToFocusBlock ? onConvertToFocusBlock : undefined
+            contextMenu.kind === "stack" || !contextMenu.allowConvertToFocusBlock
+              ? undefined
+              : onConvertToFocusBlock
           }
-          onUngroupFocusBlock={onUngroupFocusBlock}
+          onUngroupFocusBlock={contextMenu.kind === "stack" ? undefined : onUngroupFocusBlock}
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
           onBulkAssignChildren={onBulkAssignChildren}
           onAssignTimeBlock={onAssignTimeBlock}
           onAssignTimeBlocks={onAssignTimeBlocks}
+          multiAssignTasksOverride={contextMenu.kind === "stack" ? contextMenu.multiAssignTasksOverride : undefined}
+          multiAssignLabelOverride={
+            contextMenu.kind === "stack"
+              ? `Assign all children to... (${(contextMenu.multiAssignTasksOverride ?? []).length})`
+              : undefined
+          }
         />
       )}
     </div>

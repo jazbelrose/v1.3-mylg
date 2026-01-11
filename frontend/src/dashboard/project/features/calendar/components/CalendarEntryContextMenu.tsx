@@ -31,6 +31,11 @@ export interface CalendarEntryContextMenuProps {
   /** All selected entries for bulk actions */
   selectedEntries?: ContextMenuEntry[];
   /**
+   * Show Edit even when multiple entries are in scope.
+   * Useful for container menus (e.g., stack tiles) where Edit means "open details".
+   */
+  showEditInMultiSelect?: boolean;
+  /**
    * Render inline instead of portaling to document.body.
    * Useful for child menus that should be treated as "inside" a parent popover.
    */
@@ -57,6 +62,18 @@ export interface CalendarEntryContextMenuProps {
   onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
   /** Assign selected time blocks (multi-select) to a user */
   onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
+
+  /**
+   * Override which tasks are used for the multi-assign submenu.
+   * Defaults to selected time blocks (non-focus-block tasks).
+   */
+  multiAssignTasksOverride?: CalendarTask[];
+
+  /** Override the multi-assign submenu label. */
+  multiAssignLabelOverride?: string;
+
+  /** Override the mark-as-done label for the general task action. */
+  markAsDoneLabelOverride?: string;
 }
 
 export type ChildMenuState =
@@ -75,6 +92,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   entryType,
   entry,
   selectedEntries = [],
+  showEditInMultiSelect = false,
   portal = true,
   dismissOnOutsideClick = true,
   dismissOnEscape = true,
@@ -91,6 +109,9 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   onBulkAssignChildren,
   onAssignTimeBlock,
   onAssignTimeBlocks,
+  multiAssignTasksOverride,
+  multiAssignLabelOverride,
+  markAsDoneLabelOverride,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [showAssignSubmenu, setShowAssignSubmenu] = useState(false);
@@ -348,11 +369,12 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     (userId: string | null) => {
       if (!onAssignTimeBlocks) return;
       if (!isMultiSelect) return;
-      if (selectedTimeBlocks.length === 0) return;
-      onAssignTimeBlocks(selectedTimeBlocks, userId);
+      const tasks = Array.isArray(multiAssignTasksOverride) ? multiAssignTasksOverride : selectedTimeBlocks;
+      if (tasks.length === 0) return;
+      onAssignTimeBlocks(tasks, userId);
       onClose();
     },
-    [isMultiSelect, onAssignTimeBlocks, onClose, selectedTimeBlocks],
+    [isMultiSelect, multiAssignTasksOverride, onAssignTimeBlocks, onClose, selectedTimeBlocks],
   );
 
   const showBulkAssign =
@@ -371,9 +393,14 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     Boolean(teamMembers) &&
     (teamMembers?.length ?? 0) > 0;
 
+  const resolvedMultiAssignTasks =
+    isMultiSelect && Array.isArray(multiAssignTasksOverride)
+      ? multiAssignTasksOverride
+      : selectedTimeBlocks;
+
   const showMultiTimeBlockAssign =
     isMultiSelect &&
-    selectedTimeBlocks.length > 0 &&
+    resolvedMultiAssignTasks.length > 0 &&
     Boolean(onAssignTimeBlocks) &&
     Boolean(teamMembers) &&
     (teamMembers?.length ?? 0) > 0;
@@ -395,7 +422,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       aria-label="Entry actions"
     >
       {/* Edit - only for single selection */}
-      {!isMultiSelect && onEdit && (
+      {(!isMultiSelect || showEditInMultiSelect) && onEdit && (
         <button
           type="button"
           className="calendar-entry-context-menu__item"
@@ -447,7 +474,10 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
           role="menuitem"
         >
           <CheckCircle className="calendar-entry-context-menu__icon" />
-          <span>Mark as Done{isMultiSelect && tasksForDone.length > 0 ? ` (${tasksForDone.length})` : ""}</span>
+          <span>
+            {markAsDoneLabelOverride ?? "Mark as Done"}
+            {isMultiSelect && tasksForDone.length > 0 ? ` (${tasksForDone.length})` : ""}
+          </span>
         </button>
       )}
 
@@ -616,7 +646,9 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
             aria-expanded={showAssignSubmenu}
           >
             <Users className="calendar-entry-context-menu__icon" />
-            <span>Assign to... ({selectedTimeBlocks.length})</span>
+            <span>
+              {multiAssignLabelOverride ?? `Assign to... (${resolvedMultiAssignTasks.length})`}
+            </span>
             <ChevronRight className="calendar-entry-context-menu__chevron" />
           </button>
 
@@ -652,7 +684,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
                 role="menuitem"
               >
                 <UserX className="calendar-entry-context-menu__icon" />
-                <span>Unassign ({selectedTimeBlocks.length})</span>
+                <span>Unassign ({resolvedMultiAssignTasks.length})</span>
               </button>
             </div>
           )}
