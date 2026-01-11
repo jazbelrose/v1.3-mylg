@@ -199,10 +199,10 @@ function medianNonZero(values: number[]): number {
 export function buildRecurringSeriesKeyIndex(transactions: HqTransaction[]): Map<string, string> {
   const out = new Map<string, string>();
 
-  type Candidate = { txn: HqTransaction; dedupeHash: string; baseKey: string; month: string; day: string };
-  const candidatesByBaseKey = new Map<string, Candidate[]>();
-  const ambiguousBaseKeys = new Set<string>();
-  const countsByBaseMonthDay = new Map<string, number>();
+  type Candidate = { txn: HqTransaction; dedupeHash: string; derivedKey: string; date: string };
+  const candidatesByDerivedKey = new Map<string, Candidate[]>();
+  const ambiguousDerivedKeys = new Set<string>();
+  const countsByDerivedDate = new Map<string, number>();
 
   for (const txn of transactions) {
     const dh = String(txn.dedupeHash || "").trim();
@@ -223,29 +223,22 @@ export function buildRecurringSeriesKeyIndex(transactions: HqTransaction[]): Map
     const baseKey = `${vendorKey}:${accountId}:${direction}:${amountBucket}`;
 
     const discriminator = extractRecurringSeriesDiscriminator(txn);
-    if (discriminator) {
-      out.set(dh, `${baseKey}:${discriminator}`);
-      continue;
-    }
-
-    const month = monthKey(String(txn.postedAt || ""));
-    const day = String(txn.postedAt || "").slice(8, 10) || "??";
-    const candidate: Candidate = { txn, dedupeHash: dh, baseKey, month, day };
-    const arr = candidatesByBaseKey.get(baseKey) || [];
+    const derivedKey = discriminator ? `${baseKey}:${discriminator}` : baseKey;
+    const date = String(txn.postedAt || "").slice(0, 10);
+    const candidate: Candidate = { txn, dedupeHash: dh, derivedKey, date };
+    const arr = candidatesByDerivedKey.get(derivedKey) || [];
     arr.push(candidate);
-    candidatesByBaseKey.set(baseKey, arr);
+    candidatesByDerivedKey.set(derivedKey, arr);
 
-    // Only treat a baseKey as ambiguous if we see multiple same-day occurrences
-    // within the SAME MONTH. This is what we use to split truly identical-looking
-    // duplicate series (e.g. two Owner Draws on the same posted date), without
-    // mistakenly splitting a normal monthly series across months.
-    const countKey = `${baseKey}|||${month}|||${day}`;
-    const nextCount = (countsByBaseMonthDay.get(countKey) || 0) + 1;
-    countsByBaseMonthDay.set(countKey, nextCount);
-    if (nextCount > 1) ambiguousBaseKeys.add(baseKey);
+    // Mark ambiguous only if we see multiple occurrences on the SAME posted date
+    // for the same derived key (which may include discriminator).
+    const countKey = `${derivedKey}|||${date}`;
+    const nextCount = (countsByDerivedDate.get(countKey) || 0) + 1;
+    countsByDerivedDate.set(countKey, nextCount);
+    if (nextCount > 1) ambiguousDerivedKeys.add(derivedKey);
   }
 
-  for (const [baseKey, items] of candidatesByBaseKey.entries()) {
+  for (const [derivedKey, items] of candidatesByDerivedKey.entries()) {
     // Stable ordering so slot assignment is deterministic.
     items.sort((a, b) => {
       const dateCmp = String(a.txn.postedAt).localeCompare(String(b.txn.postedAt));
@@ -253,33 +246,31 @@ export function buildRecurringSeriesKeyIndex(transactions: HqTransaction[]): Map
       return String(a.dedupeHash).localeCompare(String(b.dedupeHash));
     });
 
-    // Most of the time, treat (vendorKey + account + direction + amount) as a single series.
-    // This stays stable across months even if the day shifts.
-    if (!ambiguousBaseKeys.has(baseKey)) {
-      for (const it of items) out.set(it.dedupeHash, baseKey);
+    if (!ambiguousDerivedKeys.has(derivedKey)) {
+      for (const it of items) out.set(it.dedupeHash, derivedKey);
       continue;
     }
 
-    // Ambiguous: split only within a month+day bucket (same-day duplicates).
-    const byMonthDay = new Map<string, Candidate[]>();
+    const byDate = new Map<string, Candidate[]>();
     for (const it of items) {
-      const k = `${it.month}|||${it.day}`;
-      const arr = byMonthDay.get(k) || [];
+      const arr = byDate.get(it.date) || [];
       arr.push(it);
-      byMonthDay.set(k, arr);
+      byDate.set(it.date, arr);
     }
 
-    for (const arr of byMonthDay.values()) {
+    for (const arr of byDate.values()) {
       arr.sort((a, b) => {
         const dateCmp = String(a.txn.postedAt).localeCompare(String(b.txn.postedAt));
         if (dateCmp) return dateCmp;
         return String(a.dedupeHash).localeCompare(String(b.dedupeHash));
       });
-      const day = arr[0]?.day || "??";
+
+      // Slot within the same posted date. Do not include the date in the key so
+      // series identity stays stable across months.
       for (let i = 0; i < arr.length; i += 1) {
         const it = arr[i];
         if (!it) continue;
-        out.set(it.dedupeHash, `${baseKey}:d${day}:slot${i + 1}`);
+        out.set(it.dedupeHash, `${derivedKey}:slot${i + 1}`);
       }
     }
   }

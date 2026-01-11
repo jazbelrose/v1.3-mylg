@@ -161,4 +161,32 @@ describe("computeRecurringCommitments", () => {
     expect(res.items.length).toBe(2);
     expect(res.items.map((x) => x.amountMonthly).sort()).toEqual([2000, 2000]);
   });
+
+  it("splits same-day duplicates even when a discriminator exists (e.g. same cardLast4)", async () => {
+    const { computeRecurringCommitments } = await import("./hqMetrics");
+
+    const base = {
+      rawDescription: "Owner Draw",
+      normalizedDescription: "Owner Draw",
+      vendor: "Owner Draw",
+      isRecurring: true,
+      categoryId: "OWNER_DRAW",
+      isInternalTransfer: true,
+      cardLast4: "2299",
+    } as const;
+
+    const transactions: HqTransaction[] = [
+      txn({ postedAt: "2025-10-12", amount: -2000, dedupeHash: "oct-a", ...base }),
+      txn({ postedAt: "2025-10-12", amount: -2000, dedupeHash: "oct-b", ...base }),
+      txn({ postedAt: "2025-11-12", amount: -2000, dedupeHash: "nov-a", ...base }),
+      txn({ postedAt: "2025-11-12", amount: -2000, dedupeHash: "nov-b", ...base }),
+      txn({ postedAt: "2025-12-12", amount: -2000, dedupeHash: "dec-a", ...base }),
+      txn({ postedAt: "2025-12-12", amount: -2000, dedupeHash: "dec-b", ...base }),
+    ];
+
+    const res = computeRecurringCommitments(transactions, 3, { excludeInternalTransfers: true, limit: 8 });
+    expect(res.items.length).toBe(2);
+    expect(res.items.map((x) => x.amountMonthly).sort()).toEqual([2000, 2000]);
+    expect(res.mandatoryMonthlyBurn).toBe(4000);
+  });
 });

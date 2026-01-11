@@ -773,10 +773,13 @@ const getRecurringCommitments = async (e, C) => {
       const amt = Math.abs(signed);
       const { vendorLabel, vendorKey } = getVendorKeyForTxn(t);
       let seriesKey = recurringCommitmentSeriesKeyForTxn(t, { vendorKey, signed });
-      if (!String(t?.recurringSeriesId || "").trim() && !extractRecurringSeriesDiscriminator(t)) {
-        const monthDaySlotKey = `${month}|${seriesKey}`;
-        slotCountsByDayKey[monthDaySlotKey] = (slotCountsByDayKey[monthDaySlotKey] || 0) + 1;
-        const slot = slotCountsByDayKey[monthDaySlotKey];
+      // Split same-day duplicates into distinct slot series even if a discriminator exists.
+      // This prevents two identical-looking recurring streams (e.g. 2 × $2,000 Owner Draw on the 12th)
+      // from collapsing into one row.
+      if (!String(t?.recurringSeriesId || "").trim()) {
+        const daySlotKey = `${postedAt}|${seriesKey}`;
+        slotCountsByDayKey[daySlotKey] = (slotCountsByDayKey[daySlotKey] || 0) + 1;
+        const slot = slotCountsByDayKey[daySlotKey];
         seriesKey = `${seriesKey}:slot${slot}`;
       }
       if (!bySeriesKey[seriesKey]) {
