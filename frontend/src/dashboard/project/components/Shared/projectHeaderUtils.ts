@@ -7,6 +7,18 @@ import { fileUrlsToKeys } from "@/shared/utils/api";
 import type { Project } from "@/app/contexts/DataProvider";
 import type { ProjectHeaderProps } from "./projectHeaderTypes";
 
+export function roundToNearestHalf(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  const rounded = Math.round(value * 2) / 2;
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+export function formatHoursHuman(value: unknown): string {
+  const asNumber = typeof value === "number" ? value : Number(value);
+  const rounded = roundToNearestHalf(asNumber);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 export function toString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -125,7 +137,10 @@ export function useRangeLabels(project: Project, taskHours = 0) {
     [project?.timelineEvents, taskHours]
   );
 
-  const hoursLabel = useMemo(() => `${totalHours} hrs`, [totalHours]);
+  const hoursLabel = useMemo(
+    () => `${formatHoursHuman(totalHours)} hrs`,
+    [totalHours]
+  );
 
   const dateRangeLabel = useMemo(() => {
     if (!startDate || !endDate) return null;
