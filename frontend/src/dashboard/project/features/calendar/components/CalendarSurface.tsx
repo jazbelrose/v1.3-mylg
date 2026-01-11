@@ -2354,6 +2354,20 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                     onEditEvent={handleOpenEditEvent}
                     onEditTask={handleOpenEditTask}
                     onOpenTasksOverview={handleOpenTasksOverview}
+                    selectedEntryKeys={selectedEntries}
+                    onEntrySelect={handleEntrySelect}
+                    onReplaceSelection={handleReplaceSelection}
+                    onClearSelection={handleClearSelection}
+                    teamMembers={teamMembers}
+                    onSubmitForReview={handleSubmitForReview}
+                    onMarkAsDone={handleMarkAsDone}
+                    onConvertToFocusBlock={handleConvertToFocusBlock}
+                    onUngroupFocusBlock={handleUngroupFocusBlock}
+                    onDuplicateEntries={handleDuplicateEntries}
+                    onDeleteEntries={handleDeleteEntries}
+                    onBulkAssignChildren={handleBulkAssignChildren}
+                    onAssignTimeBlock={handleAssignTimeBlock}
+                    onAssignTimeBlocks={handleAssignTimeBlocks}
                   />
                 )}
               </div>

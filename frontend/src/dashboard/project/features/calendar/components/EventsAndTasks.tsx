@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, CheckSquare, ChevronDown, Clock, Pencil } from "lucide-react";
 
 import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.module.css";
@@ -28,6 +28,10 @@ import {
 } from "./events-and-tasks-filters";
 import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 
+import { CalendarEntryContextMenu, type ContextMenuEntry, type ContextMenuPosition } from "./CalendarEntryContextMenu";
+import type { CalendarEntryType } from "./calendarInteractions";
+import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
+
 function formatInitials(value?: string): string | undefined {
   if (!value) return undefined;
 
@@ -54,6 +58,22 @@ export type EventsAndTasksProps = {
   onEditEvent: (event: CalendarEvent) => void;
   onEditTask: (task: CalendarTask) => void;
   onOpenTasksOverview: () => void;
+  /** Shared selection from the calendar surface (keys like "task:<id>" / "event:<id>") */
+  selectedEntryKeys?: Set<string>;
+  onEntrySelect?: (type: CalendarEntryType, id: string, additive: boolean) => void;
+  onReplaceSelection?: (next: Set<string>) => void;
+  onClearSelection?: () => void;
+  /** Context menu actions (wired to CalendarSurface handlers) */
+  teamMembers?: ProjectTeamMember[];
+  onSubmitForReview?: (entries: CalendarTask[]) => void;
+  onMarkAsDone?: (entries: CalendarTask[]) => void;
+  onConvertToFocusBlock?: (entries: CalendarTask[]) => void;
+  onUngroupFocusBlock?: (focusBlock: CalendarTask) => void;
+  onDuplicateEntries?: (entries: ContextMenuEntry[]) => void;
+  onDeleteEntries?: (entries: ContextMenuEntry[]) => void;
+  onBulkAssignChildren?: (focusBlock: CalendarTask, userId: string | null, children: CalendarTask[]) => void;
+  onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
+  onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
   hideMapPill?: boolean;
   eventFilter?: EventFilter;
   taskFilter?: TaskFilter;
@@ -69,6 +89,20 @@ function EventsAndTasks({
   onEditEvent,
   onEditTask,
   onOpenTasksOverview,
+  selectedEntryKeys,
+  onEntrySelect,
+  onReplaceSelection,
+  onClearSelection,
+  teamMembers,
+  onSubmitForReview,
+  onMarkAsDone,
+  onConvertToFocusBlock,
+  onUngroupFocusBlock,
+  onDuplicateEntries,
+  onDeleteEntries,
+  onBulkAssignChildren,
+  onAssignTimeBlock,
+  onAssignTimeBlocks,
   hideMapPill = false,
   eventFilter: eventFilterProp,
   taskFilter: taskFilterProp,
@@ -189,8 +223,165 @@ function EventsAndTasks({
 
   const [activeTaskPopoverId, setActiveTaskPopoverId] = useState<string | null>(null);
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selectionKeys = selectedEntryKeys ?? new Set<string>();
+  const isSelectionEnabled = Boolean(selectedEntryKeys && onEntrySelect && onReplaceSelection);
+  const buildSelectionKey = useCallback((type: CalendarEntryType, id: string) => `${type}:${id}`, []);
+
+  const [contextMenuState, setContextMenuState] = useState<{
+    position: ContextMenuPosition;
+    entryType: CalendarEntryType;
+    entry: CalendarTask | CalendarEvent;
+  } | null>(null);
+
+  const resolveSelectedEntries = useCallback(
+    (keys: Set<string>): ContextMenuEntry[] => {
+      if (!keys.size) return [];
+      const byEventId = new Map(filteredEvents.map((e) => [e.id, e]));
+      const byTaskId = new Map(filteredTasks.map(({ task }) => [task.id, task]));
+
+      const resolved: ContextMenuEntry[] = [];
+      keys.forEach((key) => {
+        const [type, id] = key.split(":");
+        if (type === "event") {
+          const ev = byEventId.get(id);
+          if (ev) resolved.push({ entryType: "event", entry: ev });
+        }
+        if (type === "task") {
+          const t = byTaskId.get(id);
+          if (t) resolved.push({ entryType: "task", entry: t });
+        }
+      });
+      return resolved;
+    },
+    [filteredEvents, filteredTasks],
+  );
+
+  const selectedEntries = useMemo(() => resolveSelectedEntries(selectionKeys), [resolveSelectedEntries, selectionKeys]);
+
+  const [eventAnchorId, setEventAnchorId] = useState<string | null>(null);
+  const [taskAnchorId, setTaskAnchorId] = useState<string | null>(null);
+
+  const replaceSelection = useCallback(
+    (next: Set<string>) => {
+      if (onReplaceSelection) {
+        onReplaceSelection(next);
+      }
+    },
+    [onReplaceSelection],
+  );
+
+  const handleSelectRange = useCallback(
+    (type: CalendarEntryType, idsInOrder: string[], anchorId: string | null, clickedId: string, additive: boolean) => {
+      const anchorIndex = anchorId ? idsInOrder.indexOf(anchorId) : -1;
+      const clickedIndex = idsInOrder.indexOf(clickedId);
+      if (clickedIndex < 0) return;
+
+      const start = anchorIndex >= 0 ? Math.min(anchorIndex, clickedIndex) : clickedIndex;
+      const end = anchorIndex >= 0 ? Math.max(anchorIndex, clickedIndex) : clickedIndex;
+      const slice = idsInOrder.slice(start, end + 1);
+
+      const next = additive ? new Set(selectionKeys) : new Set<string>();
+      slice.forEach((id) => next.add(buildSelectionKey(type, id)));
+      replaceSelection(next);
+    },
+    [buildSelectionKey, replaceSelection, selectionKeys],
+  );
+
+  const handleSelectEntry = useCallback(
+    (event: React.MouseEvent | React.KeyboardEvent, type: CalendarEntryType, id: string, section: "event" | "task") => {
+      const e = event as React.MouseEvent;
+      const additive = Boolean((e as any).metaKey || (e as any).ctrlKey);
+      const isRange = Boolean((e as any).shiftKey);
+
+      if (!isSelectionEnabled || !onEntrySelect || !onReplaceSelection) {
+        return;
+      }
+
+      if (isRange) {
+        if (section === "event") {
+          handleSelectRange(
+            "event",
+            filteredEvents.map((ev) => ev.id),
+            eventAnchorId,
+            id,
+            additive,
+          );
+        } else {
+          handleSelectRange(
+            "task",
+            filteredTasks.map(({ task }) => task.id),
+            taskAnchorId,
+            id,
+            additive,
+          );
+        }
+        return;
+      }
+
+      onEntrySelect(type, id, additive);
+      if (section === "event") setEventAnchorId(id);
+      if (section === "task") setTaskAnchorId(id);
+    },
+    [
+      eventAnchorId,
+      filteredEvents,
+      filteredTasks,
+      handleSelectRange,
+      isSelectionEnabled,
+      onEntrySelect,
+      onReplaceSelection,
+      taskAnchorId,
+    ],
+  );
+
+  const openContextMenuFor = useCallback(
+    (mouseEvent: React.MouseEvent, entryType: CalendarEntryType, entry: CalendarTask | CalendarEvent) => {
+      mouseEvent.preventDefault();
+      mouseEvent.stopPropagation();
+
+      const key = buildSelectionKey(entryType, (entry as any).id as string);
+      const isAlreadySelected = selectionKeys.has(key);
+
+      // File-manager style: if right-clicking a non-selected item, replace selection.
+      if (!isAlreadySelected && onReplaceSelection) {
+        onReplaceSelection(new Set([key]));
+      }
+
+      setContextMenuState({
+        position: { x: mouseEvent.clientX, y: mouseEvent.clientY },
+        entryType,
+        entry,
+      });
+    },
+    [buildSelectionKey, onReplaceSelection, selectionKeys],
+  );
+
+  const focusBlockChildren = useMemo(() => {
+    if (!contextMenuState) return undefined;
+    if (contextMenuState.entryType !== "task") return undefined;
+    const task = contextMenuState.entry as CalendarTask;
+    const focusId = (task.source as any)?.taskId ?? task.id;
+    if (!focusId) return undefined;
+    const isFocusBlock =
+      task.kind === "focus_block" ||
+      (Array.isArray((task as any).focusChildTaskIds) && (task as any).focusChildTaskIds.length > 0) ||
+      (Array.isArray((task as any).focusChecklist) && (task as any).focusChecklist.length > 0);
+    if (!isFocusBlock) return undefined;
+
+    return tasks.filter((t) => (t as any).focusBlockId === focusId);
+  }, [contextMenuState, tasks]);
+
   return (
-    <div className="events-tasks">
+    <div
+      ref={rootRef}
+      className="events-tasks"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClearSelection?.();
+        }
+      }}
+    >
       <div className="events-tasks__header">
         <div className="events-tasks__header-row events-tasks__header-row--primary">
           <div className="events-tasks__title">Events & Tasks</div>
@@ -316,17 +507,36 @@ function EventsAndTasks({
                   ? `${startLabel} – ${endLabel}`
                   : startLabel ?? undefined;
 
+              const entryKey = buildSelectionKey("event", event.id);
+              const isSelected = selectionKeys.has(entryKey);
+
               return (
                 <li key={event.id} className="events-tasks__list-item">
                   <div
                     role="button"
                     tabIndex={0}
-                    className="events-tasks__card events-tasks__card--event"
-                    onClick={() => onEditEvent(event)}
+                    className={`events-tasks__card events-tasks__card--event${isSelected ? " is-selected" : ""}`}
+                    onClick={(mouseEvent) => {
+                      if (isSelectionEnabled) {
+                        handleSelectEntry(mouseEvent, "event", event.id, "event");
+                        return;
+                      }
+                      onEditEvent(event);
+                    }}
+                    onDoubleClick={() => {
+                      if (isSelectionEnabled) {
+                        onEditEvent(event);
+                      }
+                    }}
+                    onContextMenu={(mouseEvent) => openContextMenuFor(mouseEvent, "event", event)}
                     onKeyDown={(keyboardEvent) => {
-                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                      if (keyboardEvent.key === "Enter") {
                         keyboardEvent.preventDefault();
                         onEditEvent(event);
+                      }
+                      if (keyboardEvent.key === " " && isSelectionEnabled) {
+                        keyboardEvent.preventDefault();
+                        handleSelectEntry(keyboardEvent, "event", event.id, "event");
                       }
                     }}
                   >
@@ -405,17 +615,36 @@ function EventsAndTasks({
               const rawTitle = typeof task.title === "string" ? task.title.trim() : "";
               const displayTaskTitle = rawTitle ? formatTaskName(rawTitle) : "Untitled task";
 
+              const entryKey = buildSelectionKey("task", task.id);
+              const isSelected = selectionKeys.has(entryKey);
+
               return (
                 <li key={task.id} className="events-tasks__list-item">
                   <div
                     role="button"
                     tabIndex={0}
-                    className={`events-tasks__card events-tasks__card--task${isDone ? " is-complete" : ""}`}
-                    onClick={() => onEditTask(task)}
+                    className={`events-tasks__card events-tasks__card--task${isDone ? " is-complete" : ""}${isSelected ? " is-selected" : ""}`}
+                    onClick={(mouseEvent) => {
+                      if (isSelectionEnabled) {
+                        handleSelectEntry(mouseEvent, "task", task.id, "task");
+                        return;
+                      }
+                      onEditTask(task);
+                    }}
+                    onDoubleClick={() => {
+                      if (isSelectionEnabled) {
+                        onEditTask(task);
+                      }
+                    }}
+                    onContextMenu={(mouseEvent) => openContextMenuFor(mouseEvent, "task", task)}
                     onKeyDown={(keyboardEvent) => {
-                      if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                      if (keyboardEvent.key === "Enter") {
                         keyboardEvent.preventDefault();
                         onEditTask(task);
+                      }
+                      if (keyboardEvent.key === " " && isSelectionEnabled) {
+                        keyboardEvent.preventDefault();
+                        handleSelectEntry(keyboardEvent, "task", task.id, "task");
                       }
                     }}
                   >
@@ -438,6 +667,9 @@ function EventsAndTasks({
                             onClick={(event) => {
                               event.stopPropagation();
                             }}
+                            onMouseDown={(event) => {
+                              event.stopPropagation();
+                            }}
                           >
                             <span
                               className={`events-tasks__status-badge events-tasks__status-badge--${statusData.category}`}
@@ -450,6 +682,9 @@ function EventsAndTasks({
                           className="events-tasks__status-popover"
                           align="end"
                           onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                          onMouseDown={(event) => {
                             event.stopPropagation();
                           }}
                         >
@@ -513,6 +748,59 @@ function EventsAndTasks({
           </ul>
         </div>
       </div>
+
+      {contextMenuState ? (
+        <CalendarEntryContextMenu
+          position={contextMenuState.position}
+          entryType={contextMenuState.entryType}
+          entry={contextMenuState.entry}
+          selectedEntries={selectedEntries}
+          teamMembers={teamMembers}
+          focusBlockChildren={focusBlockChildren}
+          onClose={() => setContextMenuState(null)}
+          onEdit={(entry) => {
+            setContextMenuState(null);
+            if (contextMenuState.entryType === "event") onEditEvent(entry as CalendarEvent);
+            if (contextMenuState.entryType === "task") onEditTask(entry as CalendarTask);
+          }}
+          onSubmitForReview={(entries) => {
+            setContextMenuState(null);
+            onSubmitForReview?.(entries);
+          }}
+          onMarkAsDone={(entries) => {
+            setContextMenuState(null);
+            onMarkAsDone?.(entries);
+          }}
+          onConvertToFocusBlock={(entries) => {
+            setContextMenuState(null);
+            onConvertToFocusBlock?.(entries);
+          }}
+          onUngroupFocusBlock={(focusBlock) => {
+            setContextMenuState(null);
+            onUngroupFocusBlock?.(focusBlock);
+          }}
+          onDuplicate={(entries) => {
+            setContextMenuState(null);
+            onDuplicateEntries?.(entries);
+          }}
+          onDelete={(entries) => {
+            setContextMenuState(null);
+            onDeleteEntries?.(entries);
+          }}
+          onBulkAssignChildren={(focusBlock, userId, children) => {
+            setContextMenuState(null);
+            onBulkAssignChildren?.(focusBlock, userId, children);
+          }}
+          onAssignTimeBlock={(task, userId) => {
+            setContextMenuState(null);
+            onAssignTimeBlock?.(task, userId);
+          }}
+          onAssignTimeBlocks={(tasksToAssign, userId) => {
+            setContextMenuState(null);
+            onAssignTimeBlocks?.(tasksToAssign, userId);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
