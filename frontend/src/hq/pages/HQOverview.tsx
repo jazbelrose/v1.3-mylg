@@ -1179,7 +1179,11 @@ const HQOverview: React.FC = () => {
         <HQCard
           title="Latest transactions"
           subtitle="Preview"
-          aria-label="Transactions preview"
+          aria-label="Open transactions"
+          interactiveRole="link"
+          onClick={() => {
+            navigate("/dashboard/hq/transactions");
+          }}
         >
           {latestTransactions.length === 0 ? (
             <div className={styles.emptyState}>Import a CSV to populate your ledger.</div>
@@ -1191,8 +1195,9 @@ const HQOverview: React.FC = () => {
                   className={[styles.txnRow, canAdmin ? styles.txnRowClickable : ""].filter(Boolean).join(" ")}
                   role={canAdmin ? "button" : undefined}
                   tabIndex={canAdmin ? 0 : undefined}
-                  onClick={() => {
+                  onClick={(e) => {
                     if (!canAdmin) return;
+                    e.stopPropagation();
                     setSelectedTxn(txn);
                     setIsApplyOpen(true);
                   }}
@@ -1200,6 +1205,7 @@ const HQOverview: React.FC = () => {
                     if (!canAdmin) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
+                      e.stopPropagation();
                       setSelectedTxn(txn);
                       setIsApplyOpen(true);
                     }
