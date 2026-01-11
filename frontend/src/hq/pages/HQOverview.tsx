@@ -1021,10 +1021,8 @@ const HQOverview: React.FC = () => {
                       }
                     }}
                   >
-                    <span className={styles.recurringNameBlock}>
-                      <span className={styles.recurringName} title={entry.label}>
-                        {entry.label}
-                      </span>
+                    <span className={styles.recurringName} title={entry.label}>
+                      {entry.label}
                     </span>
 
                     <div className={styles.chartBar} aria-hidden>

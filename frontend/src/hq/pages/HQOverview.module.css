@@ -456,11 +456,6 @@
   border-radius: 10px;
 }
 
-.recurringNameBlock {
-  min-width: 0;
-  display: block;
-}
-
 .recurringRow {
   display: grid;
   grid-template-columns: 180px 1fr 92px;
