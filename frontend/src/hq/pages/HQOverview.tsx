@@ -615,8 +615,9 @@ const HQOverview: React.FC = () => {
   }, [topCategoriesData]);
 
   const topCategoriesMax = React.useMemo(() => {
+    if (topCategoriesDirection === "net") return Math.max(1, ...topCategories.map((x) => Math.abs(x.amount)));
     return Math.max(1, ...topCategories.map((x) => x.amount));
-  }, [topCategories]);
+  }, [topCategories, topCategoriesDirection]);
 
   const topCategoriesLabel = React.useMemo(() => {
     const startLabel = topCategoriesData?.startDate || topCategoriesWindow.start;
@@ -1100,7 +1101,10 @@ const HQOverview: React.FC = () => {
             ) : (
               <ul className={styles.topCategoriesList}>
                 {topCategories.map((entry) => {
-                  const pct = Math.round((entry.amount / topCategoriesMax) * 100);
+                  const pct =
+                    topCategoriesDirection === "net"
+                      ? Math.round((Math.abs(entry.amount) / topCategoriesMax) * 100)
+                      : Math.round((entry.amount / topCategoriesMax) * 100);
                   const dir = topCategoriesDirection === "out" ? "out" : topCategoriesDirection === "in" ? "in" : "all";
                   const dateRange = txnDateRangeForChartRange(chartRange);
                   return (

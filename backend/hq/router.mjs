@@ -509,14 +509,6 @@ const pickCategorization = (txn, rules) => {
   const amountAbs = Math.abs(typeof txn.amount === "number" ? txn.amount : Number(txn.amount || 0));
   const method = inferMethod(txn);
 
-  if (isInternalTransfer) {
-    return {
-      isInternalTransfer: true,
-      categoryId: "TRANSFER_INTERNAL",
-      categoryConfidence: 0.95,
-    };
-  }
-
   const enabledRules = (Array.isArray(rules) ? rules : [])
     .filter((r) => r && r.enabled !== false)
     .slice()
@@ -524,7 +516,9 @@ const pickCategorization = (txn, rules) => {
 
   for (const rule of enabledRules) {
     const applyMode = String(rule.applyMode || "uncategorized").toLowerCase();
-    if (applyMode !== "overwrite" && currentCategory && currentCategory !== "OTHER") continue;
+    // Treat TRANSFER_INTERNAL like uncategorized so rules (e.g. Owner Draw) can override
+    // heuristic internal-transfer detection.
+    if (applyMode !== "overwrite" && currentCategory && currentCategory !== "OTHER" && currentCategory !== "TRANSFER_INTERNAL") continue;
 
     const dirGuard = typeof rule.direction === "string" ? rule.direction.trim().toLowerCase() : "";
     if (dirGuard === "in" || dirGuard === "out") {
@@ -566,6 +560,15 @@ const pickCategorization = (txn, rules) => {
         // ignore invalid regex
       }
     }
+  }
+
+  // Only after giving rules a chance do we lock it into transfer.
+  if (isInternalTransfer) {
+    return {
+      isInternalTransfer: true,
+      categoryId: "TRANSFER_INTERNAL",
+      categoryConfidence: 0.95,
+    };
   }
 
   return null;
@@ -694,7 +697,10 @@ const getTopCategories = async (e, C) => {
   const items = Object.entries(totals)
     .map(([categoryId, amount]) => ({ categoryId, amount: round2(amount) }))
     .filter((x) => Number.isFinite(x.amount) && x.amount !== 0)
-    .sort((a, b) => b.amount - a.amount)
+    .sort((a, b) => {
+      if (direction === "net") return Math.abs(b.amount) - Math.abs(a.amount);
+      return b.amount - a.amount;
+    })
     .slice(0, limit);
 
   return json(200, C, {
@@ -1789,7 +1795,13 @@ const applyCategoryRules = async (e, C) => {
       }
 
       // If already categorized and applyMode != overwrite, skip
-      if (currentCategory && currentCategory !== "OTHER") {
+      // Treat TRANSFER_INTERNAL as effectively uncategorized so rules can fix
+      // misclassified owner draws and similar transactions.
+      const effectivelyUncategorized =
+        !currentCategory ||
+        currentCategory === "OTHER" ||
+        (currentCategory === "TRANSFER_INTERNAL" && currentIsTransfer === true);
+      if (!effectivelyUncategorized) {
         skippedAlreadyCategorized += 1;
         continue;
       }

@@ -172,4 +172,60 @@ describe("computeTopCategories", () => {
     // Includes Owner Draw rows even if marked as internal transfer.
     expect(ownerDraw?.amount).toBe(1149);
   });
+
+  it("in net mode, ranks categories by absolute magnitude (so large outflows like Owner Draw can appear)", () => {
+    const transactions: HqTransaction[] = [
+      {
+        orgId: "ORG#1",
+        accountId: "acct-1",
+        postedAt: "2026-01-07",
+        amount: 200, // inflow
+        currency: "USD",
+        rawDescription: "Client payment",
+        normalizedDescription: "client payment",
+        type: "deposit",
+        direction: "in",
+        categoryId: "CLIENT_PAYMENT",
+        isInternalTransfer: false,
+        importRunId: "import-1",
+        dedupeHash: "n1",
+        createdAt: "2026-01-07T00:00:00Z",
+      },
+      {
+        orgId: "ORG#1",
+        accountId: "acct-1",
+        postedAt: "2026-01-07",
+        amount: 5000, // raw positive but outflow (canonicalSignedAmount will sign it)
+        currency: "USD",
+        rawDescription: "Owner draw",
+        normalizedDescription: "owner draw",
+        type: "unknown",
+        direction: "out",
+        categoryId: "OWNER_DRAW",
+        isInternalTransfer: false,
+        importRunId: "import-1",
+        dedupeHash: "n2",
+        createdAt: "2026-01-07T00:00:00Z",
+      },
+      {
+        orgId: "ORG#1",
+        accountId: "acct-1",
+        postedAt: "2026-01-07",
+        amount: -99,
+        currency: "USD",
+        rawDescription: "Small expense",
+        normalizedDescription: "small expense",
+        type: "unknown",
+        direction: "out",
+        categoryId: "OFFICE_SUPPLIES",
+        isInternalTransfer: false,
+        importRunId: "import-1",
+        dedupeHash: "n3",
+        createdAt: "2026-01-07T00:00:00Z",
+      },
+    ];
+
+    const res = computeTopCategories(transactions, "2026-01-07", "2026-01-07", { direction: "net", limit: 2 });
+    expect(res.map((x) => x.categoryId)).toContain("OWNER_DRAW");
+  });
 });

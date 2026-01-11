@@ -434,6 +434,9 @@ export function computeTopCategories(
   return Object.entries(totals)
     .map(([categoryId, amount]) => ({ categoryId, amount: Math.round((amount as number) * 100) / 100 }))
     .filter((x) => Number.isFinite(x.amount) && x.amount !== 0)
-    .sort((a, b) => b.amount - a.amount)
+    .sort((a, b) => {
+      if (direction === "net") return Math.abs(b.amount) - Math.abs(a.amount);
+      return b.amount - a.amount;
+    })
     .slice(0, Math.max(1, limit));
 }
