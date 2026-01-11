@@ -369,15 +369,21 @@
 }
 
 .midCard {
-  height: auto;
+  height: 100%;
   --hq-card-padding: 12px;
   --hq-card-gap: 8px;
   --hq-card-content-gap: 6px;
   --hq-card-min-h: 0;
+  --hq-card-header-padding-x: 4px;
+  --hq-card-header-padding-bottom: 4px;
 }
 
 .midCardData {
-  --hq-card-min-h: 340px;
+  --hq-card-min-h: 300px;
+}
+
+.midCardRecurring {
+  --hq-card-content-overflow-y: hidden;
 }
 
 .midCardWide {
@@ -464,7 +470,7 @@
   grid-template-columns: 180px 1fr 92px;
   column-gap: 12px;
   align-items: center;
-  min-height: 28px;
+  min-height: 26px;
   padding: 4px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -481,10 +487,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.92);
   line-height: 1.15;
+}
+
+.recurringList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 

@@ -38,6 +38,9 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  padding-left: var(--hq-card-header-padding-x, 0px);
+  padding-right: var(--hq-card-header-padding-x, 0px);
+  padding-bottom: var(--hq-card-header-padding-bottom, 0px);
 }
 
 .cardTitle {
@@ -68,7 +71,7 @@
   flex-direction: column;
   gap: var(--hq-card-content-gap, 12px);
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: var(--hq-card-content-overflow-y, auto);
 }
 
 .content:empty {

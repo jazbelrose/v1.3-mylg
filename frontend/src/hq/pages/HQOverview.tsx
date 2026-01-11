@@ -53,7 +53,7 @@ const runwayFormatter = new Intl.NumberFormat("en-US", {
 });
 
 const HQ_OVERVIEW_ACCOUNTS_PREVIEW_LIMIT = 5;
-const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 10;
+const HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT = 14;
 const HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT = 6;
 
 function formatIsoMonthDay(isoDate: string): string {
@@ -977,7 +977,7 @@ const HQOverview: React.FC = () => {
             title="Recurring"
             aria-label="Open Recurring details"
             interactiveRole="link"
-            className={[styles.midCard, styles.midCardData].join(" ")}
+            className={[styles.midCard, styles.midCardData, styles.midCardRecurring].join(" ")}
             onClick={() => {
               navigate("/dashboard/hq/recurring");
             }}
@@ -1002,7 +1002,7 @@ const HQOverview: React.FC = () => {
             ) : recurringItems.length === 0 ? (
               <div className={styles.emptyState}>No recurring transactions detected yet.</div>
             ) : (
-              <ul className={styles.topCategoriesList}>
+              <ul className={styles.recurringList}>
                 {recurringItems.map((entry) => (
                   <li
                     key={entry.vendorKey}
