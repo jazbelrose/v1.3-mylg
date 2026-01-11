@@ -374,12 +374,13 @@
   --hq-card-gap: 8px;
   --hq-card-content-gap: 6px;
   --hq-card-min-h: 0;
-  --hq-card-header-padding-x: 4px;
-  --hq-card-header-padding-bottom: 4px;
+  --hq-card-header-padding-x: 16px;
+  --hq-card-header-padding-bottom: 10px;
+  --hq-card-header-padding-top: 12px;
 }
 
 .midCardData {
-  --hq-card-min-h: 300px;
+  --hq-card-min-h: 270px;
 }
 
 .midCardRecurring {
@@ -470,7 +471,7 @@
   grid-template-columns: 180px 1fr 92px;
   column-gap: 12px;
   align-items: center;
-  min-height: 26px;
+  min-height: 28px;
   padding: 4px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -612,11 +613,11 @@
 }
 
 .cardHeaderTitle {
-  font-size: 1rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .cardHeaderContext {
