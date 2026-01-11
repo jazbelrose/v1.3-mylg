@@ -31,6 +31,11 @@ export interface CalendarEntryContextMenuProps {
   /** All selected entries for bulk actions */
   selectedEntries?: ContextMenuEntry[];
   /**
+   * Override the task scope for Submit/Done actions.
+   * Useful for container menus (e.g., stack tiles) where actions should apply to child tasks.
+   */
+  tasksForActionsOverride?: CalendarTask[];
+  /**
    * Show Edit even when multiple entries are in scope.
    * Useful for container menus (e.g., stack tiles) where Edit means "open details".
    */
@@ -48,6 +53,17 @@ export interface CalendarEntryContextMenuProps {
   teamMembers?: ProjectTeamMember[];
   /** Child tasks of a Focus Block (for bulk assign) */
   focusBlockChildren?: CalendarTask[];
+  /**
+   * Bulk-assign children for multiple Focus Blocks (e.g., multi-user stack).
+   * Each item represents a Focus Block + its children to assign.
+   */
+  bulkAssignChildrenGroups?: Array<{ focusBlock: CalendarTask; children: CalendarTask[] }>;
+
+  /** Override the bulk-assign label (Focus Block children). */
+  bulkAssignLabelOverride?: string;
+
+  /** Whether to include an "Unassign" option in the bulk-assign submenu. */
+  bulkAssignIncludeUnassign?: boolean;
   onClose: () => void;
   onEdit?: (entry: CalendarTask | CalendarEvent) => void;
   onSubmitForReview?: (entries: CalendarTask[]) => void;
@@ -92,12 +108,16 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   entryType,
   entry,
   selectedEntries = [],
+  tasksForActionsOverride,
   showEditInMultiSelect = false,
   portal = true,
   dismissOnOutsideClick = true,
   dismissOnEscape = true,
   teamMembers,
   focusBlockChildren,
+  bulkAssignChildrenGroups,
+  bulkAssignLabelOverride,
+  bulkAssignIncludeUnassign = true,
   onClose,
   onEdit,
   onSubmitForReview,
@@ -180,6 +200,13 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     [effectiveEntries]
   );
 
+  const resolvedTasksForActions = useMemo(() => {
+    if (Array.isArray(tasksForActionsOverride) && tasksForActionsOverride.length > 0) {
+      return tasksForActionsOverride;
+    }
+    return actionableTasks;
+  }, [actionableTasks, tasksForActionsOverride]);
+
   const selectedTimeBlocks = useMemo(() => {
     const isTaskFocusBlock = (task: CalendarTask) => {
       if (task.kind === "focus_block") return true;
@@ -196,12 +223,12 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   }, [actionableTasks]);
   
   const tasksForReview = useMemo(
-    () => actionableTasks.filter((t) => t.status !== "in_review" && t.status !== "done"),
-    [actionableTasks]
+    () => resolvedTasksForActions.filter((t) => t.status !== "in_review" && t.status !== "done"),
+    [resolvedTasksForActions]
   );
   const tasksForDone = useMemo(
-    () => actionableTasks.filter((t) => t.status !== "done"),
-    [actionableTasks]
+    () => resolvedTasksForActions.filter((t) => t.status !== "done"),
+    [resolvedTasksForActions]
   );
 
   // Focus Block parent-only: operate on children (tasks) instead of the parent task.
@@ -345,13 +372,25 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   const handleBulkAssign = useCallback(
     (userId: string | null) => {
       if (!onBulkAssignChildren) return;
+      const groups = Array.isArray(bulkAssignChildrenGroups) && bulkAssignChildrenGroups.length > 0
+        ? bulkAssignChildrenGroups
+        : null;
+
+      if (groups) {
+        groups.forEach((group) => {
+          if (!group.children || group.children.length === 0) return;
+          onBulkAssignChildren(group.focusBlock, userId, group.children);
+        });
+        onClose();
+        return;
+      }
       if (!isFocusBlock) return;
       if (!focusBlockChildren || focusBlockChildren.length === 0) return;
       const focusBlock = entry as CalendarTask;
       onBulkAssignChildren(focusBlock, userId, focusBlockChildren);
       onClose();
     },
-    [entry, focusBlockChildren, isFocusBlock, onBulkAssignChildren, onClose],
+    [bulkAssignChildrenGroups, entry, focusBlockChildren, isFocusBlock, onBulkAssignChildren, onClose],
   );
 
   const handleAssignTimeBlock = useCallback(
@@ -377,14 +416,31 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
     [isMultiSelect, multiAssignTasksOverride, onAssignTimeBlocks, onClose, selectedTimeBlocks],
   );
 
+  const resolvedBulkAssignChildCount = useMemo(() => {
+    if (Array.isArray(bulkAssignChildrenGroups) && bulkAssignChildrenGroups.length > 0) {
+      const unique = new Set<string>();
+      bulkAssignChildrenGroups.forEach((group) => {
+        group.children.forEach((child) => {
+          unique.add(child.source?.taskId ?? child.id);
+        });
+      });
+      return unique.size;
+    }
+    if (Array.isArray(focusBlockChildren)) {
+      return focusBlockChildren.length;
+    }
+    return 0;
+  }, [bulkAssignChildrenGroups, focusBlockChildren]);
+
   const showBulkAssign =
-    isFocusBlock &&
-    !isMultiSelect &&
     Boolean(onBulkAssignChildren) &&
-    Boolean(focusBlockChildren) &&
-    (focusBlockChildren?.length ?? 0) > 0 &&
+    resolvedBulkAssignChildCount > 0 &&
     Boolean(teamMembers) &&
-    (teamMembers?.length ?? 0) > 0;
+    (teamMembers?.length ?? 0) > 0 &&
+    (
+      (Array.isArray(bulkAssignChildrenGroups) && bulkAssignChildrenGroups.length > 0) ||
+      (isFocusBlock && !isMultiSelect)
+    );
 
   const showTimeBlockAssign =
     isTimeBlock &&
@@ -524,7 +580,12 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
             aria-expanded={showAssignSubmenu}
           >
             <Users className="calendar-entry-context-menu__icon" />
-            <span>Assign all children to...</span>
+            <span>
+              {bulkAssignLabelOverride ??
+                (resolvedBulkAssignChildCount > 0
+                  ? `Assign all children to... (${resolvedBulkAssignChildCount})`
+                  : "Assign all children to...")}
+            </span>
             <ChevronRight className="calendar-entry-context-menu__chevron" />
           </button>
 
@@ -551,19 +612,23 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
                   </button>
                 );
               })}
-              <div className="calendar-entry-context-menu__separator" />
-              <button
-                type="button"
-                className="calendar-entry-context-menu__item calendar-entry-context-menu__item--secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleBulkAssign(null);
-                }}
-                role="menuitem"
-              >
-                <UserX className="calendar-entry-context-menu__icon" />
-                <span>Unassign all</span>
-              </button>
+              {bulkAssignIncludeUnassign && (
+                <>
+                  <div className="calendar-entry-context-menu__separator" />
+                  <button
+                    type="button"
+                    className="calendar-entry-context-menu__item calendar-entry-context-menu__item--secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBulkAssign(null);
+                    }}
+                    role="menuitem"
+                  >
+                    <UserX className="calendar-entry-context-menu__icon" />
+                    <span>Unassign all</span>
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

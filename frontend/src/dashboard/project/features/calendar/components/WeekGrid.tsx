@@ -459,10 +459,12 @@ function WeekGrid({
     entry: CalendarTask | CalendarEvent;
     allowConvertToFocusBlock: boolean;
     focusBlockChildren?: CalendarTask[];
+    /** Override which tasks are used for Submit/Done actions (e.g., stack menus should act on children). */
+    tasksForActionsOverride?: CalendarTask[];
+    /** For stack menus: bulk-assign Focus Block children across multiple Focus Blocks. */
+    bulkAssignChildrenGroups?: Array<{ focusBlock: CalendarTask; children: CalendarTask[] }>;
     /** When set, use this list instead of current selection for bulk actions (e.g., stack tiles). */
     selectedEntriesOverride?: ContextMenuEntry[];
-    /** When set, enable multi-assign for these tasks even if they are focus blocks (e.g., stack tiles). */
-    multiAssignTasksOverride?: CalendarTask[];
     /** Distinguish stack (container) menus from normal entry menus. */
     kind?: "entry" | "stack";
     /** For stack menus: clicking Edit opens the stack popover (details). */
@@ -1766,7 +1768,29 @@ function WeekGrid({
         }
 
         const resolvedEntries: ContextMenuEntry[] = [];
-        const assignableTasks: CalendarTask[] = [];
+        const tasksForActions: CalendarTask[] = [];
+        const bulkAssignGroups: Array<{ focusBlock: CalendarTask; children: CalendarTask[] }> = [];
+
+        const buildFocusBlockChildren = (focusBlock: CalendarTask) => {
+          const focusId = focusBlock.source?.taskId ?? focusBlock.id;
+          const childIds =
+            focusBlock.focusChildTaskIds ??
+            focusBlock.focusChecklist?.map((item) => item.taskId) ??
+            [];
+          const childrenFromIds = childIds
+            .map((id) => calendarTaskById.get(id))
+            .filter((value): value is CalendarTask => Boolean(value));
+          const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+          const children = Array.from(
+            new Map(
+              [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [
+                childTask.source?.taskId ?? childTask.id,
+                childTask,
+              ]),
+            ).values(),
+          ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
+          return children;
+        };
 
         payload.childEntryKeys.forEach((key) => {
           const lookup = entryLookup.get(key);
@@ -1775,9 +1799,22 @@ function WeekGrid({
             entryType: lookup.entry.type === "event" ? "event" : "task",
             entry: lookup.entry.payload as CalendarTask | CalendarEvent,
           });
-          if (lookup.entry.type === "task") {
-            assignableTasks.push(lookup.entry.payload as CalendarTask);
+
+          if (lookup.entry.type !== "task") return;
+          const task = lookup.entry.payload as CalendarTask;
+          if (task.kind === "intent") return;
+
+          if (isFocusBlockTask(task)) {
+            const children = buildFocusBlockChildren(task);
+            if (children.length > 0) {
+              bulkAssignGroups.push({ focusBlock: task, children });
+              tasksForActions.push(...children);
+            }
+            return;
           }
+
+          // Non-focus-block tasks: act on the task itself.
+          tasksForActions.push(task);
         });
 
         const primary = resolvedEntries[0];
@@ -1789,7 +1826,8 @@ function WeekGrid({
           entry: primary.entry,
           allowConvertToFocusBlock: false,
           selectedEntriesOverride: resolvedEntries,
-          multiAssignTasksOverride: assignableTasks,
+          tasksForActionsOverride: tasksForActions,
+          bulkAssignChildrenGroups: bulkAssignGroups,
           kind: "stack",
           stackContext: { entry, anchorElement: event.currentTarget },
         });
@@ -3116,6 +3154,7 @@ function WeekGrid({
               title={tooltipLabel}
               aria-label={tooltipLabel}
               onClick={(event) => handleEntryClick(event, entry)}
+              onContextMenu={(event) => handleContextMenu(event, entry)}
               onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
             >
               <div className="week-grid__timeline-entry-main">
@@ -3170,6 +3209,7 @@ function WeekGrid({
             title={tooltipLabel}
             aria-label={tooltipLabel}
             onClick={(event) => handleEntryClick(event, entry)}
+            onContextMenu={(event) => handleContextMenu(event, entry)}
             onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
           >
             <div className="week-grid__timeline-entry-main week-grid__timeline-entry-main--tile">
@@ -3217,6 +3257,7 @@ function WeekGrid({
             title={tooltipLabel}
             aria-label={tooltipLabel}
             onClick={(event) => handleEntryClick(event, entry)}
+            onContextMenu={(event) => handleContextMenu(event, entry)}
             onKeyDown={(keyboardEvent) => handleEntryKeyDown(keyboardEvent, entry)}
           >
             <div className="week-grid__timeline-entry-main">
@@ -3957,6 +3998,9 @@ function WeekGrid({
           showEditInMultiSelect={contextMenu.kind === "stack"}
           teamMembers={teamMembers}
           focusBlockChildren={contextMenu.focusBlockChildren}
+          tasksForActionsOverride={contextMenu.tasksForActionsOverride}
+          bulkAssignChildrenGroups={contextMenu.kind === "stack" ? contextMenu.bulkAssignChildrenGroups : undefined}
+          bulkAssignIncludeUnassign={contextMenu.kind === "stack" ? false : undefined}
           onClose={handleCloseContextMenu}
           onEdit={(e) => {
             if (contextMenu.kind === "stack" && contextMenu.stackContext) {
@@ -3986,14 +4030,8 @@ function WeekGrid({
           onDuplicate={onDuplicateEntries}
           onDelete={onDeleteEntries}
           onBulkAssignChildren={onBulkAssignChildren}
-          onAssignTimeBlock={onAssignTimeBlock}
-          onAssignTimeBlocks={onAssignTimeBlocks}
-          multiAssignTasksOverride={contextMenu.kind === "stack" ? contextMenu.multiAssignTasksOverride : undefined}
-          multiAssignLabelOverride={
-            contextMenu.kind === "stack"
-              ? `Assign all children to... (${(contextMenu.multiAssignTasksOverride ?? []).length})`
-              : undefined
-          }
+          onAssignTimeBlock={contextMenu.kind === "stack" ? undefined : onAssignTimeBlock}
+          onAssignTimeBlocks={contextMenu.kind === "stack" ? undefined : onAssignTimeBlocks}
         />
       )}
     </div>
