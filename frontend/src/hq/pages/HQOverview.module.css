@@ -369,14 +369,9 @@
 }
 
 .midCard {
-  height: 100%;
-  --hq-card-padding: 12px;
-  --hq-card-gap: 8px;
-  --hq-card-content-gap: 6px;
-  --hq-card-min-h: 0;
-  --hq-card-header-padding-x: 16px;
-  --hq-card-header-padding-bottom: 10px;
-  --hq-card-header-padding-top: 12px;
+
+  --hq-card-header-padding-x: 8px;
+  
 }
 
 .midCardData {
@@ -427,9 +422,11 @@
   gap: 12px;
   align-items: center;
   font-size: 12px;
+  line-height: 1.15;
   color: rgba(255, 255, 255, 0.85);
-  min-height: 28px;
-  padding: 4px 8px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -472,9 +469,11 @@
   column-gap: 12px;
   align-items: center;
   font-size: 12px;
+  line-height: 1.15;
   color: rgba(255, 255, 255, 0.85);
-  min-height: 28px;
-  padding: 4px 8px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -493,7 +492,6 @@
   font-size: 12px;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.92);
-  line-height: 1.15;
 }
 
 .recurringList {
