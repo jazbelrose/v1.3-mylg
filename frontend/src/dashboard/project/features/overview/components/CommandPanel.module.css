@@ -282,19 +282,19 @@
 }
 
 /* ============================================================================
-   TIMELINE ROW (normalized layout: fixed left, flex middle, fixed right)
+   TIMELINE ROW (normalized layout: fixed-column grid)
    ============================================================================ */
 
 .timelineRow {
-  display: flex;
+  display: grid;
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
   padding: 6px 10px;
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.15s ease;
   position: relative;
-  /* Ensure rows don't overflow or shrink */
+  grid-template-columns: 3px 18px 110px 20px minmax(0, 1fr) 220px;
   min-width: 0;
   width: 100%;
 }
@@ -325,13 +325,9 @@
 
 /* Severity strip */
 .severityStrip {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
   width: 3px;
   height: 60%;
-  border-radius: 0 2px 2px 0;
+  border-radius: 2px;
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -346,23 +342,19 @@
   opacity: 1;
 }
 
-.severityNormal {
-  opacity: 0;
-}
+.severityNormal { opacity: 0; }
 
 .severityDone {
   background: var(--color-success, #4caf50);
   opacity: 0.5;
 }
 
-/* Row left: time pill + icon (FIXED WIDTH) */
-.rowLeft {
+/* Column: type icon */
+.colIcon {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 0 0 120px; /* Fixed width, no grow, no shrink */
-  min-width: 120px;
-  max-width: 120px;
+  justify-content: center;
+  min-width: 18px;
 }
 
 .leadingIcon {
@@ -372,6 +364,11 @@
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
+}
+
+/* Column: time/due */
+.colTime {
+  min-width: 0;
 }
 
 .timePill {
@@ -388,11 +385,26 @@
   color: var(--text-muted, rgba(255, 255, 255, 0.4));
 }
 
-/* Row center: title (FLEXIBLE with ellipsis) */
-.rowCenter {
-  flex: 1 1 0;
+/* Column: chevron (always reserved) */
+.colChevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.expandButtonHidden {
+  visibility: hidden;
+}
+
+/* Column: title + preview */
+.colTitle {
   min-width: 0;
   overflow: hidden;
+}
+
+.titleIndent {
+  min-width: 0;
 }
 
 .rowTitle {
@@ -404,6 +416,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.rowTitleStrong {
+  font-weight: 600;
 }
 
 .rowTitleLine {
@@ -433,7 +449,6 @@
 }
 
 .focusCount {
-  margin-left: auto;
   flex: 0 0 auto;
   font-size: 0.68rem;
   font-weight: 600;
@@ -445,7 +460,6 @@
   align-items: center;
   gap: 10px;
   margin-top: 2px;
-  padding-left: 24px; /* align under title after chevron */
   font-size: 0.7rem;
   color: var(--text-muted, rgba(255, 255, 255, 0.5));
   white-space: nowrap;
@@ -475,20 +489,69 @@
   text-overflow: ellipsis;
 }
 
-/* Row right: assignee + actions (FIXED WIDTH) */
-.rowRight {
-  display: flex;
-  align-items: center;
+/* Column: right meta (fixed slots) */
+.colMeta {
+  display: grid;
+  grid-template-columns: 96px 116px;
   gap: 8px;
-  flex: 0 0 auto; /* Don't grow, don't shrink, auto width */
-  flex-shrink: 0;
-  min-width: 80px; /* Reserve space for actions to prevent jitter */
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: end;
+  min-width: 0;
 }
 
-.assigneeStack {
+.avatarSlot {
+  width: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.actionsSlot {
+  width: 116px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.singleAvatar {
+  width: 22px;
+  height: 22px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.avatarCoinStack {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.avatarCoinWrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.avatarCoin {
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 0 0 1px rgba(10, 10, 10, 0.65);
+}
+
+.avatarCoinBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(10, 10, 10, 0.65);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .assigneeBadge {
@@ -502,25 +565,6 @@
   font-size: 0.6rem;
   font-weight: 600;
   color: var(--text-muted, rgba(255, 255, 255, 0.7));
-}
-
-.timelineRowChild .rowLeft {
-  padding-left: 24px;
-}
-
-.timelineRowChild .rowCenter {
-  padding-left: 0;
-}
-
-.timelineRowChild::before {
-  content: "";
-  position: absolute;
-  left: 22px;
-  top: 6px;
-  bottom: 6px;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 1px;
 }
 
 /* Primary action button */
@@ -740,8 +784,22 @@
     flex-wrap: wrap;
   }
   
-  .rowLeft {
-    min-width: 80px;
+  .timelineRow {
+    grid-template-columns: 3px 18px 88px 20px minmax(0, 1fr) 170px;
+  }
+
+  .colMeta {
+    grid-template-columns: 72px 90px;
+    gap: 6px;
+  }
+
+  .avatarSlot {
+    width: 72px;
+  }
+
+  .actionsSlot {
+    width: 90px;
+    gap: 6px;
   }
   
   .timePill {

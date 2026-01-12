@@ -34,9 +34,10 @@ import {
   CheckSquare,
   Square,
   Layers,
+  Users,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { AvatarStack } from '@/shared/ui';
+import { ProjectAvatar } from '@/shared/ui';
 import styles from './CommandPanel.module.css';
 
 // ============================================================================
@@ -45,6 +46,7 @@ import styles from './CommandPanel.module.css';
 
 export type TimeFilter = 'today' | 'next7' | 'next30' | 'all';
 export type AssigneeFilter = 'me' | 'team' | 'all';
+export type TimelineItemType = 'timeblock' | 'focus_block' | 'multi_user_stack';
 
 export interface TimelineEvent {
   id: string;
@@ -81,10 +83,17 @@ export interface TimelineTask {
   focusChecklist?: Array<{ taskId: string; title: string }>;
 
   // List-only rendering hints
+  itemType?: TimelineItemType;
+  nestLevel?: number;
+  ownerUserId?: string;
+  containerAssigneeIds?: string[];
   groupDate?: string;
   sortTime?: number;
   focusGroup?: {
     isGroup: true;
+    itemType?: TimelineItemType;
+    ownerUserId?: string;
+    assigneeIds?: string[];
     expanded: boolean;
     doneCount: number;
     totalCount: number;
@@ -370,6 +379,14 @@ function getInitials(name?: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function getMemberDisplayName(member?: { userId: string; firstName?: string; lastName?: string } | null): string {
+  if (!member) return '';
+  const name = [member.firstName, member.lastName].filter(Boolean).join(' ').trim();
+  if (name) return name;
+  if (member.userId.startsWith('name:')) return member.userId.slice('name:'.length);
+  return member.userId;
+}
+
 // ============================================================================
 // SUB-COMPONENTS
 // ============================================================================
@@ -426,6 +443,48 @@ interface TimelineRowProps {
   onEllipsisClick: (e: React.MouseEvent) => void;
 }
 
+function AvatarCoinStack({
+  members,
+  maxVisible = 4,
+}: {
+  members: Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
+  maxVisible?: number;
+}) {
+  const uniqueMembers = useMemo(() => uniqueBy(members, (m) => m.userId), [members]);
+  const visible = uniqueMembers.slice(0, maxVisible);
+  const extra = Math.max(0, uniqueMembers.length - visible.length);
+
+  if (visible.length === 0) return null;
+
+  return (
+    <span className={styles.avatarCoinStack} aria-hidden>
+      {visible.map((m, index) => (
+        <span
+          key={m.userId}
+          className={styles.avatarCoinWrapper}
+          style={{
+            zIndex: visible.length - index,
+            marginLeft: index > 0 ? '-8px' : 0,
+          }}
+        >
+          <ProjectAvatar
+            className={styles.avatarCoin}
+            thumb={m.thumbnail ?? undefined}
+            name={getMemberDisplayName(m)}
+            shape="circle"
+            radius={9}
+          />
+        </span>
+      ))}
+      {extra > 0 ? (
+        <span className={styles.avatarCoinBadge} aria-hidden>
+          +{extra}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function TimelineRow({
   item,
   teamLookup,
@@ -448,23 +507,60 @@ function TimelineRow({
   const task = isTask ? (item as TimelineTask) : undefined;
   const assignee = isTask ? task?.assignedTo : undefined;
   const kind = isTask ? normalizeKind(task?.kind) : '';
-  const isFocusGroup = Boolean(task?.focusGroup?.isGroup);
+  const isContainerRow = Boolean(task?.focusGroup?.isGroup);
   const isChildRow = Boolean(task?.focusChildOf);
   const isExpanded = Boolean(task?.focusGroup?.expanded);
-  const canExpand = isFocusGroup && (task?.focusGroup?.totalCount ?? 0) > 0;
+  const canExpand = isContainerRow && (task?.focusGroup?.totalCount ?? 0) > 0;
 
-  const assigneeMembers = useMemo(() => {
+  const rowItemType: TimelineItemType = useMemo(() => {
+    if (!isTask || !task) return 'timeblock';
+    if (task.itemType) return task.itemType;
+    if (task.focusGroup?.itemType) return task.focusGroup.itemType;
+    if (isContainerRow) return 'focus_block';
+    return 'timeblock';
+  }, [isTask, task, isContainerRow]);
+
+  const nestLevel = useMemo(() => {
+    if (!isTask || !task) return 0;
+    if (typeof task.nestLevel === 'number') return task.nestLevel;
+    return task.focusChildOf ? 1 : 0;
+  }, [isTask, task]);
+
+  const indentPx = nestLevel > 0 ? nestLevel * 16 : 0;
+
+  const taskAssigneeMembers = useMemo(() => {
     if (!isTask || !task) return [];
-    if (task.focusGroup?.isGroup) return task.focusGroup.assignees;
     return getTaskAssigneeMembers(task, teamLookup);
   }, [isTask, task, teamLookup]);
 
+  const ownerMember = useMemo(() => {
+    if (!isTask || !task) return null;
+    const ownerId = task.ownerUserId ?? task.focusGroup?.ownerUserId;
+    if (ownerId && task.focusGroup?.assignees?.length) {
+      const m = task.focusGroup.assignees.find((a) => a.userId === ownerId);
+      if (m) return m;
+    }
+    if (ownerId) {
+      const fromTeam = teamLookup?.get(ownerId);
+      if (fromTeam) return fromTeam;
+    }
+    const candidates = task.focusGroup?.assignees?.length ? task.focusGroup.assignees : taskAssigneeMembers;
+    return candidates[0] ?? null;
+  }, [isTask, task, teamLookup, taskAssigneeMembers]);
+
+  const singleAssigneeMember = useMemo(() => {
+    if (!isTask || !task) return null;
+    return taskAssigneeMembers[0] ?? null;
+  }, [isTask, task, taskAssigneeMembers]);
+
   const leadingIcon = useMemo(() => {
     if (!isTask) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
-    if (kind === 'focus_block') return <Layers size={12} className={styles.typeIcon} aria-hidden />;
+    if (isContainerRow && rowItemType === 'multi_user_stack') return <Users size={12} className={styles.typeIcon} aria-hidden />;
+    if (isContainerRow && rowItemType === 'focus_block') return <Layers size={12} className={styles.typeIcon} aria-hidden />;
+    if (kind !== 'focus_block' && Boolean(task?.startAt || task?.endAt)) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
     if (isDone) return <CheckSquare size={12} className={styles.typeIcon} aria-hidden />;
     return <Square size={12} className={styles.typeIcon} aria-hidden />;
-  }, [isTask, kind, isDone]);
+  }, [isTask, isContainerRow, rowItemType, kind, isDone, task?.startAt, task?.endAt]);
   const ellipsisRef = useRef<HTMLButtonElement>(null);
   
   return (
@@ -487,134 +583,156 @@ function TimelineRow({
         tabIndex={-1}
         data-item-id={item.id}
         >
-          {/* Severity strip */}
+          {/* Status bar */}
           <div className={`${styles.severityStrip} ${styles[`severity${severity.charAt(0).toUpperCase() + severity.slice(1).replace('-', '')}`]}`} />
-          
-          {/* Leading icon + time pill (list-native; icon first) */}
-          <div className={styles.rowLeft}>
-            <span className={styles.leadingIcon} aria-hidden>
-              {leadingIcon}
-            </span>
+
+          {/* Type icon */}
+          <div className={styles.colIcon} aria-hidden>
+            <span className={styles.leadingIcon}>{leadingIcon}</span>
+          </div>
+
+          {/* Time/due */}
+          <div className={styles.colTime}>
             <span className={styles.timePill}>{formatTimePill(item)}</span>
           </div>
-          
-          {/* Title */}
-          <div className={styles.rowCenter}>
-            <div className={styles.rowTitleLine}>
-              {canExpand ? (
-                <button
-                  type="button"
-                  className={styles.expandButton}
-                  aria-label={isExpanded ? 'Collapse focus block' : 'Expand focus block'}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onPopoverOpenChange(false);
-                    // Expansion handled by parent via synthetic click on data attr (see CommandPanel)
-                    const customEvent = new CustomEvent('commandpanel-toggle-focusblock', { detail: { id: item.id } });
-                    window.dispatchEvent(customEvent);
-                  }}
+
+          {/* Chevron (reserved column) */}
+          <div className={styles.colChevron} aria-hidden={!canExpand}>
+            <button
+              type="button"
+              className={`${styles.expandButton} ${!canExpand ? styles.expandButtonHidden : ''}`}
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              tabIndex={canExpand ? 0 : -1}
+              onClick={(e) => {
+                if (!canExpand) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onPopoverOpenChange(false);
+                const customEvent = new CustomEvent('commandpanel-toggle-focusblock', { detail: { id: item.id } });
+                window.dispatchEvent(customEvent);
+              }}
+            >
+              {isExpanded ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
+            </button>
+          </div>
+
+          {/* Title + preview (indent only inside this cell) */}
+          <div className={styles.colTitle}>
+            <div className={styles.titleIndent} style={indentPx ? { paddingLeft: indentPx } : undefined}>
+              <div className={styles.rowTitleLine}>
+                <span
+                  className={`${styles.rowTitle} ${isContainerRow ? styles.rowTitleStrong : ''}`}
+                  title={item.title}
                 >
-                  {isExpanded ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
-                </button>
+                  {item.title || 'Untitled'}
+                </span>
+                {isContainerRow && task?.focusGroup ? (
+                  <span className={styles.focusCount} title="Progress">
+                    {task.focusGroup.doneCount}/{task.focusGroup.totalCount}
+                  </span>
+                ) : null}
+              </div>
+
+              {isContainerRow && task?.focusGroup?.preview?.length ? (
+                <div className={styles.focusPreview}>
+                  {task.focusGroup.preview.slice(0, 3).map((p) => (
+                    <span key={p.id} className={styles.focusPreviewItem} title={p.title}>
+                      <span className={styles.focusPreviewIcon} aria-hidden>
+                        {p.icon === 'checked' ? <CheckSquare size={10} /> : <Square size={10} />}
+                      </span>
+                      <span className={styles.focusPreviewText}>{p.title}</span>
+                    </span>
+                  ))}
+                </div>
               ) : null}
-              <span className={styles.rowTitle} title={item.title}>
-                {item.title || 'Untitled'}
-              </span>
-              {isFocusGroup && task?.focusGroup ? (
-                <span className={styles.focusCount} title="Focus Block progress">
-                  {task.focusGroup.doneCount}/{task.focusGroup.totalCount}
+            </div>
+          </div>
+
+          {/* Right meta (fixed slots): avatars + actions */}
+          <div className={styles.colMeta}>
+            <div className={styles.avatarSlot}>
+              {isTask && rowItemType === 'multi_user_stack' && task?.focusGroup?.assignees?.length ? (
+                <AvatarCoinStack members={task.focusGroup.assignees} />
+              ) : isTask && isContainerRow && rowItemType === 'focus_block' && ownerMember ? (
+                <ProjectAvatar
+                  className={styles.singleAvatar}
+                  thumb={ownerMember.thumbnail ?? undefined}
+                  name={getMemberDisplayName(ownerMember)}
+                  shape="circle"
+                  radius={10}
+                />
+              ) : isTask && !isContainerRow && singleAssigneeMember ? (
+                <ProjectAvatar
+                  className={styles.singleAvatar}
+                  thumb={singleAssigneeMember.thumbnail ?? undefined}
+                  name={getMemberDisplayName(singleAssigneeMember)}
+                  shape="circle"
+                  radius={10}
+                />
+              ) : assignee ? (
+                <span className={styles.assigneeBadge} title={assignee}>
+                  {getInitials(assignee)}
                 </span>
               ) : null}
             </div>
 
-            {isFocusGroup && task?.focusGroup?.preview?.length ? (
-              <div className={styles.focusPreview}>
-                {task.focusGroup.preview.slice(0, 3).map((p) => (
-                  <span key={p.id} className={styles.focusPreviewItem} title={p.title}>
-                    <span className={styles.focusPreviewIcon} aria-hidden>
-                      {p.icon === 'checked' ? <CheckSquare size={10} /> : <Square size={10} />}
-                    </span>
-                    <span className={styles.focusPreviewText}>{p.title}</span>
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          
-          {/* Right: assignee + primary action + overflow (always rendered, visibility controlled via CSS) */}
-          <div className={styles.rowRight}>
-            {assigneeMembers.length >= 1 ? (
-              <div className={styles.assigneeStack} title="Assignees">
-                <AvatarStack members={assigneeMembers} size={20} />
-              </div>
-            ) : assignee ? (
-              <span className={styles.assigneeBadge} title={assignee}>
-                {getInitials(assignee)}
-              </span>
-            ) : null}
-            
-            {/* Primary action (always in DOM, visible via CSS on hover/selected) */}
-            <button
-              type="button"
-              className={`${styles.primaryAction} ${!(isHovered || isSelected) ? styles.actionHidden : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onPrimaryAction();
-              }}
-              title={isTask ? 'Mark done' : 'Open'}
-            >
-              {isTask ? <Check size={12} /> : <Edit3 size={12} />}
-              <span>{isTask ? 'Done' : 'Open'}</span>
-            </button>
-            
-            {/* Overflow menu trigger - opens popover (always in DOM, visible via CSS on hover/selected) */}
-            <Popover open={popoverOpen} onOpenChange={onPopoverOpenChange}>
-              <PopoverTrigger asChild>
-                <button
-                  ref={ellipsisRef}
-                  type="button"
-                  className={`${styles.overflowButton} ${!(isHovered || isSelected) ? styles.actionHidden : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEllipsisClick(e);
-                  }}
-                  title="More actions"
-                >
-                  <MoreHorizontal size={12} />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                className={styles.rowPopover}
-                align="end"
-                onClick={(e) => e.stopPropagation()}
+            <div className={styles.actionsSlot}>
+              <button
+                type="button"
+                className={`${styles.primaryAction} ${!(isHovered || isSelected) ? styles.actionHidden : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPrimaryAction();
+                }}
+                title={isTask ? 'Mark done' : 'Open'}
               >
-                {isTask && (
+                {isTask ? <Check size={12} /> : <Edit3 size={12} />}
+                <span>{isTask ? 'Done' : 'Open'}</span>
+              </button>
+
+              <Popover open={popoverOpen} onOpenChange={onPopoverOpenChange}>
+                <PopoverTrigger asChild>
+                  <button
+                    ref={ellipsisRef}
+                    type="button"
+                    className={`${styles.overflowButton} ${!(isHovered || isSelected) ? styles.actionHidden : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEllipsisClick(e);
+                    }}
+                    title="More actions"
+                  >
+                    <MoreHorizontal size={12} />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className={styles.rowPopover} align="end" onClick={(e) => e.stopPropagation()}>
+                  {isTask && (
+                    <button
+                      type="button"
+                      className={styles.popoverAction}
+                      onClick={() => {
+                        onPopoverOpenChange(false);
+                        onPrimaryAction();
+                      }}
+                    >
+                      <CheckSquare size={12} aria-hidden />
+                      <span>{isDone ? 'Mark incomplete' : 'Mark done'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={styles.popoverAction}
                     onClick={() => {
                       onPopoverOpenChange(false);
-                      onPrimaryAction();
+                      onEditAction();
                     }}
                   >
-                    <CheckSquare size={12} aria-hidden />
-                    <span>{isDone ? 'Mark incomplete' : 'Mark done'}</span>
+                    <Pencil size={12} aria-hidden />
+                    <span>Open {isTask ? 'task' : 'event'}</span>
                   </button>
-                )}
-                <button
-                  type="button"
-                  className={styles.popoverAction}
-                  onClick={() => {
-                    onPopoverOpenChange(false);
-                    onEditAction();
-                  }}
-                >
-                  <Pencil size={12} aria-hidden />
-                  <span>Open {isTask ? 'task' : 'event'}</span>
-                </button>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
       </>
@@ -814,7 +932,12 @@ export function CommandPanel({
   }, []);
 
   const displayTasks = useMemo(() => {
-    const normalized = tasks.map((t) => ({ ...t, type: 'task' as const }));
+    const normalized = tasks.map((t) => ({
+      ...t,
+      type: 'task' as const,
+      itemType: 'timeblock' as const,
+      nestLevel: 0,
+    }));
     const byFocusId = new Map<string, TimelineTask[]>();
     normalized.forEach((t) => {
       const focusId = t.focusBlockId;
@@ -863,6 +986,10 @@ export function CommandPanel({
         ],
         (m) => m.userId
       );
+      const containerAssigneeIds = assignees.map((a) => a.userId).filter(Boolean);
+      const isMultiUserStack = containerAssigneeIds.length > 1;
+      const itemType: TimelineItemType = isMultiUserStack ? 'multi_user_stack' : 'focus_block';
+      const ownerUserId = !isMultiUserStack ? containerAssigneeIds[0] : undefined;
 
       const expanded = expandedFocusBlockIds.has(t.id);
       const groupDate = t.dueDate ?? (t.startAt ?? undefined);
@@ -873,8 +1000,14 @@ export function CommandPanel({
         ...t,
         groupDate,
         sortTime: typeof baseSort === 'number' ? baseSort : undefined,
+        itemType,
+        ownerUserId,
+        containerAssigneeIds,
         focusGroup: {
           isGroup: true,
+          itemType,
+          ownerUserId,
+          assigneeIds: containerAssigneeIds,
           expanded,
           doneCount,
           totalCount,
@@ -912,6 +1045,8 @@ export function CommandPanel({
             out.push({
               ...c,
               focusChildOf: groupItem.id,
+              itemType: 'timeblock',
+              nestLevel: 1,
               groupDate: groupItem.groupDate ?? groupItem.dueDate,
               sortTime: typeof parentSort === 'number' ? parentSort + (idx + 1) / 1000 : undefined,
             });
@@ -929,7 +1064,7 @@ export function CommandPanel({
     }
 
     return out;
-  }, [tasks, expandedFocusBlockIds]);
+  }, [tasks, expandedFocusBlockIds, teamLookup]);
   
   // Combine and filter items
   const filteredItems = useMemo(() => {
