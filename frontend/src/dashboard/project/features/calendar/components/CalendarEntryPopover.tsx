@@ -20,7 +20,14 @@ import {
   Square,
   Layers,
 } from "lucide-react";
-import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils";
+import {
+  formatCompactTimeLabel,
+  formatCompactTimeRange,
+  formatHumanDateLabel,
+  formatTimeLabel,
+  type CalendarTask,
+  type CalendarEvent,
+} from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
@@ -441,13 +448,15 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const displayTitle = titleOverride ?? title;
   const timeLabel = isTask
     ? task?.start && task?.end
-      ? `${formatTimeLabel(task.start) ?? task.start} - ${formatTimeLabel(task.end) ?? task.end}`
-      : (formatTimeLabel(task?.start) ?? task?.start) || "No time set"
+      ? formatCompactTimeRange(task.start, task.end)
+      : (formatCompactTimeLabel(task?.start) ?? formatTimeLabel(task?.start) ?? task?.start) ||
+        "No time set"
     : event?.start && event?.end
-      ? `${formatTimeLabel(event.start) ?? event.start} - ${formatTimeLabel(event.end) ?? event.end}`
+      ? formatCompactTimeRange(event.start, event.end)
       : event?.allDay
         ? "All day"
-        : (formatTimeLabel(event?.start) ?? event?.start) || "No time set";
+        : (formatCompactTimeLabel(event?.start) ?? formatTimeLabel(event?.start) ?? event?.start) ||
+          "No time set";
 
   // Build team member lookup for avatar resolution
   const memberLookup = useMemo(
@@ -926,7 +935,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         {isTask && task?.due && (
           <div className="calendar-entry-popover__detail-row">
             <Calendar className="calendar-entry-popover__detail-icon" />
-            <span>{task.due}</span>
+            <span title={task.due}>{formatHumanDateLabel(task.due) ?? task.due}</span>
           </div>
         )}
         {isTask && !isFocusBlock && (
@@ -1107,8 +1116,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             {focusChildrenResolved.map((child) => {
               const childTitle = child.title || "Untitled task";
               const childTime = child.start && child.end
-                ? `${formatTimeLabel(child.start) ?? child.start} - ${formatTimeLabel(child.end) ?? child.end}`
-                : (formatTimeLabel(child.start) ?? child.start) || "";
+                ? formatCompactTimeRange(child.start, child.end)
+                : (formatCompactTimeLabel(child.start) ?? formatTimeLabel(child.start) ?? child.start) || "";
               const isChildDone = child.status === "done" || child.done === true;
               const childKey = `task:${child.id}`;
               return (

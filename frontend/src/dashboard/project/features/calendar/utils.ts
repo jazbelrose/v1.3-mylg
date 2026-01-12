@@ -679,6 +679,21 @@ export const parseIsoDate = (value?: string | null) => {
   return parsed;
 };
 
+export const formatHumanDateLabel = (
+  value?: string | null,
+  options: { weekday?: boolean } = {},
+): string | undefined => {
+  if (!value) return undefined;
+  const parsed = parseIsoDate(value);
+  if (!parsed) return value;
+  return parsed.toLocaleDateString(undefined, {
+    weekday: options.weekday ? "short" : undefined,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 export const formatTimeLabel = (value?: string) => {
   if (!value) return undefined;
   const [hoursRaw, minutesRaw] = value.split(":");

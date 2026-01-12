@@ -76,6 +76,8 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
   const maxVisibleAvatars = 4;
   const visibleAvatars = dedupedAvatars.slice(0, maxVisibleAvatars);
   const extraAvatars = Math.max(dedupedAvatars.length - visibleAvatars.length, 0);
+  const showActions = Boolean(draggable && showDragHandle);
+  const hasMeta = Boolean(visibleAvatars.length > 0 || extraAvatars > 0 || showActions);
 
   const icon =
     entryType === "event" ? (
@@ -104,7 +106,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
         isFocusBlockRow ? "calendar-entry-row--focus-block" : "",
         isSelected ? "calendar-entry-row--selected" : "",
         draggable ? "calendar-entry-row--draggable" : "",
-        showChevron ? "calendar-entry-row--has-disclosure" : "calendar-entry-row--no-disclosure",
+        hasMeta ? "calendar-entry-row--has-meta" : "calendar-entry-row--no-meta",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -134,32 +136,31 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
         {timeLabel ?? ""}
       </span>
 
-      {showChevron ? (
-        <button
-          type="button"
-          className="calendar-entry-row__chevron"
-          aria-label={disclosure?.ariaLabel ?? (isExpanded ? "Collapse group" : "Expand group")}
-          aria-expanded={isExpanded}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            disclosure?.onToggle();
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-          }}
-          onPointerMove={(e) => {
-            e.stopPropagation();
-          }}
-          onPointerUp={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          {isExpanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-        </button>
-      ) : null}
-
       <div className="calendar-entry-row__title-cell" style={indentPx ? { paddingLeft: indentPx } : undefined}>
+        {showChevron ? (
+          <button
+            type="button"
+            className="calendar-entry-row__chevron"
+            aria-label={disclosure?.ariaLabel ?? (isExpanded ? "Collapse group" : "Expand group")}
+            aria-expanded={isExpanded}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              disclosure?.onToggle();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            onPointerMove={(e) => {
+              e.stopPropagation();
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {isExpanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+          </button>
+        ) : null}
         <div className="calendar-entry-row__title-line">
           <span className={["calendar-entry-row__title", isDone ? "is-complete" : ""].filter(Boolean).join(" ")}>
             {title}
@@ -169,45 +170,43 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
         {preview ? <div className="calendar-entry-row__preview">{preview}</div> : null}
       </div>
 
-      <div className="calendar-entry-row__meta" aria-hidden>
-        <div className="calendar-entry-row__avatar-stack">
-          {visibleAvatars.map((avatar, index) => (
-            <span
-              key={avatar.key}
-              className="calendar-entry-row__avatar-wrapper"
-              style={{
-                zIndex: visibleAvatars.length - index,
-                marginLeft: index > 0 ? "-6px" : 0,
-              }}
-            >
-              <ProjectAvatar
-                className="calendar-entry-row__avatar"
-                thumb={avatar.thumb ?? undefined}
-                name={avatar.name}
-                shape="circle"
-                radius={8}
-              />
-            </span>
-          ))}
-          {extraAvatars > 0 ? (
-            <span className="calendar-entry-row__avatar-badge" aria-hidden>
-              +{extraAvatars}
-            </span>
-          ) : null}
-        </div>
-
-        <span className="calendar-entry-row__actions" aria-hidden>
-          {draggable ? (
-            hasDragHandle ? (
-              <GripVertical size={14} />
-            ) : (
-              <span className="calendar-entry-row__actions-placeholder" aria-hidden />
-            )
+      {hasMeta ? (
+        <div className="calendar-entry-row__meta" aria-hidden>
+          {visibleAvatars.length > 0 || extraAvatars > 0 ? (
+            <div className="calendar-entry-row__avatar-stack">
+              {visibleAvatars.map((avatar, index) => (
+                <span
+                  key={avatar.key}
+                  className="calendar-entry-row__avatar-wrapper"
+                  style={{
+                    zIndex: visibleAvatars.length - index,
+                    marginLeft: index > 0 ? "-6px" : 0,
+                  }}
+                >
+                  <ProjectAvatar
+                    className="calendar-entry-row__avatar"
+                    thumb={avatar.thumb ?? undefined}
+                    name={avatar.name}
+                    shape="circle"
+                    radius={8}
+                  />
+                </span>
+              ))}
+              {extraAvatars > 0 ? (
+                <span className="calendar-entry-row__avatar-badge" aria-hidden>
+                  +{extraAvatars}
+                </span>
+              ) : null}
+            </div>
           ) : (
-            <span className="calendar-entry-row__actions-placeholder" aria-hidden />
+            <span aria-hidden />
           )}
-        </span>
-      </div>
+
+          <span className="calendar-entry-row__actions" aria-hidden>
+            {showActions ? <GripVertical size={14} /> : <span className="calendar-entry-row__actions-placeholder" aria-hidden />}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 };
