@@ -40,11 +40,17 @@ export function useTeamMembers(project: Project | null) {
         const map = new Map(profiles.map((p: UserProfile) => [p.userId, p]));
         const results: TeamMember[] = project.team.map((member) => {
           const profile = map.get(member.userId) || ({} as Partial<UserProfile>);
+          const thumbnail =
+            (profile.thumbnail as string | undefined) ||
+            (profile.thumbnailUrl as string | undefined) ||
+            (profile.avatar as string | undefined) ||
+            (profile.avatarUrl as string | undefined) ||
+            null;
           return {
             userId: member.userId,
             firstName: (profile.firstName as string) || "",
             lastName: (profile.lastName as string) || "",
-            thumbnail: (profile.thumbnail as string) || null,
+            thumbnail,
           };
         });
         if (isMounted) {

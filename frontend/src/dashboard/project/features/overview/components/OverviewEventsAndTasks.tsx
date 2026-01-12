@@ -209,7 +209,6 @@ export function OverviewEventsAndTasks({
     
     try {
       if (currentDone) {
-            teamMembers={teamMembers}
         // Task is done, mark as needs changes (to reopen it)
         await requestTaskChanges(projectId, taskId, { note: 'Reopened from Overview' });
       } else {
@@ -320,6 +319,7 @@ export function OverviewEventsAndTasks({
       <CommandPanel
         events={timelineEvents}
         tasks={timelineTasks}
+        teamMembers={teamMembers}
         currentUserId={userId}
         currentUserEmail={userEmail}
         onToggleTask={handleToggleTask}

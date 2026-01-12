@@ -164,6 +164,14 @@ function parseAssigneeToken(token: string): { userId: string; firstName?: string
   return { userId, firstName, lastName };
 }
 
+function normalizeAssigneeId(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parts = trimmed.split('__').map((p) => p.trim()).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : undefined;
+}
+
 function uniqueBy<T>(items: T[], key: (item: T) => string | undefined): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
@@ -202,8 +210,28 @@ function getTaskAssigneeMembers(
       thumbnail: null,
     }));
 
-  const fromIds = (task.assigneeIds ?? []).map((userId) => ({ userId, firstName: '', lastName: '', thumbnail: null }));
-  const fromSingle = task.assigneeId ? [{ userId: task.assigneeId, firstName: '', lastName: '', thumbnail: null }] : [];
+  const fromIds = (task.assigneeIds ?? [])
+    .map((raw) => {
+      if (typeof raw !== 'string') return null;
+      const token = parseAssigneeToken(raw);
+      if (token) {
+        return { userId: token.userId, firstName: token.firstName ?? '', lastName: token.lastName ?? '', thumbnail: null };
+      }
+      const normalized = normalizeAssigneeId(raw);
+      return normalized ? { userId: normalized, firstName: '', lastName: '', thumbnail: null } : null;
+    })
+    .filter(Boolean) as Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
+
+  const fromSingle = (() => {
+    const raw = task.assigneeId;
+    if (!raw) return [];
+    const token = parseAssigneeToken(raw);
+    if (token) {
+      return [{ userId: token.userId, firstName: token.firstName ?? '', lastName: token.lastName ?? '', thumbnail: null }];
+    }
+    const normalized = normalizeAssigneeId(raw);
+    return normalized ? [{ userId: normalized, firstName: '', lastName: '', thumbnail: null }] : [];
+  })();
 
   const base = uniqueBy([...fromTokens, ...fromIds, ...fromSingle], (m) => m.userId).map(enrich);
   if (base.length > 0) return base;
