@@ -45,7 +45,17 @@ interface TaskItem {
   endAt?: string | null;
   status?: string;
   assignedTo?: string | { name?: string; email?: string }[];
+  assigneeId?: string | null;
+  assigneeIds?: string[];
+  assigneeTokens?: string[];
   address?: string;
+  done?: boolean;
+  kind?: string;
+  plannedMinutes?: number;
+  order?: number;
+  focusBlockId?: string;
+  focusChildTaskIds?: string[];
+  focusChecklist?: Array<{ taskId: string; title: string }>;
 }
 
 interface DeckVersion {
@@ -329,6 +339,13 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
           assigneeIds: t.assigneeIds,
           assigneeTokens: t.assigneeTokens,
           address: t.address,
+          done: Boolean((t as unknown as { done?: boolean }).done),
+          kind: t.kind,
+          plannedMinutes: t.plannedMinutes,
+          order: t.order,
+          focusBlockId: t.focusBlockId,
+          focusChildTaskIds: t.focusChildTaskIds,
+          focusChecklist: t.focusChecklist,
         })));
       })
       .catch(err => {

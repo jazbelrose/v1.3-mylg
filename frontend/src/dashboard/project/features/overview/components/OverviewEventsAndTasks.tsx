@@ -55,6 +55,12 @@ interface RawTask {
   assigneeTokens?: string[];
   address?: string;
   done?: boolean;
+  kind?: string;
+  plannedMinutes?: number;
+  order?: number;
+  focusBlockId?: string;
+  focusChildTaskIds?: string[];
+  focusChecklist?: Array<{ taskId: string; title: string }>;
   source?: unknown;
 }
 
@@ -119,7 +125,8 @@ export function OverviewEventsAndTasks({
     
     return tasks.map(t => {
       const taskId = t.id || t.taskId || '';
-      const dueDate = t.dueDate || t.due;
+      const normalizedKind = typeof t.kind === 'string' ? t.kind.trim().toLowerCase() : undefined;
+      const dueDate = t.dueDate || t.due || (normalizedKind === 'focus_block' ? (t.startAt ?? undefined) : undefined);
       const dueDateObj = dueDate ? new Date(dueDate) : null;
       const dueDateOnly = dueDateObj 
         ? new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate())
@@ -153,6 +160,14 @@ export function OverviewEventsAndTasks({
         assigneeId: t.assigneeId,
         assigneeIds: t.assigneeIds,
         assigneeTokens: t.assigneeTokens,
+        kind: t.kind,
+        startAt: t.startAt,
+        endAt: t.endAt,
+        plannedMinutes: t.plannedMinutes,
+        order: t.order,
+        focusBlockId: t.focusBlockId,
+        focusChildTaskIds: t.focusChildTaskIds,
+        focusChecklist: t.focusChecklist,
         isOverdue,
         isDueSoon,
         source: t.source ?? t,

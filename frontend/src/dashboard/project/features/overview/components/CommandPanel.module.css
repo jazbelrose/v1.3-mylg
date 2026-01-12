@@ -360,9 +360,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 110px; /* Fixed width, no grow, no shrink */
-  min-width: 110px;
-  max-width: 110px;
+  flex: 0 0 128px; /* Fixed width, no grow, no shrink */
+  min-width: 128px;
+  max-width: 128px;
+}
+
+.leadingIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 
 .timePill {
@@ -397,6 +406,74 @@
   max-width: 100%;
 }
 
+.rowTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.expandButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+  cursor: pointer;
+  flex: 0 0 18px;
+}
+
+.expandButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.focusCount {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.focusPreview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.focusPreviewItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 33%;
+}
+
+.focusPreviewIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.focusPreviewText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Row right: assignee + actions (FIXED WIDTH) */
 .rowRight {
   display: flex;
@@ -406,6 +483,11 @@
   flex-shrink: 0;
   min-width: 80px; /* Reserve space for actions to prevent jitter */
   justify-content: flex-end;
+}
+
+.assigneeStack {
+  display: inline-flex;
+  align-items: center;
 }
 
 .assigneeBadge {
@@ -419,6 +501,10 @@
   font-size: 0.6rem;
   font-weight: 600;
   color: var(--text-muted, rgba(255, 255, 255, 0.7));
+}
+
+.timelineRowChild {
+  padding-left: 28px;
 }
 
 /* Primary action button */

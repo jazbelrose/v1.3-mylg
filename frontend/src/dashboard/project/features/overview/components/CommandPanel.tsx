@@ -19,8 +19,10 @@ import {
   Calendar as CalendarIcon,
   CheckCircle2,
   MoreHorizontal,
-  ListTodo,
   Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
   Edit3,
   Trash2,
   Copy,
@@ -30,8 +32,11 @@ import {
   X,
   Pencil,
   CheckSquare,
+  Square,
+  Layers,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AvatarStack } from '@/shared/ui';
 import styles from './CommandPanel.module.css';
 
 // ============================================================================
@@ -65,6 +70,28 @@ export interface TimelineTask {
   assigneeTokens?: string[];
   isOverdue?: boolean;
   isDueSoon?: boolean;
+  // Calendar semantics (used for Focus Blocks)
+  kind?: string;
+  startAt?: string | null;
+  endAt?: string | null;
+  plannedMinutes?: number;
+  order?: number;
+  focusBlockId?: string;
+  focusChildTaskIds?: string[];
+  focusChecklist?: Array<{ taskId: string; title: string }>;
+
+  // List-only rendering hints
+  groupDate?: string;
+  sortTime?: number;
+  focusGroup?: {
+    isGroup: true;
+    expanded: boolean;
+    doneCount: number;
+    totalCount: number;
+    preview: Array<{ id: string; title: string; icon: 'clock' | 'checked' | 'unchecked' }>;
+    assignees: Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
+  };
+  focusChildOf?: string;
   source?: unknown;
 }
 
@@ -118,6 +145,54 @@ function parseDate(dateStr: string | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function normalizeKind(kind: string | undefined): string {
+  return typeof kind === 'string' ? kind.trim().toLowerCase() : '';
+}
+
+function parseAssigneeToken(token: string): { userId: string; firstName?: string; lastName?: string } | null {
+  const raw = token.trim();
+  if (!raw) return null;
+  if (!raw.includes('__')) return null;
+  const parts = raw.split('__').map(p => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const userId = parts[parts.length - 1];
+  const namePart = parts.slice(0, -1).join('__').trim();
+  const nameBits = namePart.split(/\s+/).filter(Boolean);
+  const firstName = nameBits[0];
+  const lastName = nameBits.length > 1 ? nameBits.slice(1).join(' ') : undefined;
+  return { userId, firstName, lastName };
+}
+
+function uniqueBy<T>(items: T[], key: (item: T) => string | undefined): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const k = key(item);
+    if (!k) continue;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(item);
+  }
+  return out;
+}
+
+function getTaskAssigneeMembers(task: TimelineTask): Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }> {
+  const fromTokens = (task.assigneeTokens ?? [])
+    .map(parseAssigneeToken)
+    .filter(Boolean)
+    .map((p) => ({
+      userId: (p as { userId: string }).userId,
+      firstName: (p as { firstName?: string }).firstName,
+      lastName: (p as { lastName?: string }).lastName,
+      thumbnail: null,
+    }));
+
+  const fromIds = (task.assigneeIds ?? []).map((userId) => ({ userId, firstName: '', lastName: '', thumbnail: null }));
+  const fromSingle = task.assigneeId ? [{ userId: task.assigneeId, firstName: '', lastName: '', thumbnail: null }] : [];
+
+  return uniqueBy([...fromTokens, ...fromIds, ...fromSingle], (m) => m.userId);
+}
+
 function getDayLabel(date: Date, today: Date): string {
   const todayKey = getDateKey(today);
   const dateKey = getDateKey(date);
@@ -152,7 +227,17 @@ function formatTimePill(item: TimelineItem): string {
     if (item.startTime) return formatTime(item.startTime);
     return 'All day';
   } else {
-    const date = parseDate(item.dueDate);
+    const task = item as TimelineTask;
+    const kind = normalizeKind(task.kind);
+    if (kind === 'focus_block' && (task.startAt || task.endAt)) {
+      const startLabel = task.startAt ? formatTime(task.startAt) : undefined;
+      const endLabel = task.endAt ? formatTime(task.endAt) : undefined;
+      if (startLabel && endLabel) return `${startLabel} – ${endLabel}`;
+      if (startLabel) return startLabel;
+      if (endLabel) return endLabel;
+    }
+
+    const date = parseDate(task.dueDate);
     if (!date) return 'No due date';
     return `Due ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   }
@@ -181,7 +266,17 @@ function getItemDate(item: TimelineItem): Date | null {
   if (item.type === 'event') {
     return parseDate(item.date);
   }
-  return parseDate(item.dueDate);
+  const task = item as TimelineTask;
+  return parseDate(task.groupDate ?? task.dueDate);
+}
+
+function getSortTime(item: TimelineItem): number {
+  if (item.type === 'task') {
+    const sortTime = (item as TimelineTask).sortTime;
+    if (typeof sortTime === 'number') return sortTime;
+  }
+  const d = getItemDate(item);
+  return d ? d.getTime() : Number.MAX_SAFE_INTEGER;
 }
 
 function getStatusSeverity(item: TimelineTask): 'overdue' | 'due-soon' | 'normal' | 'done' {
@@ -288,13 +383,32 @@ function TimelineRow({
   const isTask = item.type === 'task';
   const severity = isTask ? getStatusSeverity(item as TimelineTask) : 'normal';
   const isDone = severity === 'done';
-  const assignee = isTask ? (item as TimelineTask).assignedTo : undefined;
+  const task = isTask ? (item as TimelineTask) : undefined;
+  const assignee = isTask ? task?.assignedTo : undefined;
+  const kind = isTask ? normalizeKind(task?.kind) : '';
+  const isFocusGroup = Boolean(task?.focusGroup?.isGroup);
+  const isChildRow = Boolean(task?.focusChildOf);
+  const isExpanded = Boolean(task?.focusGroup?.expanded);
+  const canExpand = isFocusGroup && (task?.focusGroup?.totalCount ?? 0) > 0;
+
+  const assigneeMembers = useMemo(() => {
+    if (!isTask || !task) return [];
+    if (task.focusGroup?.isGroup) return task.focusGroup.assignees;
+    return getTaskAssigneeMembers(task);
+  }, [isTask, task]);
+
+  const leadingIcon = useMemo(() => {
+    if (!isTask) return <Clock size={14} className={styles.typeIcon} aria-hidden />;
+    if (kind === 'focus_block') return <Layers size={14} className={styles.typeIcon} aria-hidden />;
+    if (isDone) return <CheckSquare size={14} className={styles.typeIcon} aria-hidden />;
+    return <Square size={14} className={styles.typeIcon} aria-hidden />;
+  }, [isTask, kind, isDone]);
   const ellipsisRef = useRef<HTMLButtonElement>(null);
   
   return (
     <>
       <div
-        className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''}`}
+        className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''} ${isChildRow ? styles.timelineRowChild : ''}`}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         onClick={(e) => {
@@ -314,30 +428,75 @@ function TimelineRow({
           {/* Severity strip */}
           <div className={`${styles.severityStrip} ${styles[`severity${severity.charAt(0).toUpperCase() + severity.slice(1).replace('-', '')}`]}`} />
           
-          {/* Time pill + icon */}
+          {/* Leading icon + time pill (list-native; icon first) */}
           <div className={styles.rowLeft}>
+            <span className={styles.leadingIcon} aria-hidden>
+              {leadingIcon}
+            </span>
             <span className={styles.timePill}>{formatTimePill(item)}</span>
-            {isTask ? (
-              <ListTodo size={14} className={styles.typeIcon} />
-            ) : (
-              <CalendarIcon size={14} className={styles.typeIcon} />
-            )}
           </div>
           
           {/* Title */}
           <div className={styles.rowCenter}>
-            <span className={styles.rowTitle} title={item.title}>
-              {item.title || 'Untitled'}
-            </span>
+            <div className={styles.rowTitleLine}>
+              {canExpand ? (
+                <button
+                  type="button"
+                  className={styles.expandButton}
+                  aria-label={isExpanded ? 'Collapse focus block' : 'Expand focus block'}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPopoverOpenChange(false);
+                    // Expansion handled by parent via synthetic click on data attr (see CommandPanel)
+                    const customEvent = new CustomEvent('commandpanel-toggle-focusblock', { detail: { id: item.id } });
+                    window.dispatchEvent(customEvent);
+                  }}
+                >
+                  {isExpanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+                </button>
+              ) : null}
+              <span className={styles.rowTitle} title={item.title}>
+                {item.title || 'Untitled'}
+              </span>
+              {isFocusGroup && task?.focusGroup ? (
+                <span className={styles.focusCount} title="Focus Block progress">
+                  {task.focusGroup.doneCount}/{task.focusGroup.totalCount}
+                </span>
+              ) : null}
+            </div>
+
+            {isFocusGroup && task?.focusGroup?.preview?.length ? (
+              <div className={styles.focusPreview}>
+                {task.focusGroup.preview.slice(0, 3).map((p) => (
+                  <span key={p.id} className={styles.focusPreviewItem} title={p.title}>
+                    <span className={styles.focusPreviewIcon} aria-hidden>
+                      {p.icon === 'clock' ? (
+                        <Clock size={10} />
+                      ) : p.icon === 'checked' ? (
+                        <CheckSquare size={10} />
+                      ) : (
+                        <Square size={10} />
+                      )}
+                    </span>
+                    <span className={styles.focusPreviewText}>{p.title}</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           
           {/* Right: assignee + primary action + overflow (always rendered, visibility controlled via CSS) */}
           <div className={styles.rowRight}>
-            {assignee && (
+            {assigneeMembers.length >= 2 ? (
+              <div className={styles.assigneeStack} title="Assignees">
+                <AvatarStack members={assigneeMembers} size={22} />
+              </div>
+            ) : assignee ? (
               <span className={styles.assigneeBadge} title={assignee}>
                 {getInitials(assignee)}
               </span>
-            )}
+            ) : null}
             
             {/* Primary action (always in DOM, visible via CSS on hover/selected) */}
             <button
@@ -552,6 +711,9 @@ export function CommandPanel({
     item: TimelineItem;
     position: { x: number; y: number };
   } | null>(null);
+
+  // Focus Block expansion (group rows)
+  const [expandedFocusBlockIds, setExpandedFocusBlockIds] = useState<Set<string>>(() => new Set());
   
   // Refs for auto-scroll to Today or nearest upcoming
   const contentRef = useRef<HTMLDivElement>(null);
@@ -565,12 +727,148 @@ export function CommandPanel({
   }, []);
   
   const todayKey = useMemo(() => getDateKey(today), [today]);
+
+  // Listen for per-row expand/collapse events dispatched from TimelineRow.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail;
+      const id = detail?.id;
+      if (!id) return;
+      setExpandedFocusBlockIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    };
+    window.addEventListener('commandpanel-toggle-focusblock', handler as EventListener);
+    return () => window.removeEventListener('commandpanel-toggle-focusblock', handler as EventListener);
+  }, []);
+
+  const displayTasks = useMemo(() => {
+    const normalized = tasks.map((t) => ({ ...t, type: 'task' as const }));
+    const byFocusId = new Map<string, TimelineTask[]>();
+    normalized.forEach((t) => {
+      const focusId = t.focusBlockId;
+      if (!focusId) return;
+      const bucket = byFocusId.get(focusId) ?? [];
+      bucket.push(t);
+      byFocusId.set(focusId, bucket);
+    });
+
+    const scheduledGroupIds = new Set<string>();
+    const groupItems = new Map<string, TimelineTask>();
+
+    const isScheduledFocusBlock = (task: TimelineTask) => {
+      const kind = normalizeKind(task.kind);
+      return kind === 'focus_block' && Boolean(task.startAt || task.endAt);
+    };
+
+    for (const t of normalized) {
+      if (!isScheduledFocusBlock(t)) continue;
+      scheduledGroupIds.add(t.id);
+
+      const children = byFocusId.get(t.id) ?? [];
+      const sortedChildren = [...children].sort((a, b) => {
+        const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+        const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.title || '').localeCompare(b.title || '');
+      });
+
+      const childDone = (child: TimelineTask) => {
+        const s = typeof child.status === 'string' ? child.status.trim().toLowerCase() : '';
+        return Boolean(child.done || s === 'done' || s === 'completed' || s === 'archived');
+      };
+      const doneCount = sortedChildren.filter(childDone).length;
+      const totalCount = sortedChildren.length || (Array.isArray(t.focusChecklist) ? t.focusChecklist.length : 0);
+
+      const preview = sortedChildren.slice(0, 3).map((c) => {
+        const hasTime = Boolean(c.startAt || c.endAt);
+        const icon: 'clock' | 'checked' | 'unchecked' = hasTime ? 'clock' : (childDone(c) ? 'checked' : 'unchecked');
+        return { id: c.id, title: c.title || 'Untitled', icon };
+      });
+
+      const assignees = uniqueBy(
+        [
+          ...getTaskAssigneeMembers(t),
+          ...sortedChildren.flatMap(getTaskAssigneeMembers),
+        ],
+        (m) => m.userId
+      );
+
+      const expanded = expandedFocusBlockIds.has(t.id);
+      const groupDate = t.dueDate ?? (t.startAt ?? undefined);
+      const groupDateObj = parseDate(groupDate);
+      const baseSort = groupDateObj ? groupDateObj.getTime() : undefined;
+
+      const groupItem: TimelineTask = {
+        ...t,
+        groupDate,
+        sortTime: typeof baseSort === 'number' ? baseSort : undefined,
+        focusGroup: {
+          isGroup: true,
+          expanded,
+          doneCount,
+          totalCount,
+          preview,
+          assignees,
+        },
+      };
+      groupItems.set(t.id, groupItem);
+    }
+
+    const out: TimelineTask[] = [];
+
+    for (const t of normalized) {
+      // Suppress children of scheduled focus blocks (they only appear under group when expanded)
+      if (t.focusBlockId && scheduledGroupIds.has(t.focusBlockId)) {
+        continue;
+      }
+
+      // Replace scheduled focus block containers with their group-row variant
+      if (scheduledGroupIds.has(t.id)) {
+        const groupItem = groupItems.get(t.id);
+        if (!groupItem) continue;
+        out.push(groupItem);
+
+        if (groupItem.focusGroup?.expanded) {
+          const children = (byFocusId.get(t.id) ?? []).sort((a, b) => {
+            const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+            const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) return orderA - orderB;
+            return (a.title || '').localeCompare(b.title || '');
+          });
+
+          const parentSort = typeof groupItem.sortTime === 'number' ? groupItem.sortTime : undefined;
+          children.forEach((c, idx) => {
+            out.push({
+              ...c,
+              focusChildOf: groupItem.id,
+              groupDate: groupItem.groupDate ?? groupItem.dueDate,
+              sortTime: typeof parentSort === 'number' ? parentSort + (idx + 1) / 1000 : undefined,
+            });
+          });
+        }
+        continue;
+      }
+
+      // Flatten unscheduled focus blocks (don't show container rows)
+      if (normalizeKind(t.kind) === 'focus_block' && !isScheduledFocusBlock(t)) {
+        continue;
+      }
+
+      out.push(t);
+    }
+
+    return out;
+  }, [tasks, expandedFocusBlockIds]);
   
   // Combine and filter items
   const filteredItems = useMemo(() => {
     const allItems: TimelineItem[] = [
       ...events.map(e => ({ ...e, type: 'event' as const })),
-      ...tasks.map(t => ({ ...t, type: 'task' as const })),
+      ...displayTasks.map(t => ({ ...t, type: 'task' as const })),
     ];
     
     return allItems.filter(item => {
@@ -637,25 +935,24 @@ export function CommandPanel({
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        if (!item.title.toLowerCase().includes(query)) return false;
+        if (item.title.toLowerCase().includes(query)) return true;
+        if (item.type === 'task') {
+          const task = item as TimelineTask;
+          const preview = task.focusGroup?.preview ?? [];
+          if (preview.some(p => p.title.toLowerCase().includes(query))) return true;
+        }
+        return false;
       }
       
       return true;
     });
-  }, [events, tasks, timeFilter, assigneeFilter, searchQuery, today, currentUserId, currentUserEmail]);
+  }, [events, displayTasks, timeFilter, assigneeFilter, searchQuery, today, currentUserId, currentUserEmail]);
   
   // Group by day
   const groupedItems = useMemo(() => {
     // Sort by date
     const sorted = [...filteredItems].sort((a, b) => {
-      const dateA = getItemDate(a);
-      const dateB = getItemDate(b);
-      
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
-      
-      return dateA.getTime() - dateB.getTime();
+      return getSortTime(a) - getSortTime(b);
     });
     
     // Group by day
