@@ -7,7 +7,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pencil } from "lucide-react";
-import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils";
+import {
+  formatCompactTimeLabel,
+  formatCompactTimeRange,
+  formatTimeLabel,
+  type CalendarEvent,
+  type CalendarTask,
+} from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
@@ -418,15 +424,15 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
         const event = child.entry as CalendarEvent;
         if (event.allDay) return "All day";
         if (event.start && event.end) {
-          return `${formatTimeLabel(event.start) ?? event.start}–${formatTimeLabel(event.end) ?? event.end}`;
+          return formatCompactTimeRange(event.start, event.end);
         }
-        return (formatTimeLabel(event.start) ?? event.start) || "";
+        return (formatCompactTimeLabel(event.start) ?? formatTimeLabel(event.start) ?? event.start) || "";
       }
       const task = child.entry as CalendarTask;
       if (task.start && task.end) {
-        return `${formatTimeLabel(task.start) ?? task.start}–${formatTimeLabel(task.end) ?? task.end}`;
+        return formatCompactTimeRange(task.start, task.end);
       }
-      return (formatTimeLabel(task.start) ?? task.start) || "";
+      return (formatCompactTimeLabel(task.start) ?? formatTimeLabel(task.start) ?? task.start) || "";
     };
 
     const resolveTaskId = (task: CalendarTask): string => {

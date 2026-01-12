@@ -695,3 +695,56 @@ export const formatTimeLabel = (value?: string) => {
     hour12: true,
   });
 };
+
+const parseHm = (value?: string): { hours24: number; minutes: number } | null => {
+  if (!value) return null;
+  const [hoursRaw, minutesRaw] = value.split(":");
+  const hours24 = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (Number.isNaN(hours24) || Number.isNaN(minutes)) return null;
+  if (hours24 < 0 || hours24 > 23) return null;
+  if (minutes < 0 || minutes > 59) return null;
+  return { hours24, minutes };
+};
+
+export const formatCompactTimeLabel = (value?: string): string | undefined => {
+  const parsed = parseHm(value);
+  if (!parsed) return value || undefined;
+
+  const meridiem = parsed.hours24 >= 12 ? "p" : "a";
+  const hours12Raw = parsed.hours24 % 12;
+  const hours12 = hours12Raw === 0 ? 12 : hours12Raw;
+  const minutes = String(parsed.minutes).padStart(2, "0");
+  return `${hours12}:${minutes}${meridiem}`;
+};
+
+export const formatCompactTimeRange = (start?: string, end?: string): string => {
+  if (!start && !end) return "";
+  if (start && !end) return formatCompactTimeLabel(start) ?? start;
+  if (!start && end) return formatCompactTimeLabel(end) ?? end;
+
+  const s = parseHm(start);
+  const e = parseHm(end);
+  if (!s || !e) {
+    const startLabel = formatCompactTimeLabel(start) ?? start;
+    const endLabel = formatCompactTimeLabel(end) ?? end;
+    return `${startLabel}–${endLabel}`;
+  }
+
+  const startMeridiem = s.hours24 >= 12 ? "p" : "a";
+  const endMeridiem = e.hours24 >= 12 ? "p" : "a";
+
+  const startHours12 = (s.hours24 % 12) === 0 ? 12 : (s.hours24 % 12);
+  const endHours12 = (e.hours24 % 12) === 0 ? 12 : (e.hours24 % 12);
+  const startMinutes = String(s.minutes).padStart(2, "0");
+  const endMinutes = String(e.minutes).padStart(2, "0");
+
+  const startBase = `${startHours12}:${startMinutes}`;
+  const endBase = `${endHours12}:${endMinutes}`;
+
+  if (startMeridiem === endMeridiem) {
+    return `${startBase}–${endBase}${endMeridiem}`;
+  }
+
+  return `${startBase}${startMeridiem}–${endBase}${endMeridiem}`;
+};

@@ -104,6 +104,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
         isFocusBlockRow ? "calendar-entry-row--focus-block" : "",
         isSelected ? "calendar-entry-row--selected" : "",
         draggable ? "calendar-entry-row--draggable" : "",
+        showChevron ? "calendar-entry-row--has-disclosure" : "calendar-entry-row--no-disclosure",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -122,8 +123,6 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
       }}
       title={titleAttr ?? title}
     >
-      <span className="calendar-entry-row__status" aria-hidden />
-
       <span className="calendar-entry-row__icon" aria-hidden>
         {icon}
       </span>
@@ -135,37 +134,30 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
         {timeLabel ?? ""}
       </span>
 
-      <button
-        type="button"
-        className={`calendar-entry-row__chevron${showChevron ? "" : " is-hidden"}`}
-        aria-label={disclosure?.ariaLabel ?? (isExpanded ? "Collapse group" : "Expand group")}
-        aria-expanded={showChevron ? isExpanded : undefined}
-        disabled={!showChevron}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          disclosure?.onToggle();
-        }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-        }}
-        onPointerMove={(e) => {
-          e.stopPropagation();
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation();
-        }}
-      >
-        {showChevron ? (
-          isExpanded ? (
-            <ChevronDown size={14} aria-hidden />
-          ) : (
-            <ChevronRight size={14} aria-hidden />
-          )
-        ) : (
-          <ChevronRight size={14} aria-hidden />
-        )}
-      </button>
+      {showChevron ? (
+        <button
+          type="button"
+          className="calendar-entry-row__chevron"
+          aria-label={disclosure?.ariaLabel ?? (isExpanded ? "Collapse group" : "Expand group")}
+          aria-expanded={isExpanded}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            disclosure?.onToggle();
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          onPointerMove={(e) => {
+            e.stopPropagation();
+          }}
+          onPointerUp={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          {isExpanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+        </button>
+      ) : null}
 
       <div className="calendar-entry-row__title-cell" style={indentPx ? { paddingLeft: indentPx } : undefined}>
         <div className="calendar-entry-row__title-line">
@@ -185,7 +177,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
               className="calendar-entry-row__avatar-wrapper"
               style={{
                 zIndex: visibleAvatars.length - index,
-                marginLeft: index > 0 ? "-8px" : 0,
+                marginLeft: index > 0 ? "-6px" : 0,
               }}
             >
               <ProjectAvatar
@@ -193,7 +185,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
                 thumb={avatar.thumb ?? undefined}
                 name={avatar.name}
                 shape="circle"
-                radius={9}
+                radius={8}
               />
             </span>
           ))}
