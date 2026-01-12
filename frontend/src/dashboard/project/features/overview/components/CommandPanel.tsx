@@ -557,10 +557,9 @@ function TimelineRow({
     if (!isTask) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
     if (isContainerRow && rowItemType === 'multi_user_stack') return <Users size={12} className={styles.typeIcon} aria-hidden />;
     if (isContainerRow && rowItemType === 'focus_block') return <Layers size={12} className={styles.typeIcon} aria-hidden />;
-    if (kind !== 'focus_block' && Boolean(task?.startAt || task?.endAt)) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
     if (isDone) return <CheckSquare size={12} className={styles.typeIcon} aria-hidden />;
     return <Square size={12} className={styles.typeIcon} aria-hidden />;
-  }, [isTask, isContainerRow, rowItemType, kind, isDone, task?.startAt, task?.endAt]);
+  }, [isTask, isContainerRow, rowItemType, isDone]);
   const ellipsisRef = useRef<HTMLButtonElement>(null);
   
   return (
