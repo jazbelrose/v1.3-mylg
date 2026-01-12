@@ -122,19 +122,47 @@ export const getAvatarForGuest = (
 };
 
 const collectAssigneeCandidates = (task: CalendarTask): string[] => {
-  const seen = new Set<string>();
-  const entries: string[] = [];
-  const push = (value?: string | null) => {
-    if (!value) return;
-    const normalized = value.trim();
-    if (!normalized || seen.has(normalized)) return;
-    seen.add(normalized);
-    entries.push(normalized);
+  const source = task.source as unknown as {
+    assigneeId?: string | null;
+    assigneeIds?: string[];
+    assigneeTokens?: string[];
   };
 
-  push(task.assignedTo ?? undefined);
-  task.assigneeIds?.forEach((candidate) => push(candidate));
-  return entries;
+  const orderedUserIds: string[] = [];
+  const bestLabelByUserId = new Map<string, string>();
+
+  const consider = (value?: string | null) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    const userId = parseAssigneeUserId(trimmed);
+    if (!userId) return;
+
+    if (!bestLabelByUserId.has(userId)) {
+      bestLabelByUserId.set(userId, trimmed);
+      orderedUserIds.push(userId);
+      return;
+    }
+
+    const existing = bestLabelByUserId.get(userId) ?? userId;
+    const existingId = parseAssigneeUserId(existing) ?? existing;
+    const nextId = parseAssigneeUserId(trimmed) ?? trimmed;
+    const existingIsBareId = existingId === existing;
+    const nextIsBareId = nextId === trimmed;
+    if (existingIsBareId && !nextIsBareId) {
+      bestLabelByUserId.set(userId, trimmed);
+    }
+  };
+
+  consider(task.assignedTo ?? undefined);
+  consider(source.assigneeId ?? undefined);
+
+  task.assigneeIds?.forEach((candidate) => consider(candidate));
+  source.assigneeIds?.forEach((candidate) => consider(candidate));
+  source.assigneeTokens?.forEach((candidate) => consider(candidate));
+
+  return orderedUserIds.map((id) => bestLabelByUserId.get(id) ?? id);
 };
 
 export const buildTaskAvatars = (

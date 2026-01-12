@@ -264,7 +264,14 @@ const CalendarPage: React.FC = () => {
             userId: String(p.userId),
             firstName: typeof p.firstName === "string" ? p.firstName : "",
             lastName: typeof p.lastName === "string" ? p.lastName : "",
-            thumbnail: typeof p.thumbnail === "string" ? p.thumbnail : null,
+            thumbnail:
+              (typeof p.thumbnail === "string" && p.thumbnail) ||
+              (typeof (p as { thumbnailUrl?: unknown }).thumbnailUrl === "string" &&
+                (p as { thumbnailUrl?: string }).thumbnailUrl) ||
+              (typeof (p as { avatar?: unknown }).avatar === "string" && (p as { avatar?: string }).avatar) ||
+              (typeof (p as { avatarUrl?: unknown }).avatarUrl === "string" &&
+                (p as { avatarUrl?: string }).avatarUrl) ||
+              null,
           }));
 
         members.forEach((m) => fetchedAssigneeIdsRef.current.add(m.userId));
@@ -342,7 +349,14 @@ const CalendarPage: React.FC = () => {
             userId: String(p.userId),
             firstName: typeof p.firstName === "string" ? p.firstName : "",
             lastName: typeof p.lastName === "string" ? p.lastName : "",
-            thumbnail: typeof p.thumbnail === "string" ? p.thumbnail : null,
+            thumbnail:
+              (typeof p.thumbnail === "string" && p.thumbnail) ||
+              (typeof (p as { thumbnailUrl?: unknown }).thumbnailUrl === "string" &&
+                (p as { thumbnailUrl?: string }).thumbnailUrl) ||
+              (typeof (p as { avatar?: unknown }).avatar === "string" && (p as { avatar?: string }).avatar) ||
+              (typeof (p as { avatarUrl?: unknown }).avatarUrl === "string" &&
+                (p as { avatarUrl?: string }).avatarUrl) ||
+              null,
           }));
 
         members.forEach((m) => fetchedAssigneeIdsRef.current.add(m.userId));

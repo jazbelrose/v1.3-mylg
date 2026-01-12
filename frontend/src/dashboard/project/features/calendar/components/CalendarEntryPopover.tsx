@@ -18,7 +18,7 @@ import {
   DollarSign,
   CheckSquare,
   Square,
-  ListTodo,
+  Layers,
 } from "lucide-react";
 import { formatTimeLabel, type CalendarTask, type CalendarEvent } from "../utils";
 import type { CalendarEntryType } from "./calendarInteractions";
@@ -155,7 +155,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   }, []);
 
   const startDragFocusChildIfPossible = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = focusChildPointerRef.current;
       if (!state) return;
       if (state.didDrag || state.cancelled) return;
@@ -184,7 +184,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   );
 
   const handleFocusChildPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>, child: CalendarTask, childKey: string) => {
+    (event: React.PointerEvent<HTMLDivElement>, child: CalendarTask, childKey: string) => {
       if (event.button !== 0) return;
       if (isEditingTitle) return;
 
@@ -237,7 +237,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   );
 
   const handleFocusChildPointerMove = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = focusChildPointerRef.current;
       if (!state) return;
       if (event.pointerId !== state.pointerId) return;
@@ -268,7 +268,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   );
 
   const handleFocusChildPointerUp = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = focusChildPointerRef.current;
       if (!state) return;
       if (event.pointerId !== state.pointerId) return;
@@ -294,7 +294,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   );
 
   const handleFocusChildPointerCancel = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = focusChildPointerRef.current;
       if (!state) return;
       if (event.pointerId !== state.pointerId) return;
@@ -469,8 +469,9 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           if (derived.length >= 3) return;
           buildTaskAvatars(child, memberLookup).forEach((a) => {
             if (derived.length >= 3) return;
-            if (seen.has(a.key)) return;
-            seen.add(a.key);
+            const stableId = a.entityId ?? a.key;
+            if (seen.has(stableId)) return;
+            seen.add(stableId);
             derived.push(a);
           });
         });
@@ -829,7 +830,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           {entryType === "event" ? (
             <Clock className="calendar-entry-row__icon-svg" aria-hidden />
           ) : isFocusBlock ? (
-            <ListTodo className="calendar-entry-row__icon-svg" aria-hidden />
+            <Layers className="calendar-entry-row__icon-svg" aria-hidden />
           ) : (() => {
             const bundleDone =
               isFocusBlock && focusChildrenResolved.length > 0

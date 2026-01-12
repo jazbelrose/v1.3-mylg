@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, Square, Plus, Users, ListTodo } from "lucide-react";
+import { CheckSquare, Clock, Layers, Square, Plus, Users } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
@@ -734,8 +734,9 @@ function WeekGrid({
         if (derived.length >= 3) return;
         buildTaskAvatars(child, teamMemberLookup).forEach((a) => {
           if (derived.length >= 3) return;
-          if (seen.has(a.key)) return;
-          seen.add(a.key);
+          const stableId = a.entityId ?? a.key;
+          if (seen.has(stableId)) return;
+          seen.add(stableId);
           derived.push(a);
         });
       });
@@ -2857,7 +2858,7 @@ function WeekGrid({
         </span>
       );
     })();
-    const avatarsToRender = isFocusBlock ? entry.avatars.slice(0, 1) : entry.avatars;
+    const avatarsToRender = entry.avatars;
     const inlineAvatars =
       avatarsToRender.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
@@ -2970,7 +2971,7 @@ function WeekGrid({
                 }
 
                 if (isFocusBlock) {
-                  return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
+                  return <Layers className="week-grid__task-icon-svg" aria-hidden />;
                 }
 
                 return Boolean(entry.completed) ? (
@@ -3371,9 +3372,9 @@ function WeekGrid({
             <div
               className={`week-grid__timeline-entry-body${useTileLayout ? " week-grid__timeline-entry-body--tile" : ""}`}
             >
-              {useTileLayout
-                ? renderTileHeader({
-                    icon: <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
+                {useTileLayout
+                  ? renderTileHeader({
+                    icon: <Layers className="week-grid__task-icon-svg" aria-hidden />,
                     title: previewTitle,
                     isComplete: entry.completed,
                     chip:
@@ -3402,7 +3403,7 @@ function WeekGrid({
               >
                 {useTileLayout
                   ? renderTileHeader({
-                      icon: <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
+                      icon: <Layers className="week-grid__task-icon-svg" aria-hidden />,
                       title: previewTitle,
                       isComplete: entry.completed,
                       chip:

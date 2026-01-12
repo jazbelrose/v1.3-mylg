@@ -3672,13 +3672,37 @@ body.isMarqueeSelecting * {
   min-width: 0;
 
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 4px 18px 78px 20px minmax(0, 1fr) auto;
   column-gap: 8px;
   align-items: center;
 }
 
 .calendar-entry-row:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.calendar-entry-row__status {
+  width: 4px;
+  height: 100%;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.calendar-entry-row--event .calendar-entry-row__status {
+  background: rgba(168, 85, 247, 0.55);
+}
+
+.calendar-entry-row--task .calendar-entry-row__status {
+  background: rgba(59, 130, 246, 0.55);
+}
+
+.calendar-entry-row--focus-block .calendar-entry-row__status {
+  background: rgba(245, 158, 11, 0.6);
+}
+
+.calendar-entry-row--task .calendar-entry-row__title.is-complete {
+  text-decoration: line-through;
+  opacity: 0.75;
 }
 
 .calendar-entry-row--selected {
@@ -3707,11 +3731,54 @@ body.isMarqueeSelecting * {
   height: 16px;
 }
 
-.calendar-entry-row__main {
+.calendar-entry-row__time {
+  font-size: 0.72rem;
+  color: rgba(245, 245, 245, 0.6);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-entry-row__time.is-empty {
+  visibility: hidden;
+}
+
+.calendar-entry-row__chevron {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.55);
+  cursor: pointer;
+  padding: 0;
+}
+
+.calendar-entry-row__chevron:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(245, 245, 245, 0.85);
+}
+
+.calendar-entry-row__chevron.is-hidden {
+  visibility: hidden;
+}
+
+.calendar-entry-row__title-cell {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.calendar-entry-row__title-line {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .calendar-entry-row__title {
@@ -3721,24 +3788,51 @@ body.isMarqueeSelecting * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
-.calendar-entry-row__title.is-complete {
-  text-decoration: line-through;
-  opacity: 0.75;
+.calendar-entry-row--focus-block .calendar-entry-row__title {
+  font-weight: 700;
 }
 
-.calendar-entry-row__time {
-  font-size: 0.72rem;
-  color: rgba(245, 245, 245, 0.6);
+.calendar-entry-row__progress {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  color: rgba(245, 245, 245, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 1px 6px;
 }
 
-.calendar-entry-row__avatars {
+.calendar-entry-row__preview {
+  font-size: 0.7rem;
+  color: rgba(245, 245, 245, 0.58);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-entry-row__meta {
+  min-width: 86px;
+  display: grid;
+  grid-template-columns: 1fr 28px;
+  align-items: center;
+  justify-content: end;
+  gap: 8px;
+}
+
+.calendar-entry-row__avatar-stack {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.calendar-entry-row__avatar-wrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
 }
 
 .calendar-entry-row__avatar {
@@ -3748,36 +3842,43 @@ body.isMarqueeSelecting * {
   border: 1.5px solid rgba(255, 255, 255, 0.12);
 }
 
+.calendar-entry-row__avatar-badge {
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(245, 245, 245, 0.86);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.calendar-entry-row__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 20px;
+  color: rgba(255, 255, 255, 0.35);
+  transition: color 0.12s ease;
+}
+
+.calendar-entry-row__actions-placeholder {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+}
+
 /* Drag handle for extracting entries from stacks */
 .calendar-entry-row--draggable {
   cursor: grab;
-}
-
-/* Default draggable layout includes a visible handle */
-.calendar-entry-row--draggable:not(.calendar-entry-row--draggable-no-handle) {
-  grid-template-columns: 14px 18px 1fr auto;
-}
-
-/* Draggable, but no handle icon: keep the original 3-column layout */
-.calendar-entry-row--draggable.calendar-entry-row--draggable-no-handle {
-  grid-template-columns: 18px 1fr auto;
 }
 
 .calendar-entry-row--draggable:active {
   cursor: grabbing;
 }
 
-.calendar-entry-row__drag-handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 18px;
-  color: rgba(255, 255, 255, 0.35);
-  transition: color 0.12s ease;
-}
-
-.calendar-entry-row--draggable:hover .calendar-entry-row__drag-handle {
+.calendar-entry-row--draggable:hover .calendar-entry-row__actions {
   color: rgba(255, 255, 255, 0.6);
 }
 

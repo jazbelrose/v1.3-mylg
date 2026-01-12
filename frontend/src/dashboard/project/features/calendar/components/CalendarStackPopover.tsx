@@ -11,7 +11,6 @@ import { formatTimeLabel, type CalendarEvent, type CalendarTask } from "../utils
 import type { CalendarEntryType } from "./calendarInteractions";
 import type { TeamMember as ProjectTeamMember } from "@/dashboard/project/components/Shared/types";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
-import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
 import { fetchUserProfilesBatch } from "@/shared/utils/api";
 import {
   CalendarEntryContextMenu,
@@ -24,8 +23,6 @@ import {
   buildEventAvatars,
   buildTeamMemberLookup,
   buildTaskAvatars,
-  getAvatarForAssignee,
-  getAvatarForGuest,
   parseAssigneeUserId,
   type TimelineAvatar,
 } from "./timelineLayout";
@@ -127,19 +124,6 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     [effectiveTeamMembers],
   );
 
-  const memberLookupByCompactName = useMemo(() => {
-    const map = new Map<string, ProjectTeamMember>();
-    effectiveTeamMembers.forEach((member) => {
-      const first = (member.firstName ?? "").trim();
-      const last = (member.lastName ?? "").trim();
-      const compact = `${first}${last}`.replace(/\s+/g, "").toLowerCase();
-      if (compact) {
-        map.set(compact, member);
-      }
-    });
-    return map;
-  }, [effectiveTeamMembers]);
-
   useEffect(() => {
     if (kind !== "overlapStack") return;
 
@@ -196,7 +180,14 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
             userId: String(profile.userId),
             firstName: typeof profile.firstName === "string" ? profile.firstName : "",
             lastName: typeof profile.lastName === "string" ? profile.lastName : "",
-            thumbnail: typeof profile.thumbnail === "string" ? profile.thumbnail : null,
+            thumbnail:
+              (typeof profile.thumbnail === "string" && profile.thumbnail) ||
+              (typeof (profile as { thumbnailUrl?: unknown }).thumbnailUrl === "string" &&
+                (profile as { thumbnailUrl?: string }).thumbnailUrl) ||
+              (typeof (profile as { avatar?: unknown }).avatar === "string" && (profile as { avatar?: string }).avatar) ||
+              (typeof (profile as { avatarUrl?: unknown }).avatarUrl === "string" &&
+                (profile as { avatarUrl?: string }).avatarUrl) ||
+              null,
           }));
 
         members.forEach((m) => fetchedUserIdsRef.current.add(m.userId));
@@ -221,14 +212,39 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   }, [children, kind, teamMembers]);
 
   const headerAvatarSource = useMemo(() => {
-    if (kind !== "overlapStack") return avatars ?? [];
-    // For overlap stacks, rebuild the header coin stack from resolved user groups,
-    // so thumbnails can appear even when the stack entry was computed before we fetched missing profiles.
-    return [] as TimelineAvatar[];
-  }, [avatars, kind]);
+    const dedupe = (items: TimelineAvatar[]): TimelineAvatar[] => {
+      const out: TimelineAvatar[] = [];
+      const seen = new Set<string>();
+      for (const item of items) {
+        const stableId = item.entityId ?? item.key;
+        if (seen.has(stableId)) continue;
+        seen.add(stableId);
+        out.push(item);
+      }
+      return out;
+    };
 
-  const isSingleUser = Boolean((avatars?.length ?? 0) === 1);
-  const showRowAvatars = kind === "overlapStack" && !isSingleUser;
+    const fromChildren = (): TimelineAvatar[] => {
+      const collected: TimelineAvatar[] = [];
+      children.forEach((child) => {
+        if (child.entryType === "task") {
+          collected.push(...buildTaskAvatars(child.entry as CalendarTask, memberLookup));
+          return;
+        }
+        collected.push(...buildEventAvatars(child.entry as CalendarEvent, memberLookup));
+      });
+      return dedupe(collected);
+    };
+
+    if (kind === "overlapStack") {
+      // For overlap stacks, rebuild the header coin stack from resolved members,
+      // so thumbnails can appear even when the stack tile was computed before profile fetches completed.
+      return fromChildren();
+    }
+
+    if (avatars && avatars.length > 0) return dedupe(avatars);
+    return fromChildren();
+  }, [avatars, children, kind, memberLookup]);
 
   const canInlineRename = Boolean(onRenameTitle);
   const displayTitle = titleOverride ?? title;
@@ -378,7 +394,25 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
     };
   }, [anchorElement, onClose]);
 
+  const [collapsedFocusIds, setCollapsedFocusIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setCollapsedFocusIds(new Set());
+  }, [parentId]);
+
   const rows = useMemo(() => {
+    type RowBase = {
+      child: StackPopoverChild;
+      title: string;
+      time: string;
+      isDone: boolean;
+      entryType: StackPopoverChild["entryType"];
+      taskId?: string;
+      parentFocusId?: string;
+      focusChildIds?: string[];
+      isFocusBlockSeed: boolean;
+    };
+
     const buildTimeRange = (child: StackPopoverChild): string => {
       if (child.entryType === "event") {
         const event = child.entry as CalendarEvent;
@@ -395,178 +429,271 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       return (formatTimeLabel(task.start) ?? task.start) || "";
     };
 
-    const buildRowAvatar = (child: StackPopoverChild): TimelineAvatar | null => {
-      if (!showRowAvatars) return null;
-      if (child.entryType === "task") {
-        const task = child.entry as CalendarTask;
-        return buildTaskAvatars(task, memberLookup)[0] ?? null;
-      }
-      const event = child.entry as CalendarEvent;
-      return buildEventAvatars(event, memberLookup)[0] ?? null;
+    const resolveTaskId = (task: CalendarTask): string => {
+      const source = task.source as unknown as { taskId?: unknown };
+      const sourceId = typeof source?.taskId === "string" ? source.taskId.trim() : "";
+      const localId = typeof task.id === "string" ? task.id.trim() : "";
+      return sourceId || localId;
     };
 
-    const resolvePrimaryUser = (
-      child: StackPopoverChild,
-    ): { groupKey: string; label: string; avatar: TimelineAvatar | null } => {
-      if (child.entryType === "task") {
-        const task = child.entry as CalendarTask;
-
-        const candidates = [...(task.assigneeIds ?? [])
-          .map((id) => (typeof id === "string" ? id.trim() : ""))
-          .filter(Boolean)];
-        if (task.assignedTo) {
-          candidates.push(task.assignedTo);
-        }
-
-        const resolveMemberFromCandidate = (value: string): ProjectTeamMember | undefined => {
-          const userId = parseAssigneeUserId(value);
-          if (userId) {
-            const direct = memberLookup.byId.get(userId);
-            if (direct) return direct;
-          }
-          const display = (formatAssigneeDisplay(value) ?? value).trim().toLowerCase();
-          if (display) {
-            const byDisplay = memberLookup.byDisplayName.get(display);
-            if (byDisplay) return byDisplay;
-          }
-
-          const compact = (formatAssigneeDisplay(value) ?? value)
-            .replace(/\s+/g, "")
-            .trim()
-            .toLowerCase();
-          return compact ? memberLookupByCompactName.get(compact) : undefined;
-        };
-
-        const chosen = candidates.find((value) => Boolean(resolveMemberFromCandidate(value)))
-          ?? candidates[0]
-          ?? undefined;
-
-        const member = chosen ? resolveMemberFromCandidate(chosen) : undefined;
-        const label = member
-          ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.userId
-          : chosen
-          ? (formatAssigneeDisplay(chosen) ?? chosen.trim())
-          : "Unassigned";
-
-        const groupKey = member?.userId
-          ?? (chosen ? (parseAssigneeUserId(chosen) ?? label) : "unassigned");
-
-        const avatar = chosen ? getAvatarForAssignee(chosen, memberLookup, `group-${task.id}`) : null;
-        return {
-          groupKey,
-          label,
-          avatar,
-        };
-      }
-
-      const event = child.entry as CalendarEvent;
-      const candidates = (event.guests ?? []).map((guest) => guest?.trim()).filter(Boolean);
-
-      const resolveMemberFromCandidate = (value: string): ProjectTeamMember | undefined => {
-        const userId = parseAssigneeUserId(value);
-        if (userId) {
-          const direct = memberLookup.byId.get(userId);
-          if (direct) return direct;
-        }
-        const display = (formatAssigneeDisplay(value) ?? value).trim().toLowerCase();
-        if (display) {
-          const byDisplay = memberLookup.byDisplayName.get(display);
-          if (byDisplay) return byDisplay;
-        }
-
-        const compact = (formatAssigneeDisplay(value) ?? value)
-          .replace(/\s+/g, "")
-          .trim()
-          .toLowerCase();
-        return compact ? memberLookupByCompactName.get(compact) : undefined;
-      };
-
-      const chosen = candidates.find((value) => Boolean(resolveMemberFromCandidate(value)))
-        ?? candidates[0]
-        ?? undefined;
-
-      const member = chosen ? resolveMemberFromCandidate(chosen) : undefined;
-      const label = member
-        ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.userId
-        : chosen
-        ? (formatAssigneeDisplay(chosen) ?? chosen.trim())
-        : "Guests";
-
-      const groupKey = member?.userId
-        ?? (chosen ? (parseAssigneeUserId(chosen) ?? label) : "guests");
-
-      const avatar = chosen ? getAvatarForGuest(chosen, memberLookup, `group-${event.id}`) : null;
-      return {
-        groupKey,
-        label,
-        avatar,
-      };
+    const resolveParentFocusId = (task: CalendarTask): string | undefined => {
+      const direct = typeof task.focusBlockId === "string" ? task.focusBlockId.trim() : "";
+      if (direct) return direct;
+      const source = task.source as unknown as { focusBlockId?: unknown };
+      const fromSource = typeof source?.focusBlockId === "string" ? source.focusBlockId.trim() : "";
+      return fromSource || undefined;
     };
 
-    return [...children]
-      .map((child) => {
-        const title =
-          child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
-        const isFocusBlock = (() => {
-          if (child.entryType !== "task") return false;
-          const task = child.entry as CalendarTask;
-          const normalizedKind = String(task.kind ?? "").trim().toLowerCase();
-          if (normalizedKind === "focus_block") return true;
-          const hasChildren =
-            (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
-            (task.focusChecklist && task.focusChecklist.length > 0);
-          return hasChildren;
-        })();
-        const isDone =
-          child.entryType === "task"
-            ? ((child.entry as CalendarTask).status === "done" || (child.entry as CalendarTask).done === true)
-            : false;
-        const primaryUser = resolvePrimaryUser(child);
+    const base: RowBase[] = [...children].map((child) => {
+      const title =
+        child.entry.title || (child.entryType === "task" ? "Untitled task" : "Untitled event");
+
+      if (child.entryType !== "task") {
         return {
           child,
+          entryType: child.entryType,
           title,
           time: buildTimeRange(child),
-          avatar: buildRowAvatar(child),
-          isDone,
-          isFocusBlock,
-          primaryUser,
+          isDone: false,
+          isFocusBlockSeed: false,
         };
-      })
-      .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
-  }, [children, memberLookup, showRowAvatars]);
-
-  const userStacks = useMemo(() => {
-    if (kind !== "overlapStack") return null;
-    const groups = new Map<
-      string,
-      { label: string; avatar: TimelineAvatar | null; rows: typeof rows }
-    >();
-
-    rows.forEach((row) => {
-      const key = row.primaryUser.groupKey;
-      const existing = groups.get(key);
-      if (!existing) {
-        groups.set(key, { label: row.primaryUser.label, avatar: row.primaryUser.avatar, rows: [row] });
-      } else {
-        existing.rows.push(row);
       }
+
+      const task = child.entry as CalendarTask;
+      const normalizedKind = String(task.kind ?? "").trim().toLowerCase();
+      const hasDeclaredChildren =
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0);
+
+      const focusChildIds = [
+        ...(task.focusChildTaskIds ?? []),
+        ...(task.focusChecklist ?? []).map((item) => item.taskId),
+      ]
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter(Boolean);
+
+      return {
+        child,
+        entryType: child.entryType,
+        title,
+        time: buildTimeRange(child),
+        isDone: task.status === "done" || task.done === true,
+        taskId: resolveTaskId(task),
+        parentFocusId: resolveParentFocusId(task),
+        focusChildIds,
+        isFocusBlockSeed: normalizedKind === "focus_block" || hasDeclaredChildren,
+      };
     });
 
-    return [...groups.entries()]
-      .map(([groupKey, group]) => ({ groupKey, ...group }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [kind, rows]);
+    const byTaskId = new Map<string, RowBase>();
+    base.forEach((row) => {
+      if (row.entryType !== "task") return;
+      const id = row.taskId;
+      if (!id) return;
+      byTaskId.set(id, row);
+    });
+
+    const parentByTaskId = new Map<string, string>();
+    const childrenByFocusId = new Map<string, Set<string>>();
+
+    const ensureChildSet = (focusId: string): Set<string> => {
+      const existing = childrenByFocusId.get(focusId);
+      if (existing) return existing;
+      const next = new Set<string>();
+      childrenByFocusId.set(focusId, next);
+      return next;
+    };
+
+    // 1) Link children by `focusBlockId` (when the parent is also present in this list).
+    base.forEach((row) => {
+      if (row.entryType !== "task") return;
+      if (!row.taskId) return;
+      const parent = row.parentFocusId;
+      if (!parent) return;
+      if (!byTaskId.has(parent)) return;
+      parentByTaskId.set(row.taskId, parent);
+      ensureChildSet(parent).add(row.taskId);
+    });
+
+    // 2) Link children by the Focus Block's declared references (legacy support).
+    base.forEach((row) => {
+      if (row.entryType !== "task") return;
+      if (!row.taskId) return;
+      if (!row.isFocusBlockSeed) return;
+      const focusId = row.taskId;
+      (row.focusChildIds ?? []).forEach((childId) => {
+        if (!childId) return;
+        if (childId === focusId) return;
+        if (!byTaskId.has(childId)) return;
+        if (parentByTaskId.has(childId)) return;
+        parentByTaskId.set(childId, focusId);
+        ensureChildSet(focusId).add(childId);
+      });
+    });
+
+    const isFocusBlockTaskId = (taskId: string): boolean => {
+      const row = byTaskId.get(taskId);
+      if (!row) return false;
+      if (row.isFocusBlockSeed) return true;
+      const children = childrenByFocusId.get(taskId);
+      return Boolean(children && children.size > 0);
+    };
+
+    const sortKeys = (rowsToSort: RowBase[]): RowBase[] =>
+      rowsToSort.slice().sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title));
+
+    const descendantCache = new Map<string, string[]>();
+    const collectDescendants = (focusId: string): string[] => {
+      const cached = descendantCache.get(focusId);
+      if (cached) return cached;
+
+      const out: string[] = [];
+      const visited = new Set<string>();
+      const walk = (id: string) => {
+        const set = childrenByFocusId.get(id);
+        if (!set) return;
+        for (const childId of set) {
+          if (visited.has(childId)) continue;
+          visited.add(childId);
+          out.push(childId);
+          walk(childId);
+        }
+      };
+      walk(focusId);
+      descendantCache.set(focusId, out);
+      return out;
+    };
+
+    const buildFocusPreview = (titles: string[]): string | undefined => {
+      const cleaned = titles.map((t) => t.trim()).filter(Boolean);
+      if (cleaned.length === 0) return undefined;
+      const visible = cleaned.slice(0, 3);
+      const extra = Math.max(cleaned.length - visible.length, 0);
+      return extra > 0 ? `${visible.join(" • ")} • +${extra}` : visible.join(" • ");
+    };
+
+    const topLevel = sortKeys(
+      base.filter((row) => {
+        if (row.entryType !== "task") return true;
+        if (!row.taskId) return true;
+        return !parentByTaskId.has(row.taskId);
+      }),
+    );
+
+    const flattened: Array<{
+      child: StackPopoverChild;
+      title: string;
+      time: string;
+      isDone: boolean;
+      isFocusBlock: boolean;
+      focusId?: string;
+      hasChildren: boolean;
+      isExpanded: boolean;
+      level: number;
+      avatars: TimelineAvatar[];
+      preview?: string;
+      progressLabel?: string;
+    }> = [];
+
+    const buildRowAvatars = (row: RowBase): TimelineAvatar[] => {
+      if (row.entryType === "event") {
+        return buildEventAvatars(row.child.entry as CalendarEvent, memberLookup);
+      }
+      return buildTaskAvatars(row.child.entry as CalendarTask, memberLookup);
+    };
+
+    const buildDerivedFocusAvatars = (focusId: string): TimelineAvatar[] => {
+      const avatarList: TimelineAvatar[] = [];
+      const stable = new Set<string>();
+
+      const add = (avatarsToAdd: TimelineAvatar[]) => {
+        avatarsToAdd.forEach((avatar) => {
+          if (avatarList.length >= 4) return;
+          const stableId = avatar.entityId ?? avatar.key;
+          if (stable.has(stableId)) return;
+          stable.add(stableId);
+          avatarList.push(avatar);
+        });
+      };
+
+      const focusRow = byTaskId.get(focusId);
+      if (focusRow) {
+        add(buildRowAvatars(focusRow));
+      }
+
+      collectDescendants(focusId).forEach((taskId) => {
+        const row = byTaskId.get(taskId);
+        if (!row) return;
+        if (isFocusBlockTaskId(taskId)) return;
+        add(buildRowAvatars(row));
+      });
+
+      return avatarList;
+    };
+
+    const buildProgressLabel = (focusId: string): string | undefined => {
+      const descendantTasks = collectDescendants(focusId)
+        .map((taskId) => byTaskId.get(taskId))
+        .filter((row): row is RowBase => Boolean(row))
+        .filter((row) => !isFocusBlockTaskId(row.taskId ?? ""));
+
+      if (descendantTasks.length === 0) return undefined;
+      const done = descendantTasks.reduce((sum, row) => sum + (row.isDone ? 1 : 0), 0);
+      return `${done}/${descendantTasks.length}`;
+    };
+
+    const buildFocusPreviewTitles = (focusId: string): string | undefined => {
+      const descendantTasks = collectDescendants(focusId)
+        .map((taskId) => byTaskId.get(taskId))
+        .filter((row): row is RowBase => Boolean(row))
+        .filter((row) => !isFocusBlockTaskId(row.taskId ?? ""))
+        .map((row) => row.title);
+      return buildFocusPreview(descendantTasks);
+    };
+
+    const pushFlattened = (row: RowBase, level: number) => {
+      const taskId = row.taskId;
+      const isFocusBlock = row.entryType === "task" && Boolean(taskId && isFocusBlockTaskId(taskId));
+      const hasChildren = Boolean(taskId && (childrenByFocusId.get(taskId)?.size ?? 0) > 0);
+      const isExpanded = Boolean(taskId && !collapsedFocusIds.has(taskId));
+
+      const avatarsForRow = isFocusBlock && taskId ? buildDerivedFocusAvatars(taskId) : buildRowAvatars(row);
+      const progressLabel = isFocusBlock && taskId ? buildProgressLabel(taskId) : undefined;
+      const preview = isFocusBlock && taskId ? buildFocusPreviewTitles(taskId) : undefined;
+
+      flattened.push({
+        child: row.child,
+        title: row.title,
+        time: row.time,
+        isDone: row.isDone,
+        isFocusBlock,
+        focusId: taskId,
+        hasChildren,
+        isExpanded,
+        level,
+        avatars: avatarsForRow,
+        preview,
+        progressLabel,
+      });
+
+      if (!isFocusBlock || !hasChildren || !isExpanded || !taskId) return;
+
+      const childIds = Array.from(childrenByFocusId.get(taskId) ?? []);
+      const childRows = childIds
+        .map((id) => byTaskId.get(id))
+        .filter((r): r is RowBase => Boolean(r));
+      sortKeys(childRows).forEach((childRow) => pushFlattened(childRow, level + 1));
+    };
+
+    topLevel.forEach((row) => pushFlattened(row, 0));
+    return flattened;
+  }, [children, collapsedFocusIds, memberLookup]);
 
   const headerAvatars = useMemo(() => {
-    const derivedAvatars: TimelineAvatar[] =
-      kind === "overlapStack"
-        ? (userStacks ?? [])
-            .map((group) => group.avatar)
-            .filter((value): value is TimelineAvatar => Boolean(value))
-        : (headerAvatarSource ?? []);
+    const derivedAvatars: TimelineAvatar[] = headerAvatarSource ?? [];
 
     if (!derivedAvatars || derivedAvatars.length === 0) return null;
-    const visible = derivedAvatars.slice(0, 3);
+    const visible = derivedAvatars.slice(0, 4);
     const extra = Math.max(derivedAvatars.length - visible.length, 0);
 
     return (
@@ -594,7 +721,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
         {extra > 0 ? <span className="calendar-entry-popover__badge">+{extra}</span> : null}
       </div>
     );
-  }, [headerAvatarSource, kind, userStacks]);
+  }, [headerAvatarSource]);
 
   const [activeRowKey, setActiveRowKey] = useState<string | null>(null);
 
@@ -619,7 +746,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   }, []);
 
   const startDragIfPossible = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>, child: StackPopoverChild) => {
+    (event: React.PointerEvent<HTMLDivElement>, child: StackPopoverChild) => {
       if (!onStartDragChild) return;
       const state = pointerStateRef.current;
       if (!state || state.didDrag || state.cancelled) return;
@@ -639,7 +766,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   );
 
   const handleRowPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>, child: StackPopoverChild) => {
+    (event: React.PointerEvent<HTMLDivElement>, child: StackPopoverChild) => {
       // Only initiate interactions on primary button.
       if (event.button !== 0) return;
       // If user is editing title, ignore.
@@ -685,7 +812,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   );
 
   const handleRowPointerMove = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = pointerStateRef.current;
       if (!state) return;
       if (event.pointerId !== state.pointerId) return;
@@ -718,7 +845,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   );
 
   const handleRowPointerUp = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = pointerStateRef.current;
       if (!state) return;
       if (event.pointerId !== state.pointerId) return;
@@ -746,7 +873,7 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
   );
 
   const handleRowPointerCancel = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (event: React.PointerEvent<HTMLDivElement>) => {
       const state = pointerStateRef.current;
       if (!state) return;
       if (event.pointerId !== state.pointerId) return;
@@ -821,108 +948,59 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       </div>
 
       <div className="calendar-stack-popover__list">
-        {kind === "overlapStack" && userStacks ? (
-          userStacks.map((group) => (
-            <div key={group.groupKey} className="calendar-stack-popover__user-stack">
-              <div className="calendar-stack-popover__user-stack-header">
-                {group.avatar ? (
-                  <ProjectAvatar
-                    className="calendar-stack-popover__group-avatar"
-                    thumb={group.avatar.thumb ?? undefined}
-                    name={group.avatar.name}
-                    shape="circle"
-                    radius={9}
-                  />
-                ) : (
-                  <span
-                    className="calendar-stack-popover__group-avatar calendar-stack-popover__group-avatar--empty"
-                    aria-hidden
-                  />
-                )}
-                <span className="calendar-stack-popover__user-stack-name">{group.label}</span>
-                <span className="calendar-stack-popover__user-stack-count" aria-label={`${group.rows.length} items`}>
-                  {group.rows.length}
-                </span>
-              </div>
+        {rows.map((row) => (
+          <div
+            key={row.child.entryKey}
+            className="calendar-stack-popover__row calendar-stack-popover__row--list"
+          >
+            <CalendarEntryRow
+              entryType={row.child.entryType}
+              title={row.title}
+              timeLabel={row.time}
+              isDone={row.isDone}
+              taskIcon={row.child.entryType === "task" && row.isFocusBlock ? "stack" : undefined}
+              level={row.level}
+              preview={row.preview}
+              progressLabel={row.progressLabel}
+              disclosure={
+                row.child.entryType === "task" && row.isFocusBlock && row.hasChildren && row.focusId
+                  ? {
+                      visible: true,
+                      expanded: row.isExpanded,
+                      onToggle: () => {
+                        setCollapsedFocusIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(row.focusId as string)) next.delete(row.focusId as string);
+                          else next.add(row.focusId as string);
+                          return next;
+                        });
+                      },
+                      ariaLabel: row.isExpanded ? "Collapse Focus Block" : "Expand Focus Block",
+                    }
+                  : undefined
+              }
+              avatars={row.avatars}
+              isSelected={activeRowKey === row.child.entryKey}
+              draggable={Boolean(onStartDragChild)}
+              showDragHandle={kind !== "overlapStack"}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                handleRowPointerDown(e, row.child);
+              }}
+              onPointerMove={handleRowPointerMove}
+              onPointerUp={handleRowPointerUp}
+              onPointerCancel={handleRowPointerCancel}
+              onContextMenu={(e) => {
+                e.stopPropagation();
+                setActiveRowKey(row.child.entryKey);
+                onOpenContextMenu(row.child, e);
+              }}
+              titleAttr={row.title}
+            />
 
-              <div className="calendar-stack-popover__user-stack-items">
-                {group.rows
-                  .sort((a, b) => a.time.localeCompare(b.time) || a.title.localeCompare(b.title))
-                  .map((row) => (
-                    <div key={row.child.entryKey} className="calendar-stack-popover__row calendar-stack-popover__row--list">
-                      <CalendarEntryRow
-                        entryType={row.child.entryType}
-                        title={row.title}
-                        timeLabel={row.time}
-                        isDone={row.isDone}
-                        taskIcon={row.child.entryType === "task" && row.isFocusBlock ? "list" : undefined}
-                        avatars={
-                          row.child.entryType === "event"
-                            ? buildEventAvatars(row.child.entry as CalendarEvent, memberLookup)
-                            : undefined
-                        }
-                        isSelected={activeRowKey === row.child.entryKey}
-                        draggable={Boolean(onStartDragChild)}
-                        showDragHandle={kind !== "overlapStack"}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          handleRowPointerDown(e, row.child);
-                        }}
-                        onPointerMove={handleRowPointerMove}
-                        onPointerUp={handleRowPointerUp}
-                        onPointerCancel={handleRowPointerCancel}
-                        onContextMenu={(e) => {
-                          e.stopPropagation();
-                          setActiveRowKey(row.child.entryKey);
-                          onOpenContextMenu(row.child, e);
-                        }}
-                        titleAttr={row.title}
-                      />
-
-                      {/* Multi-user overlap stack: actions via right-click on the row. */}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))
-        ) : (
-          rows.map((row) => (
-            <div
-              key={row.child.entryKey}
-              className="calendar-stack-popover__row calendar-stack-popover__row--list"
-            >
-              <CalendarEntryRow
-                entryType={row.child.entryType}
-                title={row.title}
-                timeLabel={row.time}
-                isDone={row.isDone}
-                taskIcon={row.child.entryType === "task" && row.isFocusBlock ? "list" : undefined}
-                avatars={
-                  row.child.entryType === "event"
-                    ? buildEventAvatars(row.child.entry as CalendarEvent, memberLookup)
-                    : buildTaskAvatars(row.child.entry as CalendarTask, memberLookup)
-                }
-                isSelected={activeRowKey === row.child.entryKey}
-                draggable={Boolean(onStartDragChild)}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  handleRowPointerDown(e, row.child);
-                }}
-                onPointerMove={handleRowPointerMove}
-                onPointerUp={handleRowPointerUp}
-                onPointerCancel={handleRowPointerCancel}
-                onContextMenu={(e) => {
-                  e.stopPropagation();
-                  setActiveRowKey(row.child.entryKey);
-                  onOpenContextMenu(row.child, e);
-                }}
-                titleAttr={row.title}
-              />
-
-              {/* Multi-user overlap stack: actions via right-click on the row. */}
-            </div>
-          ))
-        )}
+            {/* Actions via right-click on the row. */}
+          </div>
+        ))}
       </div>
 
       {childMenu && childMenu.parentId === parentId ? (

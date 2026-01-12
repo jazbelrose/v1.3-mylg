@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, Square, Plus, ListTodo } from "lucide-react";
+import { CheckSquare, Clock, Layers, Square, Plus } from "lucide-react";
 import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
   CalendarEntryContextMenu,
@@ -367,13 +367,18 @@ function DayGrid({
       const direct = buildTaskAvatars(task, teamMemberLookup);
       if (direct.length > 0) return direct;
 
+      const focusId = task.source?.taskId ?? task.id;
+      const hasPointerChildren = focusId
+        ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0
+        : false;
+
       const isFocusBlock =
         task.kind === "focus_block" ||
         (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
-        (task.focusChecklist && task.focusChecklist.length > 0);
+        (task.focusChecklist && task.focusChecklist.length > 0) ||
+        hasPointerChildren;
       if (!isFocusBlock) return direct;
 
-      const focusId = task.source?.taskId ?? task.id;
       const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
       const childrenFromIds = childIds
         .map((id) => calendarTaskById.get(id))
@@ -388,8 +393,9 @@ function DayGrid({
         if (derived.length >= 3) return;
         buildTaskAvatars(child, teamMemberLookup).forEach((a) => {
           if (derived.length >= 3) return;
-          if (seen.has(a.key)) return;
-          seen.add(a.key);
+          const stableId = a.entityId ?? a.key;
+          if (seen.has(stableId)) return;
+          seen.add(stableId);
           derived.push(a);
         });
       });
@@ -1548,7 +1554,7 @@ function DayGrid({
       );
     };
 
-    const avatarsToRender = isFocusBlock ? entry.avatars.slice(0, 1) : entry.avatars;
+    const avatarsToRender = entry.avatars;
     const inlineAvatars =
       avatarsToRender.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
@@ -1563,7 +1569,7 @@ function DayGrid({
             <span className="week-grid__timeline-entry-icon">
               {(() => {
                 if (isFocusBlock) {
-                  return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
+                  return <Layers className="week-grid__task-icon-svg" aria-hidden />;
                 }
                 return Boolean(entry.completed) ? (
                   <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
