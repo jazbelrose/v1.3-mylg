@@ -1257,11 +1257,49 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           childTaskIds: string[];
           childTitles: Array<{ taskId: string; title: string }>;
         }> = [];
-        // Track parent Focus Blocks that need their children lists updated (detach case)
-        const focusBlockDetachUpdates = new Map<
+        // Track parent Focus Blocks that need their children lists updated (attach/detach/move)
+        const focusBlockMembershipUpdates = new Map<
           string, // parent focus block task ID
-          { projectId: string; removedChildIds: Set<string> }
+          {
+            projectId: string;
+            removedChildIds: Set<string>;
+            addedChildIds: Map<string, string>; // childId -> title
+          }
         >();
+
+        const recordFocusBlockMembershipChange = (options: {
+          parentTaskId: string;
+          projectId: string;
+          removeChildId?: string;
+          addChildId?: string;
+          addChildTitle?: string;
+        }) => {
+          const { parentTaskId, projectId, removeChildId, addChildId, addChildTitle } = options;
+          const existing =
+            focusBlockMembershipUpdates.get(parentTaskId) ??
+            ({
+              projectId,
+              removedChildIds: new Set<string>(),
+              addedChildIds: new Map<string, string>(),
+            } satisfies {
+              projectId: string;
+              removedChildIds: Set<string>;
+              addedChildIds: Map<string, string>;
+            });
+
+          if (removeChildId) {
+            existing.removedChildIds.add(removeChildId);
+            // If it was previously queued to add, cancel the add.
+            existing.addedChildIds.delete(removeChildId);
+          }
+          if (addChildId) {
+            existing.addedChildIds.set(addChildId, (addChildTitle ?? "").trim() || "Untitled task");
+            // If it was previously queued to remove, cancel the removal.
+            existing.removedChildIds.delete(addChildId);
+          }
+
+          focusBlockMembershipUpdates.set(parentTaskId, existing);
+        };
 
         // Helper to check if a task overlaps with any existing task by the same user
         const findSameUserOverlap = (
@@ -1549,16 +1587,23 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             const newFocusBlockId = change.focusBlockId ?? null;
             fields.focusBlockId = newFocusBlockId;
 
-            // If detaching from a Focus Block (setting to null), queue parent update
             const prevFocusBlockId = task.focusBlockId ?? null;
-            if (prevFocusBlockId && newFocusBlockId === null && taskId) {
-              const existing = focusBlockDetachUpdates.get(prevFocusBlockId);
-              if (existing) {
-                existing.removedChildIds.add(taskId);
-              } else {
-                focusBlockDetachUpdates.set(prevFocusBlockId, {
+            if (taskId && prevFocusBlockId !== newFocusBlockId) {
+              // Move between Focus Blocks (or detach / attach)
+              if (prevFocusBlockId) {
+                recordFocusBlockMembershipChange({
+                  parentTaskId: prevFocusBlockId,
                   projectId,
-                  removedChildIds: new Set([taskId]),
+                  removeChildId: taskId,
+                });
+              }
+
+              if (newFocusBlockId) {
+                recordFocusBlockMembershipChange({
+                  parentTaskId: newFocusBlockId,
+                  projectId,
+                  addChildId: taskId,
+                  addChildTitle: task.title,
                 });
               }
             }
@@ -1599,8 +1644,8 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           operations.push(updateTasksBulk(projectId, updates));
         });
 
-        // Update parent Focus Blocks when children are detached
-        for (const [parentTaskId, { projectId, removedChildIds }] of focusBlockDetachUpdates) {
+        // Update parent Focus Blocks when children membership changes
+        for (const [parentTaskId, { projectId, removedChildIds, addedChildIds }] of focusBlockMembershipUpdates) {
           const parentTask = tasks.find((t) => {
             const id = resolveTaskIdentifier(t);
             return id === parentTaskId;
@@ -1610,18 +1655,52 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           const currentChildIds = parentTask.focusChildTaskIds ?? [];
           const currentChecklist = parentTask.focusChecklist ?? [];
 
-          const newChildIds = currentChildIds.filter((id) => !removedChildIds.has(id));
-          const newChecklist = currentChecklist.filter((item) => !removedChildIds.has(item.taskId));
+          const nextChildIds = (() => {
+            const filtered = currentChildIds.filter((id) => !removedChildIds.has(id));
+            const seen = new Set(filtered);
+            addedChildIds.forEach((_title, childId) => {
+              if (seen.has(childId)) return;
+              seen.add(childId);
+              filtered.push(childId);
+            });
+            return filtered;
+          })();
 
-          // Only update if we actually removed something
-          if (newChildIds.length !== currentChildIds.length || newChecklist.length !== currentChecklist.length) {
+          const nextChecklist = (() => {
+            const kept = currentChecklist.filter((item) => !removedChildIds.has(item.taskId));
+            const map = new Map<string, { taskId: string; title: string }>();
+            kept.forEach((item) => map.set(item.taskId, item));
+            addedChildIds.forEach((title, childId) => {
+              if (map.has(childId)) return;
+              map.set(childId, { taskId: childId, title });
+            });
+            return Array.from(map.values());
+          })();
+
+          const didChange =
+            nextChildIds.length !== currentChildIds.length ||
+            nextChecklist.length !== currentChecklist.length ||
+            removedChildIds.size > 0 ||
+            addedChildIds.size > 0;
+
+          if (didChange) {
+            if (import.meta.env.DEV && addedChildIds.size > 0) {
+              const missing = Array.from(addedChildIds.keys()).filter((id) => !nextChildIds.includes(id));
+              if (missing.length > 0) {
+                console.warn(
+                  "[calendar] FocusBlock membership update missing children",
+                  { parentTaskId, missing },
+                );
+              }
+            }
+
             operations.push(
               updateTask({
                 projectId,
                 taskId: parentTaskId,
                 title: parentTask.title ?? "Focus Block",
-                focusChildTaskIds: newChildIds,
-                focusChecklist: newChecklist,
+                focusChildTaskIds: nextChildIds,
+                focusChecklist: nextChecklist,
               }),
             );
           }

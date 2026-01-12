@@ -1474,25 +1474,43 @@ function DayGrid({
       if (task.kind === "focus_block") return true;
       const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
         (task.focusChecklist && task.focusChecklist.length > 0);
-      return hasChildren;
+      if (hasChildren) return true;
+      const focusId = task.source?.taskId ?? task.id;
+      return focusId ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0 : false;
     })();
+
+    const resolveFocusBlockChildren = (task: CalendarTask): CalendarTask[] => {
+      const focusId = task.source?.taskId ?? task.id;
+      const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      const childrenFromIds = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((value): value is CalendarTask => Boolean(value));
+      const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+      const children = Array.from(
+        new Map(
+          [...childrenFromIds, ...childrenFromFocusId].map((childTask) => [
+            childTask.source?.taskId ?? childTask.id,
+            childTask,
+          ]),
+        ).values(),
+      ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
+      return children;
+    };
     const focusMeter = (() => {
       if (!isFocusBlock) return null;
       const task = entry.payload as CalendarTask;
-      const childIds =
-        task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
-      if (childIds.length === 0) return null;
-      const doneCount = childIds.reduce((sum, id) => {
-        const child = calendarTaskById.get(id);
-        if (!child) return sum;
-        return sum + (child.status === "done" ? 1 : 0);
-      }, 0);
+      const children = resolveFocusBlockChildren(task);
+      if (children.length === 0) return null;
+      const doneCount = children.reduce(
+        (sum, child) => sum + (child.status === "done" || Boolean(child.done) ? 1 : 0),
+        0,
+      );
       return (
         <span
           className="week-grid__focus-meter week-grid__focus-meter--tile"
-          aria-label={`Focus block progress ${doneCount} of ${childIds.length}`}
+          aria-label={`Focus block progress ${doneCount} of ${children.length}`}
         >
-          {doneCount}/{childIds.length}
+          {doneCount}/{children.length}
         </span>
       );
     })();
@@ -1501,12 +1519,7 @@ function DayGrid({
     const renderFocusBlockChildren = (): React.ReactNode => {
       if (!isFocusBlock) return null;
       const task = entry.payload as CalendarTask;
-      const childIds =
-        task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
-      if (childIds.length === 0) return null;
-      const childTasks = childIds
-        .map((id) => calendarTaskById.get(id))
-        .filter((t): t is CalendarTask => !!t);
+      const childTasks = resolveFocusBlockChildren(task);
       if (childTasks.length === 0) return null;
       return (
         <ul className="week-grid__focus-children-list" aria-hidden>
@@ -2009,13 +2022,17 @@ function DayGrid({
           const resolvedFocusChildren = (() => {
             if (popover.entryType !== "task") return undefined;
             const task = resolvedEntry as CalendarTask;
+            const focusId = task.source?.taskId ?? task.id;
+            const hasPointerChildren = focusId
+              ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0
+              : false;
             const isFocusBlock =
               task.kind === "focus_block" ||
               (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
-              (task.focusChecklist && task.focusChecklist.length > 0);
+              (task.focusChecklist && task.focusChecklist.length > 0) ||
+              hasPointerChildren;
             if (!isFocusBlock) return undefined;
 
-            const focusId = task.source?.taskId ?? task.id;
             const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
             const childrenFromIds = childIds
               .map((id) => calendarTaskById.get(id))
