@@ -69,6 +69,7 @@ interface OverviewEventsAndTasksProps {
   projectTitle?: string;
   events: RawEvent[];
   tasks: RawTask[];
+  teamMembers?: Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
   onToggleTask?: (id: string) => void;
   onEditEvent?: (event: TimelineEvent) => void;
   onEditTask?: (task: TimelineTask) => void;
@@ -87,6 +88,7 @@ export function OverviewEventsAndTasks({
   projectTitle,
   events,
   tasks,
+  teamMembers,
   onToggleTask,
   onEditEvent,
   onEditTask,
@@ -207,6 +209,7 @@ export function OverviewEventsAndTasks({
     
     try {
       if (currentDone) {
+            teamMembers={teamMembers}
         // Task is done, mark as needs changes (to reopen it)
         await requestTaskChanges(projectId, taskId, { note: 'Reopened from Overview' });
       } else {

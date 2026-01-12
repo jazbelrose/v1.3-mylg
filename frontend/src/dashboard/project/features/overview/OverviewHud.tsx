@@ -11,6 +11,8 @@
 
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useData } from '@/app/contexts/useData';
+import { useTeamMembers } from '@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers';
 
 import { HealthStrip } from './components/HealthStrip';
 import { OverviewEventsAndTasks } from './components/OverviewEventsAndTasks';
@@ -159,6 +161,9 @@ export function OverviewHud({
   clientMode = false,
   onRefresh,
 }: OverviewHudProps) {
+  const { activeProject } = useData();
+  const teamMembers = useTeamMembers(activeProject ?? null);
+
   const navigate = useNavigate();
   const routeLocation = useLocation();
   const isOpenTask = useCallback((task: TaskItem): boolean => {
@@ -291,6 +296,7 @@ export function OverviewHud({
             projectTitle={projectTitle}
             events={events}
             tasks={visibleTasks}
+            teamMembers={teamMembers}
             onOpenMap={handleOpenMap}
             onRefresh={onRefresh}
             onQuickEditTask={onQuickEditTask ? (task: TimelineTask) => {

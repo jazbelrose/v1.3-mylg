@@ -289,7 +289,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -360,22 +360,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 128px; /* Fixed width, no grow, no shrink */
-  min-width: 128px;
-  max-width: 128px;
+  flex: 0 0 120px; /* Fixed width, no grow, no shrink */
+  min-width: 120px;
+  max-width: 120px;
 }
 
 .leadingIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .timePill {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 500;
   color: var(--text-muted, rgba(255, 255, 255, 0.55));
   white-space: nowrap;
@@ -445,6 +445,7 @@
   align-items: center;
   gap: 10px;
   margin-top: 2px;
+  padding-left: 24px; /* align under title after chevron */
   font-size: 0.7rem;
   color: var(--text-muted, rgba(255, 255, 255, 0.5));
   white-space: nowrap;
@@ -503,8 +504,23 @@
   color: var(--text-muted, rgba(255, 255, 255, 0.7));
 }
 
-.timelineRowChild {
-  padding-left: 28px;
+.timelineRowChild .rowLeft {
+  padding-left: 24px;
+}
+
+.timelineRowChild .rowCenter {
+  padding-left: 0;
+}
+
+.timelineRowChild::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
 }
 
 /* Primary action button */
@@ -512,12 +528,12 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
   border: none;
   background: rgba(250, 51, 86, 0.15);
   color: var(--brand, #fa3356);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -533,8 +549,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 6px;
   border: none;
   background: transparent;

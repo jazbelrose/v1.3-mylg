@@ -88,7 +88,7 @@ export interface TimelineTask {
     expanded: boolean;
     doneCount: number;
     totalCount: number;
-    preview: Array<{ id: string; title: string; icon: 'clock' | 'checked' | 'unchecked' }>;
+    preview: Array<{ id: string; title: string; icon: 'checked' | 'unchecked' }>;
     assignees: Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
   };
   focusChildOf?: string;
@@ -100,6 +100,7 @@ export type TimelineItem = TimelineEvent | TimelineTask;
 export interface CommandPanelProps {
   events: TimelineEvent[];
   tasks: TimelineTask[];
+  teamMembers?: Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
   currentUserId?: string;
   currentUserEmail?: string;
   isUserLoading?: boolean;
@@ -176,7 +177,21 @@ function uniqueBy<T>(items: T[], key: (item: T) => string | undefined): T[] {
   return out;
 }
 
-function getTaskAssigneeMembers(task: TimelineTask): Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }> {
+function getTaskAssigneeMembers(
+  task: TimelineTask,
+  teamLookup?: Map<string, { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>
+): Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }> {
+  const enrich = (m: { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }) => {
+    const fromTeam = teamLookup?.get(m.userId);
+    if (!fromTeam) return m;
+    return {
+      userId: m.userId,
+      firstName: fromTeam.firstName || m.firstName,
+      lastName: fromTeam.lastName || m.lastName,
+      thumbnail: typeof fromTeam.thumbnail !== 'undefined' ? fromTeam.thumbnail : m.thumbnail,
+    };
+  };
+
   const fromTokens = (task.assigneeTokens ?? [])
     .map(parseAssigneeToken)
     .filter(Boolean)
@@ -190,7 +205,20 @@ function getTaskAssigneeMembers(task: TimelineTask): Array<{ userId: string; fir
   const fromIds = (task.assigneeIds ?? []).map((userId) => ({ userId, firstName: '', lastName: '', thumbnail: null }));
   const fromSingle = task.assigneeId ? [{ userId: task.assigneeId, firstName: '', lastName: '', thumbnail: null }] : [];
 
-  return uniqueBy([...fromTokens, ...fromIds, ...fromSingle], (m) => m.userId);
+  const base = uniqueBy([...fromTokens, ...fromIds, ...fromSingle], (m) => m.userId).map(enrich);
+  if (base.length > 0) return base;
+
+  const fromAssignedTo = typeof task.assignedTo === 'string' && task.assignedTo.trim()
+    ? (() => {
+        const clean = task.assignedTo.trim();
+        const parts = clean.split(/\s+/).filter(Boolean);
+        const firstName = parts[0] ?? '';
+        const lastName = parts.length > 1 ? parts.slice(1).join(' ') : '';
+        return [{ userId: `name:${clean.toLowerCase()}`, firstName, lastName, thumbnail: null }];
+      })()
+    : [];
+
+  return uniqueBy(fromAssignedTo, (m) => m.userId);
 }
 
 function getDayLabel(date: Date, today: Date): string {
@@ -228,6 +256,10 @@ function formatTimePill(item: TimelineItem): string {
     return 'All day';
   } else {
     const task = item as TimelineTask;
+
+    // Child rows inherit the container's time semantics; don't repeat time/due pills.
+    if (task.focusChildOf) return '';
+
     const kind = normalizeKind(task.kind);
     if (kind === 'focus_block' && (task.startAt || task.endAt)) {
       const startLabel = task.startAt ? formatTime(task.startAt) : undefined;
@@ -351,6 +383,7 @@ function DayDivider({ label }: DayDividerProps) {
 
 interface TimelineRowProps {
   item: TimelineItem;
+  teamLookup?: Map<string, { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
   isHovered: boolean;
   isSelected: boolean;
   popoverOpen: boolean;
@@ -367,6 +400,7 @@ interface TimelineRowProps {
 
 function TimelineRow({
   item,
+  teamLookup,
   isHovered,
   isSelected,
   popoverOpen,
@@ -394,14 +428,14 @@ function TimelineRow({
   const assigneeMembers = useMemo(() => {
     if (!isTask || !task) return [];
     if (task.focusGroup?.isGroup) return task.focusGroup.assignees;
-    return getTaskAssigneeMembers(task);
-  }, [isTask, task]);
+    return getTaskAssigneeMembers(task, teamLookup);
+  }, [isTask, task, teamLookup]);
 
   const leadingIcon = useMemo(() => {
-    if (!isTask) return <Clock size={14} className={styles.typeIcon} aria-hidden />;
-    if (kind === 'focus_block') return <Layers size={14} className={styles.typeIcon} aria-hidden />;
-    if (isDone) return <CheckSquare size={14} className={styles.typeIcon} aria-hidden />;
-    return <Square size={14} className={styles.typeIcon} aria-hidden />;
+    if (!isTask) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
+    if (kind === 'focus_block') return <Layers size={12} className={styles.typeIcon} aria-hidden />;
+    if (isDone) return <CheckSquare size={12} className={styles.typeIcon} aria-hidden />;
+    return <Square size={12} className={styles.typeIcon} aria-hidden />;
   }, [isTask, kind, isDone]);
   const ellipsisRef = useRef<HTMLButtonElement>(null);
   
@@ -453,7 +487,7 @@ function TimelineRow({
                     window.dispatchEvent(customEvent);
                   }}
                 >
-                  {isExpanded ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+                  {isExpanded ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
                 </button>
               ) : null}
               <span className={styles.rowTitle} title={item.title}>
@@ -471,13 +505,7 @@ function TimelineRow({
                 {task.focusGroup.preview.slice(0, 3).map((p) => (
                   <span key={p.id} className={styles.focusPreviewItem} title={p.title}>
                     <span className={styles.focusPreviewIcon} aria-hidden>
-                      {p.icon === 'clock' ? (
-                        <Clock size={10} />
-                      ) : p.icon === 'checked' ? (
-                        <CheckSquare size={10} />
-                      ) : (
-                        <Square size={10} />
-                      )}
+                      {p.icon === 'checked' ? <CheckSquare size={10} /> : <Square size={10} />}
                     </span>
                     <span className={styles.focusPreviewText}>{p.title}</span>
                   </span>
@@ -488,9 +516,9 @@ function TimelineRow({
           
           {/* Right: assignee + primary action + overflow (always rendered, visibility controlled via CSS) */}
           <div className={styles.rowRight}>
-            {assigneeMembers.length >= 2 ? (
+            {assigneeMembers.length >= 1 ? (
               <div className={styles.assigneeStack} title="Assignees">
-                <AvatarStack members={assigneeMembers} size={22} />
+                <AvatarStack members={assigneeMembers} size={20} />
               </div>
             ) : assignee ? (
               <span className={styles.assigneeBadge} title={assignee}>
@@ -508,7 +536,7 @@ function TimelineRow({
               }}
               title={isTask ? 'Mark done' : 'Open'}
             >
-              {isTask ? <Check size={14} /> : <Edit3 size={14} />}
+              {isTask ? <Check size={12} /> : <Edit3 size={12} />}
               <span>{isTask ? 'Done' : 'Open'}</span>
             </button>
             
@@ -525,7 +553,7 @@ function TimelineRow({
                   }}
                   title="More actions"
                 >
-                  <MoreHorizontal size={14} />
+                  <MoreHorizontal size={12} />
                 </button>
               </PopoverTrigger>
               <PopoverContent
@@ -542,7 +570,7 @@ function TimelineRow({
                       onPrimaryAction();
                     }}
                   >
-                    <CheckSquare size={14} aria-hidden />
+                    <CheckSquare size={12} aria-hidden />
                     <span>{isDone ? 'Mark incomplete' : 'Mark done'}</span>
                   </button>
                 )}
@@ -554,7 +582,7 @@ function TimelineRow({
                     onEditAction();
                   }}
                 >
-                  <Pencil size={14} aria-hidden />
+                  <Pencil size={12} aria-hidden />
                   <span>Open {isTask ? 'task' : 'event'}</span>
                 </button>
               </PopoverContent>
@@ -684,6 +712,7 @@ function ContextMenu({
 export function CommandPanel({
   events,
   tasks,
+  teamMembers,
   currentUserId,
   currentUserEmail,
   isUserLoading = false,
@@ -697,6 +726,17 @@ export function CommandPanel({
   onCreateEvent,
   onViewCalendar,
 }: CommandPanelProps) {
+  const teamLookup = useMemo(() => {
+    const map = new Map<string, { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>();
+    for (const member of teamMembers ?? []) {
+      const id = typeof member?.userId === 'string' ? member.userId.trim() : '';
+      if (!id) continue;
+      
+      map.set(id, member);
+    }
+    return map;
+  }, [teamMembers]);
+
   // Filters - default to All/All
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all');
@@ -784,15 +824,14 @@ export function CommandPanel({
       const totalCount = sortedChildren.length || (Array.isArray(t.focusChecklist) ? t.focusChecklist.length : 0);
 
       const preview = sortedChildren.slice(0, 3).map((c) => {
-        const hasTime = Boolean(c.startAt || c.endAt);
-        const icon: 'clock' | 'checked' | 'unchecked' = hasTime ? 'clock' : (childDone(c) ? 'checked' : 'unchecked');
+        const icon: 'checked' | 'unchecked' = childDone(c) ? 'checked' : 'unchecked';
         return { id: c.id, title: c.title || 'Untitled', icon };
       });
 
       const assignees = uniqueBy(
         [
-          ...getTaskAssigneeMembers(t),
-          ...sortedChildren.flatMap(getTaskAssigneeMembers),
+          ...getTaskAssigneeMembers(t, teamLookup),
+          ...sortedChildren.flatMap((child) => getTaskAssigneeMembers(child, teamLookup)),
         ],
         (m) => m.userId
       );
@@ -1292,6 +1331,7 @@ export function CommandPanel({
                     <TimelineRow
                       key={item.id}
                       item={item}
+                      teamLookup={teamLookup}
                       isHovered={hoveredId === item.id}
                       isSelected={selectedId === item.id}
                       popoverOpen={activePopoverId === item.id}
