@@ -582,9 +582,6 @@ function TimelineRow({
         tabIndex={-1}
         data-item-id={item.id}
         >
-          {/* Status bar */}
-          <div className={`${styles.severityStrip} ${styles[`severity${severity.charAt(0).toUpperCase() + severity.slice(1).replace('-', '')}`]}`} />
-
           {/* Type icon */}
           <div className={styles.colIcon} aria-hidden>
             {leadingIcon ? <span className={styles.leadingIcon}>{leadingIcon}</span> : null}

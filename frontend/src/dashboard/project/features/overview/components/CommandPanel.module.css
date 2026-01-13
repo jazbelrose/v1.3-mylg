@@ -294,7 +294,7 @@
   cursor: pointer;
   transition: background 0.15s ease;
   position: relative;
-  grid-template-columns: 3px 18px 110px 20px minmax(0, 1fr) 220px;
+  grid-template-columns: 18px 110px 20px minmax(0, 1fr) 220px;
   min-width: 0;
   width: 100%;
 }
@@ -321,32 +321,6 @@
 
 .timelineRowDone .rowTitle {
   text-decoration: line-through;
-}
-
-/* Severity strip */
-.severityStrip {
-  width: 3px;
-  height: 60%;
-  border-radius: 2px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.severityOverdue {
-  background: var(--color-error, #ef5350);
-  opacity: 1;
-}
-
-.severityDuesoon {
-  background: var(--color-warning, #ff9800);
-  opacity: 1;
-}
-
-.severityNormal { opacity: 0; }
-
-.severityDone {
-  background: var(--color-success, #4caf50);
-  opacity: 0.5;
 }
 
 /* Column: type icon */
