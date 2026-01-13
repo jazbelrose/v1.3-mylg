@@ -1,0 +1,252 @@
+{
+  "meta": {
+    "version": "1.0",
+    "lastUpdated": "2026-01-13",
+    "description": "Single source of truth for MYLG marketing content - generated from capability audit"
+  },
+  "hero": {
+    "headline": "Real-Time Production Management—From Planning to Payment",
+    "subheadline": "Collaborate on budgets, schedules, and deliverables in one workspace. No more tool-switching. No more version chaos. Just seamless production management for creative teams.",
+    "cta": {
+      "primary": {
+        "text": "Start Free Trial",
+        "url": "/register"
+      },
+      "secondary": {
+        "text": "See It in Action",
+        "url": "#demo"
+      }
+    }
+  },
+  "problem": {
+    "headline": "Scattered Tools Slow You Down",
+    "painPoints": [
+      "Budgets in Excel. Schedules in Google Cal. Messages in Slack. Files in Dropbox. Proposals in PowerPoint.",
+      "Context-switching wastes time. Version confusion creates mistakes. Clients see outdated info.",
+      "What if your entire production lived in one place—with real-time sync?"
+    ]
+  },
+  "solution": {
+    "headline": "One Platform. Every Stage of Production.",
+    "description": "MYLG brings planning, budgeting, scheduling, messaging, and delivery into a single real-time workspace. Your team stays aligned. Clients stay informed. You stay on top of every detail.",
+    "differentiators": [
+      "Real-time collaboration (edits sync instantly across your team)",
+      "AI-assisted planning (Spellbooks turn scope into budgets and tasks)",
+      "Role-based permissions (clients see what they need, not your working drafts)",
+      "Built for production teams (events, content, creative agencies)"
+    ]
+  },
+  "features": [
+    {
+      "id": "slides",
+      "title": "Real-Time Slide Collaboration",
+      "description": "Google Slides-style editor inside MYLG. Multi-user editing, automatic thumbnails, deck versioning. Present or export to PDF/PPTX.",
+      "icon": "presentation",
+      "category": "Editor",
+      "status": "shipped"
+    },
+    {
+      "id": "calendar",
+      "title": "Advanced Calendar Scheduling",
+      "description": "Time blocks, Focus Blocks, drag-drop scheduling. Multi-user overlap awareness with auto-stacking. Day/week/list views.",
+      "icon": "calendar",
+      "category": "Calendar",
+      "status": "shipped"
+    },
+    {
+      "id": "budget",
+      "title": "AI-Powered Budget Building",
+      "description": "Paste project scope → get line-item budget (Budget Spellbook). Revisions, markup, contingency, tax. Export to PDF invoice or CSV.",
+      "icon": "dollar-sign",
+      "category": "Budgets",
+      "status": "shipped"
+    },
+    {
+      "id": "messaging",
+      "title": "Integrated Messaging",
+      "description": "Project threads + direct messages. Reactions, edits, file attachments. Real-time sync via WebSocket.",
+      "icon": "message-circle",
+      "category": "Messaging",
+      "status": "shipped"
+    },
+    {
+      "id": "tasks",
+      "title": "Task Workflows with Review",
+      "description": "Formal review process (submit → request changes → approve). Link tasks to budget items (track quote → build → invoice). Archive completed work.",
+      "icon": "check-square",
+      "category": "Tasks",
+      "status": "shipped"
+    },
+    {
+      "id": "hq",
+      "title": "HQ Financial Ledger",
+      "description": "Track expenses across all projects. Import bank CSVs, categorize transactions. Recurring commitment detection, financial reports.",
+      "icon": "bar-chart",
+      "category": "Finance",
+      "status": "shipped"
+    },
+    {
+      "id": "files",
+      "title": "File Management & Galleries",
+      "description": "Upload to CDN (CloudFront), organize by project. Create shareable client galleries. PDF-to-slide conversion for web viewing.",
+      "icon": "folder",
+      "category": "Files",
+      "status": "shipped"
+    },
+    {
+      "id": "notifications",
+      "title": "Smart Notifications",
+      "description": "Get notified only when it matters (mentions, reviews, shares, failures). Activity audit trail separate from notifications (no spam).",
+      "icon": "bell",
+      "category": "Notifications",
+      "status": "shipped"
+    }
+  ],
+  "modules": [
+    {
+      "id": "slides",
+      "title": "Slides & Deliverables",
+      "headline": "Create presentations without leaving MYLG",
+      "description": "Multi-slide editor with real-time collaboration (powered by Yjs). Automatic thumbnail generation. Deck versioning: draft/approved/archived, role-based visibility. Presentation mode + PDF export.",
+      "value": "Stop juggling Google Slides, Figma, and PowerPoint. Build deliverables where your project data lives."
+    },
+    {
+      "id": "calendar",
+      "title": "Calendar & Scheduling",
+      "headline": "Visualize workloads, coordinate timelines",
+      "description": "Time Blocks (scheduled tasks), Focus Blocks (container tasks grouping sub-tasks), Overlap Stacks (auto-group overlapping items). Drag-drop rescheduling, day/week/list views.",
+      "value": "See who's doing what, when—critical for events with crew calls, venue hours, and load-in/strike."
+    },
+    {
+      "id": "budget",
+      "title": "Budget & Finance",
+      "headline": "From estimates to invoices in seconds",
+      "description": "Budget Spellbook (paste scope → get structured budget). Line items with categories, quantities, markup, contingency. Budget revisions. Work Panel (link tasks to budget lines). HQ Ledger (org-level transaction import, categorization, recurring detection).",
+      "value": "Turn estimates into actionable budgets instantly. Track every dollar from quote to payment."
+    },
+    {
+      "id": "messaging",
+      "title": "Messaging & Collaboration",
+      "headline": "Keep conversations in context",
+      "description": "Project-scoped threads (team chat per project). Direct messages (1:1). Reactions, edits, read states. File attachments.",
+      "value": "No more digging through Slack/email to find that one decision. Project context is built-in."
+    },
+    {
+      "id": "files",
+      "title": "Files & Asset Delivery",
+      "headline": "Fast, organized file sharing",
+      "description": "S3 + CloudFront CDN (global delivery). Signed URLs for secure content, public links for galleries. Galleries: upload PDF → get web-friendly slide images, shareable link.",
+      "value": "Clients get clean asset galleries. Team gets organized file management. Everyone gets speed (CDN)."
+    }
+  ],
+  "personas": [
+    {
+      "title": "Event Producers",
+      "description": "Coordinate crew, vendors, venue logistics. Track load-in/strike schedules, budget overruns. Deliver proposals and final recaps.",
+      "useCases": [
+        "Multi-day event planning with crew scheduling",
+        "Vendor budget tracking",
+        "Client proposal delivery"
+      ]
+    },
+    {
+      "title": "Creative Agencies",
+      "description": "Manage campaigns from brief to delivery. Track billable work, task reviews. Client presentations and asset sharing.",
+      "useCases": [
+        "Campaign planning and execution",
+        "Billable hours tracking",
+        "Client asset galleries"
+      ]
+    },
+    {
+      "title": "Production Teams",
+      "description": "Schedule shoots, track budgets, coordinate crew. Review workflows for creative approvals. Real-time updates prevent miscommunication.",
+      "useCases": [
+        "Film/video production scheduling",
+        "Budget and expense tracking",
+        "Creative review workflows"
+      ]
+    }
+  ],
+  "faq": [
+    {
+      "question": "Can multiple people edit slides at the same time?",
+      "answer": "Yes. Each slide has its own real-time room (Yjs). Changes sync instantly without conflicts."
+    },
+    {
+      "question": "How does the Budget Spellbook work?",
+      "answer": "Paste your project scope (event description, run-of-show, shopping list) and Spellbook generates line items with categories, quantities, and estimates. You review and adjust before applying."
+    },
+    {
+      "question": "What's the difference between Focus Blocks and Time Blocks?",
+      "answer": "Time Blocks are scheduled task instances. Focus Blocks are container tasks that group multiple time blocks (e.g., 'Load-In' containing 10 sub-tasks). Focus Blocks show progress (3/10 complete)."
+    },
+    {
+      "question": "Can clients see internal working versions of decks?",
+      "answer": "No. Deck versions have role-based visibility. You can set a client-specific default that only shows approved slides."
+    },
+    {
+      "question": "How does HQ Ledger work with projects?",
+      "answer": "HQ Ledger is org-level (tracks all expenses across projects). You import transactions via CSV, categorize them, and HQ shows recurring costs, reports, and invoices. Project budgets are separate (line-item estimates)."
+    },
+    {
+      "question": "What happens if I lose internet while editing?",
+      "answer": "Yjs stores edits in IndexedDB (local browser storage). When you reconnect, changes sync automatically."
+    },
+    {
+      "question": "Can I export budgets to Excel?",
+      "answer": "Yes. Export to CSV for Excel/Sheets, or generate PDF invoices directly."
+    },
+    {
+      "question": "How are notifications different from activity?",
+      "answer": "Notifications are rare, actionable events (mentions, review requests, shares, failures). Activity is a full audit trail (who edited what, when). Activity doesn't spam you with notifications for every autosave."
+    },
+    {
+      "question": "Does MYLG work on mobile?",
+      "answer": "Web app is responsive (works on tablets/phones). Native apps planned for future release."
+    }
+  ],
+  "tech": {
+    "headline": "Built on AWS. Real-Time by Design.",
+    "description": "Serverless architecture with global CDN. WebSocket for instant messaging. Yjs CRDT for conflict-free collaboration. Enterprise-grade security and multi-tenancy.",
+    "highlights": [
+      "AWS Serverless (Lambda, DynamoDB, S3, CloudFront)",
+      "WebSocket API for real-time messaging and notifications",
+      "Yjs CRDT for conflict-free slide editing",
+      "Role-based access control with org isolation",
+      "CloudFront signed URLs for secure file delivery"
+    ]
+  },
+  "roadmap": {
+    "shipped": [
+      "Real-time slide collaboration",
+      "Deck versioning (full UI with dropdown and management modal)",
+      "Slide PDF export (quality presets)",
+      "Budget Spellbook (AI-assisted)",
+      "Task Spellbook (bulk task generation)",
+      "Conjure Plan (overview button to spellbook in plan mode)",
+      "Advanced calendar (time/focus blocks, stacks)",
+      "Task review workflows",
+      "HQ Ledger (financial operations)",
+      "File management with CDN",
+      "Smart notifications"
+    ],
+    "inBeta": [
+      "Activity audit trail (backend complete)",
+      "Magic Layout auto-scheduling (Conjure Plan UI done, time inference in progress)"
+    ],
+    "comingSoon": [
+      "Magic Layout full auto-scheduling",
+      "LLM-powered Spellbooks (AWS Bedrock)",
+      "Mobile native apps (PWA first)",
+      "Slack/Google Cal integrations",
+      "Public API"
+    ],
+    "planned": [
+      "Time tracking (hours logged per task)",
+      "Client portal (simplified view)",
+      "Email/push notifications",
+      "Advanced reporting (custom dashboards)"
+    ]
+  }
+}
