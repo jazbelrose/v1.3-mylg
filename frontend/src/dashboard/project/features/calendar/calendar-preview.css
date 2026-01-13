@@ -1637,8 +1637,7 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__tile-title.is-complete {
-  text-decoration: line-through;
-  opacity: 0.75;
+  opacity: 0.68;
 }
 
 .week-grid__tile-chip {
@@ -1671,8 +1670,14 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__stack-line.is-complete {
+  opacity: 1;
+}
+
+.week-grid__stack-line.is-complete .week-grid__stack-text {
   text-decoration: line-through;
-  opacity: 0.75;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.65;
 }
 
 .week-grid__stack-line--more {
@@ -1714,9 +1719,6 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__timeline-entry-title.is-complete {
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
   opacity: 0.68;
 }
 
@@ -3716,13 +3718,13 @@ body.isMarqueeSelecting * {
   min-height: 30px;
 
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
   column-gap: 6px;
   align-items: center;
 }
 
 .calendar-entry-row--has-avatars {
-  grid-template-columns: 118px minmax(0, 1fr) 56px;
+  grid-template-columns: 96px minmax(0, 1fr) 56px;
 }
 
 .calendar-entry-row__left {
@@ -4500,18 +4502,86 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__group-stack-summary {
-  margin-top: 8px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+}
+
+.week-grid__group-stack-user {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.week-grid__group-stack-user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
   font-size: 0.72rem;
-  line-height: 1.15;
+  line-height: 1.1;
   color: rgba(245, 245, 245, 0.84);
-  white-space: nowrap;
+}
+
+.week-grid__group-stack-user-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.week-grid__group-stack-user-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.week-grid__group-stack-user-avatar {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  opacity: 0.9;
+}
+
+.week-grid__group-stack-user-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.week-grid__group-stack-overflow-row {
+  display: flex;
+  padding-left: 18px;
+}
+
+.week-grid__group-stack-overflow-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(245, 245, 245, 0.78);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 16px;
+  flex: 0 0 auto;
 }
 
 .week-grid__task-preview-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   min-width: 0;
   font-size: 0.7rem;
@@ -4519,12 +4589,11 @@ body.isMarqueeSelecting * {
   color: rgba(245, 245, 245, 0.92);
 }
 
-.week-grid__task-preview-row.is-complete {
-  opacity: 0.72;
-}
-
 .week-grid__task-preview-row.is-complete .week-grid__task-preview-text {
   text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.65;
 }
 
 .week-grid__task-preview-row--more {

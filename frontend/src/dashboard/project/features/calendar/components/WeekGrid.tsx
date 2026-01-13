@@ -3220,6 +3220,11 @@ function WeekGrid({
       const children = resolveFocusBlockChildren(task);
       if (children.length === 0) return null;
 
+      const isChildDone = (child: CalendarTask): boolean => {
+        const normalizedStatus = typeof child.status === "string" ? child.status.trim().toLowerCase() : "";
+        return Boolean(child.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+      };
+
       const resolveOwnerUserId = (child: CalendarTask): string | null => {
         const source = (child.source ?? {}) as { assigneeId?: unknown };
         const candidates = [
@@ -3235,39 +3240,157 @@ function WeekGrid({
         return null;
       };
 
-      const countsByUserId = new Map<string, number>();
-      const order: string[] = [];
-      children.forEach((child) => {
-        const userId = resolveOwnerUserId(child) ?? "unassigned";
-        if (!countsByUserId.has(userId)) order.push(userId);
-        countsByUserId.set(userId, (countsByUserId.get(userId) ?? 0) + 1);
-      });
+      const sections = (() => {
+        const byUserId = new Map<string, { userId: string; name: string; thumb?: string; tasks: CalendarTask[] }>();
+        const order: string[] = [];
 
-      const totalBlocks = children.length;
-      const totalUsers = countsByUserId.size;
+        const resolveName = (userId: string): { name: string; thumb?: string } => {
+          if (userId === "unassigned") return { name: "Unassigned" };
+          const member = teamMemberLookup.byId.get(userId);
+          if (!member) return { name: userId };
+          const name = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() || member.userId || userId;
+          return { name, thumb: member.thumbnail ?? undefined };
+        };
 
-      const describeUser = (userId: string): string => {
-        if (userId === "unassigned") return "Unassigned";
-        const member = teamMemberLookup.byId.get(userId);
-        if (member) {
-          const name = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
-          return name || member.userId || userId;
-        }
-        return userId;
-      };
+        children.forEach((child) => {
+          const userId = resolveOwnerUserId(child) ?? "unassigned";
+          if (!byUserId.has(userId)) {
+            order.push(userId);
+            const resolved = resolveName(userId);
+            byUserId.set(userId, { userId, name: resolved.name, thumb: resolved.thumb, tasks: [] });
+          }
+          byUserId.get(userId)!.tasks.push(child);
+        });
 
-      const summary = (() => {
-        if (totalUsers <= 2) {
-          const parts = order.slice(0, 2).map((userId) => {
-            const count = countsByUserId.get(userId) ?? 0;
-            return `${describeUser(userId)}: ${count} block${count === 1 ? "" : "s"}`;
-          });
-          return parts.join(" • ");
-        }
-        return `${totalBlocks} block${totalBlocks === 1 ? "" : "s"} • ${totalUsers} users`;
+        return order.map((userId) => byUserId.get(userId)!).filter(Boolean);
       })();
 
-      return <div className="week-grid__group-stack-summary" aria-hidden>{summary}</div>;
+      const durationMinutes = entry.endMinutes - entry.startMinutes;
+      const tileHeightPx = Math.max(32, minutesToPxWeek(durationMinutes));
+
+      const paddingYPx = 12;
+      const headerHeightPx = 16;
+      const headerToListGapPx = 6;
+      const rowHeightPx = 14;
+      const availablePx = tileHeightPx - (paddingYPx + headerHeightPx + headerToListGapPx);
+      const maxLines = Math.max(0, Math.floor(availablePx / rowHeightPx));
+      if (maxLines <= 0) return null;
+
+      if (maxLines < sections.length) {
+        const visible = sections.slice(0, maxLines);
+        const omitted = Math.max(sections.length - visible.length, 0);
+        return (
+          <div className="week-grid__group-stack-summary" aria-hidden>
+            {visible.map((section, index) => (
+              <div key={section.userId} className="week-grid__group-stack-user">
+                <div className="week-grid__group-stack-user-header">
+                  <div className="week-grid__group-stack-user-left">
+                    <span className="week-grid__group-stack-user-name">{section.name}</span>
+                    {index === visible.length - 1 && omitted > 0 ? (
+                      <span className="week-grid__group-stack-overflow-pill">+{omitted} users</span>
+                    ) : null}
+                  </div>
+                  {section.thumb ? (
+                    <ProjectAvatar
+                      className="week-grid__group-stack-user-avatar"
+                      thumb={section.thumb}
+                      name={section.name}
+                      shape="circle"
+                      radius={8}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      const nodes: React.ReactNode[] = [];
+      let remainingLines = maxLines;
+
+      for (let index = 0; index < sections.length; index += 1) {
+        const section = sections[index];
+        const remainingSections = sections.length - index;
+        if (remainingLines <= 0) break;
+
+        remainingLines -= 1; // header line
+        const minReservedHeaderLines = remainingSections - 1;
+        const maxTaskLinesForSection = Math.max(0, remainingLines - minReservedHeaderLines);
+
+        const totalTasks = section.tasks.length;
+        let visibleTasks: CalendarTask[] = [];
+        let moreTaskCount = 0;
+        let showMoreRow = false;
+        let headerPillText: string | null = null;
+
+        if (maxTaskLinesForSection <= 0) {
+          if (totalTasks > 0) headerPillText = `+${totalTasks}`;
+        } else if (totalTasks <= maxTaskLinesForSection) {
+          visibleTasks = section.tasks.slice(0, maxTaskLinesForSection);
+          remainingLines -= visibleTasks.length;
+        } else {
+          showMoreRow = true;
+          const taskSlots = Math.max(0, maxTaskLinesForSection - 1);
+          visibleTasks = section.tasks.slice(0, taskSlots);
+          moreTaskCount = totalTasks - visibleTasks.length;
+          remainingLines -= visibleTasks.length + 1;
+        }
+
+        nodes.push(
+          <div key={section.userId} className="week-grid__group-stack-user">
+            <div className="week-grid__group-stack-user-header">
+              <div className="week-grid__group-stack-user-left">
+                <span className="week-grid__group-stack-user-name">{section.name}</span>
+                {headerPillText ? (
+                  <span className="week-grid__group-stack-overflow-pill">{headerPillText}</span>
+                ) : null}
+              </div>
+              {section.thumb ? (
+                <ProjectAvatar
+                  className="week-grid__group-stack-user-avatar"
+                  thumb={section.thumb}
+                  name={section.name}
+                  shape="circle"
+                  radius={8}
+                />
+              ) : null}
+            </div>
+
+            {maxTaskLinesForSection > 0 ? (
+              <div className="week-grid__group-stack-user-tasks" aria-hidden>
+                {visibleTasks.map((child) => (
+                  <div
+                    key={`task:${child.id}`}
+                    className={`week-grid__task-preview-row${isChildDone(child) ? " is-complete" : ""}`}
+                  >
+                    <span className="week-grid__task-preview-checkbox" aria-hidden>
+                      {isChildDone(child) ? (
+                        <CheckSquare className="week-grid__task-preview-check" aria-hidden />
+                      ) : (
+                        <span className="week-grid__task-preview-box" aria-hidden />
+                      )}
+                    </span>
+                    <span className="week-grid__task-preview-text">{child.title}</span>
+                  </div>
+                ))}
+
+                {showMoreRow ? (
+                  <div className="week-grid__group-stack-overflow-row">
+                    <span className="week-grid__group-stack-overflow-pill">+{moreTaskCount}</span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>,
+        );
+      }
+
+      return (
+        <div className="week-grid__group-stack-summary" aria-hidden>
+          {nodes}
+        </div>
+      );
     };
 
     const renderMultiUserOverlapChecklist = () => {
