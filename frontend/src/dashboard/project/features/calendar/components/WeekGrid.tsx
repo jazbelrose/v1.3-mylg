@@ -177,10 +177,11 @@ const normalizePointerOffsetToGhost = (
 };
 
 /**
- * Determine if a task is a Focus Block (wrapper that contains child time blocks).
+ * Determine if a task is a time-block container (Focus Block or Group Stack).
  */
 const isFocusBlockTask = (task: CalendarTask): boolean => {
-  if (task.kind === "focus_block") return true;
+  const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+  if (normalizedKind === "focus_block" || normalizedKind === "group_stack") return true;
   const hasChildren =
     (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
     (task.focusChecklist && task.focusChecklist.length > 0);
@@ -713,12 +714,14 @@ function WeekGrid({
       const hasPointerChildren = focusId
         ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0
         : false;
-      const isFocusBlock =
-        task.kind === "focus_block" ||
+      const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+      const isContainer =
+        normalizedKind === "focus_block" ||
+        normalizedKind === "group_stack" ||
         (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
         (task.focusChecklist && task.focusChecklist.length > 0) ||
         hasPointerChildren;
-      if (!isFocusBlock) return direct;
+      if (!isContainer) return direct;
 
       const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
       const childrenFromIds = childIds
@@ -2810,12 +2813,22 @@ function WeekGrid({
       : getWeekEntryPreview(overlapStackTitle ?? entry.title);
     const tooltipBaseTitle = overlapStackTitle ?? entry.title;
     const tooltipLabel = entry.timeLabel ? `${tooltipBaseTitle} · ${entry.timeLabel}` : tooltipBaseTitle;
+    const taskKindNormalized = (() => {
+      if (entry.type !== "task") return "";
+      const task = entry.payload as CalendarTask | undefined;
+      if (!task) return "";
+      return typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+    })();
+
+    const isGroupStack = entry.type === "task" && taskKindNormalized === "group_stack";
+
     const isFocusBlock = (() => {
       if (entry.type !== "task") return false;
       const task = entry.payload as CalendarTask | undefined;
       if (!task) return false;
       // Detect Focus Blocks by kind OR by having child task references (legacy support)
-      if (task.kind === "focus_block") return true;
+      if (isGroupStack) return false;
+      if (taskKindNormalized === "focus_block") return true;
       const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
         (task.focusChecklist && task.focusChecklist.length > 0);
       if (hasChildren) return true;
@@ -2841,7 +2854,7 @@ function WeekGrid({
       return children;
     };
     const focusMeter = (() => {
-      if (!isFocusBlock) return null;
+      if (!isFocusBlock && !isGroupStack) return null;
       const task = entry.payload as CalendarTask;
       const children = resolveFocusBlockChildren(task);
       if (children.length === 0) return null;
@@ -2849,10 +2862,11 @@ function WeekGrid({
         (sum, child) => sum + (child.status === "done" || Boolean(child.done) ? 1 : 0),
         0,
       );
+      const labelPrefix = isGroupStack ? "Group stack" : "Focus block";
       return (
         <span
           className="week-grid__focus-meter week-grid__focus-meter--tile"
-          aria-label={`Focus block progress ${doneCount} of ${children.length}`}
+          aria-label={`${labelPrefix} progress ${doneCount} of ${children.length}`}
         >
           {doneCount}/{children.length}
         </span>
@@ -2868,17 +2882,17 @@ function WeekGrid({
 
     // Compute whether the entry should use the active project's color.
     const isTimeBlockTask = (() => {
-      if (entry.type !== "task" || isStack || isFocusBlock) return false;
+      if (entry.type !== "task" || isStack || isFocusBlock || isGroupStack) return false;
       const task = entry.payload as CalendarTask | undefined;
       return Boolean(task?.start || task?.end);
     })();
-    const shouldUseActiveProjectTint = isFocusBlock || isStack || isTimeBlockTask;
+    const shouldUseActiveProjectTint = isFocusBlock || isGroupStack || isStack || isTimeBlockTask;
     const entryColor = shouldUseActiveProjectTint ? projectColor : entry.projectColor || projectColor;
     
     // Tasks are allowed to be neutral (no mandatory project tint).
     // Keep Focus Blocks + stacks aligned to the active project's color.
     const pillStyle = (() => {
-      if (entry.type === "task" && !isStack && !isFocusBlock && !isTimeBlockTask) {
+      if (entry.type === "task" && !isStack && !isFocusBlock && !isGroupStack && !isTimeBlockTask) {
         return entryStyle;
       }
 
@@ -2901,7 +2915,8 @@ function WeekGrid({
         : entry.type === "taskStack"
         ? "week-grid__timeline-entry--task-stack"
         : "week-grid__timeline-entry--overlap-stack",
-      isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
+      isFocusBlock || isGroupStack ? "week-grid__timeline-entry--focus-block" : "",
+      isGroupStack ? "week-grid__timeline-entry--group-stack" : "",
       stacked ? "week-grid__timeline-entry--stacked" : "",
       isEntrySelected ? "week-grid__timeline-entry--selected" : "",
       // Only apply the copy styling to the moving preview, not the original.
@@ -2950,7 +2965,8 @@ function WeekGrid({
             : entry.type === "taskStack"
             ? "week-grid__timeline-entry--task-stack"
             : "week-grid__timeline-entry--overlap-stack",
-          isFocusBlock ? "week-grid__timeline-entry--focus-block" : "",
+          isFocusBlock || isGroupStack ? "week-grid__timeline-entry--focus-block" : "",
+          isGroupStack ? "week-grid__timeline-entry--group-stack" : "",
           stacked ? "week-grid__timeline-entry--stacked" : "",
           isEntrySelected ? "week-grid__timeline-entry--selected" : "",
           "week-grid__timeline-entry--copying",
@@ -2968,6 +2984,10 @@ function WeekGrid({
               ) : (() => {
                 if (entry.type !== "task") {
                   return <CheckSquare className="week-grid__task-icon-svg" aria-hidden />;
+                }
+
+                if (isGroupStack) {
+                  return <Users className="week-grid__task-icon-svg" aria-hidden />;
                 }
 
                 if (isFocusBlock) {
@@ -3127,6 +3147,62 @@ function WeekGrid({
 
       // Clamp to tile height.
       return renderChecklistPreviewList({ items, tileHeightPx, maxRows: Number.POSITIVE_INFINITY });
+    };
+
+    const renderGroupStackSummary = () => {
+      if (!isGroupStack) return null;
+      const task = entry.payload as CalendarTask;
+      const children = resolveFocusBlockChildren(task);
+      if (children.length === 0) return null;
+
+      const resolveOwnerUserId = (child: CalendarTask): string | null => {
+        const source = (child.source ?? {}) as { assigneeId?: unknown };
+        const candidates = [
+          typeof child.assignedTo === "string" ? child.assignedTo : null,
+          typeof source.assigneeId === "string" ? (source.assigneeId as string) : null,
+          ...(Array.isArray(child.assigneeIds) ? child.assigneeIds : []),
+        ].filter((value): value is string => Boolean(value));
+
+        for (const candidate of candidates) {
+          const userId = parseAssigneeUserId(candidate);
+          if (userId) return userId;
+        }
+        return null;
+      };
+
+      const countsByUserId = new Map<string, number>();
+      const order: string[] = [];
+      children.forEach((child) => {
+        const userId = resolveOwnerUserId(child) ?? "unassigned";
+        if (!countsByUserId.has(userId)) order.push(userId);
+        countsByUserId.set(userId, (countsByUserId.get(userId) ?? 0) + 1);
+      });
+
+      const totalBlocks = children.length;
+      const totalUsers = countsByUserId.size;
+
+      const describeUser = (userId: string): string => {
+        if (userId === "unassigned") return "Unassigned";
+        const member = teamMemberLookup.byId.get(userId);
+        if (member) {
+          const name = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
+          return name || member.userId || userId;
+        }
+        return userId;
+      };
+
+      const summary = (() => {
+        if (totalUsers <= 2) {
+          const parts = order.slice(0, 2).map((userId) => {
+            const count = countsByUserId.get(userId) ?? 0;
+            return `${describeUser(userId)}: ${count} block${count === 1 ? "" : "s"}`;
+          });
+          return parts.join(" • ");
+        }
+        return `${totalBlocks} block${totalBlocks === 1 ? "" : "s"} • ${totalUsers} users`;
+      })();
+
+      return <div className="week-grid__group-stack-summary" aria-hidden>{summary}</div>;
     };
 
     const renderMultiUserOverlapChecklist = () => {
@@ -3345,7 +3421,7 @@ function WeekGrid({
       );
     }
 
-    const useTileLayout = isFocusBlock;
+    const useTileLayout = isFocusBlock || isGroupStack;
 
     return (
       <>
@@ -3374,7 +3450,9 @@ function WeekGrid({
             >
                 {useTileLayout
                   ? renderTileHeader({
-                    icon: <Layers className="week-grid__task-icon-svg" aria-hidden />,
+                    icon: isGroupStack
+                      ? <Users className="week-grid__task-icon-svg" aria-hidden />
+                      : <Layers className="week-grid__task-icon-svg" aria-hidden />,
                     title: previewTitle,
                     isComplete: entry.completed,
                     chip:
@@ -3386,7 +3464,7 @@ function WeekGrid({
                   })
                 : content}
 
-              {useTileLayout ? renderFocusBlockChildren() : null}
+              {useTileLayout ? (isGroupStack ? renderGroupStackSummary() : renderFocusBlockChildren()) : null}
             </div>
 
             {useTileLayout ? null : inlineAvatars}
@@ -3403,7 +3481,9 @@ function WeekGrid({
               >
                 {useTileLayout
                   ? renderTileHeader({
-                      icon: <Layers className="week-grid__task-icon-svg" aria-hidden />,
+                      icon: isGroupStack
+                        ? <Users className="week-grid__task-icon-svg" aria-hidden />
+                        : <Layers className="week-grid__task-icon-svg" aria-hidden />,
                       title: previewTitle,
                       isComplete: entry.completed,
                       chip:
@@ -3414,7 +3494,7 @@ function WeekGrid({
                         ) : null,
                     })
                   : content}
-                {useTileLayout ? renderFocusBlockChildren() : null}
+                {useTileLayout ? (isGroupStack ? renderGroupStackSummary() : renderFocusBlockChildren()) : null}
               </div>
               {useTileLayout ? null : inlineAvatars}
             </div>
@@ -3953,12 +4033,14 @@ function WeekGrid({
             const hasPointerChildren = focusId
               ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0
               : false;
-            const isFocusBlock =
-              task.kind === "focus_block" ||
+            const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+            const isContainer =
+              normalizedKind === "focus_block" ||
+              normalizedKind === "group_stack" ||
               (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
               (task.focusChecklist && task.focusChecklist.length > 0) ||
               hasPointerChildren;
-            if (!isFocusBlock) return undefined;
+            if (!isContainer) return undefined;
 
             const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
             const childrenFromIds = childIds
@@ -3971,7 +4053,7 @@ function WeekGrid({
               ).values(),
             ).sort((a, b) => (parseTimeToMinutes(a.start) ?? 0) - (parseTimeToMinutes(b.start) ?? 0));
             if (!children.length) return undefined;
-            // Ensure children have a `focusBlockId` so drag-out detaches from the parent Focus Block.
+            // Ensure children have a `focusBlockId` so drag-out detaches from the parent container.
             return children.map((child) =>
               child.focusBlockId ? child : { ...child, focusBlockId: focusId },
             );

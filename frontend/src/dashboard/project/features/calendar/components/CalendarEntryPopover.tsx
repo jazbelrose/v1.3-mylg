@@ -19,6 +19,7 @@ import {
   CheckSquare,
   Square,
   Layers,
+  Users,
 } from "lucide-react";
 import {
   formatCompactTimeLabel,
@@ -36,6 +37,7 @@ import {
   buildTaskAvatars,
   buildEventAvatars,
   parseAssigneeUserId,
+  parseTimeToMinutes,
   type TimelineAvatar,
 } from "./timelineLayout";
 import { formatAssigneeDisplay } from "@/dashboard/project/components/Tasks/utils";
@@ -418,32 +420,48 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const sourceProjectId = typeof sourceTask?.projectId === "string" ? sourceTask.projectId : "";
   const sourceTaskId = typeof sourceTask?.taskId === "string" ? sourceTask.taskId : "";
 
+  const normalizedTaskKind = useMemo(() => {
+    if (!isTask || !task) return "";
+    return typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+  }, [isTask, task]);
+
+  const isGroupStack = useMemo(() => normalizedTaskKind === "group_stack", [normalizedTaskKind]);
+
   // Helper to detect Focus Blocks (by kind OR by having child task references for legacy support)
   const isFocusBlock = useMemo(() => {
     if (!isTask || !task) return false;
-    const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
-    if (normalizedKind === "focus_block") return true;
+    if (isGroupStack) return false;
+    if (normalizedTaskKind === "focus_block") return true;
     const hasChildren = (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
       (task.focusChecklist && task.focusChecklist.length > 0);
     return hasChildren;
-  }, [isTask, task]);
+  }, [isGroupStack, isTask, normalizedTaskKind, task]);
+
+  const isTimeBlockContainer = isFocusBlock || isGroupStack;
 
   const focusChildrenResolved = useMemo(() => {
     if (!isTask || !task) return [];
-    if (!isFocusBlock) return [];
+    if (!isTimeBlockContainer) return [];
     return focusChildren ?? [];
-  }, [focusChildren, isFocusBlock, isTask, task]);
+  }, [focusChildren, isTask, isTimeBlockContainer, task]);
 
   const rawTitle = isTask ? task?.title : event?.title;
   const title = useMemo(() => {
     if (!isTask || !task) return rawTitle;
+    if (isGroupStack) {
+      const normalized = (rawTitle ?? "").trim();
+      if (!normalized || normalized.toLowerCase() === "focus block") {
+        return "Group Stack";
+      }
+      return rawTitle;
+    }
     if (!isFocusBlock) return rawTitle;
     const normalized = (rawTitle ?? "").trim();
     if (!normalized || normalized.toLowerCase() === "focus block") {
       return focusChildrenResolved[0]?.title ?? rawTitle;
     }
     return rawTitle;
-  }, [focusChildrenResolved, isFocusBlock, isTask, rawTitle, task]);
+  }, [focusChildrenResolved, isFocusBlock, isGroupStack, isTask, rawTitle, task]);
 
   const displayTitle = titleOverride ?? title;
   const timeLabel = isTask
@@ -470,8 +488,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       const direct = buildTaskAvatars(task, memberLookup);
       if (direct.length > 0) return direct;
 
-      // Focus Blocks frequently have no assignee set on the parent; derive from child time blocks.
-      if (isFocusBlock && focusChildrenResolved.length > 0) {
+      // Containers frequently have no assignee set on the parent; derive from child time blocks.
+      if (isTimeBlockContainer && focusChildrenResolved.length > 0) {
         const seen = new Set<string>();
         const derived: TimelineAvatar[] = [];
         focusChildrenResolved.forEach((child) => {
@@ -493,11 +511,11 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       return buildEventAvatars(event, memberLookup);
     }
     return [];
-  }, [event, focusChildrenResolved, isFocusBlock, isTask, memberLookup, task]);
+  }, [event, focusChildrenResolved, isTask, isTimeBlockContainer, memberLookup, task]);
 
   const focusMeter = useMemo(() => {
     if (!isTask || !task) return null;
-    if (!isFocusBlock) return null;
+    if (!isTimeBlockContainer) return null;
     const total = focusChildrenResolved.length;
     if (total <= 0) return null;
     const done = focusChildrenResolved.reduce((sum, child) => {
@@ -505,7 +523,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       return sum + (isDone ? 1 : 0);
     }, 0);
     return { done, total };
-  }, [focusChildrenResolved, isFocusBlock, isTask, task]);
+  }, [focusChildrenResolved, isTask, isTimeBlockContainer, task]);
 
   // Get formatted assignee names (not user IDs)
   const assigneeNames = useMemo(() => {
@@ -541,6 +559,60 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     
     return names.length > 0 ? names : null;
   }, [isTask, task, memberLookup]);
+
+  const groupStackSections = useMemo(() => {
+    if (!isGroupStack) return [];
+    if (focusChildrenResolved.length === 0) return [];
+
+    const order: string[] = [];
+    const buckets = new Map<string, CalendarTask[]>();
+
+    const resolveOwner = (child: CalendarTask): string => {
+      const source = (child.source ?? {}) as { assigneeId?: unknown };
+      const candidates = [
+        typeof child.assignedTo === "string" ? child.assignedTo : null,
+        typeof source.assigneeId === "string" ? (source.assigneeId as string) : null,
+        ...(Array.isArray(child.assigneeIds) ? child.assigneeIds : []),
+      ].filter((value): value is string => Boolean(value));
+
+      for (const candidate of candidates) {
+        const userId = parseAssigneeUserId(candidate);
+        if (userId) return userId;
+      }
+      return "unassigned";
+    };
+
+    focusChildrenResolved.forEach((child) => {
+      const userId = resolveOwner(child);
+      if (!buckets.has(userId)) order.push(userId);
+      buckets.set(userId, [...(buckets.get(userId) ?? []), child]);
+    });
+
+    const describeUser = (userId: string): string => {
+      if (userId === "unassigned") return "Unassigned";
+      const member = memberLookup.byId.get(userId);
+      if (member) {
+        const name = `${member.firstName || ""} ${member.lastName || ""}`.trim();
+        return name || member.userId || userId;
+      }
+      return userId;
+    };
+
+    return order
+      .map((userId) => {
+        const children = (buckets.get(userId) ?? []).slice().sort((a, b) => {
+          const aStart = parseTimeToMinutes(a.start) ?? 0;
+          const bStart = parseTimeToMinutes(b.start) ?? 0;
+          if (aStart !== bStart) return aStart - bStart;
+          const aEnd = parseTimeToMinutes(a.end) ?? 0;
+          const bEnd = parseTimeToMinutes(b.end) ?? 0;
+          if (aEnd !== bEnd) return aEnd - bEnd;
+          return (a.title ?? "").localeCompare(b.title ?? "");
+        });
+        return { userId, title: describeUser(userId), children };
+      })
+      .filter((section) => section.children.length > 0);
+  }, [focusChildrenResolved, isGroupStack, memberLookup]);
 
   const canInlineRenameTitle = Boolean(isTask && task && onRenameTaskTitle);
 
@@ -780,8 +852,8 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       return;
     }
 
-    // For Focus Blocks, treat “Done” as “All done” (mark all child time blocks as done).
-    if (isFocusBlock && focusChildrenResolved.length > 0) {
+    // For containers, treat "Done" as "All done" (mark all child time blocks as done).
+    if (isTimeBlockContainer && focusChildrenResolved.length > 0) {
       const pendingChildren = focusChildrenResolved.filter(
         (t) => t.status !== "done" && t.done !== true,
       );
@@ -796,7 +868,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
       onMarkAsDone([task]);
     }
     onClose();
-  }, [focusChildrenResolved, isFocusBlock, onClose, onMarkAsDone, task]);
+  }, [focusChildrenResolved, isTimeBlockContainer, onClose, onMarkAsDone, task]);
 
   const handleDuplicate = useCallback(() => {
     if (onDuplicate) {
@@ -838,11 +910,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         <span className="calendar-entry-row__icon" aria-hidden>
           {entryType === "event" ? (
             <Clock className="calendar-entry-row__icon-svg" aria-hidden />
+          ) : isGroupStack ? (
+            <Users className="calendar-entry-row__icon-svg" aria-hidden />
           ) : isFocusBlock ? (
             <Layers className="calendar-entry-row__icon-svg" aria-hidden />
           ) : (() => {
             const bundleDone =
-              isFocusBlock && focusChildrenResolved.length > 0
+              isTimeBlockContainer && focusChildrenResolved.length > 0
                 ? focusChildrenResolved.every((t) => t.status === "done" || t.done === true)
                 : Boolean(task && (task.status === "done" || task.done === true));
             return bundleDone ? (
@@ -1097,7 +1171,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             </span>
           </div>
         )}
-        {isTask && !isFocusBlock && task?.status && (
+        {isTask && !isFocusBlock && !isGroupStack && task?.status && (
           <div className="calendar-entry-popover__detail-row">
             <span
               className={`calendar-entry-popover__status calendar-entry-popover__status--${task.status}`}
@@ -1108,50 +1182,101 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         )}
       </div>
 
-      {/* Focus Block children (Time Blocks) */}
+      {/* Container children (Time Blocks) */}
       {focusChildrenResolved.length > 0 && (
         <div className="calendar-entry-popover__children">
-          <div className="calendar-entry-popover__children-title">Time Blocks</div>
-          <div className="calendar-entry-popover__children-list">
-            {focusChildrenResolved.map((child) => {
-              const childTitle = child.title || "Untitled task";
-              const childTime = child.start && child.end
-                ? formatCompactTimeRange(child.start, child.end)
-                : (formatCompactTimeLabel(child.start) ?? formatTimeLabel(child.start) ?? child.start) || "";
-              const isChildDone = child.status === "done" || child.done === true;
-              const childKey = `task:${child.id}`;
-              return (
-                <div key={child.id} className="calendar-entry-popover__child-row">
-                  <CalendarEntryRow
-                    entryType="task"
-                    title={childTitle}
-                    timeLabel={childTime}
-                    isDone={isChildDone}
-                    isSelected={activeChildKey === childKey}
-                    draggable={Boolean(onStartDragFocusChild)}
-                    showDragHandle={false}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      handleFocusChildPointerDown(e, child, childKey);
-                    }}
-                    onPointerMove={handleFocusChildPointerMove}
-                    onPointerUp={handleFocusChildPointerUp}
-                    onPointerCancel={handleFocusChildPointerCancel}
-                    onContextMenu={(e) => {
-                      if (!onOpenFocusChildContextMenu) return;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveChildKey(childKey);
-                      onOpenFocusChildContextMenu(child, e);
-                    }}
-                    titleAttr={childTitle}
-                  />
-
-                  {/* Focus Block time blocks: actions are available via right-click on the row. */}
-                </div>
-              );
-            })}
+          <div className="calendar-entry-popover__children-title">
+            {isGroupStack ? "Group Stack" : "Time Blocks"}
           </div>
+
+          {isGroupStack ? (
+            <div className="calendar-entry-popover__group-stack">
+              {groupStackSections.map((section) => (
+                <div key={section.userId} className="calendar-entry-popover__children-section">
+                  <div className="calendar-entry-popover__children-section-title">{section.title}</div>
+                  <div className="calendar-entry-popover__children-list">
+                    {section.children.map((child) => {
+                      const childTitle = child.title || "Untitled task";
+                      const childTime = child.start && child.end
+                        ? formatCompactTimeRange(child.start, child.end)
+                        : (formatCompactTimeLabel(child.start) ?? formatTimeLabel(child.start) ?? child.start) || "";
+                      const isChildDone = child.status === "done" || child.done === true;
+                      const childKey = `task:${child.id}`;
+                      return (
+                        <div key={child.id} className="calendar-entry-popover__child-row">
+                          <CalendarEntryRow
+                            entryType="task"
+                            title={childTitle}
+                            timeLabel={childTime}
+                            isDone={isChildDone}
+                            isSelected={activeChildKey === childKey}
+                            draggable={Boolean(onStartDragFocusChild)}
+                            showDragHandle={false}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              handleFocusChildPointerDown(e, child, childKey);
+                            }}
+                            onPointerMove={handleFocusChildPointerMove}
+                            onPointerUp={handleFocusChildPointerUp}
+                            onPointerCancel={handleFocusChildPointerCancel}
+                            onContextMenu={(e) => {
+                              if (!onOpenFocusChildContextMenu) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveChildKey(childKey);
+                              onOpenFocusChildContextMenu(child, e);
+                            }}
+                            titleAttr={childTitle}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="calendar-entry-popover__children-list">
+              {focusChildrenResolved.map((child) => {
+                const childTitle = child.title || "Untitled task";
+                const childTime = child.start && child.end
+                  ? formatCompactTimeRange(child.start, child.end)
+                  : (formatCompactTimeLabel(child.start) ?? formatTimeLabel(child.start) ?? child.start) || "";
+                const isChildDone = child.status === "done" || child.done === true;
+                const childKey = `task:${child.id}`;
+                return (
+                  <div key={child.id} className="calendar-entry-popover__child-row">
+                    <CalendarEntryRow
+                      entryType="task"
+                      title={childTitle}
+                      timeLabel={childTime}
+                      isDone={isChildDone}
+                      isSelected={activeChildKey === childKey}
+                      draggable={Boolean(onStartDragFocusChild)}
+                      showDragHandle={false}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        handleFocusChildPointerDown(e, child, childKey);
+                      }}
+                      onPointerMove={handleFocusChildPointerMove}
+                      onPointerUp={handleFocusChildPointerUp}
+                      onPointerCancel={handleFocusChildPointerCancel}
+                      onContextMenu={(e) => {
+                        if (!onOpenFocusChildContextMenu) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setActiveChildKey(childKey);
+                        onOpenFocusChildContextMenu(child, e);
+                      }}
+                      titleAttr={childTitle}
+                    />
+
+                    {/* Focus Block time blocks: actions are available via right-click on the row. */}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1173,13 +1298,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             type="button"
             className="calendar-entry-popover__action calendar-entry-popover__action--success"
             onClick={handleMarkAsDone}
-            title={isFocusBlock ? "Mark all as Done" : "Mark as Done"}
+            title={isTimeBlockContainer ? "Mark all as Done" : "Mark as Done"}
           >
             <CheckCircle className="calendar-entry-popover__action-icon" />
-            <span>{isFocusBlock ? "All done" : "Done"}</span>
+            <span>{isTimeBlockContainer ? "All done" : "Done"}</span>
           </button>
         )}
-        {!isFocusBlock && onDuplicate && (
+        {!isTimeBlockContainer && onDuplicate && (
           <button
             type="button"
             className="calendar-entry-popover__action"

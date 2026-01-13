@@ -52,6 +52,12 @@ import { formatMinutesHHMM } from "../lib/doablePlanner";
 import { parseTimeToMinutes } from "./timelineLayout";
 import { blockMinutesFromWindow, getFocusBlockWindow } from "@/shared/utils/focusBlockWindows";
 import { packTasksIntoFocusBlock } from "@/shared/utils/packTasksIntoFocusBlock";
+import {
+  GROUP_STACK_KIND,
+  getBestAssigneeTokensByUserId,
+  isGroupStackTask,
+  shouldConvertToGroupStack,
+} from "../lib/groupStack";
 
 import "../calendar-preview.css";
 
@@ -1002,7 +1008,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           const source = task.source as ApiTask;
           return source.projectId === activeProjectId;
         })
-        .filter((task) => task.kind !== "intent" && task.kind !== "focus_block" && !task.focusBlockId);
+        .filter((task) => task.kind !== "intent" && task.kind !== "focus_block" && task.kind !== "group_stack" && !task.focusBlockId);
 
       if (eligible.length < 2) {
         notify("error", "Select at least 2 tasks to make a focus block.");
@@ -1300,6 +1306,17 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
           focusBlockMembershipUpdates.set(parentTaskId, existing);
         };
+
+        const calendarTaskByStableId = new Map<string, CalendarTask>();
+        tasks.forEach((t) => {
+          const id = resolveTaskIdentifier(t);
+          if (id) {
+            calendarTaskByStableId.set(id, t);
+          }
+        });
+
+        // FocusBlock -> GroupStack conversions requested by cross-user drop/attach.
+        const groupStackConversionTargets = new Set<string>();
 
         // Helper to check if a task overlaps with any existing task by the same user
         const findSameUserOverlap = (
@@ -1599,6 +1616,11 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               }
 
               if (newFocusBlockId) {
+                const parentTask = calendarTaskByStableId.get(newFocusBlockId) ?? null;
+                if (parentTask && !isGroupStackTask(parentTask) && shouldConvertToGroupStack({ container: parentTask, dragged: task })) {
+                  groupStackConversionTargets.add(newFocusBlockId);
+                }
+
                 recordFocusBlockMembershipChange({
                   parentTaskId: newFocusBlockId,
                   projectId,
@@ -1637,19 +1659,13 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           });
         }
 
-        createsByProject.forEach((payloads, projectId) => {
-          operations.push(createTasksBulk(projectId, payloads));
-        });
-        updatesByProject.forEach((updates, projectId) => {
-          operations.push(updateTasksBulk(projectId, updates));
-        });
+        const parentUpdatesByProject = new Map<string, Array<{ taskId: string; fields: Partial<Task> }>>();
 
-        // Update parent Focus Blocks when children membership changes
+        // Update parent Focus Blocks when children membership changes.
+        // If a cross-user task attaches to a Focus Block, convert it into a Group Stack first (kind=group_stack)
+        // so children do not inherit the focus owner's assignee as a side-effect on some backends.
         for (const [parentTaskId, { projectId, removedChildIds, addedChildIds }] of focusBlockMembershipUpdates) {
-          const parentTask = tasks.find((t) => {
-            const id = resolveTaskIdentifier(t);
-            return id === parentTaskId;
-          });
+          const parentTask = calendarTaskByStableId.get(parentTaskId) ?? null;
           if (!parentTask) continue;
 
           const currentChildIds = parentTask.focusChildTaskIds ?? [];
@@ -1683,28 +1699,90 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             removedChildIds.size > 0 ||
             addedChildIds.size > 0;
 
-          if (didChange) {
-            if (import.meta.env.DEV && addedChildIds.size > 0) {
-              const missing = Array.from(addedChildIds.keys()).filter((id) => !nextChildIds.includes(id));
-              if (missing.length > 0) {
-                console.warn(
-                  "[calendar] FocusBlock membership update missing children",
-                  { parentTaskId, missing },
-                );
-              }
+          const shouldUpdateParent = didChange || groupStackConversionTargets.has(parentTaskId);
+          if (!shouldUpdateParent) continue;
+
+          if (import.meta.env.DEV && addedChildIds.size > 0) {
+            const missing = Array.from(addedChildIds.keys()).filter((id) => !nextChildIds.includes(id));
+            if (missing.length > 0) {
+              console.warn("[calendar] FocusBlock membership update missing children", { parentTaskId, missing });
+            }
+          }
+
+          const wantsGroupStack = groupStackConversionTargets.has(parentTaskId) || isGroupStackTask(parentTask);
+
+          const fields: Partial<Task> = {
+            title: parentTask.title ?? "Focus Block",
+            focusChildTaskIds: nextChildIds,
+            focusChecklist: nextChecklist,
+          };
+
+          if (wantsGroupStack) {
+            const normalizedTitle = (parentTask.title ?? "").trim().toLowerCase();
+            if (!normalizedTitle || normalizedTitle === "focus block") {
+              fields.title = "Group Stack";
             }
 
-            operations.push(
-              updateTask({
-                projectId,
-                taskId: parentTaskId,
-                title: parentTask.title ?? "Focus Block",
-                focusChildTaskIds: nextChildIds,
-                focusChecklist: nextChecklist,
-              }),
-            );
+            fields.kind = GROUP_STACK_KIND;
+
+            const declaredChildren = nextChildIds
+              .map((id) => calendarTaskByStableId.get(id) ?? null)
+              .filter((value): value is CalendarTask => Boolean(value));
+
+            const linkedChildren = tasks.filter((t) => {
+              if (t.focusBlockId !== parentTaskId) return false;
+              const childId = resolveTaskIdentifier(t);
+              if (!childId) return false;
+              return !removedChildIds.has(childId);
+            });
+
+            fields.assigneeIds = getBestAssigneeTokensByUserId([parentTask, ...linkedChildren, ...declaredChildren]);
           }
+
+          parentUpdatesByProject.set(projectId, [
+            ...(parentUpdatesByProject.get(projectId) ?? []),
+            { taskId: parentTaskId, fields },
+          ]);
         }
+
+        createsByProject.forEach((payloads, projectId) => {
+          operations.push(createTasksBulk(projectId, payloads));
+        });
+
+        const allProjectIds = new Set<string>([
+          ...updatesByProject.keys(),
+          ...parentUpdatesByProject.keys(),
+        ]);
+
+        allProjectIds.forEach((projectId) => {
+          const childUpdates = updatesByProject.get(projectId) ?? [];
+          const parentUpdates = parentUpdatesByProject.get(projectId) ?? [];
+
+          const needsParentFirst = parentUpdates.some(
+            (update) => typeof update.fields.kind === "string" && update.fields.kind === GROUP_STACK_KIND,
+          );
+
+          if (needsParentFirst) {
+            operations.push(
+              (async () => {
+                if (parentUpdates.length) {
+                  await updateTasksBulk(projectId, parentUpdates);
+                }
+                if (childUpdates.length) {
+                  await updateTasksBulk(projectId, childUpdates);
+                }
+              })(),
+            );
+            return;
+          }
+
+          if (childUpdates.length) {
+            operations.push(updateTasksBulk(projectId, childUpdates));
+          }
+          if (parentUpdates.length) {
+            operations.push(updateTasksBulk(projectId, parentUpdates));
+          }
+        });
 
         // Create Focus Blocks for same-user overlaps
         for (const fb of focusBlockCreations) {
