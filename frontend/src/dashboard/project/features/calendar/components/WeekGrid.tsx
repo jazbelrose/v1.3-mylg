@@ -3271,7 +3271,7 @@ function WeekGrid({
       const paddingYPx = 12;
       const headerHeightPx = 16;
       const headerToListGapPx = 6;
-      const rowHeightPx = 14;
+      const rowHeightPx = 16;
       const availablePx = tileHeightPx - (paddingYPx + headerHeightPx + headerToListGapPx);
       const maxLines = Math.max(0, Math.floor(availablePx / rowHeightPx));
       if (maxLines <= 0) return null;
