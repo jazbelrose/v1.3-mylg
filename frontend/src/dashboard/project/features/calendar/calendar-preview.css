@@ -849,9 +849,10 @@
 
 .month-grid__tooltip-title.is-complete {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.68;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
 
 .month-grid__tooltip-time {
@@ -988,9 +989,10 @@
 
 .month-grid__event-title.is-complete {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.65;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
 
 .month-grid__event-time {
@@ -1452,9 +1454,10 @@ body.isMarqueeSelecting * {
 
 .week-grid__task-title.is-complete {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.65;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
 
 .week-grid__task-time {
@@ -1637,14 +1640,15 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__tile-title.is-complete {
-  opacity: 0.68;
+  opacity: 0.86;
 }
 
 .week-grid__timeline-entry--focus-block .week-grid__tile-title.is-complete,
 .week-grid__timeline-entry--group-stack .week-grid__tile-title.is-complete {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
 }
 
 .week-grid__tile-chip {
@@ -1682,9 +1686,10 @@ body.isMarqueeSelecting * {
 
 .week-grid__stack-line.is-complete .week-grid__stack-text {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.65;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
 
 .week-grid__stack-line--more {
@@ -1726,14 +1731,15 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__timeline-entry-title.is-complete {
-  opacity: 0.68;
+  opacity: 0.86;
 }
 
 .week-grid__timeline-entry--focus-block .week-grid__timeline-entry-title.is-complete,
 .week-grid__timeline-entry--group-stack .week-grid__timeline-entry-title.is-complete {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
 }
 
 .week-grid__timeline-entry-time {
@@ -2448,7 +2454,14 @@ body.isMarqueeSelecting * {
 }
 
 .events-tasks__card--task.is-complete {
-  opacity: 0.7;
+  opacity: 0.88;
+}
+
+.events-tasks__card--task.is-complete .events-tasks__card-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
 }
 
 .events-tasks__card-header {
@@ -3029,7 +3042,7 @@ body.isMarqueeSelecting * {
 
 .calendar-entry-popover__title.is-complete {
   /* Header already has "All done"/Done affordances; keep it readable. */
-  opacity: 0.72;
+  opacity: 0.86;
 }
 
 /* Inline rename input should look like the title text (not a default white input) */
@@ -3780,9 +3793,10 @@ body.isMarqueeSelecting * {
 
 .calendar-entry-row--task .calendar-entry-row__title.is-complete {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.65;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
 
 .calendar-entry-row--selected {
@@ -4633,9 +4647,10 @@ body.isMarqueeSelecting * {
 
 .week-grid__task-preview-row.is-complete .week-grid__task-preview-text {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.65;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
 
 .week-grid__task-preview-row--more {
@@ -4727,7 +4742,8 @@ body.isMarqueeSelecting * {
 
 .week-grid__focus-child-item.is-done {
   text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  opacity: 0.6;
+  text-decoration-thickness: 1.35px;
+  text-decoration-color: rgba(255, 255, 255, 0.62);
+  text-decoration-skip-ink: none;
+  opacity: 0.86;
 }
