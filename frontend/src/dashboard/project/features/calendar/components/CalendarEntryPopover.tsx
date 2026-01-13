@@ -1050,7 +1050,10 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
         {isTask && task?.due && (
           <div className="calendar-entry-popover__detail-row">
             <Calendar className="calendar-entry-popover__detail-icon" />
-            <span title={task.due}>{formatHumanDateLabel(task.due) ?? task.due}</span>
+            {(() => {
+              const dueLabel = formatHumanDateLabel(task.due) ?? task.due;
+              return <span title={dueLabel}>{dueLabel}</span>;
+            })()}
           </div>
         )}
         {isTask && !isFocusBlock && (

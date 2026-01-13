@@ -672,11 +672,31 @@ export const compareDateStrings = (a?: string, b?: string) => {
 
 export const parseIsoDate = (value?: string | null) => {
   if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
+
+  // Date-only (YYYY-MM-DD): force local midnight to avoid UTC date shifting.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsedDateOnly = new Date(`${value}T00:00:00`);
+    if (!Number.isNaN(parsedDateOnly.getTime())) {
+      return parsedDateOnly;
+    }
   }
-  return parsed;
+
+  // Full ISO (or any Date-parsable string) including time.
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  // If it starts with YYYY-MM-DD, fall back to parsing only the date part.
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    const parsedFromPrefix = new Date(`${match[1]}T00:00:00`);
+    if (!Number.isNaN(parsedFromPrefix.getTime())) {
+      return parsedFromPrefix;
+    }
+  }
+
+  return null;
 };
 
 export const formatHumanDateLabel = (
