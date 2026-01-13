@@ -50,6 +50,11 @@ type DayEntry = {
 
 const MAX_VISIBLE_ENTRIES = 3;
 
+const isTaskDone = (task: CalendarTask): boolean => {
+  const normalizedStatus = typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
+  return Boolean(task.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+};
+
 const parseDateCandidate = (...candidates: Array<string | undefined | null>) => {
   for (const candidate of candidates) {
     const parsed = safeDate(candidate ?? undefined);
@@ -139,7 +144,52 @@ function MonthGrid({
     () => (teamMembers ? buildTeamMemberLookup(teamMembers) : undefined),
     [teamMembers],
   );
-  
+
+  const calendarTaskById = useMemo(() => {
+    const map = new Map<string, CalendarTask>();
+    tasks.forEach((task) => {
+      if (task.id) map.set(task.id, task);
+      if (task.source?.taskId) map.set(task.source.taskId, task);
+      const legacyId = (task.source as { id?: string } | undefined)?.id;
+      if (legacyId) map.set(legacyId, task);
+    });
+    return map;
+  }, [tasks]);
+
+  const focusChildrenByFocusId = useMemo(() => {
+    const map = new Map<string, CalendarTask[]>();
+    tasks.forEach((task) => {
+      const focusId = task.focusBlockId;
+      if (!focusId) return;
+      map.set(focusId, [...(map.get(focusId) ?? []), task]);
+    });
+    return map;
+  }, [tasks]);
+
+  const isTaskCompleteForUi = (task: CalendarTask): boolean => {
+    const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+    const focusId = task.source?.taskId ?? task.id;
+    const hasPointerChildren = focusId ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0 : false;
+    const isContainer =
+      normalizedKind === "focus_block" ||
+      normalizedKind === "group_stack" ||
+      (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+      (task.focusChecklist && task.focusChecklist.length > 0) ||
+      hasPointerChildren;
+
+    if (!isContainer) return isTaskDone(task);
+
+    const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+    const childrenFromIds = childIds
+      .map((id) => calendarTaskById.get(id))
+      .filter((value): value is CalendarTask => Boolean(value));
+    const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+    const children = [...childrenFromIds, ...childrenFromFocusId];
+
+    if (children.length === 0) return isTaskDone(task);
+    return children.every(isTaskDone);
+  };
+
   const entriesByDate = useMemo(() => {
     const map = new Map<string, DayEntry[]>();
 
@@ -350,6 +400,7 @@ function MonthGrid({
                   }
 
                   if (item.task) {
+                    const taskComplete = isTaskCompleteForUi(item.task);
                     return (
                       <div
                         key={`task-${item.task.id}`}
@@ -373,7 +424,7 @@ function MonthGrid({
                           </div>
                           <div
                             className={`month-grid__event-title ${
-                              (item.task.done || item.task.status === "archived") ? "is-complete" : ""
+                              taskComplete ? "is-complete" : ""
                             }`}
                             title={item.title}
                           >
@@ -404,19 +455,19 @@ function MonthGrid({
                       event.stopPropagation();
                       triggerTooltipAction();
                     };
-                    return (
-                      <button
-                        key={`${item.type}-${item.id}`}
-                        type="button"
-                        className="month-grid__tooltip-item"
-                        onClick={handleAction}
-                        onKeyDown={(keyboardEvent) => {
-                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                            keyboardEvent.preventDefault();
-                            triggerTooltipAction();
-                          }
-                        }}
-                      >
+                      return (
+                        <button
+                          key={`${item.type}-${item.id}`}
+                          type="button"
+                          className="month-grid__tooltip-item"
+                          onClick={handleAction}
+                          onKeyDown={(keyboardEvent) => {
+                            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                              keyboardEvent.preventDefault();
+                              triggerTooltipAction();
+                            }
+                          }}
+                        >
                         <span
                           className={`month-grid__tooltip-icon month-grid__tooltip-icon--${item.type}`}
                           aria-hidden="true"
@@ -428,7 +479,13 @@ function MonthGrid({
                           )}
                         </span>
                         <div className="month-grid__tooltip-body">
-                          <span className="month-grid__tooltip-title">{item.title}</span>
+                          <span
+                            className={`month-grid__tooltip-title${
+                              item.type === "task" && item.task && isTaskCompleteForUi(item.task) ? " is-complete" : ""
+                            }`}
+                          >
+                            {item.title}
+                          </span>
                           {timeLabel && <span className="month-grid__tooltip-time">{timeLabel}</span>}
                         </div>
                         {item.avatars.length > 0 && (

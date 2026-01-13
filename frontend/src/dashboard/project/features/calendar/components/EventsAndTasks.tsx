@@ -174,6 +174,61 @@ function EventsAndTasks({
     [tasks],
   );
 
+  const calendarTaskById = useMemo(() => {
+    const map = new Map<string, CalendarTask>();
+    tasks.forEach((task) => {
+      if (task.id) map.set(task.id, task);
+      if (task.source?.taskId) map.set(task.source.taskId, task);
+      const legacyId = (task.source as { id?: string } | undefined)?.id;
+      if (legacyId) map.set(legacyId, task);
+    });
+    return map;
+  }, [tasks]);
+
+  const focusChildrenByFocusId = useMemo(() => {
+    const map = new Map<string, CalendarTask[]>();
+    tasks.forEach((task) => {
+      const focusId = task.focusBlockId;
+      if (!focusId) return;
+      map.set(focusId, [...(map.get(focusId) ?? []), task]);
+    });
+    return map;
+  }, [tasks]);
+
+  const isTaskCompleteForUi = useCallback(
+    (task: CalendarTask, rawStatus?: unknown): boolean => {
+      const isDone = (t: CalendarTask, statusOverride?: unknown) => {
+        const normalizedStatus = typeof statusOverride === "string" ? statusOverride.trim().toLowerCase() : "";
+        const raw = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
+        const status = normalizedStatus || raw;
+        return Boolean(t.done) || status === "done" || status === "completed" || status === "complete" || status === "archived";
+      };
+
+      const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+      const focusId = task.source?.taskId ?? task.id;
+      const hasPointerChildren = focusId ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0 : false;
+      const isContainer =
+        normalizedKind === "focus_block" ||
+        normalizedKind === "group_stack" ||
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0) ||
+        hasPointerChildren;
+
+      if (!isContainer) return isDone(task, rawStatus);
+
+      const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      const childrenFromIds = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((value): value is CalendarTask => Boolean(value));
+      const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+      const children = [...childrenFromIds, ...childrenFromFocusId];
+
+      if (children.length === 0) return isDone(task, rawStatus);
+      return children.every((child) => isDone(child));
+    },
+    [calendarTaskById, focusChildrenByFocusId],
+  );
+
   const filteredTasks = useMemo(() => {
     return normalizedTasks.filter(({ task, quickTask }) => {
       if (resolvedTaskFilter === "all") {
@@ -181,13 +236,7 @@ function EventsAndTasks({
       }
 
       const rawStatus = quickTask?.status ?? task.status ?? (task.done ? "done" : "todo");
-      const normalizedStatus = typeof rawStatus === "string" ? rawStatus.trim().toLowerCase() : "";
-      const isCompleted =
-        Boolean(task.done) ||
-        normalizedStatus === "done" ||
-        normalizedStatus === "completed" ||
-        normalizedStatus === "complete" ||
-        normalizedStatus === "archived";
+      const isCompleted = isTaskCompleteForUi(task, rawStatus);
 
       if (resolvedTaskFilter === "completed") {
         return isCompleted;
@@ -195,7 +244,7 @@ function EventsAndTasks({
 
       return !isCompleted;
     });
-  }, [normalizedTasks, resolvedTaskFilter]);
+  }, [isTaskCompleteForUi, normalizedTasks, resolvedTaskFilter]);
 
   const hasActiveFilters = resolvedEventFilter !== "all" || resolvedTaskFilter !== "all";
   const filterButtonAriaLabel = hasActiveFilters
@@ -604,9 +653,7 @@ function EventsAndTasks({
               const assignedInitials = formatInitials(assignedLabel);
               const isPopoverOpen = activeTaskPopoverId === task.id;
               const normalizedStatus = typeof rawStatus === "string" ? rawStatus.trim().toLowerCase() : "";
-              const isDone =
-                normalizedStatus === "done" ||
-                normalizedStatus === "archived";
+              const isDone = isTaskCompleteForUi(task, rawStatus);
               const isAwaitingApproval = normalizedStatus === "in_review";
               const canApprove = isAdmin && isAwaitingApproval;
               const canSubmitForReview = !isAwaitingApproval && !isDone;

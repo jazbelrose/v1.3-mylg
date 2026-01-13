@@ -362,6 +362,38 @@ function DayGrid({
     return map;
   }, [tasks]);
 
+  const isTaskCompleteForUi = useCallback(
+    (task: CalendarTask): boolean => {
+      const isDone = (t: CalendarTask) => {
+        const normalizedStatus = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
+        return Boolean(t.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+      };
+
+      const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+      const focusId = task.source?.taskId ?? task.id;
+      const hasPointerChildren = focusId ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0 : false;
+      const isContainer =
+        normalizedKind === "focus_block" ||
+        normalizedKind === "group_stack" ||
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0) ||
+        hasPointerChildren;
+
+      if (!isContainer) return isDone(task);
+
+      const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      const childrenFromIds = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((value): value is CalendarTask => Boolean(value));
+      const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+      const children = [...childrenFromIds, ...childrenFromFocusId];
+
+      if (children.length === 0) return isDone(task);
+      return children.every(isDone);
+    },
+    [calendarTaskById, focusChildrenByFocusId],
+  );
+
   const buildAvatarsForTaskEntry = useCallback(
     (task: CalendarTask) => {
       const direct = buildTaskAvatars(task, teamMemberLookup);
@@ -472,7 +504,7 @@ function DayGrid({
         startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
 
       const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
-      const isComplete = Boolean(task.done || task.status === "done" || task.status === "archived");
+      const isComplete = isTaskCompleteForUi(task);
       pushEntry({
         id: `task-${task.id}`,
         type: "task",
@@ -1508,7 +1540,11 @@ function DayGrid({
       const children = resolveFocusBlockChildren(task);
       if (children.length === 0) return null;
       const doneCount = children.reduce(
-        (sum, child) => sum + (child.status === "done" || Boolean(child.done) ? 1 : 0),
+        (sum, child) => {
+          const normalizedStatus = typeof child.status === "string" ? child.status.trim().toLowerCase() : "";
+          const isDone = child.done === true || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+          return sum + (isDone ? 1 : 0);
+        },
         0,
       );
       return (
@@ -1533,12 +1569,16 @@ function DayGrid({
             const kind = (child.kind ?? "").toLowerCase();
             const isEventLike = kind.includes("event");
             return (
-              <li
-                key={child.id}
-                className={`week-grid__focus-child-item week-grid__focus-child-item--icon${
-                  child.status === "done" ? " is-done" : ""
+                <li
+                  key={child.id}
+                  className={`week-grid__focus-child-item week-grid__focus-child-item--icon${
+                  child.done === true || ["done", "archived", "completed", "complete"].includes(
+                    typeof child.status === "string" ? child.status.trim().toLowerCase() : "",
+                  )
+                    ? " is-done"
+                    : ""
                 }`}
-              >
+                >
                 <span className="week-grid__focus-child-icon" aria-hidden>
                   {isEventLike ? (
                     <Clock className="week-grid__focus-child-icon-svg" aria-hidden />
@@ -1926,7 +1966,7 @@ function DayGrid({
                           <div className="week-grid__task-header">
                             <div
                               className={`week-grid__task-title ${
-                                task.done || task.status === "archived" ? "is-complete" : ""
+                                isTaskCompleteForUi(task) ? "is-complete" : ""
                               }`}
                             >
                               {task.title}

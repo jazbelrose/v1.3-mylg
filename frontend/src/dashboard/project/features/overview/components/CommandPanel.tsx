@@ -365,6 +365,9 @@ function getSortTime(item: TimelineItem): number {
 
 function getStatusSeverity(item: TimelineTask): 'overdue' | 'due-soon' | 'normal' | 'done' {
   const status = typeof item.status === 'string' ? item.status.toLowerCase().trim() : '';
+  if (item.focusGroup?.isGroup && item.focusGroup.totalCount > 0 && item.focusGroup.doneCount >= item.focusGroup.totalCount) {
+    return 'done';
+  }
   if (item.done || status === 'done' || status === 'completed' || status === 'archived') {
     return 'done';
   }

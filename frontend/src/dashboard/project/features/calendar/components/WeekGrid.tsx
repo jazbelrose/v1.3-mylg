@@ -659,6 +659,38 @@ function WeekGrid({
     return map;
   }, [tasks]);
 
+  const isTaskCompleteForUi = useCallback(
+    (task: CalendarTask): boolean => {
+      const isDone = (t: CalendarTask) => {
+        const normalizedStatus = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
+        return Boolean(t.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+      };
+
+      const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
+      const focusId = task.source?.taskId ?? task.id;
+      const hasPointerChildren = focusId ? (focusChildrenByFocusId.get(focusId)?.length ?? 0) > 0 : false;
+      const isContainer =
+        normalizedKind === "focus_block" ||
+        normalizedKind === "group_stack" ||
+        (task.focusChildTaskIds && task.focusChildTaskIds.length > 0) ||
+        (task.focusChecklist && task.focusChecklist.length > 0) ||
+        hasPointerChildren;
+
+      if (!isContainer) return isDone(task);
+
+      const childIds = task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+      const childrenFromIds = childIds
+        .map((id) => calendarTaskById.get(id))
+        .filter((value): value is CalendarTask => Boolean(value));
+      const childrenFromFocusId = focusId ? (focusChildrenByFocusId.get(focusId) ?? []) : [];
+      const children = [...childrenFromIds, ...childrenFromFocusId];
+
+      if (children.length === 0) return isDone(task);
+      return children.every(isDone);
+    },
+    [calendarTaskById, focusChildrenByFocusId],
+  );
+
   /**
    * Lookup: for each day key, list of Focus Block entries (with their time ranges).
    * Used by the drop handler to detect when an entry lands inside a Focus Block window.
@@ -849,7 +881,7 @@ function WeekGrid({
             Math.min(rawEndMinutes, MAX_MINUTES),
           );
 
-           const isComplete = Boolean(task.done || task.status === "done" || task.status === "archived");
+           const isComplete = isTaskCompleteForUi(task);
           const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
 
           const labelStartMinutes = startMinutes;
@@ -897,7 +929,7 @@ function WeekGrid({
         startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
 
       const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
-       const isComplete = Boolean(task.done || task.status === "done" || task.status === "archived");
+       const isComplete = isTaskCompleteForUi(task);
       addEntry(dayKey, {
         id: `task-${task.id}-${dayKey}`,
         type: "task",
@@ -3760,7 +3792,7 @@ function WeekGrid({
                           <div className="week-grid__task-body">
                             <div
                               className={`week-grid__task-title ${
-                                task.done || task.status === "archived" ? "is-complete" : ""
+                                isTaskCompleteForUi(task) ? "is-complete" : ""
                               }`}
                             >
                               {task.title}

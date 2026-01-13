@@ -519,10 +519,23 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     const total = focusChildrenResolved.length;
     if (total <= 0) return null;
     const done = focusChildrenResolved.reduce((sum, child) => {
-      const isDone = child.status === "done" || child.done === true;
+      const normalizedStatus = typeof child.status === "string" ? child.status.trim().toLowerCase() : "";
+      const isDone = child.done === true || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
       return sum + (isDone ? 1 : 0);
     }, 0);
     return { done, total };
+  }, [focusChildrenResolved, isTask, isTimeBlockContainer, task]);
+
+  const isEntryComplete = useMemo(() => {
+    if (!isTask || !task) return false;
+    const isDone = (t: CalendarTask) => {
+      const normalizedStatus = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
+      return Boolean(t.done === true) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+    };
+    if (isTimeBlockContainer && focusChildrenResolved.length > 0) {
+      return focusChildrenResolved.every(isDone);
+    }
+    return isDone(task);
   }, [focusChildrenResolved, isTask, isTimeBlockContainer, task]);
 
   // Get formatted assignee names (not user IDs)
@@ -920,10 +933,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             <ListTodo className="calendar-entry-row__icon-svg" aria-hidden />
           </span>
         ) : (() => {
-          const bundleDone =
-            isTimeBlockContainer && focusChildrenResolved.length > 0
-              ? focusChildrenResolved.every((t) => t.status === "done" || t.done === true)
-              : Boolean(task && (task.status === "done" || task.done === true));
+          const bundleDone = isEntryComplete;
 
           const icon = bundleDone ? (
             <CheckSquare className="calendar-entry-row__icon-svg" aria-hidden />
@@ -986,7 +996,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             onClick={beginEditTitle}
             title={canInlineRenameTitle ? "Click to rename" : "Click to edit"}
           >
-            <span className="calendar-entry-popover__title">{displayTitle}</span>
+            <span className={`calendar-entry-popover__title${isEntryComplete ? " is-complete" : ""}`}>{displayTitle}</span>
             <Pencil className="calendar-entry-popover__edit-icon" />
           </button>
         )}

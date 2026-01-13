@@ -847,6 +847,11 @@
   text-overflow: ellipsis;
 }
 
+.month-grid__tooltip-title.is-complete {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
 .month-grid__tooltip-time {
   font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.7);
@@ -2972,6 +2977,11 @@ body.isMarqueeSelecting * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendar-entry-popover__title.is-complete {
+  text-decoration: line-through;
+  opacity: 0.75;
 }
 
 /* Inline rename input should look like the title text (not a default white input) */
