@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckSquare, ChevronDown, ChevronRight, Clock, GripVertical, Layers, ListTodo, Square } from "lucide-react";
+import { CheckSquare, ChevronDown, ChevronRight, Clock, GripVertical, ListTodo, Square } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import type { TimelineAvatar } from "./timelineLayout";
 
@@ -83,7 +83,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
     entryType === "event" ? (
       <Clock className="calendar-entry-row__icon-svg calendar-entry-row__icon-svg--event" aria-hidden />
     ) : taskIcon === "stack" ? (
-      <Layers className="calendar-entry-row__icon-svg calendar-entry-row__icon-svg--task" aria-hidden />
+      <ListTodo className="calendar-entry-row__icon-svg calendar-entry-row__icon-svg--task" aria-hidden />
     ) : taskIcon === "list" ? (
       <ListTodo className="calendar-entry-row__icon-svg calendar-entry-row__icon-svg--task" aria-hidden />
     ) : isDone ? (

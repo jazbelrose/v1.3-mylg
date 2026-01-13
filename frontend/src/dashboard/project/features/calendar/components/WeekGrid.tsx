@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, Layers, Square, Plus, Users } from "lucide-react";
+import { CheckSquare, Clock, ListTodo, Square, Plus, Users } from "lucide-react";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
@@ -2991,7 +2991,7 @@ function WeekGrid({
                 }
 
                 if (isFocusBlock) {
-                  return <Layers className="week-grid__task-icon-svg" aria-hidden />;
+                  return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
                 }
 
                 return Boolean(entry.completed) ? (
@@ -3452,7 +3452,7 @@ function WeekGrid({
                   ? renderTileHeader({
                     icon: isGroupStack
                       ? <Users className="week-grid__task-icon-svg" aria-hidden />
-                      : <Layers className="week-grid__task-icon-svg" aria-hidden />,
+                      : <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
                     title: previewTitle,
                     isComplete: entry.completed,
                     chip:
@@ -3483,7 +3483,7 @@ function WeekGrid({
                   ? renderTileHeader({
                       icon: isGroupStack
                         ? <Users className="week-grid__task-icon-svg" aria-hidden />
-                        : <Layers className="week-grid__task-icon-svg" aria-hidden />,
+                        : <ListTodo className="week-grid__task-icon-svg" aria-hidden />,
                       title: previewTitle,
                       isComplete: entry.completed,
                       chip:

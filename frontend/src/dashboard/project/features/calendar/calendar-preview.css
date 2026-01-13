@@ -1580,13 +1580,13 @@ body.isMarqueeSelecting * {
 .week-grid__timeline-entry-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 9px;
   flex: 1;
   min-width: 0;
 }
 
 .week-grid__timeline-entry-body--tile {
-  gap: 0;
+  gap: 9;
 }
 
 .week-grid__tile-header {

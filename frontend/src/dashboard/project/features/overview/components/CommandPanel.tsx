@@ -33,7 +33,7 @@ import {
   Pencil,
   CheckSquare,
   Square,
-  Layers,
+  ListTodo,
   Users,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -556,7 +556,7 @@ function TimelineRow({
   const leadingIcon = useMemo(() => {
     if (!isTask) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
     if (isContainerRow && rowItemType === 'multi_user_stack') return <Users size={12} className={styles.typeIcon} aria-hidden />;
-    if (isContainerRow && rowItemType === 'focus_block') return <Layers size={12} className={styles.typeIcon} aria-hidden />;
+    if (isContainerRow && rowItemType === 'focus_block') return <ListTodo size={12} className={styles.typeIcon} aria-hidden />;
     if (isDone) return <CheckSquare size={12} className={styles.typeIcon} aria-hidden />;
     return <Square size={12} className={styles.typeIcon} aria-hidden />;
   }, [isTask, isContainerRow, rowItemType, isDone]);

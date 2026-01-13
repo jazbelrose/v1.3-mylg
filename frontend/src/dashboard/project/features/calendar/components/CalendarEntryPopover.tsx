@@ -18,7 +18,7 @@ import {
   DollarSign,
   CheckSquare,
   Square,
-  Layers,
+  ListTodo,
   Users,
 } from "lucide-react";
 import {
@@ -913,7 +913,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
           ) : isGroupStack ? (
             <Users className="calendar-entry-row__icon-svg" aria-hidden />
           ) : isFocusBlock ? (
-            <Layers className="calendar-entry-row__icon-svg" aria-hidden />
+            <ListTodo className="calendar-entry-row__icon-svg" aria-hidden />
           ) : (() => {
             const bundleDone =
               isTimeBlockContainer && focusChildrenResolved.length > 0

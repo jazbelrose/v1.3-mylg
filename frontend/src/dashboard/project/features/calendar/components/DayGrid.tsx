@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckSquare, Clock, Layers, Square, Plus } from "lucide-react";
+import { CheckSquare, Clock, ListTodo, Square, Plus } from "lucide-react";
 import { CalendarGridCreateMenu } from "./CalendarGridCreateMenu";
 import {
   CalendarEntryContextMenu,
@@ -1569,7 +1569,7 @@ function DayGrid({
             <span className="week-grid__timeline-entry-icon">
               {(() => {
                 if (isFocusBlock) {
-                  return <Layers className="week-grid__task-icon-svg" aria-hidden />;
+                  return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
                 }
                 return Boolean(entry.completed) ? (
                   <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
