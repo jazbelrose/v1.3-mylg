@@ -150,6 +150,19 @@ export function OverviewEventsAndTasks({
       } else if (Array.isArray(t.assignedTo) && t.assignedTo.length > 0) {
         assignedTo = t.assignedTo[0].name || t.assignedTo[0].email;
       }
+
+      const sourceCandidate = (t.source ?? t) as Record<string, unknown>;
+      const source = {
+        ...sourceCandidate,
+        projectId:
+          typeof sourceCandidate.projectId === 'string' && sourceCandidate.projectId.trim()
+            ? sourceCandidate.projectId
+            : projectId,
+        taskId:
+          typeof sourceCandidate.taskId === 'string' && sourceCandidate.taskId.trim()
+            ? sourceCandidate.taskId
+            : taskId,
+      };
       
       return {
         id: taskId,
@@ -172,10 +185,10 @@ export function OverviewEventsAndTasks({
         focusChecklist: t.focusChecklist,
         isOverdue,
         isDueSoon,
-        source: t.source ?? t,
+        source,
       };
     });
-  }, [tasks, toggledTaskIds]);
+  }, [tasks, toggledTaskIds, projectId]);
   
   const handleToggleTask = useCallback(async (id: string) => {
     // If parent provides toggle handler, use it

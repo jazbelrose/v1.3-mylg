@@ -346,6 +346,7 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
           focusBlockId: t.focusBlockId,
           focusChildTaskIds: t.focusChildTaskIds,
           focusChecklist: t.focusChecklist,
+          source: t,
         })));
       })
       .catch(err => {

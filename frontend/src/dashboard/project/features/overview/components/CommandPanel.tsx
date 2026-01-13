@@ -38,6 +38,9 @@ import {
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ProjectAvatar } from '@/shared/ui';
+import { CalendarEntryPopover } from '@/dashboard/project/features/calendar/components/CalendarEntryPopover';
+import type { CalendarTask } from '@/dashboard/project/features/calendar/utils';
+import '@/dashboard/project/features/calendar/calendar-preview.css';
 import styles from './CommandPanel.module.css';
 
 // ============================================================================
@@ -157,6 +160,18 @@ function parseDate(dateStr: string | undefined): Date | null {
 
 function normalizeKind(kind: string | undefined): string {
   return typeof kind === 'string' ? kind.trim().toLowerCase() : '';
+}
+
+function isoToDatePart(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : undefined;
+}
+
+function isoToTimePart(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const match = String(value).match(/T(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : undefined;
 }
 
 function parseAssigneeToken(token: string): { userId: string; firstName?: string; lastName?: string } | null {
@@ -298,10 +313,10 @@ function formatTimePill(item: TimelineItem): string {
     if (task.focusChildOf) return '';
 
     const kind = normalizeKind(task.kind);
-    if (kind === 'focus_block' && (task.startAt || task.endAt)) {
+    if ((kind === 'focus_block' || kind === 'group_stack') && (task.startAt || task.endAt)) {
       const startLabel = task.startAt ? formatTime(task.startAt) : undefined;
       const endLabel = task.endAt ? formatTime(task.endAt) : undefined;
-      if (startLabel && endLabel) return `${startLabel} – ${endLabel}`;
+      if (startLabel && endLabel) return `${startLabel} - ${endLabel}`;
       if (startLabel) return startLabel;
       if (endLabel) return endLabel;
     }
@@ -436,7 +451,7 @@ interface TimelineRowProps {
   onPopoverOpenChange: (open: boolean) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
   onDoubleClick: () => void;
   onPrimaryAction: () => void;
   onEditAction: () => void;
@@ -570,7 +585,7 @@ function TimelineRow({
         onMouseLeave={onMouseLeave}
         onClick={(e) => {
           e.preventDefault();
-          onClick();
+          onClick(e);
         }}
         onDoubleClick={(e) => {
           e.preventDefault();
@@ -877,6 +892,90 @@ export function CommandPanel({
     position: { x: number; y: number };
   } | null>(null);
 
+  const [calendarEntryPopover, setCalendarEntryPopover] = useState<{
+    anchorElement: HTMLElement;
+    timelineTask: TimelineTask;
+    entry: CalendarTask;
+    focusChildren: CalendarTask[];
+  } | null>(null);
+
+  const popoverTeamMembers = useMemo(
+    () =>
+      (teamMembers ?? []).map((m) => ({
+        userId: m.userId,
+        firstName: m.firstName ?? '',
+        lastName: m.lastName ?? '',
+        thumbnail: m.thumbnail ?? null,
+      })),
+    [teamMembers],
+  );
+
+  const focusChildrenByContainerId = useMemo(() => {
+    const map = new Map<string, TimelineTask[]>();
+    for (const t of tasks) {
+      const focusId = t.focusBlockId;
+      if (!focusId) continue;
+      const bucket = map.get(focusId) ?? [];
+      bucket.push(t);
+      map.set(focusId, bucket);
+    }
+
+    for (const [, bucket] of map.entries()) {
+      bucket.sort((a, b) => {
+        const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+        const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.title || '').localeCompare(b.title || '');
+      });
+    }
+
+    return map;
+  }, [tasks]);
+
+  const toCalendarTask = useCallback((task: TimelineTask): CalendarTask => {
+    const due = task.dueDate ?? isoToDatePart(task.startAt) ?? isoToDatePart(task.endAt);
+    const start = isoToTimePart(task.startAt);
+    const end = isoToTimePart(task.endAt);
+
+    const fallbackSource = {
+      projectId: '',
+      taskId: task.id,
+      title: task.title,
+    };
+
+    const source = (task.source && typeof task.source === 'object' ? task.source : fallbackSource) as CalendarTask['source'];
+
+    return {
+      id: task.id,
+      title: task.title || 'Untitled task',
+      due,
+      start,
+      end,
+      done: task.done,
+      status: task.status as CalendarTask['status'],
+      kind: task.kind,
+      focusBlockId: task.focusBlockId,
+      focusChildTaskIds: task.focusChildTaskIds,
+      focusChecklist: task.focusChecklist,
+      assignedTo: task.assignedTo,
+      assigneeIds: task.assigneeIds,
+      source,
+    };
+  }, []);
+
+  const openCalendarEntryPopover = useCallback(
+    (anchorElement: HTMLElement, task: TimelineTask) => {
+      const focusChildren = (focusChildrenByContainerId.get(task.id) ?? []).map(toCalendarTask);
+      setCalendarEntryPopover({
+        anchorElement,
+        timelineTask: task,
+        entry: toCalendarTask(task),
+        focusChildren,
+      });
+    },
+    [focusChildrenByContainerId, toCalendarTask],
+  );
+
   // Focus blocks are non-collapsible in this Overview panel.
   
   // Refs for auto-scroll to Today or nearest upcoming
@@ -911,13 +1010,18 @@ export function CommandPanel({
     const scheduledGroupIds = new Set<string>();
     const groupItems = new Map<string, TimelineTask>();
 
-    const isScheduledFocusBlock = (task: TimelineTask) => {
+    const isFocusContainerKind = (task: TimelineTask) => {
       const kind = normalizeKind(task.kind);
-      return kind === 'focus_block' && Boolean(task.startAt || task.endAt);
+      return kind === 'focus_block' || kind === 'group_stack';
+    };
+
+    const isScheduledFocusContainer = (task: TimelineTask) => {
+      if (!isFocusContainerKind(task)) return false;
+      return Boolean(task.startAt || task.endAt);
     };
 
     for (const t of normalized) {
-      if (!isScheduledFocusBlock(t)) continue;
+      if (!isScheduledFocusContainer(t)) continue;
       scheduledGroupIds.add(t.id);
 
       const children = byFocusId.get(t.id) ?? [];
@@ -956,8 +1060,18 @@ export function CommandPanel({
       const groupDateObj = parseDate(groupDate);
       const baseSort = groupDateObj ? groupDateObj.getTime() : undefined;
 
+      const normalizedContainerKind = normalizeKind(t.kind);
+      const groupTitle = (() => {
+        const raw = (t.title ?? '').trim();
+        if (normalizedContainerKind === 'group_stack') {
+          if (!raw || raw.toLowerCase() === 'focus block') return 'Group Stack';
+        }
+        return t.title;
+      })();
+
       const groupItem: TimelineTask = {
         ...t,
+        title: groupTitle,
         groupDate,
         sortTime: typeof baseSort === 'number' ? baseSort : undefined,
         itemType,
@@ -995,7 +1109,7 @@ export function CommandPanel({
       }
 
       // Flatten unscheduled focus blocks (don't show container rows)
-      if (normalizeKind(t.kind) === 'focus_block' && !isScheduledFocusBlock(t)) {
+      if (isFocusContainerKind(t) && !isScheduledFocusContainer(t)) {
         continue;
       }
 
@@ -1283,6 +1397,7 @@ export function CommandPanel({
       // Escape = deselect
       setSelectedId(null);
       setActivePopoverId(null);
+      setCalendarEntryPopover(null);
     }
   }, [selectedId, allItemIds, findItemById, onQuickEditTask, onEditItem, onToggleTask]);
   
@@ -1440,7 +1555,37 @@ export function CommandPanel({
                       onPopoverOpenChange={(open) => setActivePopoverId(open ? item.id : null)}
                       onMouseEnter={() => setHoveredId(item.id)}
                       onMouseLeave={() => setHoveredId(null)}
-                      onClick={() => setSelectedId(item.id)}
+                      onClick={(e) => {
+                        setSelectedId(item.id);
+                        setActivePopoverId(null);
+
+                        if (item.type === 'task') {
+                          const task = item as TimelineTask;
+                          const itemKind = normalizeKind(task.kind);
+                          const isFocusContainer = itemKind === 'focus_block' || itemKind === 'group_stack';
+
+                          if (isFocusContainer) {
+                            if (calendarEntryPopover?.timelineTask.id === task.id) {
+                              setCalendarEntryPopover(null);
+                              return;
+                            }
+                            setContextMenu(null);
+                            openCalendarEntryPopover(e.currentTarget as HTMLElement, task);
+                            return;
+                          }
+
+                          setCalendarEntryPopover(null);
+                          if (onQuickEditTask) {
+                            onQuickEditTask(task);
+                          } else {
+                            onEditItem?.(item);
+                          }
+                          return;
+                        }
+
+                        setCalendarEntryPopover(null);
+                        onEditItem?.(item);
+                      }}
                       onEllipsisClick={(e) => {
                         e.stopPropagation();
                         setActivePopoverId(item.id);
@@ -1462,7 +1607,22 @@ export function CommandPanel({
                           onEditItem?.(item);
                         }
                       }}
-                      onContextMenu={(e) => handleContextMenu(e, item)}
+                      onContextMenu={(e) => {
+                        if (item.type === 'task') {
+                          const task = item as TimelineTask;
+                          const itemKind = normalizeKind(task.kind);
+                          const isFocusContainer = itemKind === 'focus_block' || itemKind === 'group_stack';
+                          if (isFocusContainer) {
+                            e.preventDefault();
+                            setSelectedId(item.id);
+                            setActivePopoverId(null);
+                            setContextMenu(null);
+                            openCalendarEntryPopover(e.currentTarget as HTMLElement, task);
+                            return;
+                          }
+                        }
+                        handleContextMenu(e, item);
+                      }}
                     />
                   ))}
                 </div>
@@ -1472,6 +1632,27 @@ export function CommandPanel({
         )}
       </div>
       
+      {calendarEntryPopover && (
+        <CalendarEntryPopover
+          anchorElement={calendarEntryPopover.anchorElement}
+          entryType="task"
+          entry={calendarEntryPopover.entry}
+          selectedCount={1}
+          teamMembers={popoverTeamMembers}
+          focusChildren={calendarEntryPopover.focusChildren}
+          onClose={() => setCalendarEntryPopover(null)}
+          onEdit={() => {
+            const task = calendarEntryPopover.timelineTask;
+            setCalendarEntryPopover(null);
+            if (onQuickEditTask) {
+              onQuickEditTask(task);
+            } else {
+              onEditItem?.(task);
+            }
+          }}
+        />
+      )}
+
       {/* Context menu */}
       {contextMenu && (
         <ContextMenu
