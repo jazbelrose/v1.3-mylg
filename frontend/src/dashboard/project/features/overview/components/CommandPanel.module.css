@@ -316,16 +316,21 @@
 }
 
 .timelineRowDone {
-  opacity: 0.55;
 }
 
 .timelineRowDone .rowTitle {
   text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.32);
+  opacity: 0.62;
 }
 
 .timelineRowDone .focusPreviewText,
 .timelineRowDone .focusPreviewTextOnly {
   text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.28);
+  opacity: 0.6;
 }
 
 /* Column: type icon */

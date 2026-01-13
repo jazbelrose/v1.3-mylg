@@ -849,7 +849,9 @@
 
 .month-grid__tooltip-title.is-complete {
   text-decoration: line-through;
-  opacity: 0.75;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.68;
 }
 
 .month-grid__tooltip-time {
@@ -986,7 +988,9 @@
 
 .month-grid__event-title.is-complete {
   text-decoration: line-through;
-  opacity: 0.7;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.65;
 }
 
 .month-grid__event-time {
@@ -1448,7 +1452,9 @@ body.isMarqueeSelecting * {
 
 .week-grid__task-title.is-complete {
   text-decoration: line-through;
-  opacity: 0.7;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.65;
 }
 
 .week-grid__task-time {
@@ -1709,7 +1715,9 @@ body.isMarqueeSelecting * {
 
 .week-grid__timeline-entry-title.is-complete {
   text-decoration: line-through;
-  opacity: 0.75;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.68;
 }
 
 .week-grid__timeline-entry-time {
@@ -2980,8 +2988,8 @@ body.isMarqueeSelecting * {
 }
 
 .calendar-entry-popover__title.is-complete {
-  text-decoration: line-through;
-  opacity: 0.75;
+  /* Header already has "All done"/Done affordances; keep it readable. */
+  opacity: 0.72;
 }
 
 /* Inline rename input should look like the title text (not a default white input) */
@@ -3732,7 +3740,9 @@ body.isMarqueeSelecting * {
 
 .calendar-entry-row--task .calendar-entry-row__title.is-complete {
   text-decoration: line-through;
-  opacity: 0.75;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  opacity: 0.65;
 }
 
 .calendar-entry-row--selected {
