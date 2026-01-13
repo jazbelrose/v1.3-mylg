@@ -26,9 +26,11 @@
 
 ### Shipped Features
 - ✅ Multi-slide editor with real-time collaboration
+- ✅ Deck versioning (full UI: dropdown, modal, version management)
+- ✅ Slide PDF export (quality presets, progress indicator)
 - ✅ Calendar with time blocks, focus blocks, overlap stacks
 - ✅ Budget Spellbook (AI-assisted generation)
-- ✅ Task Spellbook + Magic Layout
+- ✅ Task Spellbook + Conjure Plan (overview button → spellbook in plan mode)
 - ✅ Project threads + DMs (reactions, edits, files)
 - ✅ HQ Ledger (transaction import, categorization, recurring detection)
 - ✅ File management (S3 + CloudFront CDN)
@@ -36,18 +38,16 @@
 - ✅ Task review workflows
 - ✅ Smart notifications + activity streams (ADR-004)
 - ✅ Budget revisions + work panel (task-budget linking)
-- ✅ Deck versioning (backend complete)
 - ✅ Role-based access control + org multi-tenancy
 
 ### Partial (80% Done — Quick Wins)
-- 🟡 Deck version UI (backend ready, frontend incomplete)
-- 🟡 Slide PDF export (toolbar button exists, rendering not wired)
 - 🟡 Activity panel frontend (backend complete, UI not wired)
-- 🟡 Conjure Plan UI (architecture done, modal incomplete)
+- 🟡 Magic Layout auto-scheduling (Conjure Plan UI done, time inference in progress)
 - 🟡 Slide backgrounds (data model ready, UI not exposed)
 - 🟡 Gallery file upload (gallery CRUD exists, upload flow incomplete)
 
 ### Planned
+- 🔵 Magic Layout full auto-scheduling (time inference)
 - 🔵 Mobile native apps (PWA first)
 - 🔵 LLM-powered Spellbooks (Bedrock integration)
 - 🔵 Slack/Google Cal integrations
@@ -101,27 +101,27 @@
    - Use copy from Section 5 of audit
    - Deploy content JSON
    - Update homepage/landing
+   - **Capture screenshots for newly shipped features:** Deck Versioning UI, PDF Export flow, Conjure Plan button
 
 2. **Capture Screenshots/GIFs**
-   - Priority 1: Multi-user slides, Budget Spellbook, Calendar stacks, Messages, HQ Ledger (5 items)
-   - Priority 2: Deck versions, Task review, Gallery, Focus block popover, Work panel (5 items)
+   - Priority 1: Multi-user slides, Budget Spellbook, Calendar stacks, Messages, HQ Ledger, **Deck Versioning dropdown, PDF Export, Conjure Plan** (8 items)
+   - Priority 2: Task review, Gallery, Focus block popover, Work panel (4 items)
    - Priority 3: Magic Layout, Notifications, Stack rename, CDN, Org switcher (5 items)
 
-3. **Ship Quick Wins**
-   - Deck version UI (2-3 days)
-   - Slide PDF export (3-5 days)
+3. **Ship Quick Wins** (4 remaining, down from 6)
    - Activity panel frontend (2-3 days)
-   - Conjure Plan UI (5-7 days)
+   - Magic Layout auto-scheduling (3-5 days)
    - Gallery upload (1-2 days)
    - Slide backgrounds (2-3 days)
 
 4. **Roadmap Transparency**
    - Label features: Shipped / In Beta / Coming Soon / Planned
+   - Highlight newly shipped: Deck Versioning, PDF Export, Conjure Plan
    - No vaporware claims
 
 5. **Launch with Credibility**
    - Every claim backed by evidence
-   - Screenshots show real product
+   - Screenshots show real product (including new features)
    - Demo flows work end-to-end
 
 ---

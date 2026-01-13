@@ -562,12 +562,14 @@ Each capability below includes:
   - Endpoints: `GET/POST/PATCH/DELETE /projects/:projectId/deck-versions/*`, `POST .../set-default`, `.../set-client-default`, `.../duplicate`
   - `backend/projects/router.mjs` lines 2870-2878
   - `docs/adrs/007-slide-deck-versions.md`
+  - Frontend: `DeckVersionDropdown.tsx`, `DeckVersionsModal.tsx`, `useDeckVersions.ts` hook fully wired in `SlidesPage.tsx`
   - Frontend model: `frontend/src/app/contexts/DataProvider.tsx` (`DeckVersion` interface)
-- **Status:** Shipped (backend + data model), Partial (frontend UI not fully wired)
+- **Status:** Shipped
 - **Notes:**
   - Role-based visibility allows showing different deck versions to clients vs internal team
   - Duplication creates new version from existing
   - Default version selection per project
+  - Full UI with dropdown selector, version management modal, context menu actions (duplicate, delete, set default, rename)
 
 #### B8: Export / Presentation Mode
 - **Category:** Editor
@@ -575,12 +577,16 @@ Each capability below includes:
 - **Evidence:**
   - Presentation route: `/dashboard/projects/:projectId/:projectName?/slides/present`
   - Component: `SlidesPresentationPage.tsx`
-  - Export button in `SlideToolbar.tsx` (placeholder)
-- **Status:** Partial (presentation mode exists, export not implemented)
+  - PDF export: `lib/slideExport.tsx` (full implementation using @react-pdf/renderer + html-to-image)
+  - Export handler: `handleExportAllPdf` in `SlidesPage.tsx` with quality presets (high/medium/low)
+  - PDF document: `SlidesPdfDocument.tsx` (multi-page PDF generation)
+  - Offscreen renderer: `OffscreenSlideRenderer` component for capture
+- **Status:** Shipped (presentation mode + PDF export), Planned (PPTX export)
 - **Notes:**
   - Presentation mode navigable via arrow keys
-  - PDF export planned (jsPDF integration stub exists)
-  - PPTX export not started
+  - PDF export with quality presets (high: 300dpi, medium: 150dpi, low: 72dpi)
+  - Progress indicator during multi-slide export
+  - PPTX export not started (would require separate library)
 
 #### B9: Autosave
 - **Category:** Editor
@@ -1184,11 +1190,17 @@ Each capability below includes:
 - **Evidence:**
   - `docs/CODEX_HANDOFF_SPELLBOOK_MAGIC.md` (comprehensive spec)
   - Assumption chips: event date, load-in duration, strike duration, crew call time, venue hours
-  - "Conjure Plan" CTA on overview (creates budget + tasks + schedule in one step)
-- **Status:** Shipped (backend), Partial (UI for "Conjure Plan" not fully implemented)
+  - "Conjure Plan" CTA in overview: `ProjectPoster.tsx` line 309, handler in `OverviewHud.tsx` line 208
+  - Navigation flow: Overview button → Budget page with `conjurePlan: true` state → Opens spellbook in "plan" mode
+  - BudgetPage handler: `BudgetPage.tsx` lines 240-256 (opens spellbook with `entryPoint: "overview"`, `initialTab: "plan"`)
+  - Spellbook context: `{ budget: true, calendarPlan: true, links: true }`
+- **Status:** Shipped (Conjure Plan button + navigation flow), Partial (full auto-scheduling logic in progress)
 - **Notes:**
   - PlanDraft preview architecture (generates plan → user edits → apply atomically)
   - Integrates budget + calendar + task linking
+  - Conjure Plan UI is fully implemented and functional (opens Budget Spellbook in "plan" mode)
+  - Backend bulk task creation endpoint exists
+  - Auto-inference of load-in/strike times from event date is the remaining piece
 
 #### J4: Model/Inference Backend
 - **Category:** AI
@@ -1911,58 +1923,65 @@ A: Web app is responsive (works on tablets/phones). Native apps planned.
 
 ### Quick Wins (Features 80% Done)
 
-1. **Deck Version UI**
-   - **Status:** Backend complete, frontend partially wired
-   - **Work Remaining:** Connect version switcher dropdown, add "Create Version" modal
-   - **Effort:** 2-3 days
+**Note:** Deck Version UI, Slide PDF Export, and Conjure Plan UI are now **fully shipped** (see updated capability inventory above).
 
-2. **Slide Export to PDF**
-   - **Status:** Toolbar button exists, @react-pdf/renderer already used for invoices
-   - **Work Remaining:** Render slides with @react-pdf/renderer, handle multi-page
-   - **Effort:** 3-5 days
-
-3. **Activity Panel Frontend**
+1. **Activity Panel Frontend**
    - **Status:** Backend + batching complete (ADR-004)
    - **Work Remaining:** Add Activity tab to project overview, wire ProjectActivity query
    - **Effort:** 2-3 days
 
-4. **Conjure Plan UI**
-   - **Status:** Backend bulk create exists, PlanDraft architecture documented
-   - **Work Remaining:** Build preview modal with assumption chips, wire to bulk endpoints
-   - **Effort:** 5-7 days
-
-5. **Gallery File Upload**
+2. **Gallery File Upload**
    - **Status:** Gallery CRUD exists, S3 upload works
    - **Work Remaining:** Add drag-drop to gallery page, wire to presigned URLs
    - **Effort:** 1-2 days
 
-6. **Slide Backgrounds**
+3. **Slide Backgrounds**
    - **Status:** Data model ready (`backgroundColor`, `backgroundImage`)
    - **Work Remaining:** Add background picker to toolbar, persist to project
    - **Effort:** 2-3 days
 
+4. **Magic Layout Auto-Scheduling**
+   - **Status:** PlanDraft architecture documented, bulk task creation exists
+   - **Work Remaining:** Wire event date inference, crew call time assumptions, auto-schedule load-in/strike
+   - **Effort:** 3-5 days
+
+5. **LLM-Powered Spellbook Enhancement**
+   - **Status:** Pattern-based parsing works, AWS Bedrock integration ready
+   - **Work Remaining:** Replace pattern matching with Claude API calls for natural language understanding
+   - **Effort:** 2-3 days
+
+6. **Client Portal View**
+   - **Status:** Role-based filtering exists, deck version client defaults work
+   - **Work Remaining:** Create `/client/:projectId` route with simplified UI (no admin controls)
+   - **Effort:** 3-5 days
+
 ### Honest Roadmap Phrasing
 
 **Shipped:**
-- Real-time slide collaboration
-- Budget Spellbook (AI-assisted)
-- Advanced calendar (time/focus blocks, stacks)
+- Real-time slide collaboration (Yjs, multi-user editing)
+- Deck versioning (full UI: dropdown, modal, version management)
+- Slide PDF export (quality presets, progress indicator)
+- Budget Spellbook (AI-assisted parsing)
+- Task Spellbook (bulk task generation)
+- Conjure Plan (overview button → spellbook in plan mode)
+- Advanced calendar (time/focus blocks, overlap stacks)
 - Task review workflows
 - HQ Ledger (financial operations)
 - File management with CDN
-- Smart notifications
+- Smart notifications (ADR-004 implementation)
 
 **In Beta / Partial:**
-- Deck versioning (backend ready, UI incomplete)
 - Activity audit trail (backend complete, frontend panel not wired)
-- Magic Layout (architecture documented, full UI not implemented)
+- Magic Layout auto-scheduling (Conjure Plan UI done, auto-inference of times in progress)
+- Slide backgrounds (data model ready, UI not exposed)
 
 **Coming Soon:**
-- Slide deck PDF export
-- LLM-powered Spellbooks (Bedrock integration)
+- Magic Layout full auto-scheduling (time inference from event date)
+- LLM-powered Spellbooks (AWS Bedrock integration)
 - Mobile native apps (PWA first)
 - Slack/Google Cal integrations
 - Public API
+- Gallery file upload UI
 
 **Planned:**
 - Time tracking (hours logged per task)

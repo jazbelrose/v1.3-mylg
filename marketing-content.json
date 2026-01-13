@@ -220,7 +220,11 @@
   "roadmap": {
     "shipped": [
       "Real-time slide collaboration",
+      "Deck versioning (full UI with dropdown and management modal)",
+      "Slide PDF export (quality presets)",
       "Budget Spellbook (AI-assisted)",
+      "Task Spellbook (bulk task generation)",
+      "Conjure Plan (overview button to spellbook in plan mode)",
       "Advanced calendar (time/focus blocks, stacks)",
       "Task review workflows",
       "HQ Ledger (financial operations)",
@@ -228,12 +232,11 @@
       "Smart notifications"
     ],
     "inBeta": [
-      "Deck versioning (backend ready, UI partial)",
       "Activity audit trail (backend complete)",
-      "Magic Layout (architecture documented)"
+      "Magic Layout auto-scheduling (Conjure Plan UI done, time inference in progress)"
     ],
     "comingSoon": [
-      "Slide deck PDF export",
+      "Magic Layout full auto-scheduling",
       "LLM-powered Spellbooks (AWS Bedrock)",
       "Mobile native apps (PWA first)",
       "Slack/Google Cal integrations",
