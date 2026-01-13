@@ -3353,15 +3353,6 @@ function WeekGrid({
                   <span className="week-grid__group-stack-overflow-pill">{headerPillText}</span>
                 ) : null}
               </div>
-              {section.thumb ? (
-                <ProjectAvatar
-                  className="week-grid__group-stack-user-avatar"
-                  thumb={section.thumb}
-                  name={section.name}
-                  shape="circle"
-                  radius={8}
-                />
-              ) : null}
             </div>
 
             {maxTaskLinesForSection > 0 ? (

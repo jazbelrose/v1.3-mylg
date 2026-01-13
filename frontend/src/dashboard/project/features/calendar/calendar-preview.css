@@ -4589,13 +4589,6 @@ body.isMarqueeSelecting * {
   min-width: 0;
 }
 
-.week-grid__group-stack-user-avatar {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-  opacity: 0.9;
-  background: transparent;
-}
 
 .week-grid__group-stack-user-tasks {
   display: flex;
