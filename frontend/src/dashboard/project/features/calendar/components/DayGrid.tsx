@@ -1594,11 +1594,18 @@ function DayGrid({
       );
     };
 
-    const avatarsToRender = entry.avatars;
+    const maxVisibleAvatars = 3;
+    const avatarsToRender = entry.avatars.slice(0, maxVisibleAvatars);
+    const extraAvatars = Math.max(entry.avatars.length - avatarsToRender.length, 0);
     const inlineAvatars =
       avatarsToRender.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 10, "inline")}
+          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar week-grid__timeline-avatar--inline", 10, "inline")}
+          {extraAvatars > 0 && (
+            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more week-grid__timeline-avatar--inline">
+              +{extraAvatars}
+            </span>
+          )}
         </div>
       ) : null;
 

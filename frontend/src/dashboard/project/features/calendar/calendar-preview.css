@@ -1756,14 +1756,24 @@ body.isMarqueeSelecting * {
 }
 
 .week-grid__timeline-avatar {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   border: 2px solid rgba(45, 45, 45, 0.95);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.week-grid__timeline-avatar--header {
+  width: 19px;
+  height: 19px;
+}
+
+.week-grid__timeline-avatar--inline {
+  width: 16px;
+  height: 16px;
 }
 
 .week-grid__timeline-avatar-wrapper {
@@ -1773,10 +1783,10 @@ body.isMarqueeSelecting * {
 
 .week-grid__timeline-avatar-count {
   position: absolute;
-  right: -7px;
-  bottom: -7px;
-  min-width: 16px;
-  height: 16px;
+  right: -6px;
+  bottom: -6px;
+  min-width: 14px;
+  height: 14px;
   padding: 0 3px;
   border-radius: 999px;
   display: inline-flex;
@@ -4541,7 +4551,7 @@ body.isMarqueeSelecting * {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 600;
   line-height: 1.1;
   color: rgba(245, 245, 245, 0.65);
@@ -4606,14 +4616,9 @@ body.isMarqueeSelecting * {
   justify-content: flex-start;
   gap: 6px;
   min-width: 0;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   line-height: 1.1;
   color: rgba(245, 245, 245, 0.92);
-}
-
-.week-grid__group-stack-user-tasks .week-grid__task-preview-row {
-  font-size: 0.82rem;
-  line-height: 1.15;
 }
 
 .week-grid__task-preview-row.is-complete .week-grid__task-preview-text {
@@ -4664,8 +4669,8 @@ body.isMarqueeSelecting * {
   list-style: none;
   margin: 4px 0 0 0;
   padding: 0 4px;
-  font-size: 0.72rem;
-  line-height: 1.35;
+  font-size: 0.68rem;
+  line-height: 1.25;
   color: rgba(255, 255, 255, 0.8);
   overflow: hidden;
 }

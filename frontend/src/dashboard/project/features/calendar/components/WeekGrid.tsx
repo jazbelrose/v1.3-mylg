@@ -2910,9 +2910,11 @@ function WeekGrid({
     const inlineAvatars =
       avatarsToRender.length > 0 ? (
         <div className="week-grid__timeline-entry-avatars" aria-hidden="true">
-          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 8, "inline")}
+          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar week-grid__timeline-avatar--inline", 8, "inline")}
           {extraAvatars > 0 && (
-            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extraAvatars}</span>
+            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more week-grid__timeline-avatar--inline">
+              +{extraAvatars}
+            </span>
           )}
         </div>
       ) : null;
@@ -3476,9 +3478,17 @@ function WeekGrid({
       const extra = Math.max(uniqueAvatarCount - visibleHeaderAvatars.length, 0);
       const headerChip = visibleHeaderAvatars.length ? (
         <div className="week-grid__tile-chip-avatars" aria-hidden="true">
-          {buildAvatarStack(visibleHeaderAvatars, "week-grid__timeline-avatar", 9, "overlap", true)}
+          {buildAvatarStack(
+            visibleHeaderAvatars,
+            "week-grid__timeline-avatar week-grid__timeline-avatar--header",
+            9,
+            "overlap",
+            true,
+          )}
           {extra > 0 && (
-            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extra}</span>
+            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more week-grid__timeline-avatar--header">
+              +{extra}
+            </span>
           )}
         </div>
       ) : null;
@@ -3652,9 +3662,16 @@ function WeekGrid({
                     chip:
                       avatarsToRender.length > 0 ? (
                         <div className="week-grid__tile-chip-avatars" aria-hidden="true">
-                          {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 9, "tile")}
+                          {buildAvatarStack(
+                            avatarsToRender,
+                            "week-grid__timeline-avatar week-grid__timeline-avatar--header",
+                            9,
+                            "tile",
+                          )}
                           {extraAvatars > 0 && (
-                            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extraAvatars}</span>
+                            <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more week-grid__timeline-avatar--header">
+                              +{extraAvatars}
+                            </span>
                           )}
                         </div>
                       ) : null,
@@ -3686,9 +3703,16 @@ function WeekGrid({
                       chip:
                         avatarsToRender.length > 0 ? (
                           <div className="week-grid__tile-chip-avatars" aria-hidden="true">
-                            {buildAvatarStack(avatarsToRender, "week-grid__timeline-avatar", 9, "tile")}
+                            {buildAvatarStack(
+                              avatarsToRender,
+                              "week-grid__timeline-avatar week-grid__timeline-avatar--header",
+                              9,
+                              "tile",
+                            )}
                             {extraAvatars > 0 && (
-                              <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more">+{extraAvatars}</span>
+                              <span className="week-grid__timeline-avatar week-grid__timeline-avatar--more week-grid__timeline-avatar--header">
+                                +{extraAvatars}
+                              </span>
                             )}
                           </div>
                         ) : null,
