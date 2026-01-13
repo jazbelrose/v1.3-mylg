@@ -1006,6 +1006,27 @@ export function CommandPanel({
     [focusChildrenByContainerId, toCalendarTask],
   );
 
+  // Keep the popover's snapshot in sync with the latest task state (e.g. when toggling done).
+  useEffect(() => {
+    if (!calendarEntryPopover) return;
+    const containerId = calendarEntryPopover.timelineTask.id;
+    const latestContainer = tasks.find((t) => t.id === containerId) ?? calendarEntryPopover.timelineTask;
+    const latestChildrenTimeline = focusChildrenByContainerId.get(containerId) ?? [];
+    const latestChildren = latestChildrenTimeline.map(toCalendarTask);
+
+    setCalendarEntryPopover((prev) => {
+      if (!prev) return prev;
+      if (prev.timelineTask.id !== containerId) return prev;
+      return {
+        ...prev,
+        timelineTask: latestContainer,
+        entry: toCalendarTask(latestContainer),
+        focusChildrenTimeline: latestChildrenTimeline,
+        focusChildren: latestChildren,
+      };
+    });
+  }, [calendarEntryPopover?.timelineTask.id, focusChildrenByContainerId, tasks, toCalendarTask]);
+
   // Focus blocks are non-collapsible in this Overview panel.
   
   // Refs for auto-scroll to Today or nearest upcoming
@@ -1684,6 +1705,40 @@ export function CommandPanel({
           onMarkAsDone={
             onToggleTask
               ? (tasksToMark) => {
+                  setCalendarEntryPopover((prev) => {
+                    if (!prev) return prev;
+                    const ids = new Set(tasksToMark.map((t) => t.id));
+                    const doneStatus = 'done' as CalendarTask['status'];
+
+                    const patchCalendarTask = (t: CalendarTask): CalendarTask =>
+                      ids.has(t.id) ? { ...t, done: true, status: doneStatus } : t;
+
+                    const patchTimelineTask = (t: TimelineTask): TimelineTask =>
+                      ids.has(t.id) ? { ...t, done: true, status: 'done' } : t;
+
+                    const nextFocusChildren = prev.focusChildren.map(patchCalendarTask);
+                    const nextFocusChildrenTimeline = prev.focusChildrenTimeline.map(patchTimelineTask);
+
+                    const allChildrenDone =
+                      nextFocusChildren.length > 0 &&
+                      nextFocusChildren.every((t) => t.status === 'done' || t.done === true || t.status === 'archived');
+
+                    const nextEntry: CalendarTask = allChildrenDone
+                      ? { ...prev.entry, done: true, status: doneStatus }
+                      : prev.entry;
+                    const nextTimelineTask = allChildrenDone
+                      ? { ...prev.timelineTask, done: true, status: 'done' }
+                      : prev.timelineTask;
+
+                    return {
+                      ...prev,
+                      entry: nextEntry,
+                      timelineTask: nextTimelineTask,
+                      focusChildren: nextFocusChildren,
+                      focusChildrenTimeline: nextFocusChildrenTimeline,
+                    };
+                  });
+
                   tasksToMark.forEach((t) => {
                     const isDone = t.status === 'done' || t.done === true || t.status === 'archived';
                     if (isDone) return;
