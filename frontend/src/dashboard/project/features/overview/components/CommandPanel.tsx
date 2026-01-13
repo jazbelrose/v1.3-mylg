@@ -575,6 +575,8 @@ function TimelineRow({
     if (isDone) return <CheckSquare size={12} className={styles.typeIcon} aria-hidden />;
     return <Square size={12} className={styles.typeIcon} aria-hidden />;
   }, [isTask, isContainerRow, rowItemType, isDone]);
+
+  const canToggleDoneFromIcon = isTask && !isContainerRow;
   const ellipsisRef = useRef<HTMLButtonElement>(null);
   
   return (
@@ -598,8 +600,30 @@ function TimelineRow({
         data-item-id={item.id}
         >
           {/* Type icon */}
-          <div className={styles.colIcon} aria-hidden>
-            {leadingIcon ? <span className={styles.leadingIcon}>{leadingIcon}</span> : null}
+          <div className={styles.colIcon}>
+            {leadingIcon ? (
+              canToggleDoneFromIcon ? (
+                <button
+                  type="button"
+                  className={styles.iconToggleButton}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPrimaryAction();
+                  }}
+                  title={isDone ? 'Mark incomplete' : 'Mark done'}
+                  aria-label={isDone ? 'Mark incomplete' : 'Mark done'}
+                >
+                  <span className={styles.leadingIcon} aria-hidden>
+                    {leadingIcon}
+                  </span>
+                </button>
+              ) : (
+                <span className={styles.leadingIcon} aria-hidden>
+                  {leadingIcon}
+                </span>
+              )
+            ) : null}
           </div>
 
           {/* Time/due */}
@@ -897,6 +921,7 @@ export function CommandPanel({
     timelineTask: TimelineTask;
     entry: CalendarTask;
     focusChildren: CalendarTask[];
+    focusChildrenTimeline: TimelineTask[];
   } | null>(null);
 
   const popoverTeamMembers = useMemo(
@@ -965,12 +990,14 @@ export function CommandPanel({
 
   const openCalendarEntryPopover = useCallback(
     (anchorElement: HTMLElement, task: TimelineTask) => {
-      const focusChildren = (focusChildrenByContainerId.get(task.id) ?? []).map(toCalendarTask);
+      const focusChildrenTimeline = focusChildrenByContainerId.get(task.id) ?? [];
+      const focusChildren = focusChildrenTimeline.map(toCalendarTask);
       setCalendarEntryPopover({
         anchorElement,
         timelineTask: task,
         entry: toCalendarTask(task),
         focusChildren,
+        focusChildrenTimeline,
       });
     },
     [focusChildrenByContainerId, toCalendarTask],
@@ -1640,6 +1667,28 @@ export function CommandPanel({
           selectedCount={1}
           teamMembers={popoverTeamMembers}
           focusChildren={calendarEntryPopover.focusChildren}
+          onEditFocusChild={(child) => {
+            const match = calendarEntryPopover.focusChildrenTimeline.find((t) => t.id === child.id);
+            setCalendarEntryPopover(null);
+            if (match) {
+              if (onQuickEditTask) {
+                onQuickEditTask(match);
+              } else {
+                onEditItem?.(match);
+              }
+            }
+          }}
+          onMarkAsDone={
+            onToggleTask
+              ? (tasksToMark) => {
+                  tasksToMark.forEach((t) => {
+                    const isDone = t.status === 'done' || t.done === true || t.status === 'archived';
+                    if (isDone) return;
+                    onToggleTask(t.id);
+                  });
+                }
+              : undefined
+          }
           onClose={() => setCalendarEntryPopover(null)}
           onEdit={() => {
             const task = calendarEntryPopover.timelineTask;

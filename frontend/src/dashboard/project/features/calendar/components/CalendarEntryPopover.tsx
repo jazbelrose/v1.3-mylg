@@ -907,25 +907,56 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     >
       {/* Header with title and avatar stack */}
       <div className="calendar-entry-popover__header">
-        <span className="calendar-entry-row__icon" aria-hidden>
-          {entryType === "event" ? (
+        {entryType === "event" ? (
+          <span className="calendar-entry-row__icon" aria-hidden>
             <Clock className="calendar-entry-row__icon-svg" aria-hidden />
-          ) : isGroupStack ? (
+          </span>
+        ) : isGroupStack ? (
+          <span className="calendar-entry-row__icon" aria-hidden>
             <Users className="calendar-entry-row__icon-svg" aria-hidden />
-          ) : isFocusBlock ? (
+          </span>
+        ) : isFocusBlock ? (
+          <span className="calendar-entry-row__icon" aria-hidden>
             <ListTodo className="calendar-entry-row__icon-svg" aria-hidden />
-          ) : (() => {
-            const bundleDone =
-              isTimeBlockContainer && focusChildrenResolved.length > 0
-                ? focusChildrenResolved.every((t) => t.status === "done" || t.done === true)
-                : Boolean(task && (task.status === "done" || task.done === true));
-            return bundleDone ? (
-              <CheckSquare className="calendar-entry-row__icon-svg" aria-hidden />
-            ) : (
-              <Square className="calendar-entry-row__icon-svg" aria-hidden />
+          </span>
+        ) : (() => {
+          const bundleDone =
+            isTimeBlockContainer && focusChildrenResolved.length > 0
+              ? focusChildrenResolved.every((t) => t.status === "done" || t.done === true)
+              : Boolean(task && (task.status === "done" || task.done === true));
+
+          const icon = bundleDone ? (
+            <CheckSquare className="calendar-entry-row__icon-svg" aria-hidden />
+          ) : (
+            <Square className="calendar-entry-row__icon-svg" aria-hidden />
+          );
+
+          const canMarkDone = Boolean(onMarkAsDone && isTask && task && !bundleDone);
+
+          if (!canMarkDone) {
+            return (
+              <span className="calendar-entry-row__icon" aria-hidden>
+                {icon}
+              </span>
             );
-          })()}
-        </span>
+          }
+
+          return (
+            <button
+              type="button"
+              className="calendar-entry-row__icon calendar-entry-row__icon-button"
+              aria-label="Mark done"
+              title="Mark done"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onMarkAsDone?.([task]);
+              }}
+            >
+              {icon}
+            </button>
+          );
+        })()}
         {canInlineRenameTitle && isEditingTitle ? (
           <div className="calendar-entry-popover__title-btn" role="group" aria-label="Edit title">
             <input
@@ -1210,6 +1241,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                             timeLabel={childTime}
                             isDone={isChildDone}
                             isSelected={activeChildKey === childKey}
+                            onToggleDone={
+                              onMarkAsDone && !isChildDone
+                                ? () => {
+                                    onMarkAsDone([child]);
+                                  }
+                                : undefined
+                            }
                             draggable={Boolean(onStartDragFocusChild)}
                             showDragHandle={false}
                             onPointerDown={(e) => {
@@ -1252,6 +1290,13 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                       timeLabel={childTime}
                       isDone={isChildDone}
                       isSelected={activeChildKey === childKey}
+                      onToggleDone={
+                        onMarkAsDone && !isChildDone
+                          ? () => {
+                              onMarkAsDone([child]);
+                            }
+                          : undefined
+                      }
                       draggable={Boolean(onStartDragFocusChild)}
                       showDragHandle={false}
                       onPointerDown={(e) => {

@@ -28,6 +28,7 @@ export type CalendarEntryRowProps = {
   onPointerMove?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerUp?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPointerCancel?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onToggleDone?: () => void;
   titleAttr?: string;
   /** Show a drag handle to indicate the row can be dragged out of a stack. */
   draggable?: boolean;
@@ -53,6 +54,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
   onPointerMove,
   onPointerUp,
   onPointerCancel,
+  onToggleDone,
   titleAttr,
   draggable,
   showDragHandle = true,
@@ -78,6 +80,7 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
   const extraAvatars = Math.max(dedupedAvatars.length - visibleAvatars.length, 0);
   const hasAvatars = Boolean(visibleAvatars.length > 0 || extraAvatars > 0);
   const showActionsOverlay = Boolean(draggable && showDragHandle);
+  const canToggleDoneFromIcon = entryType === "task" && taskIcon !== "list" && taskIcon !== "stack" && Boolean(onToggleDone);
 
   const icon =
     entryType === "event" ? (
@@ -125,10 +128,29 @@ export const CalendarEntryRow: React.FC<CalendarEntryRowProps> = ({
       }}
       title={titleAttr ?? title}
     >
-      <div className="calendar-entry-row__left" aria-hidden>
-        <span className="calendar-entry-row__icon" aria-hidden>
-          {icon}
-        </span>
+      <div className="calendar-entry-row__left">
+        {canToggleDoneFromIcon ? (
+          <button
+            type="button"
+            className="calendar-entry-row__icon calendar-entry-row__icon-button"
+            aria-label={isDone ? "Mark incomplete" : "Mark done"}
+            title={isDone ? "Mark incomplete" : "Mark done"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleDone?.();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {icon}
+          </button>
+        ) : (
+          <span className="calendar-entry-row__icon" aria-hidden>
+            {icon}
+          </span>
+        )}
         <span className={`calendar-entry-row__time${timeLabel ? "" : " is-empty"}`} aria-hidden={!timeLabel}>
           {timeLabel ?? ""}
         </span>

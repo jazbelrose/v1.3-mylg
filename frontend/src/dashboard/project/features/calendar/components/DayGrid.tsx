@@ -472,7 +472,7 @@ function DayGrid({
         startLabel && endLabel ? `${startLabel} - ${endLabel}` : startLabel ?? endLabel;
 
       const hour = Math.min(23, Math.max(0, Math.floor(startMinutes / MINUTES_IN_HOUR)));
-      const isComplete = Boolean(task.done || task.status === "archived");
+      const isComplete = Boolean(task.done || task.status === "done" || task.status === "archived");
       pushEntry({
         id: `task-${task.id}`,
         type: "task",
@@ -1571,10 +1571,37 @@ function DayGrid({
                 if (isFocusBlock) {
                   return <ListTodo className="week-grid__task-icon-svg" aria-hidden />;
                 }
-                return Boolean(entry.completed) ? (
+
+                const icon = Boolean(entry.completed) ? (
                   <CheckSquare className="week-grid__task-icon-svg" aria-hidden />
                 ) : (
                   <Square className="week-grid__task-icon-svg" aria-hidden />
+                );
+
+                const canMarkDone = Boolean(onMarkAsDone) && !entry.completed && entry.type === "task" && !isFocusBlock;
+                if (!canMarkDone) return icon;
+
+                return (
+                  <button
+                    type="button"
+                    className="week-grid__task-icon-button"
+                    aria-label="Mark done"
+                    title="Mark done"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const task = entry.payload as CalendarTask | undefined;
+                      if (!task) return;
+                      const isDone = task.done === true || task.status === "done" || task.status === "archived";
+                      if (isDone) return;
+                      onMarkAsDone?.([task]);
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    {icon}
+                  </button>
                 );
               })()}
             </span>

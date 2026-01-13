@@ -1413,6 +1413,17 @@ body.isMarqueeSelecting * {
   height: 12px;
 }
 
+.week-grid__task-icon-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .week-grid__event-icon-svg {
   width: 12px;
   height: 12px;
@@ -3734,6 +3745,14 @@ body.isMarqueeSelecting * {
   height: 16px;
   opacity: 0.75;
   flex: 0 0 auto;
+}
+
+.calendar-entry-row__icon-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
 .calendar-entry-row--event .calendar-entry-row__icon {

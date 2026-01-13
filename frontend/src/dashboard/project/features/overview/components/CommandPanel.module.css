@@ -340,6 +340,25 @@
   flex: 0 0 16px;
 }
 
+.iconToggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.iconToggleButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Column: time/due */
 .colTime {
   min-width: 0;
