@@ -492,6 +492,11 @@
   text-overflow: ellipsis;
 }
 
+.focusPreviewTextOnly {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Column: right meta (fixed slots) */
 .colMeta {
   display: grid;

@@ -349,7 +349,8 @@ function getSortTime(item: TimelineItem): number {
 }
 
 function getStatusSeverity(item: TimelineTask): 'overdue' | 'due-soon' | 'normal' | 'done' {
-  if (item.done || item.status?.toLowerCase() === 'done' || item.status?.toLowerCase() === 'completed') {
+  const status = typeof item.status === 'string' ? item.status.toLowerCase().trim() : '';
+  if (item.done || status === 'done' || status === 'completed' || status === 'archived') {
     return 'done';
   }
   if (item.isOverdue) return 'overdue';
@@ -509,8 +510,7 @@ function TimelineRow({
   const kind = isTask ? normalizeKind(task?.kind) : '';
   const isContainerRow = Boolean(task?.focusGroup?.isGroup);
   const isChildRow = Boolean(task?.focusChildOf);
-  const isExpanded = Boolean(task?.focusGroup?.expanded);
-  const canExpand = isContainerRow && (task?.focusGroup?.totalCount ?? 0) > 0;
+  const canExpand = false;
 
   const rowItemType: TimelineItemType = useMemo(() => {
     if (!isTask || !task) return 'timeblock';
@@ -556,7 +556,7 @@ function TimelineRow({
   const leadingIcon = useMemo(() => {
     if (!isTask) return <Clock size={12} className={styles.typeIcon} aria-hidden />;
     if (isContainerRow && rowItemType === 'multi_user_stack') return <Users size={12} className={styles.typeIcon} aria-hidden />;
-    if (isContainerRow && rowItemType === 'focus_block') return <ListTodo size={12} className={styles.typeIcon} aria-hidden />;
+    if (isContainerRow && rowItemType === 'focus_block') return null;
     if (isDone) return <CheckSquare size={12} className={styles.typeIcon} aria-hidden />;
     return <Square size={12} className={styles.typeIcon} aria-hidden />;
   }, [isTask, isContainerRow, rowItemType, isDone]);
@@ -587,7 +587,7 @@ function TimelineRow({
 
           {/* Type icon */}
           <div className={styles.colIcon} aria-hidden>
-            <span className={styles.leadingIcon}>{leadingIcon}</span>
+            {leadingIcon ? <span className={styles.leadingIcon}>{leadingIcon}</span> : null}
           </div>
 
           {/* Time/due */}
@@ -597,22 +597,7 @@ function TimelineRow({
 
           {/* Chevron (reserved column) */}
           <div className={styles.colChevron} aria-hidden={!canExpand}>
-            <button
-              type="button"
-              className={`${styles.expandButton} ${!canExpand ? styles.expandButtonHidden : ''}`}
-              aria-label={isExpanded ? 'Collapse' : 'Expand'}
-              tabIndex={canExpand ? 0 : -1}
-              onClick={(e) => {
-                if (!canExpand) return;
-                e.preventDefault();
-                e.stopPropagation();
-                onPopoverOpenChange(false);
-                const customEvent = new CustomEvent('commandpanel-toggle-focusblock', { detail: { id: item.id } });
-                window.dispatchEvent(customEvent);
-              }}
-            >
-              {isExpanded ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
-            </button>
+            {/* Focus blocks are non-collapsible in Overview; keep column for alignment */}
           </div>
 
           {/* Title + preview (indent only inside this cell) */}
@@ -633,15 +618,13 @@ function TimelineRow({
               </div>
 
               {isContainerRow && task?.focusGroup?.preview?.length ? (
-                <div className={styles.focusPreview}>
-                  {task.focusGroup.preview.slice(0, 3).map((p) => (
-                    <span key={p.id} className={styles.focusPreviewItem} title={p.title}>
-                      <span className={styles.focusPreviewIcon} aria-hidden>
-                        {p.icon === 'checked' ? <CheckSquare size={10} /> : <Square size={10} />}
-                      </span>
-                      <span className={styles.focusPreviewText}>{p.title}</span>
-                    </span>
-                  ))}
+                <div
+                  className={styles.focusPreview}
+                  title={task.focusGroup.preview.slice(0, 3).map((p) => p.title).join(' • ')}
+                >
+                  <span className={styles.focusPreviewTextOnly}>
+                    {task.focusGroup.preview.slice(0, 3).map((p) => p.title).join(' • ')}
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -897,8 +880,7 @@ export function CommandPanel({
     position: { x: number; y: number };
   } | null>(null);
 
-  // Focus Block expansion (group rows)
-  const [expandedFocusBlockIds, setExpandedFocusBlockIds] = useState<Set<string>>(() => new Set());
+  // Focus blocks are non-collapsible in this Overview panel.
   
   // Refs for auto-scroll to Today or nearest upcoming
   const contentRef = useRef<HTMLDivElement>(null);
@@ -912,23 +894,6 @@ export function CommandPanel({
   }, []);
   
   const todayKey = useMemo(() => getDateKey(today), [today]);
-
-  // Listen for per-row expand/collapse events dispatched from TimelineRow.
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ id?: string }>).detail;
-      const id = detail?.id;
-      if (!id) return;
-      setExpandedFocusBlockIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-    };
-    window.addEventListener('commandpanel-toggle-focusblock', handler as EventListener);
-    return () => window.removeEventListener('commandpanel-toggle-focusblock', handler as EventListener);
-  }, []);
 
   const displayTasks = useMemo(() => {
     const normalized = tasks.map((t) => ({
@@ -990,7 +955,6 @@ export function CommandPanel({
       const itemType: TimelineItemType = isMultiUserStack ? 'multi_user_stack' : 'focus_block';
       const ownerUserId = !isMultiUserStack ? containerAssigneeIds[0] : undefined;
 
-      const expanded = expandedFocusBlockIds.has(t.id);
       const groupDate = t.dueDate ?? (t.startAt ?? undefined);
       const groupDateObj = parseDate(groupDate);
       const baseSort = groupDateObj ? groupDateObj.getTime() : undefined;
@@ -1007,7 +971,7 @@ export function CommandPanel({
           itemType,
           ownerUserId,
           assigneeIds: containerAssigneeIds,
-          expanded,
+          expanded: false,
           doneCount,
           totalCount,
           preview,
@@ -1030,27 +994,6 @@ export function CommandPanel({
         const groupItem = groupItems.get(t.id);
         if (!groupItem) continue;
         out.push(groupItem);
-
-        if (groupItem.focusGroup?.expanded) {
-          const children = (byFocusId.get(t.id) ?? []).sort((a, b) => {
-            const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
-            const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
-            if (orderA !== orderB) return orderA - orderB;
-            return (a.title || '').localeCompare(b.title || '');
-          });
-
-          const parentSort = typeof groupItem.sortTime === 'number' ? groupItem.sortTime : undefined;
-          children.forEach((c, idx) => {
-            out.push({
-              ...c,
-              focusChildOf: groupItem.id,
-              itemType: 'timeblock',
-              nestLevel: 1,
-              groupDate: groupItem.groupDate ?? groupItem.dueDate,
-              sortTime: typeof parentSort === 'number' ? parentSort + (idx + 1) / 1000 : undefined,
-            });
-          });
-        }
         continue;
       }
 
@@ -1063,7 +1006,7 @@ export function CommandPanel({
     }
 
     return out;
-  }, [tasks, expandedFocusBlockIds, teamLookup]);
+  }, [tasks, teamLookup]);
   
   // Combine and filter items
   const filteredItems = useMemo(() => {
