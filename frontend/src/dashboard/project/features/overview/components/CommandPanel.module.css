@@ -323,6 +323,11 @@
   text-decoration: line-through;
 }
 
+.timelineRowDone .focusPreviewText,
+.timelineRowDone .focusPreviewTextOnly {
+  text-decoration: line-through;
+}
+
 /* Column: type icon */
 .colIcon {
   display: flex;
