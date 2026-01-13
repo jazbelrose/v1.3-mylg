@@ -1,0 +1,143 @@
+# MYLG Capability Audit — Quick Summary
+
+**Full Audit:** See `CAPABILITY_AUDIT_AND_MARKETING_REFACTOR.md` (1,988 lines)
+
+---
+
+## What MYLG Actually Is
+
+**Real-time collaborative production management platform** for creative teams (events, agencies, content production).
+
+**Core Differentiators:**
+1. Real-time slide collaboration (Yjs + Lexical, like Google Slides)
+2. Dual messaging (project threads + DMs, WebSocket)
+3. Smart notifications (no spam from autosave/presence)
+4. AI Spellbooks (paste scope → get budget/tasks)
+5. Advanced calendar (focus blocks, overlap stacks, drag-drop)
+6. Budget with revisions + task linking + invoice export
+7. HQ Ledger (org-level finance across all projects)
+8. CDN file delivery (signed URLs for secure content)
+9. Multi-role permissions (org isolation, role-based deck versions)
+10. Task review workflows (formal approval process)
+
+---
+
+## Product Capabilities (60+ Features Documented)
+
+### Shipped Features
+- ✅ Multi-slide editor with real-time collaboration
+- ✅ Calendar with time blocks, focus blocks, overlap stacks
+- ✅ Budget Spellbook (AI-assisted generation)
+- ✅ Task Spellbook + Magic Layout
+- ✅ Project threads + DMs (reactions, edits, files)
+- ✅ HQ Ledger (transaction import, categorization, recurring detection)
+- ✅ File management (S3 + CloudFront CDN)
+- ✅ PDF-to-slide galleries
+- ✅ Task review workflows
+- ✅ Smart notifications + activity streams (ADR-004)
+- ✅ Budget revisions + work panel (task-budget linking)
+- ✅ Deck versioning (backend complete)
+- ✅ Role-based access control + org multi-tenancy
+
+### Partial (80% Done — Quick Wins)
+- 🟡 Deck version UI (backend ready, frontend incomplete)
+- 🟡 Slide PDF export (toolbar button exists, rendering not wired)
+- 🟡 Activity panel frontend (backend complete, UI not wired)
+- 🟡 Conjure Plan UI (architecture done, modal incomplete)
+- 🟡 Slide backgrounds (data model ready, UI not exposed)
+- 🟡 Gallery file upload (gallery CRUD exists, upload flow incomplete)
+
+### Planned
+- 🔵 Mobile native apps (PWA first)
+- 🔵 LLM-powered Spellbooks (Bedrock integration)
+- 🔵 Slack/Google Cal integrations
+- 🔵 Public API
+- 🔵 Time tracking (hours logged per task)
+- 🔵 Email/push notifications
+
+---
+
+## Marketing Gaps
+
+### Missing from Current Marketing
+- Real-time slide collaboration (Yjs)
+- Calendar advanced features (focus blocks, stacks)
+- HQ Ledger (org-level finance)
+- AI Spellbooks (budget/task generation)
+- Deck versioning with role-based access
+- Smart notifications vs activity distinction
+- Direct messaging (separate from project threads)
+
+### Recommended Position
+
+**Old (vague):**  
+"MYLG is a design-first production instrument..."
+
+**New (specific):**  
+"Real-Time Production Management—From Planning to Payment"
+
+**Subheadline:**  
+"Collaborate on budgets, schedules, and deliverables in one workspace. No more tool-switching. No more version chaos."
+
+---
+
+## Architecture
+
+**Frontend:** React 18, Vite, TypeScript, Yjs, Lexical, WebSocket  
+**Backend:** AWS Serverless (14 services), Lambda, DynamoDB, S3, CloudFront, Cognito  
+**Real-Time:** WebSocket API + Yjs CRDT  
+**Security:** JWT auth, role-based access, signed URLs, org isolation
+
+**Evidence:**
+- 609 TypeScript files
+- 7,165 lines in main backend routers
+- 14 backend services (auth, projects, hq, websocket, orgs, messages, user, cal, s3, thumbnails, create-gallery, shared-layer, dynamodb, infra)
+
+---
+
+## Next Steps
+
+1. **Implement Marketing Content**
+   - Use copy from Section 5 of audit
+   - Deploy content JSON
+   - Update homepage/landing
+
+2. **Capture Screenshots/GIFs**
+   - Priority 1: Multi-user slides, Budget Spellbook, Calendar stacks, Messages, HQ Ledger (5 items)
+   - Priority 2: Deck versions, Task review, Gallery, Focus block popover, Work panel (5 items)
+   - Priority 3: Magic Layout, Notifications, Stack rename, CDN, Org switcher (5 items)
+
+3. **Ship Quick Wins**
+   - Deck version UI (2-3 days)
+   - Slide PDF export (3-5 days)
+   - Activity panel frontend (2-3 days)
+   - Conjure Plan UI (5-7 days)
+   - Gallery upload (1-2 days)
+   - Slide backgrounds (2-3 days)
+
+4. **Roadmap Transparency**
+   - Label features: Shipped / In Beta / Coming Soon / Planned
+   - No vaporware claims
+
+5. **Launch with Credibility**
+   - Every claim backed by evidence
+   - Screenshots show real product
+   - Demo flows work end-to-end
+
+---
+
+## Key Files
+
+- `CAPABILITY_AUDIT_AND_MARKETING_REFACTOR.md` — Full audit (1,988 lines)
+- `SLIDES_IMPLEMENTATION.md` — Slides feature doc (343 lines)
+- `docs/CALENDAR_FOCUS_BLOCKS.md` — Calendar architecture (70 lines)
+- `docs/adrs/ADR-004-notifications-activity-streams.md` — Notifications spec (565 lines)
+- `docs/CODEX_HANDOFF_SPELLBOOK_MAGIC.md` — Spellbook architecture
+- `backend/projects/router.mjs` — Projects API (2,923 lines)
+- `backend/hq/router.mjs` — HQ Ledger API (2,784 lines)
+- `backend/websocket/default.mjs` — WebSocket handler (1,458 lines)
+
+---
+
+**Audit Date:** January 13, 2026  
+**Status:** ✅ Complete
