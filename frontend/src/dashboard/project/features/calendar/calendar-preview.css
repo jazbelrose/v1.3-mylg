@@ -893,9 +893,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 2px solid rgba(6, 8, 12, 0.9);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .month-grid__tooltip-avatars .month-grid__tooltip-avatar:not(:first-child) {
@@ -1776,13 +1776,14 @@ body.isMarqueeSelecting * {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 2px solid rgba(45, 45, 45, 0.95);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .week-grid__timeline-avatar--header {
-  width: 19px;
-  height: 19px;
+  width: 16px;
+  height: 16px;
 }
 
 .week-grid__timeline-avatar--inline {
@@ -1865,9 +1866,9 @@ body.isMarqueeSelecting * {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 2px solid rgba(6, 8, 12, 0.9);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
-  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .week-grid__timeline-tooltip-avatars .week-grid__timeline-tooltip-avatar:not(:first-child) {
@@ -3976,7 +3977,8 @@ body.isMarqueeSelecting * {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border: 0;
+  background: transparent;
 }
 
 .calendar-entry-row__avatar-badge {
@@ -4589,9 +4591,10 @@ body.isMarqueeSelecting * {
 
 .week-grid__group-stack-user-avatar {
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   opacity: 0.9;
+  background: transparent;
 }
 
 .week-grid__group-stack-user-tasks {
