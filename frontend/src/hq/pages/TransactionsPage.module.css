@@ -126,7 +126,7 @@
 }
 
 .amountPopover {
-  width: 280px;
+  min-width: 360px;
   padding: 10px;
   z-index: 1200;
 }

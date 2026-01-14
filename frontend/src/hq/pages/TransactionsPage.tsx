@@ -610,7 +610,7 @@ const TransactionsPage: React.FC = () => {
                   align="end"
                   role="dialog"
                   aria-label="Amount filter"
-                  style={{ width: amountPopoverWidth ?? 320 }}
+                  style={{ width: Math.max(amountPopoverWidth ?? 320, 360) }}
                 >
                   <div className={styles.amountPopoverTitle}>Amount</div>
                   <div className={styles.amountInputs}>
