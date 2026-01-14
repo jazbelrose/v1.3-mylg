@@ -452,7 +452,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
   const openPreviewModal = (file: FileObj) => {
     const ext = file.fileName.split(".").pop()?.toLowerCase() || "";
     const url = file.finalUrl || file.url;
-    if ((ext === "md" || ext === "markdown") && url && !url.startsWith("blob:")) {
+    if ((ext === "md" || ext === "markdown" || ext === "txt") && url && !url.startsWith("blob:")) {
       setNoteEditorState({ isOpen: true, mode: "open", fileUrl: url, fileName: file.fileName });
       return;
     }
