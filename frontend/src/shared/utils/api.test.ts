@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { apiFetch, getFileUrl } from './api';
+import { apiFetch } from './api';
 import { rateLimiter } from './securityUtils';
 
 vi.mock('./waitForAuthReady', () => ({
@@ -44,16 +44,23 @@ describe('apiFetch', () => {
 });
 
 describe('getFileUrl', () => {
+  let getFileUrl: (keyOrUrl: string) => string;
+
   beforeEach(() => {
     vi.stubEnv('VITE_FILE_CDN', '');
     vi.stubEnv('VITE_FILE_BUCKET', '');
     vi.stubEnv('VITE_S3_FILES_BUCKET', '');
     vi.stubEnv('VITE_AWS_REGION', '');
     vi.stubEnv('VITE_S3_REGION', '');
+    vi.resetModules();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  beforeEach(async () => {
+    ({ getFileUrl } = await import('./api'));
   });
 
   it('encodes each path segment without encoding slashes', () => {

@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Dock,
+  FileText,
   Move,
   Paperclip,
   Plus,
@@ -51,6 +52,8 @@ import Modal from "../../../shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import PromptModal from "../../../shared/ui/PromptModal";
 import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
+import TextFileViewer from "@/shared/ui/TextFileViewer";
+import MarkdownEditor from "@/shared/ui/MarkdownEditor";
 import {
   GET_PROJECT_MESSAGES_URL,
   apiFetch,
@@ -90,6 +93,10 @@ type Message = {
   senderId?: string;
   username?: string;
   title?: string;
+  type?: string;
+  noteId?: string;
+  noteTitle?: string;
+  format?: string;
   text?: string;
   timestamp: string;
   optimisticId?: string;
@@ -100,6 +107,7 @@ type Message = {
   file?: FileObj;
   attachments?: Attachment[]; // NEW: explicit attachments
   reactions?: Record<string, string[]>; // emoji -> [userId]
+  [key: string]: unknown;
 };
 
 type GetProjectMessagesResponse =
@@ -201,6 +209,9 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     user,
     userData,
     allUsers,
+    isAdmin,
+    isBuilder,
+    isDesigner,
     projectMessages,
     setProjectMessages,
     deletedMessageIds,
@@ -210,6 +221,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
   const { ws } = useSocket() || {};
   const { isAuthenticated } = useAuth();
   const projectName = activeProject?.title?.trim() || projectId;
+  const canEditTextFiles = Boolean(isAdmin || isBuilder || isDesigner);
 
   const messages = useMemo(() => {
     const all: Message[] = Array.isArray(projectMessages[projectId])
@@ -297,9 +309,118 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     useState<FileObj | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
   const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteMarkdown, setNoteMarkdown] = useState("");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   // Folder for S3 uploads
   const folderKey = "chat_uploads";
+
+  const defaultNoteTitle = () =>
+    `Note — ${new Date().toLocaleString([], { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
+
+  const sanitizeFileStem = (raw: string) => {
+    const cleaned = String(raw || "")
+      .trim()
+      .replace(/[^\w\s-]+/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return cleaned.slice(0, 60) || "note";
+  };
+
+  const makeNotePreview = (md: string) => {
+    const trimmed = String(md || "").trim();
+    if (!trimmed) return "";
+    const lines = trimmed.split(/\r\n|\r|\n/).slice(0, 6).join("\n");
+    return lines.length > 400 ? `${lines.slice(0, 400)}…` : lines;
+  };
+
+  const openNoteModal = () => {
+    setShowActionMenu(false);
+    setShowEmojiPicker(false);
+    setNoteTitle("");
+    setNoteMarkdown("");
+    setNoteError(null);
+    setIsNoteModalOpen(true);
+  };
+
+  const saveNote = async () => {
+    if (!projectId) return;
+    if (!ws) {
+      setNoteError("WebSocket unavailable. Try again in a moment.");
+      return;
+    }
+    if (!userData?.userId) {
+      setNoteError("Missing user info. Please refresh and try again.");
+      return;
+    }
+
+    setIsSavingNote(true);
+    setNoteError(null);
+
+    const title = noteTitle.trim() || defaultNoteTitle();
+    const noteId =
+      (typeof crypto !== "undefined" && "randomUUID" in crypto && typeof crypto.randomUUID === "function")
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const fileStem = sanitizeFileStem(title);
+    const s3FileName = `${fileStem}-${noteId}.md`;
+    const displayFileName = `${title}.md`;
+
+    const baseKey = `projects/${projectId}/${folderKey}/notes/${s3FileName}`;
+    const storedKey = `public/${baseKey}`;
+
+    try {
+      const uploadTask = uploadData({
+        key: baseKey,
+        data: new Blob([noteMarkdown], { type: "text/markdown" }),
+        options: { accessLevel: "public" },
+      });
+      await uploadTask.result;
+
+      const fileUrl = getFileUrl(storedKey);
+      const timestamp = new Date().toISOString();
+      const optimisticId = `${Date.now()}-${noteId}`;
+
+      const messageData: Message = {
+        action: "sendMessage",
+        conversationType: "project",
+        conversationId: `project#${projectId}`,
+        senderId: userData.userId,
+        username: user?.firstName || "Someone",
+        title: activeProject?.title || projectId,
+        text: makeNotePreview(noteMarkdown),
+        timestamp,
+        optimisticId,
+        type: "note",
+        noteId,
+        noteTitle: title,
+        format: "markdown",
+        file: { fileName: displayFileName, url: fileUrl, finalUrl: fileUrl, key: storedKey },
+        attachments: [{ fileName: displayFileName, url: fileUrl, key: storedKey, mimeType: "text/markdown" }],
+      };
+
+      const optimisticMessage: Message = { ...messageData, optimistic: true };
+      setProjectMessages((prev: ProjectMessagesMap) => {
+        const msgs: Message[] = Array.isArray(prev[projectId]) ? prev[projectId] : [];
+        const merged = mergeAndDedupeMessages(msgs, [optimisticMessage]) as Message[];
+        setWithTTL(pmKey(projectId), merged);
+        return { ...prev, [projectId]: merged };
+      });
+
+      ws.send(JSON.stringify(normalizeMessage(messageData, "sendMessage")));
+      setIsNoteModalOpen(false);
+    } catch (err) {
+      console.error("Failed to save note", err);
+      setNoteError("Failed to save note.");
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   // Load cached messages for this project first
   useEffect(() => {
@@ -1151,6 +1272,15 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     <button
                       type="button"
                       className="message-action-menu-button"
+                      onClick={openNoteModal}
+                      role="menuitem"
+                    >
+                      <FileText size={14} />
+                      <span>Note</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="message-action-menu-button"
                       onClick={toggleEmojiPicker}
                       role="menuitem"
                     >
@@ -1245,6 +1375,18 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     title={selectedPreviewFile.fileName}
                   />
                 );
+              } else if (
+                ["txt", "md", "markdown", "json", "csv", "log"].includes(ext) &&
+                !(selectedPreviewFile.finalUrl || selectedPreviewFile.url).startsWith("blob:")
+              ) {
+                return (
+                  <TextFileViewer
+                    projectId={projectId}
+                    fileUrl={selectedPreviewFile.finalUrl || selectedPreviewFile.url}
+                    fileName={selectedPreviewFile.fileName}
+                    canEdit={canEditTextFiles}
+                  />
+                );
               } else {
                 return renderFilePreview(selectedPreviewFile, folderKey);
               }
@@ -1271,6 +1413,67 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Note Modal */}
+      <Modal
+        isOpen={isNoteModalOpen}
+        onRequestClose={() => setIsNoteModalOpen(false)}
+        contentLabel="Create Note"
+        className="messages-modal-content preview-modal-content"
+        overlayClassName="messages-modal-overlay"
+      >
+        <div className="note-modal">
+          <div className="note-modal-header">
+            <div className="note-modal-title">New note</div>
+            <button
+              type="button"
+              className="modal-button secondary"
+              onClick={() => setIsNoteModalOpen(false)}
+              aria-label="Close"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+
+          <label className="note-modal-label">
+            Title
+            <input
+              className="note-modal-input"
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              placeholder={defaultNoteTitle()}
+            />
+          </label>
+
+          <MarkdownEditor
+            initialMarkdown={noteMarkdown}
+            onChange={setNoteMarkdown}
+            placeholder="Write your note (Markdown)…"
+            ariaLabel="Note body"
+          />
+
+          {noteError && <div className="note-modal-error">{noteError}</div>}
+
+          <div className="note-modal-actions">
+            <button
+              type="button"
+              className="modal-button secondary"
+              onClick={() => setIsNoteModalOpen(false)}
+              disabled={isSavingNote}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="modal-button primary"
+              onClick={() => void saveNote()}
+              disabled={isSavingNote}
+            >
+              {isSavingNote ? "Saving…" : "Save note"}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Delete confirm */}

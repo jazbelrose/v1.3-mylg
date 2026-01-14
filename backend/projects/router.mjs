@@ -2,7 +2,7 @@
 import { corsHeadersFromEvent, preflightFromEvent, json } from "/opt/nodejs/utils/cors.mjs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
-import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
@@ -1607,6 +1607,156 @@ const deleteProjectFiles = async (e, C, { projectId }) => {
   }
 };
 
+const TEXT_LIKE_EXTENSIONS = new Set([
+  "txt",
+  "md",
+  "markdown",
+  "json",
+  "log",
+  "csv",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "css",
+  "html",
+  "yml",
+  "yaml",
+]);
+
+const normalizeS3KeyFromQuery = (projectId, rawKeyOrUrl) => {
+  if (!rawKeyOrUrl) return null;
+  const raw = String(rawKeyOrUrl).trim();
+  if (!raw) return null;
+
+  let key = raw;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw);
+      key = parsed.pathname.startsWith("/") ? parsed.pathname.slice(1) : parsed.pathname;
+      key = decodeURIComponent(key);
+    } catch {
+      key = raw;
+    }
+  }
+
+  key = key.replace(/^\/+/, "");
+  // Amplify Storage public keys live under `public/`
+  if (!key.startsWith("public/")) {
+    key = `public/${key}`;
+  }
+
+  // Only allow access to files within the project's namespace.
+  const projectPrefix = `public/projects/${projectId}/`;
+  if (!key.startsWith(projectPrefix)) return null;
+
+  return key;
+};
+
+const isTextLikeKey = (key, contentType) => {
+  const lower = String(key || "").toLowerCase();
+  const ext = lower.split(".").pop() || "";
+  if (TEXT_LIKE_EXTENSIONS.has(ext)) return true;
+  const ct = String(contentType || "").toLowerCase();
+  if (ct.startsWith("text/")) return true;
+  if (ct.includes("json")) return true;
+  if (ct.includes("xml")) return true;
+  return false;
+};
+
+// GET /projects/:projectId/files/view?key=public/...  (or ?url=https://...)
+// Returns metadata + a signed GET URL for direct download/range fetching.
+const viewProjectFile = async (e, C, { projectId }) => {
+  const q = Q(e);
+  const key = normalizeS3KeyFromQuery(projectId, q.key || q.url);
+  if (!projectId) return json(400, C, { error: "projectId is required" });
+  if (!key) return json(400, C, { error: "key (or url) is required and must be within project scope" });
+
+  try {
+    const head = await s3.send(
+      new HeadObjectCommand({
+        Bucket: FILE_BUCKET,
+        Key: key,
+      }),
+    );
+
+    const downloadUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: FILE_BUCKET,
+        Key: key,
+      }),
+      { expiresIn: 600 },
+    );
+
+    const contentType = head.ContentType || null;
+    const sizeBytes = typeof head.ContentLength === "number" ? head.ContentLength : null;
+    const etag = head.ETag ? String(head.ETag).replace(/^\"|\"$/g, "") : null;
+
+    return json(200, C, {
+      key,
+      projectId,
+      downloadUrl,
+      rangeSupported: true,
+      sizeBytes,
+      contentType,
+      lastModified: head.LastModified ? new Date(head.LastModified).toISOString() : null,
+      etag,
+      isTextLike: isTextLikeKey(key, contentType),
+    });
+  } catch (err) {
+    const status = err?.$metadata?.httpStatusCode || 500;
+    const message = status === 404 ? "File not found" : err?.message || "Failed to view file";
+    console.error("view_project_file_error", { projectId, key, err });
+    return json(status, C, { error: message });
+  }
+};
+
+// POST /projects/:projectId/files/put-url
+// Body: { key: string, contentType?: string, ifMatch?: string }
+// Returns a signed PUT URL for updating text-like files directly in S3.
+const createProjectFilePutUrl = async (e, C, { projectId }) => {
+  const body = B(e);
+  const key = normalizeS3KeyFromQuery(projectId, body.key || body.url);
+  if (!projectId) return json(400, C, { error: "projectId is required" });
+  if (!key) return json(400, C, { error: "key (or url) is required and must be within project scope" });
+
+  const contentType = typeof body.contentType === "string" && body.contentType.trim()
+    ? body.contentType.trim()
+    : "text/plain; charset=utf-8";
+
+  // Gate: only allow text-like updates via this flow.
+  if (!isTextLikeKey(key, contentType)) {
+    return json(400, C, { error: "Only text-like files are supported for inline editing" });
+  }
+
+  const ifMatch = typeof body.ifMatch === "string" && body.ifMatch.trim()
+    ? body.ifMatch.trim().replace(/^\"|\"$/g, "")
+    : null;
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: FILE_BUCKET,
+      Key: key,
+      ContentType: contentType,
+      ...(ifMatch ? { IfMatch: ifMatch } : {}),
+    });
+
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 600 });
+
+    return json(200, C, {
+      projectId,
+      key,
+      uploadUrl,
+      requiresIfMatch: Boolean(ifMatch),
+    });
+  } catch (err) {
+    console.error("create_project_file_put_url_error", { projectId, key, err });
+    const message = err?.message || "Failed to create upload URL";
+    return json(500, C, { error: message });
+  }
+};
+
 // Back-compat timeline shims
 const getTimeline = (e, C, g) => {
   const e2 = { ...e, queryStringParameters: { ...(Q(e) || {}), view: "timeline" } };
@@ -2833,6 +2983,8 @@ const routes = [
 
   // Files
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/files\/delete$/i,                       h: deleteProjectFiles },
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/files\/view$/i,                         h: viewProjectFile },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/files\/put-url$/i,                       h: createProjectFilePutUrl },
 
   // Events (unified)
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/events$/i,                               h: listEvents },

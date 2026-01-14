@@ -427,6 +427,8 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
         <FilePreviewModal
           isOpen={isImageModalOpen}
           onRequestClose={closeImageModal}
+          projectId={(activeProject?.projectId as string | undefined) || ""}
+          canEdit={canDelete}
           displayedFiles={displayedFiles}
           currentIndex={currentIndex}
           selectedImage={selectedImage}

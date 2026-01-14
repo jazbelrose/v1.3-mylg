@@ -548,6 +548,12 @@ export const {
 export const projectFileDeleteUrl = (projectId: string): string =>
   `${PROJECTS_URL}/${projectId}/files/delete`;
 
+export const projectFileViewUrl = (projectId: string): string =>
+  `${PROJECTS_URL}/${encodeURIComponent(projectId)}/files/view`;
+
+export const projectFilePutUrl = (projectId: string): string =>
+  `${PROJECTS_URL}/${encodeURIComponent(projectId)}/files/put-url`;
+
 /**
  * POST /projects/{projectId}/slides/{slideId}/thumbnail
  * Atomic update of a single slide's thumbnail without touching the full slides array.

@@ -4,6 +4,7 @@ import { faDownload, faXmark } from "@fortawesome/free-solid-svg-icons";
 import Modal from "../../../../shared/ui/ModalWithStack";
 import { fileUrlsToKeys, getFileUrl } from "../../../../shared/utils/api";
 import PDFPreview from "../Shared/PDFPreview";
+import TextFileViewer from "../../../../shared/ui/TextFileViewer";
 import type { FileItem } from "./FileManagerTypes";
 import { getFilePreviewIcon, isPreviewableImage } from "./FileManagerUtils";
 import styles from "./file-manager.module.css";
@@ -11,6 +12,8 @@ import styles from "./file-manager.module.css";
 interface FilePreviewModalProps {
   isOpen: boolean;
   onRequestClose: () => void;
+  projectId: string;
+  canEdit: boolean;
   displayedFiles: FileItem[];
   currentIndex: number | null;
   selectedImage: string | null;
@@ -22,6 +25,8 @@ interface FilePreviewModalProps {
 export const FilePreviewModal = ({
   isOpen,
   onRequestClose,
+  projectId,
+  canEdit,
   displayedFiles,
   currentIndex,
   selectedImage,
@@ -32,6 +37,7 @@ export const FilePreviewModal = ({
   const currentFile = currentIndex !== null ? displayedFiles[currentIndex] : undefined;
   const extension = currentFile?.fileName.split(".").pop()?.toLowerCase();
   const downloadUrl = selectedImage ? getFileUrl(fileUrlsToKeys([selectedImage])[0]) : "";
+  const isTextLike = Boolean(extension && ["txt", "md", "markdown", "json", "log", "csv"].includes(extension));
 
   const renderContent = () => {
     if (!currentFile) return null;
@@ -50,6 +56,16 @@ export const FilePreviewModal = ({
     if (extension === "pdf") {
       return (
         <PDFPreview url={selectedImage ?? ""} className={styles.pdfPreview} title={currentFile.fileName} />
+      );
+    }
+    if (isTextLike && selectedImage && projectId) {
+      return (
+        <TextFileViewer
+          projectId={projectId}
+          fileUrl={selectedImage}
+          fileName={currentFile.fileName}
+          canEdit={canEdit}
+        />
       );
     }
     return (
@@ -85,7 +101,7 @@ export const FilePreviewModal = ({
             <button onClick={onRequestClose} className={styles.iconButton} aria-label="Close image">
               <FontAwesomeIcon icon={faXmark} />
             </button>
-            <a href={downloadUrl} download className={styles.iconButton} aria-label="Download image">
+            <a href={downloadUrl} download className={styles.iconButton} aria-label="Download file">
               <FontAwesomeIcon icon={faDownload} />
             </a>
           </div>

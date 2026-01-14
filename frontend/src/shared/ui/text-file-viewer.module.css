@@ -1,0 +1,167 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.button,
+.buttonPrimary {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  background: rgba(78, 161, 243, 0.22);
+  border-color: rgba(78, 161, 243, 0.4);
+}
+
+.button:disabled,
+.buttonPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.viewer {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.pre {
+  margin: 0;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 55vh;
+  overflow: auto;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.link {
+  color: rgba(78, 161, 243, 0.95);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.error {
+  color: rgba(255, 120, 120, 0.95);
+  font-size: 12px;
+}
+
+.loading {
+  padding: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+}
+
+.editorWrap {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.editorInner {
+  padding: 12px;
+}
+
+.editorInput {
+  min-height: 260px;
+  outline: none;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.placeholder {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.5;
+  font-size: 13px;
+}
+
+.editorParagraph {
+  margin: 0 0 0.6em;
+}
+
+.editorBold {
+  font-weight: 700;
+}
+
+.editorItalic {
+  font-style: italic;
+}
+
+.editorUnderline {
+  text-decoration: underline;
+}
+
+.editorLink {
+  color: rgba(78, 161, 243, 0.95);
+}
+
+.editorListItem {
+  margin: 0.2em 0;
+}
+
+.editorUl {
+  padding-left: 1.25em;
+}
+
+.editorOl {
+  padding-left: 1.25em;
+}
+

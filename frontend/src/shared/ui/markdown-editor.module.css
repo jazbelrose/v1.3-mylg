@@ -1,0 +1,62 @@
+.container {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.inner {
+  position: relative;
+  padding: 12px;
+}
+
+.input {
+  min-height: 260px;
+  outline: none;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.placeholder {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  pointer-events: none;
+  opacity: 0.5;
+  font-size: 13px;
+}
+
+.paragraph {
+  margin: 0 0 0.6em;
+}
+
+.bold {
+  font-weight: 700;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+.link {
+  color: rgba(78, 161, 243, 0.95);
+}
+
+.listItem {
+  margin: 0.2em 0;
+}
+
+.ul {
+  padding-left: 1.25em;
+}
+
+.ol {
+  padding-left: 1.25em;
+}
+

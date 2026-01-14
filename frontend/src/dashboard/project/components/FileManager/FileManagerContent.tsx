@@ -7,7 +7,6 @@ import {
   getFilePreviewIcon,
   getThumbnailUrl,
   isPreviewableImage,
-  truncateFileName,
 } from "./FileManagerUtils";
 import styles from "./file-manager.module.css";
 
@@ -173,7 +172,7 @@ export const FileManagerContent = ({
                     )}
                   </div>
                   <div className={styles.fileName} title={file.fileName}>
-                    {truncateFileName(file.fileName)}
+                    {file.fileName}
                   </div>
                 </li>
               ))}

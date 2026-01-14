@@ -509,6 +509,22 @@ const MessageItem: React.FC<MessageItemProps> = ({
   // helper to render file/text/url
   const renderBody = () => {
     if (msg.file) {
+      const maybeType = (msg as unknown as { type?: string }).type;
+      const maybeNoteTitle = (msg as unknown as { noteTitle?: string }).noteTitle;
+      if (maybeType === "note") {
+        const title = maybeNoteTitle || msg.file.fileName || "Note";
+        return (
+          <div
+            className="note-message"
+            onClick={() => openPreviewModal(msg.file!)}
+            style={{ cursor: "pointer" }}
+          >
+            <div className="note-message-title">{title}</div>
+            {text && <pre className="note-message-preview">{text}</pre>}
+            {renderFilePreview(msg.file!, folderKey)}
+          </div>
+        );
+      }
       return (
         <div onClick={() => openPreviewModal(msg.file!)} style={{ cursor: "pointer" }}>
           {renderFilePreview(msg.file!, folderKey)}
