@@ -269,9 +269,35 @@ export async function computeTransactionDedupeHash(input: {
   postedAt: string;
   amount: number;
   rawDescription: string;
+  normalizedDescription?: string;
+  paymentType?: string;
+  vendor?: string;
+  counterparty?: string;
+  referenceId?: string;
+  cardLast4?: string;
 }): Promise<string> {
-  const normalized = normalizeTransactionDescription(input.rawDescription).slice(0, 120);
-  const payload = `${input.accountId}${input.postedAt}${input.amount.toFixed(2)}${normalized}`;
+  // IMPORTANT: this hash must be stable and avoid collisions. We intentionally include
+  // multiple discriminators (e.g. REF#, counterparty) and do not truncate the description.
+  // The backend also performs its own idempotent de-dupe.
+  const normalized = normalizeTransactionDescription(input.rawDescription || input.normalizedDescription || "");
+  const ref = String(input.referenceId || "").trim().toUpperCase();
+  const card = String(input.cardLast4 || "").trim();
+  const vendor = normalizeTransactionDescription(String(input.vendor || "")).slice(0, 160);
+  const counterparty = normalizeTransactionDescription(String(input.counterparty || "")).slice(0, 160);
+  const paymentType = String(input.paymentType || "").trim().toLowerCase();
+
+  const payload = [
+    "v2",
+    input.accountId,
+    input.postedAt,
+    input.amount.toFixed(2),
+    normalized,
+    paymentType,
+    ref,
+    card,
+    vendor,
+    counterparty,
+  ].join("|");
   return sha256Hex(payload);
 }
 
@@ -372,6 +398,12 @@ export async function parseWellsFargoNoHeaderTransactions(input: {
         postedAt: merged.postedAt,
         amount: merged.amount,
         rawDescription: merged.rawDescription,
+        normalizedDescription: merged.normalizedDescription,
+        paymentType: merged.paymentType,
+        vendor: merged.vendor,
+        counterparty: merged.counterparty,
+        referenceId: merged.referenceId,
+        cardLast4: merged.cardLast4,
       });
 
       return { ...merged, dedupeHash };

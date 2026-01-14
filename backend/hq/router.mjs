@@ -6,6 +6,7 @@ import { requireOrgMember, requireOrgAdmin } from "/opt/nodejs/utils/orgAuth.mjs
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
+import { createHash } from "node:crypto";
 
 /* ------------ ENV ------------ */
 const REGION = process.env.AWS_REGION || "us-west-2";
@@ -97,6 +98,67 @@ const normalizeForMatching = (value) =>
     .trim()
     .replace(/\s+/g, " ")
     .replace(/[\u2013\u2014]/g, "-");
+
+// Keep parity with frontend `normalizeTransactionDescription` for hashing/idempotency.
+const normalizeTxnDescriptionForDedupe = (raw) => {
+  const upper = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+  return upper.replace(/[^\w\s#/-]/g, "").replace(/\s+/g, " ").trim();
+};
+
+const sha256Hex = (input) => createHash("sha256").update(String(input || ""), "utf8").digest("hex");
+
+// Legacy dedupe hash used by older clients (kept for back-compat so re-importing the same CSV
+// doesn't create duplicates if the old version already exists in Dynamo).
+const computeTransactionDedupeHashV1 = ({ accountId, postedAt, amount, rawDescription, normalizedDescription }) => {
+  const normalized = normalizeTxnDescriptionForDedupe(rawDescription || normalizedDescription || "").slice(0, 120);
+  const amt = typeof amount === "number" ? amount : Number(amount);
+  // Legacy frontend format: `${accountId}${postedAt}${amount.toFixed(2)}${normalized}`
+  const payload = `${String(accountId || "")}${String(postedAt || "")}${Number.isFinite(amt) ? amt.toFixed(2) : ""}${normalized}`;
+  return sha256Hex(payload);
+};
+
+// Current server-authoritative dedupe hash.
+// Goal: avoid collisions for lookalike txns (e.g. multiple Owner Draw transfers) while remaining stable
+// across re-imports of the same CSV.
+const computeTransactionDedupeHashV2 = ({
+  accountId,
+  postedAt,
+  amount,
+  rawDescription,
+  normalizedDescription,
+  paymentType,
+  vendor,
+  counterparty,
+  referenceId,
+  cardLast4,
+}) => {
+  const normalized = normalizeTxnDescriptionForDedupe(rawDescription || normalizedDescription || "");
+  // Defensive cap: hashing huge strings is fine, but cap to keep payload bounded.
+  const desc = normalized.slice(0, 800);
+  const ref = normalizeTxnDescriptionForDedupe(referenceId || "").slice(0, 80);
+  const card = String(cardLast4 || "").trim().slice(0, 8);
+  const v = normalizeTxnDescriptionForDedupe(vendor || "").slice(0, 160);
+  const cp = normalizeTxnDescriptionForDedupe(counterparty || "").slice(0, 160);
+  const pt = String(paymentType || "").trim().toLowerCase();
+  const amt = typeof amount === "number" ? amount : Number(amount);
+
+  const payload = [
+    "v2",
+    String(accountId || ""),
+    String(postedAt || ""),
+    Number.isFinite(amt) ? amt.toFixed(2) : "",
+    desc,
+    pt,
+    ref,
+    card,
+    v,
+    cp,
+  ].join("|");
+  return sha256Hex(payload);
+};
 
 const normalizeVendorKey = (value) =>
   normalizeForMatching(value)
@@ -2536,15 +2598,67 @@ const importCsv = async (e, C) => {
 
   // De-dupe by existing TXN keys within the org.
   const txKeys = transactions
-    .map((t) => ({
-      orgId,
-      sk: skTxn(String(t.postedAt || ""), String(t.dedupeHash || "")),
-      accountId: String(t.accountId || effectiveAccountId),
-      postedAt: String(t.postedAt || ""),
-      dedupeHash: String(t.dedupeHash || ""),
-      raw: t,
-    }))
-    .filter((k) => k.postedAt && k.dedupeHash);
+    .map((t) => {
+      const postedAt = String(t?.postedAt || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(postedAt)) return null;
+
+      const amount = typeof t?.amount === "number" ? t.amount : Number(t?.amount);
+      if (!Number.isFinite(amount)) return null;
+
+      const rawDescription = String(t?.rawDescription || t?.normalizedDescription || "").trim();
+      if (!rawDescription) return null;
+
+      // Server-authoritative hash. (Client-provided hash is ignored for uniqueness.)
+      const dedupeHash = computeTransactionDedupeHashV2({
+        accountId: effectiveAccountId,
+        postedAt,
+        amount,
+        rawDescription,
+        normalizedDescription: t?.normalizedDescription,
+        paymentType: t?.paymentType,
+        vendor: t?.vendor,
+        counterparty: t?.counterparty,
+        referenceId: t?.referenceId,
+        cardLast4: t?.cardLast4,
+      });
+
+      // Back-compat: also compute v1-style hashes so importing the same CSV twice
+      // won't create duplicates if a legacy-hash TXN already exists.
+      const legacyV1Effective = computeTransactionDedupeHashV1({
+        accountId: effectiveAccountId,
+        postedAt,
+        amount,
+        rawDescription,
+        normalizedDescription: t?.normalizedDescription,
+      });
+
+      const clientAccountId = String(t?.accountId || accountId || "").trim();
+      const legacyV1Client =
+        clientAccountId && clientAccountId !== effectiveAccountId
+          ? computeTransactionDedupeHashV1({
+              accountId: clientAccountId,
+              postedAt,
+              amount,
+              rawDescription,
+              normalizedDescription: t?.normalizedDescription,
+            })
+          : null;
+
+      const skV2 = skTxn(postedAt, dedupeHash);
+      const candidates = [skV2, skTxn(postedAt, legacyV1Effective)];
+      if (legacyV1Client) candidates.push(skTxn(postedAt, legacyV1Client));
+
+      return {
+        orgId,
+        sk: skV2,
+        skCandidates: candidates,
+        accountId: effectiveAccountId,
+        postedAt,
+        dedupeHash,
+        raw: t,
+      };
+    })
+    .filter(Boolean);
 
   // De-dupe within the incoming CSV payload itself (BatchWrite rejects duplicate keys).
   // Strategy: first occurrence wins; later duplicates are counted as duplicates.
@@ -2564,8 +2678,19 @@ const importCsv = async (e, C) => {
 
   // BatchGet in chunks of 100 keys.
   const existing = new Set();
-  for (const batch of chunk(uniqueTxKeys, 100)) {
-    const keys = batch.map((k) => ({ orgId: k.orgId, sk: k.sk }));
+  // Each txn can have multiple candidate keys (v2 + legacy v1 variants).
+  // Keep batches small enough to stay under DynamoDB BatchGet 100-key limit.
+  for (const batch of chunk(uniqueTxKeys, 30)) {
+    const keySet = new Set();
+    const keys = [];
+    for (const k of batch) {
+      const candidates = Array.isArray(k.skCandidates) ? k.skCandidates : [k.sk];
+      for (const sk of candidates) {
+        if (!sk || keySet.has(sk)) continue;
+        keySet.add(sk);
+        keys.push({ orgId: k.orgId, sk });
+      }
+    }
     const res = await ddb.batchGet({
       RequestItems: {
         [HQ_TABLE]: {
@@ -2580,7 +2705,8 @@ const importCsv = async (e, C) => {
   const toWrite = [];
   const writtenTxnItems = [];
   for (const k of uniqueTxKeys) {
-    if (existing.has(k.sk)) {
+    const candidates = Array.isArray(k.skCandidates) ? k.skCandidates : [k.sk];
+    if (candidates.some((sk) => existing.has(sk))) {
       duplicates += 1;
       continue;
     }
@@ -2716,6 +2842,9 @@ const deleteImportRun = async (e, C, { importRunId }) => {
   } while (lastKey);
 
   await ddb.delete({ TableName: HQ_TABLE, Key: { orgId, sk: runItem.sk } });
+
+  // Rebuild derived aggregates (ledger + header) so charts/recurring run off the new truth.
+  await rebuildLedgerAndHeaderFromTxns({ orgId, deleteExistingLedger: true });
 
   return json(200, C, { ok: true, deletedTransactions: deletedTxns, importRunId });
 };
