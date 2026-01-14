@@ -1,0 +1,254 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.modalContent {
+  width: min(760px, 96vw);
+  max-height: min(82vh, 760px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.96), rgba(12, 12, 14, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalContentAfterOpen {
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.modalContentBeforeClose {
+  transform: translateY(6px);
+  opacity: 0;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.closeButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.body {
+  padding: 16px 18px;
+  overflow: auto;
+}
+
+.kvGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.k {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.v {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.92);
+  word-break: break-word;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 10px 0 8px;
+}
+
+.emptyState {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  padding: 10px 0;
+}
+
+.txnList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.txnRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.txnRow:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.txnRow:not(:disabled):hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.txnLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.txnVendor {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.txnMeta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+  display: flex;
+  gap: 6px;
+}
+
+.txnAmount {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.txnAmount[data-dir="out"] {
+  color: #fca5a5;
+}
+
+.txnAmount[data-dir="in"] {
+  color: #86efac;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.secondaryButton {
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.primaryButton {
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  background: #fa3356;
+  color: white;
+  border: 1px solid rgba(250, 51, 86, 0.6);
+  cursor: pointer;
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.primaryButton:not(:disabled):hover {
+  filter: brightness(1.05);
+}

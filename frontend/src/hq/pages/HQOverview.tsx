@@ -33,6 +33,7 @@ import type { HqAccount, HqAlert, HqTransaction } from "@/hq/types";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import HeroCashChart, { type DailyPoint, type VisibleHeroCashSeries } from "@/hq/components/HeroCashChart";
 import TxnModalApply from "@/hq/components/TxnModalApply";
+import RecurringSeriesModal from "@/hq/components/RecurringSeriesModal";
 import styles from "./HQOverview.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -225,6 +226,8 @@ const HQOverview: React.FC = () => {
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
   const [selectedTxn, setSelectedTxn] = React.useState<HqTransaction | null>(null);
   const [isApplyOpen, setIsApplyOpen] = React.useState(false);
+  const [selectedRecurring, setSelectedRecurring] = React.useState<HqRecurringCommitmentsResponse["items"][number] | null>(null);
+  const [isRecurringOpen, setIsRecurringOpen] = React.useState(false);
 
   const [chartRange, setChartRange] = React.useState<HqChartSeriesRange>("1Y");
   const [chartCollapsed, setChartCollapsed] = React.useState(false);
@@ -1037,17 +1040,15 @@ const HQOverview: React.FC = () => {
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(
-                        `/dashboard/hq/transactions?filter=recurring&seriesKey=${encodeURIComponent(entry.seriesKey)}&q=${encodeURIComponent(entry.label)}`
-                      );
+                      setSelectedRecurring(entry);
+                      setIsRecurringOpen(true);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         e.stopPropagation();
-                        navigate(
-                          `/dashboard/hq/transactions?filter=recurring&seriesKey=${encodeURIComponent(entry.seriesKey)}&q=${encodeURIComponent(entry.label)}`
-                        );
+                        setSelectedRecurring(entry);
+                        setIsRecurringOpen(true);
                       }
                     }}
                   >
@@ -1285,6 +1286,30 @@ const HQOverview: React.FC = () => {
             onRequestClose={() => {
               setIsApplyOpen(false);
               setSelectedTxn(null);
+            }}
+          />
+          <RecurringSeriesModal
+            isOpen={isRecurringOpen}
+            series={selectedRecurring}
+            transactions={transactions}
+            canAdmin={canAdmin}
+            onRequestClose={() => {
+              setIsRecurringOpen(false);
+              setSelectedRecurring(null);
+            }}
+            onViewTransactions={(series) => {
+              setIsRecurringOpen(false);
+              setSelectedRecurring(null);
+              navigate(
+                `/dashboard/hq/transactions?filter=recurring&seriesKey=${encodeURIComponent(series.seriesKey)}&q=${encodeURIComponent(series.label)}`
+              );
+            }}
+            onOpenTxn={(txn) => {
+              if (!canAdmin) return;
+              setIsRecurringOpen(false);
+              setSelectedRecurring(null);
+              setSelectedTxn(txn);
+              setIsApplyOpen(true);
             }}
           />
         </>
