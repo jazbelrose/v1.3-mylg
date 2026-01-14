@@ -32,6 +32,7 @@ import {
   reconcilePinnedOrder,
   writePinnedOrder,
 } from '@/dashboard/home/utils/pinnedOrder';
+import { arraysEqual, moveIdBeforeTarget } from '@/dashboard/home/utils/reorder';
 
 const DEFAULT_RECENTS_LIMIT = 12;
 const VIEW_MODE_STORAGE_KEY = 'all-projects-view-mode';
@@ -100,6 +101,9 @@ const AllProjects: React.FC = () => {
     fetchProjects,
     allUsers,
     updateProjectFields,
+    userData,
+    setUserData,
+    updateUserProfile,
   } = useData();
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
@@ -112,9 +116,46 @@ const AllProjects: React.FC = () => {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [pinnedOrder, setPinnedOrder] = useState<string[]>(readPinnedOrder);
+  const [pinnedOrder, setPinnedOrder] = useState<string[]>(() => {
+    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
+    if (Array.isArray(fromProfile)) {
+      return fromProfile.filter((id): id is string => typeof id === 'string');
+    }
+    return readPinnedOrder();
+  });
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
   const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
+
+  const persistPinnedProjectOrder = useCallback(
+    (nextOrder: string[]) => {
+      if (!userData?.userId) return;
+      setUserData((prev) =>
+        prev ? ({ ...prev, pinnedProjectOrder: nextOrder } as UserLite) : prev
+      );
+      void updateUserProfile({ ...(userData as Record<string, unknown>), userId: userData.userId, pinnedProjectOrder: nextOrder }).catch(
+        (err: unknown) => {
+          console.error('Failed to persist pinned project order', err);
+        },
+      );
+    },
+    [setUserData, updateUserProfile, userData],
+  );
+
+  // Prefer server-stored pinned order when available (cross-device), falling back to localStorage.
+  useEffect(() => {
+    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
+    if (!Array.isArray(fromProfile)) return;
+
+    const profileOrder = fromProfile.filter((id): id is string => typeof id === 'string');
+    if (!profileOrder.length) return;
+
+    const pinnedIds = projects
+      .filter((project) => project.pinned)
+      .map((project) => project.projectId);
+
+    const next = reconcilePinnedOrder(profileOrder, pinnedIds);
+    setPinnedOrder((prev) => (arraysEqual(prev, next) ? prev : next));
+  }, [projects, userData]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -275,36 +316,21 @@ const AllProjects: React.FC = () => {
     [projects, handleProjectClick],
   );
 
-  const movePinnedOrder = useCallback((sourceId: string, targetId?: string) => {
-    setPinnedOrder((prev) => {
-      const withoutSource = prev.filter((id) => id !== sourceId);
-      if (!targetId) {
-        return [...withoutSource, sourceId];
-      }
-      const insertIndex = withoutSource.indexOf(targetId);
-      if (insertIndex === -1) {
-        return [...withoutSource, sourceId];
-      }
-      const next = [...withoutSource];
-      next.splice(insertIndex, 0, sourceId);
-      return next;
-    });
-  }, []);
-
   const toggleProjectPin = useCallback(
     (project: Project) => {
       const nextPinned = !project.pinned;
       setPinnedOrder((prev) => {
-        if (nextPinned) {
-          return [project.projectId, ...prev.filter((id) => id !== project.projectId)];
-        }
-        return prev.filter((id) => id !== project.projectId);
+        const next = nextPinned
+          ? [project.projectId, ...prev.filter((id) => id !== project.projectId)]
+          : prev.filter((id) => id !== project.projectId);
+        persistPinnedProjectOrder(next);
+        return next;
       });
       void updateProjectFields(project.projectId, { pinned: nextPinned }).catch((err) => {
         console.error('Failed to update pinned state', err);
       });
     },
-    [updateProjectFields],
+    [persistPinnedProjectOrder, updateProjectFields],
   );
 
   const handleDragStart = useCallback(
@@ -342,10 +368,14 @@ const AllProjects: React.FC = () => {
       if (!draggedProjectId || project.projectId === draggedProjectId || !project.pinned) {
         return;
       }
-      movePinnedOrder(draggedProjectId, project.projectId);
+      setPinnedOrder((prev) => {
+        const next = moveIdBeforeTarget(prev, draggedProjectId, project.projectId);
+        persistPinnedProjectOrder(next);
+        return next;
+      });
       setDragOverProjectId(null);
     },
-    [draggedProjectId, movePinnedOrder],
+    [draggedProjectId, persistPinnedProjectOrder],
   );
 
   const handleDragEnd = useCallback(() => {
@@ -366,11 +396,15 @@ const AllProjects: React.FC = () => {
       event.preventDefault();
       if (!draggedProjectId) return;
       if (event.currentTarget === event.target) {
-        movePinnedOrder(draggedProjectId);
+        setPinnedOrder((prev) => {
+          const next = moveIdBeforeTarget(prev, draggedProjectId);
+          persistPinnedProjectOrder(next);
+          return next;
+        });
         setDragOverProjectId(null);
       }
     },
-    [draggedProjectId, movePinnedOrder],
+    [draggedProjectId, persistPinnedProjectOrder],
   );
 
   useEffect(() => {

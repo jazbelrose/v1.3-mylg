@@ -26,6 +26,7 @@ import {
   reconcilePinnedOrder,
   writePinnedOrder,
 } from "@/dashboard/home/utils/pinnedOrder";
+import { arraysEqual, moveIdBeforeTarget } from "@/dashboard/home/utils/reorder";
 
 import "@/dashboard/home/components/week-widget.css";
 
@@ -44,6 +45,9 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
     fetchProjects,
     allUsers,
     updateProjectFields,
+    userData,
+    setUserData,
+    updateUserProfile,
   } = useData() as {
     projects: ProjectLike[];
     isLoading: boolean;
@@ -51,12 +55,21 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
     fetchProjects: () => Promise<void> | void;
     allUsers: UserLite[];
     updateProjectFields: (projectId: string, fields: Record<string, unknown>) => Promise<void>;
+    userData: UserLite | null;
+    setUserData: React.Dispatch<React.SetStateAction<UserLite | null>>;
+    updateUserProfile: (profile: Record<string, unknown>) => Promise<unknown>;
   };
   const navigate = useNavigate();
 
   const [imgError, setImgError] = useState<Record<string, boolean>>({});
   const [showPendingOnly, setShowPendingOnly] = useState(false);
-  const [pinnedOrder, setPinnedOrder] = useState<string[]>(readPinnedOrder);
+  const [pinnedOrder, setPinnedOrder] = useState<string[]>(() => {
+    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
+    if (Array.isArray(fromProfile)) {
+      return fromProfile.filter((id): id is string => typeof id === "string");
+    }
+    return readPinnedOrder();
+  });
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
   const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
 
@@ -69,6 +82,35 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
   useEffect(() => {
     writePinnedOrder(pinnedOrder);
   }, [pinnedOrder]);
+
+  const persistPinnedProjectOrder = useCallback(
+    (nextOrder: string[]) => {
+      if (!userData?.userId) return;
+      setUserData((prev) => (prev ? ({ ...prev, pinnedProjectOrder: nextOrder } as UserLite) : prev));
+      void updateUserProfile({ ...(userData as Record<string, unknown>), pinnedProjectOrder: nextOrder }).catch(
+        (err: unknown) => {
+          console.error("Failed to persist pinned project order", err);
+        },
+      );
+    },
+    [setUserData, updateUserProfile, userData],
+  );
+
+  // Prefer server-stored pinned order when available (cross-device), falling back to localStorage.
+  useEffect(() => {
+    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
+    if (!Array.isArray(fromProfile)) return;
+
+    const profileOrder = fromProfile.filter((id): id is string => typeof id === "string");
+    if (!profileOrder.length) return;
+
+    const pinnedIds = (projects as ProjectWithMeta[])
+      .filter((project) => project.pinned)
+      .map((project) => project.projectId);
+
+    const next = reconcilePinnedOrder(profileOrder, pinnedIds);
+    setPinnedOrder((prev) => (arraysEqual(prev, next) ? prev : next));
+  }, [projects, userData]);
 
   useEffect(() => {
     const pinnedIds = (projects as ProjectWithMeta[])
@@ -110,36 +152,21 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
     [onOpenProject, navigate, projects]
   );
 
-  const movePinnedOrder = useCallback((sourceId: string, targetId?: string) => {
-    setPinnedOrder((prev) => {
-      const withoutSource = prev.filter((id) => id !== sourceId);
-      if (!targetId) {
-        return [...withoutSource, sourceId];
-      }
-      const insertIndex = withoutSource.indexOf(targetId);
-      if (insertIndex === -1) {
-        return [...withoutSource, sourceId];
-      }
-      const next = [...withoutSource];
-      next.splice(insertIndex, 0, sourceId);
-      return next;
-    });
-  }, []);
-
   const toggleProjectPin = useCallback(
     (project: ProjectWithMeta) => {
       const nextPinned = !project.pinned;
       setPinnedOrder((prev) => {
-        if (nextPinned) {
-          return [project.projectId, ...prev.filter((id) => id !== project.projectId)];
-        }
-        return prev.filter((id) => id !== project.projectId);
+        const next = nextPinned
+          ? [project.projectId, ...prev.filter((id) => id !== project.projectId)]
+          : prev.filter((id) => id !== project.projectId);
+        persistPinnedProjectOrder(next);
+        return next;
       });
       void updateProjectFields(project.projectId, { pinned: nextPinned }).catch((err) => {
         console.error("Failed to update pinned state", err);
       });
     },
-    [updateProjectFields],
+    [persistPinnedProjectOrder, updateProjectFields],
   );
 
   const handleRowDragStart = useCallback(
@@ -183,10 +210,14 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
       if (!draggedProjectId || project.projectId === draggedProjectId || !project.pinned) {
         return;
       }
-      movePinnedOrder(draggedProjectId, project.projectId);
+      setPinnedOrder((prev) => {
+        const next = moveIdBeforeTarget(prev, draggedProjectId, project.projectId);
+        persistPinnedProjectOrder(next);
+        return next;
+      });
       setDragOverProjectId(null);
     },
-    [draggedProjectId, movePinnedOrder],
+    [draggedProjectId, persistPinnedProjectOrder],
   );
 
   const handleRowDragEnd = useCallback(() => {
@@ -210,11 +241,15 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
       event.preventDefault();
       if (!draggedProjectId) return;
       if (event.currentTarget === event.target) {
-        movePinnedOrder(draggedProjectId);
+        setPinnedOrder((prev) => {
+          const next = moveIdBeforeTarget(prev, draggedProjectId);
+          persistPinnedProjectOrder(next);
+          return next;
+        });
         setDragOverProjectId(null);
       }
     },
-    [draggedProjectId, movePinnedOrder],
+    [draggedProjectId, persistPinnedProjectOrder],
   );
 
   const {
