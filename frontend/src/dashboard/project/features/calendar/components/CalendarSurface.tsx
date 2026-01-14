@@ -58,6 +58,7 @@ import {
   isGroupStackTask,
   shouldConvertToGroupStack,
 } from "../lib/groupStack";
+import { buildGroupStackFromTwoFocusBlocks } from "../lib/focusBlockMerge";
 
 import "../calendar-preview.css";
 
@@ -1500,6 +1501,42 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           });
         };
 
+        const focusBlockMergeConsumedTaskIds = new Set<string>();
+
+        const isFocusBlockContainer = (task: CalendarTask): boolean => {
+          if (isGroupStackTask(task)) return false;
+          if (task.kind === "focus_block") return true;
+          const hasChildren =
+            (Array.isArray(task.focusChildTaskIds) && task.focusChildTaskIds.length > 0) ||
+            (Array.isArray(task.focusChecklist) && task.focusChecklist.length > 0);
+          return hasChildren;
+        };
+
+        const changeByTaskId = new Map<string, CalendarEntryChanges>();
+        taskChanges.forEach((change) => {
+          const task = change.entry as CalendarTask;
+          const id = resolveTaskIdentifier(task);
+          if (!id) return;
+          changeByTaskId.set(id, change);
+        });
+
+        const resolveEffectiveDate = (task: CalendarTask, taskId: string): string | null => {
+          const override = changeByTaskId.get(taskId);
+          if (override?.date) return override.date;
+          const source = task.source as ApiTask;
+          return source?.dueDate?.split("T")[0] ?? task.due ?? null;
+        };
+
+        const resolveEffectiveWindow = (
+          task: CalendarTask,
+          taskId: string,
+        ): { startMinutes: number | null; endMinutes: number | null } => {
+          const override = changeByTaskId.get(taskId);
+          const start = parseTimeToMinutes(override?.start ?? task.start);
+          const end = parseTimeToMinutes(override?.end ?? task.end);
+          return { startMinutes: start, endMinutes: end };
+        };
+
         taskChanges.forEach((change) => {
           const task = change.entry as CalendarTask;
           const source = task.source as ApiTask;
@@ -1507,11 +1544,121 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
           const taskId = resolveTaskIdentifier(task);
 
           if (!projectId) return;
+          if (taskId && focusBlockMergeConsumedTaskIds.has(taskId)) return;
 
           const dueDate = change.date;
           const startAt = buildIsoDateTime(dueDate, change.start);
           const endAt = buildIsoDateTime(dueDate, change.end);
           const dueAt = endAt ?? dueDate;
+
+          // Canonicalize FocusBlock + FocusBlock drop to a Group Stack (never render FocusBlock+FocusBlock stacks).
+          if (!change.duplicate && taskId && isFocusBlockContainer(task) && change.start && change.end) {
+            const srcStartMinutes = parseTimeToMinutes(change.start);
+            const srcEndMinutes = parseTimeToMinutes(change.end);
+
+            if (srcStartMinutes != null && srcEndMinutes != null && srcEndMinutes > srcStartMinutes) {
+              const midpoint = (srcStartMinutes + srcEndMinutes) / 2;
+
+              const target = tasks.find((candidate) => {
+                if (!isFocusBlockContainer(candidate)) return false;
+                const candidateId = resolveTaskIdentifier(candidate);
+                if (!candidateId) return false;
+                if (candidateId === taskId) return false;
+                if (focusBlockMergeConsumedTaskIds.has(candidateId)) return false;
+
+                const candidateSource = candidate.source as ApiTask;
+                const candidateProjectId = candidateSource.projectId ?? activeProjectId ?? undefined;
+                if (!candidateProjectId || candidateProjectId !== projectId) return false;
+
+                const candidateDate = resolveEffectiveDate(candidate, candidateId);
+                if (!candidateDate || candidateDate !== dueDate) return false;
+
+                const { startMinutes, endMinutes } = resolveEffectiveWindow(candidate, candidateId);
+                if (startMinutes == null || endMinutes == null) return false;
+
+                return midpoint >= startMinutes && midpoint < endMinutes;
+              });
+
+              if (target) {
+                const dstId = resolveTaskIdentifier(target);
+                if (dstId) {
+                  const warn =
+                    import.meta.env.DEV
+                      ? (message: string, details: Record<string, unknown>) => console.warn(message, details)
+                      : undefined;
+
+                  const plan = buildGroupStackFromTwoFocusBlocks({
+                    src: task,
+                    dst: target,
+                    dstId,
+                    allTasks: tasks,
+                    taskById: calendarTaskByStableId,
+                    resolveId: resolveTaskIdentifier,
+                    warn,
+                  });
+
+                  const { startMinutes: dstStart, endMinutes: dstEnd } = resolveEffectiveWindow(target, dstId);
+                  const mergedStart = Math.min(dstStart ?? srcStartMinutes, srcStartMinutes);
+                  const mergedEnd = Math.max(dstEnd ?? srcEndMinutes, srcEndMinutes);
+                  const mergedDurationMinutes = Math.max(15, mergedEnd - mergedStart);
+
+                  const mergedStartAt = buildIsoDateTime(dueDate, formatMinutesHHMM(mergedStart));
+                  const mergedEndAt = buildIsoDateTime(dueDate, formatMinutesHHMM(mergedEnd));
+                  const mergedDueAt = mergedEndAt ?? dueDate;
+
+                  const normalizedTitle = (target.title ?? "").trim().toLowerCase();
+                  const mergedTitle = !normalizedTitle || normalizedTitle === "focus block" ? "Group Stack" : target.title ?? "Group Stack";
+
+                  const childUpdates = plan.childUpdates.filter(({ taskId: childId }) => {
+                    const child = calendarTaskByStableId.get(childId) ?? null;
+                    if (!child) return true;
+                    const childSource = child.source as ApiTask;
+                    const childProjectId = childSource.projectId ?? projectId;
+                    if (childProjectId === projectId) return true;
+                    warn?.("[calendar] Dropping cross-project focus child during merge", {
+                      focusId: taskId,
+                      childId,
+                      childProjectId,
+                      projectId,
+                    });
+                    return false;
+                  });
+
+                  operations.push(
+                    (async () => {
+                      await updateTasksBulk(projectId, [
+                        {
+                          taskId: dstId,
+                          fields: {
+                            title: mergedTitle,
+                            kind: GROUP_STACK_KIND,
+                            startAt: mergedStartAt,
+                            endAt: mergedEndAt,
+                            dueDate: mergedDueAt,
+                            dueAt: mergedDueAt,
+                            durationMinutes: mergedDurationMinutes,
+                            focusChildTaskIds: plan.leafTaskIds,
+                            focusChecklist: plan.focusChecklist,
+                            assigneeIds: plan.participants,
+                          },
+                        },
+                      ]);
+
+                      if (childUpdates.length > 0) {
+                        await updateTasksBulk(projectId, childUpdates);
+                      }
+
+                      await deleteTask({ projectId, taskId });
+                    })(),
+                  );
+
+                  focusBlockMergeConsumedTaskIds.add(taskId);
+                  focusBlockMergeConsumedTaskIds.add(dstId);
+                  return;
+                }
+              }
+            }
+          }
 
           if (change.duplicate) {
             if (isFocusBlockLike(task)) {
