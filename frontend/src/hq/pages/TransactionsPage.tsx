@@ -148,6 +148,8 @@ const TransactionsPage: React.FC = () => {
   const [amountDraftMax, setAmountDraftMax] = React.useState("");
   const amountMinRef = React.useRef<HTMLInputElement | null>(null);
   const amountMaxRef = React.useRef<HTMLInputElement | null>(null);
+  const amountTriggerRef = React.useRef<HTMLElement | null>(null);
+  const [amountPopoverWidth, setAmountPopoverWidth] = React.useState<number | null>(null);
 
   const [sort, setSort] = React.useState<{ key: SortKey; dir: SortDir }>({ key: "date", dir: "desc" });
 
@@ -230,6 +232,16 @@ const TransactionsPage: React.FC = () => {
     setAmountDraftMin(centsToMoneyInput(amountMinCents));
     setAmountDraftMax(centsToMoneyInput(amountMaxCents));
   }, [amountMaxCents, amountMinCents, amountPopoverOpen]);
+
+  React.useLayoutEffect(() => {
+    const el = amountTriggerRef.current;
+    if (!el) return;
+    const update = () => setAmountPopoverWidth(el.getBoundingClientRect().width);
+    update();
+    const ro = new ResizeObserver(() => update());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   React.useEffect(() => {
     const today = todayPacificIsoDate();
@@ -454,21 +466,14 @@ const TransactionsPage: React.FC = () => {
     startDate,
   ]);
 
-  const amountLabel = React.useMemo(() => {
-    if (typeof amountMinCents !== "number" && typeof amountMaxCents !== "number") return "Amount: Any";
+  const amountValue = React.useMemo(() => {
+    if (typeof amountMinCents !== "number" && typeof amountMaxCents !== "number") return "Any";
     if (typeof amountMinCents === "number" && typeof amountMaxCents === "number") {
-      return `Amount: ${currency.format(amountMinCents / 100)}–${currency.format(amountMaxCents / 100)}`;
+      return `${currency.format(amountMinCents / 100)}–${currency.format(amountMaxCents / 100)}`;
     }
-    if (typeof amountMinCents === "number") return `Amount: ≥${currency.format(amountMinCents / 100)}`;
-    return `Amount: ≤${currency.format((amountMaxCents as number) / 100)}`;
+    if (typeof amountMinCents === "number") return `≥${currency.format(amountMinCents / 100)}`;
+    return `≤${currency.format((amountMaxCents as number) / 100)}`;
   }, [amountMaxCents, amountMinCents]);
-
-  const totalsLine = React.useMemo(() => {
-    if (!totals) return "—";
-    return `${totals.count} txns · In ${currency.format(totals.inCents / 100)} · Out ${currency.format(
-      totals.outCents / 100
-    )} · Net ${currency.format(totals.netCents / 100)}`;
-  }, [totals]);
 
   const applyAmountDraft = React.useCallback(() => {
     const nextMin = parseMoneyToCents(amountDraftMin);
@@ -587,98 +592,107 @@ const TransactionsPage: React.FC = () => {
               ]}
             />
 
-            <Popover open={amountPopoverOpen} onOpenChange={setAmountPopoverOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={[styles.filterField, styles.amountChip].join(" ")}
-                  data-active={typeof amountMinCents === "number" || typeof amountMaxCents === "number" ? "true" : "false"}
-                  aria-label="Filter by amount"
+            <div className={styles.amountSlot}>
+              <Popover open={amountPopoverOpen} onOpenChange={setAmountPopoverOpen}>
+                <PopoverTrigger asChild ref={amountTriggerRef}>
+                  <button
+                    type="button"
+                    className={[styles.filterField, styles.amountChip].join(" ")}
+                    data-active={typeof amountMinCents === "number" || typeof amountMaxCents === "number" ? "true" : "false"}
+                    aria-label="Filter by amount"
+                  >
+                    <span className={styles.chipLabel}>Amount</span>
+                    <span className={styles.chipValue}>{amountValue}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className={styles.amountPopover}
+                  align="end"
+                  role="dialog"
+                  aria-label="Amount filter"
+                  style={{ width: amountPopoverWidth ?? 320 }}
                 >
-                  {amountLabel}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className={styles.amountPopover} align="start" role="dialog" aria-label="Amount filter">
-                <div className={styles.amountPopoverTitle}>Amount</div>
-                <div className={styles.amountInputs}>
-                  <label className={styles.amountField}>
-                    <span className={styles.amountFieldLabel}>Min</span>
-                    <input
-                      ref={amountMinRef}
-                      className={styles.amountInput}
-                      inputMode="decimal"
-                      placeholder="Any"
-                      value={amountDraftMin}
-                      onChange={(e) => setAmountDraftMin(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          applyAmountDraft();
-                        }
-                      }}
-                    />
-                  </label>
-                  <label className={styles.amountField}>
-                    <span className={styles.amountFieldLabel}>Max</span>
-                    <input
-                      ref={amountMaxRef}
-                      className={styles.amountInput}
-                      inputMode="decimal"
-                      placeholder="Any"
-                      value={amountDraftMax}
-                      onChange={(e) => setAmountDraftMax(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          applyAmountDraft();
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
+                  <div className={styles.amountPopoverTitle}>Amount</div>
+                  <div className={styles.amountInputs}>
+                    <label className={styles.amountField}>
+                      <span className={styles.amountFieldLabel}>Min</span>
+                      <input
+                        ref={amountMinRef}
+                        className={styles.amountInput}
+                        inputMode="decimal"
+                        placeholder="Any"
+                        value={amountDraftMin}
+                        onChange={(e) => setAmountDraftMin(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            applyAmountDraft();
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className={styles.amountField}>
+                      <span className={styles.amountFieldLabel}>Max</span>
+                      <input
+                        ref={amountMaxRef}
+                        className={styles.amountInput}
+                        inputMode="decimal"
+                        placeholder="Any"
+                        value={amountDraftMax}
+                        onChange={(e) => setAmountDraftMax(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            applyAmountDraft();
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
 
-                <div className={styles.amountToggles} aria-label="Quick amount modes">
-                  <button
-                    type="button"
-                    className={styles.amountToggle}
-                    onClick={() => {
-                      setAmountDraftMax("");
-                      requestAnimationFrame(() => amountMinRef.current?.focus());
-                    }}
-                  >
-                    ≥
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.amountToggle}
-                    onClick={() => {
-                      setAmountDraftMin("");
-                      requestAnimationFrame(() => amountMaxRef.current?.focus());
-                    }}
-                  >
-                    ≤
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.amountToggle}
-                    onClick={() => {
-                      requestAnimationFrame(() => amountMinRef.current?.focus());
-                    }}
-                  >
-                    Between
-                  </button>
-                </div>
+                  <div className={styles.amountToggles} aria-label="Quick amount modes">
+                    <button
+                      type="button"
+                      className={styles.amountToggle}
+                      onClick={() => {
+                        setAmountDraftMax("");
+                        requestAnimationFrame(() => amountMinRef.current?.focus());
+                      }}
+                    >
+                      ≥
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.amountToggle}
+                      onClick={() => {
+                        setAmountDraftMin("");
+                        requestAnimationFrame(() => amountMaxRef.current?.focus());
+                      }}
+                    >
+                      ≤
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.amountToggle}
+                      onClick={() => {
+                        requestAnimationFrame(() => amountMinRef.current?.focus());
+                      }}
+                    >
+                      Between
+                    </button>
+                  </div>
 
-                <div className={styles.amountActions}>
-                  <button type="button" className={styles.amountClear} onClick={clearAmount}>
-                    Clear
-                  </button>
-                  <button type="button" className={styles.amountApply} onClick={applyAmountDraft}>
-                    Apply
-                  </button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                  <div className={styles.amountActions}>
+                    <button type="button" className={styles.amountClear} onClick={clearAmount}>
+                      Clear
+                    </button>
+                    <button type="button" className={styles.amountApply} onClick={applyAmountDraft}>
+                      Apply
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
 
             <HqSelect
               className={styles.filterField}
@@ -717,7 +731,34 @@ const TransactionsPage: React.FC = () => {
                   disabled={!totals}
                   aria-label={totals ? "View totals (filtered)" : "Totals unavailable"}
                 >
-                  {totalsLine}
+                  {totals ? (
+                    <>
+                      <span className={styles.totalsValue}>{totals.count}</span>&nbsp;
+                      <span className={styles.totalsLabel}>txns</span>
+                      <span className={styles.totalsSep}>·</span>
+                      <span className={styles.totalsLabel}>In</span>&nbsp;
+                      <span className={[styles.totalsValue, styles.totalsIn].join(" ")}>
+                        {currency.format(totals.inCents / 100)}
+                      </span>
+                      <span className={styles.totalsSep}>·</span>
+                      <span className={styles.totalsLabel}>Out</span>&nbsp;
+                      <span className={[styles.totalsValue, styles.totalsOut].join(" ")}>
+                        {currency.format(totals.outCents / 100)}
+                      </span>
+                      <span className={styles.totalsSep}>·</span>
+                      <span className={styles.totalsLabel}>Net</span>&nbsp;
+                      <span
+                        className={[
+                          styles.totalsValue,
+                          totals.netCents < 0 ? styles.totalsOut : styles.totalsIn,
+                        ].join(" ")}
+                      >
+                        {currency.format(totals.netCents / 100)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className={styles.totalsLabel}>—</span>
+                  )}
                 </button>
               </PopoverTrigger>
               <PopoverContent className={styles.totalsPopover} align="end" role="dialog" aria-label="Totals (filtered)">

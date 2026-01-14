@@ -77,28 +77,58 @@
 .filters {
   position: relative;
   display: grid;
-  grid-template-columns: 1.4fr 0.8fr 0.85fr 0.9fr 0.85fr 0.7fr 0.7fr;
+  grid-template-columns:
+    minmax(220px, 1.4fr)
+    minmax(160px, 0.85fr)
+    minmax(160px, 0.85fr)
+    minmax(160px, 0.9fr)
+    minmax(200px, 0.95fr)
+    minmax(260px, 1fr)
+    minmax(150px, 0.7fr);
   gap: 8px;
   padding: 10px 54px 10px 10px;
+}
+
+.amountSlot {
+  width: 100%;
+}
+
+.amountSlot :global(.ui-popover) {
+  width: 100%;
 }
 
 .amountChip {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  width: 100%;
 }
 
 .amountChip[data-active="true"] {
   border-color: rgba(250, 51, 86, 0.35);
 }
 
+.chipLabel {
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.01em;
+}
+
+.chipValue {
+  margin-left: 12px;
+  text-align: right;
+  min-width: 96px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 .amountPopover {
   width: 280px;
   padding: 10px;
+  z-index: 1200;
 }
 
 .amountPopoverTitle {
@@ -200,26 +230,52 @@
 .totalsLine {
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  line-height: 1.2;
   cursor: pointer;
-  padding: 2px 0;
+  padding: 6px 0 2px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .totalsLine:disabled {
   cursor: default;
-  color: rgba(255, 255, 255, 0.35);
+  opacity: 0.55;
 }
 
 .totalsLine:not(:disabled):hover {
   text-decoration: underline;
-  color: rgba(255, 255, 255, 0.85);
 }
 
 .totalsPopover {
   width: 260px;
   padding: 10px;
+  z-index: 1200;
+}
+
+.totalsLabel {
+  color: rgba(255, 255, 255, 0.68);
+  letter-spacing: 0.01em;
+}
+
+.totalsValue {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.totalsSep {
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0 8px;
+}
+
+.totalsIn {
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.totalsOut {
+  color: rgba(250, 51, 86, 0.95);
 }
 
 .totalsPopoverTitle {

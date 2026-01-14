@@ -156,40 +156,28 @@ export const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentPro
 
       const rect = trigger.getBoundingClientRect();
       const contentHeight = content?.offsetHeight ?? 150; // estimate if not rendered yet
+      const contentWidth = content?.offsetWidth ?? 240; // estimate if not rendered yet
       const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
       const gap = 8;
-      
-      // Check if there's enough room below, if not flip to top
-      const spaceBelow = viewportHeight - rect.bottom - gap;
-      const flipToTop = spaceBelow < contentHeight && rect.top > contentHeight + gap;
-      
-      const baseStyle: React.CSSProperties = {
-        transform: "translateX(0)",
-      };
-      
-      if (flipToTop) {
-        // Position above the trigger
-        baseStyle.top = rect.top - gap;
-        baseStyle.transform = "translateY(-100%)";
-      } else {
-        // Position below the trigger
-        baseStyle.top = rect.bottom + gap;
-      }
+      const collisionPadding = 12;
 
-      if (align === "center") {
-        baseStyle.left = rect.left + rect.width / 2;
-        baseStyle.transform = flipToTop ? "translate(-50%, -100%)" : "translateX(-50%)";
-      } else if (align === "end") {
-        baseStyle.left = rect.right;
-        baseStyle.transform = flipToTop ? "translate(-100%, -100%)" : "translateX(-100%)";
-      } else {
-        baseStyle.left = rect.left;
-        if (flipToTop) {
-          baseStyle.transform = "translateY(-100%)";
-        }
-      }
+      const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
-      setPositionStyle(baseStyle);
+      const fitsBelow = rect.bottom + gap + contentHeight <= viewportHeight - collisionPadding;
+      const fitsAbove = rect.top - gap - contentHeight >= collisionPadding;
+      const placeAbove = !fitsBelow && fitsAbove;
+
+      let top = placeAbove ? rect.top - gap - contentHeight : rect.bottom + gap;
+
+      let left = rect.left;
+      if (align === "center") left = rect.left + rect.width / 2 - contentWidth / 2;
+      else if (align === "end") left = rect.right - contentWidth;
+
+      left = clamp(left, collisionPadding, viewportWidth - collisionPadding - contentWidth);
+      top = clamp(top, collisionPadding, viewportHeight - collisionPadding - contentHeight);
+
+      setPositionStyle({ top, left });
     }, [align, triggerRef, contentRef]);
 
     const refCallback = (node: HTMLDivElement | null) => {
