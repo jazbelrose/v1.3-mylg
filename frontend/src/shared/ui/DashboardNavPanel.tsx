@@ -332,7 +332,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
                 <div>
                   <h2 className={searchModalStyles.modalTitle}>Search</h2>
                   <p className={searchModalStyles.modalSubtitle}>
-                    Find projects, messages, collaborators, and more.
+                    Find projects, messages, organization members, and more.
                   </p>
                 </div>
               </div>

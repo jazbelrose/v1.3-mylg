@@ -184,7 +184,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       {
         key: "collaborators",
         icon: <Users size={24} color="white" />,
-        label: "Collaborators",
+        label: "Organization",
         onClick: () => handleNavigation("collaborators"),
         isActive: isDashboardPath && activeDashboardView === "collaborators",
       },

@@ -72,7 +72,7 @@ const Dashboard: React.FC = () => {
       case "/dashboard/settings":
         return "Dashboard - Settings";
       case "/dashboard/collaborators":
-        return "Dashboard - Collaborators";
+        return "Dashboard - Organization";
       case "/dashboard/hq/accounts":
         return "Dashboard - Accounts";
       case "/dashboard/hq/import":

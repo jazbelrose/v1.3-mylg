@@ -11,7 +11,7 @@ import ProjectsPanelMobile from "@/dashboard/home/components/ProjectsPanelMobile
 import NotificationsPage from "@/dashboard/home/components/NotificationsPage";
 import Messages from "@/dashboard/features/messages";
 import Settings from "@/dashboard/home/components/Settings";
-import Collaborators from "@/dashboard/home/components/Collaborators";
+import Organization from "@/dashboard/home/components/organization";
 import SpinnerScreen from "@/shared/ui/SpinnerScreen";
 import PendingApprovalScreen from "@/shared/ui/PendingApprovalScreen";
 import AllProjectsWeekWidget from "@/dashboard/home/components/AllProjectsWeekWidget";
@@ -443,7 +443,7 @@ const WelcomeScreen: React.FC = () => {
       case "settings":
         return <Settings />;
       case "collaborators":
-        return <Collaborators />;
+        return <Organization />;
       default:
         return null;
     }

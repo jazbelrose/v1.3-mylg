@@ -18,6 +18,7 @@ import { deleteHqImportRun, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import Modal from "@/shared/ui/ModalWithStack";
+import PageHeader from "@/shared/ui/PageHeader";
 import styles from "./HQLayout.module.css";
 
 type HQLayoutProps = {
@@ -228,13 +229,10 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   const isShredEverythingEnabled = confirmAction === "remove-everything" && confirmText.trim().toUpperCase() === "SHRED";
 
   const pageHeader = (
-    <header className={styles.pageHeader}>
-      <div className={styles.pageHeading}>
-        <div className={styles.headingCopy}>
-          <h1 className={styles.pageTitle}>{title}</h1>
-          {description ? <p className={styles.pageSubtitle}>{description}</p> : null}
-        </div>
-
+    <PageHeader
+      title={title}
+      subtitle={description}
+      actions={
         <div className={styles.actionsRow} aria-label="HQ header actions">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -406,8 +404,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
             </DropdownMenu.Root>
           ) : null}
         </div>
-      </div>
-    </header>
+      }
+    />
   );
 
   const mobilePageHeader = (
