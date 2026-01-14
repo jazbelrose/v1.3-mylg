@@ -36,7 +36,13 @@ export const FilePreviewModal = ({
 }: FilePreviewModalProps) => {
   const currentFile = currentIndex !== null ? displayedFiles[currentIndex] : undefined;
   const extension = currentFile?.fileName.split(".").pop()?.toLowerCase();
-  const downloadUrl = selectedImage ? getFileUrl(fileUrlsToKeys([selectedImage])[0]) : "";
+  const resolvedUrl = (() => {
+    if (!selectedImage) return "";
+    if (selectedImage.startsWith("blob:")) return selectedImage;
+    const [decodedKey] = fileUrlsToKeys([selectedImage]);
+    return decodedKey ? getFileUrl(decodedKey) : selectedImage;
+  })();
+  const downloadUrl = resolvedUrl;
   const isTextLike = Boolean(extension && ["txt", "md", "markdown", "json", "log", "csv"].includes(extension));
 
   const renderContent = () => {
@@ -44,7 +50,7 @@ export const FilePreviewModal = ({
     if (isPreviewableImage(currentFile)) {
       return (
         <img
-          src={selectedImage ? getFileUrl(fileUrlsToKeys([selectedImage])[0]) : ""}
+          src={resolvedUrl}
           alt="Selected"
           onError={(e) => {
             (e.target as HTMLImageElement).src = selectedImage || "";
@@ -65,6 +71,8 @@ export const FilePreviewModal = ({
           fileUrl={selectedImage}
           fileName={currentFile.fileName}
           canEdit={canEdit}
+          showTitle={false}
+          showDownloadLink={false}
         />
       );
     }
@@ -101,9 +109,14 @@ export const FilePreviewModal = ({
             <button onClick={onRequestClose} className={styles.iconButton} aria-label="Close image">
               <FontAwesomeIcon icon={faXmark} />
             </button>
-            <a href={downloadUrl} download className={styles.iconButton} aria-label="Download file">
-              <FontAwesomeIcon icon={faDownload} />
-            </a>
+            <div className={styles.imageTopBarTitle} title={currentFile.fileName}>{currentFile.fileName}</div>
+            {downloadUrl ? (
+              <a href={downloadUrl} download className={styles.iconButton} aria-label="Download file">
+                <FontAwesomeIcon icon={faDownload} />
+              </a>
+            ) : (
+              <span />
+            )}
           </div>
         </div>
       )}

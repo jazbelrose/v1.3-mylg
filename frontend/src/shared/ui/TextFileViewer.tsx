@@ -96,9 +96,18 @@ export type TextFileViewerProps = {
   fileUrl: string;
   fileName: string;
   canEdit?: boolean;
+  showTitle?: boolean;
+  showDownloadLink?: boolean;
 };
 
-export default function TextFileViewer({ projectId, fileUrl, fileName, canEdit = false }: TextFileViewerProps) {
+export default function TextFileViewer({
+  projectId,
+  fileUrl,
+  fileName,
+  canEdit = false,
+  showTitle = true,
+  showDownloadLink = true,
+}: TextFileViewerProps) {
   const [viewInfo, setViewInfo] = useState<FileViewInfo | null>(null);
   const [text, setText] = useState("");
   const [loadedBytes, setLoadedBytes] = useState(0);
@@ -262,7 +271,7 @@ export default function TextFileViewer({ projectId, fileUrl, fileName, canEdit =
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, loadedBytes, viewInfo]);
+  }, [isLoading, viewInfo]);
 
   const ensureFullyLoadedForEdit = useCallback(async () => {
     if (!viewInfo) return false;
@@ -273,11 +282,9 @@ export default function TextFileViewer({ projectId, fileUrl, fileName, canEdit =
 
     const targetBytes = viewInfo.sizeBytes ?? MAX_INLINE_EDIT_BYTES;
     while (loadedBytesRef.current < targetBytes) {
-      // eslint-disable-next-line no-await-in-loop
       await loadMore();
       // If we didn't make progress, bail.
       if (loadedBytesRef.current >= targetBytes) break;
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 0));
       if (viewInfo.sizeBytes === null && loadedBytesRef.current >= MAX_INLINE_EDIT_BYTES) break;
     }
@@ -370,7 +377,9 @@ export default function TextFileViewer({ projectId, fileUrl, fileName, canEdit =
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
-        <div className={styles.title} title={fileName}>{fileName}</div>
+        {showTitle && (
+          <div className={styles.title} title={fileName}>{fileName}</div>
+        )}
         <div className={styles.actions}>
           {!isEditing && canEdit && isEditable && (
             <button type="button" className={styles.button} onClick={() => void startEditing()} disabled={isLoading}>
@@ -418,7 +427,7 @@ export default function TextFileViewer({ projectId, fileUrl, fileName, canEdit =
                 {isLoading ? "Loading…" : "Load more"}
               </button>
             )}
-            {viewInfo?.downloadUrl && (
+            {showDownloadLink && viewInfo?.downloadUrl && (
               <a className={styles.link} href={viewInfo.downloadUrl} target="_blank" rel="noreferrer">
                 Download
               </a>

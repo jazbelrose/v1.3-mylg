@@ -9,6 +9,7 @@ import FileManagerToolbar from "./FileManagerToolbar";
 import FileManagerContent from "./FileManagerContent";
 import FileManagerFooter from "./FileManagerFooter";
 import FilePreviewModal from "./FilePreviewModal";
+import NoteEditorModal from "@/shared/ui/NoteEditorModal";
 import { useFileManagerState } from "../Shared/hooks/useFileManagerState";
 import { useFileMessenger } from "../Shared/hooks/useFileMessenger";
 import { useFileTransfers } from "../Shared/hooks/useFileTransfers";
@@ -424,18 +425,40 @@ const FileManagerComponent = forwardRef<FileManagerRef, FileManagerProps>(
           }}
         />
 
-        <FilePreviewModal
-          isOpen={isImageModalOpen}
-          onRequestClose={closeImageModal}
-          projectId={(activeProject?.projectId as string | undefined) || ""}
-          canEdit={canDelete}
-          displayedFiles={displayedFiles}
-          currentIndex={currentIndex}
-          selectedImage={selectedImage}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        />
+        {(() => {
+          const currentFile = currentIndex !== null ? displayedFiles[currentIndex] : undefined;
+          const ext = currentFile?.fileName.split(".").pop()?.toLowerCase() || "";
+          const isTextLike = Boolean(ext && ["txt", "md", "markdown", "json", "log", "csv"].includes(ext));
+          const projectId = (activeProject?.projectId as string | undefined) || "";
+
+          if (isImageModalOpen && currentFile && isTextLike) {
+            return (
+              <NoteEditorModal
+                isOpen
+                mode="open"
+                projectId={projectId}
+                canEdit={canDelete}
+                openFile={{ fileUrl: currentFile.url, fileName: currentFile.fileName }}
+                onRequestClose={closeImageModal}
+              />
+            );
+          }
+
+          return (
+            <FilePreviewModal
+              isOpen={isImageModalOpen}
+              onRequestClose={closeImageModal}
+              projectId={projectId}
+              canEdit={canDelete}
+              displayedFiles={displayedFiles}
+              currentIndex={currentIndex}
+              selectedImage={selectedImage}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            />
+          );
+        })()}
       </>
     );
   }
