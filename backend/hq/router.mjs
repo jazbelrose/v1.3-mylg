@@ -2156,6 +2156,144 @@ const applyTransactionsBulk = async (e, C) => {
   return json(200, C, { orgId, updated: foundByHash.size });
 };
 
+const canonicalCents = (txn) => {
+  const signed = canonicalSignedAmount(txn);
+  if (typeof signed !== "number" || !Number.isFinite(signed)) return 0;
+  return Math.round(signed * 100);
+};
+
+const effectivePaymentTypeServer = (txn) => {
+  const paymentType = txn?.paymentType;
+  if (paymentType) return String(paymentType).trim();
+  const legacy = String(txn?.type || "unknown").trim();
+  // Legacy stored `type: "recurring"` should not be treated as a payment type.
+  if (legacy === "recurring") return "unknown";
+  return legacy;
+};
+
+const buildRecurringSeriesKeyIndexServer = (transactions) => {
+  const out = new Map();
+
+  const candidatesByDerivedKey = new Map();
+  const ambiguousDerivedKeys = new Set();
+  const countsByDerivedDate = new Map();
+
+  for (const txn of transactions || []) {
+    const dh = String(txn?.dedupeHash || "").trim();
+    if (!dh) continue;
+
+    const recurringSeriesId = typeof txn?.recurringSeriesId === "string" ? txn.recurringSeriesId.trim() : "";
+    if (recurringSeriesId) {
+      out.set(dh, `rs:${recurringSeriesId}`);
+      continue;
+    }
+
+    const signed = canonicalSignedAmount(txn);
+    if (typeof signed !== "number" || !Number.isFinite(signed)) continue;
+
+    const direction = signed < 0 ? "out" : "in";
+    const amountBucket = Math.round(Math.abs(signed));
+    const { vendorKey } = getVendorKeyForTxn(txn);
+    const accountId = txn?.accountId || "unknown";
+    const baseKey = `${vendorKey}:${accountId}:${direction}:${amountBucket}`;
+
+    const discriminator = extractRecurringSeriesDiscriminator(txn);
+    const derivedKey = discriminator ? `${baseKey}:${discriminator}` : baseKey;
+
+    const date = String(txn?.postedAt || "").slice(0, 10);
+    const candidate = { txn, dedupeHash: dh, derivedKey, date };
+    const arr = candidatesByDerivedKey.get(derivedKey) || [];
+    arr.push(candidate);
+    candidatesByDerivedKey.set(derivedKey, arr);
+
+    const countKey = `${derivedKey}|||${date}`;
+    const nextCount = (countsByDerivedDate.get(countKey) || 0) + 1;
+    countsByDerivedDate.set(countKey, nextCount);
+    if (nextCount > 1) ambiguousDerivedKeys.add(derivedKey);
+  }
+
+  for (const [derivedKey, items] of candidatesByDerivedKey.entries()) {
+    items.sort((a, b) => {
+      const dateCmp = String(a?.txn?.postedAt || "").localeCompare(String(b?.txn?.postedAt || ""));
+      if (dateCmp) return dateCmp;
+      return String(a?.dedupeHash || "").localeCompare(String(b?.dedupeHash || ""));
+    });
+
+    if (!ambiguousDerivedKeys.has(derivedKey)) {
+      for (const it of items) out.set(it.dedupeHash, derivedKey);
+      continue;
+    }
+
+    const byDate = new Map();
+    for (const it of items) {
+      const arr = byDate.get(it.date) || [];
+      arr.push(it);
+      byDate.set(it.date, arr);
+    }
+
+    for (const arr of byDate.values()) {
+      arr.sort((a, b) => {
+        const dateCmp = String(a?.txn?.postedAt || "").localeCompare(String(b?.txn?.postedAt || ""));
+        if (dateCmp) return dateCmp;
+        return String(a?.dedupeHash || "").localeCompare(String(b?.dedupeHash || ""));
+      });
+      for (let i = 0; i < arr.length; i += 1) {
+        const it = arr[i];
+        if (!it) continue;
+        out.set(it.dedupeHash, `${derivedKey}:slot${i + 1}`);
+      }
+    }
+  }
+
+  return out;
+};
+
+const txnTitleForSearch = (t) => t?.vendor || t?.counterparty || t?.rawDescription || "";
+
+const sortTransactionsStable = (arr, { sortKey, sortDir }) => {
+  const dir = String(sortDir || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+  const key = String(sortKey || "date").toLowerCase();
+
+  const dateKey = (t) => String(t?.postedAt || "");
+  const dedupeKey = (t) => String(t?.dedupeHash || "");
+  const categoryKey = (t) => String(t?.categoryId || "OTHER");
+  const vendorKey = (t) => String(txnTitleForSearch(t) || "").toLowerCase();
+  const centsKey = (t) => canonicalCents(t);
+
+  const compareDateDescThenId = (a, b) => {
+    const d = dateKey(b).localeCompare(dateKey(a));
+    if (d) return d;
+    return dedupeKey(a).localeCompare(dedupeKey(b));
+  };
+
+  const compare = (a, b) => {
+    if (key === "amount") {
+      const delta = centsKey(a) - centsKey(b);
+      if (delta) return dir === "asc" ? delta : -delta;
+      return compareDateDescThenId(a, b);
+    }
+
+    if (key === "category") {
+      const c = categoryKey(a).localeCompare(categoryKey(b));
+      if (c) return dir === "asc" ? c : -c;
+      return compareDateDescThenId(a, b);
+    }
+
+    if (key === "vendor") {
+      const v = vendorKey(a).localeCompare(vendorKey(b));
+      if (v) return dir === "asc" ? v : -v;
+      return compareDateDescThenId(a, b);
+    }
+
+    // date (default)
+    const d = dateKey(a).localeCompare(dateKey(b));
+    if (d) return dir === "asc" ? d : -d;
+    return dedupeKey(a).localeCompare(dedupeKey(b));
+  };
+
+  return arr.slice().sort(compare);
+};
+
 // GET /hq/transactions?orgId=...&accountId=...&from=...&to=...&cursor=...
 const listTransactions = async (e, C) => {
   const userId = requireCallerUserId(e);
@@ -2169,60 +2307,226 @@ const listTransactions = async (e, C) => {
   const from = q.from ? String(q.from).trim() : "0000-00-00";
   const to = q.to ? String(q.to).trim() : "9999-99-99";
   const limit = Math.min(parseInt(q.limit || "100", 10), 500);
-  const exclusiveStartKey = decodeCursor(q.cursor);
+
+  const includeTotals =
+    String(q.include_totals ?? q.includeTotals ?? "").trim() === "1" ||
+    String(q.include_totals ?? q.includeTotals ?? "").trim().toLowerCase() === "true";
+
+  const textQuery = String(q.q || "").trim();
+  const direction = String(q.dir ?? q.flow ?? "").trim().toLowerCase(); // in|out
+  const paymentType = String(q.paymentType ?? q.type ?? "").trim();
+  const recurringOnly =
+    String(q.recurringOnly ?? q.recurring ?? "").trim() === "1" ||
+    String(q.recurringOnly ?? q.recurring ?? "").trim().toLowerCase() === "true" ||
+    String(q.filter || "").trim().toLowerCase() === "recurring";
+  const seriesKey = String(q.seriesKey || "").trim();
+  const categoryId = String(q.categoryId ?? q.category ?? "").trim();
+
+  const amountMinCentsRaw = q.amount_min_cents ?? q.amountMinCents ?? q.amountMin ?? q.amount_min;
+  const amountMaxCentsRaw = q.amount_max_cents ?? q.amountMaxCents ?? q.amountMax ?? q.amount_max;
+  const amountMinCents = Number.isFinite(parseInt(amountMinCentsRaw ?? "", 10)) ? parseInt(amountMinCentsRaw, 10) : null;
+  const amountMaxCents = Number.isFinite(parseInt(amountMaxCentsRaw ?? "", 10)) ? parseInt(amountMaxCentsRaw, 10) : null;
+  const amountMode = String(q.amount_mode ?? q.amountMode ?? "ABS").trim().toUpperCase(); // ABS|SIGNED
+
+  const sortKey = String(q.sort_key ?? q.sortKey ?? "date").trim().toLowerCase();
+  const sortDir = String(q.sort_dir ?? q.sortDir ?? "desc").trim().toLowerCase();
+
+  const wantsEnhanced =
+    includeTotals ||
+    Boolean(textQuery) ||
+    Boolean(direction) ||
+    Boolean(paymentType) ||
+    recurringOnly ||
+    Boolean(seriesKey) ||
+    Boolean(categoryId) ||
+    typeof amountMinCents === "number" ||
+    typeof amountMaxCents === "number" ||
+    (sortKey && sortKey !== "date") ||
+    (sortDir && sortDir !== "desc") ||
+    (accountId && sortKey !== "date");
+
+  // Default path (fast): date-range query + Dynamo cursor.
+  if (!wantsEnhanced) {
+    const exclusiveStartKey = decodeCursor(q.cursor);
+    const start = `TXN#${from}`;
+    const end = `TXN#${to}~`;
+
+    const res = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :a AND :b",
+      ExpressionAttributeValues: { ":o": orgId, ":a": start, ":b": end },
+      ScanIndexForward: false,
+      Limit: limit,
+      ExclusiveStartKey: exclusiveStartKey,
+    });
+
+    let txns = (res.Items || []).map((t) => ({
+      // Keep vendorKey generation in parity with /hq/vendor-matches.
+      vendorKey: (() => {
+        const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
+        return normalizeVendorKey(vendor || t.rawDescription || t.normalizedDescription || "");
+      })(),
+      orgId,
+      accountId: t.accountId,
+      postedAt: t.postedAt,
+      authorizedAt: t.authorizedAt,
+      amount: t.amount,
+      currency: t.currency || "USD",
+      rawDescription: t.rawDescription,
+      normalizedDescription: t.normalizedDescription,
+      paymentType: t.paymentType,
+      type: t.type,
+      isRecurring: t.isRecurring,
+      recurringCandidate: t.recurringCandidate,
+      recurringSeriesId: t.recurringSeriesId,
+      direction: t.direction,
+      vendor: t.vendor,
+      counterparty: t.counterparty,
+      locationCity: t.locationCity,
+      locationState: t.locationState,
+      cardLast4: t.cardLast4,
+      referenceId: t.referenceId,
+      categoryId: t.categoryId,
+      categoryConfidence: t.categoryConfidence,
+      isInternalTransfer: t.isInternalTransfer,
+      projectId: t.projectId,
+      importRunId: t.importRunId,
+      dedupeHash: t.dedupeHash,
+      createdAt: t.createdAt,
+    }));
+
+    if (accountId) {
+      txns = txns.filter((t) => t.accountId === accountId);
+    }
+
+    return json(200, C, { orgId, transactions: txns, cursor: encodeCursor(res.LastEvaluatedKey) });
+  }
 
   const start = `TXN#${from}`;
   const end = `TXN#${to}~`;
+  const cursor = decodeCursor(q.cursor);
+  const offset = typeof cursor?.offset === "number" && Number.isFinite(cursor.offset) ? Math.max(0, Math.floor(cursor.offset)) : 0;
 
-  const res = await ddb.query({
-    TableName: HQ_TABLE,
-    KeyConditionExpression: "orgId = :o AND sk BETWEEN :a AND :b",
-    ExpressionAttributeValues: { ":o": orgId, ":a": start, ":b": end },
-    ScanIndexForward: false,
-    Limit: limit,
-    ExclusiveStartKey: exclusiveStartKey,
-  });
-
-  let txns = (res.Items || []).map((t) => ({
-    // Keep vendorKey generation in parity with /hq/vendor-matches.
-    vendorKey: (() => {
-      const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
-      return normalizeVendorKey(vendor || t.rawDescription || t.normalizedDescription || "");
-    })(),
-    orgId,
-    accountId: t.accountId,
-    postedAt: t.postedAt,
-    authorizedAt: t.authorizedAt,
-    amount: t.amount,
-    currency: t.currency || "USD",
-    rawDescription: t.rawDescription,
-    normalizedDescription: t.normalizedDescription,
-    paymentType: t.paymentType,
-    type: t.type,
-    isRecurring: t.isRecurring,
-    recurringCandidate: t.recurringCandidate,
-    recurringSeriesId: t.recurringSeriesId,
-    direction: t.direction,
-    vendor: t.vendor,
-    counterparty: t.counterparty,
-    locationCity: t.locationCity,
-    locationState: t.locationState,
-    cardLast4: t.cardLast4,
-    referenceId: t.referenceId,
-    categoryId: t.categoryId,
-    categoryConfidence: t.categoryConfidence,
-    isInternalTransfer: t.isInternalTransfer,
-    projectId: t.projectId,
-    importRunId: t.importRunId,
-    dedupeHash: t.dedupeHash,
-    createdAt: t.createdAt,
+  const all = await queryAllBetween({ orgId, fromSk: start, toSk: end, scanIndexForward: true });
+  const enriched = (all || []).map((t) => ({
+    ddb: t,
+    txn: {
+      // Keep vendorKey generation in parity with /hq/vendor-matches.
+      vendorKey: (() => {
+        const vendor = normalizeForMatching(t.vendor || t.counterparty || "");
+        return normalizeVendorKey(vendor || t.rawDescription || t.normalizedDescription || "");
+      })(),
+      orgId,
+      accountId: t.accountId,
+      postedAt: t.postedAt,
+      authorizedAt: t.authorizedAt,
+      amount: t.amount,
+      currency: t.currency || "USD",
+      rawDescription: t.rawDescription,
+      normalizedDescription: t.normalizedDescription,
+      paymentType: t.paymentType,
+      type: t.type,
+      isRecurring: t.isRecurring,
+      recurringCandidate: t.recurringCandidate,
+      recurringSeriesId: t.recurringSeriesId,
+      direction: t.direction,
+      vendor: t.vendor,
+      counterparty: t.counterparty,
+      locationCity: t.locationCity,
+      locationState: t.locationState,
+      cardLast4: t.cardLast4,
+      referenceId: t.referenceId,
+      categoryId: t.categoryId,
+      categoryConfidence: t.categoryConfidence,
+      isInternalTransfer: t.isInternalTransfer,
+      projectId: t.projectId,
+      importRunId: t.importRunId,
+      dedupeHash: t.dedupeHash,
+      createdAt: t.createdAt,
+    },
   }));
 
-  if (accountId) {
-    txns = txns.filter((t) => t.accountId === accountId);
+  const seriesIndex = seriesKey ? buildRecurringSeriesKeyIndexServer(enriched.map((x) => x.ddb)) : null;
+  const term = textQuery.trim().toLowerCase();
+
+  const filtered = [];
+  let totalsCount = 0;
+  let inCents = 0;
+  let outCents = 0;
+  let netCents = 0;
+
+  for (const { ddb: raw, txn } of enriched) {
+    if (accountId && String(txn.accountId || "") !== accountId) continue;
+
+    const postedAt = String(txn.postedAt || "").slice(0, 10);
+    if (from && postedAt && postedAt < from) continue;
+    if (to && postedAt && postedAt > to) continue;
+
+    const signedCents = canonicalCents(raw);
+
+    if (direction === "in" && signedCents < 0) continue;
+    if (direction === "out" && signedCents >= 0) continue;
+
+    if (paymentType && paymentType !== "all") {
+      const effective = effectivePaymentTypeServer(raw);
+      if (effective !== paymentType) continue;
+    }
+
+    if (recurringOnly && raw?.isRecurring !== true) continue;
+
+    if (categoryId) {
+      if (categoryId === "UNCATEGORIZED") {
+        const id = raw?.categoryId ? String(raw.categoryId) : "";
+        if (id && id !== "OTHER") continue;
+      } else if (categoryId !== "all") {
+        const id = raw?.categoryId ? String(raw.categoryId) : "OTHER";
+        if (id !== categoryId) continue;
+      }
+    }
+
+    if (seriesKey && seriesIndex) {
+      const key = seriesIndex.get(String(raw?.dedupeHash || "").trim()) || null;
+      if (!key || key !== seriesKey) continue;
+    }
+
+    if (typeof amountMinCents === "number" || typeof amountMaxCents === "number") {
+      const cmp = amountMode === "SIGNED" ? signedCents : Math.abs(signedCents);
+      if (typeof amountMinCents === "number" && Number.isFinite(amountMinCents) && cmp < amountMinCents) continue;
+      if (typeof amountMaxCents === "number" && Number.isFinite(amountMaxCents) && cmp > amountMaxCents) continue;
+    }
+
+    if (term) {
+      const haystack = [txnTitleForSearch(txn), txn.rawDescription, txn.normalizedDescription]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(term)) continue;
+    }
+
+    totalsCount += 1;
+    netCents += signedCents;
+    if (signedCents >= 0) inCents += signedCents;
+    else outCents += Math.abs(signedCents);
+
+    filtered.push(txn);
   }
 
-  return json(200, C, { orgId, transactions: txns, cursor: encodeCursor(res.LastEvaluatedKey) });
+  const sorted = sortTransactionsStable(filtered, { sortKey, sortDir });
+  const page = sorted.slice(offset, offset + limit);
+  const nextOffset = offset + page.length;
+  const nextCursor = nextOffset < sorted.length ? encodeCursor({ v: 1, offset: nextOffset, sortKey, sortDir }) : null;
+
+  const payload = {
+    orgId,
+    items: page,
+    nextCursor,
+    totals: includeTotals ? { count: totalsCount, inCents, outCents, netCents } : undefined,
+    // Backward-compat fields for older clients:
+    transactions: page,
+    cursor: nextCursor,
+  };
+
+  return json(200, C, payload);
 };
 
 // POST /hq/accounts?orgId=...

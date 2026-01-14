@@ -14,8 +14,13 @@ export type HqSummaryResponse = {
 
 export type HqTransactionsResponse = {
   orgId: string;
+  /** Backward-compat: legacy clients use these fields. */
   transactions: HqTransaction[];
   cursor: string | null;
+  /** New list shape (preferred by newer UIs). */
+  items?: HqTransaction[];
+  nextCursor?: string | null;
+  totals?: { count: number; inCents: number; outCents: number; netCents: number };
 };
 
 export type HqChartSeriesRange = "1W" | "1M" | "3M" | "YTD" | "1Y" | "ALL";
@@ -88,20 +93,46 @@ export async function fetchHqTransactions(input: {
   accountId?: string;
   from?: string;
   to?: string;
+  q?: string;
+  dir?: "in" | "out" | "all";
+  paymentType?: string;
+  recurringOnly?: boolean;
+  seriesKey?: string;
+  categoryId?: string;
+  amountMinCents?: number | null;
+  amountMaxCents?: number | null;
+  amountMode?: "ABS" | "SIGNED";
+  sortKey?: "date" | "amount" | "category" | "vendor";
+  sortDir?: "asc" | "desc";
+  includeTotals?: boolean;
   cursor?: string | null;
   limit?: number;
+  signal?: AbortSignal;
 }): Promise<HqTransactionsResponse> {
   const base = getHqServiceBaseUrl();
   const params = new URLSearchParams({ orgId: input.orgId });
   if (input.accountId) params.set("accountId", input.accountId);
   if (input.from) params.set("from", input.from);
   if (input.to) params.set("to", input.to);
+  if (input.q) params.set("q", input.q);
+  if (input.dir && input.dir !== "all") params.set("dir", input.dir);
+  if (input.paymentType && input.paymentType !== "all") params.set("paymentType", input.paymentType);
+  if (input.recurringOnly) params.set("recurringOnly", "1");
+  if (input.seriesKey) params.set("seriesKey", input.seriesKey);
+  if (input.categoryId && input.categoryId !== "all") params.set("categoryId", input.categoryId);
+  if (typeof input.amountMinCents === "number") params.set("amount_min_cents", String(input.amountMinCents));
+  if (typeof input.amountMaxCents === "number") params.set("amount_max_cents", String(input.amountMaxCents));
+  if (input.amountMode) params.set("amount_mode", input.amountMode);
+  if (input.sortKey) params.set("sort_key", input.sortKey);
+  if (input.sortDir) params.set("sort_dir", input.sortDir);
+  if (input.includeTotals) params.set("include_totals", "1");
   if (input.cursor) params.set("cursor", input.cursor);
   if (input.limit) params.set("limit", String(input.limit));
 
   return apiFetch<HqTransactionsResponse>(`${base}/hq/transactions?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
+    signal: input.signal,
   });
 }
 
