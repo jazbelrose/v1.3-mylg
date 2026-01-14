@@ -125,22 +125,24 @@ export default function TextFileViewer({ projectId, fileUrl, fileName, canEdit =
 
   const loadViewInfo = useCallback(async () => {
     const url = `${projectFileViewUrl(projectId)}?key=${encodeURIComponent(key)}`;
-    const data = await apiFetch<{
-      downloadUrl: string;
-      sizeBytes?: number | null;
-      contentType?: string | null;
-      etag?: string | null;
-      rangeSupported?: boolean;
-      isTextLike?: boolean;
-    }>(url);
+    const data = await apiFetch<unknown>(url);
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid file view response");
+    }
+    const obj = data as Record<string, unknown>;
+
+    const downloadUrl = typeof obj.downloadUrl === "string" ? obj.downloadUrl : null;
+    if (!downloadUrl) {
+      throw new Error("Invalid file view response (missing downloadUrl)");
+    }
 
     return {
-      downloadUrl: data.downloadUrl,
-      sizeBytes: typeof data.sizeBytes === "number" ? data.sizeBytes : null,
-      contentType: typeof data.contentType === "string" ? data.contentType : null,
-      etag: typeof data.etag === "string" ? data.etag : null,
-      rangeSupported: data.rangeSupported !== false,
-      isTextLike: data.isTextLike !== false,
+      downloadUrl,
+      sizeBytes: typeof obj.sizeBytes === "number" ? obj.sizeBytes : null,
+      contentType: typeof obj.contentType === "string" ? obj.contentType : null,
+      etag: typeof obj.etag === "string" ? obj.etag : null,
+      rangeSupported: obj.rangeSupported !== false,
+      isTextLike: obj.isTextLike !== false,
     } satisfies FileViewInfo;
   }, [key, projectId]);
 
