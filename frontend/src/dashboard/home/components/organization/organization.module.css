@@ -1186,6 +1186,9 @@
 }
 
 .drawer {
+  /* This modal is portaled to <body>, so it can't inherit tokens from .shell */
+  --org-radius-md: 10px;
+
   position: fixed;
   top: 50%;
   left: 50%;
@@ -1245,7 +1248,7 @@
   padding: 14px 16px 18px;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1253,7 +1256,7 @@
 
 .section {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--org-radius-md);
+  border-radius: var(--org-radius-md, 10px);
   background: rgba(255, 255, 255, 0.04);
   overflow: hidden;
 }
@@ -1269,7 +1272,7 @@
   background: transparent;
   border: none;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sectionTitle {
@@ -1293,18 +1296,25 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
 }
 
 .formGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  min-width: 0;
+}
+
+.formGrid > * {
+  min-width: 0;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .label {
@@ -1320,6 +1330,8 @@
   color: inherit;
   outline: none;
   font-size: 12.5px;
+  width: 100%;
+  min-width: 0;
 }
 
 .checkboxRow {
@@ -1336,7 +1348,7 @@
 /* Collaborator drawer — Access list (Project access MVP) */
 .drawerAccessProjectsScroller {
   position: relative;
-  max-height: clamp(240px, 45vh, 420px);
+  max-height: 300px;
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid rgba(255, 255, 255, 0.08);
