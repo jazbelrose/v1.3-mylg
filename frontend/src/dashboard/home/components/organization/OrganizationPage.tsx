@@ -18,6 +18,8 @@ import {
   declineCollabInvite,
   fetchIncomingCollabInvites,
   fetchOutgoingCollabInvites,
+  fetchUserProfile as fetchUserProfileApi,
+  getFileUrl,
   sendUserInvite,
   updateUserRole,
 } from "@/shared/utils/api";
@@ -47,9 +49,18 @@ function extractLastSeenIso(user: Record<string, unknown>): string | null {
     user.lastLoginAt,
     user.lastLoggedAt,
     user.lastSeenAt,
+    user.lastSeenAt,
     user.lastSeen,
     user.lastLogin,
   ];
+  for (const v of candidates) {
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return null;
+}
+
+function extractConnectedAtIso(user: Record<string, unknown>): string | null {
+  const candidates = [user.connectedAt, user.presenceConnectedAt];
   for (const v of candidates) {
     if (typeof v === "string" && v.trim()) return v;
   }
@@ -172,7 +183,10 @@ export default function OrganizationPage() {
       const role = (rawRole || "client") as OrgRole;
       // In this app, `pending` is used as an access gate. Treat it as access revoked.
       const status: MemberRow["status"] = u.pending ? "suspended" : "active";
-      const lastSeenIso = extractLastSeenIso(u as unknown as Record<string, unknown>);
+      const record = u as unknown as Record<string, unknown>;
+      const lastSeenIso = extractLastSeenIso(record);
+      const connectedAtIso = extractConnectedAtIso(record);
+      const presence = typeof record.presence === "string" ? record.presence : null;
 
       return {
         id: u.userId,
@@ -183,6 +197,9 @@ export default function OrganizationPage() {
         orgRole: role,
         status,
         lastActiveAt: lastSeenIso,
+        lastSeenAt: lastSeenIso,
+        connectedAt: connectedAtIso,
+        presence,
         joinedAt: null,
         invitedBy: null,
         firstName: u.firstName as string | undefined,
@@ -193,6 +210,12 @@ export default function OrganizationPage() {
       };
     });
   }, [displayUsers]);
+
+  const projectsById = useMemo(() => {
+    const map = new Map<string, Project>();
+    projects.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [projects]);
 
   const [roleUpdatingMemberId, setRoleUpdatingMemberId] = useState<string | null>(null);
   const [accessUpdatingMemberId, setAccessUpdatingMemberId] = useState<string | null>(null);
@@ -345,7 +368,12 @@ export default function OrganizationPage() {
       try {
         setAccessUpdatingMemberId(memberId);
         // Access is modeled via `pending` flag in user profiles.
-        await updateUserProfile({ userId: member.userId, pending: !nextGranted } as any);
+        // IMPORTANT: The backend profile update is a PUT; sending a partial payload can wipe fields.
+        // Always merge against the existing profile first.
+        let currentProfile: any = allUsers.find((u) => u.userId === member.userId || u.username === member.userId);
+        if (!currentProfile) currentProfile = await fetchUserProfileApi(member.userId);
+        if (!currentProfile) throw new Error("User profile not found");
+        await updateUserProfile({ ...currentProfile, userId: member.userId, pending: !nextGranted } as any);
         notify("success", nextGranted ? "Access granted." : "Access revoked.");
         await refreshUsers();
       } catch {
@@ -354,7 +382,7 @@ export default function OrganizationPage() {
         setAccessUpdatingMemberId((prev) => (prev === memberId ? null : prev));
       }
     },
-    [canEditAccess, currentUserId, members, refreshUsers, updateUserProfile]
+    [allUsers, canEditAccess, currentUserId, members, refreshUsers, updateUserProfile]
   );
 
   const onDrawerSave = useCallback(
@@ -543,19 +571,32 @@ export default function OrganizationPage() {
                 const accessGranted = m.status === "active";
                 const accessDisabled = !canEditAccess;
                 const roleDisabled = !canEditRoles || !accessGranted;
-                const projectCount = access.find((a) => a.memberId === m.id)?.projectIds?.length ?? 0;
-                const lastSeenTitle = m.lastActiveAt ? new Date(m.lastActiveAt).toLocaleString() : "No login activity recorded";
-                let lastSeenText: string | null = null;
-                let isOnline = false;
-                if (m.lastActiveAt) {
-                  const ms = Date.now() - Date.parse(m.lastActiveAt);
-                  if (Number.isFinite(ms) && ms >= 0 && ms < 5 * 60 * 1000) {
-                    isOnline = true;
-                    lastSeenText = "Online";
-                  } else {
-                    lastSeenText = formatRelativeTime(m.lastActiveAt);
-                  }
-                }
+                const memberProjectIds = access.find((a) => a.memberId === m.id)?.projectIds ?? [];
+                const memberProjects = memberProjectIds.map((id) => projectsById.get(id)).filter(Boolean) as Project[];
+                const hasAllProjects = projects.length > 0 && memberProjects.length >= projects.length;
+                const visibleProjectThumbs = memberProjects.slice(0, 3);
+                const remainingProjects = hasAllProjects ? 0 : Math.max(0, memberProjects.length - visibleProjectThumbs.length);
+
+                const presence = String(m.presence || "").toLowerCase();
+                const connectedAt = m.connectedAt || null;
+                const lastSeenAt = m.lastSeenAt || m.lastActiveAt || null;
+                const isOnline = presence === "online" && Boolean(connectedAt);
+
+                const timeTitle = isOnline
+                  ? connectedAt
+                    ? `Connected since ${new Date(connectedAt).toLocaleString()}`
+                    : "Online"
+                  : lastSeenAt
+                    ? `Last seen ${new Date(lastSeenAt).toLocaleString()}`
+                    : "No activity recorded";
+
+                const timeText = isOnline
+                  ? connectedAt
+                    ? `Connected ${formatRelativeTime(connectedAt)}`
+                    : "Online"
+                  : lastSeenAt
+                    ? formatRelativeTime(lastSeenAt)
+                    : null;
                 return (
                   <div
                     key={m.id}
@@ -585,10 +626,14 @@ export default function OrganizationPage() {
                         </div>
                         <div className={styles.metaLine}>
                           <div className={styles.email}>{m.email}</div>
-                          {lastSeenText ? (
-                            <div className={styles.lastSeenInline} title={lastSeenTitle} aria-label="Last login">
+                          {timeText ? (
+                            <div
+                              className={styles.lastSeenInline}
+                              title={timeTitle}
+                              aria-label={isOnline ? "Online" : "Last seen"}
+                            >
                               {isOnline ? <span className={styles.onlineDot} aria-hidden /> : null}
-                              <span>{lastSeenText}</span>
+                              <span>{isOnline ? `Online • ${timeText}` : timeText}</span>
                             </div>
                           ) : null}
                         </div>
@@ -598,15 +643,30 @@ export default function OrganizationPage() {
                     <div className={styles.actionsCluster} aria-label="Member actions" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className={styles.projectsSummary}
+                        className={styles.projectsIndicator}
                         onClick={() => {
                           setDrawerScrollToSection("access");
                           setSelectedMemberId(m.id);
                         }}
-                        title="Edit access"
+                        title={hasAllProjects ? "All projects" : `${memberProjects.length} project${memberProjects.length === 1 ? "" : "s"}`}
                         aria-label={`Edit project access for ${m.name}`}
                       >
-                        {projectCount} project{projectCount === 1 ? "" : "s"}
+                        {hasAllProjects ? (
+                          <span className={styles.projectsAll}>All projects</span>
+                        ) : (
+                          <span className={styles.projectStack} aria-hidden>
+                            {visibleProjectThumbs.map((p) => {
+                              const thumb = p.thumbUrl ? getFileUrl(p.thumbUrl) : "";
+                              const initial = (p.name || "P").trim().slice(0, 1).toUpperCase();
+                              return (
+                                <span key={p.id} className={styles.projectAvatar} title={p.name}>
+                                  {thumb ? <img className={styles.projectAvatarImg} src={thumb} alt="" loading="lazy" /> : initial}
+                                </span>
+                              );
+                            })}
+                            {remainingProjects > 0 ? <span className={styles.projectMore}>+{remainingProjects}</span> : null}
+                          </span>
+                        )}
                       </button>
 
                       <div className={styles.actionsRole}>
@@ -826,7 +886,12 @@ export default function OrganizationPage() {
                               const uid = userData?.userId;
                               if (uid && !collaborators.includes(inv.fromUserId)) {
                                 const updated = [...collaborators, inv.fromUserId];
-                                await updateUserProfile({ userId: uid, collaborators: updated });
+                                // IMPORTANT: backend profile update is a PUT; avoid partial payloads.
+                                let currentProfile: any = userData;
+                                if (!currentProfile) currentProfile = allUsers.find((u) => u.userId === uid || u.username === uid);
+                                if (!currentProfile) currentProfile = await fetchUserProfileApi(uid);
+                                if (!currentProfile) throw new Error("User profile not found");
+                                await updateUserProfile({ ...currentProfile, userId: uid, collaborators: updated } as any);
                                 setUserData?.((prev) => (prev ? { ...prev, collaborators: updated } : prev));
                               }
                               notify("success", "Request accepted.");

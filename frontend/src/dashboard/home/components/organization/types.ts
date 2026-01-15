@@ -12,6 +12,10 @@ export type MemberRow = {
   orgRole: OrgRole;
   status: MemberStatus;
   lastActiveAt?: string | null; // ISO
+  // Presence (websocket-derived). Optional because not all backends populate it.
+  presence?: string | null;
+  connectedAt?: string | null; // ISO
+  lastSeenAt?: string | null; // ISO
   joinedAt?: string | null; // ISO
   invitedBy?: string | null;
   firstName?: string;

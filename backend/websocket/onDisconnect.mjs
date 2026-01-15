@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, QueryCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, QueryCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from "@aws-sdk/client-apigatewaymanagementapi";
 
 const dynamoClient = new DynamoDBClient({});
@@ -65,6 +65,34 @@ async function userHasAnotherSession(userId) {
   return false;              // zero or one (i.e., this one)
 }
 
+async function updateUserPresenceOffline(userId) {
+  const table = (process.env.USER_PROFILES_TABLE || "").trim();
+  if (!table || !userId) return;
+  const nowIso = new Date().toISOString();
+
+  try {
+    await dynamoDb.send(
+      new UpdateCommand({
+        TableName: table,
+        Key: { userId },
+        UpdateExpression: "SET #presence = :p, #lastSeenAt = :s, #connectedAt = :c",
+        ExpressionAttributeNames: {
+          "#presence": "presence",
+          "#lastSeenAt": "lastSeenAt",
+          "#connectedAt": "connectedAt",
+        },
+        ExpressionAttributeValues: {
+          ":p": "offline",
+          ":s": nowIso,
+          ":c": null,
+        },
+      })
+    );
+  } catch (e) {
+    console.warn("presence update (offline) failed", { userId, msg: e?.message });
+  }
+}
+
 /* ------------------------ handler ------------------------- */
 
 export const handler = async (event) => {
@@ -126,6 +154,9 @@ export const handler = async (event) => {
       console.error("❌ Fanout offline failed:", e?.message);
       // Continue; we’ll still delete to avoid zombie rows.
     }
+
+    // Best-effort: persist offline presence on the user profile.
+    await updateUserPresenceOffline(userId);
 
     try {
       await dynamoDb.send(new DeleteCommand({ TableName: CONNECTIONS_TABLE, Key: { connectionId } }));

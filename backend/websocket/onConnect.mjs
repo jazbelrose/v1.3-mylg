@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, QueryCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, QueryCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from "@aws-sdk/client-apigatewaymanagementapi";
 import jwt from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
@@ -44,6 +44,34 @@ async function validateJWT(token) {
   } catch (error) {
     console.error("JWT validation failed:", error.message);
     throw error;
+  }
+}
+
+async function updateUserPresenceOnline(userId, connectedAtIso) {
+  const table = (process.env.USER_PROFILES_TABLE || "").trim();
+  if (!table || !userId) return;
+  const nowIso = new Date().toISOString();
+
+  try {
+    await dynamoDb.send(
+      new UpdateCommand({
+        TableName: table,
+        Key: { userId },
+        UpdateExpression: "SET #presence = :p, #connectedAt = :c, #lastSeenAt = :s",
+        ExpressionAttributeNames: {
+          "#presence": "presence",
+          "#connectedAt": "connectedAt",
+          "#lastSeenAt": "lastSeenAt",
+        },
+        ExpressionAttributeValues: {
+          ":p": "online",
+          ":c": connectedAtIso || nowIso,
+          ":s": nowIso,
+        },
+      })
+    );
+  } catch (e) {
+    console.warn("presence update (online) failed", { userId, msg: e?.message });
   }
 }
 
@@ -126,6 +154,10 @@ export const handler = async (event) => {
 
   const connectionId = event?.requestContext?.connectionId;
 
+  const MV = Object.fromEntries(
+    Object.entries(event?.multiValueHeaders || {}).map(([k, v]) => [k.toLowerCase(), v])
+  );
+
   // Normalize headers to lowercase
   const H = Object.fromEntries(
     Object.entries(event?.headers || {}).map(([k, v]) => [k.toLowerCase(), v])
@@ -139,9 +171,7 @@ export const handler = async (event) => {
     // For WebSocket, token comes from Sec-WebSocket-Protocol header
     const rawProto =
       H["sec-websocket-protocol"] ||
-      (Array.isArray(MV["sec-websocket-protocol"])
-        ? MV["sec-websocket-protocol"][0]
-        : "") ||
+      (Array.isArray(MV["sec-websocket-protocol"]) ? MV["sec-websocket-protocol"][0] : "") ||
       "";
     
     const parts = rawProto
@@ -169,19 +199,10 @@ export const handler = async (event) => {
   }
 
   // Continue with the rest of the connection logic
-  const MV = Object.fromEntries(
-    Object.entries(event.multiValueHeaders || {}).map(([k, v]) => [
-      k.toLowerCase(),
-      v,
-    ])
-  );
-
   // Browser sent: "token, sessionId"
   const rawProto =
     H["sec-websocket-protocol"] ||
-    (Array.isArray(MV["sec-websocket-protocol"])
-      ? MV["sec-websocket-protocol"][0]
-      : "") ||
+    (Array.isArray(MV["sec-websocket-protocol"]) ? MV["sec-websocket-protocol"][0] : "") ||
     "";
 
   const parts = rawProto
@@ -200,7 +221,7 @@ export const handler = async (event) => {
     userAgent: event?.requestContext?.identity?.userAgent,
     sessionId,
   };
-  console.log("� New WebSocket Connection (safe):", JSON.stringify(safeLog));
+  console.log("📣 New WebSocket Connection (safe):", JSON.stringify(safeLog));
 
   if (!userId) {
     console.error("🚫 Unauthorized connection attempt.");
@@ -230,10 +251,11 @@ export const handler = async (event) => {
     }
 
     // 2) Save new connection (omit undefined fields)
+    const connectedAt = new Date().toISOString();
     const item = {
       connectionId,
       userId,
-      connectedAt: new Date().toISOString(),
+      connectedAt,
       expiresAt: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
     };
     if (sessionId) item.sessionId = sessionId;
@@ -249,6 +271,9 @@ export const handler = async (event) => {
         sessionId || "none"
       })`
     );
+
+    // Best-effort: persist presence on the user profile.
+    await updateUserPresenceOnline(userId, connectedAt);
 
     // Snapshot may 410 during $connect — harmless; keep it if you want best-effort
     await sendPresenceSnapshot(connectionId);
