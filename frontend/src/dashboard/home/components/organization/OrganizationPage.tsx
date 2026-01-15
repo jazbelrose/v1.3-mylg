@@ -566,13 +566,6 @@ export default function OrganizationPage() {
             </div>
           ) : (
             <div className={styles.list}>
-              <div className={styles.membersHeaderRow} aria-hidden>
-                <div className={styles.membersHeaderCell}>Member</div>
-                <div className={styles.membersHeaderCellRight}>Projects</div>
-                <div className={styles.membersHeaderCellRight}>Role</div>
-                <div className={styles.membersHeaderCellRight}>Access</div>
-                <div className={styles.membersHeaderCellRight} />
-              </div>
               {filteredMembers.map((m) => {
                 const isYou = Boolean(currentUserId && m.userId === currentUserId);
                 const accessGranted = m.status === "active";
@@ -700,11 +693,11 @@ export default function OrganizationPage() {
                         className={styles.accessToggle}
                         role="switch"
                         aria-checked={accessGranted}
+                        aria-label={`Toggle access for ${m.name}`}
                         disabled={accessDisabled}
                         title={accessDisabled ? "Only admins can revoke access" : "Toggle access"}
                         onClick={() => void onInlineAccessToggle(m.id, !accessGranted)}
                       >
-                        <span className={styles.accessToggleLabel}>Access</span>
                         <span
                           className={`${styles.accessToggleTrack} ${
                             accessGranted ? styles.accessToggleTrackOn : styles.accessToggleTrackOff
