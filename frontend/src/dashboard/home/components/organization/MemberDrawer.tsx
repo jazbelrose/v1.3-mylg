@@ -5,6 +5,7 @@ import styles from "./organization.module.css";
 import type { MemberAccess, MemberRow, OrgRole, Project } from "./types";
 import { ORG_ROLE_LABELS } from "./stubData";
 import { formatRelativeTime, initialsFromName } from "./utils";
+import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 
 type DrawerSectionKey = "identity" | "access" | "audit";
 
@@ -257,51 +258,79 @@ export default function MemberDrawer({
             </button>
             {expanded.access ? (
               <div className={styles.sectionBody}>
-                <div className={styles.field}>
-                  <div className={styles.label}>Search projects</div>
-                  <input
-                    className={styles.input}
-                    value={projectSearch}
-                    readOnly={!canEditAccess}
-                    onChange={(e) => setProjectSearch(e.target.value)}
-                    placeholder="Search projects…"
-                  />
-                </div>
+                <div className={styles.accessProjectsScroller} aria-label="Project access">
+                  <div className={styles.accessProjectsStickyHeader}>
+                    <div className={styles.accessProjectsHeaderRow}>
+                      <input
+                        className={styles.accessProjectsSearchInput}
+                        value={projectSearch}
+                        readOnly={!canEditAccess}
+                        onChange={(e) => setProjectSearch(e.target.value)}
+                        placeholder="Search projects…"
+                        aria-label="Search projects"
+                      />
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    className={styles.secondaryButton}
-                    disabled={!canEditAccess}
-                    onClick={() => setDraftProjectIds(projects.map((p) => p.id))}
-                  >
-                    Select all
-                  </button>
-                  <button type="button" className={styles.secondaryButton} onClick={() => setDraftProjectIds([])}>
-                    Clear
-                  </button>
-                </div>
-
-                {filteredProjects.map((p) => {
-                  const checked = draftProjectIds.includes(p.id);
-                  return (
-                    <div key={p.id} className={styles.checkboxRow}>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={checked}
+                      <div className={styles.accessProjectsBulkActions}>
+                        <button
+                          type="button"
+                          className={styles.accessProjectsBulkButton}
                           disabled={!canEditAccess}
-                          onChange={() =>
-                            setDraftProjectIds((prev) =>
-                              prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                            )
-                          }
-                        />
-                        <span>{p.name}</span>
-                      </label>
+                          onClick={() => setDraftProjectIds(projects.map((p) => p.id))}
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.accessProjectsBulkButton}
+                          disabled={!canEditAccess}
+                          onClick={() => setDraftProjectIds([])}
+                        >
+                          Clear
+                        </button>
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+
+                  <div className={styles.accessProjectsRows}>
+                    {filteredProjects.map((p) => {
+                      const checked = draftProjectIds.includes(p.id);
+                      return (
+                        <label
+                          key={p.id}
+                          className={[
+                            styles.accessProjectRow,
+                            checked ? styles.accessProjectRowChecked : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          <input
+                            type="checkbox"
+                            className={styles.accessProjectCheckbox}
+                            checked={checked}
+                            disabled={!canEditAccess}
+                            onChange={() =>
+                              setDraftProjectIds((prev) =>
+                                prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                              )
+                            }
+                          />
+
+                          <ProjectAvatar
+                            thumb={p.thumbUrl ?? undefined}
+                            name={p.name}
+                            className={styles.accessProjectAvatar}
+                            radius={10}
+                          />
+
+                          <span className={styles.accessProjectLabel} title={p.name}>
+                            {p.name}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>

@@ -427,6 +427,7 @@
 }
 
 .accessProjectsSectionLabel {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -434,9 +435,11 @@
   padding: 6px 14px 6px;
   font-size: 11px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.9;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-variant-caps: all-small-caps;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .accessProjectsSectionCount {
@@ -872,6 +875,139 @@
   border-radius: var(--org-radius-md);
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.16);
+}
+
+/* Collaborator drawer  Access list (Project access MVP) */
+.accessProjectsScroller {
+  position: relative;
+  max-height: clamp(240px, 45vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--org-radius-md);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.accessProjectsStickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 10px;
+  background: rgba(12, 12, 14, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.accessProjectsHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accessProjectsSearchInput {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.20);
+  color: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.accessProjectsBulkActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.accessProjectsBulkButton {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-weight: 600;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.accessProjectsBulkButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.accessProjectsRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.accessProjectRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  user-select: none;
+}
+
+.accessProjectRow:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.accessProjectRowChecked {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.accessProjectCheckbox {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: #fa3356;
+}
+
+.accessProjectAvatar {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.accessProjectLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.8px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Subtle fade masks to hint scroll */
+.accessProjectsScroller::before,
+.accessProjectsScroller::after {
+  content: "";
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: 10px;
+  pointer-events: none;
+  z-index: 3;
+  display: block;
+}
+
+.accessProjectsScroller::before {
+  top: 40px;
+  background: linear-gradient(180deg, rgba(12, 12, 14, 0.95), rgba(12, 12, 14, 0));
+}
+
+.accessProjectsScroller::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(12, 12, 14, 0.55), rgba(12, 12, 14, 0));
 }
 
 .checkboxRow label {
