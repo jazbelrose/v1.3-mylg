@@ -27,7 +27,7 @@
 
 /* Overview HUD - new Apple/SV-style layout */
 .overview-hud-layout {
-  padding: 0 16px;
+  
   gap: 16px;
   overflow: hidden; /* No scroll on outer - panels scroll internally */
 }

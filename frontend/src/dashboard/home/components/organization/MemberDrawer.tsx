@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 
 import styles from "./organization.module.css";
@@ -97,15 +98,6 @@ export default function MemberDrawer({
 
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose, open]);
-
-  useEffect(() => {
-    if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -123,6 +115,23 @@ export default function MemberDrawer({
     if ((draft.occupation ?? "") !== (member.occupation ?? "")) return true;
     return !shallowEqualStringArrays(draftProjectIds, baselineProjectIds);
   }, [access?.projectIds, draft, draftProjectIds, member]);
+
+  const requestClose = useCallback(() => {
+    if (isDirty) {
+      const ok = window.confirm("Discard unsaved changes?");
+      if (!ok) return;
+    }
+    onClose();
+  }, [isDirty, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") requestClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, requestClose]);
 
   const filteredProjects = useMemo(() => {
     const q = projectSearch.trim().toLowerCase();
@@ -142,9 +151,9 @@ export default function MemberDrawer({
     </div>
   );
 
-  return (
+  const modal = (
     <>
-      <div className={styles.drawerOverlay} onMouseDown={onClose} />
+      <div className={styles.drawerOverlay} onMouseDown={requestClose} />
       <aside
         className={styles.drawer}
         role="dialog"
@@ -170,7 +179,7 @@ export default function MemberDrawer({
               onChange={(next) => onRoleChange(member.id, next)}
             />
 
-            <button type="button" className={styles.iconButton} onClick={onClose} aria-label="Close">
+            <button type="button" className={styles.iconButton} onClick={requestClose} aria-label="Close">
               <X size={16} />
             </button>
           </div>
@@ -402,9 +411,7 @@ export default function MemberDrawer({
             type="button"
             className={styles.secondaryButton}
             onClick={() => {
-              setDraft(member ? { ...member } : null);
-              setDraftProjectIds(access?.projectIds ?? []);
-              setProjectSearch("");
+              requestClose();
             }}
           >
             Cancel
@@ -425,4 +432,7 @@ export default function MemberDrawer({
       </aside>
     </>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(modal, document.body);
 }

@@ -566,6 +566,13 @@ export default function OrganizationPage() {
             </div>
           ) : (
             <div className={styles.list}>
+              <div className={styles.membersHeaderRow} aria-hidden>
+                <div className={styles.membersHeaderCell}>Member</div>
+                <div className={styles.membersHeaderCellRight}>Projects</div>
+                <div className={styles.membersHeaderCellRight}>Role</div>
+                <div className={styles.membersHeaderCellRight}>Access</div>
+                <div className={styles.membersHeaderCellRight} />
+              </div>
               {filteredMembers.map((m) => {
                 const isYou = Boolean(currentUserId && m.userId === currentUserId);
                 const accessGranted = m.status === "active";
@@ -640,7 +647,7 @@ export default function OrganizationPage() {
                       </div>
                     </div>
 
-                    <div className={styles.actionsCluster} aria-label="Member actions" onClick={(e) => e.stopPropagation()}>
+                    <div className={styles.colProjects} aria-label="Projects" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className={styles.projectsIndicator}
@@ -668,24 +675,26 @@ export default function OrganizationPage() {
                           </span>
                         )}
                       </button>
+                    </div>
 
-                      <div className={styles.actionsRole}>
-                        <RoleDropdown
-                          value={m.orgRole}
-                          options={ROLE_OPTIONS}
-                          disabled={roleDisabled}
-                          loading={roleUpdatingMemberId === m.id}
-                          tooltip={
-                            !canEditRoles
-                              ? "Only admins can change roles"
-                              : !accessGranted
-                                ? "Role changes are disabled while access is revoked"
-                                : "Change role"
-                          }
-                          onChange={(next) => void onInlineRoleChange(m.id, next)}
-                        />
-                      </div>
+                    <div className={styles.colRole} aria-label="Role" onClick={(e) => e.stopPropagation()}>
+                      <RoleDropdown
+                        value={m.orgRole}
+                        options={ROLE_OPTIONS}
+                        disabled={roleDisabled}
+                        loading={roleUpdatingMemberId === m.id}
+                        tooltip={
+                          !canEditRoles
+                            ? "Only admins can change roles"
+                            : !accessGranted
+                              ? "Role changes are disabled while access is revoked"
+                              : "Change role"
+                        }
+                        onChange={(next) => void onInlineRoleChange(m.id, next)}
+                      />
+                    </div>
 
+                    <div className={styles.colAccess} aria-label="Access" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className={styles.accessToggle}
@@ -705,7 +714,9 @@ export default function OrganizationPage() {
                           <span className={styles.accessToggleThumb} />
                         </span>
                       </button>
+                    </div>
 
+                    <div className={styles.colMenu} aria-label="Menu" onClick={(e) => e.stopPropagation()}>
                       <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="button"
@@ -720,37 +731,37 @@ export default function OrganizationPage() {
 
                         {openMenuForMemberId === m.id ? (
                           <div ref={menuRef} className={styles.menu} style={{ right: 0, top: 36 }}>
-                          <button
-                            type="button"
-                            className={styles.menuItem}
-                            onClick={() => {
-                              setOpenMenuForMemberId(null);
-                              setSelectedMemberId(m.id);
-                            }}
-                          >
-                            View profile
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.menuItem}
-                            onClick={() => {
-                              setOpenMenuForMemberId(null);
-                              void copyEmail(m.email);
-                            }}
-                          >
-                            Copy email
-                          </button>
-                          <button
-                            type="button"
-                            className={`${styles.menuItem} ${styles.menuItemDanger}`}
-                            onClick={() => {
-                              setOpenMenuForMemberId(null);
-                              if (!canManage) return;
-                              removeMember(m.id);
-                            }}
-                          >
-                            Remove from org
-                          </button>
+                            <button
+                              type="button"
+                              className={styles.menuItem}
+                              onClick={() => {
+                                setOpenMenuForMemberId(null);
+                                setSelectedMemberId(m.id);
+                              }}
+                            >
+                              View profile
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.menuItem}
+                              onClick={() => {
+                                setOpenMenuForMemberId(null);
+                                void copyEmail(m.email);
+                              }}
+                            >
+                              Copy email
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                              onClick={() => {
+                                setOpenMenuForMemberId(null);
+                                if (!canManage) return;
+                                removeMember(m.id);
+                              }}
+                            >
+                              Remove from org
+                            </button>
                           </div>
                         ) : null}
                       </div>

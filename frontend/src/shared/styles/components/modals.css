@@ -10,6 +10,11 @@ body.ReactModal__Body--open .dashboard-wrapper {
   transition: filter 0.3s ease-in-out;
 }
 
+body.ReactModal__Body--open .dashboard-root > aside {
+  filter: blur(4px);
+  transition: filter 0.3s ease-in-out;
+}
+
 .ReactModal__Content {
   filter: none !important;
   z-index: 1002 !important;
