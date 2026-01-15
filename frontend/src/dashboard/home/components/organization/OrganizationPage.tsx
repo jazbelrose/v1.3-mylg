@@ -640,11 +640,12 @@ export default function OrganizationPage() {
                       </div>
                     </div>
 
-                    <div className={styles.colProjects} aria-label="Projects" onClick={(e) => e.stopPropagation()}>
+                    <div className={styles.actionsCluster} aria-label="Member actions" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className={styles.projectsIndicator}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setDrawerScrollToSection("access");
                           setSelectedMemberId(m.id);
                         }}
@@ -668,9 +669,7 @@ export default function OrganizationPage() {
                           </span>
                         )}
                       </button>
-                    </div>
 
-                    <div className={styles.colRole} aria-label="Role" onClick={(e) => e.stopPropagation()}>
                       <RoleDropdown
                         value={m.orgRole}
                         options={ROLE_OPTIONS}
@@ -685,9 +684,7 @@ export default function OrganizationPage() {
                         }
                         onChange={(next) => void onInlineRoleChange(m.id, next)}
                       />
-                    </div>
 
-                    <div className={styles.colAccess} aria-label="Access" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className={styles.accessToggle}
@@ -696,7 +693,10 @@ export default function OrganizationPage() {
                         aria-label={`Toggle access for ${m.name}`}
                         disabled={accessDisabled}
                         title={accessDisabled ? "Only admins can revoke access" : "Toggle access"}
-                        onClick={() => void onInlineAccessToggle(m.id, !accessGranted)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void onInlineAccessToggle(m.id, !accessGranted);
+                        }}
                       >
                         <span
                           className={`${styles.accessToggleTrack} ${
@@ -707,15 +707,14 @@ export default function OrganizationPage() {
                           <span className={styles.accessToggleThumb} />
                         </span>
                       </button>
-                    </div>
 
-                    <div className={styles.colMenu} aria-label="Menu" onClick={(e) => e.stopPropagation()}>
                       <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="button"
                           className={styles.menuButton}
                           aria-label="Actions"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setOpenMenuForMemberId((prev) => (prev === m.id ? null : m.id));
                           }}
                         >

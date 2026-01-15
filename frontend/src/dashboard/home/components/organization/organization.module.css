@@ -319,12 +319,6 @@
 .list {
   display: flex;
   flex-direction: column;
-
-  /* Tight, consistent right-side columns (Projects / Role / Access / Menu) */
-  --org-col-projects: minmax(0, 160px);
-  --org-col-role: 120px;
-  --org-col-access: 56px;
-  --org-col-menu: 32px;
 }
 
 .membersHeaderRow {
@@ -351,8 +345,8 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1fr var(--org-col-projects) var(--org-col-role) var(--org-col-access) var(--org-col-menu);
-  gap: 10px;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
   align-items: center;
   padding: 10px 14px;
   min-height: 56px;
@@ -360,16 +354,12 @@
   cursor: pointer;
 }
 
-.colProjects,
-.colRole,
-.colAccess,
-.colMenu {
+.actionsCluster {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-}
-
-.colMenu {
-  justify-content: flex-end;
+  gap: 10px;
+  flex: none;
 }
 
 .rowAccessRevoked {
@@ -906,24 +896,8 @@
   justify-content: flex-start;
 }
 
-.actionsCluster {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 320px;
-  flex: none;
-}
-
-.actionsRole {
-  width: 140px;
-  flex: none;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .roleTrigger {
-  width: 100%;
+  width: 120px;
   justify-content: space-between;
 }
 
@@ -969,17 +943,26 @@
 }
 
 .accessToggle {
-  width: 100%;
+  width: 46px;
   height: 28px;
   padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
+  border: none;
+  background: transparent;
   color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.accessToggle:hover:not(:disabled) {
+  background: transparent;
+}
+
+.accessToggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.16);
+  outline-offset: 2px;
+  border-radius: 999px;
 }
 
 .accessToggle:disabled {
@@ -989,22 +972,22 @@
 
 .accessToggleTrack {
   position: relative;
-  width: 28px;
-  height: 14px;
+  width: 44px;
+  height: 28px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
   flex: none;
 }
 
 .accessToggleTrackOn {
-  background: rgba(50, 220, 150, 0.18);
-  border-color: rgba(50, 220, 150, 0.32);
+  background: rgba(50, 220, 150, 0.16);
+  border-color: rgba(50, 220, 150, 0.22);
 }
 
 .accessToggleTrackOff {
-  background: rgba(255, 100, 100, 0.14);
-  border-color: rgba(255, 100, 100, 0.28);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.10);
 }
 
 .accessToggleTrackLoading {
@@ -1014,9 +997,9 @@
 .accessToggleThumb {
   position: absolute;
   top: 50%;
-  left: 2px;
-  width: 10px;
-  height: 10px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   transform: translateY(-50%);
@@ -1024,7 +1007,7 @@
 }
 
 .accessToggle[aria-checked="true"] .accessToggleThumb {
-  transform: translate(14px, -50%);
+  transform: translate(16px, -50%);
 }
 
 
