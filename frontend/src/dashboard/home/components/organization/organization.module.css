@@ -370,6 +370,11 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.row:focus,
+.row:focus-visible {
+  outline: none;
+}
+
 .row:last-child {
   border-bottom: none;
 }
@@ -960,9 +965,7 @@
 }
 
 .accessToggle:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.16);
-  outline-offset: 2px;
-  border-radius: 999px;
+  outline: none;
 }
 
 .accessToggle:disabled {
@@ -1063,8 +1066,12 @@
 }
 
 .projectsIndicator:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.18);
-  outline-offset: 2px;
+  outline: none;
+}
+
+.roleTrigger:focus-visible,
+.menuButton:focus-visible {
+  outline: none;
 }
 
 .projectsAll {
