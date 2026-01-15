@@ -3,7 +3,7 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { confirmSignUp, resendSignUpCode, signIn, fetchAuthSession } from 'aws-amplify/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '@/app/contexts/useData';
-import { updateUserProfile } from '../../../../shared/utils/api';
+import { upsertUserProfile } from '../../../../shared/utils/api';
 import { useAuth } from '@/app/contexts/useAuth';
 import styles from '../auth.module.css';
 
@@ -87,7 +87,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ registrationData,
             sub;
           const { password: _unusedPassword, ...pendingData } = registrationData; // eslint-disable-line @typescript-eslint/no-unused-vars
           const profileData = { ...pendingData, userId, cognitoSub: sub };
-          await updateUserProfile(profileData);
+          await upsertUserProfile(profileData);
           await validateAndSetUserSession();
         }
         navigate('/dashboard');
@@ -111,7 +111,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ registrationData,
                 sub;
               const { password: _unusedPassword, ...pendingData } = registrationData; // eslint-disable-line @typescript-eslint/no-unused-vars
               const profileData = { ...pendingData, userId, cognitoSub: sub };
-              await updateUserProfile(profileData);
+              await upsertUserProfile(profileData);
               await validateAndSetUserSession();
             } catch {
               /* ignore */

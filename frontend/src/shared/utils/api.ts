@@ -861,13 +861,33 @@ export function invalidateUserProfilesCache(userIds?: string | string[]): void {
 }
 
 export async function updateUserProfile(profile: UserProfile): Promise<UserProfile> {
-  const data = await apiFetch<UserProfile>(USER_PROFILES_API_URL, {
+  // IMPORTANT:
+  // Backend PUT /userProfiles is a full replace (ddb.put). Sending a partial payload
+  // (e.g. { userId, pending }) will wipe firstName/lastName/thumbnail/etc.
+  // For in-app edits, always PATCH /userProfiles/{userId}.
+  if (!profile?.userId) throw new Error('userId is required');
+  const endpoint = `${USER_PROFILES_API_URL}/${encodeURIComponent(profile.userId)}`;
+  const data = await apiFetch<UserProfile>(endpoint, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  });
+  userProfilesCache.set(profile.userId, data);
+  return data;
+}
+
+// For onboarding/registration flows only.
+// Backend PUT /userProfiles performs "upsert + merge pending PENDING#<email>" semantics.
+export async function upsertUserProfile(profile: UserProfile): Promise<UserProfile> {
+  const data = await apiFetch<any>(USER_PROFILES_API_URL, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(profile),
   });
-  if (profile.userId) userProfilesCache.set(profile.userId, data);
-  return data;
+
+  const normalized: UserProfile = (data && typeof data === 'object' && 'Item' in data ? (data.Item as UserProfile) : (data as UserProfile));
+  if (profile.userId) userProfilesCache.set(profile.userId, normalized);
+  return normalized;
 }
 
 export async function updateUserProfilePending(
